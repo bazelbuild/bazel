@@ -194,7 +194,7 @@ public final class JavaCompileActionBuilder {
     }
 
     NestedSetBuilder<Artifact> toolsBuilder = NestedSetBuilder.compileOrder();
-    javaBuilder.addInputs(toolchain, toolsBuilder);
+    javaBuilder.addInputs(toolsBuilder);
     toolsBuilder.addTransitive(toolsJars);
 
     NestedSetBuilder<Artifact> mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
@@ -234,7 +234,7 @@ public final class JavaCompileActionBuilder {
     mandatoryInputsBuilder.addTransitive(tools);
     NestedSet<Artifact> mandatoryInputs = mandatoryInputsBuilder.build();
 
-    CustomCommandLine executableLine = javaBuilder.getCommandLine(toolchain);
+    CustomCommandLine executableLine = javaBuilder.getCommandLine();
 
     ActionEnvironment actionEnvironment =
         ruleContext

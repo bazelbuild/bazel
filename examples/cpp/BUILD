@@ -28,6 +28,14 @@ cc_test(
     deps = [":hello-lib"],
 )
 
+cc_binary(
+    name = "runfile",
+    srcs = ["runfile.cc"],
+    copts = ["-std=c++17"],
+    data = ["//examples:runfile.txt"],
+    deps = ["@rules_cc//cc/runfiles"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),

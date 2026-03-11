@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static net.starlark.java.syntax.TestUtils.assertContainsError;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.truth.BooleanSubject;
 import java.util.ArrayList;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Resolver.Module;
@@ -30,15 +31,17 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class TypeTaggerTest {
 
-  private final FileOptions.Builder options =
+  @SuppressWarnings("FieldCanBeFinal")
+  private FileOptions.Builder options =
       FileOptions.builder().allowTypeSyntax(true).resolveTypeSyntax(true);
+
+  private Module module = TestUtils.Module.withUniversalTypes();
 
   /** Extracts an expression string to a type in an empty environment. */
   private StarlarkType extractType(String type) throws Exception {
-    Module module = TestUtils.moduleWithUniversalTypes();
     Expression expr = Expression.parseTypeExpression(ParserInput.fromLines(type), options.build());
     Resolver.resolveExpr(expr, module, options.build());
-    return TypeTagger.extractType(expr, TestUtils.moduleWithUniversalTypes());
+    return TypeTagger.extractType(expr, module);
   }
 
   /**
@@ -58,10 +61,9 @@ public class TypeTaggerTest {
   private StarlarkFile tagFilePossiblyFailing(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
-    assertThat(file.ok()).isTrue();
-    Module module = TestUtils.moduleWithUniversalTypes();
+    assertThat(file.errors()).isEmpty();
     Resolver.resolveFile(file, module);
-    assertThat(file.ok()).isTrue();
+    assertThat(file.errors()).isEmpty();
     TypeTagger.tagFile(file, module);
     return file;
   }
@@ -69,7 +71,7 @@ public class TypeTaggerTest {
   /** As in {@link #tagFilePossiblyFailing} but asserts that even type tagging succeeded. */
   private StarlarkFile tagFile(String... lines) throws Exception {
     StarlarkFile file = tagFilePossiblyFailing(lines);
-    assertThat(file.ok()).isTrue();
+    assertThat(file.errors()).isEmpty();
     return file;
   }
 
@@ -96,6 +98,22 @@ public class TypeTaggerTest {
     return clazz.cast(stmt);
   }
 
+  /** Returns the resolved function of the first def statement with the given name. */
+  private Resolver.Function getDefFunction(StarlarkFile file, String name) {
+    ArrayList<Resolver.Function> functions = new ArrayList<>();
+    new NodeVisitor() {
+      @Override
+      public void visit(DefStatement def) {
+        if (def.getIdentifier().getName().equals(name)) {
+          functions.add(def.getResolvedFunction());
+        }
+        super.visit(def);
+      }
+    }.visit(file);
+    assertThat(functions).isNotEmpty();
+    return functions.get(0);
+  }
+
   /** Returns the type of an identifier. */
   @Nullable
   private StarlarkType getType(Identifier id) throws Exception {
@@ -115,6 +133,17 @@ public class TypeTaggerTest {
   private Types.CallableType getType(LambdaExpression lambda) throws Exception {
     assertThat(lambda.getResolvedFunction()).isNotNull();
     return lambda.getResolvedFunction().getFunctionType();
+  }
+
+  private BooleanSubject assertTopLevelUsesTypeSyntax(String... lines) throws Exception {
+    StarlarkFile file = tagFile(lines);
+    return assertThat(file.getResolvedFunction().usesTypeSyntax());
+  }
+
+  private BooleanSubject assertDefFunctionUsesTypeSyntax(String name, String... lines)
+      throws Exception {
+    StarlarkFile file = tagFile(lines);
+    return assertThat(getDefFunction(file, name).usesTypeSyntax());
   }
 
   @Test
@@ -137,7 +166,7 @@ public class TypeTaggerTest {
     assertThat(extractType("int|bool")).isEqualTo(Types.union(Types.INT, Types.BOOL));
   }
 
-  // These are also tests of the list and dict type constructors, not just the TypeTagger.
+  // These are also tests of the list, dict, and tuple type constructors, not just the TypeTagger.
 
   @Test
   public void extractType_list() throws Exception {
@@ -147,6 +176,8 @@ public class TypeTaggerTest {
 
     assertExtractTypeFails("list[int, bool]", "list[] accepts exactly 1 argument but got 2");
     assertExtractTypeFails("list[[int]]", "unexpected expression '[int]'");
+    assertExtractTypeFails("list[int, ...]", "in application to list, got '...', expected a type");
+    assertExtractTypeFails("list[()]", "in application to list, got '()', expected a type");
   }
 
   @Test
@@ -161,6 +192,30 @@ public class TypeTaggerTest {
   }
 
   @Test
+  public void extractType_tuple() throws Exception {
+    assertThat(extractType("tuple[()]")).isEqualTo(Types.EMPTY_TUPLE);
+    assertThat(extractType("tuple[int]")).isEqualTo(Types.tuple(Types.INT));
+    assertThat(extractType("tuple[int, str, bool]"))
+        .isEqualTo(Types.tuple(Types.INT, Types.STR, Types.BOOL));
+    assertThat(extractType("tuple[tuple[int, str], bool]"))
+        .isEqualTo(Types.tuple(Types.tuple(Types.INT, Types.STR), Types.BOOL));
+    assertThat(extractType("tuple[int, ...]")).isEqualTo(Types.homogeneousTuple(Types.INT));
+    assertThat(extractType("tuple")).isEqualTo(Types.homogeneousTuple(Types.ANY));
+
+    assertExtractTypeFails(
+        "tuple[...]",
+        "in application to tuple, '...' can only appear as the second of exactly 2 arguments, where"
+            + " the first argument is a type");
+    assertExtractTypeFails(
+        "tuple[int, str, ...]",
+        "in application to tuple, '...' can only appear as the second of exactly 2 arguments, where"
+            + " the first argument is a type");
+    assertExtractTypeFails(
+        "tuple[(), int]",
+        "in application to tuple, '()' can only appear if it is the only argument");
+  }
+
+  @Test
   public void extractType_unknownIdentifier() throws Exception {
     assertExtractTypeFails("Foo", "name 'Foo' is not defined");
     assertExtractTypeFails("Foo[int]", "name 'Foo' is not defined");
@@ -169,11 +224,21 @@ public class TypeTaggerTest {
   @Test
   public void localCannotShadowPredeclaredType() throws Exception {
     assertInvalid(
-        "local name 'int' cannot be used as a type",
+        "local symbol 'int' cannot be used as a type",
         """
         def f():
             int = 123
             x : int
+        """);
+  }
+
+  @Test
+  public void nonTypeCannotBeUsedAsType() throws Exception {
+    module = TestUtils.Module.withTypes("Foo", null);
+    assertInvalid(
+        "predeclared symbol 'Foo' cannot be used as a type",
+        """
+        x : Foo
         """);
   }
 
@@ -489,5 +554,92 @@ public class TypeTaggerTest {
         def f(*, x):
             pass
         """);
+  }
+
+  @Test
+  public void tagFile_toplevelUsesTypeSyntax() throws Exception {
+    // <toplevel> is considered to use static type syntax if any part of the file uses static type
+    // syntax.
+    assertTopLevelUsesTypeSyntax(
+            """
+            # No type syntax anywhere.
+            z = 1
+            def f(x):
+                return lambda y: x + 2
+            f(z)
+            """)
+        .isFalse();
+
+    assertTopLevelUsesTypeSyntax("type X = int").isTrue();
+    assertTopLevelUsesTypeSyntax("x: int").isTrue();
+    assertTopLevelUsesTypeSyntax("x: int = 1").isTrue();
+    assertTopLevelUsesTypeSyntax("x = cast(int, 1)").isTrue();
+    // nested lambda and def statements
+    assertTopLevelUsesTypeSyntax("lambda x: cast(int, x)").isTrue();
+    assertTopLevelUsesTypeSyntax(
+            """
+            def f(x: int):
+                pass
+            """)
+        .isTrue();
+    assertTopLevelUsesTypeSyntax(
+            """
+            def f(x) -> int:
+                pass
+            """)
+        .isTrue();
+    assertTopLevelUsesTypeSyntax(
+            """
+            def f(x):
+                def g(y):
+                    z: int = 42
+                    return z + y
+            """)
+        .isTrue();
+  }
+
+  @Test
+  public void tagFile_defStatementUsesTypeSyntax() throws Exception {
+    // A def statement uses static type syntax if it has type annotations in its declarations on in
+    // its body (including nested lambdas but not nested def statements).
+    assertDefFunctionUsesTypeSyntax("f", "def f(x): return x").isFalse();
+    assertDefFunctionUsesTypeSyntax("f", "def f(x) -> int: return 42").isTrue();
+    assertDefFunctionUsesTypeSyntax("f", "def f(x: int): return x").isTrue();
+    assertDefFunctionUsesTypeSyntax("f", "def f(x): return cast(int, x)").isTrue();
+
+    // Nesting
+    assertDefFunctionUsesTypeSyntax(
+            "untyped_in_typed_toplevel",
+            """
+            X: int = 42
+            def untyped_in_typed_toplevel(x):
+                return X
+            """)
+        .isFalse();
+    String typedInUntypedDef =
+        """
+        def untyped_with_nested_typed(x):
+            def typed_nested_in_untyped(y: int) -> int:
+                return cast(int, x) + y
+            return typed_nested_in_untyped(x)
+        """;
+    assertDefFunctionUsesTypeSyntax("untyped_with_nested_typed", typedInUntypedDef).isFalse();
+    assertDefFunctionUsesTypeSyntax("typed_nested_in_untyped", typedInUntypedDef).isTrue();
+    assertDefFunctionUsesTypeSyntax(
+            "untyped_with_nested_typed_lambda",
+            """
+            def untyped_with_nested_typed_lambda(x):
+                return (lambda y: cast(int, y) + 42)(x)
+            """)
+        .isTrue();
+    assertDefFunctionUsesTypeSyntax(
+            "untyped_with_nested_untyped_def_with_nested_typed_lambda",
+            """
+            def untyped_with_nested_untyped_def_with_nested_typed_lambda(x):
+                def nested(y):
+                    return (lambda z: cast(int, z) + 42)(y)
+                return (lambda w: w)(nested(x))
+            """)
+        .isFalse();
   }
 }

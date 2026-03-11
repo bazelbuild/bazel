@@ -60,6 +60,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * Executes inspection queries for {@link com.google.devtools.build.lib.bazel.commands.ModCommand}
@@ -597,7 +598,10 @@ public class ModExecutor {
     return attributes.attributes().entrySet().stream()
         // show 'name' first for readability, similar to buildifier
         .sorted(Map.Entry.comparingByKey(Comparator.comparing(s -> s.equals("name") ? "" : s)))
-        .map(e -> String.format("%s=%s", e.getKey(), Starlark.repr(e.getValue())))
+        .map(
+            e ->
+                String.format(
+                    "%s=%s", e.getKey(), Starlark.repr(e.getValue(), StarlarkSemantics.DEFAULT)))
         .collect(joining(", "));
   }
 

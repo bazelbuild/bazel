@@ -63,7 +63,18 @@ expected when sorting (the empty string is treated as the highest version).
 [non-registry override]: module.md#non-registry_overrides
 [`rules-template`]: https://github.com/bazel-contrib/rules-template
 
-### When should I increment the compatibility level?
+### What is a compatibility level?
+
+You should stop using `compatibility_level`.
+
+Increasing `compatibility_level` leads to version conflicts that are difficult
+for end users to resolve. Therefore, starting with Bazel 8.6.0 and 9.1.0, both
+`compatibility_level` and `max_compatibility_level` are no-ops.
+
+Module maintainers introducing major breaking changes should ensure that build
+failures provide clear error messages and actionable migration paths.
+
+**Legacy documentation:**
 
 The [`compatibility_level`](module.md#compatibility_level) of a Bazel module
 should be incremented _in the same commit_ that introduces a backwards

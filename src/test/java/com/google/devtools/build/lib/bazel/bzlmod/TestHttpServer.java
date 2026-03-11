@@ -21,8 +21,7 @@ import com.google.common.base.Joiner;
 import com.sun.net.httpserver.HttpServer;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
-import java.net.MalformedURLException;
-import java.net.URL;
+import java.net.URI;
 import java.util.List;
 import org.junit.rules.ExternalResource;
 
@@ -82,7 +81,7 @@ public class TestHttpServer extends ExternalResource {
     server.removeContext(path);
   }
 
-  public String getUrl() throws MalformedURLException {
-    return new URL("http", "[::1]", server.getAddress().getPort(), "").toString();
+  public String getUrl() {
+    return URI.create("http://[::1]:" + server.getAddress().getPort()).toString();
   }
 }

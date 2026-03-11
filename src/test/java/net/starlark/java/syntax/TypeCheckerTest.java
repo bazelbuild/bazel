@@ -20,8 +20,8 @@ import static net.starlark.java.syntax.TestUtils.assertContainsError;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ObjectArrays;
+import java.util.Objects;
 import net.starlark.java.syntax.Resolver.Module;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -36,6 +36,8 @@ public final class TypeCheckerTest {
           .resolveTypeSyntax(true)
           // This lets us construct simpler test cases without wrapper `def` statements.
           .allowToplevelRebinding(true);
+
+  private Module module = TestUtils.Module.withUniversalTypes();
 
   /**
    * Throws {@link AssertionError} if a file has errors, with an exception message that includes
@@ -57,7 +59,6 @@ public final class TypeCheckerTest {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
     assertNoErrors("parsing", file);
-    Module module = TestUtils.moduleWithUniversalTypes();
     Resolver.resolveFile(file, module);
     assertNoErrors("resolving", file);
     TypeTagger.tagFile(file, module);
@@ -80,7 +81,7 @@ public final class TypeCheckerTest {
   /** As in {@link #typecheckFilePossiblyFailing} but asserts that even type checking succeeded. */
   private StarlarkFile assertValid(String... lines) throws Exception {
     StarlarkFile file = typecheckFilePossiblyFailing(lines);
-    assertThat(file.ok()).isTrue();
+    assertThat(file.errors()).isEmpty();
     return file;
   }
 
@@ -108,7 +109,23 @@ public final class TypeCheckerTest {
   private void assertTypeGivenDecls(String expr, StarlarkType expected, String... decls)
       throws Exception {
     StarlarkType actual = inferTypeGivenDecls(expr, decls);
-    assertThat(actual).isEqualTo(expected);
+    assertWithMessage("type of %s", expr).that(actual).isEqualTo(expected);
+  }
+
+  /**
+   * Like {@link #assertTypeGivenDecls}, but runs the typechecker on the whole file (and verifies
+   * that it succeeds) as well. Useful for tests of the computed type of an unannotated variable,
+   * which is set during a full typechecker pass but not when inferring the type of an expression.
+   */
+  private void assertTypeAfterTypecheck(String expr, StarlarkType expected, String... decls)
+      throws Exception {
+    StarlarkFile file = prepareFile(ObjectArrays.concat(decls, expr));
+    TypeChecker.checkFile(file);
+    assertThat(file.errors()).isEmpty();
+    var resolvedExpr = ((ExpressionStatement) file.getStatements().getLast()).getExpression();
+    assertWithMessage("type of %s", expr)
+        .that(TypeChecker.inferTypeOf(resolvedExpr))
+        .isEqualTo(expected);
   }
 
   @Test
@@ -168,6 +185,154 @@ public final class TypeCheckerTest {
         """
         n: int = "abc"
         """);
+
+    assertInvalid(
+        ":2:1: cannot assign type 'str' to 'n' of type 'int'",
+        """
+        n: int
+        n = "abc"
+        """);
+  }
+
+  @Test
+  public void infer_assignment() throws Exception {
+    assertValid(
+        """
+        n = 123
+        n + 456
+        x: bool  # ensure toplevel code is type-checked
+        """);
+
+    assertValid(
+        """
+        n = 123
+        n + "456"  # not a static type error in untyped code
+        """);
+
+    assertInvalid(
+        "operator '+' cannot be applied to types 'int' and 'str'",
+        """
+        n = 123
+        n + "456"
+        x: bool  # ensure toplevel code is type-checked
+        """);
+
+    assertInvalid(
+        "cannot assign type 'str' to 'n' of type 'int'",
+        """
+        n = 123
+        n = "456"  # subsequent assignments do not change the type
+        x: bool    # ensure toplevel code is type-checked
+        """);
+
+    // TODO: #28037 - in mypy, this is an error (attempt to use a variable of unknown type, since
+    // the assignment is lexically below first use). We should treat it the same.
+    assertValid(
+        """
+        def f() -> None:  # ensure function is type-checked
+            for i in [0, 1]:
+                if i == 1:
+                    n + "456"
+                else:
+                    n = 123
+        """);
+  }
+
+  @Test
+  public void sequence_assignment() throws Exception {
+    assertValid(
+        """
+        x: int|str
+        x, y = 1, "2"
+        x, y = ["3", "4"]
+        x, y = {"a": 3.14, "b": 2.71}  # a dict is treated as its sequence of keys
+        s: set[str]
+        x, y = s
+        """);
+    // Multi-level lhs sequences
+    assertValid("(x, (y, z)) = [1, [2, 3]]");
+    assertValid(
+        """
+        y: list[int]
+        x, (y[0],) = 1, [2]
+        """);
+    assertValid(
+        """
+        a: list[Any]
+        (x, (y, [z])) = a
+        """);
+
+    assertInvalid(
+        ":2:1: cannot assign non-iterable type 'str' to '(x, y)'",
+        """
+        x: str
+        x, y = "ab"  # type error: strings are not iterable in Starlark
+        """);
+    assertInvalid(
+        ":2:1: cannot assign type 'tuple[str]' to '(x, y)'; want 2-element sequence",
+        """
+        x: str
+        x, y = ("ab",)
+        """);
+    assertInvalid(
+        ":2:1: cannot assign type 'tuple[int, int, int]' to '(x, y)'; want 2-element sequence",
+        """
+        x: int
+        x, y = 1, 2, 3
+        """);
+
+    assertInvalid(
+        ":3:3: operator '+' cannot be applied to types 'int' and 'str'",
+        """
+        x: list[int] = [0]
+        x[0], y, z = 1, 2, "3"
+        y + z
+        """);
+
+    assertInvalid(
+        ":3:3: operator '+' cannot be applied to types 'int|bool' and 'int|bool'",
+        """
+        z: list[int|bool]
+        x, y = z
+        x + y
+        """);
+
+    // Any and unions
+    assertTypeAfterTypecheck("x, y", Types.tuple(Types.ANY, Types.ANY), "z: Any; x, y = z");
+    assertTypeAfterTypecheck(
+        "x, y",
+        Types.tuple(Types.INT, Types.union(Types.INT, Types.STR)),
+        "z: list[int] | tuple[int, str]; x, y = z");
+    assertTypeAfterTypecheck(
+        "x, y",
+        Types.tuple(Types.union(Types.INT, Types.ANY), Types.union(Types.INT, Types.ANY)),
+        "z: list[int] | Any; x, y = z");
+    // lhs is type-checked even if rhs is Any.
+    assertInvalid(
+        ":3:2: cannot index 'x' of type 'int'",
+        """
+        x: int
+        z: Any
+        x[0], y = z
+        """);
+  }
+
+  @Test
+  public void sequence_assignment_order_of_operations() throws Exception {
+    assertTypeAfterTypecheck(
+        "x",
+        Types.list(Types.INT),
+        """
+        _: Any  # ensure toplevel code is type-checked
+        x, x[0] = ([1], 2)
+        """);
+
+    assertInvalid(
+        ":2:4: x of type 'tuple[int]' does not support item assignment",
+        """
+        _: Any  # ensure toplevel code is type-checked
+        x, x[0] = ((1,), 2)
+        """);
   }
 
   @Test
@@ -181,10 +346,68 @@ public final class TypeCheckerTest {
     // TODO: #28037 - Check break/continue, once we support for and def statements
   }
 
+  /** A dummy type having a single field 'f' of type int. */
+  private static sealed class FooType extends StarlarkType permits FooType.Mutable {
+    protected final StarlarkType fieldType;
+
+    FooType(StarlarkType fieldType) {
+      this.fieldType = fieldType;
+    }
+
+    @Override
+    public StarlarkType getField(String name) {
+      return name.equals("f") ? fieldType : null;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj != null
+          && obj.getClass().equals(this.getClass())
+          && fieldType.equals(((FooType) obj).fieldType);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(this.getClass().hashCode(), fieldType);
+    }
+
+    @Override
+    public String toString() {
+      return String.format("Foo[%s]", fieldType);
+    }
+
+    /** Like FooType, but mutable. */
+    private static final class Mutable extends FooType {
+      Mutable(StarlarkType fieldType) {
+        super(fieldType);
+      }
+
+      @Override
+      public String toString() {
+        return String.format("MutableFoo[%s]", fieldType);
+      }
+
+      @Override
+      public boolean hasSetField() {
+        return true;
+      }
+    }
+  }
+
+  private final Module fooModule =
+      TestUtils.Module.withUniversalTypesAnd(
+          "Foo",
+          Types.wrapTypeConstructor("Foo", t -> new FooType(t)),
+          "MutableFoo",
+          Types.wrapTypeConstructor("MutableFoo", t -> new FooType.Mutable(t)));
+
   @Test
   public void infer_dot() throws Exception {
-    // TODO: #27370 - Make this more interesting when we support struct types.
+    module = fooModule;
 
+    assertTypeGivenDecls("o.f", Types.INT, "o: Foo[int]");
+    assertTypeGivenDecls(
+        "o.f", Types.union(Types.STR, Types.INT, Types.BOOL), "o: Foo[str] | MutableFoo[int|bool]");
     assertTypeGivenDecls("o.f", Types.ANY, "o: Any");
 
     assertInvalid(
@@ -193,14 +416,25 @@ public final class TypeCheckerTest {
         n: int
         n.f
         """);
+    assertInvalid(
+        ":2:2: 'o' of type 'Foo[int]' does not have field 'g'",
+        """
+        o: Foo[int]
+        o.g
+        """);
   }
 
   @Test
   public void assignment_dot() throws Exception {
+    module = fooModule;
+
     assertValid(
         """
-        o: Any
-        o.f = 123
+        o1: MutableFoo[int]
+        o1.f = 123
+
+        o2: Any
+        o2.f = 123
         """);
 
     assertInvalid(
@@ -208,6 +442,33 @@ public final class TypeCheckerTest {
         """
         s: str
         s.f = 123
+        """);
+
+    assertInvalid(
+        ":2:1: o of type 'Foo[int]' does not support field assignment",
+        """
+        o: Foo[int]  # immutable
+        o.f = 123
+        """);
+
+    assertInvalid(
+        ":2:1: cannot assign type 'str' to 'o.f' of type 'int'",
+        """
+        o: MutableFoo[int]
+        o.f = 'abc'
+        """);
+    assertInvalid(
+        ":2:2: 'o' of type 'MutableFoo[int]' does not have field 'g'",
+        """
+        o: MutableFoo[int]
+        o.g = 123
+        """);
+    assertInvalid(
+        ":2:1: cannot assign type 'int' to 'o.f' which expects a value satisfying all of the 2"
+            + " types ['int', 'bool']",
+        """
+        o: MutableFoo[int] | MutableFoo[bool]
+        o.f = 123
         """);
   }
 
@@ -374,20 +635,27 @@ public final class TypeCheckerTest {
 
   @Test
   public void assignment_index_str() throws Exception {
-    // Strings are immutable, so any assignment to an index expression of a string will fail
-    // dynamically. But it's not currently a static error, if the types are correct.
-    // TODO: #28037 - Fail static type checking on assignments to immutable values.
-    assertValid(
+    assertInvalid(
+        ":3:1: s of type 'str' does not support item assignment",
         """
         # Normal case.
         s: str
         s[123] = "abc"
-
+        """);
+    assertInvalid(
+        ":4:1: s of type 'str' does not support item assignment",
+        """
         # Any as index.
+        s: str
         a: Any
         s[a] = "abc"
-
+        """);
+    assertInvalid(
+        ":4:1: s of type 'str' does not support item assignment",
+        """
         # Any as value.
+        s: str
+        a: Any
         s[123] = a
         """);
 
@@ -415,18 +683,27 @@ public final class TypeCheckerTest {
   public void infer_index_tuple() throws Exception {
     // Statically knowable index in-range.
     assertTypeGivenDecls("t[1]", Types.STR, "t: tuple[int, str, bool]");
+    assertTypeGivenDecls("t[-1]", Types.BOOL, "t: tuple[int, str, bool]");
+    // Index into unknown-length homogeneous tuples.
+    assertTypeGivenDecls("t[1]", Types.INT, "t: tuple[int, ...]");
+    assertTypeGivenDecls("t[n]", Types.INT, "t: tuple[int, ...]; n: Any");
 
     // Index can't be statically determined.
     StarlarkType unionType = Types.union(Types.INT, Types.STR, Types.BOOL);
     assertTypeGivenDecls("t[n]", unionType, "t: tuple[int, str, bool]; n: int");
     assertTypeGivenDecls("t[a]", unionType, "t: tuple[int, str, bool]; a: Any");
-    // TODO: #28037 - Add negative indices here, once we support unary expressions.
 
     // Bad index type.
     assertInvalid(
         ":2:2: 't' of type 'tuple[int, str, bool]' must be indexed by an integer, but got 'str'",
         """
         t: tuple[int, str, bool]
+        t["abc"]
+        """);
+    assertInvalid(
+        ":2:2: 't' of type 'tuple[str, ...]' must be indexed by an integer, but got 'str'",
+        """
+        t: tuple[str, ...]
         t["abc"]
         """);
 
@@ -437,36 +714,271 @@ public final class TypeCheckerTest {
         t: tuple[int, str, bool]
         t[3]
         """);
+    // Statically knowable index out-of-range.
+    assertInvalid(
+        ":2:2: 't' of type 'tuple[int, str, bool]' is indexed by integer -4, which is out-of-range",
+        """
+        t: tuple[int, str, bool]
+        t[-4]
+        """);
   }
 
   @Test
   public void assignment_index_tuple() throws Exception {
-    // Tuple mutation is illegal, but not currently a static error if there's no type mismatch.
-    // TODO: #28037 - Fail static type checking on assignments to immutable values.
-    assertValid(
+    // Cannot assign a value to a tuple index
+    assertInvalid(
+        ":2:1: t of type 'tuple[int, str, bool]' does not support item assignment",
         """
-        # Normal case.
         t: tuple[int, str, bool]
         t[1] = "abc"
+        """);
+    assertInvalid(
+        ":2:1: t of type 'tuple[str, ...]' does not support item assignment",
+        """
+        t: tuple[str, ...]
+        t[1] = "abc"
+        """);
+    // ... even when the value is Any
+    assertInvalid(
+        ":3:1: t of type 'tuple[int, str, bool]' does not support item assignment",
+        """
+        val: Any
+        t: tuple[int, str, bool]
+        t[1] = val
+        """);
+    assertInvalid(
+        ":3:1: t of type 'tuple[str, ...]' does not support item assignment",
+        """
+        val: Any
+        t: tuple[str, ...]
+        t[1] = val
+        """);
+    // ... or the index is unknown
+    assertInvalid(
+        ":3:1: t of type 'tuple[int, str, bool]' does not support item assignment",
+        """
+        i: Any
+        t: tuple[int, str, bool]
+        t[i] = "abc"
+        """);
+    assertInvalid(
+        ":3:1: t of type 'tuple[str, ...]' does not support item assignment",
+        """
+        i: Any
+        t: tuple[str, ...]
+        t[i] = "abc"
+        """);
+    // If the value is of the wrong type, we still report an error about tuple index assignment.
+    assertInvalid(
+        ":2:1: t of type 'tuple[int, str, bool]' does not support item assignment",
+        """
+        t: tuple[int, str, bool]
+        t[1] = {"foo": "bar"}
+        """);
+    assertInvalid(
+        ":2:1: t of type 'tuple[str, ...]' does not support item assignment",
+        """
+        t: tuple[str, ...]
+        t[1] = {"foo": "bar"}
+        """);
+  }
 
-        # Any as index.
-        # This is a particularly nonsensical assignment that nonetheless passes the checker.
-        a: Any
-        u: int | str | bool
-        t[a] = u
-
-        # Any as value.
-        t[1] = a
+  @Test
+  public void assignment_index_nested() throws Exception {
+    assertValid(
+        """
+        x: list[list[int]]
+        x[0][0] = 1
         """);
 
     assertInvalid(
+        ":2:1: x[0] of type 'tuple[int]' does not support item assignment",
         """
-        :2:1: cannot assign type 'int' to 't[1]' of type 'str'\
-        """,
-        """
-        t: tuple[int, str, bool]
-        t[1] = 123
+        x: list[tuple[int]]
+        x[0][0] = 1
         """);
+  }
+
+  @Test
+  public void infer_index_union() throws Exception {
+    assertTypeGivenDecls(
+        "u[1]",
+        Types.union(Types.STR, Types.INT, Types.FLOAT, Types.BOOL),
+        "u: str | list[int] | tuple[float, ...] | tuple[Any, bool]");
+    assertTypeGivenDecls("u['abc']", Types.NUMERIC, "u: dict[str, int] | dict[Any, float]");
+  }
+
+  @Test
+  public void assignment_index_union() throws Exception {
+    assertValid(
+        """
+        u: list[int] | dict[Any, int]
+        u[1] = 123
+        """);
+    assertInvalid(
+        ":2:1: cannot assign type 'str' to 'u[1]' which expects a value satisfying all of the 2"
+            + " types ['str', 'int']",
+        """
+        u: list[str] | list[int]
+        u[1] = "abc"
+        """);
+    assertValid(
+        """
+        u: list[str|int]
+        u[1] = "abc"
+        """);
+  }
+
+  @Test
+  public void augmented_assignment() throws Exception {
+    module = fooModule;
+
+    assertValid(
+        """
+        x: list[int]
+        x += [1, 2]
+        x[0] += 3
+
+        y: dict[str, int]
+        y |= {"answer": 42}
+        y["key"] //= 2
+
+        z: set[int|str]
+        z_rhs: set[str]
+        z ^= z_rhs
+
+        w: MutableFoo[int]
+        w.f *= 2
+        """);
+    // Augmented assignment to an immutable value is legal as long as the types match.
+    assertValid(
+        """
+        x: int | float
+        x += 1.5
+
+        y: str
+        y *= 2
+
+        z: tuple[int, ...]
+        z += (1, 2)
+        """);
+
+    // Binary operator cannot be applied to LHS and RHS types.
+    assertInvalid(
+        ":2:3: operator '+=' cannot be applied to types 'int' and 'str'",
+        """
+        x: int
+        x += "abc"
+        """);
+    // TODO(b/141263526): we may want to support list += sequence.
+    assertInvalid(
+        ":2:3: operator '+=' cannot be applied to types 'list[int]' and 'tuple[int, int]'",
+        """
+        x: list[int]
+        x += (1, 2)
+        """);
+
+    // Binary operator can be applied to LHS and RHS types, but the result is not assignable to LHS
+    assertInvalid(
+        ":2:3: operator '+=' cannot be applied to types 'int' and 'float': cannot update 'x' of"
+            + " type 'int' with a result value of type 'float'",
+        """
+        x: int
+        x += 1.5
+        """);
+    assertInvalid(
+        ":2:3: operator '|=' cannot be applied to types 'dict[str, int]' and 'dict[int, float]':"
+            + " cannot update 'x' of type 'dict[str, int]' with a result value of type"
+            + " 'dict[str|int, int|float]'",
+        """
+        x: dict[str, int]
+        x |= {1: 2.3}
+        """);
+    assertInvalid(
+        ":2:3: operator '+=' cannot be applied to types 'tuple[int, str]' and 'tuple[str]': cannot"
+            + " update 'x' of type 'tuple[int, str]' with a result value of type 'tuple[int, str,"
+            + " str]'",
+        """
+        x: tuple[int, str]
+        x += ("hello", )
+        """);
+
+    // Invalid index/field assignments.
+    assertInvalid(
+        ":2:1: x of type 'str' does not support item assignment",
+        """
+        x: str
+        x[1] += "a"
+        """);
+    assertInvalid(
+        ":2:1: x of type 'tuple[int, ...]|list[Any]' does not support item assignment",
+        """
+        x: tuple[int, ...] | list
+        x[0] += 42
+        """);
+    assertInvalid(
+        ":2:1: x of type 'Foo[int]' does not support field assignment",
+        """
+        x: Foo[int] # immutable
+        x.f *= 2
+        """);
+    assertInvalid(
+        ":2:1: x of type 'MutableFoo[int]|Foo[int]' does not support field assignment",
+        """
+        x: MutableFoo[int] | Foo[int]  # potentially immutable
+        x.f *= 2
+        """);
+  }
+
+  @Test
+  public void infer_slice() throws Exception {
+    assertTypeGivenDecls("x[1:2]", Types.STR, "x: str");
+    assertTypeGivenDecls("x[1:]", Types.list(Types.INT), "x: list[int]");
+    assertTypeGivenDecls(
+        "x[y:z:w]",
+        Types.union(Types.sequence(Types.STR), Types.ANY),
+        "x: Sequence[str] | Any; y: Any; z: Any; w: Any");
+
+    // Invalid operand type
+    assertInvalid(
+        "invalid slice operand 'x' of type 'int', expected Sequence or str", "x: int; x[:2:-1]");
+
+    // Invalid index types
+    assertInvalid("got 'str' for start index, want int", "x: str; [][x:]");
+    assertInvalid("got 'Any|bool' for stop index, want int", "y: Any | bool; [][:y:]");
+    assertInvalid("got 'float' for slice step, want int", "z: float; [][::z]");
+
+    // Invalid step
+    assertInvalid("slice step cannot be zero", "x: list; x[::0]");
+  }
+
+  @Test
+  public void infer_slice_tuple_indices() throws Exception {
+    assertTypeGivenDecls(
+        "x[0:4:1]", Types.tuple(Types.INT, Types.STR, Types.BOOL), "x: tuple[int, str, bool]");
+    assertTypeGivenDecls(
+        "x[:]", Types.tuple(Types.INT, Types.STR, Types.BOOL), "x: tuple[int, str, bool]");
+    assertTypeGivenDecls("x[1:3]", Types.tuple(Types.STR, Types.BOOL), "x: tuple[int, str, bool]");
+    assertTypeGivenDecls(
+        "x[-9999:2]", Types.tuple(Types.INT, Types.STR), "x: tuple[int, str, bool]");
+    assertTypeGivenDecls(
+        "x[1:9999]", Types.tuple(Types.STR, Types.BOOL), "x: tuple[int, str, bool]");
+    assertTypeGivenDecls(
+        "x[-3::2]", Types.tuple(Types.INT, Types.BOOL), "x: tuple[int, str, bool]");
+    assertTypeGivenDecls(
+        "x[::-1]", Types.tuple(Types.BOOL, Types.STR, Types.INT), "x: tuple[int, str, bool]");
+    assertTypeGivenDecls(
+        "x[-1:-4:-2]", Types.tuple(Types.BOOL, Types.INT), "x: tuple[int, str, bool]");
+
+    assertTypeGivenDecls(
+        "x[0:99:9]",
+        Types.homogeneousTuple(Types.union(Types.INT, Types.STR)),
+        "x: tuple[int | str, ...]");
+
+    assertTypeGivenDecls(
+        "x[y:]",
+        Types.homogeneousTuple(Types.union(Types.INT, Types.STR, Types.BOOL)),
+        "x: tuple[int, str, bool]; y: int");
   }
 
   @Test
@@ -498,14 +1010,13 @@ public final class TypeCheckerTest {
   @Test
   public void infer_tuple() throws Exception {
     // Empty case.
-    assertTypeGivenDecls("()", Types.tuple(ImmutableList.of()));
+    assertTypeGivenDecls("()", Types.EMPTY_TUPLE);
 
-    // Homogeneous case.
-    assertTypeGivenDecls(
-        "(1, 2, 3)", Types.tuple(ImmutableList.of(Types.INT, Types.INT, Types.INT)));
+    // Fixed-length with homogeneous elements.
+    assertTypeGivenDecls("(1, 2, 3)", Types.tuple(Types.INT, Types.INT, Types.INT));
 
-    // Heterogeneous case.
-    assertTypeGivenDecls("(1, 'a')", Types.tuple(ImmutableList.of(Types.INT, Types.STR)));
+    // Fixed-length with heterogeneous elements.
+    assertTypeGivenDecls("(1, 'a')", Types.tuple(Types.INT, Types.STR));
   }
 
   @Test
@@ -536,10 +1047,10 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("~x", Types.ANY, "x: Any");
 
     // Unsupported operations.
-    assertInvalid(":1:1: operator '-' cannot be applied to type 'str'", "-'hello'");
-    assertInvalid(":1:1: operator '+' cannot be applied to type 'str'", "+'hello'");
-    assertInvalid(":1:1: operator '~' cannot be applied to type 'str'", "~'hello'");
-    assertInvalid(":1:15: operator '-' cannot be applied to type 'str|int'", "x: str | int; -x");
+    assertInvalid(":2:1: operator '-' cannot be applied to type 'str'", "x: str", "-x");
+    assertInvalid(":2:1: operator '+' cannot be applied to type 'str'", "x: str", "+x");
+    assertInvalid(":2:1: operator '~' cannot be applied to type 'str'", "x: str", "~x");
+    assertInvalid(":2:1: operator '-' cannot be applied to type 'str|int'", "x: str | int", "-x");
   }
 
   @Test
@@ -581,6 +1092,7 @@ public final class TypeCheckerTest {
 
     // Compound types
     assertTypeGivenDecls("(1, 2) >= (3, 4)", Types.BOOL);
+    assertTypeGivenDecls("t1 <= t2", Types.BOOL, "t1: tuple[int, float]; t2: tuple[int, ...]");
     assertTypeGivenDecls("x < y", Types.BOOL, "x: list[int]; y: list[int|float]");
     assertTypeGivenDecls("x <= y", Types.BOOL, "x: list[int|float]; y: list[float|int]");
     assertTypeGivenDecls("x > y", Types.BOOL, "x: tuple[str, int]; y: tuple[str]");
@@ -592,12 +1104,12 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("[] > []", Types.BOOL);
 
     // unsupported operations
-    assertInvalid(":1:5: operator '<' cannot be applied to types 'str' and 'int'", "'0' < 1");
     assertInvalid(
-        ":1:14: operator '>' cannot be applied to types 'float' and 'bool'", "x: bool; 0.0 > x");
+        "operator '<' cannot be applied to types 'str' and 'int'", "x: str; y: int; x < y");
+    assertInvalid("operator '>' cannot be applied to types 'float' and 'bool'", "x: bool; 0.0 > x");
     assertInvalid(
-        ":1:10: operator '>=' cannot be applied to types 'dict[str, int]' and 'dict[str, int]'",
-        "{'a': 1} >= {'b': 2}");
+        "operator '>=' cannot be applied to types 'dict[str, int]' and 'dict[str, int]'",
+        "x: str; y: str; {x: 1} >= {y: 2}");
     assertInvalid(
         "operator '<' cannot be applied to types 'dict[str, int]' and 'Any'",
         "x: dict[str, int]; y: Any; x < y");
@@ -615,6 +1127,9 @@ public final class TypeCheckerTest {
     assertInvalid(
         "operator '>=' cannot be applied to types 'tuple[int, str]' and 'tuple[str, int]'",
         "x: tuple[int, str]; y: tuple[str, int]; x >= y");
+    assertInvalid(
+        "operator '>=' cannot be applied to types 'tuple[int, str]' and 'tuple[int|str, ...]'",
+        "x: tuple[int, str]; y: tuple[int|str, ...]; x >= y");
     assertInvalid(
         "operator '>=' cannot be applied to types 'list[tuple[str, int]]' and 'list[tuple[bool,"
             + " Any]]'",
@@ -634,11 +1149,23 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("[] + [1]", Types.list(Types.INT));
     assertTypeGivenDecls("['hello'] + []", Types.list(Types.STR));
     assertTypeGivenDecls(
-        "[1, 2.0] + [3, '4']", Types.list(Types.union(Types.INT, Types.FLOAT, Types.STR)));
+        "[1, 2.0] + [3, 'four']", Types.list(Types.union(Types.INT, Types.FLOAT, Types.STR)));
     assertTypeGivenDecls(
         "x + y",
-        Types.tuple(ImmutableList.of(Types.INT, Types.FLOAT, Types.INT, Types.STR)),
+        Types.tuple(Types.INT, Types.FLOAT, Types.INT, Types.STR),
         "x: tuple[int, float]; y: tuple[int, str]");
+    assertTypeGivenDecls(
+        "x + y",
+        Types.homogeneousTuple(Types.union(Types.INT, Types.FLOAT, Types.BOOL)),
+        "x: tuple[int, float]; y: tuple[bool, ...]");
+    assertTypeGivenDecls(
+        "x + y", Types.homogeneousTuple(Types.BOOL), "x: tuple[()]; y: tuple[bool, ...]");
+    assertTypeGivenDecls(
+        "x + y",
+        Types.homogeneousTuple(Types.union(Types.INT, Types.BOOL)),
+        "x: tuple[int, ...]; y: tuple[bool, ...]");
+    assertTypeGivenDecls(
+        "x + y", Types.homogeneousTuple(Types.INT), "x: tuple[int, ...]; y: tuple[()]");
 
     // Any inference
     assertTypeGivenDecls("x + y", Types.ANY, "x: Any; y: Any");
@@ -666,7 +1193,7 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x + y", Types.ANY, "x: bool; y: Any");
 
     // unsupported operations
-    assertInvalid(":1:9: operator '+' cannot be applied to types 'str' and 'int'", "'hello' + 1");
+    assertInvalid("operator '+' cannot be applied to types 'str' and 'int'", "x: str; x + 1");
     assertInvalid(
         "operator '+' cannot be applied to types 'int|str' and 'str'", "x: int|str; y: str; x + y");
   }
@@ -703,7 +1230,7 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x | y", Types.ANY, "x: int | bool; y: Any");
 
     // unsupported operations
-    assertInvalid(":1:3: operator '|' cannot be applied to types 'int' and 'float'", "1 | 2.0");
+    assertInvalid("operator '|' cannot be applied to types 'int' and 'float'", "x: int; x | 2.0");
     assertInvalid(
         "operator '|' cannot be applied to types 'int|set[int]' and 'int|set[int]'",
         "x: int|set[int]; y: int|set[int]; x | y");
@@ -726,7 +1253,7 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x & y", Types.ANY, "x: set[str]; y: Any");
 
     // unsupported operations
-    assertInvalid(":1:3: operator '&' cannot be applied to types 'int' and 'float'", "1 & 2.0");
+    assertInvalid("operator '&' cannot be applied to types 'int' and 'float'", "x: int; x & 2.0");
     assertInvalid(
         "operator '&' cannot be applied to types 'int' and 'set[int]'",
         "x: int; y: set[int]; x & y");
@@ -750,7 +1277,8 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x ^ y", Types.ANY, "x: set[str]; y: Any");
 
     // unsupported operations
-    assertInvalid(":1:3: operator '^' cannot be applied to types 'int' and 'float'", "1 ^ 2.0");
+    assertInvalid(
+        "operator '^' cannot be applied to types 'int' and 'float'", "x: int; y: float; x ^ y");
     assertInvalid(
         "operator '^' cannot be applied to types 'int' and 'set[int]'",
         "x: int; y: set[int]; x ^ y");
@@ -771,7 +1299,7 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x >> y", Types.ANY, "x: bool; y: Any");
 
     // unsupported operations
-    assertInvalid(":1:3: operator '<<' cannot be applied to types 'int' and 'float'", "1 << 2.0");
+    assertInvalid("operator '<<' cannot be applied to types 'int' and 'float'", "x: int; x << 2.0");
     assertInvalid(
         "operator '>>' cannot be applied to types 'bool' and 'int'", "x: bool; y: int; x >> y");
   }
@@ -797,7 +1325,7 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x - y", Types.ANY, "x: set[str]; y: Any");
 
     // unsupported operations
-    assertInvalid(":1:5: operator '-' cannot be applied to types 'str' and 'int'", "'2' - 1");
+    assertInvalid("operator '-' cannot be applied to types 'str' and 'int'", "x: str; x - 1");
     assertInvalid(
         "operator '-' cannot be applied to types 'int' and 'set[int]'",
         "x: int; y: set[int]; x - y");
@@ -825,19 +1353,24 @@ public final class TypeCheckerTest {
     // tuple repetition
     assertTypeGivenDecls(
         "x * 2",
-        Types.tuple(ImmutableList.of(Types.INT, Types.FLOAT, Types.INT, Types.FLOAT)),
+        Types.tuple(Types.INT, Types.FLOAT, Types.INT, Types.FLOAT),
         "x: tuple[int, float]");
     assertTypeGivenDecls(
         "2 * x",
-        Types.tuple(ImmutableList.of(Types.INT, Types.FLOAT, Types.INT, Types.FLOAT)),
+        Types.tuple(Types.INT, Types.FLOAT, Types.INT, Types.FLOAT),
         "x: tuple[int, float]");
-    assertTypeGivenDecls("x * 0", Types.tuple(ImmutableList.of()), "x: tuple[int, float]");
-    assertTypeGivenDecls("0 * x", Types.tuple(ImmutableList.of()), "x: tuple[int, float]");
-    // TODO: #27370 - the following case could be tightened to empty tuples.
-    assertTypeGivenDecls("x * -1", Types.ANY, "x: tuple[int, float]");
-    assertTypeGivenDecls("-1 * x", Types.ANY, "x: tuple[int, float]");
-    // TODO: #28037 - the following case can be tightened to "tuple of indeterminable shape".
-    assertTypeGivenDecls("x * y", Types.ANY, "x: int; y: tuple[int]");
+    assertTypeGivenDecls("x * 2", Types.homogeneousTuple(Types.INT), "x: tuple[int, ...]");
+    assertTypeGivenDecls("2 * x", Types.homogeneousTuple(Types.INT), "x: tuple[int, ...]");
+    assertTypeGivenDecls("x * 0", Types.EMPTY_TUPLE, "x: tuple[int, float]");
+    assertTypeGivenDecls("0 * x", Types.EMPTY_TUPLE, "x: tuple[int, float]");
+    assertTypeGivenDecls("x * 0", Types.EMPTY_TUPLE, "x: tuple[int, ...]");
+    assertTypeGivenDecls("0 * x", Types.EMPTY_TUPLE, "x: tuple[int, ...]");
+    assertTypeGivenDecls("x * -1", Types.EMPTY_TUPLE, "x: tuple[str]");
+    assertTypeGivenDecls("-1 * x", Types.EMPTY_TUPLE, "x: tuple[str]");
+    assertTypeGivenDecls("x * -1", Types.EMPTY_TUPLE, "x: tuple[str, ...]");
+    assertTypeGivenDecls("-1 * x", Types.EMPTY_TUPLE, "x: tuple[str, ...]");
+    assertTypeGivenDecls("x * y", Types.homogeneousTuple(Types.INT), "x: int; y: tuple[int]");
+    assertTypeGivenDecls("x * y", Types.homogeneousTuple(Types.INT), "x: int; y: tuple[int, ...]");
 
     // Any inference
     assertTypeGivenDecls("x * y", Types.ANY, "x: Any; y: Any");
@@ -855,8 +1388,9 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x * y", Types.ANY, "x: Any; y: list[str]");
     // TODO: #28037 - can be tightened to list[int]
     assertTypeGivenDecls("x * y", Types.ANY, "x: list[int]; y: Any");
-    // TODO: #28037 - the following cases can be tightened to "tuple of indeterminable shape".
+    // TODO: #28037 - can be tightened to tuple[str, ...]
     assertTypeGivenDecls("x * y", Types.ANY, "x: Any; y: tuple[str]");
+    // TODO: #28037 - can be tightened to tuple[int, ...]
     assertTypeGivenDecls("x * y", Types.ANY, "x: tuple[int, int]; y: Any");
     // TODO: #28037 - can be tightened to float | str
     assertTypeGivenDecls("x * y", Types.ANY, "x: Any; y: float|str");
@@ -867,8 +1401,7 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x * y", Types.ANY, "x: bool; y: Any");
 
     // unsupported operations
-    assertInvalid(
-        ":1:9: operator '*' cannot be applied to types 'str' and 'float'", "'hello' * 1.0");
+    assertInvalid("operator '*' cannot be applied to types 'str' and 'float'", "x: str; x * 1.0");
     assertInvalid(
         "operator '*' cannot be applied to types 'bool' and 'int'", "x: bool; y: int; x * y");
   }
@@ -900,8 +1433,10 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x // y", Types.ANY, "x: float; y: Any");
 
     // unsupported operations
-    assertInvalid("operator '/' cannot be applied to types 'int' and 'str'", "1 / '2'");
-    assertInvalid("operator '//' cannot be applied to types 'str' and 'float'", "'2' // 3.0");
+    assertInvalid(
+        "operator '/' cannot be applied to types 'int' and 'str'", "x: int; y: str; x / y");
+    assertInvalid(
+        "operator '//' cannot be applied to types 'str' and 'float'", "x: str; y: float; x // y");
   }
 
   @Test
@@ -930,7 +1465,8 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls("x % y", Types.STR, "x: str; y: Any");
 
     // unsupported operations
-    assertInvalid("operator '%' cannot be applied to types 'float' and 'str'", "1.0 % 'hello'");
+    assertInvalid(
+        "operator '%' cannot be applied to types 'float' and 'str'", "x: float; x % 'hello'");
   }
 
   @Test
@@ -961,6 +1497,696 @@ public final class TypeCheckerTest {
     assertInvalid("operator 'in' cannot be applied to types 'Any' and 'int'", "x: Any; x in 42");
     assertInvalid(
         "operator 'not in' cannot be applied to types 'list[str]' and 'str'",
-        "['e'] not in 'hello'");
+        "x: str; ['e'] not in x");
+  }
+
+  @Test
+  public void infer_conditional() throws Exception {
+    assertTypeGivenDecls("x if cond else y", Types.INT, "cond: bool; x: int; y: int");
+    assertTypeGivenDecls("x if cond else y", Types.NUMERIC, "cond: bool; x: int; y: float");
+
+    // Any handling; the following test cases assume no Any-simplification in unions.
+    assertTypeGivenDecls(
+        "x if cond else y", Types.union(Types.INT, Types.ANY), "cond: bool; x: int; y: Any");
+    assertTypeGivenDecls(
+        "x if cond else y", Types.union(Types.ANY, Types.FLOAT), "cond: bool; x: Any; y: float");
+    assertTypeGivenDecls("x if cond else y", Types.ANY, "cond: bool; x: Any; y: Any");
+
+    // Condition's type does not matter.
+    assertTypeGivenDecls("x if cond else y", Types.INT, "cond: float; x: int; y: int");
+    assertTypeGivenDecls("x if cond else y", Types.INT, "cond: Any; x: int; y: int");
+    assertTypeGivenDecls(
+        "x if cond else y", Types.INT, "def cond() -> int: return 42", "x: int; y: int");
+  }
+
+  @Test
+  public void infer_call() throws Exception {
+    assertTypeGivenDecls(
+        "f(1, y = 'y')",
+        Types.INT,
+        """
+        def f(x: int, y: str, z: int = 42) -> int:
+            return 0
+        """);
+
+    // Function type unions and Any handling
+    assertTypeGivenDecls("f(42)", Types.ANY, "f: Any");
+    assertTypeGivenDecls(
+        "(f if 1 else g)(42)",
+        Types.union(Types.INT, Types.STR),
+        """
+        def f(x: int) -> int:
+            return x
+        def g(y: int) -> str:
+            return "hello"
+        """);
+    assertTypeGivenDecls(
+        "(f if 1 else g)(42)",
+        Types.union(Types.INT, Types.ANY),
+        """
+        def f(x: int) -> int:
+            return x
+        g: Any
+        """);
+
+    // Omitted return type is Any
+    assertTypeGivenDecls(
+        "f(42)",
+        Types.ANY,
+        """
+        def f(x: int):
+            return x
+        """);
+
+    // Parameter type unions and Any handling
+    assertTypeGivenDecls(
+        "f(1, y = 'y')",
+        Types.INT,
+        """
+        def f(x: int | str, y) -> int:
+            return 0
+        """);
+
+    // Argument type unions and Any handling
+    assertTypeGivenDecls(
+        "f(X, y = Y)",
+        Types.INT,
+        """
+        def f(x: int | float | str, y: str, z: int = 42) -> int:
+            return 0
+        X: int | str
+        Y: Any
+        """);
+
+    // Cannot call a non-callable
+    assertInvalid(
+        ":2:1: 'f' is not callable; got type 'int'",
+        """
+        f: int
+        f(42)
+        """);
+    assertInvalid(
+        "'f if 1 else g' is not callable; got type 'Callable[[int], int]|int'",
+        """
+        def f(x: int) -> int:
+            return x
+        g: int
+        (f if 1 else g)(42)
+        """);
+  }
+
+  @Test
+  public void infer_call_bad_arguments() throws Exception {
+    // Wrong argument types
+    assertInvalid(
+        "in call to 'f()', parameter 'y' got value of type 'str', want 'int'",
+        """
+        def f(x: Any, y: int) -> int:
+            return 0
+        f(123, "hello")
+        """);
+    // Too many positionals
+    assertInvalid(
+        "'f()' accepts no more than 2 positional arguments but got 3",
+        """
+        def f(x: int, y: int) -> int:
+            return 0
+        f(1, 2, 3)
+        """);
+    // Unexpected arguments
+    assertInvalid(
+        "'f()' got unexpected keyword argument: mispelled (did you mean 'misspelled'?)",
+        """
+        def f(x: int, misspelled: int) -> int:
+            return 0
+        f(x = 1, mispelled = 2)
+        """);
+    // Missing required arguments
+    assertInvalid(
+        "'f()' missing 1 required argument: y",
+        """
+        def f(x: int, y: int) -> int:
+            return 0
+        f(42)
+        """);
+    assertInvalid(
+        "'f()' missing 2 required arguments: y, z",
+        """
+        def f(x: int, y: int, z) -> int:
+            return 0
+        f(42)
+        """);
+    assertInvalid(
+        "'f()' missing 2 required arguments: y, z",
+        """
+        def f(x: int, y: int, *, z) -> int:
+            return 0
+        f(42)
+        """);
+  }
+
+  @Test
+  public void infer_call_varargs() throws Exception {
+    assertTypeGivenDecls(
+        "f(1, *args)",
+        Types.INT,
+        "args: list[str]",
+        """
+        def f(x: int, y: str, *args) -> int:
+            return 0
+        """);
+    // Complex types
+    assertTypeGivenDecls(
+        "f(1, *args)",
+        Types.INT,
+        """
+        def f(x: int, *args: str|float) -> int:
+            return 0
+        args: list[str] | tuple[float]
+        """);
+    // Caller varargs satisfy missing positional arguments
+    assertTypeGivenDecls(
+        "f(1, *args)",
+        Types.INT,
+        """
+        def f(x: int, y: str, z: str) -> int:
+            return 0
+        args: list[str]
+        """);
+    // Callable varargs absorb residual positional arguments
+    assertTypeGivenDecls(
+        "f(1, 'two', 3.0)",
+        Types.INT,
+        """
+        def f(x: int, *args: str|float) -> int:
+            return 0
+        """);
+    // Wrong shape
+    assertInvalid(
+        "argument after * must be a sequence, not 'str'",
+        """
+        def f(*args) -> int:
+            return 0
+        args: str
+        f(*args)
+        """);
+    assertInvalid(
+        "argument after * must be a sequence, not 'str|list[str]'",
+        """
+        def f(*args) -> int:
+            return 0
+        args: str | list[str]
+        f(*args)
+        """);
+    // Wrong element type
+    assertInvalid(
+        "in call to 'f()', elements of argument after * must be 'float', not 'str|float'",
+        """
+        def f(*args: float) -> int:
+            return 0
+        args: list[str] | list[float]
+        f(*args)
+        """);
+    // Wrong type of residual positional arguments
+    assertInvalid(
+        "in call to 'f()', residual positional arguments must be 'str|float', not 'int'",
+        """
+        def f(x: int, *args: str|float) -> int:
+            return 0
+        f(1, 2, 3)
+        """);
+  }
+
+  @Test
+  public void infer_call_kwargs() throws Exception {
+    assertTypeGivenDecls(
+        "f(1, **kwargs)",
+        Types.INT,
+        """
+        def f(x: int, y: float, **kwargs) -> int:
+            return 0
+        kwargs: dict[str, float]
+        """);
+    // Complex types
+    assertTypeGivenDecls(
+        "f(1, **kwargs)",
+        Types.INT,
+        """
+        def f(x: int, **kwargs: str|float) -> int:
+            return 0
+        kwargs: dict[str, str] | dict[str, float]
+        """);
+    // Caller kwargs satisfy missing keyword arguments
+    assertTypeGivenDecls(
+        "f(1, **kwargs)",
+        Types.INT,
+        """
+        def f(x: int, y: str, *, z: str) -> int:
+            return 0
+        kwargs: dict[str, str]
+        """);
+    // Callable kwargs absorb residual keyword arguments
+    assertTypeGivenDecls(
+        "f(1, y='two', z=3.0)",
+        Types.INT,
+        """
+        def f(x: int, **kwargs: str|float) -> int:
+            return 0
+        """);
+    // Wrong shape
+    assertInvalid(
+        "argument after ** must be a dict with string keys, not 'list[Any]'",
+        """
+        def f(**kwargs) -> int:
+            return 0
+        kwargs: list
+        f(**kwargs)
+        """);
+    assertInvalid(
+        "argument after ** must be a dict with string keys, not 'dict[Any, Any]|list[Any]'",
+        """
+        def f(**kwargs) -> int:
+            return 0
+        kwargs: dict | list
+        f(**kwargs)
+        """);
+    // Wrong element type
+    assertInvalid(
+        "in call to 'f()', values of argument after ** must be 'float', not 'str|float'",
+        """
+        def f(**kwargs: float) -> int:
+            return 0
+        kwargs: dict[str, str] | dict[str, float]
+        f(**kwargs)
+        """);
+    // Wrong type of residual keyword arguments
+    assertInvalid(
+        "in call to 'f()', residual keyword arguments must be 'str|float', not 'int'",
+        """
+        def f(x: int, **kwargs: str|float) -> int:
+            return 0
+        f(x=1, y=2, z=3)
+        """);
+  }
+
+  @Test
+  public void infer_list_comprehension() throws Exception {
+    assertTypeGivenDecls("[x for x in lst]", Types.list(Types.INT), "lst: list[int]");
+    assertTypeGivenDecls("[x * 3.14 for x in lst]", Types.list(Types.FLOAT), "lst: list[int]");
+    assertTypeGivenDecls(
+        // a is tuple[str], d is int, so a * d is an indeterminate-length str tuple
+        "[a * d for a in b if c for d in e]",
+        Types.list(Types.homogeneousTuple(Types.STR)),
+        "b: list[tuple[str]]",
+        "c: bool",
+        "e: Sequence[int]");
+
+    // For clauses must be iterable
+    assertInvalid(
+        ":3:28: comprehension 'for' clause operand must be an iterable, got 'str'",
+        """
+        b: list[int]
+        d: str
+        [a + c for a in b for c in d]
+        """);
+    assertInvalid(
+        ":3:17: comprehension 'for' clause operand must be an iterable, got 'int'",
+        """
+        b: int
+        d: list[int]
+        [a + c for a in b for c in d]
+        """);
+    // If clauses must type-check
+    assertInvalid(
+        ":3:25: in call to 'cond()', parameter 'x' got value of type 'str', want 'int'",
+        """
+        lst: list[str]
+        def cond(x: int) -> int: return x
+        [x for x in lst if cond(x)]
+        """);
+    // Body must type-check
+    assertInvalid(
+        ":2:4: operator '+' cannot be applied to types 'str' and 'int'",
+        """
+        lst: list[str]
+        [x + 1 for x in lst]
+        """);
+    assertInvalid(
+        ":2:4: operator '+' cannot be applied to types 'str' and 'float'",
+        """
+        lst: list[str]
+        {x + 3.14 : x for x in lst}
+        """);
+    assertInvalid(
+        ":2:8: operator '+' cannot be applied to types 'str' and 'list[str]'",
+        """
+        lst: list[str]
+        {x : x + [x] for x in lst}
+        """);
+
+    // Any and union handling
+    assertTypeGivenDecls("[x * 2 for x in lst]", Types.list(Types.ANY), "lst: Any");
+    assertTypeGivenDecls(
+        "[x * 2 for x in lst]", Types.list(Types.NUMERIC), "lst: list[int] | Collection[float]");
+  }
+
+  @Test
+  public void infer_dict_comprehension() throws Exception {
+    assertTypeGivenDecls(
+        "{'%s' % x : x for x in lst}", Types.dict(Types.STR, Types.INT), "lst: list[int]");
+    assertTypeGivenDecls("{x : x for x in lst}", Types.dict(Types.ANY, Types.ANY), "lst: Any");
+    assertTypeGivenDecls(
+        "{'%s' % x : x * 2 for x in lst}",
+        Types.dict(Types.STR, Types.NUMERIC), "lst: list[int] | Collection[float]");
+  }
+
+  @Test
+  public void def_argument_defaults() throws Exception {
+    assertValid("def f(x: int = 42, y: str= '', z = {}): pass");
+    String invalid = "def f(x: int = 42.0, y: str = 43, z = []): pass";
+    assertInvalid("f(): parameter 'x' has default value of type 'float', declares 'int'", invalid);
+    assertInvalid("f(): parameter 'y' has default value of type 'int', declares 'str'", invalid);
+  }
+
+  @Test
+  public void def_return_type() throws Exception {
+    assertValid("def f(): pass");
+    assertValid("def f(): return 42");
+    assertValid("def f() -> int: return 42");
+    assertValid("def f() -> None: pass");
+    assertValid("def f() -> None: return");
+    assertValid(
+        """
+        def f() -> int|None:
+            if 2 + 2 == 4:
+                return 42
+        """);
+    assertValid(
+        """
+        def f() -> int|float|str:
+            if 2 + 2 == 4:
+                return 42
+            elif 2.0 + 2.0 == 4.0:
+                return 42.0
+            else:
+                return 'abc'
+        """);
+
+    assertInvalid(
+        ":2:5: f() declares return type 'int' but may exit without an explicit 'return'",
+        """
+        def f() -> int:
+            if 2 + 2 == 4:
+                return 42
+        """);
+    assertInvalid(
+        ":3:16: f() declares return type 'None' but may return 'int'",
+        """
+        def f() -> None:
+            if 2 + 2 == 4:
+                return 42
+        """);
+  }
+
+  @Test
+  public void def_body_checked_iff_function_uses_type_syntax() throws Exception {
+    assertInvalid(
+        "operator '+' cannot be applied to types 'int' and 'str'",
+        """
+        X: int = 42
+        def typed() -> int:
+            return X + "abc"
+        """);
+    assertValid(
+        """
+        X: int = 42
+        def untyped():
+            # error ignored by static type checker because function is untyped
+            return X + "abc"
+        """);
+    assertInvalid(
+        "operator '+' cannot be applied to types 'int' and 'str'",
+        """
+        def typed(x):
+            # type syntax in nested lambdas causes outer function to be type-checked.
+            return (lambda x: cast(int, x))(x) + "abc"
+        """);
+    assertValid(
+        """
+        X: int = 42
+        def untyped():
+            # type syntax in nested defs does not affect outer function
+            def get_int() -> int:
+                return X
+            # error ignored by static type checker because outer function is untyped
+            return get_int() + "abc"
+        """);
+
+    assertInvalid(
+        ":5:18: operator '%' cannot be applied to types 'int' and 'str'",
+        """
+        X: int = 42
+        def untyped():
+            def get_int() -> int:
+                # type syntax in nested typed defs is checked even if the outer def is untyped
+                return X % "abc"
+            return get_int() + "def"
+        """);
+  }
+
+  @Test
+  public void infer_cast() throws Exception {
+    assertTypeGivenDecls("cast(int, x)", Types.INT, "x: Any");
+    // cast expression allows casting to the wrong type
+    assertTypeGivenDecls(
+        "cast(list[int] | bool, 42)", Types.union(Types.list(Types.INT), Types.BOOL));
+    // cast expression always checks that its second argument is well-typed
+    assertInvalid(
+        "operator '+' cannot be applied to types 'int' and 'str'", "cast(int, 1 + 'two')");
+  }
+
+  @Test
+  public void infer_lambda() throws Exception {
+    // no inference on the type of a lamda's argument
+    assertTypeGivenDecls("(lambda x: x + y)(42)", Types.ANY, "y: int");
+    // ... but a cast in the body allows inferring the return type
+    assertTypeGivenDecls("(lambda x: cast(int, x) + 1)(42)", Types.INT);
+  }
+
+  @Test
+  public void if_statement() throws Exception {
+    // condition
+    assertInvalid(
+        "operator '+' cannot be applied to types 'float' and 'str'",
+        """
+        def _wrapper() -> None:
+            if 12.3 + '45.6' > 0:
+                pass
+        """);
+    // then body
+    assertInvalid(
+        "operator '+' cannot be applied to types 'int' and 'str'",
+        """
+        def _wrapper() -> None:
+            if 1 == 2:
+                123 + '456'
+        """);
+    // else body
+    assertInvalid(
+        "operator '+' cannot be applied to types 'str' and 'int'",
+        """
+        def _wrapper() -> None:
+            if 1 == 2:
+                pass
+            else:
+                '123' + 456
+        """);
+  }
+
+  @Test
+  public void if_statement_in_untyped_code() throws Exception {
+    // In untyped code, don't type-check the condition or non-def statements in then/else blocks ...
+    assertValid(
+        """
+        def _untyped_wrapper():
+            if 1 + "two":   # type error ignored in untyped code
+                3 + "four"  # type error ignored in untyped code
+            else:
+                5 + "six"   # type error ignored in untyped code
+        """);
+    // ... but do recurse into inner typed defs in then/else blocks
+    assertInvalid(
+        ":4:20: typed() declares return type 'int' but may return 'str'",
+        """
+        def _untyped_wrapper():
+            if 1 + "two":         # type error ignored in untyped code
+                def typed() -> int:
+                    return "abc"  # type error checked in typed innner def
+        """);
+    assertInvalid(
+        ":6:20: typed() declares return type 'int' but may return 'float'",
+        """
+        def _untyped_wrapper():
+            if 1 + "two":        # type error ignored in untyped code
+                pass
+            else:
+                def typed() -> int:
+                    return 3.14  # type error checked in typed innner def
+        """);
+  }
+
+  @Test
+  public void for_statement_operand() throws Exception {
+    assertValid(
+        """
+        def _wrapper() -> None:
+            for x in [1, 2, 3]:
+                pass
+        """);
+    assertValid(
+        """
+        def _wrapper() -> None:
+            for x in (1, 2, 3):
+                pass
+        """);
+    assertValid(
+        """
+        def _wrapper() -> None:
+            for x in {'a': 'b', 'c': 'd'}:
+                pass
+        """);
+    assertValid(
+        """
+        y: Any
+        def _wrapper() -> None:
+            for x in y:
+                pass
+        """);
+    assertValid(
+        """
+        y: Any | list[int]
+        def f(x: int) -> None: pass  # to verify type of x
+        def _wrapper() -> None:
+            for x in y:
+                f(x)
+        """);
+
+    // Sequence assignment
+    assertValid(
+        """
+        def _wrapper() -> None:
+            for x, y in [(1, 2)]:
+                pass
+        """);
+
+    assertInvalid(
+        "'for' loop operand must be an iterable, got 'int'",
+        """
+        def _wrapper() -> None:
+            for x in 42:
+                pass
+        """);
+    assertInvalid(
+        "cannot assign type 'tuple[int]' to '(x, y)'; want 2-element sequence",
+        """
+        def _wrapper() -> None:
+            for x, y in [(42,)]:
+                pass
+        """);
+  }
+
+  @Test
+  public void for_statement_operand_with_previously_typed_vars() throws Exception {
+    assertValid(
+        """
+        def _wrapper() -> None:
+            x: int
+            for x in [1, 2, 3]:
+                pass
+
+            for x in (1, 2, 3):
+                pass
+
+            y: str
+            for y in {'a': 'b', 'c': 'd'}:
+                pass
+
+            z: Any
+            for z in [1, "two", 3.14, None]:
+                pass
+        """);
+    assertInvalid(
+        ":3:9: cannot assign type 'int|str' to 'x' of type 'int'",
+        """
+        def _wrapper() -> None:
+            x: int
+            for x in [1, "two"]:
+                pass
+        """);
+
+    // Sequence assignment
+    assertValid(
+        """
+        def _wrapper() -> None:
+            x: int
+            y: str
+            for x, y in [(1, "two")]:
+                pass
+        """);
+    assertInvalid(
+        ":3:9: cannot assign type 'str' to 'x' of type 'int'",
+        """
+        def _wrapper() -> None:
+            x: int
+            for x, y in [("three", 4)]:
+                pass
+        """);
+    assertInvalid(
+        ":4:12: cannot assign type 'int' to 'y' of type 'str'",
+        """
+        def _wrapper() -> None:
+            x: Any
+            y: str
+            for x, y in [("three", 4)]:
+                pass
+        """);
+  }
+
+  @Test
+  public void for_statement_body() throws Exception {
+    assertValid(
+        """
+        def _wrapper() -> None:
+            for x in [1, 2, 3]:
+                x + 1
+        """);
+
+    assertInvalid(
+        "operator '+' cannot be applied to types 'str' and 'int'",
+        """
+        def _wrapper() -> None:
+            for x in ['a', 'b', 'c']:
+                x + 1
+        """);
+  }
+
+  @Test
+  public void for_statement_in_untyped_code() throws Exception {
+    // In untyped code, don't type-check the operand or non-def statements in body ...
+    assertValid(
+        """
+        def _untyped_wrapper():
+            for x in (1, "two", 3.14):  # type error ignored in untyped code
+                x / "bad"               # type error ignored in untyped code
+        """);
+    // ... but do recurse into inner typed defs in body
+    assertInvalid(
+        ":4:20: typed() declares return type 'int' but may return 'str'",
+        """
+        def _untyped_wrapper():
+            for x in (1, "two", 3.14):  # type error ignored in untyped code
+                def typed() -> int:
+                    return "abc"        # type error checked in typed innner def
+        """);
   }
 }

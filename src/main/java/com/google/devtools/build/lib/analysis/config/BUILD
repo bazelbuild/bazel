@@ -44,6 +44,7 @@ java_library(
         "BuildConfigurationValue.java",
         "OutputDirectories.java",
         "OutputPathMnemonicComputer.java",
+        "RemoteAnalysisCachingEnabledEvent.java",
         "TopLevelConfigRequestedEvent.java",
     ],
     deps = [
@@ -69,7 +70,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis:test/test_trimming_logic",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -109,6 +109,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -142,10 +143,7 @@ java_library(
 java_library(
     name = "compilation_mode",
     srcs = ["CompilationMode.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/main/java/net/starlark/java/eval",
-    ],
+    deps = ["//src/main/java/com/google/devtools/common/options"],
 )
 
 java_library(
@@ -239,7 +237,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/java/net/starlark/java/eval",
+        "//third_party:caffeine",
         "//third_party:guava",
     ],
 )
@@ -533,8 +531,7 @@ java_library(
     srcs = ["SymlinkDefinition.java"],
     deps = [
         ":build_configuration",
-        ":build_options",
-        "//src/main/java/com/google/devtools/build/lib:build-request-options",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",

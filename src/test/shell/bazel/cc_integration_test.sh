@@ -2047,7 +2047,7 @@ EOF
   bazel build -s --process_headers_in_dependencies --features parse_headers \
     //pkg:lib &> "$TEST_log" && fail "Build should have failed due to unclean headers"
   expect_log "Compiling pkg/lib.h"
-  expect_log "error:.*'uint8_t'"
+  expect_log "error:.*uint8_t"
 
   bazel build -s --process_headers_in_dependencies \
     //pkg:lib &> "$TEST_log" || fail "Build should have passed"
@@ -2201,8 +2201,7 @@ int main() {
 }
 EOF
 
-  # Disabling autoloads, to get direct (non-macro) access to the rule
-  bazel run --incompatible_autoload_externally= //pkg:hello &> $TEST_log || fail "Expected success"
+  bazel run //pkg:hello &> $TEST_log || fail "Expected success"
   expect_log "Hello from my_cc_binary"
   expect_log "Hello from main.cpp"
 }

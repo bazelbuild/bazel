@@ -91,9 +91,9 @@ public final class RemoteOptions extends CommonRemoteOptions {
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "HOST or HOST:PORT of a remote execution endpoint. The supported schemas are grpc, "
-              + "grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If no schema is "
-              + "provided Bazel will default to grpcs. Specify grpc:// or unix: schema to "
+          "HOST or HOST:PORT of a remote execution endpoint. The supported schemes are grpc, "
+              + "grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If no scheme is "
+              + "provided Bazel will default to grpcs. Specify grpc:// or unix: scheme to "
               + "disable TLS.")
   public String remoteExecutor;
 
@@ -134,9 +134,9 @@ public final class RemoteOptions extends CommonRemoteOptions {
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "A URI of a caching endpoint. The supported schemas are http, https, grpc, grpcs "
-              + "(grpc with TLS enabled) and unix (local UNIX sockets). If no schema is provided "
-              + "Bazel will default to grpcs. Specify grpc://, http:// or unix: schema to disable "
+          "A URI of a caching endpoint. The supported schemes are http, https, grpc, grpcs "
+              + "(grpc with TLS enabled) and unix (local UNIX sockets). If no scheme is provided "
+              + "Bazel will default to grpcs. Specify grpc://, http:// or unix: scheme to disable "
               + "TLS. See https://bazel.build/remote/caching")
   public String remoteCache;
 
@@ -147,8 +147,8 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "A Remote Asset API endpoint URI, to be used as a remote download proxy. The supported"
-              + " schemas are grpc, grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If"
-              + " no schema is provided Bazel will default to grpcs. See: "
+              + " schemes are grpc, grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If"
+              + " no scheme is provided Bazel will default to grpcs. See: "
               + "https://github.com/bazelbuild/remote-apis/blob/master/build/bazel/remote/asset/v1/remote_asset.proto")
   public String remoteDownloader;
 
@@ -742,9 +742,9 @@ public final class RemoteOptions extends CommonRemoteOptions {
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "HOST or HOST:PORT of a remote output service endpoint. The supported schemas are grpc, "
-              + "grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If no schema is "
-              + "provided Bazel will default to grpcs. Specify grpc:// or unix: schema to "
+          "HOST or HOST:PORT of a remote output service endpoint. The supported schemes are grpc, "
+              + "grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If no scheme is "
+              + "provided Bazel will default to grpcs. Specify grpc:// or unix: scheme to "
               + "disable TLS.")
   public String remoteOutputService;
 

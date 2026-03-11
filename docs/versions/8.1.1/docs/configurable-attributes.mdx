@@ -2,8 +2,6 @@
 title: 'Configurable Build Attributes'
 ---
 
-
-
 **_Configurable attributes_**, commonly known as [`select()`](
 /reference/be/functions#select), is a Bazel feature that lets users toggle the values
 of build rule attributes at the command line.
@@ -68,7 +66,7 @@ command line. Specifically, `deps` becomes:
 </table>
 
 `select()` serves as a placeholder for a value that will be chosen based on
-*configuration conditions*, which are labels referencing [`config_setting`](/reference/be/general#config_setting)
+*configuration conditions*, which are labels referencing [`config_setting`](/versions/8.1.1/reference/be/general#config_setting)
 targets. By using `select()` in a configurable attribute, the attribute
 effectively adopts different values when different conditions hold.
 
@@ -85,7 +83,7 @@ While this example uses `deps`, `select()` works just as well on `srcs`,
 `resources`, `cmd`, and most other attributes. Only a small number of attributes
 are *non-configurable*, and these are clearly annotated. For example,
 `config_setting`'s own
-[`values`](/reference/be/general#config_setting.values) attribute is non-configurable.
+[`values`](/versions/8.1.1/reference/be/general#config_setting.values) attribute is non-configurable.
 
 ## `select()` and dependencies
 
@@ -93,7 +91,7 @@ Certain attributes change the build parameters for all transitive dependencies
 under a target. For example, `genrule`'s `tools` changes `--cpu` to the CPU of
 the machine running Bazel (which, thanks to cross-compilation, may be different
 than the CPU the target is built for). This is known as a
-[configuration transition](/reference/glossary#transition).
+[configuration transition](/versions/8.1.1/reference/glossary#transition).
 
 Given
 
@@ -146,8 +144,8 @@ build parameters, which include `--cpu=arm`. The `tools` attribute changes
 ## Configuration conditions
 
 Each key in a configurable attribute is a label reference to a
-[`config_setting`](/reference/be/general#config_setting) or
-[`constraint_value`](/reference/be/platforms-and-toolchains#constraint_value).
+[`config_setting`](/versions/8.1.1/reference/be/general#config_setting) or
+[`constraint_value`](/versions/8.1.1/reference/be/platforms-and-toolchains#constraint_value).
 
 `config_setting` is just a collection of
 expected command line flag settings. By encapsulating these in a target, it's
@@ -159,8 +157,8 @@ easy to maintain "standard" conditions users can reference from multiple places.
 
 Flags like `--cpu` are built into Bazel: the build tool natively understands
 them for all builds in all projects. These are specified with
-[`config_setting`](/reference/be/general#config_setting)'s
-[`values`](/reference/be/general#config_setting.values) attribute:
+[`config_setting`](/versions/8.1.1/reference/be/general#config_setting)'s
+[`values`](/versions/8.1.1/reference/be/general#config_setting.values) attribute:
 
 ```python
 config_setting(
@@ -184,7 +182,7 @@ is the expected value for that flag. `:meaningful_condition_name` matches if
 *  `values = { "force_pic": "0" }` matches `bazel build --noforce_pic`
 
 `config_setting` only supports flags that affect target behavior. For example,
-[`--show_progress`](/docs/user-manual#show-progress) isn't allowed because
+[`--show_progress`](/versions/8.1.1/docs/user-manual#show-progress) isn't allowed because
 it only affects how Bazel reports progress to the user. Targets can't use that
 flag to construct their results. The exact set of supported flags isn't
 documented. In practice, most flags that "make sense" work.
@@ -195,8 +193,8 @@ You can model your own project-specific flags with
 [Starlark build settings][BuildSettings]. Unlike built-in flags, these are
 defined as build targets, so Bazel references them with target labels.
 
-These are triggered with [`config_setting`](/reference/be/general#config_setting)'s
-[`flag_values`](/reference/be/general#config_setting.flag_values)
+These are triggered with [`config_setting`](/versions/8.1.1/reference/be/general#config_setting)'s
+[`flag_values`](/versions/8.1.1/reference/be/general#config_setting.flag_values)
 attribute:
 
 ```python
@@ -213,12 +211,12 @@ config_setting(
 Behavior is the same as for [built-in flags](#built-in-flags). See [here](https://github.com/bazelbuild/examples/tree/HEAD/configurations/select_on_build_setting)
 for a working example.
 
-[`--define`](/reference/command-line-reference#flag--define)
+[`--define`](/versions/8.1.1/reference/command-line-reference#flag--define)
 is an alternative legacy syntax for custom flags (for example
 `--define foo=bar`). This can be expressed either in the
-[values](/reference/be/general#config_setting.values) attribute
+[values](/versions/8.1.1/reference/be/general#config_setting.values) attribute
 (`values = {"define": "foo=bar"}`) or the
-[define_values](/reference/be/general#config_setting.define_values) attribute
+[define_values](/versions/8.1.1/reference/be/general#config_setting.define_values) attribute
 (`define_values = {"foo": "bar"}`). `--define` is only supported for backwards
 compatibility. Prefer Starlark build settings whenever possible.
 
@@ -266,7 +264,7 @@ For even clearer errors, you can set custom messages with `select()`'s
 While the ability to specify multiple flags on the command line provides
 flexibility, it can also be burdensome to individually set each one every time
 you want to build a target.
-   [Platforms](/extending/platforms)
+   [Platforms](/versions/8.1.1/extending/platforms)
 let you consolidate these into simple bundles.
 
 ```python
@@ -361,7 +359,7 @@ This saves the need for boilerplate `config_setting`s when you only need to
 check against single values.
 
 Platforms are still under development. See the
-[documentation](/concepts/platforms) for details.
+[documentation](/versions/8.1.1/concepts/platforms) for details.
 
 ## Combining `select()`s
 
@@ -480,7 +478,6 @@ sh_binary(
 
 ### `selects.config_setting_group`
 
-
 The
 [config_setting_group](https://github.com/bazelbuild/bazel-skylib/blob/main/docs/selects_doc.md#selectsconfig_setting_group)
 macro in [Skylib](https://github.com/bazelbuild/bazel-skylib)'s
@@ -490,7 +487,6 @@ module supports `OR`ing multiple `config_setting`s:
 ```python
 load("@bazel_skylib//lib:selects.bzl", "selects")
 ```
-
 
 ```python
 config_setting(
@@ -566,7 +562,7 @@ Conditions checked:
   //tools/cc_target_os:android
 ```
 
-This can be customized with the [`no_match_error`](/reference/be/functions#select)
+This can be customized with the [`no_match_error`](/versions/8.1.1/reference/be/functions#select)
 attribute:
 
 ```python
@@ -628,7 +624,7 @@ select({"foo": "val_with_suffix"}, ...)
 This is for two reasons.
 
 First, macros that need to know which path a `select` will choose *cannot work*
-because macros are evaluated in Bazel's [loading phase](/run/build#loading),
+because macros are evaluated in Bazel's [loading phase](/versions/8.1.1/run/build#loading),
 which occurs before flag values are known.
 This is a core Bazel design restriction that's unlikely to change any time soon.
 
@@ -638,14 +634,14 @@ this.
 
 ## Bazel query and cquery
 
-Bazel [`query`](/query/guide) operates over Bazel's
-[loading phase](/reference/glossary#loading-phase).
+Bazel [`query`](/versions/8.1.1/query/guide) operates over Bazel's
+[loading phase](/versions/8.1.1/reference/glossary#loading-phase).
 This means it doesn't know what command line flags a target uses since those
 flags aren't evaluated until later in the build (in the
-[analysis phase](/reference/glossary#analysis-phase)).
+[analysis phase](/versions/8.1.1/reference/glossary#analysis-phase)).
 So it can't determine which `select()` branches are chosen.
 
-Bazel [`cquery`](/query/cquery) operates after Bazel's analysis phase, so it has
+Bazel [`cquery`](/versions/8.1.1/query/cquery) operates after Bazel's analysis phase, so it has
 all this information and can accurately resolve `select()`s.
 
 Consider:
@@ -706,7 +702,7 @@ details.
 
 The key issue this question usually means is that select() doesn't work in
 *macros*. These are different than *rules*. See the
-documentation on [rules](/extending/rules) and [macros](/extending/macros)
+documentation on [rules](/versions/8.1.1/extending/rules) and [macros](/versions/8.1.1/extending/macros)
 to understand the difference.
 Here's an end-to-end example:
 
@@ -917,14 +913,14 @@ def selecty_genrule(name, select_cmd):
 
 First of all, do not use `bind()`. It is deprecated in favor of `alias()`.
 
-The technical answer is that [`bind()`](/reference/be/workspace#bind) is a repo
+The technical answer is that [`bind()`](/versions/8.1.1/reference/be/workspace#bind) is a repo
 rule, not a BUILD rule.
 
 Repo rules do not have a specific configuration, and aren't evaluated in
 the same way as BUILD rules. Therefore, a `select()` in a `bind()` can't
 actually evaluate to any specific branch.
 
-Instead, you should use [`alias()`](/reference/be/general#alias), with a `select()` in
+Instead, you should use [`alias()`](/versions/8.1.1/reference/be/general#alias), with a `select()` in
 the `actual` attribute, to perform this type of run-time determination. This
 works correctly, since `alias()` is a BUILD rule, and is evaluated with a
 specific configuration.
@@ -964,7 +960,7 @@ But really, stop using `bind()`.
 ### Why doesn't my select() choose what I expect?
 
 If `//myapp:foo` has a `select()` that doesn't choose the condition you expect,
-use [cquery](/query/cquery) and `bazel config` to debug:
+use [cquery](/versions/8.1.1/query/cquery) and `bazel config` to debug:
 
 If `//myapp:foo` is the top-level target you're building, run:
 
@@ -1005,7 +1001,7 @@ Fragment com.google.devtools.build.lib.rules.cpp.CppOptions {
 Then compare this output against the settings expected by each `config_setting`.
 
 `//myapp:foo` may exist in different configurations in the same build. See the
-[cquery docs](/query/cquery) for guidance on using `somepath` to get the right
+[cquery docs](/versions/8.1.1/query/cquery) for guidance on using `somepath` to get the right
 one.
 
 Caution: To prevent restarting the Bazel server, invoke `bazel config` with the

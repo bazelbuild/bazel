@@ -1,0 +1,23 @@
+---
+title: 'PackageSpecificationInfo'
+---
+
+Information about transitive package specifications used in package groups.
+
+## Members
+
+* [contains](#contains)
+
+## contains
+
+```
+bool PackageSpecificationInfo.contains(target)
+```
+
+Checks if a target exists in a package group.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `target` | [Label](../builtins/Label); or [string](../core/string); required  A target which is checked if it exists inside the package group. |

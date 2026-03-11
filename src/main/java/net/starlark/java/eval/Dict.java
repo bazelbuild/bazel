@@ -34,6 +34,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
 import net.starlark.java.syntax.Types;
 
 /**
@@ -112,6 +113,10 @@ public class Dict<K, V>
         Mutability.Freezable,
         StarlarkIndexable,
         StarlarkIterable<K> {
+
+  public static TypeConstructor getBaseTypeConstructor() {
+    return Types.DICT_CONSTRUCTOR;
+  }
 
   private final Map<K, V> contents;
   // Number of active iterators (unused once frozen).
@@ -277,7 +282,7 @@ public class Dict<K, V>
       return defaultValue;
     }
     // TODO(adonovan): improve error; this ain't Python.
-    throw Starlark.errorf("KeyError: %s", Starlark.repr(key));
+    throw Starlark.errorf("KeyError: %s", Starlark.repr(key, thread.getSemantics()));
   }
 
   @StarlarkMethod(
@@ -642,13 +647,13 @@ public class Dict<K, V>
   }
 
   @Override
-  public void repr(Printer printer) {
-    printer.printList(entrySet(), "{", ", ", "}");
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    printer.printList(entrySet(), "{", ", ", "}", semantics);
   }
 
   @Override
   public String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 
   /**
@@ -694,7 +699,7 @@ public class Dict<K, V>
   public Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
     Object v = get(key);
     if (v == null) {
-      throw Starlark.errorf("key %s not found in dictionary", Starlark.repr(key));
+      throw Starlark.errorf("key %s not found in dictionary", Starlark.repr(key, semantics));
     }
     return v;
   }

@@ -41,8 +41,8 @@ import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
 import com.google.devtools.build.lib.remote.Retrier;
 import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
+import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -712,7 +712,7 @@ public class HttpCacheClientTest {
           getFromFuture(
               blobStore.downloadActionResult(
                   remoteActionExecutionContext,
-                  new RemoteCacheClient.ActionKey(DIGEST),
+                  new ActionKey(DIGEST),
                   /* inlineOutErr= */ false,
                   /* inlineOutputFiles= */ ImmutableSet.of()));
       assertThat(actionResult).isEqualTo(action2);

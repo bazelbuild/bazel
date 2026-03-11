@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.Featur
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.FeaturesUsingProjectFile.SKYFOCUS;
 import static com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code.INCOMPATIBLE_OPTIONS;
 import static com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code.PROJECT_FILE_NOT_FOUND;
-import static com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode.OFF;
 
 import com.google.auto.value.AutoBuilder;
 import com.google.common.base.Preconditions;
@@ -63,7 +62,6 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
@@ -74,13 +72,12 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedE
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetSkippedEvent;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.util.RegexFilter;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
@@ -103,35 +100,14 @@ public final class AnalysisPhaseRunner {
       BuildRequest request,
       TargetPatternPhaseValue targetPatternPhaseValue,
       BuildOptions buildOptions,
-      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider)
+      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider,
+      RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDeps)
       throws BuildFailedException,
           InterruptedException,
           ViewCreationFailedException,
           AbruptExitException,
           InvalidConfigurationException,
           RepositoryMappingResolutionException {
-
-    // Compute the heuristic instrumentation filter if needed.
-    if (request.needsInstrumentationFilter()) {
-      try (SilentCloseable c = Profiler.instance().profile("Compute instrumentation filter")) {
-        String instrumentationFilter =
-            InstrumentationFilterSupport.computeInstrumentationFilter(
-                env.getReporter(),
-                // TODO(ulfjack): Expensive. Make this part of the TargetPatternPhaseValue or write
-                // a new SkyFunction to compute it?
-                targetPatternPhaseValue.getTestsToRun(env.getReporter(), env.getPackageManager()));
-        try {
-          // We're modifying the buildOptions in place, which is not ideal, but we also don't want
-          // to pay the price for making a copy. Maybe reconsider later if this turns out to be a
-          // problem (and the performance loss may not be a big deal).
-          buildOptions.get(CoreOptions.class).instrumentationFilter =
-              new RegexFilter.RegexFilterConverter().convert(instrumentationFilter);
-        } catch (OptionsParsingException e) {
-          throw new InvalidConfigurationException(Code.HEURISTIC_INSTRUMENTATION_FILTER_INVALID, e);
-        }
-      }
-    }
-
     // Exit if there are any pending exceptions from modules.
     env.throwPendingException();
 
@@ -146,7 +122,8 @@ public final class AnalysisPhaseRunner {
                 request,
                 targetPatternPhaseValue,
                 buildOptions,
-                remoteAnalysisCachingDependenciesProvider);
+                remoteAnalysisCachingDependenciesProvider,
+                remoteAnalysisCacheReaderDeps);
       }
 
       for (BlazeModule module : env.getRuntime().getBlazeModules()) {
@@ -372,11 +349,13 @@ public final class AnalysisPhaseRunner {
       BuildRequest request,
       TargetPatternPhaseValue loadingResult,
       BuildOptions targetOptions,
-      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider)
+      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider,
+      RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDeps)
       throws InterruptedException,
           InvalidConfigurationException,
           RepositoryMappingResolutionException,
-          ViewCreationFailedException {
+          ViewCreationFailedException,
+          AbruptExitException {
     Stopwatch timer = Stopwatch.createStarted();
     env.getReporter().handle(Event.progress("Loading complete.  Analyzing..."));
 
@@ -420,8 +399,9 @@ public final class AnalysisPhaseRunner {
               /* buildConfigurationsCreatedCallback= */ null,
               /* buildDriverKeyTestContext= */ null,
               env.getAdditionalConfigurationChangeEvent(),
-              remoteAnalysisCachingDependenciesProvider);
-    } catch (BuildFailedException | TestExecException | AbruptExitException unexpected) {
+              remoteAnalysisCachingDependenciesProvider,
+              remoteAnalysisCacheReaderDeps);
+    } catch (BuildFailedException | TestExecException unexpected) {
       throw new IllegalStateException("Unexpected execution exception type: ", unexpected);
     }
 

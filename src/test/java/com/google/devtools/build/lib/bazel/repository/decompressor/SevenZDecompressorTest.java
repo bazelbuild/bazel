@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.util.FileSystems;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -180,7 +181,7 @@ public class SevenZDecompressorTest {
     sevenZOutput.closeArchiveEntry();
     sevenZOutput.finish();
 
-    FileSystem testFs = TestArchiveDescriptor.getFileSystem();
+    FileSystem testFs = FileSystems.getNativeFileSystem();
     DecompressorDescriptor.Builder descriptor =
         DecompressorDescriptor.builder()
             .setDestinationPath(testFs.getPath(extractionDir.getCanonicalPath()))
@@ -219,7 +220,7 @@ public class SevenZDecompressorTest {
     sevenZOutput.closeArchiveEntry();
 
     sevenZOutput.finish();
-    FileSystem testFs = TestArchiveDescriptor.getFileSystem();
+    FileSystem testFs = FileSystems.getNativeFileSystem();
     DecompressorDescriptor.Builder descriptor =
         DecompressorDescriptor.builder()
             .setDestinationPath(testFs.getPath(extractionDir.getCanonicalPath()))
@@ -244,7 +245,7 @@ public class SevenZDecompressorTest {
     sevenZOutput.closeArchiveEntry();
     sevenZOutput.finish();
 
-    FileSystem testFs = TestArchiveDescriptor.getFileSystem();
+    FileSystem testFs = FileSystems.getNativeFileSystem();
     DecompressorDescriptor descriptor =
         DecompressorDescriptor.builder()
             .setDestinationPath(testFs.getPath(extractionDir.getCanonicalPath()))

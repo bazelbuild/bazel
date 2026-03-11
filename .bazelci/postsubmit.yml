@@ -250,11 +250,9 @@ tasks:
     shell_commands:
       - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
     build_flags:
-      - "--config=ci-common"
       - "--config=remote"
-      - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
+      - "--config=ci-common"
       - "--jobs=200"
-      - "--remote_download_minimal"
       - "--experimental_output_paths=strip"
     build_targets:
       - "//src:bazel"
@@ -262,9 +260,8 @@ tasks:
       - "//..."
     test_flags:
       - "--config=remote"
-      - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
+      - "--config=ci-common"
       - "--jobs=200"
-      - "--remote_download_minimal"
       - "--experimental_output_paths=strip"
     test_targets:
       - "//scripts/..."
@@ -291,6 +288,7 @@ tasks:
       - "-//src/test/py/bazel:bazel_lockfile_test"
       - "-//src/test/py/bazel:bazel_overrides_test"
       - "-//src/test/py/bazel:bazel_repo_mapping_test"
+      - "-//src/test/py/bazel:bazel_tools_proto_test"
       - "-//src/test/py/bazel:bazel_yanked_versions_test"
       - "-//src/test/py/bazel:bzlmod_query_test"
       - "-//src/test/py/bazel:mod_command_test"

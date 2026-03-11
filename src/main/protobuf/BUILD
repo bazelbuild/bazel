@@ -447,3 +447,8 @@ filegroup(
         ":xcode_java_proto_srcs",
     ],
 )
+
+exports_files(
+    ["execution_statistics.proto"],
+    visibility = ["//src/test:__subpackages__"],
+)

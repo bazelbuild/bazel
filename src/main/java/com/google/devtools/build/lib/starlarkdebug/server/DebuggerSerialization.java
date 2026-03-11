@@ -50,7 +50,7 @@ final class DebuggerSerialization {
     if (value instanceof String string) {
       return string;
     }
-    return Starlark.repr(value);
+    return Starlark.repr(value, StarlarkSemantics.DEFAULT);
   }
 
   private static boolean hasChildren(Object value) {

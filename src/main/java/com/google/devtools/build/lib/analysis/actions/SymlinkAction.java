@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.unix.UnixFileStatus.S_IXUSR;
+import static com.google.devtools.build.lib.unix.UnixMode.S_IXUSR;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;

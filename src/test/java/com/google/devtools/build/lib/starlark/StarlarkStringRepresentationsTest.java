@@ -271,11 +271,12 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
     assertThat(starlarkLoadingEval("str(Label('//foo:bar'))")).isEqualTo("@@//foo:bar");
     assertThat(starlarkLoadingEval("'%s' % Label('//foo:bar')")).isEqualTo("@@//foo:bar");
     assertThat(starlarkLoadingEval("'{}'.format(Label('//foo:bar'))")).isEqualTo("@@//foo:bar");
-    assertThat(starlarkLoadingEval("repr(Label('//foo:bar'))")).isEqualTo("Label(\"//foo:bar\")");
-    assertThat(starlarkLoadingEval("'%r' % Label('//foo:bar')")).isEqualTo("Label(\"//foo:bar\")");
+    assertThat(starlarkLoadingEval("repr(Label('//foo:bar'))")).isEqualTo("Label(\"@@//foo:bar\")");
+    assertThat(starlarkLoadingEval("'%r' % Label('//foo:bar')"))
+        .isEqualTo("Label(\"@@//foo:bar\")");
 
     assertThat(starlarkLoadingEval("'{}'.format([Label('//foo:bar')])"))
-        .isEqualTo("[Label(\"//foo:bar\")]");
+        .isEqualTo("[Label(\"@@//foo:bar\")]");
   }
 
   @Test

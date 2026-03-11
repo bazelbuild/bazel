@@ -30,10 +30,7 @@ public class FakeDirectories {
 
   public static final BlazeDirectories BLAZE_DIRECTORIES =
       new BlazeDirectories(
-          SERVER_DIRECTORIES,
-          OUTPUT_BASE.getRelative("execroot/io_bazel"),
-          /* defaultSystemJavabase= */ null,
-          "bazel");
+          SERVER_DIRECTORIES, OUTPUT_BASE.getRelative("execroot/io_bazel"), "bazel");
 
   private FakeDirectories() {}
 }

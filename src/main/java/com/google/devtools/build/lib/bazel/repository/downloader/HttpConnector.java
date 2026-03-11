@@ -31,7 +31,7 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.net.HttpURLConnection;
 import java.net.SocketTimeoutException;
-import java.net.URL;
+import java.net.URI;
 import java.net.URLConnection;
 import java.net.UnknownHostException;
 import java.time.Duration;
@@ -41,6 +41,7 @@ import java.util.Locale;
 import java.util.Map;
 import javax.annotation.Nullable;
 import javax.annotation.WillClose;
+import javax.net.ssl.SSLException;
 
 /**
  * Class for establishing connections to HTTP servers for downloading files.
@@ -107,15 +108,15 @@ class HttpConnector {
   }
 
   URLConnection connect(
-      URL originalUrl, Function<URL, ImmutableMap<String, List<String>>> requestHeaders)
+      URI originalUrl, Function<URI, ImmutableMap<String, List<String>>> requestHeaders)
       throws IOException {
 
     if (Thread.interrupted()) {
       throw new InterruptedIOException();
     }
-    URL url = originalUrl;
+    URI url = originalUrl;
     if (HttpUtils.isProtocol(url, "file")) {
-      return url.openConnection();
+      return url.toURL().openConnection();
     }
     List<Throwable> suppressions = new ArrayList<>();
     int retries = 0;
@@ -125,7 +126,7 @@ class HttpConnector {
       HttpURLConnection connection = null;
       try {
         ProxyInfo proxyInfo = proxyHelper.createProxyIfNeeded(url);
-        connection = (HttpURLConnection) url.openConnection(proxyInfo.proxy());
+        connection = (HttpURLConnection) url.toURL().openConnection(proxyInfo.proxy());
         // For HTTP connections through authenticated proxies, set the Proxy-Authorization header.
         // For HTTPS, Java's HttpURLConnection handles CONNECT tunneling internally using the
         // Authenticator we set in ProxyHelper.
@@ -162,6 +163,22 @@ class HttpConnector {
           code = connection.getResponseCode();
         } catch (FileNotFoundException ignored) {
           code = connection.getResponseCode();
+        } catch (SSLException e) {
+          // Check if the exception is due to a permanent error, such as a certificate validation
+          // issue.
+          // These errors are unlikely to be resolved by retrying.
+          if (e.getMessage() != null
+              && (e.getMessage().contains("certificate")
+                  || e.getMessage().contains("CertPathValidatorException"))) {
+            String message = "TLS error: " + e.getMessage();
+            eventHandler.handle(Event.progress(message));
+            IOException httpException = new UnrecoverableHttpException(message);
+            httpException.addSuppressed(e);
+            throw httpException;
+          }
+          // Otherwise, treat it as a potentially transient network error and let it fall through
+          // to the standard IOException handler for retries.
+          throw e;
         } catch (UnknownHostException e) {
           String message = "Unknown host: " + e.getMessage();
           eventHandler.handle(Event.progress(message));

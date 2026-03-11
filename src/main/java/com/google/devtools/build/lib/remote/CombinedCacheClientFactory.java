@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import io.netty.channel.unix.DomainSocketAddress;
 import java.io.IOException;
 import java.net.URI;
-import java.util.concurrent.ExecutorService;
 import javax.annotation.Nullable;
 
 /** A factory class for providing a {@link CombinedCacheClient}. */
@@ -49,7 +48,6 @@ public final class CombinedCacheClientFactory {
       AuthAndTLSOptions authAndTlsOptions,
       Path workingDirectory,
       DigestUtil digestUtil,
-      ExecutorService executorService,
       RemoteRetrier retrier)
       throws IOException {
     Preconditions.checkNotNull(workingDirectory, "workingDirectory");
@@ -59,13 +57,7 @@ public final class CombinedCacheClientFactory {
       httpCacheClient = createHttp(options, creds, authAndTlsOptions, digestUtil, retrier);
     }
     if (isDiskCache(options)) {
-      diskCacheClient =
-          createDiskCache(
-              workingDirectory,
-              options,
-              digestUtil,
-              executorService,
-              options.remoteVerifyDownloads);
+      diskCacheClient = createDiskCache(workingDirectory, options, digestUtil);
     }
     if (httpCacheClient == null && diskCacheClient == null) {
       throw new IllegalArgumentException(
@@ -127,14 +119,9 @@ public final class CombinedCacheClientFactory {
   }
 
   public static DiskCacheClient createDiskCache(
-      Path workingDirectory,
-      RemoteOptions options,
-      DigestUtil digestUtil,
-      ExecutorService executorService,
-      boolean verifyDownloads)
-      throws IOException {
+      Path workingDirectory, RemoteOptions options, DigestUtil digestUtil) throws IOException {
     Path cacheDir = workingDirectory.getRelative(Preconditions.checkNotNull(options.diskCache));
-    return new DiskCacheClient(cacheDir, digestUtil, executorService, verifyDownloads);
+    return new DiskCacheClient(cacheDir, digestUtil);
   }
 
   public static boolean isDiskCache(RemoteOptions options) {

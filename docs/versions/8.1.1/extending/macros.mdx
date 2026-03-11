@@ -1,6 +1,3 @@
-{# disableFinding("Currently") #}
-{# disableFinding(TODO) #}
-
 ---
 title: 'Macros'
 ---
@@ -29,7 +26,7 @@ An executable example of symbolic macros can be found in the
 ## Usage
 
 Macros are defined in `.bzl` files by calling the
-[`macro()`](https://bazel.build/rules/lib/globals/bzl.html#macro) function with
+[`macro()`](https://bazel.build/versions/8.1.1/rules/lib/globals/bzl.html#macro) function with
 two required parameters: `attrs` and `implementation`.
 
 ### Attributes
@@ -52,7 +49,7 @@ my_macro = macro(
 ```
 
 Attribute type declarations accept the
-[parameters](https://bazel.build/rules/lib/toplevel/attr#parameters),
+[parameters](https://bazel.build/versions/8.1.1/rules/lib/toplevel/attr#parameters),
 `mandatory`, `default`, and `doc`. Most attribute types also accept the
 `configurable` parameter, which determines wheher the attribute accepts
 `select`s. If an attribute is `configurable`, it will parse non-`select` values
@@ -66,8 +63,8 @@ author often wants to forward the bulk of the wrapped symbol's attributes
 unchanged, using `**kwargs`, to the macro's main target (or main inner macro).
 
 To support this pattern, a macro can *inherit attributes* from a rule or another
-macro by passing the [rule](https://bazel.build/rules/lib/builtins/rule) or
-[macro symbol](https://bazel.build/rules/lib/builtins/macro) to `macro()`'s
+macro by passing the [rule](https://bazel.build/versions/8.1.1/rules/lib/builtins/rule) or
+[macro symbol](https://bazel.build/versions/8.1.1/rules/lib/builtins/macro) to `macro()`'s
 `inherit_attrs` argument. (You can also use the special string `"common"`
 instead of a rule or macro symbol to inherit the [common attributes defined for
 all Starlark build
@@ -221,7 +218,7 @@ Symbolic macros
 
 ### Visibility and macros
 
-The [visibility](/concepts/visibility) system helps protect the implementation
+The [visibility](/versions/8.1.1/concepts/visibility) system helps protect the implementation
 details of both (symbolic) macros and their callers.
 
 By default, targets created in a symbolic macro are visible within the macro
@@ -247,7 +244,7 @@ The key ideas of macro visibility are:
 
 In practice, this means that when a macro declares a target without setting its
 `visibility`, the target defaults to being internal to the macro. (The package's
-[default visibility](/reference/be/functions#package.default_visibility) does
+[default visibility](/versions/8.1.1/reference/be/functions#package.default_visibility) does
 not apply within a macro.) Exporting the target means that the target is visible
 to whatever the macro's caller specified in the macro's `visibility` attribute,
 plus the package of the macro's caller itself, as well as the macro's own code.
@@ -332,7 +329,7 @@ All visibility checking is done with respect to the innermost currently running
 symbolic macro. However, there is a visibility delegation mechanism: If a macro
 passes a label as an attribute value to an inner macro, any usages of the label
 in the inner macro are checked with respect to the outer macro. See the
-[visibility page](/concepts/visibility#symbolic-macros) for more details.
+[visibility page](/versions/8.1.1/concepts/visibility#symbolic-macros) for more details.
 
 Remember that legacy macros are entirely transparent to the visibility system,
 and behave as though their location is whatever BUILD file or symbolic macro

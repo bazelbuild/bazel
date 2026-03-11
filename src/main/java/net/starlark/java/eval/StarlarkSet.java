@@ -33,6 +33,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
 import net.starlark.java.syntax.Types;
 
 /** A finite, mutable set of Starlark values. */
@@ -152,6 +153,10 @@ operations that attempt to update it will fail.
 public final class StarlarkSet<E> extends AbstractSet<E>
     implements Mutability.Freezable, StarlarkMembershipTestable, StarlarkIterable<E> {
 
+  public static TypeConstructor getBaseTypeConstructor() {
+    return Types.SET_CONSTRUCTOR;
+  }
+
   private static final StarlarkSet<?> EMPTY = new StarlarkSet<>(ImmutableSet.of());
 
   // Either LinkedHashSet<E> or ImmutableSet<E>.
@@ -213,17 +218,17 @@ public final class StarlarkSet<E> extends AbstractSet<E>
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     if (isEmpty()) {
       printer.append("set()");
     } else {
-      printer.printList(this, "set([", ", ", "])");
+      printer.printList(this, "set([", ", ", "])", semantics);
     }
   }
 
   @Override
   public String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 
   @Override
@@ -519,7 +524,8 @@ assignment operation.
     Starlark.checkMutable(this);
     Starlark.checkHashable(element);
     if (!contents.remove(element)) {
-      throw Starlark.errorf("element %s not found in set", Starlark.repr(element));
+      throw Starlark.errorf(
+          "element %s not found in set", Starlark.repr(element, StarlarkSemantics.DEFAULT));
     }
   }
 

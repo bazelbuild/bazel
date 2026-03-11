@@ -115,6 +115,27 @@ __in_tear_down=0                # Indicates whether we are in `tear_down` phase
                                 # of test. Used to avoid re-entering `tear_down`
                                 # on failures within it.
 
+# These variables are used for handling test shards that are manually defined
+# via the define_test_shard() function.
+
+_test_shards=()                 # Array of overall test shards. Each array
+                                # element is a string containing the names of
+                                # the test methods in the shard, separated by
+                                # spaces.
+
+_test_shard_count=0             # Number of overall test shards.
+
+_manual_test_shards=()          # Array of manually defined test shards.
+
+_manual_test_shard_count=0      # Number of manual test shards.
+
+_manual_sharded_bool_prefix="_manual_sharded_bool_"  # Prefix for bool variables
+                                # that mark whether a test method is manually
+                                # sharded. The actual bool variables are named
+                                # like <prefix><test_method> and are set using
+                                # printf -v. This is used because bash 3.2
+                                # (MacOS) doesn't support associative arrays.
+
 if (( $# > 0 )); then
   (
     IFS=':'
@@ -598,12 +619,76 @@ function __update_shards() {
     (( TEST_SHARD_INDEX < 0 || TEST_SHARD_INDEX >= TEST_TOTAL_SHARDS )) &&
       { echo "Invalid shard ${TEST_SHARD_INDEX}" >&2; exit 1; }
 
-    IFS=$'\n' read -rd $'\0' -a TESTS < <(
-        for test in "${TESTS[@]}"; do echo "$test"; done |
-            awk "NR % ${TEST_TOTAL_SHARDS} == ${TEST_SHARD_INDEX}" &&
-            echo -en '\0')
-
     [[ -z "${TEST_SHARD_STATUS_FILE-}" ]] || touch "$TEST_SHARD_STATUS_FILE"
+
+    __evaluate_manual_sharding
+    __evaluate_remaining_sharding
+    IFS=$' \t\n' read -ra TESTS <<< "${_test_shards[TEST_SHARD_INDEX]}"
+}
+
+function __evaluate_manual_sharding() {
+  if (( _manual_test_shard_count > TEST_TOTAL_SHARDS )); then
+    echo "More manual shards (${_manual_test_shard_count}) defined than"\
+        "total shards (${TEST_TOTAL_SHARDS})" >&2
+    exit 1;
+  fi
+  local shard_idx=0
+  _test_shard_count=_manual_test_shard_count
+  for (( shard_idx=0; shard_idx < _manual_test_shard_count; shard_idx++))
+  do
+    for test in ${_manual_test_shards[shard_idx]}; do
+      grep -q -- "$test" <<<${TESTS[@]} ||
+        { echo "define_manual_shard(): '$test' not found in TESTS" >&2
+          exit 1; }
+    done
+    _test_shards[shard_idx]="${_manual_test_shards[shard_idx]}"
+  done
+}
+
+function __evaluate_remaining_sharding() {
+  local test_count=0
+  local unshardable_tests=""
+  local available_shards=$((${TEST_TOTAL_SHARDS} - ${_manual_test_shard_count}))
+  local shard_idx=_manual_test_shard_count
+  while (( shard_idx < TEST_TOTAL_SHARDS )); do
+     _test_shards[shard_idx]=""
+     let shard_idx+=1
+  done
+  for test in ${TESTS[@]}; do
+    _varname="${_manual_sharded_bool_prefix}${test}"
+    if [[ -n "${!_varname-}" ]]; then
+      continue
+    fi
+    if (( available_shards > 0 )); then
+      let shard_idx=$test_count%available_shards+_manual_test_shard_count 1
+      _test_shards[shard_idx]="${_test_shards[shard_idx]} ${test}"
+      let test_count+=1
+    else
+      unshardable_tests="${unshardable_tests} ${test}"
+    fi
+  done
+  if [[ -n "${unshardable_tests}" ]]; then
+    echo "There were tests with no explicit shards and every shard was"\
+        "manually defined. Increase shard count, assign an explicit shard"\
+        "to these tests or remove some manual shards. Affected tests:"\
+        "${unshardable_tests}" >&2
+    exit 1;
+  fi
+}
+
+# Usage: define_test_shard <test_name> <test_name> ...
+# Makes one of the test shards contain exactly the given tests, if the test
+# runs in shards. For non-sharded test execution, this is a no-op.
+function define_test_shard() {
+    for test in "$@"; do
+      _varname="${_manual_sharded_bool_prefix}${test}"
+      if [[ -n "${!_varname-}" ]]; then
+        echo "define_test_shard(): '$test' already in a shard" >&2
+        exit 1;
+      fi
+      printf -v "${_manual_sharded_bool_prefix}${test}" "%s" "1"
+    done
+    _manual_test_shards[_manual_test_shard_count++]="$*"
 }
 
 # Usage: __test_terminated <signal-number>
@@ -781,8 +866,8 @@ function run_suite() {
 
   __update_shards
 
-  if [[ "${#TESTS[@]}" -ne 0 ]]; then
-    for TEST_name in "${TESTS[@]}"; do
+  if [[ ${#TESTS[@]} -ne 0 ]]; then
+    for TEST_name in ${TESTS[@]}; do
       if [[ "${TESTBRIDGE_TEST_RUNNER_FAIL_FAST:-0}" == "1" && "$TEST_passed" == "false" ]]; then
         echo "Skipping test '$TEST_name' due to previous failure and --test_runner_fail_fast set." >&2
         continue

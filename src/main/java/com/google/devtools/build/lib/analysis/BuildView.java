@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.RemoteAnalysisCachingEnabledEvent;
 import com.google.devtools.build.lib.analysis.config.TopLevelConfigRequestedEvent;
 import com.google.devtools.build.lib.analysis.constraints.PlatformRestrictionsResult;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
@@ -91,6 +92,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
@@ -237,7 +239,8 @@ public class BuildView {
       @Nullable BuildConfigurationsCreated buildConfigurationsCreatedCallback,
       @Nullable BuildDriverKeyTestContext buildDriverKeyTestContext,
       Optional<AdditionalConfigurationChangeEvent> additionalConfigurationChangeEvent,
-      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider)
+      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider,
+      RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDeps)
       throws ViewCreationFailedException,
           InvalidConfigurationException,
           InterruptedException,
@@ -279,70 +282,69 @@ public class BuildView {
               viewOptions.allowAnalysisCacheDiscards,
               additionalConfigurationChangeEvent);
       topLevelConfig = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
-      SkyfocusState skyfocusState = skyframeExecutor.getSkyfocusState();
-      if (skyfocusState.enabled()) {
-        boolean buildConfigChanged =
-            skyfocusState.buildConfiguration() != null
-                && !skyfocusState.buildConfiguration().equals(topLevelConfig);
-        if (buildConfigChanged) {
-          switch (skyfocusState.options().frontierViolationCheck) {
-            case WARN -> {
-              eventHandler.handle(
-                  Event.warn(
-                      "Skyfocus: detected changes to the build configuration, will be discarding"
-                          + " the analysis cache."));
-            }
-            case STRICT ->
-                throw new AbruptExitException(
-                    DetailedExitCode.of(
-                        FailureDetail.newBuilder()
-                            .setMessage(
-                                "Skyfocus: detected changes to the build configuration. This is not"
-                                    + " allowed in a focused build. Either clean to reset the"
-                                    + " build, or set"
-                                    + " --experimental_frontier_violation_check=warn to perform a"
-                                    + " full reanalysis instead of failing the build.")
-                            .setSkyfocus(
-                                Skyfocus.newBuilder()
-                                    .setCode(Skyfocus.Code.CONFIGURATION_CHANGE)
-                                    .build())
-                            .build()));
-            case DISABLED_FOR_TESTING ->
-                throw new IllegalStateException("disallowed; not in test.");
-          }
-        }
+    }
 
-        skyframeExecutor.setSkyfocusState(
-            skyfocusState.toBuilder()
-                .buildConfiguration(topLevelConfig)
-                .forcedRerun(buildConfigChanged)
-                .build());
-      }
-      topLevelConfigurationTrimmedOfTestOptions =
-          getTopLevelConfigurationTrimmedOfTestOptions(topLevelConfig.getOptions(), eventHandler);
-      eventBus.post(
-          new TopLevelConfigRequestedEvent(
-              topLevelConfig, topLevelConfigurationTrimmedOfTestOptions));
-    }
-    if (buildConfigurationsCreatedCallback != null) {
-      buildConfigurationsCreatedCallback.run(topLevelConfig);
-    }
-    if (remoteAnalysisCachingDependenciesProvider.mode().requiresBackendConnectivity()) {
-      remoteAnalysisCachingDependenciesProvider.setTopLevelConfigChecksum(
-          topLevelConfigurationTrimmedOfTestOptions.checksum());
-      if (remoteAnalysisCachingDependenciesProvider.areMetadataQueriesEnabled()) {
-        remoteAnalysisCachingDependenciesProvider.setConfigMetadata(
-            topLevelConfigurationTrimmedOfTestOptions);
-      }
-    }
     if (remoteAnalysisCachingDependenciesProvider.mode() == RemoteAnalysisCacheMode.DOWNLOAD) {
       try (SilentCloseable c = Profiler.instance().profile("skycache.metadataQuery")) {
         remoteAnalysisCachingDependenciesProvider.queryMetadataAndMaybeBailout();
       }
       if (remoteAnalysisCachingDependenciesProvider.bailedOut()) {
         remoteAnalysisCachingDependenciesProvider = DisabledDependenciesProvider.INSTANCE;
+        remoteAnalysisCacheReaderDeps = DisabledDependenciesProvider.INSTANCE;
+      } else {
+        eventBus.post(new RemoteAnalysisCachingEnabledEvent());
       }
     }
+
+    SkyfocusState skyfocusState = skyframeExecutor.getSkyfocusState();
+    if (skyfocusState.enabled()) {
+      boolean buildConfigChanged =
+          skyfocusState.buildConfiguration() != null
+              && !skyfocusState.buildConfiguration().equals(topLevelConfig);
+      if (buildConfigChanged) {
+        switch (skyfocusState.options().frontierViolationCheck) {
+          case WARN -> {
+            eventHandler.handle(
+                Event.warn(
+                    "Skyfocus: detected changes to the build configuration, will be discarding"
+                        + " the analysis cache."));
+          }
+          case STRICT ->
+              throw new AbruptExitException(
+                  DetailedExitCode.of(
+                      FailureDetail.newBuilder()
+                          .setMessage(
+                              "Skyfocus: detected changes to the build configuration. This is not"
+                                  + " allowed in a focused build. Either clean to reset the"
+                                  + " build, or set"
+                                  + " --experimental_frontier_violation_check=warn to perform a"
+                                  + " full reanalysis instead of failing the build.")
+                          .setSkyfocus(
+                              Skyfocus.newBuilder()
+                                  .setCode(Skyfocus.Code.CONFIGURATION_CHANGE)
+                                  .build())
+                          .build()));
+          case DISABLED_FOR_TESTING -> throw new IllegalStateException("disallowed; not in test.");
+        }
+      }
+
+      skyframeExecutor.setSkyfocusState(
+          skyfocusState.toBuilder()
+              .buildConfiguration(topLevelConfig)
+              .forcedRerun(buildConfigChanged)
+              .build());
+    }
+
+    topLevelConfigurationTrimmedOfTestOptions =
+        getTopLevelConfigurationTrimmedOfTestOptions(topLevelConfig.getOptions(), eventHandler);
+    eventBus.post(
+        new TopLevelConfigRequestedEvent(
+            topLevelConfig, topLevelConfigurationTrimmedOfTestOptions));
+
+    if (buildConfigurationsCreatedCallback != null) {
+      buildConfigurationsCreatedCallback.run(topLevelConfig);
+    }
+
 
     skyframeBuildView.setConfiguration(topLevelConfig, targetOptions, shouldDiscardAnalysisCache);
 
@@ -371,10 +373,10 @@ public class BuildView {
 
     ImmutableList<TopLevelAspectsKey> aspectKeys =
         createTopLevelAspectKeys(
-            aspects, aspectsParameters, labelToTargetMap.keySet(), topLevelConfig, eventHandler);
+            aspects, aspectsParameters, labelToTargetMap, topLevelConfig, eventHandler);
 
     skyframeExecutor.setRemoteAnalysisCachingDependenciesProvider(
-        remoteAnalysisCachingDependenciesProvider);
+        remoteAnalysisCachingDependenciesProvider, remoteAnalysisCacheReaderDeps);
     skyframeExecutor.invalidateWithExternalService(eventHandler);
 
     getArtifactFactory().noteAnalysisStarting();
@@ -392,7 +394,7 @@ public class BuildView {
         boolean discardAnalysisCacheAfterAnalysis =
             viewOptions.discardAnalysisCache || !skyframeExecutor.tracksStateForIncrementality();
         if (discardAnalysisCacheAfterAnalysis
-            && remoteAnalysisCachingDependenciesProvider.isRetrievalEnabled()) {
+            && remoteAnalysisCachingDependenciesProvider.mode().isRetrievalEnabled()) {
           // When remote analysis value retrieval is enabled, it is possible for analysis
           // to occur during the logical execution phase. Discarding the analysis cache
           // can lead to crashes.
@@ -542,7 +544,7 @@ public class BuildView {
   private ImmutableList<TopLevelAspectsKey> createTopLevelAspectKeys(
       List<String> aspects,
       ImmutableMap<String, String> aspectsParameters,
-      ImmutableSet<Label> topLevelTargets,
+      ImmutableMap<Label, Target> topLevelTargets,
       BuildConfigurationValue configuration,
       ExtendedEventHandler eventHandler)
       throws InterruptedException, ViewCreationFailedException {
@@ -623,11 +625,15 @@ public class BuildView {
       return ImmutableList.of();
     }
 
-    return topLevelTargets.stream()
+    return topLevelTargets.entrySet().stream()
+        // Do not run aspects on materializer targets since registering actions is not allowed in
+        // materializer rules (and thus aspects that run on them) and many aspects do register
+        // actions, and there isn't much for an aspect to do on a materializer target anyway.
+        .filter(entry -> !entry.getValue().isMaterializerRule())
         .map(
             target ->
                 AspectKeyCreator.createTopLevelAspectsKey(
-                    aspectClasses, target, configuration, aspectsParameters))
+                    aspectClasses, target.getKey(), configuration, aspectsParameters))
         .collect(toImmutableList());
   }
 

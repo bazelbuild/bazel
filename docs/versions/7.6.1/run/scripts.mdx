@@ -2,8 +2,6 @@
 title: 'Calling Bazel from scripts'
 ---
 
-
-
 You can call Bazel from scripts to perform a build, run tests, or query
 the dependency graph. Bazel has been designed to enable effective scripting, but
 this section lists some details to bear in mind to make your scripts more
@@ -30,7 +28,7 @@ commands to complete before it can continue.
 
 ### Notes about server mode
 
-By default, Bazel uses a long-running [server process](/run/client-server) as an
+By default, Bazel uses a long-running [server process](/versions/7.6.1/run/client-server) as an
 optimization. When running Bazel in a script, don't forget to call `shutdown`
 when you're finished with the server, or, specify `--max_idle_secs=5` so that
 idle servers shut themselves down promptly.
@@ -68,7 +66,6 @@ Bazel execution can result in following exit codes:
 -   `4` - Build successful but no tests were found even though testing was
     requested.
 
-
 **For `bazel run`:**
 
 -   `1` - Build failed.
@@ -86,10 +83,9 @@ Future Bazel versions may add additional exit codes, replacing generic failure
 exit code `1` with a different non-zero value with a particular meaning.
 However, all non-zero exit values will always constitute an error.
 
-
 ### Reading the .bazelrc file
 
-By default, Bazel reads the [`.bazelrc` file](/run/bazelrc) from the base
+By default, Bazel reads the [`.bazelrc` file](/versions/7.6.1/run/bazelrc) from the base
 workspace directory or the user's home directory. Whether or not this is
 desirable is a choice for your script; if your script needs to be perfectly
 hermetic (such as when doing release builds), you should disable reading the
@@ -123,4 +119,4 @@ these messages.
 
 ## Troubleshooting performance by profiling
 
-See the [Performance Profiling](/rules/performance#performance-profiling) section.
+See the [Performance Profiling](/versions/7.6.1/rules/performance#performance-profiling) section.

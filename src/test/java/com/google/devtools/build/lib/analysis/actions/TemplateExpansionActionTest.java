@@ -83,7 +83,6 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
                 scratch.resolve("/base"),
                 scratch.resolve("/userRoot")),
             scratch.resolve("/workspace"),
-            /* defaultSystemJavabase= */ null,
             "mock-product-name");
   }
 

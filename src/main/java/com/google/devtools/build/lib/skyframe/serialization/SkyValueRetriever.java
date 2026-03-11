@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import static com.google.common.base.Throwables.getRootCause;
 import static com.google.common.util.concurrent.Futures.getDone;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -38,6 +37,7 @@ import javax.annotation.Nullable;
 
 /** Fetches remotely stored {@link SkyValue}s by {@link SkyKey}. */
 public final class SkyValueRetriever {
+
   /**
    * A wrapper for the mutable state of the analysis cache deserialization machinery.
    *
@@ -189,14 +189,21 @@ public final class SkyValueRetriever {
     RESTART;
   }
 
+  /** The reason why a Skycache lookup rjkySesulted in a miss. */
+  public enum CacheMissReason {
+    UNKNOWN, // We don't know why
+    SKYVALUE_MISS, // The fingerprint value store doesn't contain the requested SkyValue
+    REFERENCED_OBJECT_MISS, // An object the requested SkyValue references is missing
+    NOT_ATTEMPTED, // Skycache lookups are not possible due to the state Bazel is in
+  }
+
   /**
    * There was no associated data in the cache for the requested key.
    *
    * <p>A typical client falls back on local computation upon seeing this.
    */
-  public enum NoCachedData implements SerializationState, RetrievalResult {
-    NO_CACHED_DATA;
-  }
+  public record NoCachedData(CacheMissReason reason)
+      implements SerializationState, RetrievalResult {}
 
   /** The value was successfully retrieved. */
   public record RetrievedValue(SkyValue value) implements SerializationState, RetrievalResult {}
@@ -265,16 +272,15 @@ public final class SkyValueRetriever {
               try {
                 valueBytes = getDone(futureValueBytes);
               } catch (ExecutionException e) {
-                if (getRootCause(e) instanceof MissingFingerprintValueException) {
-                  serializationState = NoCachedData.NO_CACHED_DATA;
-                  break;
-                }
+                // This exception cannot happen in production code because the FingerprintValueStore
+                // implementations used here don't throw
+                Verify.verify(!(e.getCause() instanceof MissingFingerprintValueException));
                 throw new SerializationException("getting value bytes for " + key, e);
               }
-              if (valueBytes.length == 0) {
+              if (valueBytes == null || valueBytes.length == 0) {
                 // Serialized representations are never empty in this protocol. Some implementations
-                // use empty bytes to indicate missing data.
-                serializationState = NoCachedData.NO_CACHED_DATA;
+                // (not linked with Bazel) use empty bytes to indicate missing data
+                serializationState = new NoCachedData(CacheMissReason.SKYVALUE_MISS);
                 break;
               }
               var codedIn = CodedInputStream.newInstance(valueBytes);
@@ -321,7 +327,7 @@ public final class SkyValueRetriever {
                 throw new SerializationException("getting cache response for " + key, e);
               }
               if (responseBytes.isEmpty()) {
-                serializationState = NoCachedData.NO_CACHED_DATA;
+                serializationState = new NoCachedData(CacheMissReason.SKYVALUE_MISS);
                 break;
               }
 
@@ -355,7 +361,12 @@ public final class SkyValueRetriever {
             try {
               serializationState = new WaitingForLookupContinuation(getDone(futureContinuation));
             } catch (ExecutionException e) {
-              throw new SerializationException("waiting for all owned shared values for " + key, e);
+              CacheMissReason reason =
+                  e.getCause() instanceof SerializationException se
+                      ? se.getReason()
+                      : CacheMissReason.UNKNOWN;
+              throw new SerializationException(
+                  "waiting for all owned shared values for " + key, e, reason);
             }
             break;
           case WaitingForLookupContinuation(SkyframeLookupContinuation lookupContinuation):
@@ -389,8 +400,8 @@ public final class SkyValueRetriever {
             break;
           case RetrievedValue value:
             return value;
-          case NoCachedData unused:
-            return NoCachedData.NO_CACHED_DATA;
+          case NoCachedData noCachedData:
+            return noCachedData;
         }
       }
     } catch (CancellationException e) {
@@ -399,8 +410,9 @@ public final class SkyValueRetriever {
       //
       // TODO: b/438142239 - ideally, CancellationException would be handled by Skyframe. However,
       // it is only thrown by this method and NO_CACHED_DATA is a safe fallback.
-      serializationState = NoCachedData.NO_CACHED_DATA;
-      return NoCachedData.NO_CACHED_DATA;
+      var result = new NoCachedData(CacheMissReason.UNKNOWN);
+      serializationState = result;
+      return result;
     } finally {
       retrievalContext.setState(serializationState);
     }

@@ -20,12 +20,10 @@ import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelC
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
-import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -213,22 +211,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
               + "configuration transitions derived from rule attributes")
   public String appleSplitCpu;
 
-  // This option exists because two configurations are not allowed to have the same cache key
-  // (partially derived from options). Since we have multiple transitions that may result in the
-  // same configuration values at runtime we need an artificial way to distinguish between them.
-  // This option must only be set by those transitions for this purpose.
-  // TODO(bazel-team): Remove this once we have dynamic configurations but make sure that different
-  // configurations (e.g. by min os version) always use different output paths.
-  // TODO(blaze-configurability-team): Deprecate this when legacy output directory scheme is gone.
-  @Option(
-      name = "apple configuration distinguisher",
-      defaultValue = "UNKNOWN",
-      converter = ConfigurationDistinguisherConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      metadataTags = {OptionMetadataTag.INTERNAL})
-  public ConfigurationDistinguisher configurationDistinguisher;
-
   @Option(
       name = "ios_multi_cpus",
       allowMultiple = true,
@@ -361,14 +343,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
     }
 
     return DottedVersion.maybeUnwrap(option);
-  }
-
-  /** Converter for the Apple configuration distinguisher. */
-  public static final class ConfigurationDistinguisherConverter
-      extends EnumConverter<ConfigurationDistinguisher> {
-    public ConfigurationDistinguisherConverter() {
-      super(ConfigurationDistinguisher.class, "Apple rule configuration distinguisher");
-    }
   }
 
   /** Flag converter for PlatformType string flag, just converting to lowercase. */

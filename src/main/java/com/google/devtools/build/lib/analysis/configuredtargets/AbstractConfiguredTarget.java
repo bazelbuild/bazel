@@ -159,19 +159,21 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   public final Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
     // Only call `getKey()` on unexported Providers to avoid crashing. Users can write:
     // rule(implementation = lambda ctx: ctx.attr.input[provider()], attr = {"input": ...})
-    Provider constructor = selectExportedProvider(key, "index");
+    Provider constructor = selectExportedProvider(key, semantics, "index");
     Object declaredProvider = get(constructor.getKey());
     if (declaredProvider != null) {
       return declaredProvider;
     }
     throw Starlark.errorf(
         "%s%s doesn't contain declared provider '%s'",
-        Starlark.repr(this), getRuleClassStringForError(), constructor.getPrintableName());
+        Starlark.repr(this, semantics),
+        getRuleClassStringForError(),
+        constructor.getPrintableName());
   }
 
   @Override
   public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
-    return get(selectExportedProvider(key, "query").getKey()) != null;
+    return get(selectExportedProvider(key, semantics, "query").getKey()) != null;
   }
 
   @Override
@@ -240,7 +242,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   // All main target classes must override this method to provide more descriptive strings.
   // Exceptions are currently EnvironmentGroupConfiguredTarget and PackageGroupConfiguredTarget.
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<unknown target " + getLabel() + ">");
   }
 
@@ -252,7 +254,8 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
    * Selects the provider identified by {@code key}, throwing a Starlark error if the key is not a
    * provider or not exported.
    */
-  private Provider selectExportedProvider(Object key, String operation) throws EvalException {
+  private Provider selectExportedProvider(Object key, StarlarkSemantics semantics, String operation)
+      throws EvalException {
     if (!(key instanceof Provider constructor)) {
       throw Starlark.errorf(
           "Type Target only supports %sing by object constructors, got %s instead",
@@ -262,7 +265,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
       throw Starlark.errorf(
           "%s%s only supports %sing by exported providers. Assign the provider a name "
               + "in a top-level assignment statement.",
-          Starlark.repr(this), getRuleClassStringForError(), operation);
+          Starlark.repr(this, semantics), getRuleClassStringForError(), operation);
     }
     return constructor;
   }

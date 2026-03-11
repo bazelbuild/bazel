@@ -771,17 +771,6 @@ sh_test(
 )
 
 sh_test(
-    name = "incompatible_autoload_externally_test",
-    size = "medium",
-    srcs = ["incompatible_autoload_externally_test.sh"],
-    data = [":test-deps"],
-    tags = [
-        "no_windows",
-        "requires-network",
-    ],
-)
-
-sh_test(
     name = "bazel_java_test",
     size = "medium",
     srcs = ["bazel_java_test.sh"],
@@ -841,6 +830,7 @@ sh_test(
     timeout = "long",
     srcs = ["target_compatible_with_test.sh"],
     data = [":test-deps"],
+    shard_count = 10,
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 

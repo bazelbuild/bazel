@@ -1,10 +1,3 @@
-keywords: product:Bazel,Bzlmod,vendor
-
-{# disableFinding("vendoring") #}
-{# disableFinding("Vendoring") #}
-{# disableFinding("vendored") #}
-{# disableFinding("repo") #}
-
 ---
 title: 'Vendor Mode'
 ---
@@ -31,8 +24,8 @@ absolute path.
 
 You can use the `vendor` command with the `--repo` flag to specify which repo
 to vendor, it accepts both [canonical repo
-name](/external/overview#canonical-repo-name) and [apparent repo
-name](/external/overview#apparent-repo-name).
+name](/versions/8.0.1/external/overview#canonical-repo-name) and [apparent repo
+name](/versions/8.0.1/external/overview#apparent-repo-name).
 
 For example, running:
 
@@ -108,7 +101,7 @@ You can control how given repos are handled with the VENDOR.bazel file located
 under the vendor directory.
 
 There are two directives available, both accepting a list of
-[canonical repo names](/external/overview#canonical-repo-name) as arguments:
+[canonical repo names](/versions/8.0.1/external/overview#canonical-repo-name) as arguments:
 
 - `ignore()`: to completely ignore a repository from vendor mode.
 - `pin()`: to pin a repository to its current vendored source as if there is a
@@ -133,8 +126,8 @@ With this configuration
     first.
 
 Note: Repository rules with
-[`local`](/rules/lib/globals/bzl#repository_rule.local) or
-[`configure`](/rules/lib/globals/bzl#repository_rule.configure) set to true are
+[`local`](/versions/8.0.1/rules/lib/globals/bzl#repository_rule.local) or
+[`configure`](/versions/8.0.1/rules/lib/globals/bzl#repository_rule.configure) set to true are
 always excluded from vendoring.
 
 ## Understand how vendor mode works

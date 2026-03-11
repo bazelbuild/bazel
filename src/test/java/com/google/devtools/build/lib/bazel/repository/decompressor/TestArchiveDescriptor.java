@@ -18,13 +18,10 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.unix.UnixFileSystem;
-import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
 import java.io.IOException;
@@ -66,7 +63,7 @@ public class TestArchiveDescriptor {
   }
 
   DecompressorDescriptor.Builder createDescriptorBuilder() throws IOException {
-    FileSystem testFs = getFileSystem();
+    FileSystem testFs = FileSystems.getNativeFileSystem();
 
     // do not rely on TestConstants.JAVATESTS_ROOT end with slash, but ensure separators
     // are not duplicated
@@ -78,12 +75,6 @@ public class TestArchiveDescriptor {
     Path outDir = workingDir.getRelative(outDirName);
 
     return DecompressorDescriptor.builder().setDestinationPath(outDir).setArchivePath(tarballPath);
-  }
-
-  public static FileSystem getFileSystem() {
-    return OS.getCurrent() == OS.WINDOWS
-        ? new JavaIoFileSystem(DigestHashFunction.SHA256)
-        : new UnixFileSystem(DigestHashFunction.SHA256, /* hashAttributeName= */ "");
   }
 
   /** Validate the content of the output directory */

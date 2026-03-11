@@ -162,3 +162,8 @@ genrule(
         " > $@\n",
     stamp = 1,
 )
+
+exports_files(
+    ["bazel.bazelrc"],
+    visibility = ["//scripts/packages:__subpackages__"],
+)

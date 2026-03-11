@@ -1,0 +1,83 @@
+---
+title: 'Rules'
+---
+
+The Bazel ecosystem has a growing and evolving set of rules to support popular
+languages and packages. Much of Bazel's strength comes from the ability to
+[define new rules](/versions/9.0.0/extending/concepts) that can be used by others.
+
+This page describes the recommended, native, and non-native Bazel rules.
+
+## Recommended rules
+
+Here is a selection of recommended rules:
+
+* [Android](/versions/9.0.0/docs/bazel-and-android)
+* [C / C++](/versions/9.0.0/docs/bazel-and-cpp)
+* [Docker/OCI](https://github.com/bazel-contrib/rules_oci)
+* [Go](https://github.com/bazelbuild/rules_go)
+* [Haskell](https://github.com/tweag/rules_haskell)
+* [Java](/versions/9.0.0/docs/bazel-and-java)
+* [JavaScript / NodeJS](https://github.com/bazelbuild/rules_nodejs)
+* [Maven dependency management](https://github.com/bazelbuild/rules_jvm_external)
+* [Objective-C](/versions/9.0.0/docs/bazel-and-apple)
+* [Package building](https://github.com/bazelbuild/rules_pkg)
+* [Protocol Buffers](https://github.com/bazelbuild/rules_proto#protobuf-rules-for-bazel)
+* [Python](https://github.com/bazelbuild/rules_python)
+* [Rust](https://github.com/bazelbuild/rules_rust)
+* [Scala](https://github.com/bazelbuild/rules_scala)
+* [Shell](/versions/9.0.0/reference/be/shell)
+* [Webtesting](https://github.com/bazelbuild/rules_webtesting) (Webdriver)
+
+The repository [Skylib](https://github.com/bazelbuild/bazel-skylib) contains
+additional functions that can be useful when writing new rules and new
+macros.
+
+The rules above were reviewed and follow our
+[requirements for recommended rules](/versions/9.0.0/community/recommended-rules).
+Contact the respective rule set's maintainers regarding issues and feature
+requests.
+
+To find more Bazel rules, use a search engine, take a look on
+[awesomebazel.com](https://awesomebazel.com/), or search on
+[GitHub](https://github.com/search?o=desc&q=bazel+rules&s=stars&type=Repositories).
+
+## Native rules that do not apply to a specific programming language
+
+Native rules are shipped with the Bazel binary, they are always available in
+BUILD files without a `load` statement.
+
+* Extra actions
+  - [`extra_action`](/versions/9.0.0/reference/be/extra-actions#extra_action)
+  - [`action_listener`](/versions/9.0.0/reference/be/extra-actions#action_listener)
+* General
+  - [`filegroup`](/versions/9.0.0/reference/be/general#filegroup)
+  - [`genquery`](/versions/9.0.0/reference/be/general#genquery)
+  - [`test_suite`](/versions/9.0.0/reference/be/general#test_suite)
+  - [`alias`](/versions/9.0.0/reference/be/general#alias)
+  - [`config_setting`](/versions/9.0.0/reference/be/general#config_setting)
+  - [`genrule`](/versions/9.0.0/reference/be/general#genrule)
+* Platform
+  - [`constraint_setting`](/versions/9.0.0/reference/be/platforms-and-toolchains#constraint_setting)
+  - [`constraint_value`](/versions/9.0.0/reference/be/platforms-and-toolchains#constraint_value)
+  - [`platform`](/versions/9.0.0/reference/be/platforms-and-toolchains#platform)
+  - [`toolchain`](/versions/9.0.0/reference/be/platforms-and-toolchains#toolchain)
+  - [`toolchain_type`](/versions/9.0.0/reference/be/platforms-and-toolchains#toolchain_type)
+* Workspace
+  - [`bind`](/versions/9.0.0/reference/be/workspace#bind)
+  - [`local_repository`](/versions/9.0.0/reference/be/workspace#local_repository)
+  - [`new_local_repository`](/versions/9.0.0/reference/be/workspace#new_local_repository)
+  - [`xcode_config`](/versions/9.0.0/reference/be/objective-c#xcode_config)
+  - [`xcode_version`](/versions/9.0.0/reference/be/objective-c#xcode_version)
+
+## Embedded non-native rules
+
+Bazel also embeds additional rules written in [Starlark](/versions/9.0.0/rules/language). Those can be loaded from
+the `@bazel_tools` built-in external repository.
+
+* Repository rules
+  - [`git_repository`](/versions/9.0.0/rules/lib/repo/git#git_repository)
+  - [`http_archive`](/versions/9.0.0/rules/lib/repo/http#http_archive)
+  - [`http_file`](/versions/9.0.0/rules/lib/repo/http#http_archive)
+  - [`http_jar`](/versions/9.0.0/rules/lib/repo/http#http_jar)
+  - [Utility functions on patching](/versions/9.0.0/rules/lib/repo/utils)

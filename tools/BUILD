@@ -24,7 +24,6 @@ filegroup(
         "//tools/java:srcs",
         "//tools/jdk:srcs",
         "//tools/launcher:srcs",
-        "//tools/mini_tar:srcs",
         "//tools/objc:srcs",
         "//tools/osx:srcs",
         "//tools/proto:srcs",

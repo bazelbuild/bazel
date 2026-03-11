@@ -187,7 +187,6 @@ public final class RemoteModuleTest {
         new BlazeDirectories(
             serverDirectories,
             scratch.dir("/workspace"),
-            scratch.dir("/system_javabase"),
             productName);
     BlazeWorkspace workspace = runtime.initWorkspace(directories, BinTools.empty(directories));
     Command command = BuildCommand.class.getAnnotation(Command.class);

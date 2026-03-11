@@ -207,8 +207,11 @@ JSON, `requires-worker-protocol` would be set to `proto`, like this:
   }
 ```
 
-If you do not include `requires-worker-protocol` in the execution requirements,
-Bazel will default the worker communication to use protobuf.
+Setting `requires-worker-protocol` also ensures that the selected protocol is
+forwarded to any remote execution server via the `persistentWorkerProtocol`
+platform property. If you do not include `requires-worker-protocol` in the
+execution requirements, Bazel will default the worker communication to use
+protobuf.
 
 Bazel derives the `WorkerKey` from the mnemonic and the shared flags, so if this
 configuration allowed changing the `max_mem` parameter, a separate worker would

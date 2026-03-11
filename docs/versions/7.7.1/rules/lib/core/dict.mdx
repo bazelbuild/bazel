@@ -1,0 +1,160 @@
+---
+title: 'dict'
+---
+
+dict is a built-in type representing an associative mapping or *dictionary*. A dictionary supports indexing using `d[k]` and key membership testing using `k in d`; both operations take constant time. Unfrozen dictionaries are mutable, and may be updated by assigning to `d[k]` or by calling certain methods. Dictionaries are iterable; iteration yields the sequence of keys in insertion order. Iteration order is unaffected by updating the value associated with an existing key, but is affected by removing then reinserting a key.
+
+```
+d = {0: 0, 2: 2, 1: 1}
+[k for k in d]  # [0, 2, 1]
+d.pop(2)
+d[0], d[2] = "a", "b"
+0 in d, "a" in d  # (True, False)
+[(k, v) for k, v in d.items()]  # [(0, "a"), (1, 1), (2, "b")]
+```
+
+There are four ways to construct a dictionary:
+
+1. A dictionary expression `{k: v, ...}` yields a new dictionary with the specified key/value entries, inserted in the order they appear in the expression. Evaluation fails if any two key expressions yield the same value.- A dictionary comprehension `{k: v for vars in seq}` yields a new dictionary into which each key/value pair is inserted in loop iteration order. Duplicates are permitted: the first insertion of a given key determines its position in the sequence, and the last determines its associated value.
+
+     ```
+     {k: v for k, v in (("a", 0), ("b", 1), ("a", 2))}  # {"a": 2, "b": 1}
+     {i: 2*i for i in range(3)}  # {0: 0, 1: 2, 2: 4}
+     ```
+
+     - A call to the built-in [dict](../globals/all#dict) function returns a dictionary containing the specified entries, which are inserted in argument order, positional arguments before named. As with comprehensions, duplicate keys are permitted.- The union expression `x | y` yields a new dictionary by combining two existing dictionaries. If the two dictionaries have a key `k` in common, the right hand side dictionary's value of the key (in other words, `y[k]`) wins. The `|=` variant of the union operator modifies a dictionary in-place. Example:
+
+         ```
+         d = {"foo": "FOO", "bar": "BAR"} | {"foo": "FOO2", "baz": "BAZ"}
+         # d == {"foo": "FOO2", "bar": "BAR", "baz": "BAZ"}
+         d = {"a": 1, "b": 2}
+         d |= {"b": 3, "c": 4}
+         # d == {"a": 1, "b": 3, "c": 4}
+         ```
+
+## Members
+
+* [clear](#clear)
+* [get](#get)
+* [items](#items)
+* [keys](#keys)
+* [pop](#pop)
+* [popitem](#popitem)
+* [setdefault](#setdefault)
+* [update](#update)
+* [values](#values)
+
+## clear
+
+```
+None dict.clear()
+```
+
+Remove all items from the dictionary.
+
+## get
+
+```
+unknown dict.get(key, default=None)
+```
+
+Returns the value for `key` if `key` is in the dictionary, else `default`. If `default` is not given, it defaults to `None`, so that this method never throws an error.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `key` | required |
+| `default` | default is `None`  The default value to use (instead of None) if the key is not found. |
+
+## items
+
+```
+list dict.items()
+```
+
+Returns the list of key-value tuples:
+
+```
+{2: "a", 4: "b", 1: "c"}.items() == [(2, "a"), (4, "b"), (1, "c")]
+```
+
+## keys
+
+```
+list dict.keys()
+```
+
+Returns the list of keys:
+
+```
+{2: "a", 4: "b", 1: "c"}.keys() == [2, 4, 1]
+```
+
+## pop
+
+```
+unknown dict.pop(key, default=unbound)
+```
+
+Removes a `key` from the dict, and returns the associated value. If no entry with that key was found, remove nothing and return the specified `default` value; if no default value was specified, fail instead.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `key` | required  The key. |
+| `default` | default is `unbound`  a default value if the key is absent. |
+
+## popitem
+
+```
+tuple dict.popitem()
+```
+
+Remove and return the first `(key, value)` pair from the dictionary. `popitem` is useful to destructively iterate over a dictionary, as often used in set algorithms. If the dictionary is empty, the `popitem` call fails.
+
+## setdefault
+
+```
+unknown dict.setdefault(key, default=None)
+```
+
+If `key` is in the dictionary, return its value. If not, insert key with a value of `default` and return `default`. `default` defaults to `None`.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `key` | required  The key. |
+| `default` | default is `None`  a default value if the key is absent. |
+
+## update
+
+```
+None dict.update(pairs=[], **kwargs)
+```
+
+Updates the dictionary first with the optional positional argument, `pairs`, then with the optional keyword arguments
+If the positional argument is present, it must be a dict, iterable, or None.
+If it is a dict, then its key/value pairs are inserted into this dict. If it is an iterable, it must provide a sequence of pairs (or other iterables of length 2), each of which is treated as a key/value pair to be inserted.
+Each keyword argument `name=value` causes the name/value pair to be inserted into this dict.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `pairs` | default is `[]`  Either a dictionary or a list of entries. Entries must be tuples or lists with exactly two elements: key, value. |
+| `kwargs` | required  Dictionary of additional entries. |
+
+## values
+
+```
+list dict.values()
+```
+
+Returns the list of values:
+
+```
+{2: "a", 4: "b", 1: "c"}.values() == ["a", "b", "c"]
+```

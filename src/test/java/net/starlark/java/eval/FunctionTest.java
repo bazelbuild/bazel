@@ -398,7 +398,8 @@ public final class FunctionTest {
         "f() got unexpected keyword argument: args", "def f(*args): pass", "f(args=[])");
 
     ev.exec("def f(**kwargs): return kwargs");
-    assertThat(Starlark.repr(ev.eval("f(kwargs=1)"))).isEqualTo("{\"kwargs\": 1}");
+    assertThat(Starlark.repr(ev.eval("f(kwargs=1)"), StarlarkSemantics.DEFAULT))
+        .isEqualTo("{\"kwargs\": 1}");
   }
 
   @Test
@@ -514,13 +515,15 @@ public final class FunctionTest {
             + "b1 = bar(name='foo', type='jpg', version=42).items()\n"
             + "b2 = bar()\n");
 
-    assertThat(Starlark.repr(ev.lookup("v1"))).isEqualTo("(1, 2, 3, 4, 7, 8, (), {})");
-    assertThat(Starlark.repr(ev.lookup("v2")))
+    assertThat(Starlark.repr(ev.lookup("v1"), StarlarkSemantics.DEFAULT))
+        .isEqualTo("(1, 2, 3, 4, 7, 8, (), {})");
+    assertThat(Starlark.repr(ev.lookup("v2"), StarlarkSemantics.DEFAULT))
         .isEqualTo("(1, \"x\", \"y\", \"z\", \"t\", 9, (), {\"i\": 0})");
-    assertThat(Starlark.repr(ev.lookup("v3"))).isEqualTo("(1, 2, 3, 4, 5, 6, (7, 8), {\"i\": 0})");
-    assertThat(Starlark.repr(ev.lookup("b1")))
+    assertThat(Starlark.repr(ev.lookup("v3"), StarlarkSemantics.DEFAULT))
+        .isEqualTo("(1, 2, 3, 4, 5, 6, (7, 8), {\"i\": 0})");
+    assertThat(Starlark.repr(ev.lookup("b1"), StarlarkSemantics.DEFAULT))
         .isEqualTo("[(\"name\", \"foo\"), (\"type\", \"jpg\"), (\"version\", 42)]");
-    assertThat(Starlark.repr(ev.lookup("b2"))).isEqualTo("{}");
+    assertThat(Starlark.repr(ev.lookup("b2"), StarlarkSemantics.DEFAULT)).isEqualTo("{}");
   }
 
   @Test
@@ -534,21 +537,23 @@ public final class FunctionTest {
             + "v3 = f(a=1,)\n"
             + "v4 = f(**{\"a\": 1},)\n");
 
-    assertThat(Starlark.repr(ev.lookup("v1"))).isEqualTo("None");
-    assertThat(Starlark.repr(ev.lookup("v2"))).isEqualTo("None");
-    assertThat(Starlark.repr(ev.lookup("v3"))).isEqualTo("None");
-    assertThat(Starlark.repr(ev.lookup("v4"))).isEqualTo("None");
+    assertThat(Starlark.repr(ev.lookup("v1"), StarlarkSemantics.DEFAULT)).isEqualTo("None");
+    assertThat(Starlark.repr(ev.lookup("v2"), StarlarkSemantics.DEFAULT)).isEqualTo("None");
+    assertThat(Starlark.repr(ev.lookup("v3"), StarlarkSemantics.DEFAULT)).isEqualTo("None");
+    assertThat(Starlark.repr(ev.lookup("v4"), StarlarkSemantics.DEFAULT)).isEqualTo("None");
   }
 
   @Test
   public void testCalls() throws Exception {
     ev.exec("def f(a, b = None): return a, b");
 
-    assertThat(Starlark.repr(ev.eval("f(1)"))).isEqualTo("(1, None)");
-    assertThat(Starlark.repr(ev.eval("f(1, 2)"))).isEqualTo("(1, 2)");
-    assertThat(Starlark.repr(ev.eval("f(a=1)"))).isEqualTo("(1, None)");
-    assertThat(Starlark.repr(ev.eval("f(a=1, b=2)"))).isEqualTo("(1, 2)");
-    assertThat(Starlark.repr(ev.eval("f(b=2, a=1)"))).isEqualTo("(1, 2)");
+    assertThat(Starlark.repr(ev.eval("f(1)"), StarlarkSemantics.DEFAULT)).isEqualTo("(1, None)");
+    assertThat(Starlark.repr(ev.eval("f(1, 2)"), StarlarkSemantics.DEFAULT)).isEqualTo("(1, 2)");
+    assertThat(Starlark.repr(ev.eval("f(a=1)"), StarlarkSemantics.DEFAULT)).isEqualTo("(1, None)");
+    assertThat(Starlark.repr(ev.eval("f(a=1, b=2)"), StarlarkSemantics.DEFAULT))
+        .isEqualTo("(1, 2)");
+    assertThat(Starlark.repr(ev.eval("f(b=2, a=1)"), StarlarkSemantics.DEFAULT))
+        .isEqualTo("(1, 2)");
 
     ev.checkEvalError(
         "f() missing 1 required positional argument: a", //

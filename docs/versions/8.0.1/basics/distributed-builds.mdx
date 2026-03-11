@@ -2,8 +2,6 @@
 title: 'Distributed Builds'
 ---
 
-
-
 When you have a large codebase, chains of dependencies can become very deep.
 Even simple binaries can often depend on tens of thousands of build targets. At
 this scale, it’s simply impossible to complete a build in a reasonable amount
@@ -21,7 +19,7 @@ we’ve been working toward by defining an artifact-based build system.
 The simplest type of distributed build is one that only leverages _remote
 caching_, which is shown in Figure 1.
 
-[![Distributed build with remote caching](/images/distributed-build-remote-cache.png)](/images/distributed-build-remote-cache.png)
+[![Distributed build with remote caching](/versions/8.0.1/images/distributed-build-remote-cache.png)](/versions/8.0.1/images/distributed-build-remote-cache.png)
 
 **Figure 1**. A distributed build showing remote caching
 
@@ -63,7 +61,7 @@ to perform the entire build locally on your machine. The true goal is to support
 remote execution, in which the actual work of doing the build can be spread
 across any number of workers. Figure 2 depicts a remote execution system.
 
-[![Remote execution system](/images/remote-execution-system.png)](/images/remote-execution-system.png)
+[![Remote execution system](/versions/8.0.1/images/remote-execution-system.png)](/versions/8.0.1/images/remote-execution-system.png)
 
 **Figure 2**. A remote execution system
 
@@ -103,7 +101,7 @@ one.
 Since 2008, Google has been using a distributed build system that employs both
 remote caching and remote execution, which is illustrated in Figure 3.
 
-[![High-level build system](/images/high-level-build-system.png)](/images/high-level-build-system.png)
+[![High-level build system](/versions/8.0.1/images/high-level-build-system.png)](/versions/8.0.1/images/high-level-build-system.png)
 
 **Figure 3**. Google’s distributed build system
 

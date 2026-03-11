@@ -134,7 +134,6 @@ bazel_fragments["AndroidConfiguration.Options"] = fragment(
         "//command_line_option:incompatible_disable_native_android_rules",
         "//command_line_option:android_databinding_use_androidx",
         "//command_line_option:android_databinding_use_v3_4_args",
-        "//command_line_option:break_build_on_parallel_dex2oat_failure",
         "//command_line_option:experimental_always_filter_duplicate_classes_from_android_test",
         "//command_line_option:experimental_android_compress_java_resources",
         "//command_line_option:experimental_android_databinding_v2",
@@ -143,7 +142,6 @@ bazel_fragments["AndroidConfiguration.Options"] = fragment(
         "//command_line_option:experimental_android_resource_name_obfuscation",
         "//command_line_option:experimental_android_resource_path_shortening",
         "//command_line_option:experimental_android_resource_shrinking",
-        "//command_line_option:experimental_android_rewrite_dexes_with_rex",
         "//command_line_option:experimental_android_use_parallel_dex2oat",
         "//command_line_option:experimental_disable_instrumentation_manifest_merge",
         "//command_line_option:experimental_filter_library_jar_with_program_jar",
@@ -175,18 +173,15 @@ bazel_fragments["AppleCommandLineOptions"] = fragment(
         "//command_line_option:host_macos_minimum_os",
         "//command_line_option:experimental_prefer_mutual_xcode",
         "//command_line_option:experimental_include_xcode_execution_requirements",
-        "//command_line_option:use_platforms_in_apple_crosstool_transition",
         "//command_line_option:incompatible_remove_ctx_apple_fragment",
     ],
     outputs = [
         "//command_line_option:macos_minimum_os",
         "//command_line_option:apple_platform_type",
-        "//command_line_option:apple configuration distinguisher",
     ],
     func = lambda settings: {
         "//command_line_option:macos_minimum_os": settings["//command_line_option:host_macos_minimum_os"],
         "//command_line_option:apple_platform_type": "macos",
-        "//command_line_option:apple configuration distinguisher": "unknown",
     },
 )
 
@@ -238,8 +233,6 @@ bazel_fragments["CoreOptions"] = fragment(
         "//command_line_option:build_runfile_links",
         "//command_line_option:experimental_remotable_source_manifests",
         "//command_line_option:incompatible_always_include_files_in_data",
-        "//command_line_option:experimental_strict_fileset_output",
-        "//command_line_option:strict_filesets",
         "//command_line_option:check_visibility",
         "//command_line_option:experimental_enforce_transitive_visibility",
         "//command_line_option:check_licenses",

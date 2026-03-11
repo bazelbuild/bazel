@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote.util;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Comparator.comparing;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.Digest;
@@ -24,20 +25,26 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
 import com.google.common.io.BaseEncoding;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.XattrProvider;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Arrays;
+import java.util.Comparator;
 
 /** Utility methods to work with {@link Digest}. */
 public class DigestUtil {
+  public static final Comparator<Digest> DIGEST_COMPARATOR =
+      comparing(Digest::getHashBytes, ByteString.unsignedLexicographicalComparator())
+          .thenComparing(Digest::getSizeBytes);
+
   private final XattrProvider xattrProvider;
   private final DigestHashFunction hashFn;
   private final DigestFunction.Value digestFunction;

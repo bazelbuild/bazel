@@ -1,0 +1,125 @@
+---
+title: 'CompilationContext'
+---
+
+Immutable store of information needed for C++ compilation that is aggregated across dependencies.
+
+## Members
+
+* [defines](#defines)
+* [direct\_headers](#direct_headers)
+* [direct\_private\_headers](#direct_private_headers)
+* [direct\_public\_headers](#direct_public_headers)
+* [direct\_textual\_headers](#direct_textual_headers)
+* [external\_includes](#external_includes)
+* [framework\_includes](#framework_includes)
+* [headers](#headers)
+* [includes](#includes)
+* [local\_defines](#local_defines)
+* [quote\_includes](#quote_includes)
+* [system\_includes](#system_includes)
+* [validation\_artifacts](#validation_artifacts)
+
+## defines
+
+```
+depset CompilationContext.defines
+```
+
+Returns the set of defines needed to compile this target. Each define is a string. These values are propagated to the target's transitive dependents, that is, any rules that depend on this target.
+
+## direct\_headers
+
+```
+list CompilationContext.direct_headers
+```
+
+Returns the list of modular headers that are declared by this target. This includes both public headers (such as those listed in "hdrs") and private headers (such as those listed in "srcs").
+
+## direct\_private\_headers
+
+```
+list CompilationContext.direct_private_headers
+```
+
+Returns the list of modular private headers (those listed in "srcs") that are declared by this target.
+
+## direct\_public\_headers
+
+```
+list CompilationContext.direct_public_headers
+```
+
+Returns the list of modular public headers (those listed in "hdrs") that are declared by this target.
+
+## direct\_textual\_headers
+
+```
+list CompilationContext.direct_textual_headers
+```
+
+Returns the list of textual headers that are declared by this target.
+
+## external\_includes
+
+```
+depset CompilationContext.external_includes
+```
+
+Returns the set of search paths (as strings) for external header files referenced by angle bracket. Usually passed with -isystem.
+
+## framework\_includes
+
+```
+depset CompilationContext.framework_includes
+```
+
+Returns the set of search paths (as strings) for framework header files. Usually passed with -F.
+
+## headers
+
+```
+depset CompilationContext.headers
+```
+
+Returns the set of headers needed to compile this target.
+
+## includes
+
+```
+depset CompilationContext.includes
+```
+
+Returns the set of search paths (as strings) for header files referenced both by angle bracket and quotes. Usually passed with -I.
+
+## local\_defines
+
+```
+depset CompilationContext.local_defines
+```
+
+Returns the set of defines needed to compile this target. Each define is a string. These values are not propagated to the target's transitive dependents.
+
+## quote\_includes
+
+```
+depset CompilationContext.quote_includes
+```
+
+Returns the set of search paths (as strings) for header files referenced by quotes, e.g. #include "foo/bar/header.h". They can be either relative to the exec root or absolute. Usually passed with -iquote.
+
+## system\_includes
+
+```
+depset CompilationContext.system_includes
+```
+
+Returns the set of search paths (as strings) for header files referenced by angle brackets, e.g. #include <foo/bar/header.h>. They can be either relative to the exec root or absolute. Usually passed with -isystem.
+
+## validation\_artifacts
+
+```
+depset CompilationContext.validation_artifacts
+```
+
+Returns the set of validation artifacts.

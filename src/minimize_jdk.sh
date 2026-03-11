@@ -61,16 +61,17 @@ UNAME=$(uname -s | tr 'A-Z' 'a-z')
 JVM_OPTIONS='--enable-native-access=ALL-UNNAMED -XX:+UseCompactObjectHeaders'
 
 if [[ "$UNAME" =~ msys_nt* ]]; then
-  mkdir "tmp.$$"
-  cd "tmp.$$"
-  unzip -q "../$fulljdk"
-  cd zulu*
+  unzip -q "$tooljdk" -d "tool_jdk.$$"
+  unzip -q "$fulljdk" -d "full_jdk.$$"
+  # The archives contain a single top-level directory.
+  tool_jdk_home=$(cd tool_jdk.$$/* && pwd)
+  cd full_jdk.$$/*
   # We have to add this module explicitly because it is windows specific, it allows
   # the usage of the Windows truststore
   # e.g. -Djavax.net.ssl.trustStoreType=WINDOWS-ROOT
   modules="$modules,jdk.crypto.mscapi"
-  ./bin/jlink --module-path ./jmods/ --add-modules "$modules" \
-    --vm=server --strip-debug --no-man-pages \
+  "$tool_jdk_home/bin/jlink" --module-path ./jmods/ --add-modules "$modules" \
+    --vm=server --strip-debug --no-man-pages --no-header-files \
     --add-options=" ${JVM_OPTIONS}"\
     --output reduced
   # Patch the app manifest of the java.exe launcher to force its active code
@@ -81,14 +82,13 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   "$(rlocation io_bazel/src/read_manifest.exe)" reduced/bin/java.exe \
     | sed 's|</asmv3:windowsSettings>|<activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>&|' \
     | "$(rlocation io_bazel/src/write_manifest.exe)" reduced/bin/java.exe
-  cp DISCLAIMER readme.txt legal/java.base/ASSEMBLY_EXCEPTION \
-    reduced/
+  for f in DISCLAIMER readme.txt legal/java.base/ASSEMBLY_EXCEPTION; do [ -f "$f" ] && cp "$f" reduced/; done
   # These are necessary for --host_jvm_debug to work.
   cp bin/dt_socket.dll bin/jdwp.dll reduced/bin
   zip -q -X -r ../reduced.zip reduced/
   cd ../..
-  mv "tmp.$$/reduced.zip" "$out"
-  rm -rf "tmp.$$"
+  mv "full_jdk.$$/reduced.zip" "$out"
+  rm -rf "full_jdk.$$" "tool_jdk.$$"
 else
   # The --no-same-owner flag instructs tar to not try to chown extracted files
   # to the owner stored in the archive - it will try to do that when running as
@@ -99,7 +99,7 @@ else
   tar xf "$fulljdk" --no-same-owner --strip-components=1 -C target_jdk
   cd target_jdk
   "../tool_jdk/bin/jlink" --module-path ./jmods/ --add-modules "$modules" \
-    --vm=server --strip-debug --no-man-pages \
+    --vm=server --strip-debug --no-man-pages --no-header-files \
     --add-options=" ${JVM_OPTIONS}" \
     --output reduced
   for f in DISCLAIMER readme.txt legal/java.base/ASSEMBLY_EXCEPTION; do [ -f "$f" ] && cp "$f" reduced/; done

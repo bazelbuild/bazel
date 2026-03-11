@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePre
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.util.FileType;
@@ -74,6 +75,7 @@ import net.starlark.java.eval.Structure;
  * and <code>foo_library </code> may share many attributes in common).
  */
 @Immutable
+@AutoCodec
 public final class Attribute implements Comparable<Attribute> {
 
   public static final RuleClassNamePredicate ANY_RULE = RuleClassNamePredicate.unspecified();
@@ -1872,7 +1874,7 @@ public final class Attribute implements Comparable<Attribute> {
 
   private final AspectsList aspects;
 
-  private final int hashCode;
+  private final transient int hashCode;
 
   /**
    * Constructs a rule attribute with the specified name, type and default value.
@@ -1886,7 +1888,8 @@ public final class Attribute implements Comparable<Attribute> {
    * @param transitionFactory the configuration transition for this attribute (which must be of type
    *     LABEL, LABEL_LIST, NODEP_LABEL or NODEP_LABEL_LIST).
    */
-  private Attribute(
+  @VisibleForSerialization
+  public Attribute(
       String name,
       String doc,
       Type<?> type,

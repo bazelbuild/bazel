@@ -105,7 +105,6 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
                 useVirtualSourceRoot() ? root : null,
                 FAKE_INSTALL_MD5_STRING),
             workingDir,
-            /* defaultSystemJavabase= */ null,
             /* productName= */ "DummyProductNameForUnitTests");
     eventCollector = new EventCollector();
     reporter = new Reporter(new EventBus());

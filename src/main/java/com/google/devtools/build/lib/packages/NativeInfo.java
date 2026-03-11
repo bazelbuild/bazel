@@ -27,6 +27,9 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.Structure;
+import net.starlark.java.lib.MapWrapperStructure;
+import net.starlark.java.lib.StarlarkEncodable;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -36,7 +39,7 @@ import net.starlark.java.syntax.Location;
 // TODO(adonovan): ensure that all subclasses are named *Info and not *Provider.
 // (Info is to object as Provider is to class.)
 @Immutable
-public abstract class NativeInfo implements Info {
+public abstract class NativeInfo implements Info, StarlarkEncodable {
   private final Location location;
 
   protected NativeInfo() {
@@ -122,23 +125,17 @@ public abstract class NativeInfo implements Info {
    * there is no guarantee, it depends on the actual values).
    */
   @Override
-  public void repr(Printer printer) {
-    boolean first = true;
-    printer.append("struct(");
-    for (var field : getLegacyFields().entrySet()) {
-      if (!first) {
-        printer.append(", ");
-      }
-      first = false;
-      printer.append(field.getKey());
-      printer.append(" = ");
-      printer.repr(field.getValue());
-    }
-    printer.append(")");
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    new MapWrapperStructure(getLegacyFields()).repr(printer, semantics);
+  }
+
+  @Override
+  public Structure objectForEncoding(StarlarkSemantics semantics) {
+    return new MapWrapperStructure(getLegacyFields());
   }
 
   @Override
   public String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 }

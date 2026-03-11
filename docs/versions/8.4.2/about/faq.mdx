@@ -2,9 +2,7 @@
 title: 'FAQ'
 ---
 
-
-
-If you have questions or need support, see [Getting Help](/help).
+If you have questions or need support, see [Getting Help](/versions/8.4.2/help).
 
 ## What is Bazel?
 
@@ -14,7 +12,7 @@ Bazel is a tool that automates software builds and tests. Supported build tasks 
 
 Bazel was designed to fit the way software is developed at Google. It has the following features:
 
-*   Multi-language support: Bazel supports [many languages](/reference/be/overview), and can be extended to support arbitrary programming languages.
+*   Multi-language support: Bazel supports [many languages](/versions/8.4.2/reference/be/overview), and can be extended to support arbitrary programming languages.
 *   High-level build language: Projects are described in the `BUILD` language, a concise text format that describes a project as sets of small interconnected libraries, binaries and tests. In contrast, with tools like Make, you have to describe individual files and compiler invocations.
 *   Multi-platform support: The same tool and the same `BUILD` files can be used to build software for different architectures, and even different platforms. At Google, we use Bazel to build everything from server applications running on systems in our data centers to client apps running on mobile phones.
 *   Reproducibility: In `BUILD` files, each library, test and binary must specify its direct dependencies completely. Bazel uses this dependency information to know what must be rebuilt when you make changes to a source file, and which tasks can run in parallel. This means that all builds are incremental and will always produce the same result.
@@ -42,7 +40,7 @@ A long time ago, Google built its software using large, generated Makefiles. The
 
 ## Does Bazel require a build cluster?
 
-Bazel runs build operations locally by default. However, Bazel can also connect to a build cluster for even faster builds and tests. See our documentation on [remote execution and caching](/remote/rbe) and [remote caching](/remote/caching) for further details.
+Bazel runs build operations locally by default. However, Bazel can also connect to a build cluster for even faster builds and tests. See our documentation on [remote execution and caching](/versions/8.4.2/remote/rbe) and [remote caching](/versions/8.4.2/remote/caching) for further details.
 
 ## How does the Google development process work?
 
@@ -72,7 +70,6 @@ Building software should be fun and easy. Slow and unpredictable builds take the
 Yes; see a [simple example](https://github.com/bazelbuild/bazel/blob/master/examples/cpp/BUILD)
 or read the [Bazel source code](https://github.com/bazelbuild/bazel/blob/master/src/BUILD) for a more complex example.
 
-
 ## What is Bazel best at?
 
 Bazel shines at building and testing projects with the following properties:
@@ -100,7 +97,7 @@ Porting to other UNIX platforms should be relatively easy, as long as a JDK is a
 
 The core features (C++, Java, and shell rules) have extensive use inside Google, so they are thoroughly tested and have very little churn. Similarly, we test new versions of Bazel across hundreds of thousands of targets every day to find regressions, and we release new versions multiple times every month.
 
-In short, except for features marked as experimental, Bazel should Just Work. Changes to non-experimental rules will be backward compatible. A more detailed list of feature support statuses can be found in our [support document](/contribute/support).
+In short, except for features marked as experimental, Bazel should Just Work. Changes to non-experimental rules will be backward compatible. A more detailed list of feature support statuses can be found in our [support document](/versions/8.4.2/contribute/support).
 
 ## How stable is Bazel as a binary?
 
@@ -108,7 +105,7 @@ Inside Google, we make sure that Bazel crashes are very rare. This should also h
 
 ## How can I start using Bazel?
 
-See [Getting Started](/start/).
+See [Getting Started](/versions/8.4.2/start/).
 
 ## Doesn’t Docker solve the reproducibility problems?
 
@@ -139,7 +136,7 @@ For Java and C++ binaries, yes, assuming you do not change the toolchain. If you
 
 ## Do you have binary releases?
 
-Yes, you can find the latest [release binaries](https://github.com/bazelbuild/bazel/releases/latest) and review our [release policy](/release/)
+Yes, you can find the latest [release binaries](https://github.com/bazelbuild/bazel/releases/latest) and review our [release policy](/versions/8.4.2/release/)
 
 ## I use Eclipse/IntelliJ/XCode. How does Bazel interoperate with IDEs?
 
@@ -155,21 +152,21 @@ For other IDEs, check out the [blog post](https://blog.bazel.build/2016/06/10/id
 
 Bazel returns a non-zero exit code if the build or test invocation fails, and this should be enough for basic CI integration. Since Bazel does not need clean builds for correctness, the CI system should not be configured to clean before starting a build/test run.
 
-Further details on exit codes are in the [User Manual](/docs/user-manual).
+Further details on exit codes are in the [User Manual](/versions/8.4.2/docs/user-manual).
 
 ## What future features can we expect in Bazel?
 
-See our [Roadmaps](/about/roadmap).
+See our [Roadmaps](/versions/8.4.2/about/roadmap).
 
 ## Can I use Bazel for my INSERT LANGUAGE HERE project?
 
-Bazel is extensible. Anyone can add support for new languages. Many languages are supported: see the [build encyclopedia](/reference/be/overview) for a list of recommendations and [awesomebazel.com](https://awesomebazel.com/) for a more comprehensive list.
+Bazel is extensible. Anyone can add support for new languages. Many languages are supported: see the [build encyclopedia](/versions/8.4.2/reference/be/overview) for a list of recommendations and [awesomebazel.com](https://awesomebazel.com/) for a more comprehensive list.
 
-If you would like to develop extensions or learn how they work, see the documentation for [extending Bazel](/extending/concepts).
+If you would like to develop extensions or learn how they work, see the documentation for [extending Bazel](/versions/8.4.2/extending/concepts).
 
 ## Can I contribute to the Bazel code base?
 
-See our [contribution guidelines](/contribute/).
+See our [contribution guidelines](/versions/8.4.2/contribute/).
 
 ## Why isn’t all development done in the open?
 

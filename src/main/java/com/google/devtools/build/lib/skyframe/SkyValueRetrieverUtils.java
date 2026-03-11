@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.io.BaseEncoding.base16;
-import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.NoCachedData.NO_CACHED_DATA;
 
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -24,12 +23,14 @@ import com.google.devtools.build.lib.skyframe.serialization.DependOnFutureShim.D
 import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.CacheMissReason;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.NoCachedData;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Restart;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievedValue;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisJsonLogWriter;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -46,12 +47,16 @@ public final class SkyValueRetrieverUtils {
   public static RetrievalResult retrieveRemoteSkyValue(
       SkyKey key,
       Environment env,
-      RemoteAnalysisCachingDependenciesProvider analysisCachingDeps,
+      RemoteAnalysisCacheReaderDepsProvider analysisCachingDeps,
       Supplier<? extends SerializableSkyKeyComputeState> stateSupplier)
       throws InterruptedException {
     if (env.inErrorBubbling()) {
       // Remote retrieval during error bubbling causes incorrect error propagation. See b/449016469.
-      return NO_CACHED_DATA;
+      return new NoCachedData(CacheMissReason.NOT_ATTEMPTED);
+    }
+
+    if (analysisCachingDeps.shouldBailOutOnMissingFingerprint()) {
+      return new NoCachedData(CacheMissReason.NOT_ATTEMPTED);
     }
 
     Label label =
@@ -64,7 +69,7 @@ public final class SkyValueRetrieverUtils {
 
     if (label == null) {
       // If there's no label, there's no cached data.
-      return NO_CACHED_DATA;
+      return new NoCachedData(CacheMissReason.NOT_ATTEMPTED);
     }
 
     RetrievalResult retrievalResult = null;
@@ -88,7 +93,7 @@ public final class SkyValueRetrieverUtils {
       // Don't crash the build if deserialization failed. Gracefully fallback to local evaluation.
       analysisCachingDeps.recordSerializationException(e, key);
       exception = e;
-      retrievalResult = NO_CACHED_DATA;
+      retrievalResult = new NoCachedData(e.getReason());
     } catch (RuntimeException | InterruptedException e) {
       exception = e;
       throw e;

@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.truth.StringSubject;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
 import net.starlark.java.syntax.Types;
 import net.starlark.java.syntax.Types.CallableType;
 import org.junit.Before;
@@ -34,6 +35,30 @@ public class DynamicTypeCheckTest {
 
   private EvaluationTestCase ev;
 
+  // TODO: #27728 - No need to add these mocks to the testing Module in setup() once the production
+  // version of these symbols are available in the actual Starlark universe.
+
+  private static class CollectionSymbol implements StarlarkValue, TypeConstructor {
+    @Override
+    public StarlarkType createStarlarkType(ImmutableList<Arg> argsTuple) throws Failure {
+      return Types.COLLECTION_CONSTRUCTOR.createStarlarkType(argsTuple);
+    }
+  }
+
+  private static class SequenceSymbol implements StarlarkValue, TypeConstructor {
+    @Override
+    public StarlarkType createStarlarkType(ImmutableList<Arg> argsTuple) throws Failure {
+      return Types.SEQUENCE_CONSTRUCTOR.createStarlarkType(argsTuple);
+    }
+  }
+
+  private static class MappingSymbol implements StarlarkValue, TypeConstructor {
+    @Override
+    public StarlarkType createStarlarkType(ImmutableList<Arg> argsTuple) throws Failure {
+      return Types.MAPPING_CONSTRUCTOR.createStarlarkType(argsTuple);
+    }
+  }
+
   @Before
   public void setup() throws Exception {
     ev = new EvaluationTestCase();
@@ -42,11 +67,10 @@ public class DynamicTypeCheckTest {
         StarlarkSemantics.builder()
             .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING, true)
             .build());
-    // TODO: #27728 - No need to add to global environment once these builtin types are in the
-    // universal block.
-    ev.update("Collection", Starlark.NONE);
-    ev.update("Sequence", Starlark.NONE);
-    ev.update("Mapping", Starlark.NONE);
+
+    ev.update("Collection", new CollectionSymbol());
+    ev.update("Sequence", new SequenceSymbol());
+    ev.update("Mapping", new MappingSymbol());
   }
 
   @Test
@@ -148,7 +172,7 @@ public class DynamicTypeCheckTest {
 
   @Test
   public void runtimeTypecheck_tuple() throws Exception {
-    ev.exec("def f(a: tuple[]): pass", "f(())");
+    ev.exec("def f(a: tuple[()]): pass", "f(())");
     ev.exec("def f(a: tuple[int, str]): pass", "f((1, 'a'))");
     ev.exec("def f(a: tuple[int, str, bool]): pass", "f((1, 'a', True))");
     assertExecThrows(EvalException.class, "def f(a: tuple[int, str]): pass", "f((1, 2))")
@@ -162,6 +186,12 @@ public class DynamicTypeCheckTest {
     ev.exec("def f(a: tuple[int, tuple[str, bool]]): pass", "f((1, ('a', True)))");
     // Covariance
     ev.exec("def f(a: tuple[None|int]): pass", "f((1,))");
+    // Homogeneous tuples
+    ev.exec("def f(a: tuple[int | str, ...]): pass", "f((1, 2, '3'))");
+    assertExecThrows(EvalException.class, "def f(a: tuple[int, ...]): pass", "f((1, 2, '3'))")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'tuple[int, int, str]', want"
+                + " 'tuple[int, ...]'");
   }
 
   @Test

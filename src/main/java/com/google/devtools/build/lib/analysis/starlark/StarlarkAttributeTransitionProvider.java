@@ -37,6 +37,7 @@ import java.util.LinkedHashMap;
 import java.util.Objects;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark.InvalidStarlarkValueException;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * This class implements {@link TransitionFactory} to provide a starlark-defined transition that
@@ -99,7 +100,7 @@ public class StarlarkAttributeTransitionProvider
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<transition object>");
   }
 

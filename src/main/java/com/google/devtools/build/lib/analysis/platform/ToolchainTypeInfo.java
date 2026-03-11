@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.util.HashCodes;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** A provider that supplies information about a specific toolchain type. */
 @Immutable
@@ -68,7 +69,7 @@ public class ToolchainTypeInfo extends NativeInfo implements ToolchainTypeInfoAp
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append(String.format("ToolchainTypeInfo(%s)", typeLabel));
   }
 

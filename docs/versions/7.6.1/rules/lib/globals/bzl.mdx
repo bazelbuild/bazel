@@ -1,0 +1,315 @@
+---
+title: '.bzl files'
+---
+
+Global methods available in all .bzl files.
+
+## Members
+
+* [analysis\_test\_transition](#analysis_test_transition)
+* [aspect](#aspect)
+* [configuration\_field](#configuration_field)
+* [depset](#depset)
+* [exec\_group](#exec_group)
+* [module\_extension](#module_extension)
+* [provider](#provider)
+* [repository\_rule](#repository_rule)
+* [rule](#rule)
+* [select](#select)
+* [subrule](#subrule)
+* [tag\_class](#tag_class)
+* [visibility](#visibility)
+
+## analysis\_test\_transition
+
+```
+transition analysis_test_transition(settings)
+```
+
+Creates a configuration transition to be applied on an analysis-test rule's dependencies. This transition may only be applied on attributes of rules with `analysis_test = True`. Such rules are restricted in capabilities (for example, the size of their dependency tree is limited), so transitions created using this function are limited in potential scope as compared to transitions created using [`transition()`](../builtins/transition).
+
+This function is primarily designed to facilitate the [Analysis Test Framework](https://bazel.build/versions/7.6.1/rules/testing) core library. See its documentation (or its implementation) for best practices.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `settings` | required  A dictionary containing information about configuration settings which should be set by this configuration transition. Keys are build setting labels and values are their new post-transition values. All other settings are unchanged. Use this to declare specific configuration settings that an analysis test requires to be set in order to pass. |
+
+## aspect
+
+```
+Aspect aspect(implementation, attr_aspects=[], attrs={}, required_providers=[], required_aspect_providers=[], provides=[], requires=[], fragments=[], host_fragments=[], toolchains=[], incompatible_use_toolchain_transition=False, doc=None, *, apply_to_generating_rules=False, exec_compatible_with=[], exec_groups=None, subrules=[])
+```
+
+Creates a new aspect. The result of this function must be stored in a global value. Please see the [introduction to Aspects](https://bazel.build/versions/7.6.1/rules/aspects) for more details.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `implementation` | required  A Starlark function that implements this aspect, with exactly two parameters: [Target](../builtins/Target) (the target to which the aspect is applied) and [ctx](../builtins/ctx) (the rule context which the target is created from). Attributes of the target are available via the `ctx.rule` field. This function is evaluated during the analysis phase for each application of an aspect to a target. |
+| `attr_aspects` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  List of attribute names. The aspect propagates along dependencies specified in the attributes of a target with these names. Common values here include `deps` and `exports`. The list can also contain a single string `"*"` to propagate along all dependencies of a target. |
+| `attrs` | [dict](../core/dict); default is `{}`  A dictionary declaring all the attributes of the aspect. It maps from an attribute name to an attribute object, like `attr.label` or `attr.string` (see [attr](../toplevel/attr) module). Aspect attributes are available to implementation function as fields of `ctx` parameter. Implicit attributes starting with `_` must have default values, and have type `label` or `label_list`. Explicit attributes must have type `string`, and must use the `values` restriction. Explicit attributes restrict the aspect to only be used with rules that have attributes of the same name, type, and valid values according to the restriction. |
+| `required_providers` | default is `[]`  This attribute allows the aspect to limit its propagation to only the targets whose rules advertise its required providers. The value must be a list containing either individual providers or lists of providers but not both. For example, `[[FooInfo], [BarInfo], [BazInfo, QuxInfo]]` is a valid value while `[FooInfo, BarInfo, [BazInfo, QuxInfo]]` is not valid. An unnested list of providers will automatically be converted to a list containing one list of providers. That is, `[FooInfo, BarInfo]` will automatically be converted to `[[FooInfo, BarInfo]]`. To make some rule (e.g. `some_rule`) targets visible to an aspect, `some_rule` must advertise all providers from at least one of the required providers lists. For example, if the `required_providers` of an aspect are `[[FooInfo], [BarInfo], [BazInfo, QuxInfo]]`, this aspect can see `some_rule` targets if and only if `some_rule` provides `FooInfo`, *or* `BarInfo`, *or* both `BazInfo` *and* `QuxInfo`. |
+| `required_aspect_providers` | default is `[]`  This attribute allows this aspect to inspect other aspects. The value must be a list containing either individual providers or lists of providers but not both. For example, `[[FooInfo], [BarInfo], [BazInfo, QuxInfo]]` is a valid value while `[FooInfo, BarInfo, [BazInfo, QuxInfo]]` is not valid. An unnested list of providers will automatically be converted to a list containing one list of providers. That is, `[FooInfo, BarInfo]` will automatically be converted to `[[FooInfo, BarInfo]]`. To make another aspect (e.g. `other_aspect`) visible to this aspect, `other_aspect` must provide all providers from at least one of the lists. In the example of `[[FooInfo], [BarInfo], [BazInfo, QuxInfo]]`, this aspect can see `other_aspect` if and only if `other_aspect` provides `FooInfo`, *or* `BarInfo`, *or* both `BazInfo` *and* `QuxInfo`. |
+| `provides` | default is `[]`  A list of providers that the implementation function must return. It is an error if the implementation function omits any of the types of providers listed here from its return value. However, the implementation function may return additional providers not listed here. Each element of the list is an `*Info` object returned by [`provider()`](../globals/bzl#provider), except that a legacy provider is represented by its string name instead.When a target of the rule is used as a dependency for a target that declares a required provider, it is not necessary to specify that provider here. It is enough that the implementation function returns it. However, it is considered best practice to specify it, even though this is not required. The [`required_providers`](../globals/bzl#aspect.required_providers) field of an [aspect](../globals/bzl#aspect) does, however, require that providers are specified here. |
+| `requires` | [sequence](../core/list) of [Aspect](../builtins/Aspect)s; default is `[]`  List of aspects required to be propagated before this aspect. |
+| `fragments` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  List of names of configuration fragments that the aspect requires in target configuration. |
+| `host_fragments` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  List of names of configuration fragments that the aspect requires in host configuration. |
+| `toolchains` | [sequence](../core/list); default is `[]`  If set, the set of toolchains this rule requires. The list can contain String, Label, or StarlarkToolchainTypeApi objects, in any combination. Toolchains will be found by checking the current platform, and provided to the rule implementation via `ctx.toolchain`. |
+| `incompatible_use_toolchain_transition` | default is `False`  Deprecated, this is no longer in use and should be removed. |
+| `doc` | [string](../core/string); or `None`; default is `None`  A description of the aspect that can be extracted by documentation generating tools. |
+| `apply_to_generating_rules` | default is `False`  If true, the aspect will, when applied to an output file, instead apply to the output file's generating rule. For example, suppose an aspect propagates transitively through attribute `deps` and it is applied to target `alpha`. Suppose `alpha` has `deps = [':beta\_output']`, where `beta\_output` is a declared output of a target `beta`. Suppose `beta` has a target `charlie` as one of its `deps`. If `apply\_to\_generating\_rules=True` for the aspect, then the aspect will propagate through `alpha`, `beta`, and `charlie`. If False, then the aspect will propagate only to `alpha`.  False by default. |
+| `exec_compatible_with` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  A list of constraints on the execution platform that apply to all instances of this aspect. |
+| `exec_groups` | [dict](../core/dict); or `None`; default is `None`  Dict of execution group name (string) to [`exec_group`s](../globals/bzl#exec_group). If set, allows aspects to run actions on multiple execution platforms within a single instance. See [execution groups documentation](/versions/7.6.1/reference/exec-groups) for more info. |
+| `subrules` | [sequence](../core/list) of [Subrule](../builtins/Subrule)s; default is `[]`  Experimental: list of subrules used by this aspect. |
+
+## configuration\_field
+
+```
+LateBoundDefault configuration_field(fragment, name)
+```
+
+References a late-bound default value for an attribute of type [label](../toplevel/attr#label). A value is 'late-bound' if it requires the configuration to be built before determining the value. Any attribute using this as a value must [be private](https://bazel.build/versions/7.6.1/extending/rules#private-attributes).
+
+Example usage:
+
+Defining a rule attribute:
+
+```
+'_foo': attr.label(default=configuration_field(fragment='java', name='toolchain'))
+```
+
+Accessing in rule implementation:
+
+```
+  def _rule_impl(ctx):
+    foo_info = ctx.attr._foo
+    ...
+```
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `fragment` | required |
+| `name` | required |
+
+## depset
+
+```
+depset depset(direct=None, order="default", *, transitive=None)
+```
+
+Creates a [depset](../builtins/depset). The `direct` parameter is a list of direct elements of the depset, and `transitive` parameter is a list of depsets whose elements become indirect elements of the created depset. The order in which elements are returned when the depset is converted to a list is specified by the `order` parameter. See the [Depsets overview](https://bazel.build/versions/7.6.1/extending/depsets) for more information.
+
+All elements (direct and indirect) of a depset must be of the same type, as obtained by the expression `type(x)`.
+
+Because a hash-based set is used to eliminate duplicates during iteration, all elements of a depset should be hashable. However, this invariant is not currently checked consistently in all constructors. Use the --incompatible\_always\_check\_depset\_elements flag to enable consistent checking; this will be the default behavior in future releases; see [Issue 10313](https://github.com/bazelbuild/bazel/issues/10313).
+
+In addition, elements must currently be immutable, though this restriction will be relaxed in future.
+
+The order of the created depset should be *compatible* with the order of its `transitive` depsets. `"default"` order is compatible with any other order, all other orders are only compatible with themselves.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `direct` | [sequence](../core/list); or `None`; default is `None`  A list of *direct* elements of a depset. |
+| `order` | default is `"default"`  The traversal strategy for the new depset. See [here](../builtins/depset) for the possible values. |
+| `transitive` | [sequence](../core/list) of [depset](../builtins/depset)s; or `None`; default is `None`  A list of depsets whose elements will become indirect elements of the depset. |
+
+## exec\_group
+
+```
+exec_group exec_group(toolchains=[], exec_compatible_with=[])
+```
+
+Creates an [execution group](/versions/7.6.1/reference/exec-groups) which can be used to create actions for a specific execution platform during rule implementation.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `toolchains` | [sequence](../core/list); default is `[]`  The set of toolchains this execution group requires. The list can contain String, Label, or StarlarkToolchainTypeApi objects, in any combination. |
+| `exec_compatible_with` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  A list of constraints on the execution platform. |
+
+## module\_extension
+
+```
+unknown module_extension(implementation, *, tag_classes={}, doc=None, environ=[], os_dependent=False, arch_dependent=False)
+```
+
+Creates a new module extension. Store it in a global value, so that it can be exported and used in a MODULE.bazel file with `use_extension`.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `implementation` | required  The function that implements this module extension. Must take a single parameter, `module_ctx`. The function is called once at the beginning of a build to determine the set of available repos. |
+| `tag_classes` | default is `{}`  A dictionary to declare all the tag classes used by the extension. It maps from the name of the tag class to a `tag_class` object. |
+| `doc` | [string](../core/string); or `None`; default is `None`  A description of the module extension that can be extracted by documentation generating tools. |
+| `environ` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  Provides a list of environment variable that this module extension depends on. If an environment variable in that list changes, the extension will be re-evaluated. |
+| `os_dependent` | default is `False`  Indicates whether this extension is OS-dependent or not |
+| `arch_dependent` | default is `False`  Indicates whether this extension is architecture-dependent or not |
+
+## provider
+
+```
+unknown provider(doc=None, *, fields=None, init=None)
+```
+
+Defines a provider symbol. The provider may be instantiated by calling it, or used directly as a key for retrieving an instance of that provider from a target. Example:
+
+```
+MyInfo = provider()
+...
+def _my_library_impl(ctx):
+    ...
+    my_info = MyInfo(x = 2, y = 3)
+    # my_info.x == 2
+    # my_info.y == 3
+    ...
+```
+
+See [Rules (Providers)](https://bazel.build/versions/7.6.1/extending/rules#providers) for a comprehensive guide on how to use providers.
+
+Returns a [`Provider`](../builtins/Provider) callable value if `init` is not specified.
+
+If `init` is specified, returns a tuple of 2 elements: a [`Provider`](../builtins/Provider) callable value and a *raw constructor* callable value. See  [Rules (Custom initialization of custom providers)](https://bazel.build/versions/7.6.1/extending/rules#custom_initialization_of_providers) and the discussion of the `init` parameter below for details.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `doc` | [string](../core/string); or `None`; default is `None` |
+| `fields` | [sequence](../core/list) of [string](../core/string)s; or [dict](../core/dict); or `None`; default is `None`  If specified, restricts the set of allowed fields.  Possible values are:  * list of fields:     ```   provider(fields = ['a', 'b'])   ```     * dictionary field name -> documentation:       ```     provider(            fields = { 'a' : 'Documentation for a', 'b' : 'Documentation for b' })     ```  All fields are optional. |
+| `init` | callable; or `None`; default is `None` |
+
+## repository\_rule
+
+```
+callable repository_rule(implementation, *, attrs=None, local=False, environ=[], configure=False, remotable=False, doc=None)
+```
+
+Creates a new repository rule. Store it in a global value, so that it can be loaded and called from a `module extension` implementation function, or used by `use_repo_rule`.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `implementation` | required |
+| `attrs` | [dict](../core/dict); or `None`; default is `None` |
+| `local` | default is `False`  Indicate that this rule fetches everything from the local system and should be reevaluated at every fetch. |
+| `environ` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  **Deprecated**. This parameter has been deprecated. Migrate to `repository_ctx.getenv` instead. Provides a list of environment variable that this repository rule depends on. If an environment variable in that list change, the repository will be refetched. |
+| `configure` | default is `False`  Indicate that the repository inspects the system for configuration purpose |
+| `remotable` | default is `False`  **Experimental**. This parameter is experimental and may change at any time. Please do not depend on it. It may be enabled on an experimental basis by setting `---experimental_repo_remote_exec`  Compatible with remote execution |
+| `doc` | [string](../core/string); or `None`; default is `None` |
+
+## rule
+
+```
+callable rule(implementation, *, test=unbound, attrs={}, outputs=None, executable=unbound, output_to_genfiles=False, fragments=[], host_fragments=[], _skylark_testable=False, toolchains=[], incompatible_use_toolchain_transition=False, doc=None, provides=[], exec_compatible_with=[], analysis_test=False, build_setting=None, cfg=None, exec_groups=None, initializer=None, parent=None, extendable=None, subrules=[])
+```
+
+Creates a new rule, which can be called from a BUILD file or a macro to create targets.
+
+Rules must be assigned to global variables in a .bzl file; the name of the global variable is the rule's name.
+
+Test rules are required to have a name ending in `_test`, while all other rules must not have this suffix. (This restriction applies only to rules, not to their targets.)
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `implementation` | required  the Starlark function implementing this rule, must have exactly one parameter: [ctx](../builtins/ctx). The function is called during the analysis phase for each instance of the rule. It can access the attributes provided by the user. It must create actions to generate all the declared outputs. |
+| `test` | [bool](../core/bool); default is `unbound`  Whether this rule is a test rule, that is, whether it may be the subject of a `blaze test` command. All test rules are automatically considered [executable](#rule.executable); it is unnecessary (and discouraged) to explicitly set `executable = True` for a test rule. The value defaults to `False`. See the  [Rules page](https://bazel.build/versions/7.6.1/extending/rules#executable_rules_and_test_rules) for more information. |
+| `attrs` | [dict](../core/dict); default is `{}`  dictionary to declare all the attributes of the rule. It maps from an attribute name to an attribute object (see [attr](../toplevel/attr) module). Attributes starting with `_` are private, and can be used to add an implicit dependency on a label. The attribute `name` is implicitly added and must not be specified. Attributes `visibility`, `deprecation`, `tags`, `testonly`, and `features` are implicitly added and cannot be overridden. Most rules need only a handful of attributes. To limit memory usage, the rule function imposes a cap on the size of attrs. |
+| `outputs` | [dict](../core/dict); or `None`; or [function](../core/function); default is `None`  **Deprecated**. This parameter is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `---incompatible_no_rule_outputs_param`. Use this flag to verify your code is compatible with its imminent removal.  This parameter has been deprecated. Migrate rules to use `OutputGroupInfo` or `attr.output` instead. A schema for defining predeclared outputs. Unlike [`output`](../toplevel/attr#output) and [`output_list`](../toplevel/attr#output_list) attributes, the user does not specify the labels for these files. See the [Rules page](https://bazel.build/versions/7.6.1/extending/rules#files) for more on predeclared outputs. The value of this argument is either a dictionary or a callback function that produces a dictionary. The callback works similar to computed dependency attributes: The function's parameter names are matched against the rule's attributes, so for example if you pass `outputs = _my_func` with the definition `def _my_func(srcs, deps): ...`, the function has access to the attributes `srcs` and `deps`. Whether the dictionary is specified directly or via a function, it is interpreted as follows. Each entry in the dictionary creates a predeclared output where the key is an identifier and the value is a string template that determines the output's label. In the rule's implementation function, the identifier becomes the field name used to access the output's [`File`](../builtins/File) in [`ctx.outputs`](../builtins/ctx#outputs). The output's label has the same package as the rule, and the part after the package is produced by substituting each placeholder of the form `"%{ATTR}"` with a string formed from the value of the attribute `ATTR`:  * String-typed attributes are substituted verbatim.* Label-typed attributes become the part of the label after the package, minus the file extension. For example, the label `"//pkg:a/b.c"` becomes `"a/b"`.* Output-typed attributes become the part of the label after the package, including the file extension (for the above example, `"a/b.c"`).* All list-typed attributes (for example, `attr.label_list`) used in placeholders are required to have *exactly one element*. Their conversion is the same as their non-list version (`attr.label`).* Other attribute types may not appear in placeholders.* The special non-attribute placeholders `%{dirname}` and `%{basename}` expand to those parts of the rule's label, excluding its package. For example, in `"//pkg:a/b.c"`, the dirname is `a` and the basename is `b.c`.   In practice, the most common substitution placeholder is `"%{name}"`. For example, for a target named "foo", the outputs dict `{"bin": "%{name}.exe"}` predeclares an output named `foo.exe` that is accessible in the implementation function as `ctx.outputs.bin`. |
+| `executable` | [bool](../core/bool); default is `unbound` |
+| `output_to_genfiles` | default is `False`  If true, the files will be generated in the genfiles directory instead of the bin directory. Unless you need it for compatibility with existing rules (e.g. when generating header files for C++), do not set this flag. |
+| `fragments` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  List of names of configuration fragments that the rule requires in target configuration. |
+| `host_fragments` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  List of names of configuration fragments that the rule requires in host configuration. |
+| `_skylark_testable` | default is `False`  *(Experimental)*  If true, this rule will expose its actions for inspection by rules that depend on it via an `Actions` provider. The provider is also available to the rule itself by calling [ctx.created\_actions()](../builtins/ctx#created_actions).  This should only be used for testing the analysis-time behavior of Starlark rules. This flag may be removed in the future. |
+| `toolchains` | [sequence](../core/list); default is `[]`  If set, the set of toolchains this rule requires. The list can contain String, Label, or StarlarkToolchainTypeApi objects, in any combination. Toolchains will be found by checking the current platform, and provided to the rule implementation via `ctx.toolchain`. |
+| `incompatible_use_toolchain_transition` | default is `False`  Deprecated, this is no longer in use and should be removed. |
+| `doc` | [string](../core/string); or `None`; default is `None`  A description of the rule that can be extracted by documentation generating tools. |
+| `provides` | default is `[]`  A list of providers that the implementation function must return. It is an error if the implementation function omits any of the types of providers listed here from its return value. However, the implementation function may return additional providers not listed here. Each element of the list is an `*Info` object returned by [`provider()`](../globals/bzl#provider), except that a legacy provider is represented by its string name instead.When a target of the rule is used as a dependency for a target that declares a required provider, it is not necessary to specify that provider here. It is enough that the implementation function returns it. However, it is considered best practice to specify it, even though this is not required. The [`required_providers`](../globals/bzl#aspect.required_providers) field of an [aspect](../globals/bzl#aspect) does, however, require that providers are specified here. |
+| `exec_compatible_with` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  A list of constraints on the execution platform that apply to all targets of this rule type. |
+| `analysis_test` | default is `False`  If true, then this rule is treated as an analysis test. Note: Analysis test rules are primarily defined using infrastructure provided in core Starlark libraries. See [Testing](https://bazel.build/versions/7.6.1/rules/testing#testing-rules) for guidance. If a rule is defined as an analysis test rule, it becomes allowed to use configuration transitions defined using [analysis\_test\_transition](#analysis_test_transition) on its attributes, but opts into some restrictions:  * Targets of this rule are limited in the number of transitive dependencies they may have.* The rule is considered a test rule (as if `test=True` were set). This supersedes the value of `test`   * The rule implementation function may not register actions. Instead, it must register a pass/fail result via providing [AnalysisTestResultInfo](../providers/AnalysisTestResultInfo). |
+| `build_setting` | [BuildSetting](../builtins/BuildSetting); or `None`; default is `None`  If set, describes what kind of [`build setting`](/versions/7.6.1/rules/config#user-defined-build-settings) this rule is. See the [`config`](../toplevel/config) module. If this is set, a mandatory attribute named "build\_setting\_default" is automatically added to this rule, with a type corresponding to the value passed in here. |
+| `cfg` | default is `None`  If set, points to the configuration transition the rule will apply to its own configuration before analysis. |
+| `exec_groups` | [dict](../core/dict); or `None`; default is `None`  Dict of execution group name (string) to [`exec_group`s](../globals/bzl#exec_group). If set, allows rules to run actions on multiple execution platforms within a single target. See [execution groups documentation](/versions/7.6.1/reference/exec-groups) for more info. |
+| `initializer` | default is `None`  Experimental: the Stalark function initializing the attributes of the rule. The function is called at load time for each instance of the rule. It's called with `name` and the values of public attributes defined bythe rule (not with generic attributes, for example `tags`). It has to return a dictionary from the attribute names to the desired values. The attributes that are not returned are unaffected. Returning `None` as value results in using the default value specified in the attribute definition. Initializers are evaluated before the default values specified in an attribute definition. Consequently, if a parameter in the initializer's signature contains a default values, it overwrites the default from the attribute definition (except if returning `None`). Similarly, if a parameter in the initializer's signature doesn't have a default, the parameter will become mandatory. It's a good practice to omit default/mandatory settings on an attribute definition in such cases. It's a good practice to use `**kwargs` for attributes that are not handled. In case of extended rules, all initializers are called proceeding from child to ancestors. Each initializer is passed only the public attributes it knows about. |
+| `parent` | default is `None`  Experimental: the Stalark rule that is extended. When set the public attributes are merged as well as advertised providers. The rule matches `executable` and `test` from the parent. Values of `fragments`, `toolchains`, `exec_compatible_with`, and `exec_groups` are merged. Legacy or deprecated parameters may not be set. Incoming configuration transition `cfg` of parent is applied after thisrule's incoming configuration. |
+| `extendable` | [bool](../core/bool); or [Label](../builtins/Label); or [string](../core/string); or `None`; default is `None`  Experimental: A label of an allowlist defining which rules can extending this rule. It can be set also to True/False to always allow/disallow extending. Bazel defaults to always allowing extensions. |
+| `subrules` | [sequence](../core/list) of [Subrule](../builtins/Subrule)s; default is `[]`  Experimental: List of subrules used by this rule. |
+
+## select
+
+```
+unknown select(x, no_match_error='')
+```
+
+`select()` is the helper function that makes a rule attribute [configurable](/versions/7.6.1/reference/be/common-definitions#configurable-attributes). See [build encyclopedia](/versions/7.6.1/reference/be/functions#select) for details.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `x` | required  A dict that maps configuration conditions to values. Each key is a [Label](../builtins/Label) or a label string that identifies a config\_setting or constraint\_value instance. See the [documentation on macros](https://bazel.build/versions/7.6.1/rules/macros#label-resolution) for when to use a Label instead of a string. |
+| `no_match_error` | default is `''`  Optional custom error to report if no condition matches. |
+
+## subrule
+
+```
+Subrule subrule(implementation, attrs={}, toolchains=[], fragments=[], subrules=[])
+```
+
+Constructs a new instance of a subrule. The result of this function must be stored in a global variable before it can be used.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `implementation` | [function](../core/function); required  The Starlark function implementing this subrule |
+| `attrs` | [dict](../core/dict); default is `{}`  A dictionary to declare all the (private) attributes of the subrule.  Subrules may only have private attributes that are label-typed (i.e. label or label-list). The resolved values corresponding to these labels are automatically passed by Bazel to the subrule's implementation function as named arguments (thus the implementation function is required to accept named parameters matching the attribute names). The types of these values will be:  * `FilesToRunProvider` for label attributes with `executable=True` * `File` for label attributes with `allow_single_file=True` * `Target` for all other label attributes * `[Target]` for all label-list attributes |
+| `toolchains` | [sequence](../core/list); default is `[]`  If set, the set of toolchains this subrule requires. The list can contain String, Label, or StarlarkToolchainTypeApi objects, in any combination. Toolchains will be found by checking the current platform, and provided to the subrule implementation via `ctx.toolchains`. |
+| `fragments` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  List of names of configuration fragments that the subrule requires in target configuration. |
+| `subrules` | [sequence](../core/list) of [Subrule](../builtins/Subrule)s; default is `[]`  List of other subrules needed by this subrule. |
+
+## tag\_class
+
+```
+tag_class tag_class(attrs={}, *, doc=None)
+```
+
+Creates a new tag\_class object, which defines an attribute schema for a class of tags, which are data objects usable by a module extension.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `attrs` | default is `{}`  A dictionary to declare all the attributes of this tag class. It maps from an attribute name to an attribute object (see [attr](../toplevel/attr) module). |
+| `doc` | [string](../core/string); or `None`; default is `None`  A description of the tag class that can be extracted by documentation generating tools. |
+
+## visibility
+
+```
+None visibility(value)
+```
+
+Sets the load visibility of the .bzl module currently being initialized.
+
+The load visibility of a module governs whether or not other BUILD and .bzl files may load it. (This is distinct from the target visibility of the underlying .bzl source file, which governs whether the file may appear as a dependency of other targets.) Load visibility works at the level of packages: To load a module the file doing the loading must live in a package that has been granted visibility to the module. A module can always be loaded within its own package, regardless of its visibility.
+
+`visibility()` may only be called once per .bzl file, and only at the top level, not inside a function. The preferred style is to put this call immediately below the `load()` statements and any brief logic needed to determine the argument.
+
+If the flag `--check_bzl_visibility` is set to false, load visibility violations will emit warnings but not fail the build.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `value` | required  A list of package specification strings, or a single package specification string. Package specifications follow the same format as for `package_group`, except that negative package specifications are not permitted. That is, a specification may have the forms:  * `"//foo"`: the package `//foo`* `"//foo/..."`: the package `//foo` and all of its subpackages.* `"public"` or `"private"`: all packages or no packages, respectively   The "@" syntax is not allowed; all specifications are interpreted relative to the current module's repository. If `value` is a list of strings, the set of packages granted visibility to this module is the union of the packages represented by each specification. (An empty list has the same effect as `private`.) If `value` is a single string, it is treated as if it were the singleton list `[value]`. Note that the flags `--incompatible_package_group_has_public_syntax` and `--incompatible_fix_package_group_reporoot_syntax` have no effect on this argument. The `"public"` and `"private"` values are always available, and `"//..."` is always interpreted as "all packages in the current repository". |

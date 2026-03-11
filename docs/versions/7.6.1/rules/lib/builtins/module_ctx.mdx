@@ -1,0 +1,274 @@
+---
+title: 'module\_ctx'
+---
+
+The context of the module extension containing helper functions and information about pertinent tags across the dependency graph. You get a module\_ctx object as an argument to the `implementation` function when you create a module extension.
+
+## Members
+
+* [download](#download)
+* [download\_and\_extract](#download_and_extract)
+* [execute](#execute)
+* [extension\_metadata](#extension_metadata)
+* [extract](#extract)
+* [file](#file)
+* [getenv](#getenv)
+* [is\_dev\_dependency](#is_dev_dependency)
+* [modules](#modules)
+* [os](#os)
+* [path](#path)
+* [read](#read)
+* [report\_progress](#report_progress)
+* [root\_module\_has\_non\_dev\_dependency](#root_module_has_non_dev_dependency)
+* [watch](#watch)
+* [which](#which)
+
+## download
+
+```
+unknown module_ctx.download(url, output='', sha256='', executable=False, allow_fail=False, canonical_id='', auth={}, headers={}, *, integrity='', block=True)
+```
+
+Downloads a file to the output path for the provided url and returns a struct containing `success`, a flag which is `true` if the download completed successfully, and if successful, a hash of the file with the fields `sha256` and `integrity`. When `sha256` or `integrity` is user specified, setting an explicit `canonical_id` is highly recommended. e.g. [`get_default_canonical_id`](/versions/7.6.1/rules/lib/repo/cache#get_default_canonical_id)
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `url` | [string](../core/string); or Iterable of [string](../core/string)s; required  List of mirror URLs referencing the same file. |
+| `output` | [string](../core/string); or [Label](../builtins/Label); or [path](../builtins/path); default is `''`  path to the output file, relative to the repository directory. |
+| `sha256` | default is `''`  The expected SHA-256 hash of the file downloaded. This must match the SHA-256 hash of the file downloaded. It is a security risk to omit the SHA-256 as remote files can change. At best omitting this field will make your build non-hermetic. It is optional to make development easier but should be set before shipping. If provided, the repository cache will first be checked for a file with the given hash; a download will only be attempted if the file was not found in the cache. After a successful download, the file will be added to the cache. |
+| `executable` | default is `False`  Set the executable flag on the created file, false by default. |
+| `allow_fail` | default is `False`  If set, indicate the error in the return value instead of raising an error for failed downloads. |
+| `canonical_id` | default is `''`  If set, restrict cache hits to those cases where the file was added to the cache with the same canonical id. By default caching uses the checksum (`sha256` or `integrity`). |
+| `auth` | default is `{}`  An optional dict specifying authentication information for some of the URLs. |
+| `headers` | default is `{}`  An optional dict specifying http headers for all URLs. |
+| `integrity` | default is `''`  Expected checksum of the file downloaded, in Subresource Integrity format. This must match the checksum of the file downloaded. It is a security risk to omit the checksum as remote files can change. At best omitting this field will make your build non-hermetic. It is optional to make development easier but should be set before shipping. If provided, the repository cache will first be checked for a file with the given checksum; a download will only be attempted if the file was not found in the cache. After a successful download, the file will be added to the cache. |
+| `block` | default is `True`  If set to false, the call returns immediately and instead of the regular return value, it returns a token with one single method, wait(), which blocks until the download is finished and returns the usual return value or throws as usual. |
+
+## download\_and\_extract
+
+```
+struct module_ctx.download_and_extract(url, output='', sha256='', type='', stripPrefix='', allow_fail=False, canonical_id='', auth={}, headers={}, *, integrity='', rename_files={})
+```
+
+Downloads a file to the output path for the provided url, extracts it, and returns a struct containing `success`, a flag which is `true` if the download completed successfully, and if successful, a hash of the file with the fields `sha256` and `integrity`. When `sha256` or `integrity` is user specified, setting an explicit `canonical_id` is highly recommended. e.g. [`get_default_canonical_id`](/versions/7.6.1/rules/lib/repo/cache#get_default_canonical_id)
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `url` | [string](../core/string); or Iterable of [string](../core/string)s; required  List of mirror URLs referencing the same file. |
+| `output` | [string](../core/string); or [Label](../builtins/Label); or [path](../builtins/path); default is `''`  Path to the directory where the archive will be unpacked, relative to the repository directory. |
+| `sha256` | default is `''`  The expected SHA-256 hash of the file downloaded. This must match the SHA-256 hash of the file downloaded. It is a security risk to omit the SHA-256 as remote files can change. At best omitting this field will make your build non-hermetic. It is optional to make development easier but should be set before shipping. If provided, the repository cache will first be checked for a file with the given hash; a download will only be attempted if the file was not found in the cache. After a successful download, the file will be added to the cache. |
+| `type` | default is `''`  The archive type of the downloaded file. By default, the archive type is determined from the file extension of the URL. If the file has no extension, you can explicitly specify either "zip", "jar", "war", "aar", "nupkg", "tar", "tar.gz", "tgz", "tar.xz", "txz", ".tar.zst", ".tzst", "tar.bz2", ".tbz", ".ar", or ".deb" here. |
+| `stripPrefix` | default is `''`  A directory prefix to strip from the extracted files. Many archives contain a top-level directory that contains all files in the archive. Instead of needing to specify this prefix over and over in the `build_file`, this field can be used to strip it from extracted files. |
+| `allow_fail` | default is `False`  If set, indicate the error in the return value instead of raising an error for failed downloads. |
+| `canonical_id` | default is `''`  If set, restrict cache hits to those cases where the file was added to the cache with the same canonical id. By default caching uses the checksum" (`sha256` or `integrity`). |
+| `auth` | default is `{}`  An optional dict specifying authentication information for some of the URLs. |
+| `headers` | default is `{}`  An optional dict specifying http headers for all URLs. |
+| `integrity` | default is `''`  Expected checksum of the file downloaded, in Subresource Integrity format. This must match the checksum of the file downloaded. It is a security risk to omit the checksum as remote files can change. At best omitting this field will make your build non-hermetic. It is optional to make development easier but should be set before shipping. If provided, the repository cache will first be checked for a file with the given checksum; a download will only be attempted if the file was not found in the cache. After a successful download, the file will be added to the cache. |
+| `rename_files` | default is `{}`  An optional dict specifying files to rename during the extraction. Archive entries with names exactly matching a key will be renamed to the value, prior to any directory prefix adjustment. This can be used to extract archives that contain non-Unicode filenames, or which have files that would extract to the same path on case-insensitive filesystems. |
+
+## execute
+
+```
+exec_result module_ctx.execute(arguments, timeout=600, environment={}, quiet=True, working_directory="")
+```
+
+Executes the command given by the list of arguments. The execution time of the command is limited by `timeout` (in seconds, default 600 seconds). This method returns an `exec_result` structure containing the output of the command. The `environment` map can be used to override some environment variables to be passed to the process.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `arguments` | required  List of arguments, the first element should be the path to the program to execute. |
+| `timeout` | default is `600`  Maximum duration of the command in seconds (default is 600 seconds). |
+| `environment` | default is `{}`  Force some environment variables to be set to be passed to the process. |
+| `quiet` | default is `True`  If stdout and stderr should be printed to the terminal. |
+| `working_directory` | default is `""`  Working directory for command execution. Can be relative to the repository root or absolute. The default is the repository root. |
+
+## extension\_metadata
+
+```
+extension_metadata module_ctx.extension_metadata(root_module_direct_deps=None, root_module_direct_dev_deps=None, reproducible=False)
+```
+
+Constructs an opaque object that can be returned from the module extension's implementation function to provide metadata about the repositories generated by the extension to Bazel.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `root_module_direct_deps` | [sequence](../core/list) of [string](../core/string)s; or [string](../core/string); or `None`; default is `None`  The names of the repositories that the extension considers to be direct dependencies of the root module. If the root module imports additional repositories or does not import all of these repositories via [`use_repo`](../globals/module#use_repo), Bazel will print a warning when the extension is evaluated, instructing the user to run `bazel mod tidy` to fix the `use_repo` calls automatically. If one of `root_module_direct_deps` and will print a warning and a fixup command when the extension is evaluated. If one of `root_module_direct_deps` and `root_module_direct_dev_deps` is specified, the other has to be as well. The lists specified by these two parameters must be disjoint. Exactly one of `root_module_direct_deps` and `root_module_direct_dev_deps` can be set to the special value `"all"`, which is treated as if a list with the names of all repositories generated by the extension was specified as the value. |
+| `root_module_direct_dev_deps` | [sequence](../core/list) of [string](../core/string)s; or [string](../core/string); or `None`; default is `None`  The names of the repositories that the extension considers to be direct dev dependencies of the root module. If the root module imports additional repositories or does not import all of these repositories via [`use_repo`](../globals/module#use_repo) on an extension proxy created with `use_extension(..., dev_dependency = True)`, Bazel will print a warning when the extension is evaluated, instructing the user to run `bazel mod tidy` to fix the `use_repo` calls automatically. If one of `root_module_direct_deps` and `root_module_direct_dev_deps` is specified, the other has to be as well. The lists specified by these two parameters must be disjoint. Exactly one of `root_module_direct_deps` and `root_module_direct_dev_deps` can be set to the special value `"all"`, which is treated as if a list with the names of all repositories generated by the extension was specified as the value. |
+| `reproducible` | [bool](../core/bool); default is `False`  States that this module extension ensures complete reproducibility, thereby it should not be stored in the lockfile. |
+
+## extract
+
+```
+None module_ctx.extract(archive, output='', stripPrefix='', *, rename_files={}, watch_archive='auto')
+```
+
+Extract an archive to the repository directory.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `archive` | [string](../core/string); or [Label](../builtins/Label); or [path](../builtins/path); required  path to the archive that will be unpacked, relative to the repository directory. |
+| `output` | [string](../core/string); or [Label](../builtins/Label); or [path](../builtins/path); default is `''`  path to the directory where the archive will be unpacked, relative to the repository directory. |
+| `stripPrefix` | default is `''`  a directory prefix to strip from the extracted files. Many archives contain a top-level directory that contains all files in the archive. Instead of needing to specify this prefix over and over in the `build_file`, this field can be used to strip it from extracted files. |
+| `rename_files` | default is `{}`  An optional dict specifying files to rename during the extraction. Archive entries with names exactly matching a key will be renamed to the value, prior to any directory prefix adjustment. This can be used to extract archives that contain non-Unicode filenames, or which have files that would extract to the same path on case-insensitive filesystems. |
+| `watch_archive` | default is `'auto'`  whether to [watch](#watch) the archive file. Can be the string 'yes', 'no', or 'auto'. Passing 'yes' is equivalent to immediately invoking the [`watch()`](#watch) method; passing 'no' does not attempt to watch the file; passing 'auto' will only attempt to watch the file when it is legal to do so (see `watch()` docs for more information. |
+
+## file
+
+```
+None module_ctx.file(path, content='', executable=True, legacy_utf8=True)
+```
+
+Generates a file in the repository directory with the provided content.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `path` | [string](../core/string); or [Label](../builtins/Label); or [path](../builtins/path); required  Path of the file to create, relative to the repository directory. |
+| `content` | default is `''`  The content of the file to create, empty by default. |
+| `executable` | default is `True`  Set the executable flag on the created file, true by default. |
+| `legacy_utf8` | default is `True`  Encode file content to UTF-8, true by default. Future versions will change the default and remove this parameter. |
+
+## getenv
+
+```
+string module_ctx.getenv(name, default=None)
+```
+
+Returns the value of an environment variable `name` as a string if exists, or `default` if it doesn't.
+
+When building incrementally, any change to the value of the variable named by `name` will cause this repository to be re-fetched.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `name` | [string](../core/string); required  Name of desired environment variable. |
+| `default` | [string](../core/string); or `None`; default is `None`  Default value to return if `name` is not found. |
+
+May return `None`.
+
+## is\_dev\_dependency
+
+```
+bool module_ctx.is_dev_dependency(tag)
+```
+
+Returns whether the given tag was specified on the result of a [use\_extension](../globals/module#use_extension) call with `devDependency = True`.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `tag` | bazel\_module\_tag; required  A tag obtained from [bazel\_module.tags](../builtins/bazel_module#tags). |
+
+## modules
+
+```
+list module_ctx.modules
+```
+
+A list of all the Bazel modules in the external dependency graph that use this module extension, each of which is a [bazel\_module](../builtins/bazel_module) object that exposes all the tags it specified for this extension. The iteration order of this dictionary is guaranteed to be the same as breadth-first search starting from the root module.
+
+## os
+
+```
+repository_os module_ctx.os
+```
+
+A struct to access information from the system.
+
+## path
+
+```
+path module_ctx.path(path)
+```
+
+Returns a path from a string, label or path. If the path is relative, it will resolve relative to the repository directory. If the path is a label, it will resolve to the path of the corresponding file. Note that remote repositories are executed during the analysis phase and thus cannot depends on a target result (the label should point to a non-generated file). If path is a path, it will return that path as is.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `path` | [string](../core/string); or [Label](../builtins/Label); or [path](../builtins/path); required  `string`, `Label` or `path` from which to create a path from. |
+
+## read
+
+```
+string module_ctx.read(path, *, watch='auto')
+```
+
+Reads the content of a file on the filesystem.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `path` | [string](../core/string); or [Label](../builtins/Label); or [path](../builtins/path); required  Path of the file to read from. |
+| `watch` | default is `'auto'`  Whether to [watch](#watch) the file. Can be the string 'yes', 'no', or 'auto'. Passing 'yes' is equivalent to immediately invoking the [`watch()`](#watch) method; passing 'no' does not attempt to watch the file; passing 'auto' will only attempt to watch the file when it is legal to do so (see `watch()` docs for more information. |
+
+## report\_progress
+
+```
+None module_ctx.report_progress(status='')
+```
+
+Updates the progress status for the fetching of this repository or module extension.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `status` | [string](../core/string); default is `''`  `string` describing the current status of the fetch progress. |
+
+## root\_module\_has\_non\_dev\_dependency
+
+```
+bool module_ctx.root_module_has_non_dev_dependency
+```
+
+Whether the root module uses this extension as a non-dev dependency.
+
+## watch
+
+```
+None module_ctx.watch(path)
+```
+
+Tells Bazel to watch for changes to the given path, whether or not it exists, or whether it's a file or a directory. Any changes to the file or directory will invalidate this repository or module extension, and cause it to be refetched or re-evaluated next time.
+
+"Changes" include changes to the contents of the file (if the path is a file); if the path was a file but is now a directory, or vice versa; and if the path starts or stops existing. Notably, this does *not* include changes to any files under the directory if the path is a directory. For that, use [`path.readdir()`](path#readdir) instead.
+
+Note that attempting to watch paths inside the repo currently being fetched, or inside the working directory of the current module extension, will result in an error. A module extension attempting to watch a path outside the current Bazel workspace will also result in an error.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `path` | [string](../core/string); or [Label](../builtins/Label); or [path](../builtins/path); required  Path of the file to watch. |
+
+## which
+
+```
+path module_ctx.which(program)
+```
+
+Returns the `path` of the corresponding program or `None` if there is no such program in the path.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `program` | required  Program to find in the path. |
+
+May return `None`.

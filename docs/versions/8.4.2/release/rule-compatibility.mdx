@@ -2,8 +2,6 @@
 title: 'Rule Compatibility'
 ---
 
-
-
 Bazel Starlark rules can break compatibility with Bazel LTS releases in the
 following two scenarios:
 
@@ -80,7 +78,7 @@ To make it easier to keep compatibility with both Bazel at HEAD and the latest
 Bazel LTS release, rules authors can:
 
 *   Request backward-compatible features to be back-ported to the latest LTS
-    release, check out [release process](/release#release-procedure-policies)
+    release, check out [release process](/versions/8.4.2/release#release-procedure-policies)
     for more details.
 *   Use [bazel_features](https://github.com/bazel-contrib/bazel_features)
     to do Bazel feature detection.

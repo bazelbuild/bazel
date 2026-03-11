@@ -49,11 +49,12 @@ import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue.WithRichData;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.SerializationDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsValue;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsValue;
@@ -70,6 +71,7 @@ import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -98,7 +100,7 @@ public final class FrontierSerializer {
    * @return empty if successful, otherwise a result containing the appropriate error
    */
   public static Optional<FailureDetail> serializeAndUploadFrontier(
-      RemoteAnalysisCachingDependenciesProvider dependenciesProvider,
+      SerializationDependenciesProvider serializationDependenciesProvider,
       MemoizingEvaluator evaluator,
       LongVersionGetter versionGetter,
       Reporter reporter,
@@ -110,7 +112,9 @@ public final class FrontierSerializer {
 
     SelectionResult selectionResult =
         computeSelectionResult(
-            graph, dependenciesProvider, /* traversalMode= */ TraversalMode.PRE_SERIALIZATION);
+            graph,
+            serializationDependenciesProvider.getActiveDirectoriesMatcher(),
+            /* traversalMode= */ TraversalMode.PRE_SERIALIZATION);
     ImmutableSet<SkyKey> selectedKeys = selectionResult.selectedKeys();
     clearActionLookupValues(graph, selectedKeys);
 
@@ -120,7 +124,8 @@ public final class FrontierSerializer {
                 "Found %d active or frontier keys in %s", selectedKeys.size(), stopwatch)));
     stopwatch.reset().start();
 
-    if (dependenciesProvider.mode() == RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY) {
+    if (serializationDependenciesProvider.mode()
+        == RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY) {
       reporter.handle(
           Event.warn("Dry run of upload, dumping selection to stdout (warning: can be large!)"));
       dumpUploadManifest(
@@ -130,17 +135,9 @@ public final class FrontierSerializer {
       return Optional.empty();
     }
 
-    ObjectCodecs codecs = requireNonNull(dependenciesProvider.getObjectCodecs());
-    FrontierNodeVersion frontierVersion;
-    try {
-      frontierVersion = dependenciesProvider.getSkyValueVersion();
-    } catch (SerializationException e) {
-      String message = "error computing frontier version " + e.getMessage();
-      reporter.error(null, message);
-      return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
-    }
-
-    String profilePath = dependenciesProvider.serializedFrontierProfile();
+    ObjectCodecs codecs = requireNonNull(serializationDependenciesProvider.getObjectCodecs());
+    FrontierNodeVersion frontierVersion = serializationDependenciesProvider.getSkyValueVersion();
+    String profilePath = serializationDependenciesProvider.getSerializedFrontierProfile();
     var profileCollector = profilePath.isEmpty() ? null : new ProfileCollector();
     var serializationStats = new SelectedEntrySerializer.SerializationStats();
 
@@ -189,9 +186,9 @@ public final class FrontierSerializer {
             codecs,
             frontierVersion,
             selectedKeys,
-            dependenciesProvider.getFingerprintValueService(),
-            dependenciesProvider.getFileInvalidationWriter(),
-            dependenciesProvider.getJsonLogWriter(),
+            serializationDependenciesProvider.getFingerprintValueService(),
+            serializationDependenciesProvider.getFileInvalidationWriter(),
+            serializationDependenciesProvider.getJsonLogWriter(),
             eventBus,
             profileCollector,
             serializationStats);
@@ -207,7 +204,7 @@ public final class FrontierSerializer {
       }
 
       FingerprintValueStore.Stats stats =
-          dependenciesProvider.getFingerprintValueService().getStats();
+          serializationDependenciesProvider.getFingerprintValueService().getStats();
 
       reporter.handle(
           Event.info(
@@ -249,64 +246,77 @@ public final class FrontierSerializer {
   }
 
   /**
-   * Discards unneeded {@code PackageValue}s from the graph after analysis.
+   * Discards unneeded {@code PackageValue}s and {@code BzlLoadValue}s from the graph after
+   * analysis.
    *
    * <p>This is a memory optimization to reduce peak heap before the execution phase. It finds all
    * packages associated with selected {@code ConfiguredTargetValue}s and clears the values of all
    * other {@code PackageValue} nodes. The graph is mutilated after this and incremental builds are
    * not possible.
    */
-  public static void computeSelectionAndDiscardPackageValues(
-      InMemoryGraph graph, RemoteAnalysisCachingDependenciesProvider dependenciesProvider) {
+  public static void computeSelectionAndMinimizeMemory(
+      InMemoryGraph graph,
+      Collection<Label> topLevelTargets,
+      Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher) {
     SelectionResult selectionResult =
         computeSelectionResult(
-            graph, dependenciesProvider, /* traversalMode= */ TraversalMode.POST_ANALYSIS);
+            graph, activeDirectoriesMatcher, /* traversalMode= */ TraversalMode.POST_ANALYSIS);
     ImmutableSet<SkyKey> selectedKeys = selectionResult.selection().keySet();
     Set<PackageIdentifier> packageIdentifierSet = Sets.newConcurrentHashSet();
     graph.parallelForEach(
         node -> {
-          if (!(node.getKey() instanceof ActionLookupKey key) || !node.isDone()) {
-            return;
-          }
-          SkyValue value = node.getValue();
-          if (!selectedKeys.contains(key)) {
-            return;
-          }
-          // An ActionLookupKey can point to ActionLookupValues or ConfiguredTargetValues.
-          // If the key is selected, we must retain the value. If it's a ConfiguredTargetValue,
-          // we also record its package to prevent clearing the corresponding PackageValue later.
-          if (value instanceof ConfiguredTargetValue configuredTargetValue) {
-            Label label =
-                (configuredTargetValue.getConfiguredTarget() instanceof AliasConfiguredTarget alias)
-                    ? alias.getLabel()
-                    : key.getLabel();
-            packageIdentifierSet.add(label.getPackageIdentifier());
+          switch (node.getKey()) {
+            case BzlLoadValue.Key unused -> ((IncrementalInMemoryNodeEntry) node).clearSkyValue();
+            case ActionLookupKey key -> {
+              if (!node.isDone() || !selectedKeys.contains(key)) {
+                break;
+              }
+              // An ActionLookupKey can point to ActionLookupValues or
+              // ConfiguredTargetValues. If the key is selected, we must retain
+              // the value. If it's a ConfiguredTargetValue, we also record its
+              // package to prevent clearing the corresponding PackageValue
+              // later.
+              SkyValue value = node.getValue();
+              if (value instanceof ConfiguredTargetValue configuredTargetValue) {
+                Label label =
+                    (configuredTargetValue.getConfiguredTarget()
+                            instanceof AliasConfiguredTarget alias)
+                        ? alias.getLabel()
+                        : key.getLabel();
+                packageIdentifierSet.add(label.getPackageIdentifier());
+              }
+            }
+            default -> {}
           }
         });
     packageIdentifierSet.addAll(
-        dependenciesProvider.getTopLevelTargets().stream()
+        topLevelTargets.stream()
             .map(Label::getPackageIdentifier)
             .collect(ImmutableSet.toImmutableSet()));
     // We can clear the values of PackageIdentifier nodes whose package we have not seen in any
     // selected ConfiguredTargetValues.
     graph.parallelForEach(
         node -> {
-          if (node.getKey() instanceof PackageIdentifier key
-              && !packageIdentifierSet.contains(key)) {
-            var incrementalInMemoryNodeEntry = (IncrementalInMemoryNodeEntry) node;
-            incrementalInMemoryNodeEntry.clearSkyValue();
+          if (!(node.getKey() instanceof PackageIdentifier key)) {
+            return;
           }
+
+          if (packageIdentifierSet.contains(key)) {
+            return;
+          }
+
+          ((IncrementalInMemoryNodeEntry) node).clearSkyValue();
         });
   }
 
   /** If there are no active directories then it falls back to full selection. */
   private static SelectionResult computeSelectionResult(
       InMemoryGraph graph,
-      RemoteAnalysisCachingDependenciesProvider dependenciesProvider,
+      Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher,
       TraversalMode traversalMode) {
-    if (dependenciesProvider.hasActiveDirectoriesMatcher()) {
+    if (activeDirectoriesMatcher.isPresent()) {
       ImmutableMap<SkyKey, SelectionMarking> selection =
-          computeSelection(graph, dependenciesProvider::withinActiveDirectories, traversalMode);
+          computeSelection(graph, activeDirectoriesMatcher.get(), traversalMode);
       return new SelectionResult(selection);
     } else {
       ImmutableMap<SkyKey, SelectionMarking> selection = computeFullSelection(graph, traversalMode);

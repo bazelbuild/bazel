@@ -921,7 +921,7 @@ bool AppendFileTo(const Path& file, const size_t total_size, HANDLE output) {
 // If the MIME type is unknown or an error occurs, the method returns
 // "application/octet-stream".
 std::string GetMimeType(const std::string& filename) {
-  static constexpr char* kDefaultMimeType = "application/octet-stream";
+  static constexpr const char* kDefaultMimeType = "application/octet-stream";
   std::string::size_type pos = filename.find_last_of('.');
   if (pos == std::string::npos) {
     return kDefaultMimeType;
@@ -1145,9 +1145,6 @@ bool PrintTestLogStartMarker() {
   return true;
 }
 
-inline bool GetWorkspaceName(std::wstring* result) {
-  return GetEnv(L"TEST_WORKSPACE", result) && !result->empty();
-}
 
 inline void ComputeRunfilePath(const std::wstring& test_workspace,
                                std::wstring* s) {
@@ -1232,24 +1229,6 @@ bool FindTestBinary(const Path& argv0, const Path& cwd, std::wstring test_path,
   return true;
 }
 
-bool CreateCommandLine(const Path& path, const std::wstring& args,
-                       std::unique_ptr<WCHAR[]>* result) {
-  // kMaxCmdline value: see lpCommandLine parameter of CreateProcessW.
-  static constexpr size_t kMaxCmdline = 32767;
-
-  if (path.Get().size() + args.size() > kMaxCmdline) {
-    LogErrorWithValue(__LINE__, L"Command is too long",
-                      path.Get().size() + args.size());
-    return false;
-  }
-
-  // Add an extra character for the final null-terminator.
-  result->reset(new WCHAR[path.Get().size() + args.size() + 1]);
-
-  wcsncpy(result->get(), path.Get().c_str(), path.Get().size());
-  wcsncpy(result->get() + path.Get().size(), args.c_str(), args.size() + 1);
-  return true;
-}
 
 bool StartSubprocess(const Path& path, const std::wstring& args,
                      const Path& outerr, std::unique_ptr<Tee>* tee,

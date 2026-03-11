@@ -47,14 +47,14 @@ rbe_autoconfig(name = "buildkite_config")
     have run. (See
     [example results](https://source.cloud.google.com/results/invocations/375e325c-0a05-47af-87bd-fed1363e0333).)
 
-    ![Example results](/docs/images/rbe-ci-1.png "Example results")
+    ![Example results](/versions/8.3.1/docs/images/rbe-ci-1.png "Example results")
 
 5.  (Optional) Set the **bazel test (RBE (Ubuntu 16.04))** check as a test
     required to pass before merging in your branch protection rule. The setting
     is located in GitHub in **Settings > Branches > Branch protection rules**,
     as shown in the following figure.
 
-    ![Branch protection rules settings](/docs/images/rbe-ci-2.png "Branch protection rules")
+    ![Branch protection rules settings](/versions/8.3.1/docs/images/rbe-ci-2.png "Branch protection rules")
 
 ## Troubleshooting failed builds and tests
 
@@ -71,7 +71,7 @@ If your build or tests fail, it's likely due to the following:
 
 *   **Build or test targets are using rules that are incompatible with remote
     execution.** See
-    [Adapting Bazel Rules for Remote Execution](/remote/rules) for
+    [Adapting Bazel Rules for Remote Execution](/versions/8.3.1/remote/rules) for
     details about compatibility with remote execution.
 
 ## Using a custom container in the rbe_ubuntu1604 CI config
@@ -192,7 +192,7 @@ Container Registry as follows:
 
 ### Specifying the build platform definition
 
-You must include a [Bazel platform](/extending/platforms) configuration in your
+You must include a [Bazel platform](/versions/8.3.1/extending/platforms) configuration in your
 custom toolchain configuration, which allows Bazel to select a toolchain
 appropriate to the desired hardware/software platform. To generate
 automatically a valid platform, you can add  to your `WORKSPACE` an

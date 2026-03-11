@@ -1,0 +1,227 @@
+---
+title: 'Workspace Rules'
+---
+
+Workspace rules are used to pull in [external dependencies](/versions/8.0.1/docs/external), typically
+source code located outside the main repository.
+
+*Note:* besides the native workspace rules, Bazel also embeds various
+[Starlark workspace rules](/versions/8.0.1/rules/lib/repo/index), in particular those to deal
+with git repositories or archives hosted on the web.
+
+## Rules
+
+* [bind](#bind)
+* [local\_repository](#local_repository)
+* [new\_local\_repository](#new_local_repository)
+
+## bind
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/rules/repository/BindRule.java)
+
+```
+bind(name, actual, compatible_with, deprecation, distribs, features, licenses, restricted_to, tags, target_compatible_with, testonly, visibility)
+```
+
+*Warning: use of `bind()` is not recommended. See "[Consider removing bind](https://github.com/bazelbuild/bazel/issues/1952)" for a long
+discussion of its issues and alternatives. In particular, consider the use of
+[`repo_mapping`
+repository attributes](https://bazel.build/versions/8.0.1/rules/repository_rules#attributes).*
+
+*Warning: `select()` cannot be used in `bind()`. See the [Configurable Attributes FAQ](/versions/8.0.1/docs/configurable-attributes#bind-select) for
+details.*
+
+Gives a target an alias in the `//external` package.
+
+The `//external` package is not a "normal" package: there is no external/ directory,
+so it can be thought of as a "virtual package" that contains all bound targets.
+
+#### Examples
+
+To give a target an alias, `bind` it in the *WORKSPACE* file. For example,
+suppose there is a `java_library` target called
+`//third_party/javacc-v2`. This can be aliased by adding the following to the
+*WORKSPACE* file:
+
+```
+bind(
+    name = "javacc-latest",
+    actual = "//third_party/javacc-v2",
+)
+```
+
+Now targets can depend on `//external:javacc-latest` instead of
+`//third_party/javacc-v2`. If javacc-v3 is released, the `bind` rule can be
+updated and all of the BUILD files depending on `//external:javacc-latest` will now
+depend on javacc-v3 without needing to be edited.
+
+Bind can also be used to make targets in external repositories available to your workspace.
+For example, if there is a remote repository named `@my-ssl` imported in the
+*WORKSPACE* file and it has a cc\_library target `//src:openssl-lib`, you can
+create an alias for this target using `bind`:
+
+```
+bind(
+    name = "openssl",
+    actual = "@my-ssl//src:openssl-lib",
+)
+```
+
+Then, in a BUILD file in your workspace, the bound target can be used as follows:
+
+```
+cc_library(
+    name = "sign-in",
+    srcs = ["sign_in.cc"],
+    hdrs = ["sign_in.h"],
+    deps = ["//external:openssl"],
+)
+```
+
+Within `sign_in.cc` and `sign_in.h`, the header files exposed by
+`//external:openssl` can be referred to using their path relative to their repository
+root. For example, if the rule definition for `@my-ssl//src:openssl-lib` looks like
+this:
+
+```
+cc_library(
+    name = "openssl-lib",
+    srcs = ["openssl.cc"],
+    hdrs = ["openssl.h"],
+)
+```
+
+Then `sign_in.cc`'s includes might look like this:
+
+```
+#include "sign_in.h"
+#include "src/openssl.h"
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/8.0.1/concepts/labels#target-names); required  A unique name for this target. |
+| `actual` | [Label](/versions/8.0.1/concepts/labels); default is `None` The target to be aliased. This target must exist, but can be any type of rule (including bind).  If this attribute is omitted, rules referring to this target in `//external` will simply not see this dependency edge. Note that this is different from omitting the `bind` rule completely: it is an error if an `//external` dependency does not have an associated `bind` rule. |
+
+## local\_repository
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/rules/repository/LocalRepositoryRule.java)
+
+```
+local_repository(name, path, repo_mapping)
+```
+
+Allows targets from a local directory to be bound. This means that the current repository can
+use targets defined in this other directory. See the [bind
+section](/versions/8.0.1/reference/be/workspace#bind_examples) for more details.
+
+#### Examples
+
+Suppose the current repository is a chat client, rooted at the directory *~/chat-app*. It
+would like to use an SSL library which is defined in a different repository: *~/ssl*. The
+SSL library has a target `//src:openssl-lib`.
+
+The user can add a dependency on this target by adding the following lines to
+*~/chat-app/WORKSPACE*:
+
+```
+local_repository(
+    name = "my-ssl",
+    path = "/home/user/ssl",
+)
+```
+
+Targets would specify `@my-ssl//src:openssl-lib` as a dependency to depend on this
+library.
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/8.0.1/concepts/labels#target-names); required  A unique name for this target. |
+| `path` | String; required The path to the local repository's directory. This must be a path to the directory containing the repository's *WORKSPACE* file. The path can be either absolute or relative to the main repository's *WORKSPACE* file. |
+| `repo_mapping` | Dictionary: String -> String; default is `{}` A dictionary from local repository name to global repository name. This allows controls over workspace dependency resolution for dependencies of this repository. For example, an entry `"@foo": "@bar"` declares that, for any time this repository depends on `"@foo"` (such as a dependency on `"@foo//some:target"`), it should actually resolve that dependency within globally-declared `"@bar"` (`"@bar//some:target"`). |
+
+## new\_local\_repository
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/rules/repository/NewLocalRepositoryRule.java)
+
+```
+new_local_repository(name, build_file, build_file_content, path, repo_mapping, workspace_file, workspace_file_content)
+```
+
+Allows a local directory to be turned into a Bazel repository. This means that the current
+repository can define and use targets from anywhere on the filesystem.
+
+This rule creates a Bazel repository by creating a WORKSPACE file and subdirectory containing
+symlinks to the BUILD file and path given. The build file should create targets relative to the
+`path`. For directories that already contain a WORKSPACE file and a BUILD file, the
+[`local_repository`](#local_repository) rule can be used.
+
+#### Examples
+
+Suppose the current repository is a chat client, rooted at the directory *~/chat-app*. It
+would like to use an SSL library which is defined in a different directory: *~/ssl*.
+
+The user can add a dependency by creating a BUILD file for the SSL library
+(~/chat-app/BUILD.my-ssl) containing:
+
+```
+java_library(
+    name = "openssl",
+    srcs = glob(['*.java'])
+    visibility = ["//visibility:public"],
+)
+```
+
+Then they can add the following lines to *~/chat-app/WORKSPACE*:
+
+```
+new_local_repository(
+    name = "my-ssl",
+    path = "/home/user/ssl",
+    build_file = "BUILD.my-ssl",
+)
+```
+
+This will create a `@my-ssl` repository that symlinks to */home/user/ssl*.
+Targets can depend on this library by adding `@my-ssl//:openssl` to a target's
+dependencies.
+
+You can also use `new_local_repository` to include single files, not just
+directories. For example, suppose you had a jar file at /home/username/Downloads/piano.jar. You
+could add just that file to your build by adding the following to your WORKSPACE file:
+
+```
+new_local_repository(
+    name = "piano",
+    path = "/home/username/Downloads/piano.jar",
+    build_file = "BUILD.piano",
+)
+```
+
+And creating the following BUILD.piano file:
+
+```
+java_import(
+    name = "play-music",
+    jars = ["piano.jar"],
+    visibility = ["//visibility:public"],
+)
+```
+
+Then targets can depend on `@piano//:play-music` to use piano.jar.
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/8.0.1/concepts/labels#target-names); required  A unique name for this target. |
+| `build_file` | [Name](/versions/8.0.1/concepts/labels#target-names); default is `None` A file to use as a BUILD file for this directory. Either build\_file or build\_file\_content must be specified.  This attribute is a label relative to the main workspace. The file does not need to be named BUILD, but can be. (Something like BUILD.new-repo-name may work well for distinguishing it from the repository's actual BUILD files.) |
+| `build_file_content` | String; default is `""` The content for the BUILD file for this repository. Either build\_file or build\_file\_content must be specified. |
+| `path` | String; required A path on the local filesystem. This can be either absolute or relative to the main repository's WORKSPACE file. |
+| `repo_mapping` | Dictionary: String -> String; default is `{}` A dictionary from local repository name to global repository name. This allows controls over workspace dependency resolution for dependencies of this repository. For example, an entry `"@foo": "@bar"` declares that, for any time this repository depends on `"@foo"` (such as a dependency on `"@foo//some:target"`), it should actually resolve that dependency within globally-declared `"@bar"` (`"@bar//some:target"`). |
+| `workspace_file` | [Name](/versions/8.0.1/concepts/labels#target-names); default is `None` The file to use as the WORKSPACE file for this repository. Either workspace\_file or workspace\_file\_content can be specified, but not both.  This attribute is a label relative to the main workspace. The file does not need to be named WORKSPACE, but can be. (Something like WORKSPACE.new-repo-name may work well for distinguishing it from the repository's actual WORKSPACE files.) |
+| `workspace_file_content` | String; default is `""` The content for the WORKSPACE file for this repository. Either workspace\_file or workspace\_file\_content can be specified, but not both. |

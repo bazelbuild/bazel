@@ -38,7 +38,6 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
 import java.util.Locale;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.StarlarkValue;
 
 /** Configuration fragment for Android rules. */
 @Immutable
@@ -90,7 +89,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
    * different labels, they may end up being redirected to the same thing, and this is exactly what
    * happens on OSX X.
    */
-  public enum ConfigurationDistinguisher implements StarlarkValue {
+  public enum ConfigurationDistinguisher {
     MAIN(null),
     ANDROID("android");
 
@@ -156,7 +155,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
   /** Types of android manifest mergers. */
-  public enum AndroidManifestMerger implements StarlarkValue {
+  public enum AndroidManifestMerger {
     LEGACY,
     ANDROID,
     FORCE_ANDROID;
@@ -185,7 +184,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
   /** Orders for merging android manifests. */
-  public enum ManifestMergerOrder implements StarlarkValue {
+  public enum ManifestMergerOrder {
     /** Manifests are sorted alphabetically by exec path. */
     ALPHABETICAL,
     /** Manifests are sorted alphabetically by configuration-relative path. */
@@ -250,16 +249,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + " specified, then the binary is a fat APKs, which contains native binaries for"
                 + " each specified target platform.")
     public List<Label> androidPlatforms;
-
-    @Option(
-        name = "fat_apk_hwasan",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-        effectTags = {
-          OptionEffectTag.NO_OP,
-        },
-        help = "No-op flag. Will be removed in a future release.")
-    public boolean fatApkHwasan;
 
     // For desugaring lambdas when compiling Java 8 sources. Do not use on the command line.
     // The idea is that once this option works, we'll flip the default value in a config file, then
@@ -379,17 +368,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         help = "Use dex2oat in parallel to possibly speed up android_test.")
     public boolean useParallelDex2Oat;
 
-    @Option(
-        name = "break_build_on_parallel_dex2oat_failure",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.TESTING,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help =
-            "If true dex2oat action failures will cause the build to break "
-                + "instead of executing dex2oat during test runtime.")
-    public boolean breakBuildOnParallelDex2OatFailure;
-
     // Do not use on the command line.
     // This flag is intended to be updated as we add supported flags to the incremental dexing tools
     @Option(
@@ -451,19 +429,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         },
         help = "dx flags supported in tool that groups classes for inclusion in final .dex files.")
     public List<String> dexoptsSupportedInDexSharder;
-
-    @Option(
-        name = "experimental_android_rewrite_dexes_with_rex",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-        effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        },
-        metadataTags = OptionMetadataTag.EXPERIMENTAL,
-        help = "use rex tool to rewrite dex files")
-    public boolean useRexToCompressDexFiles;
 
     @Deprecated
     @Option(
@@ -1012,7 +977,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean desugarJava8;
   private final boolean desugarJava8Libs;
   private final boolean checkDesugarDeps;
-  private final boolean useRexToCompressDexFiles;
   private final boolean useAndroidResourceShrinking;
   private final boolean useAndroidResourceCycleShrinking;
   private final boolean useAndroidResourcePathShortening;
@@ -1023,7 +987,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean compressJavaResources;
   private final boolean exportsManifestDefault;
   private final boolean useParallelDex2Oat;
-  private final boolean breakBuildOnParallelDex2OatFailure;
   private final boolean omitResourcesInfoProviderFromAndroidBinary;
   private final boolean fixedResourceNeverlinking;
   private final boolean checkForMigrationTag;
@@ -1069,11 +1032,9 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.manifestMerger = options.manifestMerger;
     this.manifestMergerOrder = options.manifestMergerOrder;
     this.apkSigningMethod = options.apkSigningMethod;
-    this.useRexToCompressDexFiles = options.useRexToCompressDexFiles;
     this.compressJavaResources = options.compressJavaResources;
     this.exportsManifestDefault = options.exportsManifestDefault;
     this.useParallelDex2Oat = options.useParallelDex2Oat;
-    this.breakBuildOnParallelDex2OatFailure = options.breakBuildOnParallelDex2OatFailure;
     this.omitResourcesInfoProviderFromAndroidBinary =
         options.omitResourcesInfoProviderFromAndroidBinary;
     this.fixedResourceNeverlinking = options.fixedResourceNeverlinking;
@@ -1191,11 +1152,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
   @Override
-  public boolean useRexToCompressDexFiles() {
-    return useRexToCompressDexFiles;
-  }
-
-  @Override
   public boolean useAndroidResourceShrinking() {
     return useAndroidResourceShrinking;
   }
@@ -1251,11 +1207,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean useParallelDex2Oat() {
     return useParallelDex2Oat;
-  }
-
-  @Override
-  public boolean breakBuildOnParallelDex2OatFailure() {
-    return breakBuildOnParallelDex2OatFailure;
   }
 
   @Override

@@ -105,6 +105,7 @@ public class TestConstants {
       "com.google.devtools.build.lib.bazel.rules.BazelStrategyModule";
   public static final String TEST_REAL_UNIX_FILE_SYSTEM =
       "com.google.devtools.build.lib.unix.UnixFileSystem";
+  public static final String TEST_UNIX_HASH_FUNCTION_NAME = "SHA256";
   public static final String TEST_UNIX_HASH_ATTRIBUTE = "";
 
   public static final ImmutableList<String> IGNORED_MESSAGE_PREFIXES = ImmutableList.<String>of();
@@ -159,9 +160,7 @@ public class TestConstants {
           "--incompatible_disable_select_on=cpu,crosstool_top,host_cpu");
 
   public static final ImmutableList<String> PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS =
-      ImmutableList.of(
-          // Don't apply autoloads in unit tests, because not all repos are available
-          "--incompatible_autoload_externally=");
+      ImmutableList.of();
 
   /** Partial query to filter out implicit dependencies of C/C++ rules. */
   public static final String CC_DEPENDENCY_CORRECTION =

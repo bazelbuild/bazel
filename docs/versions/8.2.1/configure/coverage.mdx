@@ -2,8 +2,6 @@
 title: 'Code coverage with Bazel'
 ---
 
-
-
 Bazel features a `coverage` sub-command to produce code coverage
 reports on repositories that can be tested with `bazel coverage`. Due
 to the idiosyncrasies of the various language ecosystems, it is not
@@ -38,10 +36,10 @@ however the latter can be more difficult for complex projects.
 "Instrumentation" in this case refers to the coverage tools that are
 used for a specific target. Bazel allows turning this on for a
 specific subset of files using the
-[`--instrumentation_filter`](/reference/command-line-reference#flag--instrumentation_filter)
+[`--instrumentation_filter`](/versions/8.2.1/reference/command-line-reference#flag--instrumentation_filter)
 flag, which specifies a filter for targets that are tested with the
 instrumentation enabled. To enable instrumentation for tests, the
-[`--instrument_test_targets`](/reference/command-line-reference#flag--instrument_test_targets)
+[`--instrument_test_targets`](/versions/8.2.1/reference/command-line-reference#flag--instrument_test_targets)
 flag is required.
 
 By default, bazel tries to match the target package(s), and prints the
@@ -51,7 +49,7 @@ relevant filter as an `INFO` message.
 
 To produce a coverage report, use [`bazel coverage
 --combined_report=lcov
-[target]`](/reference/command-line-reference#coverage). This runs the
+[target]`](/versions/8.2.1/reference/command-line-reference#coverage). This runs the
 tests for the target, generating coverage reports in the lcov format
 for each file.
 

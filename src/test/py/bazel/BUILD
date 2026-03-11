@@ -253,6 +253,13 @@ py_test(
     deps = [":test_base"],
 )
 
+py_test(
+    name = "bazel_tools_proto_test",
+    size = "medium",
+    srcs = ["bazel_tools_proto_test.py"],
+    deps = [":test_base"],
+)
+
 py_library(
     name = "bzlmod_test_utils",
     srcs = ["bzlmod/test_utils.py"],

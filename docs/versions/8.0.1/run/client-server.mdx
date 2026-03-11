@@ -2,8 +2,6 @@
 title: 'Client/server implementation'
 ---
 
-
-
 The Bazel system is implemented as a long-lived server process. This allows it
 to perform many optimizations not possible with a batch-oriented implementation,
 such as caching of BUILD files, dependency graphs, and other metadata from one
@@ -14,7 +12,7 @@ invocation at a time; further concurrent invocations will either block or
 fail-fast (see `--block_for_lock`).
 
 When you run `bazel`, you're running the client. The client finds the server
-based on the [output base](/run/scripts#output-base-option), which by default is
+based on the [output base](/versions/8.0.1/run/scripts#output-base-option), which by default is
 determined by the path of the base workspace directory and your userid, so if
 you build in multiple workspaces, you'll have multiple output bases and thus
 multiple Bazel server processes. Multiple users on the same workstation can
@@ -50,7 +48,7 @@ ps -e f
 This makes it easier to find out which server process belongs to a given
 workspace. (Beware that with certain other options to `ps`, Bazel server
 processes may be named just `java`.) Bazel servers can be stopped using the
-[shutdown](/docs/user-manual#shutdown) command.
+[shutdown](/versions/8.0.1/docs/user-manual#shutdown) command.
 
 When running `bazel`, the client first checks that the server is the appropriate
 version; if not, the server is stopped and a new one started. This ensures that

@@ -28,7 +28,7 @@ import com.google.common.collect.ImmutableList;
  */
 public interface TypeConstructor {
 
-  /** Exception thrown when a {@link TypeConstructor} is invoked with invalid arguments. */
+  /** Exception thrown when a {@link TypeConstructor} is called with invalid arguments. */
   class Failure extends Exception {
     Failure(String message) {
       super(message);
@@ -36,7 +36,7 @@ public interface TypeConstructor {
   }
 
   /**
-   * An argument to a type constructor's {@link #invoke} method.
+   * An argument to a type constructor's {@link #createStarlarkType} method.
    *
    * <p>Conceptually, a type argument is the result of evaluating a subexpression of a type
    * expression. Whereas the overall type expression must yield a {@link StarlarkType}, a
@@ -44,8 +44,32 @@ public interface TypeConstructor {
    * These are needed for type expressions like {@code tuple[Any, ...]} and {@code Callable[[int],
    * bool]}.
    */
-  // TODO: #27370 - Support other type arguments besides StarlarkType when we need them.
-  sealed interface Arg permits StarlarkType {}
+  // TODO: #27370 - Support other type arguments besides StarlarkType, Ellipsis, and EmptyTuple when
+  // we need them
+  sealed interface Arg permits StarlarkType, Arg.Ellipsis, Arg.EmptyTuple {
+    public static final Ellipsis ELLIPSIS = new Ellipsis();
+    public static final EmptyTuple EMPTY_TUPLE = new EmptyTuple();
+
+    /** An ellipsis type argument, {@code ...}. */
+    public static final class Ellipsis implements Arg {
+      private Ellipsis() {}
+
+      @Override
+      public String toString() {
+        return "...";
+      }
+    }
+
+    /** An empty tuple type argument, {@code ()}. */
+    public static final class EmptyTuple implements Arg {
+      private EmptyTuple() {}
+
+      @Override
+      public String toString() {
+        return "()";
+      }
+    }
+  }
 
   /**
    * Returns the result of applying this constructor to the given type arguments
@@ -53,5 +77,5 @@ public interface TypeConstructor {
    * @throws Failure if the usage of this constructor is invalid (typically due to a mismatch in the
    *     number of arguments)
    */
-  StarlarkType invoke(ImmutableList<Arg> argsTuple) throws Failure;
+  StarlarkType createStarlarkType(ImmutableList<Arg> argsTuple) throws Failure;
 }

@@ -590,11 +590,13 @@ py_binary(
 EOF
   touch foo/main.py || fail "Could not touch foo/main.py"
 
-  bazel query --output=proto \
+  # Force a C locale to ensure that grep matches the characters byte-by-byte
+  # even though the proto file is not valid UTF-8.
+  LC_CTYPE=C bazel query --output=proto \
     '//foo:main.py' >& $TEST_log || fail "Expected success"
 
-  expect_log "${TEST_TMPDIR}/.*/foo/main.py:1:1" $TEST_log
-  expect_not_log "${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*" $TEST_log
+  LC_CTYPE=C expect_log "${TEST_TMPDIR}/.*/foo/main.py:1:1" $TEST_log
+  LC_CTYPE=C expect_not_log "${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*" $TEST_log
 }
 
 function test_xml_output_source_files() {
@@ -755,10 +757,7 @@ EOF
   # Genquery uses a graphless blaze environment by default.
   bazel build //foo:q || fail "Expected success"
 
-  # The --incompatible_lexicographical_output flag is used to
-  # switch order_output=auto to use graphless query and output in
-  # lexicographical order.
-  bazel query --incompatible_lexicographical_output \
+  bazel query \
       "deps(//foo:b)" | grep foo >& foo/query_output || fail "Expected success"
 
   # The outputs of graphless query and graphless genquery should be the same and
@@ -792,59 +791,6 @@ EOF
     bazel query --experimental_graphless_query=true \
         "$command" || fail "Expected success"
   done
-}
-
-function test_lexicographical_output_does_not_affect_order_output_no() {
-  rm -rf foo
-  mkdir -p foo
-  cat > foo/BUILD <<EOF
-load("@rules_shell//shell:sh_library.bzl", "sh_library")
-sh_library(name = "b", deps = [":c"])
-sh_library(name = "c", deps = [":a"])
-sh_library(name = "a")
-genquery(
-    name = "q",
-    expression = "deps(//foo:b)",
-    scope = ["//foo:b"],
-)
-EOF
-
-  bazel query --order_output=no \
-      "deps(//foo:b)" | grep foo >& foo/query_output \
-      || fail "Expected success"
-  bazel query --order_output=no \
-      --incompatible_lexicographical_output \
-      "deps(//foo:b)" | grep foo >& foo/lex_query_output \
-      || fail "Expected success"
-
-  # The --incompatible_lexicographical_output flag should not affect query
-  # order_output=no. Note that there is a chance it may output in
-  # lexicographical order since it is unordered.
-  assert_equals \
-      "$(cat foo/query_output)" "$(cat foo/lex_query_output)"
-}
-
-function test_lexicographical_output_does_not_affect_somepath() {
-  rm -rf foo
-  mkdir -p foo
-  cat > foo/BUILD <<EOF
-load("@rules_shell//shell:sh_library.bzl", "sh_library")
-sh_library(name = "b", deps = [":c"])
-sh_library(name = "c", deps = [":a"])
-sh_library(name = "a")
-EOF
-
-  cat > foo/expected_deps_output <<EOF
-//foo:b
-//foo:c
-//foo:a
-EOF
-
-  bazel query --incompatible_lexicographical_output \
-      "somepath(//foo:b, //foo:a)" | grep foo >& foo/query_output
-
-  assert_equals \
-      "$(cat foo/expected_deps_output)" "$(cat foo/query_output)"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/8582.
@@ -1470,15 +1416,17 @@ EOF
   bazel query --output=proto //foo:without_select >& $TEST_log \
       || fail "Expected success"
 
+  # Force a C locale to ensure that grep matches the Unicode characters
+  # byte-by-byte even though the proto file is not valid UTF-8.
   for x in "${items[@]}"; do
-    grep -q "$x" $TEST_log || fail "Expected $x in query output for //foo:without_select"
+    LC_CTYPE=C grep -q "$x" $TEST_log || fail "Expected $x in query output for //foo:without_select"
   done
 
   bazel query --output=proto //foo:with_select >& $TEST_log \
       || fail "Expected success"
 
   for x in "${items[@]}"; do
-    grep -q "$x" $TEST_log || fail "Expected $x in query output for //foo:with_select"
+    LC_CTYPE=C grep -q "$x" $TEST_log || fail "Expected $x in query output for //foo:with_select"
   done
 }
 
@@ -1495,7 +1443,9 @@ EOF
   echo "//foo:äöüÄÖÜß🌱" > my_query || fail "Could not write my_query"
   # Check that the unicode characters are preserved in the output.
   bazel query --output=proto --query_file=my_query >& $TEST_log || fail "Expected success"
-  expect_log "//foo:äöüÄÖÜß🌱"
+  # Force a C locale to ensure that grep matches the characters byte-by-byte
+  # even though the proto file is not valid UTF-8.
+  LC_CTYPE=C grep -q "//foo:äöüÄÖÜß🌱" $TEST_log || fail "Expected Unicode target in query output"
 }
 
 run_suite "${PRODUCT_NAME} query tests"

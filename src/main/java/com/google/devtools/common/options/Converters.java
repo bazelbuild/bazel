@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
-import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_PREFIXES;
-
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.google.common.base.Ascii;
 import com.google.common.base.Splitter;
@@ -37,12 +35,6 @@ import javax.annotation.Nullable;
 
 /** Some convenient converters used by blaze. Note: These are specific to blaze. */
 public final class Converters {
-  /**
-   * The name of the flag used for shorthand aliasing in blaze. {@see
-   * com.google.devtools.build.lib.analysis.config.CoreOptions#commandLineFlagAliases} for the
-   * option definition.
-   */
-  public static final String BLAZE_ALIASING_FLAG = "flag_alias";
 
   private static final ImmutableSet<String> ENABLED_REPS =
       ImmutableSet.of("true", "1", "yes", "t", "y");
@@ -138,9 +130,13 @@ public final class Converters {
   }
 
   /** Standard converter for TriState values. */
-  public static class TriStateConverter extends Converter.Contextless<TriState> {
+  public static class TriStateConverter extends EnumConverter<TriState> {
+    public TriStateConverter() {
+      super(TriState.class, "tri-state (auto, yes, no) option value");
+    }
+
     @Override
-    public TriState convert(String input) throws OptionsParsingException {
+    public TriState convert(@Nullable String input) throws OptionsParsingException {
       if (input == null) {
         return TriState.AUTO;
       }
@@ -154,7 +150,8 @@ public final class Converters {
       if (DISABLED_REPS.contains(input)) {
         return TriState.NO;
       }
-      throw new OptionsParsingException("'" + input + "' is not a boolean");
+      throw new OptionsParsingException(
+          "Not a valid %s: '%s' (should be auto or a boolean)".formatted(typeName, input));
     }
 
     @Override
@@ -523,46 +520,6 @@ public final class Converters {
     @Override
     public String getTypeDescription() {
       return "a named float, 'name=value'";
-    }
-  }
-
-  /**
-   * A converter for command line flag aliases. It does additional validation on the name and value
-   * of the assignment to ensure they conform to the naming limitations.
-   */
-  public static class FlagAliasConverter extends AssignmentConverter {
-
-    @Override
-    public Map.Entry<String, String> convert(String input) throws OptionsParsingException {
-      Map.Entry<String, String> entry = super.convert(input);
-      String shortForm = entry.getKey();
-      String longForm = entry.getValue();
-
-      String cmdLineAlias = "--" + BLAZE_ALIASING_FLAG + "=" + input;
-
-      if (!Pattern.matches("([\\w])*", shortForm)) {
-        throw new OptionsParsingException(
-            shortForm + " should only consist of word characters to be a valid alias name.",
-            cmdLineAlias);
-      }
-      if (longForm.contains("=")) {
-        throw new OptionsParsingException(
-            "--" + BLAZE_ALIASING_FLAG + " does not support flag value assignment.", cmdLineAlias);
-      }
-
-      // Remove this check if native options are permitted to be aliased
-      longForm = "--" + longForm;
-      if (STARLARK_SKIPPED_PREFIXES.stream().noneMatch(longForm::startsWith)) {
-        throw new OptionsParsingException(
-            "--" + BLAZE_ALIASING_FLAG + " only supports Starlark build settings.", cmdLineAlias);
-      }
-
-      return entry;
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a 'name=value' flag alias";
     }
   }
 

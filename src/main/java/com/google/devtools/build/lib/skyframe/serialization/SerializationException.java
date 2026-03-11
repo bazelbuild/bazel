@@ -15,22 +15,45 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.CacheMissReason;
 import java.util.ArrayList;
 
 /** Exception signaling a failure to Serialize or Deserialize an Object. */
 public class SerializationException extends Exception {
   private final ArrayList<String> trail = new ArrayList<>();
+  private final CacheMissReason reason;
+
+  private static CacheMissReason maybePropagateReason(Throwable cause) {
+    return cause instanceof SerializationException se ? se.reason : CacheMissReason.UNKNOWN;
+  }
 
   public SerializationException(String msg) {
     super(msg);
+    this.reason = CacheMissReason.UNKNOWN;
   }
 
   public SerializationException(Throwable cause) {
     super(cause);
+    this.reason = maybePropagateReason(cause);
+  }
+
+  public SerializationException(String msg, CacheMissReason reason) {
+    super(msg);
+    this.reason = reason;
   }
 
   public SerializationException(String msg, Throwable cause) {
     super(msg, cause);
+    this.reason = maybePropagateReason(cause);
+  }
+
+  public SerializationException(String msg, Throwable cause, CacheMissReason reason) {
+    super(msg, cause);
+    this.reason = reason;
+  }
+
+  public CacheMissReason getReason() {
+    return reason;
   }
 
   // No SerializationException(Throwable) overload because serialization errors should always

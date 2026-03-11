@@ -130,11 +130,7 @@ JAVA_TOOLS = [
     ],
 ) for suffix, jdk in {
     "_jdk_allmodules": [":embedded_jdk_allmodules"],
-    "_jdk_minimal": select({
-        # We cannot minimize the JDK during cross compiling for Windows arm64
-        "//src/conditions:windows_arm64": [":embedded_jdk_vanilla"],
-        "//conditions:default": [":embedded_jdk_minimal"],
-    }),
+    "_jdk_minimal": [":embedded_jdk_minimal"],
     "_nojdk": [],
 }.items()]
 
@@ -195,6 +191,11 @@ copy_file(
 cc_binary(
     name = "read_manifest",
     srcs = ["read_manifest.cc"],
+    linkopts = select({
+        # MinGW requires -municode when using wmain.
+        "@rules_cc//cc/compiler:clang": ["-municode"],
+        "//conditions:default": [],
+    }),
     tags = ["manual"],
     target_compatible_with = ["@platforms//os:windows"],
     visibility = ["//src/java_tools:__subpackages__"],
@@ -204,6 +205,11 @@ cc_binary(
 cc_binary(
     name = "write_manifest",
     srcs = ["write_manifest.cc"],
+    linkopts = select({
+        # MinGW requires -municode when using wmain.
+        "@rules_cc//cc/compiler:clang": ["-municode"],
+        "//conditions:default": [],
+    }),
     tags = ["manual"],
     target_compatible_with = ["@platforms//os:windows"],
     visibility = ["//src/java_tools:__subpackages__"],

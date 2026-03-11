@@ -44,7 +44,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nullable;
 
@@ -379,7 +378,7 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
         List<WriteStatus> childWriteStatuses,
         byte[] childBytes,
         Collection<FuturePut> childFuturePuts) {
-      super(childWriteStatuses, childBytes, childFuturePuts, ForkJoinPool.commonPool());
+      super(childWriteStatuses, childBytes, childFuturePuts, fingerprintValueService.getExecutor());
       this.fingerprintValueService = fingerprintValueService;
 
       COUNTERS.objectsWaitingForSerialization.decrementAndGet();

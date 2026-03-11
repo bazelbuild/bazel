@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionColle
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionCreationException;
 import com.google.devtools.build.lib.analysis.producers.DependencyMapProducer.MaterializerException;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
+import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -64,9 +65,12 @@ import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.util.Either;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -439,6 +443,9 @@ final class DependencyProducer
         new MaterializerRuleDependencySink();
 
     int materializedTargetsCount = 0;
+    List<Pair<ConfiguredTargetAndData, Integer>> erroringMaterializerTargetsUnderAnalysisTest =
+        new ArrayList<>();
+
     // There will be one ConfiguredTargetAndData in prerequisiteValues for each configuration this
     // label is being evaluated under.
     for (ConfiguredTargetAndData dep : prerequisiteValues) {
@@ -485,42 +492,55 @@ final class DependencyProducer
 
       sink.acceptMaterializerTarget(kind, dep);
 
-      // StarlarkRuleConfiguredTargetUtil checks that this provider exists.
       MaterializedDepsInfo materializedDepsInfo =
           dep.getConfiguredTarget().get(MaterializedDepsInfo.PROVIDER);
-      Preconditions.checkNotNull(materializedDepsInfo);
+      if (materializedDepsInfo != null) {
+        for (Either<ConfiguredTarget, DormantDependency> dependency :
+            materializedDepsInfo.getDeps()) {
 
-      for (Either<ConfiguredTarget, DormantDependency> dependency :
-          materializedDepsInfo.getDeps()) {
+          // In the case that the dep is a ConfiguredTarget, things are somewhat circuitous because
+          // this very ConfiguredTarget object is already the ConfiguredTarget that is needed. What
+          // is actually needed though is the corresponding ConfiguredTargetAndData object. The
+          // ConfiguredTargetAndData object is also already available in the RuleContext when the
+          // MaterializedDepsInfo was created, but there is no easy way to get it from the
+          // RuleContext, through the provider, then to here. So just use the label to ask
+          // DependencyProducer to get the ConfiguredTargetAndData like everything else.
+          Label label = dependency.map(ConfiguredTarget::getLabel, DormantDependency::getLabel);
 
-        // In the case that the dep is a ConfiguredTarget, things are somewhat circuitous because
-        // this very ConfiguredTarget object is already the ConfiguredTarget that is needed. What is
-        // actually needed though is the corresponding ConfiguredTargetAndData object. The
-        // ConfiguredTargetAndData object is also already available in the RuleContext when the
-        // MaterializedDepsInfo was created, but there is no easy way to get it from the
-        // RuleContext, through the provider, then to here. So just use the label to ask
-        // DependencyProducer to get the ConfiguredTargetAndData like everything else.
-        Label label = dependency.map(ConfiguredTarget::getLabel, DormantDependency::getLabel);
+          // The task will not start until this step is complete, so it is safe to calculate
+          // indices here and reallocate the results array after (instead of having to
+          // precalculate everything, then reallocate, then calculate and enqueue the dependency
+          // producer tasks)
+          tasks.enqueue(
+              new DependencyProducer(
+                  parameters,
+                  kind,
+                  label,
+                  propagatingAspects,
+                  materializerRuleDependencySink,
+                  dep.getTargetLabel(),
+                  materializedTargetsCount));
 
-        // The task will not start until this step is complete, so it is safe to calculate
-        // indices here and reallocate the results array after (instead of having to
-        // precalculate everything, then reallocate, then calculate and enqueue the dependency
-        // producer tasks)
-        tasks.enqueue(
-            new DependencyProducer(
-                parameters,
-                kind,
-                label,
-                propagatingAspects,
-                materializerRuleDependencySink,
-                dep.getTargetLabel(),
-                materializedTargetsCount));
-
-        // Using result.length is a bit of a hack. It's not easy to get the number of
-        // configurations, and hence how many results DependencyProducer will return, in this
-        // part of the code. However the number of results returned from DependencyProducer
-        // in the first round in attributeResolutionStep matches the number of configurations.
-        materializedTargetsCount += prerequisiteValues.length;
+          // Using result.length is a bit of a hack. It's not easy to get the number of
+          // configurations, and hence how many results DependencyProducer will return, in this
+          // part of the code. However the number of results returned from DependencyProducer
+          // in the first round in attributeResolutionStep matches the number of configurations.
+          materializedTargetsCount += prerequisiteValues.length;
+        }
+      } else {
+        // StarlarkRuleConfiguredTargetUtil checks that MaterializedDepsInfo provider exists, but if
+        // the materializer target is being tested under an analysis test that expects failure, then
+        // there might be a call to fail() before the MaterializedDepsInfo provider is returned, but
+        // analysis will continue. So allow there to be no MaterializedDepsInfo from a materializer
+        // target only if analysis failure is allowed. Futhermore, the failing materializer target
+        // must not disappear as it usually would so that the test can observe the
+        // AnalysisFailureInfo provider.
+        Preconditions.checkState(dep.getConfiguration().allowAnalysisFailures());
+        Preconditions.checkNotNull(
+            dep.getConfiguredTarget().get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR));
+        erroringMaterializerTargetsUnderAnalysisTest.add(new Pair<>(dep, materializedTargetsCount));
+        // The materializer target is in error, so it will not be expanded, so only add 1 for itself
+        materializedTargetsCount++;
       }
     }
 
@@ -529,6 +549,12 @@ final class DependencyProducer
     if (materializedTargetsCount != prerequisiteValues.length) {
       // Throw away the materializer target(s) and make room for the materialized target(s).
       prerequisiteValues = new ConfiguredTargetAndData[materializedTargetsCount];
+
+      // But preserve any materializer target that was in error under analysis testing.
+      for (Pair<ConfiguredTargetAndData, Integer> pair :
+          erroringMaterializerTargetsUnderAnalysisTest) {
+        prerequisiteValues[pair.getSecond()] = pair.getFirst();
+      }
     }
 
     return this::emitResults;

@@ -15,8 +15,6 @@
 package com.google.devtools.common.options;
 
 import com.google.common.collect.Maps;
-import com.google.common.escape.CharEscaperBuilder;
-import com.google.common.escape.Escaper;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -48,9 +46,6 @@ import java.util.Objects;
  */
 public abstract class OptionsBase {
 
-  private static final Escaper ESCAPER = new CharEscaperBuilder()
-      .addEscape('\\', "\\\\").addEscape('"', "\\\"").toEscaper();
-
   /** Subclasses must provide a default (no argument) constructor. */
   protected OptionsBase() {
     // There used to be a validation here that checks the stack trace of this constructor
@@ -81,39 +76,6 @@ public abstract class OptionsBase {
   @Override
   public final String toString() {
     return getClass().getName() + asMap();
-  }
-
-  /**
-   * Returns a string that uniquely identifies the options. This value is
-   * intended for analysis caching.
-   */
-  public final String cacheKey() {
-    StringBuilder result = new StringBuilder(getClass().getName()).append("{");
-    result.append(mapToCacheKey(asMap()));
-    return result.append("}").toString();
-  }
-
-  public static String mapToCacheKey(Map<?, ?> optionsMap) {
-    StringBuilder result = new StringBuilder();
-    for (Map.Entry<?, ?> entry : optionsMap.entrySet()) {
-      result.append(entry.getKey()).append("=");
-
-      Object value = entry.getValue();
-      // This special case is needed because List.toString() prints the same
-      // ("[]") for an empty list and for a list with a single empty string.
-      if (value instanceof List<?> && ((List<?>) value).isEmpty()) {
-        result.append("EMPTY");
-      } else if (value == null) {
-        result.append("NULL");
-      } else {
-        result
-            .append('"')
-            .append(ESCAPER.escape(value.toString()))
-            .append('"');
-      }
-      result.append(", ");
-    }
-    return result.toString();
   }
 
   @Override

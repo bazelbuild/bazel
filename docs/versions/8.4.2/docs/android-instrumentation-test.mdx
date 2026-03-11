@@ -2,16 +2,14 @@
 title: 'Android Instrumentation Tests'
 ---
 
-
-
 _If you're new to Bazel, start with the [Building Android with
-Bazel](/start/android-app ) tutorial._
+Bazel](/versions/8.4.2/start/android-app ) tutorial._
 
-![Running Android instrumentation tests in parallel](/docs/images/android_test.gif "Android instrumentation test")
+![Running Android instrumentation tests in parallel](/versions/8.4.2/docs/images/android_test.gif "Android instrumentation test")
 
 **Figure 1.** Running parallel Android instrumentation tests.
 
-[`android_instrumentation_test`](/reference/be/android#android_instrumentation_test)
+[`android_instrumentation_test`](/versions/8.4.2/reference/be/android#android_instrumentation_test)
 allows developers to test their apps on Android emulators and devices.
 It utilizes real Android framework APIs and the Android Test Library.
 
@@ -56,7 +54,7 @@ bazel info release
 ```
 This results in output similar to the following:
 
-```none {:.devsite-disable-click-to-copy}
+```none
 release 4.1.0
 ```
 
@@ -74,7 +72,7 @@ apt-get install cpu-checker && kvm-ok
 
 If it prints the following message, you have the correct configuration:
 
-```none {:.devsite-disable-click-to-copy}
+```none
 INFO: /dev/kvm exists
 KVM acceleration can be used
 ```
@@ -95,7 +93,7 @@ which Xvfb
 ```
 The output is the following:
 
-```{:.devsite-disable-click-to-copy}
+```
 /usr/bin/Xvfb
 ```
 
@@ -111,10 +109,9 @@ sudo apt-get install libc6:i386 libncurses5:i386 libstdc++6:i386 lib32z1 libbz2-
 
 Here is a typical target dependency graph of an `android_instrumentation_test`:
 
-![The target dependency graph on an Android instrumentation test](/docs/images/android_instrumentation_test.png "Target dependency graph")
+![The target dependency graph on an Android instrumentation test](/versions/8.4.2/docs/images/android_instrumentation_test.png "Target dependency graph")
 
 **Figure 2.** Target dependency graph of an `android_instrumentation_test`.
-
 
 ### BUILD file
 

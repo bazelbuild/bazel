@@ -9,7 +9,7 @@ An exhaustive specification of the test execution environment.
 The Bazel BUILD language includes rules which can be used to define automated
 test programs in many languages.
 
-Tests are run using [`bazel test`](/docs/user-manual#test).
+Tests are run using [`bazel test`](/versions/8.4.2/docs/user-manual#test).
 
 Users may also execute test binaries directly. This is allowed but not endorsed,
 as such an invocation will not adhere to the mandates described below.
@@ -99,7 +99,7 @@ sending a signal to the test process or any children thereof.
 
 The whole test target (not individual methods or tests) is given a limited
 amount of time to run to completion. The time limit for a test is based on its
-[`timeout`](/reference/be/common-definitions#test.timeout) attribute according
+[`timeout`](/versions/8.4.2/reference/be/common-definitions#test.timeout) attribute according
 to the following table:
 
 <table>
@@ -126,7 +126,7 @@ to the following table:
 </table>
 
 Tests which do not explicitly specify a timeout have one implied based on the
-test's [`size`](/reference/be/common-definitions#test.size) as follows:
+test's [`size`](/versions/8.4.2/reference/be/common-definitions#test.size) as follows:
 
 <table>
   <tr>
@@ -157,7 +157,7 @@ seconds.
 
 Unlike `timeout`, the `size` additionally determines the assumed peak usage of
 other resources (like RAM) when running the test locally, as described in
-[Common definitions](/reference/be/common-definitions#common-attributes-tests).
+[Common definitions](/versions/8.4.2/reference/be/common-definitions#common-attributes-tests).
 
 All combinations of `size` and `timeout` labels are legal, so an "enormous" test
 may be declared to have a timeout of "short". Presumably it would do some really
@@ -202,7 +202,7 @@ For example, if a "moderate" test completes in 5.5s, consider setting `timeout =
 command line option will show the tests whose specified size is too big.
 
 Test sizes and timeouts are specified in the BUILD file according to the
-specification [here](/reference/be/common-definitions#common-attributes-tests). If
+specification [here](/versions/8.4.2/reference/be/common-definitions#common-attributes-tests). If
 unspecified, a test's size will default to "medium".
 
 If the main process of a test exits, but some of its children are still running,
@@ -213,8 +213,8 @@ may kill any stray processes. Tests should not leak processes in this fashion.
 ## Test sharding
 
 Tests can be parallelized via test sharding. See
-[`--test_sharding_strategy`](/reference/command-line-reference#flag--test_sharding_strategy)
-and [`shard_count`](/reference/be/common-definitions#common-attributes-tests) to
+[`--test_sharding_strategy`](/versions/8.4.2/reference/command-line-reference#flag--test_sharding_strategy)
+and [`shard_count`](/versions/8.4.2/reference/be/common-definitions#common-attributes-tests) to
 enable test sharding. When sharding is enabled, the test runner is launched once
 per shard. The environment variable [`TEST_TOTAL_SHARDS`](#initial-conditions)
 is the number of shards, and [`TEST_SHARD_INDEX`](#initial-conditions) is the
@@ -223,7 +223,7 @@ to run - for example, using a round-robin strategy. Not all test runners support
 sharding. If a runner supports sharding, it must create or update the last
 modified date of the file specified by
 [`TEST_SHARD_STATUS_FILE`](#initial-conditions). Otherwise, if
-[`--incompatible_check_sharding_support`](/reference/command-line-reference#flag--incompatible_check_sharding_support)
+[`--incompatible_check_sharding_support`](/versions/8.4.2/reference/command-line-reference#flag--incompatible_check_sharding_support)
 is enabled, Bazel will fail the test if it is sharded.
 
 ## Initial conditions
@@ -395,7 +395,7 @@ The initial environment block shall be composed as follows:
   <tr>
     <td><code>TEST_TOTAL_SHARDS</code></td>
     <td>total
-      <a href="/reference/be/common-definitions#test.shard_count"><code>shard count</code></a>,
+      <a href="/versions/8.4.2/reference/be/common-definitions#test.shard_count"><code>shard count</code></a>,
       if <a href="#test-sharding"><code>sharding</code></a> is used</td>
     <td>optional</td>
   </tr>
@@ -434,7 +434,7 @@ The initial environment block shall be composed as follows:
   <tr>
     <td><code>TESTBRIDGE_TEST_ONLY</code></td>
     <td>value of
-      <a href="/docs/user-manual#flag--test_filter"><code>--test_filter</code></a>,
+      <a href="/versions/8.4.2/docs/user-manual#flag--test_filter"><code>--test_filter</code></a>,
       if specified</td>
     <td>optional</td>
   </tr>
@@ -699,7 +699,7 @@ mark it as having failed.
 ## Tag conventions
 
 Some tags in the test rules have a special meaning. See also the
-[Bazel Build Encyclopedia on the `tags` attribute](/reference/be/common-definitions#common.tags).
+[Bazel Build Encyclopedia on the `tags` attribute](/versions/8.4.2/reference/be/common-definitions#common.tags).
 
 <table>
   <tr>

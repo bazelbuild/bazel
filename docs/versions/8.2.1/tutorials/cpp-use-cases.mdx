@@ -2,20 +2,18 @@
 title: 'Common C++ Build Use Cases'
 ---
 
-
-
 Here you will find some of the most common use cases for building C++ projects
 with Bazel. If you have not done so already, get started with building C++
 projects with Bazel by completing the tutorial
-[Introduction to Bazel: Build a C++ Project](/start/cpp).
+[Introduction to Bazel: Build a C++ Project](/versions/8.2.1/start/cpp).
 
 For information on cc_library and hdrs header files, see
-<a href="/reference/be/c-cpp#cc_library">cc_library</a>.
+<a href="/versions/8.2.1/reference/be/c-cpp#cc_library">cc_library</a>.
 
 ## Including multiple files in a target
 
 You can include multiple files in a single target with
-<a href="/reference/be/functions#glob">glob</a>.
+<a href="/versions/8.2.1/reference/be/functions#glob">glob</a>.
 For example:
 
 ```python
@@ -103,8 +101,7 @@ must otherwise be included with a `/` prefix.
 
 ## Include external libraries
 
-Suppose you are using [Google Test](https://github.com/google/googletest)
-.
+Suppose you are using [Google Test](https://github.com/google/googletest).
 You can add a dependency on it in the `MODULE.bazel` file to
 download Google Test and make it available in your repository:
 
@@ -162,7 +159,6 @@ INFO: Elapsed time: 4.497s, Critical Path: 2.53s
 
 Executed 1 out of 1 tests: 1 test passes.
 ```
-
 
 ## Adding dependencies on precompiled libraries
 

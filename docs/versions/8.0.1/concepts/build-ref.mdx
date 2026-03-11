@@ -2,8 +2,6 @@
 title: 'Repositories, workspaces, packages, and targets'
 ---
 
-
-
 Bazel builds software from source code organized in directory trees called
 repositories. A defined set of repositories comprises the workspace. Source
 files in repositories are organized in a nested hierarchy of packages, where
@@ -20,7 +18,7 @@ in legacy contexts, `WORKSPACE` or `WORKSPACE.bazel`.
 
 The repo in which the current Bazel command is being run is called the _main
 repo_. Other, (external) repos are defined by _repo rules_; see [external
-dependencies overview](/external/overview) for more information.
+dependencies overview](/versions/8.0.1/external/overview) for more information.
 
 ## Workspace
 
@@ -39,7 +37,7 @@ package is a collection of related files and a specification of how they can be
 used to produce output artifacts.
 
 A package is defined as a directory containing a
-[`BUILD` file](/concepts/build-files) named either `BUILD` or `BUILD.bazel`. A
+[`BUILD` file](/versions/8.0.1/concepts/build-files) named either `BUILD` or `BUILD.bazel`. A
 package includes all files in its directory, plus all subdirectories beneath it,
 except those which themselves contain a `BUILD` file. From this definition, no
 file or directory may be a part of two different packages.
@@ -98,8 +96,8 @@ package groups they include. The only allowed ways to refer to them are from the
 `visibility` attribute of rules or from the `default_visibility` attribute of
 the `package` function; they do not generate or consume files. For more
 information, refer to the [`package_group`
-documentation](/reference/be/functions#package_group).
+documentation](/versions/8.0.1/reference/be/functions#package_group).
 
-<a class="button button-with-icon button-primary" href="/concepts/labels">
+<a class="button button-with-icon button-primary" href="/versions/8.0.1/concepts/labels">
   Labels<span class="material-icons icon-after" aria-hidden="true">arrow_forward</span>
 </a>

@@ -1785,7 +1785,6 @@ public final class LoadingPhaseRunnerTest {
               new ServerDirectories(
                   fs.getPath("/install"), fs.getPath("/output"), fs.getPath("/userRoot")),
               workspace,
-              /*defaultSystemJavabase=*/ null,
               analysisMock.getProductName());
       workspace.getRelative("base").deleteTree();
 

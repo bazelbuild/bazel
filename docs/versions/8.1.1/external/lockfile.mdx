@@ -1,9 +1,6 @@
-keywords: product:Bazel,lockfile,Bzlmod
 ---
 title: 'Bazel Lockfile'
 ---
-
-
 
 The lockfile feature in Bazel enables the recording of specific versions or
 dependencies of software libraries or packages required by a project. It
@@ -32,7 +29,7 @@ dependencies.
 ## Lockfile Usage
 
 The lockfile can be controlled by the flag
-[`--lockfile_mode`](/reference/command-line-reference#flag--lockfile_mode) to
+[`--lockfile_mode`](/versions/8.1.1/reference/command-line-reference#flag--lockfile_mode) to
 customize the behavior of Bazel when the project state differs from the
 lockfile. The available modes are:
 
@@ -218,11 +215,11 @@ practices:
     ensure that all team members have access to the same lockfile, promoting
     consistent development environments across the project.
 
-*   Use [`bazelisk`](/install/bazelisk) to run Bazel, and include a
+*   Use [`bazelisk`](/versions/8.1.1/install/bazelisk) to run Bazel, and include a
     `.bazelversion` file in version control that specifies the Bazel version
     corresponding to the lockfile. Because Bazel itself is a dependency of
     your build, the lockfile is specific to the Bazel version, and will
-    change even between [backwards compatible](/release/backward-compatibility)
+    change even between [backwards compatible](/versions/8.1.1/release/backward-compatibility)
     Bazel releases. Using `bazelisk` ensures that all developers are using
     a Bazel version that matches the lockfile.
 

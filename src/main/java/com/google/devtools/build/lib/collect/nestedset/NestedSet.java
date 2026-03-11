@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.lang.ref.WeakReference;
 import java.time.Duration;
@@ -608,25 +609,86 @@ public final class NestedSet<E> {
   /** Implementation of {@link #toList} for sets with > 1 element. */
   private ImmutableList<E> expand(Object[] children) {
     CompactHashSet<E> members = CompactHashSet.createWithExpectedSize(128);
-    CompactHashSet<Object[]> sets = CompactHashSet.createWithExpectedSize(128);
-    sets.add(children);
-    walk(sets, members, children);
+    VisitedArraySet arrays = new VisitedArraySet(128);
+    arrays.add(children);
+    walk(arrays, members, children);
     return ImmutableList.copyOf(members);
   }
 
   /**
-   * Performs a depth-first traversal of {@code children}, tracking visited arrays in {@code sets}
+   * Performs a depth-first traversal of {@code children}, tracking visited arrays in {@code arrays}
    * and visited leaves in {@code members}.
    */
-  private void walk(CompactHashSet<Object[]> sets, CompactHashSet<E> members, Object[] children) {
+  private void walk(VisitedArraySet arrays, CompactHashSet<E> members, Object[] children) {
     for (Object child : children) {
       if (child instanceof Object[] array) {
-        if (sets.add(array)) {
-          walk(sets, members, array);
+        if (arrays.add(array)) {
+          walk(arrays, members, array);
         }
       } else {
         members.add((E) child);
       }
+    }
+  }
+
+  /**
+   * Efficient data structure for tracking the set of visited arrays during {@link NestedSet#walk}.
+   * Much more CPU-efficient than general-purpose set implementations like CompactHashSet and
+   * Sets.newIdentityHashSet.
+   *
+   * <p>Implements the set data structure via a hash table with open addressing and linear probing,
+   * using the identity of the arrays for equals/hashCode.
+   */
+  private static final class VisitedArraySet {
+    private Object[][] data;
+    private int size = 0;
+
+    VisitedArraySet(int sizeHint) {
+      int size = 1;
+      while (size <= sizeHint) {
+        size *= 2;
+      }
+      this.data = new Object[size * 2][];
+    }
+
+    @CanIgnoreReturnValue
+    boolean add(Object[] array) {
+      int hashCode = System.identityHashCode(array);
+      int probe = hash(hashCode, data.length);
+      while (data[probe] != null) {
+        if (data[probe] == array) {
+          return false;
+        }
+        if (++probe == data.length) {
+          probe = 0;
+        }
+      }
+      data[probe] = array;
+      if (++size * 2 >= data.length) {
+        resize();
+      }
+      return true;
+    }
+
+    private void resize() {
+      Object[][] oldData = data;
+      data = new Object[oldData.length * 2][];
+      for (Object[] array : oldData) {
+        if (array == null) {
+          continue;
+        }
+        int probe = hash(System.identityHashCode(array), data.length);
+        while (data[probe] != null) {
+          if (++probe == data.length) {
+            probe = 0;
+          }
+        }
+        data[probe] = array;
+      }
+    }
+
+    private static int hash(int hashCode, int length) {
+      return ((hashCode << 1) - (hashCode << 8)) & (length - 1);
     }
   }
 

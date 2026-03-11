@@ -39,6 +39,14 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
   }
 
   /**
+   * If this type has a field by the given name, returns the type of that field, or null otherwise.
+   */
+  @Nullable
+  public StarlarkType getField(String name) {
+    return null;
+  }
+
+  /**
    * Returns whether a value of type {@code t2} can be assigned to a value of type {@code t1}.
    *
    * <p>In gradual typing terms, {@code t2} must be a "consistent subtype of" {@code t1}. This means
@@ -49,7 +57,6 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
    * "materialization" to refer to the process of substituting {@code Any}.
    */
   // TODO: #28043 - Add support for:
-  // - subtyping (list[int] <= Sequence[int])
   // - covariance (Sequence[int] <= Sequence[object])
   // - proper treatment of materializing Any (Sequence[int] <= Sequence[Any])
   // - transitive application of all of the above
@@ -68,6 +75,9 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
     }
     if (t1 instanceof Types.UnionType union1) {
       return union1.getTypes().stream().anyMatch(sub1 -> assignableFrom(sub1, t2));
+    }
+    if (t2.getSupertypes().stream().anyMatch(super2 -> assignableFrom(t1, super2))) {
+      return true;
     }
     return false;
   }
@@ -110,6 +120,22 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
    * <p>Do not call this method directly; instead, use {@link #comparable}.
    */
   protected boolean isComparable(StarlarkType that) {
+    return false;
+  }
+
+  /**
+   * Returns true if an index expression on a value of this type can be used as the LHS of an
+   * assignment.
+   */
+  public boolean hasSetIndex() {
+    return false;
+  }
+
+  /**
+   * Returns true if a dot expressions on a value of this type can be used as the LHS of an
+   * assignment.
+   */
+  public boolean hasSetField() {
     return false;
   }
 }

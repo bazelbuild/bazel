@@ -1,0 +1,77 @@
+---
+title: 'WORKSPACE files'
+---
+
+Methods available in WORKSPACE files.
+
+## Members
+
+* [bind](#bind)
+* [register\_execution\_platforms](#register_execution_platforms)
+* [register\_toolchains](#register_toolchains)
+* [workspace](#workspace)
+
+## bind
+
+```
+None bind(name, actual=None)
+```
+
+Warning: use of `bind()` is not recommended. See [Consider removing bind](https://github.com/bazelbuild/bazel/issues/1952) for a long discussion of its issues and alternatives.
+
+Gives a target an alias in the `//external` package.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `name` | required  The label under '//external' to serve as the alias name |
+| `actual` | [string](../core/string); or `None`; default is `None`  The real label to be aliased |
+
+## register\_execution\_platforms
+
+```
+None register_execution_platforms(*platform_labels)
+```
+
+Register an already-defined platform so that Bazel can use it as an [execution platform](/versions/7.7.1/docs/toolchains#toolchain-resolution) during [toolchain resolution](/versions/7.7.1/docs/toolchains).
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `platform_labels` | [sequence](../core/list) of [string](../core/string)s; required  The labels of the platforms to register. |
+
+## register\_toolchains
+
+```
+None register_toolchains(*toolchain_labels)
+```
+
+Register an already-defined toolchain so that Bazel can use it during [toolchain resolution](/versions/7.7.1/docs/toolchains). See examples of [defining](/versions/7.7.1/docs/toolchains#defining-toolchains) and [registering toolchains](/versions/7.7.1/docs/toolchains#registering-and-building-with-toolchains).
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `toolchain_labels` | [sequence](../core/list) of [string](../core/string)s; required  The labels of the toolchains to register. Labels can include `:all`, in which case, all toolchain-providing targets in the package will be registered in lexicographical order by name. |
+
+## workspace
+
+```
+None workspace(name)
+```
+
+This function can only be used in a `WORKSPACE` file and must be declared before all other functions in the `WORKSPACE` file. Each `WORKSPACE` file should have a `workspace` function.
+
+Sets the name for this workspace. Workspace names should be a Java-package-style description of the project, using underscores as separators, e.g., github.com/bazelbuild/bazel should use com\_github\_bazelbuild\_bazel.
+
+This name is used for the directory that the repository's runfiles are stored in. For example, if there is a runfile `foo/bar` in the local repository and the WORKSPACE file contains `workspace(name = 'baz')`, then the runfile will be available under `mytarget.runfiles/baz/foo/bar`. If no workspace name is specified, then the runfile will be symlinked to `bar.runfiles/foo/bar`.
+
+[Remote repository](/versions/7.7.1/docs/external) rule names must be valid workspace names. For example, you could have `maven_jar(name = 'foo')`, but not `maven_jar(name = 'foo%bar')`, as Bazel would attempt to write a WORKSPACE file for the `maven_jar` containing `workspace(name = 'foo%bar')`.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `name` | required  the name of the workspace. Names must start with a letter and can only contain letters, numbers, underscores, dashes, and dots. |

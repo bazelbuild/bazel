@@ -92,14 +92,24 @@ public final class WorkerFilesHashTest {
 
     TreeArtifactValue treeArtifactValue =
         TreeArtifactValue.newBuilder(tree)
-            .putChild(child1, FileArtifactValue.createProxy(child1Digest))
-            .putChild(child2, FileArtifactValue.createProxy(child2Digest))
+            .putChild(
+                child1,
+                FileArtifactValue.createForNormalFile(
+                    child1Digest, /* proxy= */ null, /* size= */ 123))
+            .putChild(
+                child2,
+                FileArtifactValue.createForNormalFile(
+                    child2Digest, /* proxy= */ null, /* size= */ 456))
             .build();
 
     FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
     fakeActionInputFileCache.putTreeArtifact(tree, treeArtifactValue);
-    fakeActionInputFileCache.put(child1, FileArtifactValue.createProxy(child1Digest));
-    fakeActionInputFileCache.put(child2, FileArtifactValue.createProxy(child2Digest));
+    fakeActionInputFileCache.put(
+        child1,
+        FileArtifactValue.createForNormalFile(child1Digest, /* proxy= */ null, /* size= */ 123));
+    fakeActionInputFileCache.put(
+        child2,
+        FileArtifactValue.createForNormalFile(child2Digest, /* proxy= */ null, /* size= */ 456));
     SortedMap<PathFragment, byte[]> filesWithDigests =
         WorkerFilesHash.getWorkerFilesWithDigests(spawn, fakeActionInputFileCache);
 

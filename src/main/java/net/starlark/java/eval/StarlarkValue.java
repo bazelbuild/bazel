@@ -40,21 +40,6 @@ public interface StarlarkValue {
    * {@code "<foo object>"}.
    *
    * @param printer a printer to be used for formatting nested values.
-   * @deprecated use {@link #repr(Printer, StarlarkSemantics)} instead
-   */
-  @Deprecated
-  default void repr(Printer printer) {
-    repr(printer, StarlarkSemantics.DEFAULT);
-  }
-
-  /**
-   * Prints an official representation of object x.
-   *
-   * <p>Convention is that the string should be parseable back to the value x. If this isn't
-   * feasible then it should be a short human-readable description enclosed in angled brackets, e.g.
-   * {@code "<foo object>"}.
-   *
-   * @param printer a printer to be used for formatting nested values.
    */
   default void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<unknown object ").append(getClass().getName()).append(">");
@@ -68,7 +53,7 @@ public interface StarlarkValue {
    * @param printer a printer to be used for formatting nested values.
    */
   default void str(Printer printer, StarlarkSemantics semantics) {
-    repr(printer);
+    repr(printer, semantics);
   }
 
   /**

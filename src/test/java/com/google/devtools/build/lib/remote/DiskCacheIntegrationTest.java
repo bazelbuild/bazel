@@ -212,6 +212,98 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
     events.assertContainsInfo("2 remote cache hit");
   }
 
+  @Test
+  public void remoteExecWithDiskCache_inputsNotUploadedToDiskCache() throws Exception {
+    // Arrange: Set up workspace with tree artifact, runfiles, and source file as inputs.
+    write(
+        "defs.bzl",
+        """
+        def _tree_impl(ctx):
+            out = ctx.actions.declare_directory(ctx.attr.name + "_tree")
+            ctx.actions.run_shell(
+                mnemonic = "TreeGen",
+                outputs = [out],
+                command = "mkdir -p {0}/subdir && echo -n tree_content > {0}/subdir/file.txt".format(
+                    out.path
+                ),
+            )
+            return DefaultInfo(files = depset([out]))
+
+        tree = rule(implementation = _tree_impl)
+
+        def _runfiles_lib_impl(ctx):
+            out = ctx.actions.declare_file(ctx.attr.name + ".txt")
+            ctx.actions.write(out, "runfiles_content")
+            return DefaultInfo(
+                files = depset([out]),
+                runfiles = ctx.runfiles(files = [out]),
+            )
+
+        runfiles_lib = rule(implementation = _runfiles_lib_impl)
+
+        def _consumer_impl(ctx):
+            out = ctx.actions.declare_file(ctx.attr.name + ".out")
+            tree_input = ctx.attr.tree[DefaultInfo].files.to_list()[0]
+            runfiles_input = ctx.attr.runfiles_lib[DefaultInfo].files.to_list()[0]
+            source_input = ctx.file.src
+            ctx.actions.run_shell(
+                mnemonic = "Consumer",
+                inputs = depset(
+                    [tree_input, runfiles_input, source_input],
+                    transitive = [ctx.attr.runfiles_lib[DefaultInfo].default_runfiles.files],
+                ),
+                outputs = [out],
+                command = "cat {0}/subdir/file.txt {1} {2} > {3}".format(
+                    tree_input.path, runfiles_input.path, source_input.path, out.path
+                ),
+            )
+            return DefaultInfo(files = depset([out]))
+
+        consumer = rule(
+            implementation = _consumer_impl,
+            attrs = {
+                "tree": attr.label(mandatory = True),
+                "runfiles_lib": attr.label(mandatory = True),
+                "src": attr.label(mandatory = True, allow_single_file = True),
+            },
+        )
+        """);
+    write("source_input.txt", "source_content");
+    write(
+        "BUILD",
+        """
+        load(":defs.bzl", "tree", "runfiles_lib", "consumer")
+        tree(name = "my_tree")
+        runfiles_lib(name = "my_runfiles")
+        consumer(
+            name = "my_consumer",
+            tree = ":my_tree",
+            runfiles_lib = ":my_runfiles",
+            src = "source_input.txt",
+        )
+        """);
+
+    enableRemoteExec();
+    buildTarget("//:my_consumer");
+
+    // Assert: The tree artifact content, runfiles content, and source content should be in the
+    // remote cache but NOT in the disk cache (inputs should only be uploaded to remote, not disk
+    // cache).
+    Digest treeContentDigest = digestUtil.compute("tree_content".getBytes(UTF_8));
+    Digest runfilesContentDigest = digestUtil.compute("runfiles_content".getBytes(UTF_8));
+    Digest sourceContentDigest = digestUtil.compute("source_content\n".getBytes(UTF_8));
+
+    // Verify inputs are in the remote cache (so the remote action could execute).
+    assertThat(remoteCacheEntryExists(treeContentDigest)).isTrue();
+    assertThat(remoteCacheEntryExists(runfilesContentDigest)).isTrue();
+    assertThat(remoteCacheEntryExists(sourceContentDigest)).isTrue();
+
+    // Verify inputs are NOT in the disk cache.
+    assertThat(diskCacheEntryExists(Store.CAS, treeContentDigest)).isFalse();
+    assertThat(diskCacheEntryExists(Store.CAS, runfilesContentDigest)).isFalse();
+    assertThat(diskCacheEntryExists(Store.CAS, sourceContentDigest)).isFalse();
+  }
+
   private void cleanAndRestartServer() throws Exception {
     getOutputBase().getRelative("action_cache").deleteTreesBelow();
     // Simulates a server restart
@@ -289,5 +381,20 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
                 .getRelative(store.toString())
                 .getRelative(digest.getHash().substring(0, 2))
                 .getRelative(digest.getHash()));
+  }
+
+  private boolean diskCacheEntryExists(Store store, Digest digest) throws IOException {
+    return getDiskCacheEntryPath(store, digest).exists();
+  }
+
+  private boolean remoteCacheEntryExists(Digest digest) {
+    return fileSystem
+        .getPath(
+            worker
+                .getCasPath()
+                .getRelative("cas")
+                .getRelative(digest.getHash().substring(0, 2))
+                .getRelative(digest.getHash()))
+        .exists();
   }
 }

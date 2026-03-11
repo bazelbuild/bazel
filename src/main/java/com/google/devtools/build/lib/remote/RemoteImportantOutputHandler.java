@@ -62,17 +62,20 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
   }
 
   @Override
+  public boolean requiresHiddenOutputMetadata() {
+    // We want to process top-level runfiles in processOutputsAndGetLostArtifacts.
+    return true;
+  }
+
+  @Override
   public LostArtifacts processOutputsAndGetLostArtifacts(
-      Iterable<Artifact> importantOutputs,
-      InputMetadataProvider importantMetadataProvider,
-      InputMetadataProvider fullMetadataProvider)
+      Iterable<Artifact> importantOutputs, InputMetadataProvider metadataProvider)
       throws ImportantOutputException, InterruptedException {
-    // Use the full metadata provider since we want to include runfiles trees.
     try {
-      ensureToplevelArtifacts(importantOutputs, fullMetadataProvider);
+      ensureToplevelArtifacts(importantOutputs, metadataProvider);
     } catch (IOException e) {
       if (e instanceof BulkTransferException bulkTransferException) {
-        var lostArtifacts = bulkTransferException.getLostArtifacts(fullMetadataProvider::getInput);
+        var lostArtifacts = bulkTransferException.getLostArtifacts(metadataProvider::getInput);
         if (!lostArtifacts.isEmpty()) {
           return lostArtifacts;
         }
@@ -143,7 +146,7 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
       Artifact artifact,
       List<ListenableFuture<Void>> futures)
       throws IOException, InterruptedException {
-    if (!(artifact instanceof DerivedArtifact derivedArtifact)) {
+    if (!RemoteOutputChecker.mayBeRemote(artifact)) {
       return;
     }
 
@@ -167,7 +170,8 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
                 // derivedArtifact's generating action may be an action template, which doesn't
                 // implement the required ActionExecutionMetadata.
                 getGeneratingAction(filesToDownload.getFirst()),
-                filesToDownload,
+                /* spawn= */ null,
+                () -> filesToDownload,
                 metadataProvider,
                 ActionInputPrefetcher.Priority.LOW,
                 ActionInputPrefetcher.Reason.OUTPUTS));
@@ -181,8 +185,11 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
       if (remoteOutputChecker.shouldDownloadOutput(artifact, metadata)) {
         futures.add(
             actionInputPrefetcher.prefetchFiles(
-                getGeneratingAction(derivedArtifact),
-                ImmutableList.of(artifact),
+                artifact instanceof DerivedArtifact derivedArtifact
+                    ? getGeneratingAction(derivedArtifact)
+                    : null,
+                /* spawn= */ null,
+                () -> ImmutableList.of(artifact),
                 metadataProvider,
                 ActionInputPrefetcher.Priority.LOW,
                 ActionInputPrefetcher.Reason.OUTPUTS));

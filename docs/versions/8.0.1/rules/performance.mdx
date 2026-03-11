@@ -2,8 +2,6 @@
 title: 'Optimizing Performance'
 ---
 
-
-
 When writing rules, the most common performance pitfall is to traverse or copy
 data that is accumulated from dependencies. When aggregated over the whole
 build, these operations can easily take O(N^2) time or space. To avoid this, it
@@ -70,7 +68,7 @@ def _impl(ctx):
   )]
 ```
 
-See the [depset overview](/extending/depsets) page for more information.
+See the [depset overview](/versions/8.0.1/extending/depsets) page for more information.
 
 ### Avoid calling `depset.to_list()`
 
@@ -202,14 +200,14 @@ symlink in your workspace directory.
 
 ## Performance profiling
 
-The [JSON trace profile](/advanced/performance/json-trace-profile) can be very
+The [JSON trace profile](/versions/8.0.1/advanced/performance/json-trace-profile) can be very
 useful to quickly understand what Bazel spent time on during the invocation.
 
-The [`--experimental_command_profile`](https://bazel.build/reference/command-line-reference#flag--experimental_command_profile)
+The [`--experimental_command_profile`](https://bazel.build/versions/8.0.1/reference/command-line-reference#flag--experimental_command_profile)
 flag may be used to capture Java Flight Recorder profiles of various kinds
 (cpu time, wall time, memory allocations and lock contention).
 
-The [`--starlark_cpu_profile`](https://bazel.build/reference/command-line-reference#flag--starlark_cpu_profile)
+The [`--starlark_cpu_profile`](https://bazel.build/versions/8.0.1/reference/command-line-reference#flag--starlark_cpu_profile)
 flag may be used to write a pprof profile of CPU usage by all Starlark threads.
 
 ## Memory profiling

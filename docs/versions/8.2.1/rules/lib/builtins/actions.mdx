@@ -1,0 +1,214 @@
+---
+title: 'actions'
+---
+
+Module providing functions to create actions. Access this module using [`ctx.actions`](../builtins/ctx#actions).
+
+## Members
+
+* [args](#args)
+* [declare\_directory](#declare_directory)
+* [declare\_file](#declare_file)
+* [declare\_symlink](#declare_symlink)
+* [do\_nothing](#do_nothing)
+* [expand\_template](#expand_template)
+* [run](#run)
+* [run\_shell](#run_shell)
+* [symlink](#symlink)
+* [template\_dict](#template_dict)
+* [write](#write)
+
+## args
+
+```
+Args actions.args()
+```
+
+Returns an Args object that can be used to build memory-efficient command lines.
+
+## declare\_directory
+
+```
+File actions.declare_directory(filename, *, sibling=None)
+```
+
+Declares that the rule or aspect creates a directory with the given name, in the current package. You must create an action that generates the directory. The contents of the directory are not directly accessible from Starlark, but can be expanded in an action command with [`Args.add_all()`](../builtins/Args#add_all). Only regular files and directories can be in the expanded contents of a declare\_directory.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `filename` | [string](../core/string); required  If no 'sibling' provided, path of the new directory, relative to the current package. Otherwise a base name for a file ('sibling' defines a directory). |
+| `sibling` | [File](../builtins/File); or `None`; default is `None`  A file that lives in the same directory as the newly declared directory. The file must be in the current package. |
+
+## declare\_file
+
+```
+File actions.declare_file(filename, *, sibling=None)
+```
+
+Declares that the rule or aspect creates a file with the given filename. If `sibling` is not specified, the file name is relative to the package directory, otherwise the file is in the same directory as `sibling`. Files cannot be created outside of the current package.
+
+Remember that in addition to declaring a file, you must separately create an action that emits the file. Creating that action will require passing the returned `File` object to the action's construction function.
+
+Note that [predeclared output files](https://bazel.build/versions/8.2.1/extending/rules#files) do not need to be (and cannot be) declared using this function. You can obtain their `File` objects from [`ctx.outputs`](../builtins/ctx#outputs) instead. [See example of use](https://github.com/bazelbuild/examples/tree/main/rules/computed_dependencies/hash.bzl).
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `filename` | [string](../core/string); required  If no 'sibling' provided, path of the new file, relative to the current package. Otherwise a base name for a file ('sibling' determines a directory). |
+| `sibling` | [File](../builtins/File); or `None`; default is `None`  A file that lives in the same directory as the newly created file. The file must be in the current package. |
+
+## declare\_symlink
+
+```
+File actions.declare_symlink(filename, *, sibling=None)
+```
+
+Declares that the rule or aspect creates a symlink with the given name in the current package. You must create an action that generates this symlink. Bazel will never dereference this symlink and will transfer it verbatim to sandboxes or remote executors. Symlinks inside tree artifacts are not currently supported.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `filename` | [string](../core/string); required  If no 'sibling' provided, path of the new symlink, relative to the current package. Otherwise a base name for a file ('sibling' defines a directory). |
+| `sibling` | [File](../builtins/File); or `None`; default is `None`  A file that lives in the same directory as the newly declared symlink. |
+
+## do\_nothing
+
+```
+None actions.do_nothing(mnemonic, inputs=[])
+```
+
+Creates an empty action that neither executes a command nor produces any output, but that is useful for inserting 'extra actions'.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `mnemonic` | [string](../core/string); required  A one-word description of the action, for example, CppCompile or GoLink. |
+| `inputs` | [sequence](../core/list) of [File](../builtins/File)s; or [depset](../builtins/depset); default is `[]`  List of the input files of the action. |
+
+## expand\_template
+
+```
+None actions.expand_template(template, output, substitutions={}, is_executable=False, computed_substitutions=unbound)
+```
+
+Creates a template expansion action. When the action is executed, it will generate a file based on a template. Parts of the template will be replaced using the `substitutions` dictionary, in the order the substitutions are specified. Whenever a key of the dictionary appears in the template (or a result of a previous substitution), it is replaced with the associated value. There is no special syntax for the keys. You may, for example, use curly braces to avoid conflicts (for example, `{KEY}`). [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/expand_template/hello.bzl).
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `template` | [File](../builtins/File); required  The template file, which is a UTF-8 encoded text file. |
+| `output` | [File](../builtins/File); required  The output file, which is a UTF-8 encoded text file. |
+| `substitutions` | [dict](../core/dict); default is `{}`  Substitutions to make when expanding the template. |
+| `is_executable` | [bool](../core/bool); default is `False`  Whether the output file should be executable. |
+| `computed_substitutions` | [TemplateDict](../builtins/TemplateDict); default is `unbound`  Substitutions to make when expanding the template. |
+
+## run
+
+```
+None actions.run(outputs, inputs=[], unused_inputs_list=None, executable, tools=unbound, arguments=[], mnemonic=None, progress_message=None, use_default_shell_env=False, env=None, execution_requirements=None, input_manifests=None, exec_group=None, shadowed_action=None, resource_set=None, toolchain=unbound)
+```
+
+Creates an action that runs an executable. [See example of use](https://github.com/bazelbuild/examples/tree/main/rules/actions_run/execute.bzl).
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `outputs` | [sequence](../core/list) of [File](../builtins/File)s; required  List of the output files of the action. |
+| `inputs` | [sequence](../core/list) of [File](../builtins/File)s; or [depset](../builtins/depset); default is `[]`  List or depset of the input files of the action. |
+| `unused_inputs_list` | [File](../builtins/File); or `None`; default is `None`  File containing list of inputs unused by the action. The content of this file (generally one of the outputs of the action) corresponds to the list of input files that were not used during the whole action execution. Any change in those files must not affect in any way the outputs of the action. |
+| `executable` | [File](../builtins/File); or [string](../core/string); or [FilesToRunProvider](../providers/FilesToRunProvider); required  The executable file to be called by the action. |
+| `tools` | [sequence](../core/list); or [depset](../builtins/depset); default is `unbound`  List or depset of any tools needed by the action. Tools are inputs with additional runfiles that are automatically made available to the action. When a list is provided, it can be a heterogenous collection of Files, FilesToRunProvider instances, or depsets of Files. Files which are directly in the list and come from ctx.executable will have their runfiles automatically added. When a depset is provided, it must contain only Files. In both cases, files within depsets are not cross-referenced with ctx.executable for runfiles. |
+| `arguments` | [sequence](../core/list); default is `[]`  Command line arguments of the action. Must be a list of strings or [`actions.args()`](#args) objects. |
+| `mnemonic` | [string](../core/string); or `None`; default is `None`  A one-word description of the action, for example, CppCompile or GoLink. |
+| `progress_message` | [string](../core/string); or `None`; default is `None`  Progress message to show to the user during the build, for example, "Compiling foo.cc to create foo.o". The message may contain `%{label}`, `%{input}`, or `%{output}` patterns, which are substituted with label string, first input, or output's path, respectively. Prefer to use patterns instead of static strings, because the former are more efficient. |
+| `use_default_shell_env` | [bool](../core/bool); default is `False`  Whether the action should use the default shell environment, which consists of a few OS-dependent variables as well as variables set via [`--action_env`](/versions/8.2.1/reference/command-line-reference#flag--action_env). If both `use_default_shell_env` and `env` are set to `True`, values set in `env` will overwrite the default shell environment if [`--incompatible_merge_fixed_and_default_shell_env`](/versions/8.2.1/reference/command-line-reference#flag--incompatible_merge_fixed_and_default_shell_env) is enabled (default). If the flag is not enabled, `env` is ignored. |
+| `env` | [dict](../core/dict); or `None`; default is `None`  Sets the dictionary of environment variables. If both `use_default_shell_env` and `env` are set to `True`, values set in `env` will overwrite the default shell environment if [`--incompatible_merge_fixed_and_default_shell_env`](/versions/8.2.1/reference/command-line-reference#flag--incompatible_merge_fixed_and_default_shell_env) is enabled (default). If the flag is not enabled, `env` is ignored. |
+| `execution_requirements` | [dict](../core/dict); or `None`; default is `None`  Information for scheduling the action. See [tags](/versions/8.2.1/reference/be/common-definitions#common.tags) for useful keys. |
+| `input_manifests` | [sequence](../core/list); or `None`; default is `None`  Legacy argument. Ignored. |
+| `exec_group` | [string](../core/string); or `None`; default is `None`  Runs the action on the given exec group's execution platform. If none, uses the target's default execution platform. |
+| `shadowed_action` | [Action](../builtins/Action); default is `None`  Runs the action using the given shadowed action's inputs and environment added to the action's inputs list and environment. The action environment can overwrite any of the shadowed action's environment variables. If none, uses only the action's inputs and given environment. |
+| `resource_set` | callable; or `None`; default is `None`  A callback function that returns a resource set dictionary, used to estimate resource usage at execution time if this action is run locally. The function accepts two positional arguments: a string representing an OS name (e.g. "osx"), and an integer representing the number of inputs to the action. The returned dictionary may contain the following entries, each of which may be a float or an int:  * "cpu": number of CPUs; default 1* "memory": in MB; default 250* "local\_test": number of local tests; default 1   If this parameter is set to `None` , the default values are used. The callback must be top-level (lambda and nested functions aren't allowed). |
+| `toolchain` | [Label](../builtins/Label); or [string](../core/string); or `None`; default is `unbound`  Toolchain type of the executable or tools used in this action.  If executable and tools are not coming from a toolchain, set this parameter to `None`.  If executable and tools are coming from a toolchain, toolchain type must be set so that the action executes on the correct execution platform.  Note that the rule which creates this action needs to define this toolchain inside its 'rule()' function.  When `toolchain` and `exec\_group` parameters are both set, `exec\_group` will be used. An error is raised in case the `exec\_group` doesn't specify the same toolchain. |
+
+## run\_shell
+
+```
+None actions.run_shell(outputs, inputs=[], tools=unbound, arguments=[], mnemonic=None, command, progress_message=None, use_default_shell_env=False, env=None, execution_requirements=None, input_manifests=None, exec_group=None, shadowed_action=None, resource_set=None, toolchain=unbound)
+```
+
+Creates an action that runs a shell command. [See example of use](https://github.com/bazelbuild/examples/tree/main/rules/shell_command/rules.bzl).
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `outputs` | [sequence](../core/list) of [File](../builtins/File)s; required  List of the output files of the action. |
+| `inputs` | [sequence](../core/list) of [File](../builtins/File)s; or [depset](../builtins/depset); default is `[]`  List or depset of the input files of the action. |
+| `tools` | [sequence](../core/list) of [File](../builtins/File)s; or [depset](../builtins/depset); default is `unbound`  List or depset of any tools needed by the action. Tools are inputs with additional runfiles that are automatically made available to the action. The list can contain Files or FilesToRunProvider instances. |
+| `arguments` | [sequence](../core/list); default is `[]`  Command line arguments of the action. Must be a list of strings or [`actions.args()`](#args) objects. Bazel passes the elements in this attribute as arguments to the command.The command can access these arguments using shell variable substitutions such as `$1`, `$2`, etc. Note that since Args objects are flattened before indexing, if there is an Args object of unknown size then all subsequent strings will be at unpredictable indices. It may be useful to use `$@` (to retrieve all arguments) in conjunction with Args objects of indeterminate size. In the case where `command` is a list of strings, this parameter may not be used. |
+| `mnemonic` | [string](../core/string); or `None`; default is `None`  A one-word description of the action, for example, CppCompile or GoLink. |
+| `command` | [string](../core/string); or [sequence](../core/list) of [string](../core/string)s; required  Shell command to execute. This may either be a string (preferred) or a sequence of strings **(deprecated)**. If `command` is a string, then it is executed as if by `sh -c <command> "" <arguments>` -- that is, the elements in `arguments` are made available to the command as `$1`, `$2` (or `%1`, `%2` if using Windows batch), etc. If `arguments` contains any [`actions.args()`](#args) objects, their contents are appended one by one to the command line, so `$`*i* can refer to individual strings within an Args object. Note that if an Args object of unknown size is passed as part of `arguments`, then the strings will be at unknown indices; in this case the `$@` shell substitution (retrieve all arguments) may be useful. **(Deprecated)** If `command` is a sequence of strings, the first item is the executable to run and the remaining items are its arguments. If this form is used, the `arguments` parameter must not be supplied. *Note that this form is deprecated and will soon be removed. It is disabled with `--incompatible\_run\_shell\_command\_string`. Use this flag to verify your code is compatible.*  Bazel uses the same shell to execute the command as it does for genrules. |
+| `progress_message` | [string](../core/string); or `None`; default is `None`  Progress message to show to the user during the build, for example, "Compiling foo.cc to create foo.o". The message may contain `%{label}`, `%{input}`, or `%{output}` patterns, which are substituted with label string, first input, or output's path, respectively. Prefer to use patterns instead of static strings, because the former are more efficient. |
+| `use_default_shell_env` | [bool](../core/bool); default is `False`  Whether the action should use the default shell environment, which consists of a few OS-dependent variables as well as variables set via [`--action_env`](/versions/8.2.1/reference/command-line-reference#flag--action_env). If both `use_default_shell_env` and `env` are set to `True`, values set in `env` will overwrite the default shell environment if [`--incompatible_merge_fixed_and_default_shell_env`](/versions/8.2.1/reference/command-line-reference#flag--incompatible_merge_fixed_and_default_shell_env) is enabled (default). If the flag is not enabled, `env` is ignored. |
+| `env` | [dict](../core/dict); or `None`; default is `None`  Sets the dictionary of environment variables. If both `use_default_shell_env` and `env` are set to `True`, values set in `env` will overwrite the default shell environment if [`--incompatible_merge_fixed_and_default_shell_env`](/versions/8.2.1/reference/command-line-reference#flag--incompatible_merge_fixed_and_default_shell_env) is enabled (default). If the flag is not enabled, `env` is ignored. |
+| `execution_requirements` | [dict](../core/dict); or `None`; default is `None`  Information for scheduling the action. See [tags](/versions/8.2.1/reference/be/common-definitions#common.tags) for useful keys. |
+| `input_manifests` | [sequence](../core/list); or `None`; default is `None`  Legacy argument. Ignored. |
+| `exec_group` | [string](../core/string); or `None`; default is `None`  Runs the action on the given exec group's execution platform. If none, uses the target's default execution platform. |
+| `shadowed_action` | [Action](../builtins/Action); default is `None`  Runs the action using the given shadowed action's discovered inputs added to the action's inputs list. If none, uses only the action's inputs. |
+| `resource_set` | callable; or `None`; default is `None`  A callback function for estimating resource usage if run locally. See[`ctx.actions.run()`](#run.resource_set). |
+| `toolchain` | [Label](../builtins/Label); or [string](../core/string); or `None`; default is `unbound`  Toolchain type of the executable or tools used in this action.  If executable and tools are not coming from a toolchain, set this parameter to `None`.  If executable and tools are coming from a toolchain, toolchain type must be set so that the action executes on the correct execution platform.  Note that the rule which creates this action needs to define this toolchain inside its 'rule()' function.  When `toolchain` and `exec\_group` parameters are both set, `exec\_group` will be used. An error is raised in case the `exec\_group` doesn't specify the same toolchain. |
+
+## symlink
+
+```
+None actions.symlink(output, target_file=None, target_path=None, is_executable=False, progress_message=None)
+```
+
+Creates an action that writes a symlink in the file system.
+
+This function must be called with exactly one of `target_file` or `target_path` specified.
+
+When you use `target_file`, declare `output` with [`declare_file()`](#declare_file) or [`declare_directory()`](#declare_directory) and match the type of `target_file`. This makes the symlink point to `target_file`. Bazel invalidates the output of this action whenever the target of the symlink or its contents change.
+
+Otherwise, when you use `target_path`, declare `output` with [`declare_symlink()`](#declare_symlink)). In this case, the symlink points to `target_path`. Bazel never resolves the symlink and the output of this action is invalidated only when the text contents of the symlink (that is, the value of `readlink()`) changes. In particular, this can be used to create a dangling symlink.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `output` | [File](../builtins/File); required  The output of this action. |
+| `target_file` | [File](../builtins/File); or `None`; default is `None`  The File that the output symlink will point to. |
+| `target_path` | [string](../core/string); or `None`; default is `None`  The exact path that the output symlink will point to. No normalization or other processing is applied. |
+| `is_executable` | [bool](../core/bool); default is `False`  May only be used with `target_file`, not `target_path`. If true, when the action is executed, the `target_file`'s path is checked to confirm that it is executable, and an error is reported if it is not. Setting `is_executable` to False does not mean the target is not executable, just that no verification is done. This feature does not make sense for `target_path` because dangling symlinks might not exist at build time. |
+| `progress_message` | [string](../core/string); or `None`; default is `None`  Progress message to show to the user during the build. |
+
+## template\_dict
+
+```
+TemplateDict actions.template_dict()
+```
+
+Returns a TemplateDict object for memory-efficient template expansion.
+
+## write
+
+```
+None actions.write(output, content, is_executable=False)
+```
+
+Creates a file write action. When the action is executed, it will write the given content to a file. This is used to generate files using information available in the analysis phase. If the file is large and with a lot of static content, consider using [`expand_template`](#expand_template).
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `output` | [File](../builtins/File); required  The output file. |
+| `content` | [string](../core/string); or [Args](../builtins/Args); required  the contents of the file. May be a either a string or an [`actions.args()`](#args) object. |
+| `is_executable` | [bool](../core/bool); default is `False`  Whether the output file should be executable. |

@@ -55,9 +55,8 @@ import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -306,7 +305,7 @@ public class UploadManifest {
    * Adds an action and command protos to upload. They need to be uploaded as part of the action
    * result.
    */
-  private void addAction(RemoteCacheClient.ActionKey actionKey, Action action, Command command) {
+  private void addAction(ActionKey actionKey, Action action, Command command) {
     Preconditions.checkState(this.actionKey == null, "Already added an action");
     this.actionKey = actionKey;
     digestToBlobs.put(actionKey.digest(), action.toByteString());
@@ -445,7 +444,7 @@ public class UploadManifest {
           checkState(subdir.getParentDirectory().equals(dir));
           builder
               .addDirectoriesBuilder()
-              .setName(subdir.getBaseName())
+              .setName(internalToUnicode(subdir.getBaseName()))
               .setDigest(dirToDigest.get(subdir));
         }
         ByteString dirBlob = builder.build().toByteString();
@@ -533,7 +532,7 @@ public class UploadManifest {
       Digest digest = digestUtil.compute(path);
       FileNode node =
           FileNode.newBuilder()
-              .setName(path.getBaseName())
+              .setName(internalToUnicode(path.getBaseName()))
               .setDigest(digest)
               .setIsExecutable(!preserveExecutableBit || (stat.getPermissions() & 0100) != 0)
               .build();
@@ -544,7 +543,10 @@ public class UploadManifest {
     private void visitAsSymlink(Path path, PathFragment target) {
       Path parentPath = path.getParentDirectory();
       SymlinkNode node =
-          SymlinkNode.newBuilder().setName(path.getBaseName()).setTarget(target.toString()).build();
+          SymlinkNode.newBuilder()
+              .setName(internalToUnicode(path.getBaseName()))
+              .setTarget(internalToUnicode(target.toString()))
+              .build();
       dirToSymlinks.put(parentPath, node);
     }
   }

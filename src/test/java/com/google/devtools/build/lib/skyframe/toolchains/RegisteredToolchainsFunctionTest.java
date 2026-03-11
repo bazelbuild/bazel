@@ -757,4 +757,40 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
                 ImmutableList.of(toolchain2, toolchain1), /* rejectedToolchains= */ null))
         .testEquals();
   }
+
+  @Test
+  public void testRegisteredToolchains_wildcard_nonRuleTargets() throws Exception {
+    // Add a toolchain and a non-rule target in the root package.
+    scratch.file(
+        "BUILD",
+        """
+        load('//toolchain:toolchain_def.bzl', 'test_toolchain')
+
+        exports_files(['some_file'])
+
+        toolchain(
+            name = 'root_toolchain',
+            exec_compatible_with = ['//constraints:linux'],
+            target_compatible_with = ['//constraints:linux'],
+            toolchain = ':root_toolchain_impl',
+            toolchain_type = '//toolchain:test_toolchain',
+        )
+
+        test_toolchain(
+            name = 'root_toolchain_impl',
+            data = 'root',
+        )
+        """);
+
+    useConfiguration("--extra_toolchains=//:*");
+
+    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+    EvaluationResult<RegisteredToolchainsValue> result =
+        requestToolchainsFromSkyframe(toolchainsKey);
+    assertThatEvaluationResult(result).hasNoError();
+
+    // Verify that the toolchain was registered and the filegroup was filtered out.
+    assertToolchainLabels(result.get(toolchainsKey))
+        .contains(Label.parseCanonicalUnchecked("//:root_toolchain_impl"));
+  }
 }

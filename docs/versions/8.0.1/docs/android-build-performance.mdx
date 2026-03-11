@@ -2,16 +2,14 @@
 title: 'Android Build Performance'
 ---
 
-
-
 This page contains information on optimizing build performance for Android
 apps specifically. For general build performance optimization with Bazel, see
-[Optimizing Performance](/rules/performance).
+[Optimizing Performance](/versions/8.0.1/rules/performance).
 
 ## Recommended flags
 
 The flags are in the
-[`bazelrc` configuration syntax](/run/bazelrc#bazelrc-syntax-semantics), so
+[`bazelrc` configuration syntax](/versions/8.0.1/run/bazelrc#bazelrc-syntax-semantics), so
 they can be pasted directly into a `bazelrc` file and invoked with
 `--config=<configuration_name>` on the command line.
 
@@ -19,7 +17,7 @@ they can be pasted directly into a `bazelrc` file and invoked with
 
 Bazel writes a JSON trace profile by default to a file called
 `command.profile.gz` in Bazel's output base.
-See the [JSON Profile documentation](/rules/performance#performance-profiling) for
+See the [JSON Profile documentation](/versions/8.0.1/rules/performance#performance-profiling) for
 how to read and interact with the profile.
 
 **Persistent workers for Android build actions**.

@@ -54,16 +54,23 @@ common:windows --define=protobuf_allow_msvc=true
 
 # Enable Java 21 language features and compile for a Java 25 runtime, matching
 # version of the embedded JDK.
+# Keep in sync with //:java_toolchain_%d.
+# LINT.IfChange
 common --java_language_version=21
 common --tool_java_language_version=21
 common --java_runtime_version=remotejdk_25
 common --tool_java_runtime_version=remotejdk_25
+# LINT.ThenChange(//BUILD)
 # Reduce the amount of warnings shown due to the deprecation of most Unsafe
 # methods.
 # TODO: Remove this after migrating more code to use VarHandles.
 common --javacopt=-Xlint:-removal
 common --host_javacopt=-Xlint:-removal
-common --jvmopt=--sun-misc-unsafe-memory-access=allow
+# Use a bootclasspath version matching the language version.
+common --@rules_java//toolchains:incompatible_language_version_bootclasspath
+
+# Fail if a classpath contains different versions of the same class
+common --experimental_one_version_enforcement=ERROR
 
 # User-specific .bazelrc
 try-import %workspace%/user.bazelrc
@@ -75,6 +82,7 @@ common:docs --workspace_status_command=scripts/docs/get_workspace_status.sh
 common:ci-common --lockfile_mode=error
 common:ci-common --remote_download_minimal
 common:ci-common --nobuild_runfile_links
+common:ci-common --experimental_profile_include_target_label
 
 ## For Linux
 common:ci-linux --config=ci-common
@@ -96,6 +104,9 @@ test:ci-macos --sandbox_writable_path=/Users/buildkite/bazeltest
 # TODO(pcloudy): Revert to false once https://github.com/bazelbuild/bazel/issues/23726 is resolved.
 test:ci-macos --sandbox_default_allow_network=true
 common:ci-macos --test_tag_filters=-no_macos
+common:ci-macos --experimental_async_execution
+common:ci-macos --experimental_async_execution_max_concurrent_actions=0
+common:ci-macos --jobs=100
 
 ## For Windows
 common:ci-windows --config=ci-common

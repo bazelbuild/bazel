@@ -52,16 +52,14 @@ java_library(
         "TraceProfilerService.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime/blaze_service",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:heap_offset_helper",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:auto_value",
         "//third_party:error_prone_annotations",
-        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -89,9 +87,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/collect:extrema",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//third_party:auto_value",
+        "//src/main/java/com/google/devtools/common/options",
         "//third_party:error_prone_annotations",
-        "//third_party:flogger",
         "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -102,8 +99,8 @@ java_library(
     name = "command_profiler_module",
     srcs = ["CommandProfilerModule.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:async_profiler",
@@ -128,7 +125,7 @@ java_library(
 java_library(
     name = "system_network_stats_service",
     srcs = ["SystemNetworkStatsService.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib:runtime/blaze_service"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/runtime:blaze_service"],
 )
 
 java_library(

@@ -42,35 +42,37 @@ public class PrinterTest {
   public void testPrinter() throws Exception {
     // Note that str and repr only differ on behaviour of strings at toplevel.
     assertThat(str(createObjWithStr())).isEqualTo("<str marker>");
-    assertThat(Starlark.repr(createObjWithStr())).isEqualTo("<repr marker>");
+    assertThat(Starlark.repr(createObjWithStr(), DEFAULT)).isEqualTo("<repr marker>");
 
     assertThat(str("foo\nbar")).isEqualTo("foo\nbar");
-    assertThat(Starlark.repr("foo\nbar")).isEqualTo("\"foo\\nbar\"");
+    assertThat(Starlark.repr("foo\nbar", DEFAULT)).isEqualTo("\"foo\\nbar\"");
     assertThat(str("'")).isEqualTo("'");
-    assertThat(Starlark.repr("'")).isEqualTo("\"'\"");
+    assertThat(Starlark.repr("'", DEFAULT)).isEqualTo("\"'\"");
     assertThat(str("\"")).isEqualTo("\"");
-    assertThat(Starlark.repr("\"")).isEqualTo("\"\\\"\"");
+    assertThat(Starlark.repr("\"", DEFAULT)).isEqualTo("\"\\\"\"");
     assertThat(str(StarlarkInt.of(3))).isEqualTo("3");
-    assertThat(Starlark.repr(StarlarkInt.of(3))).isEqualTo("3");
-    assertThat(Starlark.repr(Starlark.NONE)).isEqualTo("None");
+    assertThat(Starlark.repr(StarlarkInt.of(3), DEFAULT)).isEqualTo("3");
+    assertThat(Starlark.repr(Starlark.NONE, DEFAULT)).isEqualTo("None");
 
     List<?> list = StarlarkList.of(null, "foo", "bar");
     List<?> tuple = Tuple.of("foo", "bar");
 
     assertThat(str(Tuple.of(StarlarkInt.of(1), list, StarlarkInt.of(3))))
         .isEqualTo("(1, [\"foo\", \"bar\"], 3)");
-    assertThat(Starlark.repr(Tuple.of(StarlarkInt.of(1), list, StarlarkInt.of(3))))
+    assertThat(Starlark.repr(Tuple.of(StarlarkInt.of(1), list, StarlarkInt.of(3)), DEFAULT))
         .isEqualTo("(1, [\"foo\", \"bar\"], 3)");
     assertThat(str(StarlarkList.of(null, StarlarkInt.of(1), tuple, StarlarkInt.of(3))))
         .isEqualTo("[1, (\"foo\", \"bar\"), 3]");
-    assertThat(Starlark.repr(StarlarkList.of(null, StarlarkInt.of(1), tuple, StarlarkInt.of(3))))
+    assertThat(
+            Starlark.repr(
+                StarlarkList.of(null, StarlarkInt.of(1), tuple, StarlarkInt.of(3)), DEFAULT))
         .isEqualTo("[1, (\"foo\", \"bar\"), 3]");
 
     Map<Object, Object> dict =
         ImmutableMap.<Object, Object>of(
             StarlarkInt.of(1), tuple, StarlarkInt.of(2), list, "foo", StarlarkList.of(null));
     assertThat(str(dict)).isEqualTo("{1: (\"foo\", \"bar\"), 2: [\"foo\", \"bar\"], \"foo\": []}");
-    assertThat(Starlark.repr(dict))
+    assertThat(Starlark.repr(dict, DEFAULT))
         .isEqualTo("{1: (\"foo\", \"bar\"), 2: [\"foo\", \"bar\"], \"foo\": []}");
   }
 
@@ -146,7 +148,7 @@ public class PrinterTest {
   private StarlarkValue createObjWithStr() {
     return new StarlarkValue() {
       @Override
-      public void repr(Printer printer) {
+      public void repr(Printer printer, StarlarkSemantics semantics) {
         printer.append("<repr marker>");
       }
 

@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -129,7 +130,9 @@ public class PathMappersTest extends BuildViewTestCase {
         "        executable = ctx.executable._tool,",
         "        arguments = [args],",
         "        mnemonic = 'MyRuleAction',",
-        format("        execution_requirements = %s,", Starlark.repr(executionRequirements)),
+        format(
+            "        execution_requirements = %s,",
+            Starlark.repr(executionRequirements, StarlarkSemantics.DEFAULT)),
         "    )",
         "    return [DefaultInfo(files = depset([ctx.outputs.out]))]",
         "my_rule = rule(",

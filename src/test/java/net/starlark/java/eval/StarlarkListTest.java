@@ -238,7 +238,7 @@ public final class StarlarkListTest {
       // assert input is unchanged
       for (int i = 0; i < input.length; i++) {
         if (!input[i].equals("x")) {
-          fail("input[%d] = %s, want \"x\"", i, Starlark.repr(input[i]));
+          fail("input[%d] = %s, want \"x\"", i, Starlark.repr(input[i], StarlarkSemantics.DEFAULT));
         }
       }
 

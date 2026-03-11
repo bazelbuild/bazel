@@ -2,8 +2,6 @@
 title: 'The Bazel codebase'
 ---
 
-
-
 This document is a description of the codebase and how Bazel is structured. It
 is intended for people willing to contribute to Bazel, not for end-users.
 
@@ -93,7 +91,7 @@ from the client are handled by `GrpcServerImpl.run()`.
 ## Directory layout
 
 Bazel creates a somewhat complicated set of directories during a build. A full
-description is available in [Output directory layout](/remote/output-directories).
+description is available in [Output directory layout](/versions/8.1.1/remote/output-directories).
 
 The "main repo" is the source tree Bazel is run in. It usually corresponds to
 something you checked out from source control. The root of this directory is
@@ -198,7 +196,7 @@ Bazel learns about option classes in the following ways:
 3.  From `ConfiguredRuleClassProvider` (these are command line options related
     to individual programming languages)
 4.  Starlark rules can also define their own options (see
-    [here](/extending/config))
+    [here](/versions/8.1.1/extending/config))
 
 Each option (excluding Starlark-defined options) is a member variable of a
 `FragmentOptions` subclass that has the `@Option` annotation, which specifies
@@ -230,7 +228,7 @@ A repository is marked by a repo boundary file (`MODULE.bazel`, `REPO.bazel`, or
 in legacy contexts, `WORKSPACE` or `WORKSPACE.bazel`) in its root directory. The
 main repo is the source tree where you're invoking Bazel from. External repos
 are defined in various ways; see [external dependencies
-overview](/external/overview) for more information.
+overview](/versions/8.1.1/external/overview) for more information.
 
 Code of external repositories is symlinked or downloaded under
 `$OUTPUT_BASE/external`.
@@ -363,7 +361,7 @@ to do it for tiny builds, since it can get pretty large.
 Skyframe lives in the `com.google.devtools.build.skyframe` package. The
 similarly-named package `com.google.devtools.build.lib.skyframe` contains the
 implementation of Bazel on top of Skyframe. More information about Skyframe is
-available [here](/reference/skyframe).
+available [here](/versions/8.1.1/reference/skyframe).
 
 To evaluate a given `SkyKey` into a `SkyValue`, Skyframe will invoke the
 `SkyFunction` corresponding to the type of the key. During the function's
@@ -395,7 +393,7 @@ around this issue by:
     `SkyFunction.Environment.getState()`, or keeping an ad hoc static cache
     "behind the back of Skyframe". With complex SkyFunctions, state management
     between restarts can get tricky, so
-    [`StateMachine`s](/contribute/statemachine-guide) were introduced for a
+    [`StateMachine`s](/versions/8.1.1/contribute/statemachine-guide) were introduced for a
     structured approach to logical concurrency, including hooks to suspend and
     resume hierarchical computations within a `SkyFunction`. Example:
     [`DependencyResolver#computeDependencies`][statemachine_example]
@@ -440,9 +438,9 @@ Starlark is used in several contexts, including:
 
 The dialects available for `BUILD` and `.bzl` files are slightly different
 because they express different things. A list of differences is available
-[here](/rules/language#differences-between-build-and-bzl-files).
+[here](/versions/8.1.1/rules/language#differences-between-build-and-bzl-files).
 
-More information about Starlark is available [here](/rules/language).
+More information about Starlark is available [here](/versions/8.1.1/rules/language).
 
 ## The loading/analysis phase
 
@@ -546,7 +544,7 @@ If a configuration transition results in multiple configurations, it's called a
 _split transition._
 
 Configuration transitions can also be implemented in Starlark (documentation
-[here](/extending/config))
+[here](/versions/8.1.1/extending/config))
 
 ### Transitive info providers
 
@@ -646,7 +644,7 @@ necessitates the following additional components:
 
 Aspects are a way to "propagate computation down the dependency graph". They are
 described for users of Bazel
-[here](/extending/aspects). A good
+[here](/versions/8.1.1/extending/aspects). A good
 motivating example is protocol buffers: a `proto_library` rule should not know
 about any particular language, but building the implementation of a protocol
 buffer message (the "basic unit" of protocol buffers) in any programming
@@ -697,7 +695,7 @@ Bazel supports multi-platform builds, that is, builds where there may be
 multiple architectures where build actions run and multiple architectures for
 which code is built. These architectures are referred to as _platforms_ in Bazel
 parlance (full documentation
-[here](/extending/platforms))
+[here](/versions/8.1.1/extending/platforms))
 
 A platform is described by a key-value mapping from _constraint settings_ (such as
 the concept of "CPU architecture") to _constraint values_ (such as a particular CPU
@@ -710,7 +708,7 @@ different compilers; for example, a particular C++ toolchain may run on a
 specific OS and be able to target some other OSes. Bazel must determine the C++
 compiler that is used based on the set execution and target platform
 (documentation for toolchains
-[here](/extending/toolchains)).
+[here](/versions/8.1.1/extending/toolchains)).
 
 In order to do this, toolchains are annotated with the set of execution and
 target platform constraints they support. In order to do this, the definition of
@@ -845,7 +843,7 @@ details.
 
 Bazel supports this by the mechanism called _visibility_: you can limit which
 targets can depend on a particular target using the
-[visibility](/reference/be/common-definitions#common-attributes) attribute. This
+[visibility](/versions/8.1.1/reference/be/common-definitions#common-attributes) attribute. This
 attribute is a little special because, although it holds a list of labels, these
 labels may encode a pattern over package names rather than a pointer to any
 particular target. (Yes, this is a design flaw.)
@@ -1263,7 +1261,7 @@ runs the test in the requested way.
 Tests are run according to an elaborate protocol that uses environment variables
 to tell tests what's expected from them. A detailed description of what Bazel
 expects from tests and what tests can expect from Bazel is available
-[here](/reference/test-encyclopedia). At the
+[here](/versions/8.1.1/reference/test-encyclopedia). At the
 simplest, an exit code of 0 means success, anything else means failure.
 
 In addition to the cache status file, each test process emits a number of other
@@ -1376,7 +1374,7 @@ attribute of the first test that is executed.
 ## The query engine
 
 Bazel has a
-[little language](/query/guide)
+[little language](/versions/8.1.1/query/guide)
 used to ask it various things about various graphs. The following query kinds
 are provided:
 
@@ -1434,7 +1432,7 @@ interested in. For example, the following things are represented as events:
 *   A test was run (`TestAttempt`, `TestSummary`)
 
 Some of these events are represented outside of Bazel in the
-[Build Event Protocol](/remote/bep)
+[Build Event Protocol](/versions/8.1.1/remote/bep)
 (they are `BuildEvent`s). This allows not only `BlazeModule`s, but also things
 outside the Bazel process to observe the build. They are accessible either as a
 file that contains protocol messages or Bazel can connect to a server (called
@@ -1447,7 +1445,7 @@ This is implemented in the `build.lib.buildeventservice` and
 
 Note: The information in this section is out of date, as code in this area has
 undergone extensive change in the past couple of years. Please refer to
-[external dependencies overview](/external/overview) for more up-to-date
+[external dependencies overview](/versions/8.1.1/external/overview) for more up-to-date
 information.
 
 Whereas Bazel was originally designed to be used in a monorepo (a single source

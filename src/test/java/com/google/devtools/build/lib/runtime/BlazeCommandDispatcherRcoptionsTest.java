@@ -109,8 +109,10 @@ public class BlazeCommandDispatcherRcoptionsTest {
   @Before
   public final void initializeRuntime() throws Exception {
     String productName = TestConstants.PRODUCT_NAME;
+    OptionsParsingResult startupOptionsProvider =
+        OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
     for (var service : BAZEL_SERVICES) {
-      service.globalInit();
+      service.globalInit(startupOptionsProvider);
     }
     ServerDirectories serverDirectories =
         new ServerDirectories(
@@ -122,8 +124,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
             .setFileSystem(scratch.getFileSystem())
             .setProductName(productName)
             .setServerDirectories(serverDirectories)
-            .setStartupOptionsProvider(
-                OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
+            .setStartupOptionsProvider(startupOptionsProvider)
             .addBlazeModule(
                 new BlazeModule() {
                   @Override
@@ -139,8 +140,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
             .build();
 
     BlazeDirectories directories =
-        new BlazeDirectories(
-            serverDirectories, scratch.dir("pkg"), /* defaultSystemJavabase= */ null, productName);
+        new BlazeDirectories(serverDirectories, scratch.dir("pkg"), productName);
     this.runtime.initWorkspace(directories, /* binTools= */ null);
   }
 

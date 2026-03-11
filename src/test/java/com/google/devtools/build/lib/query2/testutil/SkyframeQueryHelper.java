@@ -130,7 +130,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                 useVirtualSourceRoot() ? Root.fromPath(rootDirectory) : null,
                 FAKE_INSTALL_MD5_STRING),
             rootDirectory,
-            /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
     delegatingSyscallCache.setDelegate(SyscallCache.NO_CACHE);
 
@@ -335,7 +334,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     // TODO(b/256127926): Delete once flipped.
     buildLanguageOptions.experimentalEnableSclDialect = true;
     buildLanguageOptions.experimentalDormantDeps = true;
-    buildLanguageOptions.incompatibleAutoloadExternally = ImmutableList.of();
 
     ImmutableList<BuildFileName> buildFilesByPriority = skyframeExecutor.getBuildFilesByPriority();
     PathPackageLocator packageLocator =

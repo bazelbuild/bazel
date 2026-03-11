@@ -2,8 +2,6 @@
 title: 'Challenges of Writing Rules'
 ---
 
-
-
 This page gives a high-level overview of the specific issues and challenges
 of writing efficient Bazel rules.
 
@@ -35,7 +33,7 @@ like. In the first approximation, this means Bazel needs to know every single
 input that goes into a given build step, such that it can rerun that step if any
 of the inputs change. There are limits to how correct Bazel can get, as it leaks
 some information such as date / time of the build, and ignores certain types of
-changes such as changes to file attributes. [Sandboxing](/docs/sandboxing)
+changes such as changes to file attributes. [Sandboxing](/versions/8.4.2/docs/sandboxing)
 helps ensure correctness by preventing reads to undeclared input files. Besides
 the intrinsic limits of the system, there are a few known correctness issues,
 most of which are related to Fileset or the C++ rules, which are both hard
@@ -128,7 +126,7 @@ rules, which need to declare all input files ahead of time.
 Above, we argued that in order to be correct, Bazel needs to know all the input
 files that go into a build step in order to detect whether that build step is
 still up-to-date. The same is true for package loading and rule analysis, and we
-have designed [Skyframe](/reference/skyframe) to handle this
+have designed [Skyframe](/versions/8.4.2/reference/skyframe) to handle this
 in general. Skyframe is a graph library and evaluation framework that takes a
 goal node (such as 'build //foo with these options'), and breaks it down into
 its constituent parts, which are then evaluated and combined to yield this
@@ -210,7 +208,7 @@ Bazel is heavily affected by both of these scenarios, so we introduced a set of
 custom collection classes that effectively compress the information in memory by
 avoiding the copy at each step. Almost all of these data structures have set
 semantics, so we called it
-[depset](/rules/lib/depset)
+[depset](/versions/8.4.2/rules/lib/depset)
 (also known as `NestedSet` in the internal implementation). The majority of
 changes to reduce Bazel's memory consumption over the past several years were
 changes to use depsets instead of whatever was previously used.

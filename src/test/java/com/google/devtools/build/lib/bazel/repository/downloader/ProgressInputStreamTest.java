@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.bazel.repository.downloader.DownloaderTestUtils.makeUrl;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -35,7 +34,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
+import java.net.URI;
 import java.util.Locale;
 import java.util.OptionalLong;
 import org.junit.After;
@@ -52,7 +51,7 @@ public class ProgressInputStreamTest {
   private final ExtendedEventHandler extendedEventHandler =
       new Reporter(new EventBus(), eventHandler);
   private final InputStream delegate = mock(InputStream.class);
-  private final URL url = makeUrl("http://lol.example");
+  private final URI url = URI.create("http://lol.example");
   private ProgressInputStream stream =
       new ProgressInputStream(
           Locale.US, clock, extendedEventHandler, 1, delegate, url, url, OptionalLong.empty());
@@ -154,7 +153,7 @@ public class ProgressInputStreamTest {
             extendedEventHandler,
             1,
             delegate,
-            new URL("http://cdn.example/foo"),
+            URI.create("http://cdn.example/foo"),
             url,
             OptionalLong.empty());
     when(delegate.read()).thenReturn(42);

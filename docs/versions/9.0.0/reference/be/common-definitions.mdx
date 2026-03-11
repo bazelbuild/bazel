@@ -1,0 +1,211 @@
+---
+title: 'Common definitions'
+---
+
+This section defines various terms and concepts that are common to
+many functions or build rules.
+
+## Contents
+
+* [Bourne shell tokenization](#sh-tokenization)
+* [Label Expansion](#label-expansion)
+* [Typical attributes defined by most build rules](#typical-attributes)
+* [Attributes common to all build rules](#common-attributes)
+* [Attributes common to all test rules (\*\_test)](#common-attributes-tests)
+* [Attributes common to all binary rules (\*\_binary)](#common-attributes-binaries)
+* [Configurable attributes](#configurable-attributes)
+* [Implicit output targets](#implicit-outputs)
+
+## Bourne shell tokenization
+
+Certain string attributes of some rules are split into multiple
+words according to the tokenization rules of the Bourne shell:
+unquoted spaces delimit separate words, and single- and
+double-quotes characters and backslashes are used to prevent
+tokenization.
+
+Those attributes that are subject to this tokenization are
+explicitly indicated as such in their definitions in this document.
+
+Attributes subject to "Make" variable expansion and Bourne shell
+tokenization are typically used for passing arbitrary options to
+compilers and other tools. Examples of such attributes are
+`cc_library.copts` and `java_library.javacopts`.
+Together these substitutions allow a
+single string variable to expand into a configuration-specific list
+of option words.
+
+## Label expansion
+
+Some string attributes of a very few rules are subject to label
+expansion: if those strings contain a valid label as a
+substring, such as `//mypkg:target`, and that label is a
+declared prerequisite of the current rule, it is expanded into the
+pathname of the file represented by the
+[target](https://bazel.build/versions/9.0.0/reference/glossary#target)
+`//mypkg:target`.
+
+Example attributes include `genrule.cmd` and
+`cc_binary.linkopts`. The details may vary significantly in
+each case, over such issues as: whether relative labels are
+expanded; how labels that expand to multiple files are
+treated, etc. Consult the rule attribute documentation for
+specifics.
+
+## Typical attributes defined by most build rules
+
+This section describes attributes that are defined by many build rules,
+but not all.
+
+| Attribute | Description |
+| --- | --- |
+| `data` | List of [labels](/versions/9.0.0/concepts/labels); default is `[]`  Files needed by this rule at runtime. May list file or rule targets. Generally allows any target.  The default outputs and runfiles of targets in the `data` attribute should appear in the `*.runfiles` area of any executable which is output by or has a runtime dependency on this target. This may include data files or binaries used when this target's [`srcs`](#typical.srcs) are executed. See the [data dependencies](/versions/9.0.0/concepts/dependencies#data-dependencies) section for more information about how to depend on and use data files.  New rules should define a `data` attribute if they process inputs which might use other inputs at runtime. Rules' implementation functions must also [populate the target's runfiles](https://bazel.build/versions/9.0.0/rules/rules#runfiles) from the outputs and runfiles of any `data` attribute, as well as runfiles from any dependency attribute which provides either source code or runtime dependencies. |
+| `deps` | List of [labels](/versions/9.0.0/concepts/labels); default is `[]`  Dependencies for this target. Generally should only list rule targets. (Though some rules permit files to be listed directly in `deps`, this should be avoided when possible.)  Language-specific rules generally limit the listed targets to those with specific [providers](https://bazel.build/versions/9.0.0/extending/rules#providers).  The precise semantics of what it means for a target to depend on another using `deps` are specific to the kind of rule, and the rule-specific documentation goes into more detail. For rules which process source code, `deps` generally specifies code dependencies used by the code in [`srcs`](#typical.srcs).  Most often, a `deps` dependency is used to allow one module to use symbols defined in another module written in the same programming language and separately compiled. Cross-language dependencies are also permitted in many cases: For example, a `java_library` target may depend on C++ code in a `cc_library` target, by listing the latter in the `deps` attribute. See the definition of [dependencies](/versions/9.0.0/concepts/build-ref#deps) for more information. |
+| `licenses` | List of strings; [nonconfigurable](#configurable-attributes); default is `["none"]`  A list of license-type strings to be used for this particular target. This is part of a deprecated licensing API that Bazel no longer uses. Don't use this. |
+| `srcs` | List of [labels](/versions/9.0.0/concepts/labels); default is `[]`  Files processed or included by this rule. Generally lists files directly, but may list rule targets (like `filegroup` or `genrule`) to include their default outputs.  Language-specific rules often require that the listed files have particular file extensions. |
+
+## Attributes common to all build rules
+
+This section describes attributes that are implicitly added to all build
+rules.
+
+| Attribute | Description |
+| --- | --- |
+| `aspect_hints` | List of [labels](/versions/9.0.0/concepts/labels); default is `[]`  A list of arbitrary labels which is exposed to [aspects](/versions/9.0.0/extending/aspects) (in particular - aspects invoked by this rule's reverse dependencies), but isn't exposed to this rule's own implementation. Consult documentation for language-specific rule sets for details about what effect a particular aspect hint would have.  You could think of an aspect hint as a richer alternative to a [tag](#common.tags): while a tag conveys only a boolean state (the tag is either present or absent in the `tags` list), an aspect hint can convey arbitrary structured information in its [providers](/versions/9.0.0/extending/rules#providers).  In practice, aspect hints are used for interoperability between different language-specific rule sets. For example, imagine you have a `mylang_binary` target which needs to depend on an `otherlang_library` target. The MyLang-specific logic needs some additional information about the OtherLang target in order to use it, but `otherlang_library` doesn't provide this information because it knows nothing about MyLang. One solution might be for the MyLang rule set to define a `mylang_hint` rule which can be used to encode that additional information; the user can add the hint to their `otherlang_library`'s `aspect_hints`, and `mylang_binary` can use an aspect to collect the additional information from a MyLang-specific provider in the `mylang_hint`.  For a concrete example, see [`swift_interop_hint`](https://github.com/bazelbuild/rules_swift/blob/master/doc/rules.md#swift_interop_hint) and [`swift_overlay`](https://github.com/bazelbuild/rules_swift/blob/master/doc/rules.md#swift_overlay) in `rules_swift`.  Best practices:   * Targets listed in `aspect_hints` should be lightweight and minimal. * Language-specific logic should consider only aspect hints having providers relevant to that   language, and should ignore any other aspect hints. |
+| `compatible_with` | List of [labels](/versions/9.0.0/concepts/labels); [nonconfigurable](#configurable-attributes); default is `[]`  The list of environments this target can be built for, in addition to default-supported environments.  This is part of Bazel's constraint system, which lets users declare which targets can and cannot depend on each other. For example, externally deployable binaries shouldn't depend on libraries with company-secret code. See [ConstraintSemantics](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/analysis/constraints/ConstraintSemantics.java#L46) for details. |
+| `deprecation` | String; [nonconfigurable](#configurable-attributes); default is `None`  An explanatory warning message associated with this target. Typically this is used to notify users that a target has become obsolete, or has become superseded by another rule, is private to a package, or is perhaps considered harmful for some reason. It is a good idea to include some reference (like a webpage, a bug number or example migration CLs) so that one can easily find out what changes are required to avoid the message. If there is a new target that can be used as a drop in replacement, it is a good idea to just migrate all users of the old target.  This attribute has no effect on the way things are built, but it may affect a build tool's diagnostic output. The build tool issues a warning when a rule with a `deprecation` attribute is depended upon by a target in another package.  Intra-package dependencies are exempt from this warning, so that, for example, building the tests of a deprecated rule does not encounter a warning.  If a deprecated target depends on another deprecated target, no warning message is issued.  Once people have stopped using it, the target can be removed. |
+| `exec_compatible_with` | List of [labels](/versions/9.0.0/concepts/labels); [nonconfigurable](#configurable-attributes); default is `[]`  A list of `constraint_values` that must be present in the execution platform of this target's default exec group. This is in addition to any constraints already set by the rule type. Constraints are used to restrict the list of available execution platforms. For more details, see the description of [toolchain resolution](/versions/9.0.0/docs/toolchains#toolchain-resolution). and [exec groups](/versions/9.0.0/extending/exec-groups) |
+| `exec_group_compatible_with` | Dictionary of strings to lists of [labels](/versions/9.0.0/concepts/labels); [nonconfigurable](#configurable-attributes); default is `{}`  A dictionary of exec group names to lists of `constraint_values` that must be present in the execution platform for the given exec group. This is in addition to any constraints already set on the exec group's definition. Constraints are used to restrict the list of available execution platforms. For more details, see the description of [toolchain resolution](/versions/9.0.0/docs/toolchains#toolchain-resolution). and [exec groups](/versions/9.0.0/extending/exec-groups) |
+| `exec_properties` | Dictionary of strings; default is `{}`  A dictionary of strings that will be added to the `exec_properties` of a platform selected for this target. See `exec_properties` of the [platform](platforms-and-toolchains#platform) rule.  If a key is present in both the platform and target-level properties, the value will be taken from the target.  Keys can be prefixed with the name of an execution group followed by a `.` to apply them only to that particular exec group. |
+| `features` | List of *feature* strings; default is `[]`  A feature is string tag that can be enabled or disabled on a target. The meaning of a feature depends on the rule itself.  This `features` attribute is combined with the [package](/versions/9.0.0/reference/be/functions#package) level `features` attribute. For example, if the features ["a", "b"] are enabled on the package level, and a target's `features` attribute contains ["-a", "c"], the features enabled for the rule will be "b" and "c". [See example](https://github.com/bazelbuild/examples/blob/main/rules/features/BUILD). |
+| `package_metadata` | List of [labels](/versions/9.0.0/concepts/labels); [nonconfigurable](#configurable-attributes); default is the package's `default_package_metadata`  A list of labels that are associated metadata about this target. Typically, the labels are simple rules that return a provider of constant values. Rules and aspects may use these labels to perform some additional analysis on the build graph.  The canonical use case is that of [rules\_license](https://github.com/bazelbuild/rules_license). For that use case, `package_metadata` and `default_package_metadata` is used to attach information about a package's licence or version to targets. An aspect applied to a top-level binary can be used to gather those and produce compliance reports. |
+| `restricted_to` | List of [labels](/versions/9.0.0/concepts/labels); [nonconfigurable](#configurable-attributes); default is `[]`  The list of environments this target can be built for, *instead* of default-supported environments.  This is part of Bazel's constraint system. See `compatible_with` for details. |
+| `tags` | List of strings; [nonconfigurable](#configurable-attributes); default is `[]`  *Tags* can be used on any rule. *Tags* on test and `test_suite` rules are useful for categorizing the tests. *Tags* on non-test targets are used to control sandboxed execution of `genrule`s and [Starlark](/versions/9.0.0/rules/concepts) actions, and for parsing by humans and/or external tools.  Bazel modifies the behavior of its sandboxing code if it finds the following keywords in the `tags` attribute of any test or `genrule` target, or the keys of `execution_requirements` for any Starlark action.   * `no-sandbox` keyword results in the action or test never being   sandboxed; it can still be cached or run remotely - use `no-cache`   or `no-remote` to prevent either or both of those. * `no-cache` keyword results in the action or test never being   cached (locally or remotely). Note: for the purposes of this tag, the disk cache   is considered a local cache, whereas the HTTP and gRPC caches are considered   remote. Other caches, such as Skyframe or the persistent action cache, are not   affected. * `no-remote-cache` keyword results in the action or test never being   cached remotely (but it may be cached locally; it may also be executed remotely).   Note: for the purposes of this tag, the disk cache is considered a local cache,   whereas the HTTP and gRPC caches are considered remote. Other caches, such as   Skyframe or the persistent action cache, are not affected.   If a combination of local disk cache and remote cache are used (combined cache),   it's treated as a remote cache and disabled entirely unless `--incompatible_remote_results_ignore_disk`   is set in which case the local components will be used. * `no-remote-exec` keyword results in the action or test never being   executed remotely (but it may be cached remotely). * `no-remote` keyword prevents the action or test from being executed remotely or   cached remotely. This is equivalent to using both   `no-remote-cache` and `no-remote-exec`. * `no-remote-cache-upload` keyword disables upload part of remote caching of a spawn.   it does not disable remote execution. * `local` keyword precludes the action or test from being remotely cached,   remotely executed, or run inside the sandbox.   For genrules and tests, marking the rule with the `local = True`   attribute has the same effect. * `requires-network` keyword allows access to the external   network from inside the sandbox. This tag only has an effect if sandboxing   is enabled. * `block-network` keyword blocks access to the external   network from inside the sandbox. In this case, only communication   with localhost is allowed. This tag only has an effect if sandboxing is   enabled. * `requires-fakeroot` runs the test or action as uid and gid 0 (i.e., the root   user). This is only supported on Linux. This tag takes precedence over the   `--sandbox_fake_username` command-line option.   *Tags* on tests are generally used to annotate a test's role in your debug and release process. Typically, tags are most useful for C++ and Python tests, which lack any runtime annotation ability. The use of tags and size elements gives flexibility in assembling suites of tests based around codebase check-in policy.  Bazel modifies test running behavior if it finds the following keywords in the `tags` attribute of the test rule:   * `exclusive` will force the test to be run in the   "exclusive" mode, ensuring that no other tests are running at the   same time. Such tests will be executed in serial fashion after all build   activity and non-exclusive tests have been completed. Remote execution is   disabled for such tests because Bazel doesn't have control over what's   running on a remote machine. * `exclusive-if-local` will force the test to be run in the   "exclusive" mode if it is executed locally, but will run the test in parallel if it's   executed remotely. * `manual` keyword will exclude the target from expansion of target pattern wildcards   (`...`, `:*`, `:all`, etc.) and `test_suite` rules   which do not list the test explicitly when computing the set of top-level targets to build/run   for the `build`, `test`, and `coverage` commands. It does not   affect target wildcard or test suite expansion in other contexts, including the   `query` command. Note that `manual` does not imply that a target should   not be built/run automatically by continuous build/test systems. For example, it may be   desirable to exclude a target from `bazel test ...` because it requires specific   Bazel flags, but still have it included in properly-configured presubmit or continuous test   runs. * `external` keyword will force test to be unconditionally   executed (regardless of `--cache_test_results`   value).  See [Tag Conventions](/versions/9.0.0/reference/test-encyclopedia#tag-conventions) in the Test Encyclopedia for more conventions on tags attached to test targets. |
+| `target_compatible_with` | List of [labels](/versions/9.0.0/concepts/labels); default is `[]`  A list of `constraint_value`s that must be present in the target platform for this target to be considered *compatible*. This is in addition to any constraints already set by the rule type. If the target platform does not satisfy all listed constraints then the target is considered *incompatible*. Incompatible targets are skipped for building and testing when the target pattern is expanded (e.g. `//...`, `:all`). When explicitly specified on the command line, incompatible targets cause Bazel to print an error and cause a build or test failure.  Targets that transitively depend on incompatible targets are themselves considered incompatible. They are also skipped for building and testing.  An empty list (which is the default) signifies that the target is compatible with all platforms. All rules other than [Workspace Rules](workspace) support this attribute. For some rules this attribute has no effect. For example, specifying `target_compatible_with` for a `cc_toolchain` is not useful. See the [Platforms](/versions/9.0.0/docs/platforms#skipping-incompatible-targets) page for more information about incompatible target skipping. |
+| `testonly` | Boolean; [nonconfigurable](#configurable-attributes); default is `False` except for test and test suite targets  If `True`, only testonly targets (such as tests) can depend on this target.  Equivalently, a rule that is not `testonly` is not allowed to depend on any rule that is `testonly`.  Tests (`*_test` rules) and test suites ([test\_suite](/versions/9.0.0/reference/be/general#test_suite) rules) are `testonly` by default.  This attribute is intended to mean that the target should not be contained in binaries that are released to production.  Because testonly is enforced at build time, not run time, and propagates virally through the dependency tree, it should be applied judiciously. For example, stubs and fakes that are useful for unit tests may also be useful for integration tests involving the same binaries that will be released to production, and therefore should probably not be marked testonly. Conversely, rules that are dangerous to even link in, perhaps because they unconditionally override normal behavior, should definitely be marked testonly. |
+| `toolchains` | List of [labels](/versions/9.0.0/concepts/labels); [nonconfigurable](#configurable-attributes); default is `[]`  The set of targets whose [Make variables](/versions/9.0.0/reference/be/make-variables) this target is allowed to access. These targets are either instances of rules that provide `TemplateVariableInfo` or special targets for toolchain types built into Bazel. These include:  * `@bazel_tools//tools/cpp:toolchain_type`* `@rules_java//toolchains:current_java_runtime`   Note that this is distinct from the concept of [toolchain resolution](/versions/9.0.0/docs/toolchains#toolchain-resolution) that is used by rule implementations for platform-dependent configuration. You cannot use this attribute to determine which specific `cc_toolchain` or `java_toolchain` a target will use. |
+| `visibility` | List of [labels](/versions/9.0.0/concepts/labels); [nonconfigurable](#configurable-attributes); default varies  The `visibility` attribute controls whether the target can be depended on by targets in other locations. See the documentation for [visibility](/versions/9.0.0/concepts/visibility).  For targets declared directly in a BUILD file or in legacy macros called from a BUILD file, the default value is the package's `default_visibility` if specified, or else `["//visibility:private"]`. For targets declared in one or more symbolic macros, the default value is always just `["//visibility:private"]` (which makes it useable only within the package containing the macro's code). |
+
+## Attributes common to all test rules (\*\_test)
+
+This section describes attributes that are common to all test rules.
+
+| Attribute | Description |
+| --- | --- |
+| `args` | List of strings; subject to [$(location)](/versions/9.0.0/reference/be/make-variables#predefined_label_variables) and ["Make variable"](/versions/9.0.0/reference/be/make-variables) substitution, and [Bourne shell tokenization](#sh-tokenization); default is `[]`  Command line arguments that Bazel passes to the target when it is executed with `bazel test`. These arguments are passed before any `--test_arg` values specified on the `bazel test` command line. |
+| `env` | Dictionary of strings; values are subject to [$(location)](/versions/9.0.0/reference/be/make-variables#predefined_label_variables) and ["Make variable"](/versions/9.0.0/reference/be/make-variables) substitution; default is `{}`  Specifies additional environment variables to set when the test is executed by `bazel test`.  This attribute only applies to native rules, like `cc_test`, `py_test`, and `sh_test`. It does not apply to Starlark-defined test rules. For your own Starlark rules, you can add an "env" attribute and use it to populate a [RunEnvironmentInfo](/versions/9.0.0/rules/lib/providers/RunEnvironmentInfo) Provider. [TestEnvironment](/versions/9.0.0/rules/lib/toplevel/testing#TestEnvironment) Provider. |
+| `env_inherit` | List of strings; default is `[]`  Specifies additional environment variables to inherit from the external environment when the test is executed by `bazel test`.  This attribute only applies to native rules, like `cc_test`, `py_test`, and `sh_test`. It does not apply to Starlark-defined test rules. |
+| `size` | String `"enormous"`, `"large"`, `"medium"`, or `"small"`; [nonconfigurable](#configurable-attributes); default is `"medium"`  Specifies a test target's "heaviness": how much time/resources it needs to run.  Unit tests are considered "small", integration tests "medium", and end-to-end tests "large" or "enormous". Bazel uses the size to determine a default timeout, which can be overridden using the `timeout` attribute. The timeout is for all tests in the BUILD target, not for each individual test. When the test is run locally, the `size` is additionally used for scheduling purposes: Bazel tries to respect `--local_{ram,cpu}_resources` and not overwhelm the local machine by running lots of heavy tests at the same time.  Test sizes correspond to the following default timeouts and assumed peak local resource usages:   | Size | RAM (in MB) | CPU (in CPU cores) | Default timeout | | --- | --- | --- | --- | | small | 20 | 1 | short (1 minute) | | medium | 100 | 1 | moderate (5 minutes) | | large | 300 | 1 | long (15 minutes) | | enormous | 800 | 1 | eternal (60 minutes) |   The environment variable `TEST_SIZE` will be set to the value of this attribute when spawning the test. |
+| `timeout` | String `"short"`, `"moderate"`, `"long"`, or `"eternal"`; [nonconfigurable](#configurable-attributes); default is derived from the test's `size` attribute  How long the test is expected to run before returning.  While a test's size attribute controls resource estimation, a test's timeout may be set independently. If not explicitly specified, the timeout is based on the [test's size](#test.size). The test timeout can be overridden with the `--test_timeout` flag, e.g. for running under certain conditions which are known to be slow. Test timeout values correspond to the following time periods:   | Timeout Value | Time Period | | --- | --- | | short | 1 minute | | moderate | 5 minutes | | long | 15 minutes | | eternal | 60 minutes |   For times other than the above, the test timeout can be overridden with the `--test_timeout` bazel flag, e.g. for manually running under conditions which are known to be slow. The `--test_timeout` values are in seconds. For example `--test_timeout=120` will set the test timeout to two minutes.  The environment variable `TEST_TIMEOUT` will be set to the test timeout (in seconds) when spawning the test. |
+| `flaky` | Boolean; [nonconfigurable](#configurable-attributes); default is `False`  Marks test as flaky.  If set, executes the test up to three times, marking it as failed only if it fails each time. By default, this attribute is set to False and the test is executed only once. Note, that use of this attribute is generally discouraged - tests should pass reliably when their assertions are upheld. |
+| `shard_count` | Non-negative integer less than or equal to 50; default is `-1`  Specifies the number of parallel shards to use to run the test.  If set, this value will override any heuristics used to determine the number of parallel shards with which to run the test. Note that for some test rules, this parameter may be required to enable sharding in the first place. Also see `--test_sharding_strategy`.  If test sharding is enabled, the environment variable `TEST_TOTAL_SHARDS` will be set to this value when spawning the test.  Sharding requires the test runner to support the test sharding protocol. If it does not, then it will most likely run every test in every shard, which is not what you want.  See [Test Sharding](/versions/9.0.0/reference/test-encyclopedia#test-sharding) in the Test Encyclopedia for details on sharding. |
+| `local` | Boolean; [nonconfigurable](#configurable-attributes); default is `False`  Forces the test to be run locally, without sandboxing.  Setting this to True is equivalent to providing "local" as a tag (`tags=["local"]`). |
+
+## Attributes common to all binary rules (\*\_binary)
+
+This section describes attributes that are common to all binary rules.
+
+| Attribute | Description |
+| --- | --- |
+| `args` | List of strings; subject to [$(location)](/versions/9.0.0/reference/be/make-variables#predefined_label_variables) and ["Make variable"](/versions/9.0.0/reference/be/make-variables) substitution, and [Bourne shell tokenization](#sh-tokenization); [nonconfigurable](#configurable-attributes); default is `[]`  Command line arguments that Bazel will pass to the target when it is executed either by the `run` command or as a test. These arguments are passed before the ones that are specified on the `bazel run` or `bazel test` command line.  *NOTE: The arguments are not passed when you run the target outside of Bazel (for example, by manually executing the binary in `bazel-bin/`).* |
+| `env` | Dictionary of strings; values are subject to [$(location)](/versions/9.0.0/reference/be/make-variables#predefined_label_variables) and ["Make variable"](/versions/9.0.0/reference/be/make-variables) substitution; default is `{}`  Specifies additional environment variables to set when the target is executed by `bazel run`.  This attribute only applies to native rules, like `cc_binary`, `py_binary`, and `sh_binary`. It does not apply to Starlark-defined executable rules. For your own Starlark rules, you can add an "env" attribute and use it to populate a [RunEnvironmentInfo](/versions/9.0.0/rules/lib/providers/RunEnvironmentInfo) Provider.  *NOTE: The environment variables are not set when you run the target outside of Bazel (for example, by manually executing the binary in `bazel-bin/`).* |
+| `output_licenses` | List of strings; default is `[]`  The licenses of the output files that this binary generates. This is part of a deprecated licensing API that Bazel no longer uses. Don't use this. |
+
+## Configurable attributes
+
+Most attributes are "configurable", meaning that their values may change when
+the target is built in different ways. Specifically, configurable attributes
+may vary based on the flags passed to the Bazel command line, or what
+downstream dependency is requesting the target. This can be used, for
+instance, to customize the target for multiple platforms or compilation modes.
+
+The following example declares different sources for different target
+architectures. Running `bazel build :multiplatform_lib --cpu x86`
+will build the target using `x86_impl.cc`, while substituting
+`--cpu arm` will instead cause it to use `arm_impl.cc`.
+
+```
+cc_library(
+    name = "multiplatform_lib",
+    srcs = select({
+        ":x86_mode": ["x86_impl.cc"],
+        ":arm_mode": ["arm_impl.cc"]
+    })
+)
+config_setting(
+    name = "x86_mode",
+    values = { "cpu": "x86" }
+)
+config_setting(
+    name = "arm_mode",
+    values = { "cpu": "arm" }
+)
+```
+
+The [`select()`](/versions/9.0.0/reference/be/functions#select) function
+chooses among different alternative values for a configurable attribute based
+on which [`config_setting`](/versions/9.0.0/reference/be/general#config_setting)
+or [`constraint_value`](/versions/9.0.0/reference/be/platforms-and-toolchains#constraint_value)
+criteria the target's configuration satisfies.
+
+Bazel evaluates configurable attributes after processing macros and before
+processing rules (technically, between the
+[loading and analysis phases](https://bazel.build/versions/9.0.0/rules/concepts#evaluation-model)).
+Any processing before `select()` evaluation doesn't know which
+branch the `select()` chooses. Macros, for example, can't change
+their behavior based on the chosen branch, and `bazel query` can
+only make conservative guesses about a target's configurable dependencies. See
+[this FAQ](https://bazel.build/versions/9.0.0/docs/configurable-attributes#faq)
+for more on using `select()` with rules and macros.
+
+Attributes marked `nonconfigurable` in their documentation cannot
+use this feature. Usually an attribute is nonconfigurable because Bazel
+internally needs to know its value before it can determine how to resolve a
+`select()`.
+
+See [Configurable Build Attributes](https://bazel.build/versions/9.0.0/docs/configurable-attributes) for a detailed overview.
+
+## Implicit output targets
+
+*Implicit outputs in C++ are deprecated. Please refrain from using it
+in other languages where possible. We don't have a deprecation path yet
+but they will eventually be deprecated too.*
+
+When you define a build rule in a BUILD file, you are explicitly
+declaring a new, named rule target in a package. Many build rule
+functions also *implicitly* entail one or more output file
+targets, whose contents and meaning are rule-specific.
+For example, when you explicitly declare a
+`java_binary(name='foo', ...)` rule, you are also
+*implicitly* declaring an output file
+target `foo_deploy.jar` as a member of the same package.
+(This particular target is a self-contained Java archive suitable
+for deployment.)
+
+Implicit output targets are first-class members of the global
+target graph. Just like other targets, they are built on demand,
+either when specified in the top-level built command, or when they
+are necessary prerequisites for other build targets. They can be
+referenced as dependencies in BUILD files, and can be observed in
+the output of analysis tools such as `bazel query`.
+
+For each kind of build rule, the rule's documentation contains a
+special section detailing the names and contents of any implicit
+outputs entailed by a declaration of that kind of rule.
+
+An important but somewhat subtle distinction between the
+two namespaces used by the build system:
+[labels](/versions/9.0.0/concepts/labels) identify *targets*,
+which may be rules or files, and file targets may be divided into
+either source (or input) file targets and derived (or output) file
+targets. These are the things you can mention in BUILD files,
+build from the command-line, or examine using `bazel query`;
+this is the *target namespace*. Each file target corresponds
+to one actual file on disk (the "file system namespace"); each rule
+target may correspond to zero, one or more actual files on disk.
+There may be files on disk that have no corresponding target; for
+example, `.o` object files produced during C++ compilation
+cannot be referenced from within BUILD files or from the command line.
+In this way, the build tool may hide certain implementation details of
+how it does its job. This is explained more fully in
+the [BUILD Concept Reference](/versions/9.0.0/concepts/build-ref).

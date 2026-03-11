@@ -16,10 +16,14 @@ filegroup(
 java_test(
     name = "disk",
     srcs = glob(["*.java"]),
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         "//src/main/java/com/google/devtools/build/lib/remote:store",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
+        "//src/main/java/com/google/devtools/build/lib/remote/common:action_key",
         "//src/main/java/com/google/devtools/build/lib/remote/common:cache_not_found_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/disk",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
@@ -30,6 +34,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib:test_runner",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:external_file_system_lock",
+        "//src/test/java/com/google/devtools/build/lib/vfs/util",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:junit4",

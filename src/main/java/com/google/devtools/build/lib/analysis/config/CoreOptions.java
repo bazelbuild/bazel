@@ -16,7 +16,10 @@ package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.util.Map.Entry.comparingByKey;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
@@ -34,13 +37,11 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.TriState;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeSet;
-import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Core options affecting a {@link BuildConfigurationValue} that don't belong in domain-specific
@@ -312,16 +313,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "implementations only access things they should. Causes a performance hit.")
   public boolean extendedSanityChecks;
 
-  @Option(
-      name = "strict_filesets",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
-      help =
-          "If this option is enabled, filesets crossing package boundaries are reported "
-              + "as errors.")
-  public boolean strictFilesets;
-
   // This option is only used during execution. However, it is a required input to the analysis
   // phase, as otherwise flipping this flag would not invalidate already-executed actions.
   @Option(
@@ -332,17 +323,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "If true, the file permissions of action outputs are set to `0755` instead of `0555`")
   public boolean experimentalWritableOutputs;
-
-  @Option(
-      name = "experimental_strict_fileset_output",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "If this option is enabled, filesets will treat all output artifacts as regular files. "
-              + "They will not traverse directories or be sensitive to symlinks.")
-  public boolean strictFilesetOutput;
 
   @Option(
       name = "stamp",
@@ -614,7 +594,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "incompatible_check_testonly_for_output_files",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -793,7 +773,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean allowMapDirectory;
 
   /** Values for --experimental_output_paths. */
-  public enum OutputPathsMode implements StarlarkValue {
+  public enum OutputPathsMode {
     /** Use the production output path model. */
     OFF,
     /**
@@ -942,7 +922,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "flag_alias",
-      converter = Converters.FlagAliasConverter.class,
+      converter = CoreOptionConverters.FlagAliasConverter.class,
       defaultValue = "null",
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
@@ -953,7 +933,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form
           `{key}={value}` as an argument.
           """)
-  public List<Map.Entry<String, String>> commandLineFlagAliases;
+  public List<Map.Entry<String, Label>> commandLineFlagAliases;
 
   @Option(
       name = "archived_tree_artifact_mnemonics_filter",
@@ -1038,8 +1018,15 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     return false;
   }
 
+  private static final LoadingCache<List<Map.Entry<String, Label>>, ImmutableMap<String, Label>>
+      ALIAS_MAP_CACHE = Caffeine.newBuilder().weakKeys().build(ImmutableMap::copyOf);
+
+  public ImmutableMap<String, Label> getCommandLineFlagAliases() {
+    return ALIAS_MAP_CACHE.get(commandLineFlagAliases);
+  }
+
   /** Ways configured targets may provide the {@link Fragment}s they require. */
-  public enum IncludeConfigFragmentsEnum implements StarlarkValue {
+  public enum IncludeConfigFragmentsEnum {
     /**
      * Don't offer the provider at all. This is best for most builds, which don't use this
      * information and don't need the extra memory hit over every configured target.
@@ -1066,10 +1053,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   }
 
   // Sort the map entries by key.
-  private static List<Map.Entry<String, String>> sortEntries(
-      List<Map.Entry<String, String>> entries) {
-    ImmutableList<Map.Entry<String, String>> sortedEntries =
-        entries.stream().sorted(Comparator.comparing(Map.Entry::getKey)).collect(toImmutableList());
+  private static <V> List<Map.Entry<String, V>> sortEntries(List<Map.Entry<String, V>> entries) {
+    ImmutableList<Map.Entry<String, V>> sortedEntries =
+        entries.stream().sorted(comparingByKey()).collect(toImmutableList());
     // If we made no changes, return the same instance we got to reduce churn.
     if (sortedEntries.equals(entries)) {
       return entries;
@@ -1125,5 +1111,10 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     result.commandLineFlagAliases = sortEntries(normalizeEntries(commandLineFlagAliases));
 
     return result;
+  }
+
+  @Override
+  public CoreOptions clone() {
+    return (CoreOptions) super.clone();
   }
 }

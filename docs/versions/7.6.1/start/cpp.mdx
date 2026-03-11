@@ -2,8 +2,6 @@
 title: 'Bazel Tutorial: Build a C++ Project'
 ---
 
-
-
 ## Introduction
 
 New to Bazel? You’re in the right place. Follow this First Build tutorial for a
@@ -12,7 +10,7 @@ are used in Bazel’s context and walks you through the basics of the Bazel
 workflow. Starting with the tools you need, you will build and run three
 projects with increasing complexity and learn how and why they get more complex.
 
-While Bazel is a [build system](https://bazel.build/basics/build-systems) that
+While Bazel is a [build system](https://bazel.build/versions/7.6.1/basics/build-systems) that
 supports multi-language builds, this tutorial uses a C++ project as an example
 and provides the general guidelines and flow that apply to most languages.
 
@@ -20,7 +18,7 @@ Estimated completion time: 30 minutes.
 
 ### Prerequisites
 
-Start by [installing Bazel](https://bazel.build/install), if you haven’t
+Start by [installing Bazel](https://bazel.build/versions/7.6.1/install), if you haven’t
 already. This tutorial uses Git for source control, so for best results
 [install Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git) as
 well.
@@ -76,7 +74,7 @@ build it with multiple targets.
 
 By installing Bazel (and Git) and cloning the repository for this tutorial, you
 have laid the foundation for your first build with Bazel. Continue to the next
-section to define some terms and set up your [workspace](https://bazel.build/reference/glossary#workspace).
+section to define some terms and set up your [workspace](https://bazel.build/versions/7.6.1/reference/glossary#workspace).
 
 ## Getting started
 
@@ -86,13 +84,13 @@ section to define some terms and set up your [workspace](https://bazel.build/ref
 a directory that holds your project's source files and Bazel's build outputs. It
 also contains these significant files:
 
-*   The <code>[`WORKSPACE` file](https://bazel.build/reference/glossary#workspace-file)
+*   The <code>[`WORKSPACE` file](https://bazel.build/versions/7.6.1/reference/glossary#workspace-file)
 </code>, which identifies the directory and its contents as a Bazel workspace and
 lives at the root of the project's directory structure.
-*   One or more <code>[`BUILD` files](https://bazel.build/reference/glossary#build-file)
+*   One or more <code>[`BUILD` files](https://bazel.build/versions/7.6.1/reference/glossary#build-file)
 </code>, which tell Bazel how to build different parts of the project. A
 directory within the workspace that contains a <code>BUILD</code> file is a
-[package](https://bazel.build/reference/glossary#package). (More on packages
+[package](https://bazel.build/versions/7.6.1/reference/glossary#package). (More on packages
 later in this tutorial.)
 
 In future projects, to designate a directory as a Bazel workspace, create an
@@ -102,18 +100,16 @@ a `WORKSPACE` file is already present in each stage.
 **NOTE**: When Bazel builds the project, all inputs must be in
 the same workspace. Files residing in different workspaces are independent of
 one another unless linked. More detailed information about workspace rules can
-be found in [this guide](https://bazel.build/reference/be/workspace).
-
+be found in [this guide](https://bazel.build/versions/7.6.1/reference/be/workspace).
 
 ### Understand the BUILD file
 
-
 A `BUILD` file contains several different types of instructions for Bazel. Each
-`BUILD` file requires at least one [rule](https://bazel.build/reference/glossary#rule)
+`BUILD` file requires at least one [rule](https://bazel.build/versions/7.6.1/reference/glossary#rule)
 as a set of instructions, which tells Bazel how to build the desired outputs,
 such as executable binaries or libraries. Each instance of a build rule in the
-`BUILD` file is called a [target](https://bazel.build/reference/glossary#target)
-and points to a specific set of source files and [dependencies](https://bazel.build/reference/glossary#dependency).
+`BUILD` file is called a [target](https://bazel.build/versions/7.6.1/reference/glossary#target)
+and points to a specific set of source files and [dependencies](https://bazel.build/versions/7.6.1/reference/glossary#dependency).
 A target can also point to other targets.
 
 Take a look at the `BUILD` file in the `cpp-tutorial/stage1/main` directory:
@@ -126,7 +122,7 @@ cc_binary(
 ```
 
 In our example, the `hello-world` target instantiates Bazel's built-in
-<code>[cc_binary rule](https://bazel.build/reference/be/c-cpp#cc_binary)</code>.
+<code>[cc_binary rule](https://bazel.build/versions/7.6.1/reference/be/c-cpp#cc_binary)</code>.
 The rule tells Bazel to build a self-contained executable binary from the
 <code>hello-world.cc</code> source file with no dependencies.
 
@@ -135,7 +131,6 @@ The rule tells Bazel to build a self-contained executable binary from the
 Now you are familiar with some key terms, and what they mean in the context of
 this project and Bazel in general. In the next section, you will build and test
 Stage 1 of the project.
-
 
 ## Stage 1: single target, single package
 
@@ -191,8 +186,7 @@ This results in a printed “`Hello world`” message.
 
 Here’s the dependency graph of Stage 1:
 
-![Dependency graph for hello-world displays a single target with a single source file.](/docs/images/cpp-tutorial-stage1.png "Dependency graph for hello-world displays a single target with a single source file.")
-
+![Dependency graph for hello-world displays a single target with a single source file.](/versions/7.6.1/docs/images/cpp-tutorial-stage1.png "Dependency graph for hello-world displays a single target with a single source file.")
 
 ### Summary: stage 1
 
@@ -239,7 +233,7 @@ cc_binary(
 ```
 
 With this `BUILD` file, Bazel first builds the `hello-greet` library
-(using Bazel's built-in <code>[cc_library rule](https://bazel.build/reference/be/c-cpp#cc_library)</code>),
+(using Bazel's built-in <code>[cc_library rule](https://bazel.build/versions/7.6.1/reference/be/c-cpp#cc_library)</code>),
 then the <code>hello-world</code> binary. The <code>deps</code> attribute in
 the <code>hello-world</code> target tells Bazel that the <code>hello-greet</code>
 library is required to build the <code>hello-world</code> binary.
@@ -278,7 +272,7 @@ that file.
 Looking at the dependency graph, you can see that `hello-world` depends on an extra input
 named `hello-greet`:
 
-![Dependency graph for `hello-world` displays dependency changes after modification to the file.](/docs/images/cpp-tutorial-stage2.png "Dependency graph for `hello-world` displays dependency changes after modification to the file.")
+![Dependency graph for `hello-world` displays dependency changes after modification to the file.](/versions/7.6.1/docs/images/cpp-tutorial-stage2.png "Dependency graph for `hello-world` displays dependency changes after modification to the file.")
 
 ### Summary: stage 2
 
@@ -346,7 +340,7 @@ in the `lib` package (hence the target label `//lib:hello-time`) - Bazel knows
 this through the `deps` attribute. You can see this reflected in the dependency
 graph:
 
-![Dependency graph for `hello-world` displays how the target in the main package depends on the target in the `lib` package.](/docs/images/cpp-tutorial-stage3.png "Dependency graph for `hello-world` displays how the target in the main package depends on the target in the `lib` package.")
+![Dependency graph for `hello-world` displays how the target in the main package depends on the target in the `lib` package.](/versions/7.6.1/docs/images/cpp-tutorial-stage3.png "Dependency graph for `hello-world` displays how the target in the main package depends on the target in the `lib` package.")
 
 For the build to succeed, you make the `//lib:hello-time` target in `lib/BUILD`
 explicitly visible to targets in `main/BUILD` using the visibility attribute.
@@ -394,12 +388,12 @@ Bazel journey.
 You’ve now completed your first basic build with Bazel, but this is just the
 start. Here are some more resources to continue learning with Bazel:
 
-*   To keep focusing on C++, read about common [C++ build use cases](https://bazel.build/tutorials/cpp-use-cases).
+*   To keep focusing on C++, read about common [C++ build use cases](https://bazel.build/versions/7.6.1/tutorials/cpp-use-cases).
 *   To get started with building other applications with Bazel, see the tutorials
-for [Java](https://bazel.build/start/java), [Android application](https://bazel.build/start/android-app ),
-or [iOS application](https://bazel.build/start/ios-app)).
+for [Java](https://bazel.build/versions/7.6.1/start/java), [Android application](https://bazel.build/versions/7.6.1/start/android-app ),
+or [iOS application](https://bazel.build/versions/7.6.1/start/ios-app)).
 *   To learn more about working with local and remote repositories, read about
-[external dependencies](https://bazel.build/docs/external).
-*   To learn more about Bazel’s other rules, see this [reference guide](https://bazel.build/rules).
+[external dependencies](https://bazel.build/versions/7.6.1/docs/external).
+*   To learn more about Bazel’s other rules, see this [reference guide](https://bazel.build/versions/7.6.1/rules).
 
 Happy building!

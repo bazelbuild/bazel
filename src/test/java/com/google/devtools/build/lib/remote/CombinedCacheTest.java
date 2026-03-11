@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -98,6 +99,7 @@ import org.mockito.MockitoAnnotations;
 public class CombinedCacheTest {
   @Rule public final RxNoGlobalErrorsRule rxNoGlobalErrorsRule = new RxNoGlobalErrorsRule();
 
+  private RequestMetadata metadata;
   private RemoteActionExecutionContext remoteActionExecutionContext;
   private FileSystem fs;
   private Path execRoot;
@@ -118,8 +120,7 @@ public class CombinedCacheTest {
   @Before
   public void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
-    RequestMetadata metadata =
-        TracingMetadataUtils.buildMetadata("none", "none", "action-id", null);
+    metadata = TracingMetadataUtils.buildMetadata("none", "none", "action-id", null);
     Spawn spawn =
         new SimpleSpawn(
             new FakeOwner("foo", "bar", "//dummy:label"),
@@ -349,8 +350,10 @@ public class CombinedCacheTest {
   public void ensureInputsPresent_missingInputs_exceptionHasLostInputs() throws Exception {
     RemoteCacheClient cacheProtocol = spy(new InMemoryCacheClient());
     RemoteExecutionCache remoteCache = spy(newRemoteExecutionCache(cacheProtocol));
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
     remoteCache.setRemotePathChecker(
-        (context, path) -> path.relativeTo(execRoot).equals(PathFragment.create("foo")));
+        (context, path) ->
+            immediateFuture(!path.relativeTo(execRoot).equals(PathFragment.create("foo"))));
 
     Path path = execRoot.getRelative("foo");
     FileSystemUtils.writeContentAsLatin1(path, "bar");
@@ -381,6 +384,7 @@ public class CombinedCacheTest {
     // arrange
     RemoteCacheClient cacheProtocol = spy(new InMemoryCacheClient());
     RemoteExecutionCache remoteCache = spy(newRemoteExecutionCache(cacheProtocol));
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
 
     Deque<SettableFuture<Void>> futures = new ConcurrentLinkedDeque<>();
     CountDownLatch uploadBlobCalls = new CountDownLatch(2);
@@ -451,6 +455,7 @@ public class CombinedCacheTest {
     // arrange
     RemoteCacheClient cacheProtocol = spy(new InMemoryCacheClient());
     RemoteExecutionCache remoteCache = newRemoteExecutionCache(cacheProtocol);
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
 
     SettableFuture<ImmutableSet<Digest>> findMissingDigestsFuture = SettableFuture.create();
     CountDownLatch findMissingDigestsCalled = new CountDownLatch(1);
@@ -516,7 +521,7 @@ public class CombinedCacheTest {
     // act
     thread1.interrupt();
     ensureInterrupted.await();
-    findMissingDigestsFuture.set(ImmutableSet.copyOf(merkleTree.blobs().keySet()));
+    findMissingDigestsFuture.set(ImmutableSet.copyOf(merkleTree.allDigests()));
 
     uploadBlobCalls.await();
     assertThat(futures).hasSize(2);
@@ -543,6 +548,7 @@ public class CombinedCacheTest {
     // arrange
     RemoteCacheClient cacheProtocol = spy(new InMemoryCacheClient());
     RemoteExecutionCache remoteCache = spy(newRemoteExecutionCache(cacheProtocol));
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
 
     ConcurrentLinkedDeque<SettableFuture<Void>> uploadBlobFutures = new ConcurrentLinkedDeque<>();
     Map<Path, SettableFuture<Void>> uploadFileFutures = Maps.newConcurrentMap();
@@ -661,6 +667,7 @@ public class CombinedCacheTest {
   @Test
   public void ensureInputsPresent_uploadFailed_propagateErrors() throws Exception {
     RemoteCacheClient cacheProtocol = spy(new InMemoryCacheClient());
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
     doAnswer(invocationOnMock -> Futures.immediateFailedFuture(new IOException("upload failed")))
         .when(cacheProtocol)
         .uploadBlob(any(), any(), (Blob) any());

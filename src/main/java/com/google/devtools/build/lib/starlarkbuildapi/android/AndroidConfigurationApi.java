@@ -111,13 +111,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   boolean checkDesugarDeps();
 
   @StarlarkMethod(
-      name = "use_rex_to_compress_dex_files",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean useRexToCompressDexFiles();
-
-  @StarlarkMethod(
       name = "use_android_resource_shrinking",
       structField = true,
       doc = "",
@@ -147,13 +140,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(name = "use_parallel_dex2oat", structField = true, doc = "", documented = false)
   boolean useParallelDex2Oat();
-
-  @StarlarkMethod(
-      name = "break_build_on_parallel_dex2oat_failure",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean breakBuildOnParallelDex2OatFailure();
 
   @StarlarkMethod(
       name = "compress_java_resources",

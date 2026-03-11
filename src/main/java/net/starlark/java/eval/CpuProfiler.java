@@ -14,7 +14,6 @@
 
 package net.starlark.java.eval;
 
-import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
@@ -93,13 +92,13 @@ public final class CpuProfiler {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  @SuppressWarnings("NonFinalStaticField") // late-bound to ensure SC/LC separation
-  private static CpuProfilerNativeSupport nativeSupport;
-
   private final PprofWriter pprof;
 
+  // Native profiler support, if available.
+  private static volatile CpuProfilerNativeSupport nativeSupport = null;
+
+  /** Installs native profiler support. */
   public static void setNativeSupport(CpuProfilerNativeSupport nativeSupport) {
-    checkState(CpuProfiler.nativeSupport == null, "setNativeSupport called multiple times");
     CpuProfiler.nativeSupport = nativeSupport;
   }
 
@@ -135,7 +134,7 @@ public final class CpuProfiler {
 
   /** Start the profiler. */
   static boolean start(OutputStream out, Duration period) {
-    if (!nativeSupport.supported()) {
+    if (nativeSupport == null) {
       logger.atWarning().log("--starlark_cpu_profile is unsupported on this platform");
       return false;
     }

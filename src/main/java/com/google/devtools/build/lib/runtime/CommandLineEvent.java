@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
@@ -222,35 +221,15 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
     private final Optional<List<Pair<String, String>>> originalStartupOptions;
 
     public OriginalCommandLineEvent(
-        BlazeRuntime runtime,
-        String commandName,
-        List<String> residue,
-        boolean includeResidueInRunBepEvent,
-        List<ParsedOptionDescription> explicitOptions,
-        Map<String, Object> explicitStarlarkOptions,
-        Optional<List<Pair<String, String>>> originalStartupOptions) {
-      this(
-          runtime.getProductName(),
-          runtime.getStartupOptionsProvider(),
-          commandName,
-          residue,
-          includeResidueInRunBepEvent,
-          explicitOptions,
-          explicitStarlarkOptions,
-          originalStartupOptions);
-    }
-
-    @VisibleForTesting
-    OriginalCommandLineEvent(
         String productName,
-        OptionsParsingResult activeStartupOptions,
+        OptionsParsingResult startupOptionsProvider,
         String commandName,
         List<String> residue,
         boolean includeResidueInRunBepEvent,
         List<ParsedOptionDescription> explicitOptions,
         Map<String, Object> explicitStarlarkOptions,
         Optional<List<Pair<String, String>>> originalStartupOptions) {
-      super(productName, activeStartupOptions, commandName, residue, includeResidueInRunBepEvent);
+      super(productName, startupOptionsProvider, commandName, residue, includeResidueInRunBepEvent);
       this.explicitOptions = explicitOptions;
       this.explicitStarlarkOptions = explicitStarlarkOptions;
       this.originalStartupOptions = originalStartupOptions;
@@ -339,30 +318,8 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
     private final boolean replaceable;
 
     public CanonicalCommandLineEvent(
-        BlazeRuntime runtime,
-        String commandName,
-        List<String> residue,
-        boolean includeResidueInRunBepEvent,
-        Map<String, Object> explicitStarlarkOptions,
-        Map<String, Object> starlarkOptions,
-        List<ParsedOptionDescription> canonicalOptions,
-        boolean replaceable) {
-      this(
-          runtime.getProductName(),
-          runtime.getStartupOptionsProvider(),
-          commandName,
-          residue,
-          includeResidueInRunBepEvent,
-          explicitStarlarkOptions,
-          starlarkOptions,
-          canonicalOptions,
-          replaceable);
-    }
-
-    @VisibleForTesting
-    CanonicalCommandLineEvent(
         String productName,
-        OptionsParsingResult activeStartupOptions,
+        OptionsParsingResult startupOptionsProvider,
         String commandName,
         List<String> residue,
         boolean includeResidueInRunBepEvent,
@@ -370,7 +327,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
         Map<String, Object> starlarkOptions,
         List<ParsedOptionDescription> canonicalOptions,
         boolean replaceable) {
-      super(productName, activeStartupOptions, commandName, residue, includeResidueInRunBepEvent);
+      super(productName, startupOptionsProvider, commandName, residue, includeResidueInRunBepEvent);
       this.explicitStarlarkOptions = explicitStarlarkOptions;
       this.starlarkOptions = starlarkOptions;
       this.canonicalOptions = canonicalOptions;

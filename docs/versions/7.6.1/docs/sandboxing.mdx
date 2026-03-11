@@ -2,8 +2,6 @@
 title: 'Sandboxing'
 ---
 
-
-
 This article covers sandboxing in Bazel, installing `sandboxfs`, and debugging
 your sandboxing environment.
 
@@ -50,10 +48,10 @@ containers on Linux and `sandbox-exec` on macOS, to constrain the action within
 ## What sandbox strategy to use
 
 You can choose which kind of sandboxing to use, if any, with the
-[strategy flags](user-manual.html#strategy-options). Using the `sandboxed`
+[strategy flags](user-manual#strategy-options). Using the `sandboxed`
 strategy makes Bazel pick one of the sandbox implementations listed below,
 preferring an OS-specific sandbox to the less hermetic generic one.
-[Persistent workers](/remote/persistent) run in a generic sandbox if you pass
+[Persistent workers](/versions/7.6.1/remote/persistent) run in a generic sandbox if you pass
 the `--worker_sandboxing` flag.
 
 The `local` (a.k.a. `standalone`) strategy does not do any kind of sandboxing.
@@ -98,7 +96,7 @@ strategies that Bazel tries to use (for example, `bazel build
 
 Dynamic execution usually requires sandboxing for local execution. To opt out,
 pass the `--experimental_local_lockfree_output` flag. Dynamic execution silently
-sandboxes [persistent workers](/remote/persistent).
+sandboxes [persistent workers](/versions/7.6.1/remote/persistent).
 
 ## Downsides to sandboxing
 
@@ -109,10 +107,10 @@ sandboxes [persistent workers](/remote/persistent).
     mitigate the setup and teardown cost.
 
 -   Sandboxing effectively disables any cache the tool may have. You can
-    mitigate this by using [persistent workers](/remote/persistent), at
+    mitigate this by using [persistent workers](/versions/7.6.1/remote/persistent), at
     the cost of weaker sandbox guarantees.
 
--   [Multiplex workers](/remote/multiplex) require explicit worker support
+-   [Multiplex workers](/versions/7.6.1/remote/multiplex) require explicit worker support
     to be sandboxed. Workers that do not support multiplex sandboxing run as
     singleplex workers under dynamic execution, which can cost extra memory.
 

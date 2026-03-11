@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.ListingDepe
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Executor;
 
 /**
  * Matches {@link FileOpDependency} instances representing cached value dependencies against {@link
@@ -45,11 +45,15 @@ final class FileOpMatchMemoizingLookup
     extends AbstractValueOrFutureMap<
         FileOpDependency, FileOpMatchResultOrFuture, FileOpMatchResult, FutureFileOpMatchResult> {
   private final VersionedChanges changes;
+  private final Executor executor;
 
   FileOpMatchMemoizingLookup(
-      VersionedChanges changes, ConcurrentMap<FileOpDependency, FileOpMatchResultOrFuture> map) {
+      Executor executor,
+      VersionedChanges changes,
+      ConcurrentMap<FileOpDependency, FileOpMatchResultOrFuture> map) {
     super(map, FutureFileOpMatchResult::new, FutureFileOpMatchResult.class);
     this.changes = changes;
+    this.executor = executor;
   }
 
   VersionedChanges changes() {
@@ -98,7 +102,7 @@ final class FileOpMatchMemoizingLookup
     if (file.getDependencyCount() == 0) {
       return ownedFuture.completeWith(FileOpMatchResult.create(baseVersion));
     }
-    var aggregator = new AggregatingFutureFileOpMatchResult(baseVersion);
+    var aggregator = new AggregatingFutureFileOpMatchResult(baseVersion, executor);
     for (int i = 0; i < file.getDependencyCount(); i++) {
       aggregator.addDependency(getValueOrFuture(file.getDependency(i), validityHorizon));
     }
@@ -108,10 +112,12 @@ final class FileOpMatchMemoizingLookup
 
   private static final class AggregatingFutureFileOpMatchResult
       extends QuiescingFuture<FileOpMatchResult> implements FutureCallback<FileOpMatchResult> {
+    private final Executor executor;
     private volatile FileOpMatchResult result;
 
-    private AggregatingFutureFileOpMatchResult(int version) {
+    private AggregatingFutureFileOpMatchResult(int version, Executor executor) {
       super(directExecutor());
+      this.executor = executor;
       this.result = FileOpMatchResult.create(version);
     }
 
@@ -122,8 +128,7 @@ final class FileOpMatchMemoizingLookup
           break;
         case FutureFileOpMatchResult future:
           increment();
-          Futures.addCallback(
-              future, (FutureCallback<FileOpMatchResult>) this, ForkJoinPool.commonPool());
+          Futures.addCallback(future, (FutureCallback<FileOpMatchResult>) this, executor);
           break;
       }
     }

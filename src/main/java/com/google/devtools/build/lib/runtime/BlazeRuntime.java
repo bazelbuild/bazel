@@ -1348,17 +1348,17 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     CustomFailureDetailPublisher.setFailureDetailFilePath(failureDetailOut.getPathString());
 
     for (BlazeService service : blazeServices) {
-      service.globalInit();
+      service.globalInit(options);
     }
 
     for (BlazeModule module : blazeModules) {
-      module.globalInit(options);
+      module.globalInit(options, blazeServices);
     }
 
     String productName = startupOptions.productName.toLowerCase(Locale.US);
 
     PathFragment workspaceDirectory = startupOptions.workspaceDirectory;
-    PathFragment defaultSystemJavabase = startupOptions.defaultSystemJavabase;
+
     PathFragment outputUserRoot = startupOptions.outputUserRoot;
     PathFragment installBase = startupOptions.installBase;
     PathFragment outputBase = startupOptions.outputBase;
@@ -1490,10 +1490,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     if (!workspaceDirectory.equals(PathFragment.EMPTY_FRAGMENT)) {
       workspaceDirectoryPath = nativeFs.getPath(workspaceDirectory);
     }
-    Path defaultSystemJavabasePath = null;
-    if (!defaultSystemJavabase.equals(PathFragment.EMPTY_FRAGMENT)) {
-      defaultSystemJavabasePath = fs.getPath(defaultSystemJavabase);
-    }
+
 
     ServerDirectories serverDirectories =
         new ServerDirectories(
@@ -1537,8 +1534,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     CustomExitCodePublisher.maybeDeleteAbruptExitStatusFile();
 
     BlazeDirectories directories =
-        new BlazeDirectories(
-            serverDirectories, workspaceDirectoryPath, defaultSystemJavabasePath, productName);
+        new BlazeDirectories(serverDirectories, workspaceDirectoryPath, productName);
     BinTools binTools;
     try {
       binTools = BinTools.forProduction(directories);
@@ -1703,21 +1699,14 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
       Preconditions.checkNotNull(clock);
 
-      int metricsModules = 0;
+      BlazeModule metricsModule = null;
       for (BlazeModule module : blazeModules) {
         if (module.postsBuildMetricsEvent()) {
-          metricsModules++;
+          checkState(metricsModule == null, "more than one module may post a BuildMetricsEvent");
+          metricsModule = module;
         }
       }
-      Preconditions.checkArgument(
-          metricsModules < 2, "At most one module may post a BuildMetricsEvent");
-      if (metricsModules == 0) {
-        blazeModules.add(new DummyMetricsModule());
-      }
-      var blazeServicesCopy = ImmutableList.copyOf(blazeServices);
-      for (BlazeModule module : blazeModules) {
-        module.blazeServicesAvailable(blazeServicesCopy);
-      }
+
       for (BlazeModule module : blazeModules) {
         module.blazeStartup(
             startupOptionsProvider,

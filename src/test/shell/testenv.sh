@@ -359,6 +359,12 @@ function enable_disk_cache() {
   echo "common --disk_cache=$TEST_TMPDIR/disk_cache" >> $TEST_TMPDIR/bazelrc
 }
 
+function use_prebuilt_protoc() {
+  echo "common --@com_google_protobuf//bazel/toolchains:prefer_prebuilt_protoc" >> $TEST_TMPDIR/bazelrc
+  echo "common --per_file_copt=external/.*protobuf.*/src/google/protobuf/compiler/main.cc@--DO_NOT_COMPILE_PROTOC" >> $TEST_TMPDIR/bazelrc
+  echo "common --host_per_file_copt=external/.*protobuf.*/src/google/protobuf/compiler/main.cc@--DO_NOT_COMPILE_PROTOC" >> $TEST_TMPDIR/bazelrc
+}
+
 function setup_android_sdk_support() {
   # Required for runfiles library on Windows, since $(rlocation) lookups
   # can't do directories. We use android-28's android.jar as the anchor
