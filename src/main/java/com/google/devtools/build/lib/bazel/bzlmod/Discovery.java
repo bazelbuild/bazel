@@ -149,7 +149,7 @@ final class Discovery {
       for (Map.Entry<ModuleKey, InterimModule> entry : depGraph.entrySet()) {
         InterimModule module = entry.getValue();
         if (module.getNodepDeps().stream()
-            .allMatch(depKey -> depGraph.containsKey(depKey))) {
+            .allMatch(depGraph::containsKey)) {
           result.put(entry.getKey(), module);
         } else {
           result.put(
@@ -157,7 +157,7 @@ final class Discovery {
               module.toBuilder()
                   .setNodepDeps(
                       module.getNodepDeps().stream()
-                          .filter(depKey -> depGraph.containsKey(depKey))
+                          .filter(depGraph::containsKey)
                           .collect(toImmutableList()))
                   .build());
         }
