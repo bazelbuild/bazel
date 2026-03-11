@@ -190,6 +190,12 @@ final class Selection {
 
     // Walk the graph again, this time ignoring nodeps, so that we don't end up with modules that
     // are only reachable via nodep edges.
+    // This call _cannot_ throw because the "stricter" walk above already succeeded.
+    // For example:
+    //     A --> B 1.0 --> D 1.0 --> E 1.0
+    //       `-> C 1.0 --> D 2.0 -nodep-> E 1.0
+    // In this case, E should not show up in the final dep graph because it's only reachable
+    // via a nodep edge (D 1.0 will have been pruned).
     ImmutableMap<ModuleKey, InterimModule> prunedDepGraph =
         depGraphWalker.walk(resolutionStrategy, /* ignoreNodeps= */ true);
 
@@ -273,8 +279,8 @@ final class Selection {
         throws ExternalDepsException {
       if (overrides.get(key.name()) instanceof MultipleVersionOverride override) {
         if (selectionGroups.get(key).targetAllowedVersion().isEmpty()) {
-          // This module has no target allowed version, which means that there's no allowed version
-          // higher than its version in the allowlist.
+          // This module has no target allowed version, which means that there's no higher allowed
+          // version.
           Preconditions.checkState(
               from != null, "the root module cannot have a multiple version override");
           throw ExternalDepsException.withMessage(
