@@ -236,7 +236,7 @@ final class Selection {
     ImmutableMap<ModuleKey, InterimModule> walk(
         Function<ModuleKey, Version> resolutionStrategy, boolean ignoreNodeps)
         throws ExternalDepsException {
-      HashMap<String, ExistingModule> moduleByName = new HashMap<>();
+
       ImmutableMap.Builder<ModuleKey, InterimModule> newDepGraph = ImmutableMap.builder();
       Set<ModuleKey> known = new HashSet<>();
       Queue<ModuleKeyAndDependent> toVisit = new ArrayDeque<>();
@@ -256,7 +256,7 @@ final class Selection {
         InterimModule module =
             oldModule.withDepsTransformed(
                 depKey -> new ModuleKey(depKey.name(), resolutionStrategy.apply(depKey)));
-        visit(key, module, moduleKeyAndDependent.dependent(), moduleByName);
+        visit(key, module, moduleKeyAndDependent.dependent());
 
         for (ModuleKey depKey :
             ignoreNodeps
@@ -274,8 +274,7 @@ final class Selection {
     void visit(
         ModuleKey key,
         InterimModule module,
-        @Nullable ModuleKey from,
-        HashMap<String, ExistingModule> moduleByName)
+        @Nullable ModuleKey from)
         throws ExternalDepsException {
       if (overrides.get(key.name()) instanceof MultipleVersionOverride override) {
         if (selectionGroups.get(key).targetAllowedVersion().isEmpty()) {
@@ -291,14 +290,6 @@ final class Selection {
               key,
               key.name(),
               JOINER.join(override.versions()));
-        }
-      } else {
-        ExistingModule existingModuleWithSameName =
-            moduleByName.put(module.getName(), new ExistingModule(key, from));
-        if (existingModuleWithSameName != null) {
-          // This should only happen if there's a multiple-version override.
-          Preconditions.checkState(
-              overrides.get(module.getName()) instanceof MultipleVersionOverride);
         }
       }
 
@@ -325,6 +316,6 @@ final class Selection {
 
     record ModuleKeyAndDependent(ModuleKey moduleKey, @Nullable ModuleKey dependent) {}
 
-    record ExistingModule(ModuleKey moduleKey, @Nullable ModuleKey dependent) {}
+
   }
 }
