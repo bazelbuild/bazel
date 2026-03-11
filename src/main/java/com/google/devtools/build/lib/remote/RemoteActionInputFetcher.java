@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import static com.google.common.base.Preconditions.checkArgument;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
@@ -21,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.events.Reporter;
@@ -31,7 +31,10 @@ import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
+import java.util.Collection;
+import javax.annotation.Nullable;
 
 /**
  * Stages output files that are stored remotely to the local filesystem.
@@ -44,6 +47,7 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
   private final String buildRequestId;
   private final String commandId;
   private final CombinedCache combinedCache;
+  private final ConcurrentArtifactPathTrie rewoundActionOutputs = new ConcurrentArtifactPathTrie();
 
   RemoteActionInputFetcher(
       Reporter reporter,
@@ -79,7 +83,18 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
 
   @Override
   protected boolean canDownloadFile(Path path, FileArtifactValue metadata) {
-    return metadata.isRemote();
+    // When action rewinding is enabled, an action that had remote metadata at some point during the
+    // build may have been re-executed locally to regenerate lost inputs, but may then be rewound
+    // again and thus have its (now local) outputs deleted. In this case, we need to download the
+    // outputs again, even if they are now considered local.
+    return metadata.isRemote() || (forceRefetch(path) && !path.exists(Symlinks.NOFOLLOW));
+  }
+
+  @Override
+  protected boolean forceRefetch(Path path) {
+    // Caches for download operations and output directory creation need to be disregarded for the
+    // outputs of rewound actions as they may have been deleted after they were first created.
+    return path.startsWith(execRoot) && rewoundActionOutputs.contains(path.relativeTo(execRoot));
   }
 
   @Override
@@ -92,7 +107,6 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
       Priority priority,
       Reason reason)
       throws IOException {
-    checkArgument(metadata.isRemote(), "Cannot download file that is not a remote file.");
     RequestMetadata requestMetadata =
         TracingMetadataUtils.buildMetadata(
             buildRequestId,
@@ -116,5 +130,23 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
             progress -> progress.postTo(reporter, action),
             execPath.toString(),
             digest.getSizeBytes()));
+  }
+
+  public void handleRewoundActionOutputs(Collection<Artifact> outputs) {
+    // SkyframeActionExecutor#prepareForRewinding does *not* call this method because the
+    // RemoteActionFileSystem corresponds to an ActionFileSystemType with inMemoryFileSystem() ==
+    // true. While it is true that resetting outputDirectoryHelper isn't necessary to undo the
+    // caching of output directory creation during action preparation, we still need to reset here
+    // since outputDirectoryHelper is also used by AbstractActionInputPrefetcher.
+    outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(outputs);
+    for (Artifact output : outputs) {
+      // Action templates have TreeFileArtifacts as outputs, which isn't supported by the trie. We
+      // only need to track the tree artifacts themselves.
+      if (output instanceof Artifact.TreeFileArtifact) {
+        rewoundActionOutputs.add(output.getParent());
+      } else {
+        rewoundActionOutputs.add(output);
+      }
+    }
   }
 }

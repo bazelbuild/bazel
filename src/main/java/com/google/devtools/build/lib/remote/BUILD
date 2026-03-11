@@ -28,6 +28,7 @@ java_library(
     srcs = glob(
         ["*.java"],
         exclude = [
+            "ConcurrentArtifactPathTrie.java",
             "ExecutionStatusException.java",
             "ReferenceCountedChannel.java",
             "ChannelConnectionWithServerCapabilitiesFactory.java",
@@ -51,6 +52,7 @@ java_library(
         ":ReferenceCountedChannel",
         ":Retrier",
         ":abstract_action_input_prefetcher",
+        ":concurrent_artifact_path_trie",
         ":lease_service",
         ":remote_output_checker",
         ":scrubber",
@@ -208,6 +210,7 @@ java_library(
     name = "remote_output_checker",
     srcs = ["RemoteOutputChecker.java"],
     deps = [
+        ":concurrent_artifact_path_trie",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -278,6 +281,16 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "@com_google_protobuf//:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "concurrent_artifact_path_trie",
+    srcs = ["ConcurrentArtifactPathTrie.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
     ],
 )
 
