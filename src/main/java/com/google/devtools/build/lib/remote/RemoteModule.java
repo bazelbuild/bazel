@@ -369,15 +369,10 @@ public final class RemoteModule extends BlazeModule {
     if (RemoteOptions.DISK_CACHE_OFF.equals(remoteOptions.diskCache)) {
       remoteOptions.diskCache = null;
     } else if (RemoteOptions.DISK_CACHE_ON.equals(remoteOptions.diskCache)) {
-      Path outputUserRoot =
-          env.getDirectories().getServerDirectories().getOutputUserRoot();
-      if (outputUserRoot == null) {
-        throw createOptionsExitException(
-            "--disk_cache=on requires --output_user_root to be set",
-            FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
-      }
       remoteOptions.diskCache =
-          outputUserRoot
+          env.getDirectories()
+              .getServerDirectories()
+              .getOutputUserRoot()
               .getRelative(RemoteOptions.DEFAULT_DISK_CACHE_LOCATION)
               .asFragment();
     }
