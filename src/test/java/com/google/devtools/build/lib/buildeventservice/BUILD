@@ -76,8 +76,8 @@ java_test(
     ],
 )
 
-java_test(
-    name = "BuildEventServiceTransportGrpcTest",
+java_library(
+    name = "BuildEventServiceTransportGrpcTestLib",
     srcs = ["BuildEventServiceTransportGrpcTest.java"],
     deps = [
         ":AbstractBuildEventServiceTransportTest",
@@ -92,6 +92,14 @@ java_test(
         "@com_google_protobuf//:protobuf_java",
         "@googleapis//google/devtools/build/v1:build_java_grpc",
         "@googleapis//google/devtools/build/v1:build_java_proto",
+    ],
+)
+
+java_test(
+    name = "BuildEventServiceTransportGrpcTest",
+    test_class = "com.google.devtools.build.lib.buildeventservice.BuildEventServiceTransportGrpcTest",
+    runtime_deps = [
+        ":BuildEventServiceTransportGrpcTestLib",
     ],
 )
 
