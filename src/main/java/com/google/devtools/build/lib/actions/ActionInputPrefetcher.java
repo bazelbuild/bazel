@@ -66,7 +66,7 @@ public interface ActionInputPrefetcher {
    * @return future success if prefetch is finished or {@link IOException}.
    */
   ListenableFuture<Void> prefetchFiles(
-      ActionExecutionMetadata action,
+      @Nullable ActionExecutionMetadata action,
       Iterable<? extends ActionInput> inputs,
       InputMetadataProvider metadataProvider,
       Priority priority,
