@@ -1240,8 +1240,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
       String actionName, int pkgSuffix, String... variables) throws Exception {
     scratch.file(
         "a" + pkgSuffix + "/BUILD",
-        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
-            + " 'cc_toolchain_alias')",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl'," + " 'cc_toolchain_alias')",
         "load(':rule.bzl', 'crule')",
         "cc_toolchain_alias(name='alias')",
         "crule(name='r')");
@@ -2145,8 +2144,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(variable).isNotNull();
     VariableWithValue v = variableWithValueFromStarlark(variable);
     assertThat(v).isNotNull();
-    assertThat(v.variable).isEqualTo("abc");
-    assertThat(v.value).isEqualTo("def");
+    assertThat(v.variable()).isEqualTo("abc");
+    assertThat(v.value()).isEqualTo("def");
 
     createEnvEntryRule("six", /* key= */ "'abc'", /* value= */ "'def'");
     t = getConfiguredTarget("//six:a");
@@ -2692,8 +2691,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(withFeatureSetProvider).isNotNull();
     WithFeatureSet withFeatureSet = withFeatureSetFromStarlark(withFeatureSetProvider);
     assertThat(withFeatureSet).isNotNull();
-    assertThat(withFeatureSet.getFeatures()).containsExactly("f1", "f2");
-    assertThat(withFeatureSet.getNotFeatures()).containsExactly("nf1", "nf2");
+    assertThat(withFeatureSet.features()).containsExactly("f1", "f2");
+    assertThat(withFeatureSet.notFeatures()).containsExactly("nf1", "nf2");
 
     createVariableWithValueRule("six", /* name= */ "'abc'", /* value= */ "'def'");
     t = getConfiguredTarget("//six:a");
@@ -3257,8 +3256,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     StarlarkInfo flagGroupProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
     assertThat(flagGroupProvider).isNotNull();
     FlagGroup flagGroup = flagGroupFromStarlark(flagGroupProvider);
-    assertThat(flagGroup.getExpandables()).isNotEmpty();
-    assertThat(flagGroup.getExpandables().get(0)).isInstanceOf(SingleChunkFlag.class);
+    assertThat(flagGroup.expandables()).isNotEmpty();
+    assertThat(flagGroup.expandables().get(0)).isInstanceOf(SingleChunkFlag.class);
   }
 
   @Test
@@ -3877,7 +3876,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(flagSetStruct).isNotNull();
     FlagSet f = flagSetFromStarlark(flagSetStruct, /* actionName= */ "action");
     assertThat(f).isNotNull();
-    assertThat(f.getActions()).containsExactly("action");
+    assertThat(f.actions()).containsExactly("action");
   }
 
   private void createFlagSetRule(String pkg, String actions, String flagGroups, String withFeatures)
@@ -4131,7 +4130,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(a).isNotNull();
     assertThat(a.getActionName()).isEqualTo("actionname32._++-");
     assertThat(a.getImplies()).containsExactly("a", "b").inOrder();
-    assertThat(Iterables.getOnlyElement(a.getFlagSets()).getActions())
+    assertThat(Iterables.getOnlyElement(a.getFlagSets()).actions())
         .containsExactly("actionname32._++-");
   }
 
@@ -7617,8 +7616,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.overwriteFile(
         "b/BUILD",
         "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
-            + " 'cc_toolchain_alias')",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl'," + " 'cc_toolchain_alias')",
         "load('//" + rulePkg + ":rule.bzl', 'cc_rule')",
         "cc_library(name='cc_dep', srcs=['cc_dep.cc'])",
         "cc_toolchain_alias(name='alias')",
