@@ -31,10 +31,12 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -57,6 +59,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   private final Map<String, ModuleOverride> overrides = new LinkedHashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
   private final List<Event> warnings = new ArrayList<>();
+  private final Set<String> ignoredDevDeps = new HashSet<>();
 
   private final Map<String, RepoOverride> overriddenRepos = new HashMap<>();
   private final Map<String, RepoOverride> overridingRepos = new HashMap<>();
@@ -348,10 +351,11 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     return currentModuleFilePath;
   }
 
+  public void addIgnoredDevDep(String moduleName) {
+    ignoredDevDeps.add(moduleName);
+  }
+
   public void addOverride(String moduleName, ModuleOverride override) throws EvalException {
-    if (shouldIgnoreDevDeps()) {
-      return;
-    }
     ModuleOverride existingOverride = overrides.putIfAbsent(moduleName, override);
     if (existingOverride != null) {
       throw Starlark.errorf("multiple overrides for dep %s found", moduleName);
@@ -414,6 +418,8 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   }
 
   public ImmutableMap<String, ModuleOverride> buildOverrides() {
+    // Remove overrides for modules whose bazel_dep was ignored due to --ignore_dev_dependency.
+    overrides.keySet().removeAll(ignoredDevDeps);
     // Add overrides for builtin modules if there is no existing override for them.
     if (ModuleKey.ROOT.equals(module.getKey())) {
       for (String moduleName : builtinModules.keySet()) {
