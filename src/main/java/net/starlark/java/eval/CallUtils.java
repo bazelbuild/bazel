@@ -27,8 +27,13 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.TypeConstructor;
 import net.starlark.java.syntax.Types;
 
-/** Helper functions for {@link StarlarkMethod}-annotated methods. */
-final class CallUtils {
+/**
+ * Helper functions for {@link StarlarkMethod}-annotated methods.
+ *
+ * <p>This class is public for the benefit of serialization in Bazel. Other code outside the
+ * Starlark interpreter should not rely on it.
+ */
+public final class CallUtils {
 
   private CallUtils() {} // uninstantiable
 
@@ -47,7 +52,7 @@ final class CallUtils {
   private static final ConcurrentHashMap<StarlarkSemantics, BuiltinManager> managerForSemantics =
       new ConcurrentHashMap<>();
 
-  static BuiltinManager getBuiltinManager(StarlarkSemantics semantics) {
+  public static BuiltinManager getBuiltinManager(StarlarkSemantics semantics) {
     BuiltinManager manager = managerForSemantics.get(semantics.getBuiltinManagerCacheKey());
     if (manager == null) {
       manager = new BuiltinManager(semantics);
@@ -77,6 +82,10 @@ final class CallUtils {
   // type information that takes into account flag-guarding. For the moment it suffices to store a
   // semantics in BuiltinFunction.
   private static class ClassDescriptor {
+    /** The manager that created this descriptor. Used for obtaining method type information. */
+    @SuppressWarnings("UnusedVariable") // TODO: #28325 - Use it for obtaining StarlarkTypes.
+    BuiltinManager manager;
+
     /**
      * The descriptor for the unique {@code @StarlarkMethod}-annotated method on this class that has
      * {@link StarlarkMethod#selfCall} set to true (ex: "struct" in Bazel), or null if there is no
@@ -109,8 +118,11 @@ final class CallUtils {
   /**
    * A manager for obtaining descriptors for native-defined Starlark objects and methods, under a
    * specific {@code StarlarkSemantics}.
+   *
+   * <p>This class is public for the benefit of serialization in Bazel. Other code outside the
+   * Starlark interpreter should not rely on it.
    */
-  static class BuiltinManager {
+  public static class BuiltinManager {
 
     private final StarlarkSemantics semantics;
 
@@ -119,14 +131,18 @@ final class CallUtils {
           @Override
           protected ClassDescriptor computeValue(Class<?> clazz) {
             if (clazz == String.class) {
-              return buildClassDescriptor(semantics, StringModule.class);
+              clazz = StringModule.class;
             }
-            return buildClassDescriptor(semantics, clazz);
+            return buildClassDescriptor(BuiltinManager.this, clazz);
           }
         };
 
     private BuiltinManager(StarlarkSemantics semantics) {
       this.semantics = semantics;
+    }
+
+    StarlarkSemantics getSemantics() {
+      return semantics;
     }
 
     /**
@@ -187,7 +203,7 @@ final class CallUtils {
     }
   }
 
-  private static ClassDescriptor buildClassDescriptor(StarlarkSemantics semantics, Class<?> clazz) {
+  private static ClassDescriptor buildClassDescriptor(BuiltinManager manager, Class<?> clazz) {
     MethodDescriptor selfCall = null;
     ImmutableMap.Builder<String, MethodDescriptor> methods = ImmutableMap.builder();
 
@@ -210,12 +226,14 @@ final class CallUtils {
       }
 
       // enabled by semantics?
-      if (!semantics.isFeatureEnabledBasedOnTogglingFlags(
-          callable.enableOnlyWithFlag(), callable.disableWithFlag())) {
+      if (!manager
+          .getSemantics()
+          .isFeatureEnabledBasedOnTogglingFlags(
+              callable.enableOnlyWithFlag(), callable.disableWithFlag())) {
         continue;
       }
 
-      MethodDescriptor descriptor = MethodDescriptor.of(method, callable);
+      MethodDescriptor descriptor = MethodDescriptor.of(manager, method, callable);
 
       // self-call method?
       if (callable.selfCall()) {
@@ -232,6 +250,7 @@ final class CallUtils {
     }
 
     ClassDescriptor classDescriptor = new ClassDescriptor();
+    classDescriptor.manager = manager;
     classDescriptor.selfCall = selfCall;
     classDescriptor.methods = methods.buildOrThrow();
     classDescriptor.typeConstructor = typeConstructor;

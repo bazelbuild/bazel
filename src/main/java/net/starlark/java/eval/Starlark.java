@@ -916,7 +916,7 @@ public final class Starlark {
       if (desc == null) {
         throw errorf("'%s' object is not callable", type(fn));
       }
-      callable = BuiltinFunction.of(fn, desc, thread.getSemantics());
+      callable = BuiltinFunction.of(fn, desc);
     }
     return callable;
   }
@@ -1040,7 +1040,7 @@ public final class Starlark {
       if (method.isStructField()) {
         return method.callField(x, semantics, mu);
       } else {
-        return BuiltinFunction.of(x, method, semantics);
+        return BuiltinFunction.of(x, method);
       }
     }
 
@@ -1156,7 +1156,7 @@ public final class Starlark {
             String.format("addMethods(%s): method %s has structField=true", cls.getName(), name));
       }
 
-      env.put(name, BuiltinFunction.of(v, e.getValue(), semantics));
+      env.put(name, BuiltinFunction.of(v, e.getValue()));
     }
   }
 
