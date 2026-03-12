@@ -113,6 +113,11 @@ final class Selection {
     ImmutableSortedSet<Version> allowedVersions = allowedVersionSets.get(name);
     Version target = Version.EMPTY;
     if (allowedVersions != null) {
+      // We use the `ceiling` method here to quickly locate the lowest allowed version
+      // that's still no lower than this module's version.
+      // If this module's version is higher than any allowed version (in which case EMPTY is
+      // returned), it should result in an error. We don't immediately throw here because it might
+      // still become unreferenced later.
       target = allowedVersions.ceiling(version);
       if (target == null) {
         target = Version.EMPTY;
@@ -246,13 +251,9 @@ final class Selection {
         ModuleKeyAndDependent moduleKeyAndDependent = toVisit.remove();
         ModuleKey key = moduleKeyAndDependent.moduleKey();
         InterimModule oldModule = oldDepGraph.get(key);
-        if (oldModule == null) {
-          // This should only happen if we selected a version that doesn't exist. This could happen
-          // if MultipleVersionOverride snapped to something that's not in the graph, or if
-          // selectedVersions.get(group) returned something weird. But we validated that
-          // targetAllowedVersion is in the graph, and ROOT is the only thing with EMPTY version.
-          throw new RuntimeException("Unexpected error: missing key " + key + " in old dep graph");
-        }
+        // Every selected version must exist in the original dependency graph.
+        Preconditions.checkState(
+            oldModule != null, "Module %s unexpectedly missing from the dependency graph", key);
         InterimModule module =
             oldModule.withDepsTransformed(
                 depKey -> new ModuleKey(depKey.name(), resolutionStrategy.apply(depKey)));
