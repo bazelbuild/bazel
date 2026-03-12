@@ -418,14 +418,20 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   }
 
   public ImmutableMap<String, ModuleOverride> buildOverrides() {
-    // Remove overrides for modules whose bazel_dep was ignored due to --ignore_dev_dependency.
-    overrides.keySet().removeAll(ignoredDevDeps);
-    // Add overrides for builtin modules if there is no existing override for them.
-    if (ModuleKey.ROOT.equals(module.getKey())) {
-      for (String moduleName : builtinModules.keySet()) {
-        overrides.putIfAbsent(moduleName, builtinModules.get(moduleName));
+    // Build the result from a filtered copy rather than mutating the internal overrides map,
+    // so that this method remains idempotent and free of hidden side effects.
+    Map<String, ModuleOverride> result = new LinkedHashMap<>();
+    for (Map.Entry<String, ModuleOverride> entry : overrides.entrySet()) {
+      if (!ignoredDevDeps.contains(entry.getKey())) {
+        result.put(entry.getKey(), entry.getValue());
       }
     }
-    return ImmutableMap.copyOf(overrides);
+    // Add overrides for builtin modules if there is no existing override for them.
+    if (ModuleKey.ROOT.equals(module.getKey())) {
+      for (Map.Entry<String, NonRegistryOverride> entry : builtinModules.entrySet()) {
+        result.putIfAbsent(entry.getKey(), entry.getValue());
+      }
+    }
+    return ImmutableMap.copyOf(result);
   }
 }
