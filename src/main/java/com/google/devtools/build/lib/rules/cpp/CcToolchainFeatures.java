@@ -1175,7 +1175,11 @@ public class CcToolchainFeatures implements StarlarkValue {
         ImmutableSet<String> enabledActionConfigActionNames,
         ImmutableMap<String, ActionConfig> actionConfigByActionName,
         PathFragment ccToolchainPath) {
-      this.requestedFeatures = requestedFeatures;
+      // The order of elements in requestFeatures does not matter for equality of any behavior, but
+      // coupled with interning, it makes serialization non-deterministic because it'd depend on
+      // the order in which two objects that are equal but have the different order are first
+      // encountered. Sorting prevents this issue.
+      this.requestedFeatures = ImmutableSet.copyOf(ImmutableList.sortedCopyOf(requestedFeatures));
       this.enabledFeatures = enabledFeatures;
 
       this.actionConfigByActionName = actionConfigByActionName;
