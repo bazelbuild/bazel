@@ -47,6 +47,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.pkgcache.PackagePathCodecDependencies;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InstrumentationOutput;
 import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.DestinationRelativeTo;
@@ -265,7 +267,11 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
       case RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY, RemoteAnalysisCacheMode.UPLOAD ->
           new AnalysisDeps(manager, deps, deps);
       case RemoteAnalysisCacheMode.DOWNLOAD -> {
-        if (deps.getAnalysisCacheClient() == null) {
+        RemoteAnalysisCacheClient analysisCacheClient;
+        try (SilentCloseable unused = Profiler.instance().profile("initAnalysisCacheClient")) {
+          analysisCacheClient = deps.getAnalysisCacheClient();
+        }
+        if (analysisCacheClient == null) {
           if (Strings.isNullOrEmpty(options.analysisCacheService)) {
             env.getReporter()
                 .handle(
@@ -278,7 +284,7 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
                 .handle(
                     Event.warn(
                         "Failed to establish connection to AnalysisCacheService. Falling back to"
-                            + " on local evaluation."));
+                            + " local evaluation."));
           }
           yield new AnalysisDeps(
               DisabledDependenciesProvider.INSTANCE,

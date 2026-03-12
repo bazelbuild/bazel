@@ -314,7 +314,6 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
@@ -612,11 +611,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       return;
     }
 
-    ImmutableSet<SkyKey> keysToLookup =
-        getEvaluator().getDoneValues().entrySet().parallelStream()
-            .filter(e -> e.getValue() instanceof DeserializedSkyValue)
-            .map(Entry::getKey)
-            .collect(toImmutableSet());
+    ImmutableSet<SkyKey> keysToLookup;
+    try (SilentCloseable c = Profiler.instance().profile("getDeserializedKeys")) {
+      keysToLookup =
+          getEvaluator().getInMemoryGraph().getAllNodeEntries().parallelStream()
+              .filter(e -> e.isDone() && e.getValue() instanceof DeserializedSkyValue)
+              .map(InMemoryNodeEntry::getKey)
+              .collect(toImmutableSet());
+    }
 
     if (!remoteAnalysisCachingCurrentlyEnabled) {
       // If skycache is currently disabled, we need to delete all the deserialized nodes
