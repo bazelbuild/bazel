@@ -21,6 +21,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -738,6 +739,11 @@ public class CcToolchainFeatures implements StarlarkValue {
     @Override
     public String getName() {
       return name;
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this).add("name", name).add("enabled", enabled).toString();
     }
 
     /** Adds environment variables for the given action to the provided builder. */
