@@ -314,7 +314,6 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
@@ -525,6 +524,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   private final boolean globUnderSingleDep;
 
+  private boolean remoteAnalysisCachingHasEverBeenEnabled = false;
+
   private RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider =
       DisabledDependenciesProvider.INSTANCE;
 
@@ -599,18 +600,28 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   /**
    * Invalidates the given keys with an external remote analysis service.
    *
-   * <p>If remote analysis caching is disabled, all deserialized nodes are deleted.
+   * <p>If remote analysis caching is currently disabled but has been enabled before, all
+   * deserialized nodes are deleted.
    */
   public void invalidateWithExternalService(ExtendedEventHandler eventHandler)
       throws InterruptedException {
-    ImmutableSet<SkyKey> keysToLookup =
-        getEvaluator().getDoneValues().entrySet().parallelStream()
-            .filter(e -> e.getValue() instanceof DeserializedSkyValue)
-            .map(Entry::getKey)
-            .collect(toImmutableSet());
+    boolean remoteAnalysisCachingCurrentlyEnabled = isRemoteAnalysisCachingEnabled();
+    remoteAnalysisCachingHasEverBeenEnabled |= remoteAnalysisCachingCurrentlyEnabled;
+    if (!remoteAnalysisCachingHasEverBeenEnabled) {
+      return;
+    }
 
-    if (!isRemoteAnalysisCachingEnabled()) {
-      // If skycache is disabled, we need to delete all the deserialized nodes
+    ImmutableSet<SkyKey> keysToLookup;
+    try (SilentCloseable c = Profiler.instance().profile("getDeserializedKeys")) {
+      keysToLookup =
+          getEvaluator().getInMemoryGraph().getAllNodeEntries().parallelStream()
+              .filter(e -> e.isDone() && e.getValue() instanceof DeserializedSkyValue)
+              .map(InMemoryNodeEntry::getKey)
+              .collect(toImmutableSet());
+    }
+
+    if (!remoteAnalysisCachingCurrentlyEnabled) {
+      // If skycache is currently disabled, we need to delete all the deserialized nodes
       // because they do not have transitive edges to File/Directory nodes.
       if (!keysToLookup.isEmpty()) {
         // Only scan the graph for deletion if there are keys to delete,
@@ -624,11 +635,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         remoteAnalysisCachingDependenciesProvider.lookupKeysToInvalidate(
             keysToLookup, remoteAnalysisCachingState);
 
-    // Log a sample of the invalidated SkyKeys to the INFO log.
     if (keysToInvalidate.isEmpty()) {
       return;
     }
 
+    // Log a sample of the invalidated SkyKeys to the INFO log.
     int maxKeysToLog = 20;
     if (keysToInvalidate.size() > maxKeysToLog) {
       logger.atInfo().log(
@@ -1537,7 +1548,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PrecomputedValue.STARLARK_SEMANTICS.set(injectable(), starlarkSemantics);
   }
 
-
   private void setLazyMacroExpansionPackages(LazyMacroExpansionPackages packages) {
     PrecomputedValue.LAZY_MACRO_EXPANSION_PACKAGES.set(injectable(), packages);
   }
@@ -1548,8 +1558,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   public void setBaselineConfiguration(BuildOptions buildOptions, ExtendedEventHandler eventHandler)
       throws InvalidConfigurationException, InterruptedException {
-    PrecomputedValue.BASELINE_CONFIGURATION.set(injectable(), buildOptions);
-    PrecomputedValue.BASELINE_EXEC_CONFIGURATION.set(
+    BaselineOptionsFunction.BASELINE_CONFIGURATION.set(injectable(), buildOptions);
+    BaselineOptionsFunction.BASELINE_EXEC_CONFIGURATION.set(
         injectable(), adjustForExec(buildOptions, eventHandler));
   }
 
@@ -3288,10 +3298,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             ImmutableList.of(BazelDepGraphValue.KEY), false, DEFAULT_THREAD_COUNT, eventHandler);
     var bzlmodDepGraph = evalResult.get(BazelDepGraphValue.KEY).getDepGraph();
     LinkedHashMap<String, String> aliasesMap = new LinkedHashMap<>();
+    var rootModule = bzlmodDepGraph.entrySet().iterator().next().getValue();
     for (var module : bzlmodDepGraph.entrySet()) {
       ImmutableMap<String, String> flagAliases = module.getValue().getFlagAliases();
-      aliasesMap.putAll(flagAliases);
-      if (!module.getKey().name().equals("rules_python")) {
+      for (var flagAlias : flagAliases.entrySet()) {
+        aliasesMap.put(
+            flagAlias.getKey(),
+            flagAlias.getValue().startsWith("//")
+                ? module.getKey().getCanonicalRepoNameWithoutVersion() + flagAlias.getValue()
+                : flagAlias.getValue());
+      }
+      if (!module.getValue().getName().equals("rules_python")) {
         continue;
       }
       // Don't apply hard-coded aliases if rules_python uses MODULE.bazel aliases.
@@ -3301,13 +3318,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       // Add Python flags that haven't already been added by rules_python's MODULE.bazel.
       PY_FLAG_ALIASES.entrySet().stream()
           .filter(e -> !flagAliases.containsKey(e.getKey()))
+          .map(
+              e ->
+                  rootModule.getName().equals("rules_python")
+                      ? Map.entry(e.getKey(), e.getValue().substring(e.getValue().indexOf("/")))
+                      : e)
           .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
       // Add Bazel Python flags that haven't already been added by rules_python's MODULE.bazel.
       BAZEL_PY_FLAG_ALIASES.entrySet().stream()
           .filter(e -> !flagAliases.containsKey(e.getKey()))
+          .map(
+              e ->
+                  rootModule.getName().equals("rules_python")
+                      ? Map.entry(e.getKey(), e.getValue().substring(e.getValue().indexOf("/")))
+                      : e)
           .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
-
-      return ImmutableMap.copyOf(aliasesMap);
     }
 
     return ImmutableMap.copyOf(aliasesMap);

@@ -152,12 +152,19 @@ public final class TypeTagger extends NodeVisitor {
       case ELLIPSIS -> {
         return TypeConstructor.Arg.ELLIPSIS;
       }
+      case LIST_EXPR -> {
+        ListExpression listExpr = (ListExpression) expr;
+        if (listExpr.isTuple() && listExpr.getElements().isEmpty()) {
+          return TypeConstructor.Arg.EMPTY_TUPLE;
+        }
+      }
       default -> {
-        // TODO(ilist@): full evaluation: lists and dicts
-        errorf(expr, "unexpected expression '%s'", expr);
-        return Types.ANY;
+        // fall through
       }
     }
+    // TODO(ilist@): full evaluation: lists and dicts
+    errorf(expr, "unexpected expression '%s'", expr);
+    return Types.ANY;
   }
 
   private StarlarkType extractType(Expression expr) {

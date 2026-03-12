@@ -89,7 +89,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     // The String representations of the CoreOptions must be equal even if these are
     // different objects, if they were created with the same options (no options in this case).
     assertThat(b.toString()).isEqualTo(a.toString());
-    assertThat(b.cacheKey()).isEqualTo(a.cacheKey());
+    assertThat(BuildOptions.optionsToCacheKey(b)).isEqualTo(BuildOptions.optionsToCacheKey(a));
   }
 
   @Test

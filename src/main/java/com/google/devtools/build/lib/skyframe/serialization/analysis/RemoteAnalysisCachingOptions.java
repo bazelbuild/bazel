@@ -284,4 +284,14 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
               + " If enabled, Blaze will discard values after the analysis phase is"
               + " complete to provide Skycache writers with more headroom.")
   public boolean skycacheMinimizeMemory;
+
+  @Option(
+      name = "experimental_analysis_cache_bail_on_missing_fingerprint",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If true, bails out from remote analysis cache retrieval if a single fingerprint is"
+              + " missing.")
+  public boolean analysisCacheBailOnMissingFingerprint;
 }

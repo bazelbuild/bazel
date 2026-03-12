@@ -1,7 +1,7 @@
 name: Community Review Labeler
 
 on:
-  pull_request_target:
+  pull_request_review:
     types: [submitted, dismissed]
 
 permissions:
@@ -15,14 +15,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        uses: step-security/harden-runner@a90bcbc6539c36a85cdfeb73f7e2f433735f215b # v2.15.0
         with:
           egress-policy: audit
 
       - name: Checkout master branch
         # We checkout master to ensure we use the authoritative list of trusted contributors,
         # preventing PR authors from adding themselves to the list in their own branch.
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: master
 

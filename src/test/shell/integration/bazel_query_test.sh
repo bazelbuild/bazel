@@ -590,11 +590,13 @@ py_binary(
 EOF
   touch foo/main.py || fail "Could not touch foo/main.py"
 
-  bazel query --output=proto \
+  # Force a C locale to ensure that grep matches the characters byte-by-byte
+  # even though the proto file is not valid UTF-8.
+  LC_CTYPE=C bazel query --output=proto \
     '//foo:main.py' >& $TEST_log || fail "Expected success"
 
-  expect_log "${TEST_TMPDIR}/.*/foo/main.py:1:1" $TEST_log
-  expect_not_log "${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*" $TEST_log
+  LC_CTYPE=C expect_log "${TEST_TMPDIR}/.*/foo/main.py:1:1" $TEST_log
+  LC_CTYPE=C expect_not_log "${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*" $TEST_log
 }
 
 function test_xml_output_source_files() {
@@ -1441,7 +1443,9 @@ EOF
   echo "//foo:äöüÄÖÜß🌱" > my_query || fail "Could not write my_query"
   # Check that the unicode characters are preserved in the output.
   bazel query --output=proto --query_file=my_query >& $TEST_log || fail "Expected success"
-  expect_log "//foo:äöüÄÖÜß🌱"
+  # Force a C locale to ensure that grep matches the characters byte-by-byte
+  # even though the proto file is not valid UTF-8.
+  LC_CTYPE=C grep -q "//foo:äöüÄÖÜß🌱" $TEST_log || fail "Expected Unicode target in query output"
 }
 
 run_suite "${PRODUCT_NAME} query tests"

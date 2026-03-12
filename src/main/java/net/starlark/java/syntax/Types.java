@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -62,6 +63,8 @@ public final class Types {
 
   // A frequently-used union `int | float`.
   public static final UnionType NUMERIC = (UnionType) union(INT, FLOAT);
+  // A frequently-used empty tuple type.
+  public static final FixedLengthTupleType EMPTY_TUPLE = tuple(ImmutableList.of());
 
   // A frequently used function without parameters, that returns Any.
   public static final CallableType NO_PARAMS_CALLABLE =
@@ -158,6 +161,16 @@ public final class Types {
       // that.isComparable(ANY).
       return that.equals(ANY);
     }
+
+    @Override
+    public boolean hasSetIndex() {
+      return true;
+    }
+
+    @Override
+    public boolean hasSetField() {
+      return true;
+    }
   }
 
   private static final class ObjectType extends StarlarkType {
@@ -197,6 +210,16 @@ public final class Types {
     protected boolean isComparable(StarlarkType that) {
       // Regard Never - as the bottom type - to be comparable to anything; in particular, this
       // allows empty lists (i.e. list[Never]) to be comparable to arbitrary non-empty lists.
+      return true;
+    }
+
+    @Override
+    public boolean hasSetIndex() {
+      return true;
+    }
+
+    @Override
+    public boolean hasSetField() {
       return true;
     }
   }
@@ -573,6 +596,30 @@ public final class Types {
     protected boolean isComparable(StarlarkType that) {
       return getTypes().stream().allMatch(type -> StarlarkType.comparable(type, that));
     }
+
+    @Override
+    @Nullable
+    public StarlarkType getField(String name) {
+      ArrayList<StarlarkType> resultTypes = new ArrayList<>(getTypes().size());
+      for (StarlarkType type : getTypes()) {
+        StarlarkType result = type.getField(name);
+        if (result == null) {
+          return null;
+        }
+        resultTypes.add(result);
+      }
+      return union(resultTypes);
+    }
+
+    @Override
+    public boolean hasSetIndex() {
+      return getTypes().stream().allMatch(StarlarkType::hasSetIndex);
+    }
+
+    @Override
+    public boolean hasSetField() {
+      return getTypes().stream().allMatch(StarlarkType::hasSetField);
+    }
   }
 
   public static ListType list(StarlarkType elementType) {
@@ -614,6 +661,11 @@ public final class Types {
       }
       return false;
     }
+
+    @Override
+    public boolean hasSetIndex() {
+      return true;
+    }
   }
 
   public static DictType dict(StarlarkType keyType, StarlarkType valueType) {
@@ -637,6 +689,11 @@ public final class Types {
     @Override
     public final String toString() {
       return "dict[" + getKeyType() + ", " + getValueType() + "]";
+    }
+
+    @Override
+    public boolean hasSetIndex() {
+      return true;
     }
   }
 
@@ -681,8 +738,8 @@ public final class Types {
     return new AutoValue_Types_FixedLengthTupleType(elementTypes);
   }
 
-  public static FixedLengthTupleType tuple(StarlarkType... types) {
-    return tuple(ImmutableList.copyOf(types));
+  public static FixedLengthTupleType tuple(StarlarkType first, StarlarkType... rest) {
+    return tuple(ImmutableList.<StarlarkType>builder().add(first).add(rest).build());
   }
 
   public static HomogeneousTupleType homogeneousTuple(StarlarkType elementType) {
@@ -734,9 +791,11 @@ public final class Types {
 
     @Override
     public final String toString() {
-      return "tuple["
-          + getElementTypes().stream().map(StarlarkType::toString).collect(joining(", "))
-          + "]";
+      return String.format(
+          "tuple[%s]",
+          getElementTypes().isEmpty()
+              ? "()"
+              : getElementTypes().stream().map(StarlarkType::toString).collect(joining(", ")));
     }
 
     @Override
@@ -809,7 +868,7 @@ public final class Types {
 
     @Override
     TupleType repeat(int times) {
-      return times > 0 ? this : tuple();
+      return times > 0 ? this : Types.EMPTY_TUPLE;
     }
 
     @Override
@@ -1019,6 +1078,10 @@ public final class Types {
     // This is a function instead of a constant, so that the order of evaluation doesn't depend on
     // the position in the class.
     return args -> {
+      if (args.isEmpty()) {
+        // `tuple` is equivalent to `tuple[Any, ...]`
+        return homogeneousTuple(ANY);
+      }
       for (int i = 0; i < args.size(); i++) {
         TypeConstructor.Arg arg = args.get(i);
         if (arg.equals(TypeConstructor.Arg.ELLIPSIS)) {
@@ -1028,6 +1091,12 @@ public final class Types {
           throw new TypeConstructor.Failure(
               "in application to tuple, '...' can only appear as the second of exactly 2 arguments,"
                   + " where the first argument is a type");
+        } else if (arg.equals(TypeConstructor.Arg.EMPTY_TUPLE)) {
+          if (args.size() == 1) {
+            return Types.EMPTY_TUPLE;
+          }
+          throw new TypeConstructor.Failure(
+              "in application to tuple, '()' can only appear if it is the only argument");
         } else if (!(arg instanceof StarlarkType)) {
           throw new TypeConstructor.Failure(
               String.format("in application to tuple, got '%s', expected a type", arg));

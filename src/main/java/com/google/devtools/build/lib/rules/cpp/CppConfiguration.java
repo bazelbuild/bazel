@@ -40,7 +40,6 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.StarlarkValue;
 
 /**
  * This class represents the C/C++ parts of the {@link BuildConfigurationValue}, including the exec
@@ -109,14 +108,14 @@ public final class CppConfiguration extends Fragment
    * --dynamic_mode parses to DynamicModeFlag, but AUTO will be translated based on platform,
    * resulting in a DynamicMode value.
    */
-  public enum DynamicMode implements StarlarkValue {
+  public enum DynamicMode {
     OFF,
     DEFAULT,
     FULLY
   }
 
   /** This enumeration is used for the --strip option. */
-  public enum StripMode implements StarlarkValue {
+  public enum StripMode {
     ALWAYS("always"), // Always strip.
     SOMETIMES("sometimes"), // Strip iff compilationMode == FASTBUILD.
     NEVER("never"); // Never strip.

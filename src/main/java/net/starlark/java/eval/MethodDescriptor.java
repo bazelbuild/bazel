@@ -41,6 +41,8 @@ import net.starlark.java.syntax.Types;
  * which are ~7× slower.
  */
 final class MethodDescriptor {
+  private final CallUtils.BuiltinManager manager;
+
   private final Method method;
   @Nullable private transient StarlarkMethod annotation;
 
@@ -71,6 +73,7 @@ final class MethodDescriptor {
   private final HowToHandleReturn howToHandleReturn;
 
   private MethodDescriptor(
+      CallUtils.BuiltinManager manager,
       Method method,
       StarlarkMethod annotation,
       String name,
@@ -85,6 +88,7 @@ final class MethodDescriptor {
       boolean useStarlarkThread,
       boolean useStarlarkSemantics,
       boolean isTypeConstructor) {
+    this.manager = manager;
     this.method = method;
     this.annotation = annotation;
     this.name = name;
@@ -204,14 +208,15 @@ final class MethodDescriptor {
   /** Returns the StarlarkMethod annotation corresponding to this method. */
   StarlarkMethod getAnnotation() {
     if (annotation == null) {
-      // Annotation is null on deserialization, becuase deserializer can't handle annotations
+      // Annotation is null on deserialization, because deserializer can't handle annotations
       annotation = StarlarkAnnotations.getStarlarkMethod(method);
     }
     return annotation;
   }
 
   /** Returns starlark method descriptor for provided Java method and signature annotation. */
-  static MethodDescriptor of(Method method, StarlarkMethod annotation) {
+  static MethodDescriptor of(
+      CallUtils.BuiltinManager manager, Method method, StarlarkMethod annotation) {
     // This happens when the interface is public but the implementation classes
     // have reduced visibility.
     method.setAccessible(true);
@@ -222,6 +227,7 @@ final class MethodDescriptor {
     Arrays.setAll(params, i -> ParamDescriptor.of(paramAnnots[i], paramClasses[i]));
 
     return new MethodDescriptor(
+        manager,
         method,
         annotation,
         annotation.name(),
@@ -336,6 +342,10 @@ final class MethodDescriptor {
   /** @see StarlarkMethod#name() */
   String getName() {
     return name;
+  }
+
+  CallUtils.BuiltinManager getManager() {
+    return manager;
   }
 
   Method getMethod() {

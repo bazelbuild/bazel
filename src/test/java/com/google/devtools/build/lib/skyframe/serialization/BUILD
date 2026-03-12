@@ -449,6 +449,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
+        "//third_party:guava-testlib",
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:mockito",

@@ -23,6 +23,12 @@ import net.starlark.java.syntax.Location;
 
 /** Superclass (provider instance) for providers defined in Starlark. */
 public abstract class StarlarkInfo extends StructImpl implements HasBinary {
+  /**
+   * Threshold over which to use binary search for field lookup in lists/arrays.
+   *
+   * <p>Linear search is faster for small lists/arrays.
+   */
+  protected static final int BINARY_SEARCH_THRESHOLD = 16;
 
   /**
    * Creates a schemaless provider instance with the given provider type and field values.

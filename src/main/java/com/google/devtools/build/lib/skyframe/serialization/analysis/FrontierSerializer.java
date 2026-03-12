@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStor
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.SerializationDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsValue;
@@ -137,15 +136,7 @@ public final class FrontierSerializer {
     }
 
     ObjectCodecs codecs = requireNonNull(serializationDependenciesProvider.getObjectCodecs());
-    FrontierNodeVersion frontierVersion;
-    try {
-      frontierVersion = serializationDependenciesProvider.getSkyValueVersion();
-    } catch (SerializationException e) {
-      String message = "error computing frontier version " + e.getMessage();
-      reporter.error(null, message);
-      return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
-    }
-
+    FrontierNodeVersion frontierVersion = serializationDependenciesProvider.getSkyValueVersion();
     String profilePath = serializationDependenciesProvider.getSerializedFrontierProfile();
     var profileCollector = profilePath.isEmpty() ? null : new ProfileCollector();
     var serializationStats = new SelectedEntrySerializer.SerializationStats();

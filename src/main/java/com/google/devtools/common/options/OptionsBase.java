@@ -15,13 +15,9 @@
 package com.google.devtools.common.options;
 
 import com.google.common.collect.Maps;
-import com.google.common.escape.CharEscaperBuilder;
-import com.google.common.escape.Escaper;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import net.starlark.java.eval.Starlark;
 
 /**
  * Base class for all options classes. Extend this class, adding public instance fields annotated
@@ -49,9 +45,6 @@ import net.starlark.java.eval.Starlark;
  * NullPointerExceptions}, etc.)
  */
 public abstract class OptionsBase {
-
-  private static final Escaper ESCAPER = new CharEscaperBuilder()
-      .addEscape('\\', "\\\\").addEscape('"', "\\\"").toEscaper();
 
   /** Subclasses must provide a default (no argument) constructor. */
   protected OptionsBase() {
@@ -83,56 +76,6 @@ public abstract class OptionsBase {
   @Override
   public final String toString() {
     return getClass().getName() + asMap();
-  }
-
-  /**
-   * Returns a string that uniquely identifies the options. This value is intended for analysis
-   * caching.
-   */
-  public final String cacheKey() {
-    StringBuilder result = new StringBuilder(getClass().getName()).append("{");
-    result.append(mapToCacheKey(asMap()));
-    return result.append("}").toString();
-  }
-
-  /**
-   * Like {@link #mapToCacheKey} but the returned key is sensitive to the {@link Starlark#type} of
-   * values in the map.
-   *
-   * <p>This is important because types are observable to starlark code. See b/478938163.
-   */
-  public static String starlarkMapToCacheKey(Map<?, ?> starlarkOptionsMap) {
-    return mapToCacheKey(starlarkOptionsMap, /* distinguishStarlarkTypes= */ true);
-  }
-
-  public static String mapToCacheKey(Map<?, ?> optionsMap) {
-    return mapToCacheKey(optionsMap, /* distinguishStarlarkTypes= */ false);
-  }
-
-  private static String mapToCacheKey(Map<?, ?> optionsMap, boolean distinguishStarlarkTypes) {
-    StringBuilder result = new StringBuilder();
-    for (Map.Entry<?, ?> entry : optionsMap.entrySet()) {
-      result.append(entry.getKey()).append("=");
-
-      Object value = entry.getValue();
-
-      if (value == null) {
-        result.append("NULL");
-      } else {
-        if (distinguishStarlarkTypes) {
-          result.append(Starlark.type(value));
-        }
-        // This special case is needed because Collection.toString() prints the same ("[]") for an
-        // empty collection and for a collection with a single empty string.
-        if (value instanceof Collection<?> c && c.isEmpty()) {
-          result.append("EMPTY");
-        } else {
-          result.append('"').append(ESCAPER.escape(value.toString())).append('"');
-        }
-      }
-      result.append(", ");
-    }
-    return result.toString();
   }
 
   @Override

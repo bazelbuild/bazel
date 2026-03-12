@@ -55,6 +55,10 @@ public final class SkyValueRetrieverUtils {
       return new NoCachedData(CacheMissReason.NOT_ATTEMPTED);
     }
 
+    if (analysisCachingDeps.shouldBailOutOnMissingFingerprint()) {
+      return new NoCachedData(CacheMissReason.NOT_ATTEMPTED);
+    }
+
     Label label =
         switch (key) {
           case ActionLookupKey alk -> alk.getLabel();

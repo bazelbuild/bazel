@@ -29,7 +29,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
         "//src/main/java/com/google/devtools/build/lib/rules/android",
-        "//src/main/java/com/google/devtools/build/lib/runtime",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_result",
         "//src/main/java/com/google/devtools/build/lib/runtime:common_command_options",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands",

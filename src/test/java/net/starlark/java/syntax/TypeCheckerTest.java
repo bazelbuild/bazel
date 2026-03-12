@@ -21,6 +21,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ObjectArrays;
+import java.util.Objects;
 import net.starlark.java.syntax.Resolver.Module;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -108,7 +109,23 @@ public final class TypeCheckerTest {
   private void assertTypeGivenDecls(String expr, StarlarkType expected, String... decls)
       throws Exception {
     StarlarkType actual = inferTypeGivenDecls(expr, decls);
-    assertThat(actual).isEqualTo(expected);
+    assertWithMessage("type of %s", expr).that(actual).isEqualTo(expected);
+  }
+
+  /**
+   * Like {@link #assertTypeGivenDecls}, but runs the typechecker on the whole file (and verifies
+   * that it succeeds) as well. Useful for tests of the computed type of an unannotated variable,
+   * which is set during a full typechecker pass but not when inferring the type of an expression.
+   */
+  private void assertTypeAfterTypecheck(String expr, StarlarkType expected, String... decls)
+      throws Exception {
+    StarlarkFile file = prepareFile(ObjectArrays.concat(decls, expr));
+    TypeChecker.checkFile(file);
+    assertThat(file.errors()).isEmpty();
+    var resolvedExpr = ((ExpressionStatement) file.getStatements().getLast()).getExpression();
+    assertWithMessage("type of %s", expr)
+        .that(TypeChecker.inferTypeOf(resolvedExpr))
+        .isEqualTo(expected);
   }
 
   @Test
@@ -219,14 +236,102 @@ public final class TypeCheckerTest {
                 else:
                     n = 123
         """);
+  }
 
-    // TODO: #28037 - infer LHSs with multiple identifier targets
+  @Test
+  public void sequence_assignment() throws Exception {
+    assertValid(
+        """
+        x: int|str
+        x, y = 1, "2"
+        x, y = ["3", "4"]
+        x, y = {"a": 3.14, "b": 2.71}  # a dict is treated as its sequence of keys
+        s: set[str]
+        x, y = s
+        """);
+    // Multi-level lhs sequences
+    assertValid("(x, (y, z)) = [1, [2, 3]]");
+    assertValid(
+        """
+        y: list[int]
+        x, (y[0],) = 1, [2]
+        """);
+    assertValid(
+        """
+        a: list[Any]
+        (x, (y, [z])) = a
+        """);
+
     assertInvalid(
-        "UNSUPPORTED: cannot typecheck assignment statements with multiple targets on the LHS",
+        ":2:1: cannot assign non-iterable type 'str' to '(x, y)'",
+        """
+        x: str
+        x, y = "ab"  # type error: strings are not iterable in Starlark
+        """);
+    assertInvalid(
+        ":2:1: cannot assign type 'tuple[str]' to '(x, y)'; want 2-element sequence",
+        """
+        x: str
+        x, y = ("ab",)
+        """);
+    assertInvalid(
+        ":2:1: cannot assign type 'tuple[int, int, int]' to '(x, y)'; want 2-element sequence",
+        """
+        x: int
+        x, y = 1, 2, 3
+        """);
+
+    assertInvalid(
+        ":3:3: operator '+' cannot be applied to types 'int' and 'str'",
         """
         x: list[int] = [0]
         x[0], y, z = 1, 2, "3"
         y + z
+        """);
+
+    assertInvalid(
+        ":3:3: operator '+' cannot be applied to types 'int|bool' and 'int|bool'",
+        """
+        z: list[int|bool]
+        x, y = z
+        x + y
+        """);
+
+    // Any and unions
+    assertTypeAfterTypecheck("x, y", Types.tuple(Types.ANY, Types.ANY), "z: Any; x, y = z");
+    assertTypeAfterTypecheck(
+        "x, y",
+        Types.tuple(Types.INT, Types.union(Types.INT, Types.STR)),
+        "z: list[int] | tuple[int, str]; x, y = z");
+    assertTypeAfterTypecheck(
+        "x, y",
+        Types.tuple(Types.union(Types.INT, Types.ANY), Types.union(Types.INT, Types.ANY)),
+        "z: list[int] | Any; x, y = z");
+    // lhs is type-checked even if rhs is Any.
+    assertInvalid(
+        ":3:2: cannot index 'x' of type 'int'",
+        """
+        x: int
+        z: Any
+        x[0], y = z
+        """);
+  }
+
+  @Test
+  public void sequence_assignment_order_of_operations() throws Exception {
+    assertTypeAfterTypecheck(
+        "x",
+        Types.list(Types.INT),
+        """
+        _: Any  # ensure toplevel code is type-checked
+        x, x[0] = ([1], 2)
+        """);
+
+    assertInvalid(
+        ":2:4: x of type 'tuple[int]' does not support item assignment",
+        """
+        _: Any  # ensure toplevel code is type-checked
+        x, x[0] = ((1,), 2)
         """);
   }
 
@@ -242,36 +347,67 @@ public final class TypeCheckerTest {
   }
 
   /** A dummy type having a single field 'f' of type int. */
-  private static final class FooType extends StarlarkType {
+  private static sealed class FooType extends StarlarkType permits FooType.Mutable {
+    protected final StarlarkType fieldType;
+
+    FooType(StarlarkType fieldType) {
+      this.fieldType = fieldType;
+    }
+
     @Override
     public StarlarkType getField(String name) {
-      return name.equals("f") ? Types.INT : null;
+      return name.equals("f") ? fieldType : null;
     }
 
     @Override
     public boolean equals(Object obj) {
-      return obj != null && obj.getClass().equals(this.getClass());
+      return obj != null
+          && obj.getClass().equals(this.getClass())
+          && fieldType.equals(((FooType) obj).fieldType);
     }
 
     @Override
     public int hashCode() {
-      return this.getClass().hashCode();
+      return Objects.hash(this.getClass().hashCode(), fieldType);
     }
 
     @Override
     public String toString() {
-      return "Foo";
+      return String.format("Foo[%s]", fieldType);
+    }
+
+    /** Like FooType, but mutable. */
+    private static final class Mutable extends FooType {
+      Mutable(StarlarkType fieldType) {
+        super(fieldType);
+      }
+
+      @Override
+      public String toString() {
+        return String.format("MutableFoo[%s]", fieldType);
+      }
+
+      @Override
+      public boolean hasSetField() {
+        return true;
+      }
     }
   }
 
   private final Module fooModule =
-      TestUtils.Module.withUniversalTypesAnd("Foo", Types.wrapType("Foo", new FooType()));
+      TestUtils.Module.withUniversalTypesAnd(
+          "Foo",
+          Types.wrapTypeConstructor("Foo", t -> new FooType(t)),
+          "MutableFoo",
+          Types.wrapTypeConstructor("MutableFoo", t -> new FooType.Mutable(t)));
 
   @Test
   public void infer_dot() throws Exception {
     module = fooModule;
 
-    assertTypeGivenDecls("o.f", Types.INT, "o: Foo");
+    assertTypeGivenDecls("o.f", Types.INT, "o: Foo[int]");
+    assertTypeGivenDecls(
+        "o.f", Types.union(Types.STR, Types.INT, Types.BOOL), "o: Foo[str] | MutableFoo[int|bool]");
     assertTypeGivenDecls("o.f", Types.ANY, "o: Any");
 
     assertInvalid(
@@ -281,9 +417,9 @@ public final class TypeCheckerTest {
         n.f
         """);
     assertInvalid(
-        ":2:2: 'o' of type 'Foo' does not have field 'g'",
+        ":2:2: 'o' of type 'Foo[int]' does not have field 'g'",
         """
-        o: Foo
+        o: Foo[int]
         o.g
         """);
   }
@@ -294,7 +430,7 @@ public final class TypeCheckerTest {
 
     assertValid(
         """
-        o1: Foo
+        o1: MutableFoo[int]
         o1.f = 123
 
         o2: Any
@@ -309,16 +445,30 @@ public final class TypeCheckerTest {
         """);
 
     assertInvalid(
+        ":2:1: o of type 'Foo[int]' does not support field assignment",
+        """
+        o: Foo[int]  # immutable
+        o.f = 123
+        """);
+
+    assertInvalid(
         ":2:1: cannot assign type 'str' to 'o.f' of type 'int'",
         """
-        o: Foo
+        o: MutableFoo[int]
         o.f = 'abc'
         """);
     assertInvalid(
-        ":2:2: 'o' of type 'Foo' does not have field 'g'",
+        ":2:2: 'o' of type 'MutableFoo[int]' does not have field 'g'",
         """
-        o: Foo
+        o: MutableFoo[int]
         o.g = 123
+        """);
+    assertInvalid(
+        ":2:1: cannot assign type 'int' to 'o.f' which expects a value satisfying all of the 2"
+            + " types ['int', 'bool']",
+        """
+        o: MutableFoo[int] | MutableFoo[bool]
+        o.f = 123
         """);
   }
 
@@ -485,20 +635,27 @@ public final class TypeCheckerTest {
 
   @Test
   public void assignment_index_str() throws Exception {
-    // Strings are immutable, so any assignment to an index expression of a string will fail
-    // dynamically. But it's not currently a static error, if the types are correct.
-    // TODO: #28037 - Fail static type checking on assignments to immutable values.
-    assertValid(
+    assertInvalid(
+        ":3:1: s of type 'str' does not support item assignment",
         """
         # Normal case.
         s: str
         s[123] = "abc"
-
+        """);
+    assertInvalid(
+        ":4:1: s of type 'str' does not support item assignment",
+        """
         # Any as index.
+        s: str
         a: Any
         s[a] = "abc"
-
+        """);
+    assertInvalid(
+        ":4:1: s of type 'str' does not support item assignment",
+        """
         # Any as value.
+        s: str
+        a: Any
         s[123] = a
         """);
 
@@ -568,46 +725,208 @@ public final class TypeCheckerTest {
 
   @Test
   public void assignment_index_tuple() throws Exception {
-    // Tuple mutation is illegal, but not currently a static error if there's no type mismatch.
-    // TODO: #28037 - Fail static type checking on assignments to immutable values.
-    assertValid(
+    // Cannot assign a value to a tuple index
+    assertInvalid(
+        ":2:1: t of type 'tuple[int, str, bool]' does not support item assignment",
         """
-        # Normal case.
         t: tuple[int, str, bool]
         t[1] = "abc"
-        # Negative index
-        t[-3] = 42
-
-        t2: tuple[int|str, ...]
-        t2[0] = 0
-        t2[42] = "42"
-
-        # Any as index.
-        # This is a particularly nonsensical assignment that nonetheless passes the checker.
-        a: Any
-        u: int | str | bool
-        t[a] = u
-
-        # Any as value.
-        t[1] = a
-        t2[1000] = a
         """);
-
     assertInvalid(
+        ":2:1: t of type 'tuple[str, ...]' does not support item assignment",
         """
-        :2:1: cannot assign type 'int' to 't[1]' of type 'str'\
-        """,
+        t: tuple[str, ...]
+        t[1] = "abc"
+        """);
+    // ... even when the value is Any
+    assertInvalid(
+        ":3:1: t of type 'tuple[int, str, bool]' does not support item assignment",
+        """
+        val: Any
+        t: tuple[int, str, bool]
+        t[1] = val
+        """);
+    assertInvalid(
+        ":3:1: t of type 'tuple[str, ...]' does not support item assignment",
+        """
+        val: Any
+        t: tuple[str, ...]
+        t[1] = val
+        """);
+    // ... or the index is unknown
+    assertInvalid(
+        ":3:1: t of type 'tuple[int, str, bool]' does not support item assignment",
+        """
+        i: Any
+        t: tuple[int, str, bool]
+        t[i] = "abc"
+        """);
+    assertInvalid(
+        ":3:1: t of type 'tuple[str, ...]' does not support item assignment",
+        """
+        i: Any
+        t: tuple[str, ...]
+        t[i] = "abc"
+        """);
+    // If the value is of the wrong type, we still report an error about tuple index assignment.
+    assertInvalid(
+        ":2:1: t of type 'tuple[int, str, bool]' does not support item assignment",
         """
         t: tuple[int, str, bool]
-        t[1] = 123
+        t[1] = {"foo": "bar"}
+        """);
+    assertInvalid(
+        ":2:1: t of type 'tuple[str, ...]' does not support item assignment",
+        """
+        t: tuple[str, ...]
+        t[1] = {"foo": "bar"}
+        """);
+  }
+
+  @Test
+  public void assignment_index_nested() throws Exception {
+    assertValid(
+        """
+        x: list[list[int]]
+        x[0][0] = 1
         """);
 
     assertInvalid(
-        ":3:1: cannot assign type 'int|bool' to 't[1]' of type 'int|str'",
+        ":2:1: x[0] of type 'tuple[int]' does not support item assignment",
         """
-        t: tuple[int | str, ...]
-        x: int | bool
-        t[1] = x
+        x: list[tuple[int]]
+        x[0][0] = 1
+        """);
+  }
+
+  @Test
+  public void infer_index_union() throws Exception {
+    assertTypeGivenDecls(
+        "u[1]",
+        Types.union(Types.STR, Types.INT, Types.FLOAT, Types.BOOL),
+        "u: str | list[int] | tuple[float, ...] | tuple[Any, bool]");
+    assertTypeGivenDecls("u['abc']", Types.NUMERIC, "u: dict[str, int] | dict[Any, float]");
+  }
+
+  @Test
+  public void assignment_index_union() throws Exception {
+    assertValid(
+        """
+        u: list[int] | dict[Any, int]
+        u[1] = 123
+        """);
+    assertInvalid(
+        ":2:1: cannot assign type 'str' to 'u[1]' which expects a value satisfying all of the 2"
+            + " types ['str', 'int']",
+        """
+        u: list[str] | list[int]
+        u[1] = "abc"
+        """);
+    assertValid(
+        """
+        u: list[str|int]
+        u[1] = "abc"
+        """);
+  }
+
+  @Test
+  public void augmented_assignment() throws Exception {
+    module = fooModule;
+
+    assertValid(
+        """
+        x: list[int]
+        x += [1, 2]
+        x[0] += 3
+
+        y: dict[str, int]
+        y |= {"answer": 42}
+        y["key"] //= 2
+
+        z: set[int|str]
+        z_rhs: set[str]
+        z ^= z_rhs
+
+        w: MutableFoo[int]
+        w.f *= 2
+        """);
+    // Augmented assignment to an immutable value is legal as long as the types match.
+    assertValid(
+        """
+        x: int | float
+        x += 1.5
+
+        y: str
+        y *= 2
+
+        z: tuple[int, ...]
+        z += (1, 2)
+        """);
+
+    // Binary operator cannot be applied to LHS and RHS types.
+    assertInvalid(
+        ":2:3: operator '+=' cannot be applied to types 'int' and 'str'",
+        """
+        x: int
+        x += "abc"
+        """);
+    // TODO(b/141263526): we may want to support list += sequence.
+    assertInvalid(
+        ":2:3: operator '+=' cannot be applied to types 'list[int]' and 'tuple[int, int]'",
+        """
+        x: list[int]
+        x += (1, 2)
+        """);
+
+    // Binary operator can be applied to LHS and RHS types, but the result is not assignable to LHS
+    assertInvalid(
+        ":2:3: operator '+=' cannot be applied to types 'int' and 'float': cannot update 'x' of"
+            + " type 'int' with a result value of type 'float'",
+        """
+        x: int
+        x += 1.5
+        """);
+    assertInvalid(
+        ":2:3: operator '|=' cannot be applied to types 'dict[str, int]' and 'dict[int, float]':"
+            + " cannot update 'x' of type 'dict[str, int]' with a result value of type"
+            + " 'dict[str|int, int|float]'",
+        """
+        x: dict[str, int]
+        x |= {1: 2.3}
+        """);
+    assertInvalid(
+        ":2:3: operator '+=' cannot be applied to types 'tuple[int, str]' and 'tuple[str]': cannot"
+            + " update 'x' of type 'tuple[int, str]' with a result value of type 'tuple[int, str,"
+            + " str]'",
+        """
+        x: tuple[int, str]
+        x += ("hello", )
+        """);
+
+    // Invalid index/field assignments.
+    assertInvalid(
+        ":2:1: x of type 'str' does not support item assignment",
+        """
+        x: str
+        x[1] += "a"
+        """);
+    assertInvalid(
+        ":2:1: x of type 'tuple[int, ...]|list[Any]' does not support item assignment",
+        """
+        x: tuple[int, ...] | list
+        x[0] += 42
+        """);
+    assertInvalid(
+        ":2:1: x of type 'Foo[int]' does not support field assignment",
+        """
+        x: Foo[int] # immutable
+        x.f *= 2
+        """);
+    assertInvalid(
+        ":2:1: x of type 'MutableFoo[int]|Foo[int]' does not support field assignment",
+        """
+        x: MutableFoo[int] | Foo[int]  # potentially immutable
+        x.f *= 2
         """);
   }
 
@@ -691,7 +1010,7 @@ public final class TypeCheckerTest {
   @Test
   public void infer_tuple() throws Exception {
     // Empty case.
-    assertTypeGivenDecls("()", Types.tuple());
+    assertTypeGivenDecls("()", Types.EMPTY_TUPLE);
 
     // Fixed-length with homogeneous elements.
     assertTypeGivenDecls("(1, 2, 3)", Types.tuple(Types.INT, Types.INT, Types.INT));
@@ -840,13 +1159,13 @@ public final class TypeCheckerTest {
         Types.homogeneousTuple(Types.union(Types.INT, Types.FLOAT, Types.BOOL)),
         "x: tuple[int, float]; y: tuple[bool, ...]");
     assertTypeGivenDecls(
-        "x + y", Types.homogeneousTuple(Types.BOOL), "x: tuple[]; y: tuple[bool, ...]");
+        "x + y", Types.homogeneousTuple(Types.BOOL), "x: tuple[()]; y: tuple[bool, ...]");
     assertTypeGivenDecls(
         "x + y",
         Types.homogeneousTuple(Types.union(Types.INT, Types.BOOL)),
         "x: tuple[int, ...]; y: tuple[bool, ...]");
     assertTypeGivenDecls(
-        "x + y", Types.homogeneousTuple(Types.INT), "x: tuple[int, ...]; y: tuple[]");
+        "x + y", Types.homogeneousTuple(Types.INT), "x: tuple[int, ...]; y: tuple[()]");
 
     // Any inference
     assertTypeGivenDecls("x + y", Types.ANY, "x: Any; y: Any");
@@ -1042,14 +1361,14 @@ public final class TypeCheckerTest {
         "x: tuple[int, float]");
     assertTypeGivenDecls("x * 2", Types.homogeneousTuple(Types.INT), "x: tuple[int, ...]");
     assertTypeGivenDecls("2 * x", Types.homogeneousTuple(Types.INT), "x: tuple[int, ...]");
-    assertTypeGivenDecls("x * 0", Types.tuple(), "x: tuple[int, float]");
-    assertTypeGivenDecls("0 * x", Types.tuple(), "x: tuple[int, float]");
-    assertTypeGivenDecls("x * 0", Types.tuple(), "x: tuple[int, ...]");
-    assertTypeGivenDecls("0 * x", Types.tuple(), "x: tuple[int, ...]");
-    assertTypeGivenDecls("x * -1", Types.tuple(), "x: tuple[str]");
-    assertTypeGivenDecls("-1 * x", Types.tuple(), "x: tuple[str]");
-    assertTypeGivenDecls("x * -1", Types.tuple(), "x: tuple[str, ...]");
-    assertTypeGivenDecls("-1 * x", Types.tuple(), "x: tuple[str, ...]");
+    assertTypeGivenDecls("x * 0", Types.EMPTY_TUPLE, "x: tuple[int, float]");
+    assertTypeGivenDecls("0 * x", Types.EMPTY_TUPLE, "x: tuple[int, float]");
+    assertTypeGivenDecls("x * 0", Types.EMPTY_TUPLE, "x: tuple[int, ...]");
+    assertTypeGivenDecls("0 * x", Types.EMPTY_TUPLE, "x: tuple[int, ...]");
+    assertTypeGivenDecls("x * -1", Types.EMPTY_TUPLE, "x: tuple[str]");
+    assertTypeGivenDecls("-1 * x", Types.EMPTY_TUPLE, "x: tuple[str]");
+    assertTypeGivenDecls("x * -1", Types.EMPTY_TUPLE, "x: tuple[str, ...]");
+    assertTypeGivenDecls("-1 * x", Types.EMPTY_TUPLE, "x: tuple[str, ...]");
     assertTypeGivenDecls("x * y", Types.homogeneousTuple(Types.INT), "x: int; y: tuple[int]");
     assertTypeGivenDecls("x * y", Types.homogeneousTuple(Types.INT), "x: int; y: tuple[int, ...]");
 
@@ -1471,6 +1790,77 @@ public final class TypeCheckerTest {
   }
 
   @Test
+  public void infer_list_comprehension() throws Exception {
+    assertTypeGivenDecls("[x for x in lst]", Types.list(Types.INT), "lst: list[int]");
+    assertTypeGivenDecls("[x * 3.14 for x in lst]", Types.list(Types.FLOAT), "lst: list[int]");
+    assertTypeGivenDecls(
+        // a is tuple[str], d is int, so a * d is an indeterminate-length str tuple
+        "[a * d for a in b if c for d in e]",
+        Types.list(Types.homogeneousTuple(Types.STR)),
+        "b: list[tuple[str]]",
+        "c: bool",
+        "e: Sequence[int]");
+
+    // For clauses must be iterable
+    assertInvalid(
+        ":3:28: comprehension 'for' clause operand must be an iterable, got 'str'",
+        """
+        b: list[int]
+        d: str
+        [a + c for a in b for c in d]
+        """);
+    assertInvalid(
+        ":3:17: comprehension 'for' clause operand must be an iterable, got 'int'",
+        """
+        b: int
+        d: list[int]
+        [a + c for a in b for c in d]
+        """);
+    // If clauses must type-check
+    assertInvalid(
+        ":3:25: in call to 'cond()', parameter 'x' got value of type 'str', want 'int'",
+        """
+        lst: list[str]
+        def cond(x: int) -> int: return x
+        [x for x in lst if cond(x)]
+        """);
+    // Body must type-check
+    assertInvalid(
+        ":2:4: operator '+' cannot be applied to types 'str' and 'int'",
+        """
+        lst: list[str]
+        [x + 1 for x in lst]
+        """);
+    assertInvalid(
+        ":2:4: operator '+' cannot be applied to types 'str' and 'float'",
+        """
+        lst: list[str]
+        {x + 3.14 : x for x in lst}
+        """);
+    assertInvalid(
+        ":2:8: operator '+' cannot be applied to types 'str' and 'list[str]'",
+        """
+        lst: list[str]
+        {x : x + [x] for x in lst}
+        """);
+
+    // Any and union handling
+    assertTypeGivenDecls("[x * 2 for x in lst]", Types.list(Types.ANY), "lst: Any");
+    assertTypeGivenDecls(
+        "[x * 2 for x in lst]", Types.list(Types.NUMERIC), "lst: list[int] | Collection[float]");
+  }
+
+  @Test
+  public void infer_dict_comprehension() throws Exception {
+    assertTypeGivenDecls(
+        "{'%s' % x : x for x in lst}", Types.dict(Types.STR, Types.INT), "lst: list[int]");
+    assertTypeGivenDecls("{x : x for x in lst}", Types.dict(Types.ANY, Types.ANY), "lst: Any");
+    assertTypeGivenDecls(
+        "{'%s' % x : x * 2 for x in lst}",
+        Types.dict(Types.STR, Types.NUMERIC), "lst: list[int] | Collection[float]");
+  }
+
+  @Test
   public void def_argument_defaults() throws Exception {
     assertValid("def f(x: int = 42, y: str= '', z = {}): pass");
     String invalid = "def f(x: int = 42.0, y: str = 43, z = []): pass";
@@ -1681,6 +2071,14 @@ public final class TypeCheckerTest {
                 f(x)
         """);
 
+    // Sequence assignment
+    assertValid(
+        """
+        def _wrapper() -> None:
+            for x, y in [(1, 2)]:
+                pass
+        """);
+
     assertInvalid(
         "'for' loop operand must be an iterable, got 'int'",
         """
@@ -1688,13 +2086,11 @@ public final class TypeCheckerTest {
             for x in 42:
                 pass
         """);
-
-    // TODO: #28037 - Support multi-argument vars and var indexing in for statements.
     assertInvalid(
-        "UNSUPPORTED: cannot typecheck assignment statements with multiple targets on the LHS",
+        "cannot assign type 'tuple[int]' to '(x, y)'; want 2-element sequence",
         """
         def _wrapper() -> None:
-            for x, y in [(1, 2)]:
+            for x, y in [(42,)]:
                 pass
         """);
   }
@@ -1728,14 +2124,30 @@ public final class TypeCheckerTest {
                 pass
         """);
 
-    // TODO: #28037 - Support multi-argument vars and var indexing in for statements.
-    assertInvalid(
-        "UNSUPPORTED: cannot typecheck assignment statements with multiple targets on the LHS",
+    // Sequence assignment
+    assertValid(
         """
         def _wrapper() -> None:
             x: int
             y: str
             for x, y in [(1, "two")]:
+                pass
+        """);
+    assertInvalid(
+        ":3:9: cannot assign type 'str' to 'x' of type 'int'",
+        """
+        def _wrapper() -> None:
+            x: int
+            for x, y in [("three", 4)]:
+                pass
+        """);
+    assertInvalid(
+        ":4:12: cannot assign type 'int' to 'y' of type 'str'",
+        """
+        def _wrapper() -> None:
+            x: Any
+            y: str
+            for x, y in [("three", 4)]:
                 pass
         """);
   }

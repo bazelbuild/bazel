@@ -72,6 +72,7 @@ def _xcode_version_flag_impl(ctx):
         value = _strip_version(xcode_version)
     elif precision == "exact":
         value = str(xcode_version)
+
     else:
         num_components = _VERSION_PRECISION_COMPONENTS[precision]
         value = _strip_or_pad_version(xcode_version, num_components)

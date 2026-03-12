@@ -78,6 +78,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -92,8 +93,10 @@ public final class UiEventHandler implements EventHandler {
 
   /** Minimal time between scheduled updates */
   private static final long MINIMAL_UPDATE_INTERVAL_MILLIS = 200L;
+
   /** Minimal rate limiting (in ms), if the progress bar cannot be updated in place */
   private static final long NO_CURSES_MINIMAL_PROGRESS_RATE_LIMIT = 1000L;
+
   /** Periodic update interval of a time-dependent progress bar if it can be updated in place */
   private static final long SHORT_REFRESH_MILLIS = 1000L;
 
@@ -123,11 +126,11 @@ public final class UiEventHandler implements EventHandler {
   private final ImmutableSet<EventKind> filteredEventKinds;
   private final long progressRateLimitMillis;
   private final long minimalUpdateInterval;
+  private final AtomicBoolean dateShown;
   private long lastRefreshMillis;
   private long mustRefreshAfterMillis;
-  private boolean dateShown;
   private int numLinesProgressBar;
-  private boolean buildRunning;
+  private volatile boolean buildRunning;
   private boolean progressBarNeedsRefresh;
   private volatile boolean shutdown;
   private final AtomicReference<Thread> updateThread;
@@ -206,12 +209,12 @@ public final class UiEventHandler implements EventHandler {
     if (skymeldMode) {
       this.stateTracker =
           this.cursorControl
-              ? new SkymeldUiStateTracker(clock, /*targetWidth=*/ this.terminalWidth - 2)
+              ? new SkymeldUiStateTracker(clock, /* targetWidth= */ this.terminalWidth - 2)
               : new SkymeldUiStateTracker(clock);
     } else {
       this.stateTracker =
           this.cursorControl
-              ? new UiStateTracker(clock, /*targetWidth=*/ this.terminalWidth - 2)
+              ? new UiStateTracker(clock, /* targetWidth= */ this.terminalWidth - 2)
               : new UiStateTracker(clock);
     }
     this.stateTracker.setProgressSampleSize(options.uiActionsShown);
@@ -229,7 +232,7 @@ public final class UiEventHandler implements EventHandler {
         Math.max(this.progressRateLimitMillis, MINIMAL_UPDATE_INTERVAL_MILLIS);
     this.stdoutLineBuffer = new ByteArrayOutputStream();
     this.stderrLineBuffer = new ByteArrayOutputStream();
-    this.dateShown = false;
+    this.dateShown = new AtomicBoolean();
     this.updateThread = new AtomicReference<>();
     this.updateLock = new ReentrantLock();
     this.filteredEventKinds = options.getFilteredEventKinds();
@@ -297,11 +300,10 @@ public final class UiEventHandler implements EventHandler {
     return didFlush;
   }
 
-  private synchronized void maybeAddDate() {
-    if (!showTimestamp || dateShown || !buildRunning) {
+  private void maybeAddDate() {
+    if (!showTimestamp || !buildRunning || dateShown.getAndSet(true)) {
       return;
     }
-    dateShown = true;
     handle(
         Event.info(
             "Current date is "
@@ -431,7 +433,7 @@ public final class UiEventHandler implements EventHandler {
           if (stateTracker.progressBarTimeDependent()) {
             refresh();
           }
-          // Fall through.
+        // Fall through.
         case START:
         case FINISH:
         case PASS:
@@ -738,6 +740,7 @@ public final class UiEventHandler implements EventHandler {
   }
 
   @Subscribe
+  @AllowConcurrentEvents
   public void downloadProgress(FetchProgress event) {
     maybeAddDate();
     stateTracker.downloadProgress(event);
@@ -1087,7 +1090,7 @@ public final class UiEventHandler implements EventHandler {
               Instant.ofEpochMilli(clock.currentTimeMillis()).atZone(ZoneId.systemDefault()));
     }
     if (stateTracker.hasActivities()) {
-      stateTracker.writeProgressBar(terminalWriter, /*shortVersion=*/ !cursorControl, timestamp);
+      stateTracker.writeProgressBar(terminalWriter, /* shortVersion= */ !cursorControl, timestamp);
       terminalWriter.newline();
     }
     numLinesProgressBar = countingTerminalWriter.getWrittenLines();

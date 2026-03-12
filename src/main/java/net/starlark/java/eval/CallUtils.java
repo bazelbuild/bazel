@@ -27,8 +27,13 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.TypeConstructor;
 import net.starlark.java.syntax.Types;
 
-/** Helper functions for {@link StarlarkMethod}-annotated methods. */
-final class CallUtils {
+/**
+ * Helper functions for {@link StarlarkMethod}-annotated methods.
+ *
+ * <p>This class is public for the benefit of serialization in Bazel. Other code outside the
+ * Starlark interpreter should not rely on it.
+ */
+public final class CallUtils {
 
   private CallUtils() {} // uninstantiable
 
@@ -47,7 +52,7 @@ final class CallUtils {
   private static final ConcurrentHashMap<StarlarkSemantics, BuiltinManager> managerForSemantics =
       new ConcurrentHashMap<>();
 
-  static BuiltinManager getBuiltinManager(StarlarkSemantics semantics) {
+  public static BuiltinManager getBuiltinManager(StarlarkSemantics semantics) {
     BuiltinManager manager = managerForSemantics.get(semantics.getBuiltinManagerCacheKey());
     if (manager == null) {
       manager = new BuiltinManager(semantics);
@@ -77,6 +82,10 @@ final class CallUtils {
   // type information that takes into account flag-guarding. For the moment it suffices to store a
   // semantics in BuiltinFunction.
   private static class ClassDescriptor {
+    /** The manager that created this descriptor. Used for obtaining method type information. */
+    @SuppressWarnings("UnusedVariable") // TODO: #28325 - Use it for obtaining StarlarkTypes.
+    BuiltinManager manager;
+
     /**
      * The descriptor for the unique {@code @StarlarkMethod}-annotated method on this class that has
      * {@link StarlarkMethod#selfCall} set to true (ex: "struct" in Bazel), or null if there is no
@@ -109,28 +118,31 @@ final class CallUtils {
   /**
    * A manager for obtaining descriptors for native-defined Starlark objects and methods, under a
    * specific {@code StarlarkSemantics}.
+   *
+   * <p>This class is public for the benefit of serialization in Bazel. Other code outside the
+   * Starlark interpreter should not rely on it.
    */
-  static class BuiltinManager {
+  public static class BuiltinManager {
 
     private final StarlarkSemantics semantics;
 
-    // In May 2023, typical Bazel usage results in ~150 entries in this cache. Therefore
-    // we presize the CHM accordingly to reduce the chance two entries use the same hash
-    // bucket (in May 2023 this strategy was completely effective!). We used to use the
-    // default capacity, and then the CHM would get dynamically resized to have 256
-    // buckets, many of which had at least 2 entries which is suboptimal for such a hot
-    // data structure.
-    // TODO(bazel-team): Better would be to precompute the entire lookup table on server
-    //  startup (best would be to do this at compile time via an annotation processor),
-    //  rather than rely on it getting built-up dynamically as Starlark code gets
-    //  evaluated over the lifetime of the server. This way there are no concurrency
-    //  concerns, so we can use a more efficient data structure that doesn't need to
-    //  handle concurrent writes.
-    private final ConcurrentHashMap<Class<?>, ClassDescriptor> classDescriptorCache =
-        new ConcurrentHashMap<>(/* initialCapacity= */ 1000);
+    private final ClassValue<ClassDescriptor> classDescriptorCache =
+        new ClassValue<ClassDescriptor>() {
+          @Override
+          protected ClassDescriptor computeValue(Class<?> clazz) {
+            if (clazz == String.class) {
+              clazz = StringModule.class;
+            }
+            return buildClassDescriptor(BuiltinManager.this, clazz);
+          }
+        };
 
     private BuiltinManager(StarlarkSemantics semantics) {
       this.semantics = semantics;
+    }
+
+    StarlarkSemantics getSemantics() {
+      return semantics;
     }
 
     /**
@@ -141,19 +153,7 @@ final class CallUtils {
      * `bazel build` invocation can make tens or even hundreds of millions of calls to this method.
      */
     private ClassDescriptor getClassDescriptor(Class<?> clazz) {
-      if (clazz == String.class) {
-        clazz = StringModule.class;
-      }
-
-      ClassDescriptor classDescriptor = classDescriptorCache.get(clazz);
-      if (classDescriptor == null) {
-        classDescriptor = buildClassDescriptor(semantics, clazz);
-        ClassDescriptor prev = classDescriptorCache.putIfAbsent(clazz, classDescriptor);
-        if (prev != null) {
-          classDescriptor = prev; // first thread wins
-        }
-      }
-      return classDescriptor;
+      return classDescriptorCache.get(clazz);
     }
 
     /**
@@ -203,7 +203,7 @@ final class CallUtils {
     }
   }
 
-  private static ClassDescriptor buildClassDescriptor(StarlarkSemantics semantics, Class<?> clazz) {
+  private static ClassDescriptor buildClassDescriptor(BuiltinManager manager, Class<?> clazz) {
     MethodDescriptor selfCall = null;
     ImmutableMap.Builder<String, MethodDescriptor> methods = ImmutableMap.builder();
 
@@ -226,12 +226,14 @@ final class CallUtils {
       }
 
       // enabled by semantics?
-      if (!semantics.isFeatureEnabledBasedOnTogglingFlags(
-          callable.enableOnlyWithFlag(), callable.disableWithFlag())) {
+      if (!manager
+          .getSemantics()
+          .isFeatureEnabledBasedOnTogglingFlags(
+              callable.enableOnlyWithFlag(), callable.disableWithFlag())) {
         continue;
       }
 
-      MethodDescriptor descriptor = MethodDescriptor.of(method, callable);
+      MethodDescriptor descriptor = MethodDescriptor.of(manager, method, callable);
 
       // self-call method?
       if (callable.selfCall()) {
@@ -248,6 +250,7 @@ final class CallUtils {
     }
 
     ClassDescriptor classDescriptor = new ClassDescriptor();
+    classDescriptor.manager = manager;
     classDescriptor.selfCall = selfCall;
     classDescriptor.methods = methods.buildOrThrow();
     classDescriptor.typeConstructor = typeConstructor;

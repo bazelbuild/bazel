@@ -36,10 +36,12 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisAndExecutionResult;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
+import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.UploadContext;
@@ -113,6 +115,7 @@ import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
+import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -359,11 +362,16 @@ public class BuildTool {
                         CommandLineEvent.CanonicalCommandLineEvent.LABEL)));
       }
       buildOptions = runtime.createBuildOptions(optionsParser);
+      if (request.needsInstrumentationFilter()) {
+        applyHeuristicInstrumentationFilter(buildOptions, targetPatternPhaseValue);
+      }
       var analysisDeps =
           RemoteAnalysisCacheManager.forAnalysis(
               env,
               projectEvaluationResult.activeDirectoriesMatcher(),
               targetPatternPhaseValue.getTargetLabels(),
+              BuildView.getTopLevelConfigurationTrimmedOfTestOptions(
+                  buildOptions, env.getReporter()),
               request.getUserOptions(),
               projectEvaluationResult.buildOptions());
       analysisCachingDeps = analysisDeps.deps();
@@ -425,7 +433,9 @@ public class BuildTool {
 
         // Log stats and sync state even on failure.
         if (analysisCachingDeps != null) {
-          if (analysisCachingDeps.bailedOut()) {
+          if (analysisCacheReaderDeps.mode() == RemoteAnalysisCacheMode.DOWNLOAD
+              && (analysisCacheReaderDeps.shouldBailOutOnMissingFingerprint()
+                  || analysisCachingDeps.bailedOut())) {
             reportOnlyBailOutReason(analysisCacheReaderDeps);
           } else {
             logAnalysisCachingStats(analysisCacheReaderDeps);
@@ -470,6 +480,30 @@ public class BuildTool {
       validator.validateTargets(targetLabels, keepGoing);
     }
     return result;
+  }
+
+  private void applyHeuristicInstrumentationFilter(
+      BuildOptions buildOptions, TargetPatternPhaseValue targetPatternPhaseValue)
+      throws InterruptedException, InvalidConfigurationException {
+    try (SilentCloseable c = Profiler.instance().profile("Compute instrumentation filter")) {
+      String instrumentationFilter =
+          InstrumentationFilterSupport.computeInstrumentationFilter(
+              env.getReporter(),
+              // TODO(ulfjack): Expensive. Make this part of the TargetPatternPhaseValue or write
+              // a new SkyFunction to compute it?
+              targetPatternPhaseValue.getTestsToRun(env.getReporter(), env.getPackageManager()));
+      try {
+        // We're modifying the buildOptions in place, which is not ideal, but we also don't want
+        // to pay the price for making a copy. Maybe reconsider later if this turns out to be a
+        // problem (and the performance loss may not be a big deal). Notably, one must not call
+        // .checksum() before mutating the BuildOptions instance, lest the checksum and the option
+        // values get out of sync.
+        buildOptions.get(CoreOptions.class).instrumentationFilter =
+            new RegexFilter.RegexFilterConverter().convert(instrumentationFilter);
+      } catch (OptionsParsingException e) {
+        throw new InvalidConfigurationException(Code.HEURISTIC_INSTRUMENTATION_FILTER_INVALID, e);
+      }
+    }
   }
 
   private void buildTargetsWithoutMergedAnalysisExecution(

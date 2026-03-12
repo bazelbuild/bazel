@@ -605,7 +605,10 @@ public final class RemoteModule extends BlazeModule {
               bazelOutputServiceChannel,
               lastBuildId);
     } else {
-      outputService = new RemoteOutputService(env.getDirectories());
+      outputService =
+          new RemoteOutputService(
+              env.getDirectories(),
+              buildRequestOptions != null && buildRequestOptions.rewindLostInputs);
     }
 
     if ((enableHttpCache || enableDiskCache) && !enableGrpcCache) {
@@ -724,10 +727,7 @@ public final class RemoteModule extends BlazeModule {
         try {
           diskCacheClient =
               CombinedCacheClientFactory.createDiskCache(
-                  env.getWorkingDirectory(),
-                  remoteOptions,
-                  digestUtil,
-                  remoteOptions.remoteVerifyDownloads);
+                  env.getWorkingDirectory(), remoteOptions, digestUtil);
         } catch (Exception e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
           return;
@@ -762,10 +762,7 @@ public final class RemoteModule extends BlazeModule {
         try {
           diskCacheClient =
               CombinedCacheClientFactory.createDiskCache(
-                  env.getWorkingDirectory(),
-                  remoteOptions,
-                  digestUtil,
-                  remoteOptions.remoteVerifyDownloads);
+                  env.getWorkingDirectory(), remoteOptions, digestUtil);
         } catch (Exception e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
           return;
@@ -1089,7 +1086,8 @@ public final class RemoteModule extends BlazeModule {
           new RemoteImportantOutputHandler(
               SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor()),
               remoteOutputChecker,
-              actionInputFetcher));
+              actionInputFetcher,
+              Preconditions.checkNotNull(outputService).getRewoundActionSynchronizer()));
     }
   }
 

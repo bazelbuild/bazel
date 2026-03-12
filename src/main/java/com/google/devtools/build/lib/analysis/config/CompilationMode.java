@@ -14,15 +14,9 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.devtools.common.options.EnumConverter;
-import net.starlark.java.eval.Printer;
-import net.starlark.java.eval.StarlarkSemantics;
-import net.starlark.java.eval.StarlarkValue;
 
 /** This class represents the debug/optimization mode the binaries will be built for. */
-// TODO(bazel-team): Implementing StarlarkValue is a workaround until a well-defined Java-Starlark
-// conversion interface has been created. Avoid replicating this workaround.
-// See also https://github.com/bazelbuild/bazel/pull/11347#issuecomment-630260102
-public enum CompilationMode implements StarlarkValue {
+public enum CompilationMode {
 
   // Fast build mode (-g0).
   FASTBUILD("fastbuild"),
@@ -42,17 +36,10 @@ public enum CompilationMode implements StarlarkValue {
     return mode;
   }
 
-  /**
-   * Converts to {@link CompilationMode}.
-   */
+  /** Converts to {@link CompilationMode}. */
   public static class Converter extends EnumConverter<CompilationMode> {
     public Converter() {
       super(CompilationMode.class, "compilation mode");
     }
-  }
-
-  @Override
-  public void repr(Printer printer, StarlarkSemantics semantics) {
-    printer.append(toString());
   }
 }
