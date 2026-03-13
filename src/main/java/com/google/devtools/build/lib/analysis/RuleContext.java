@@ -283,12 +283,6 @@ public class RuleContext extends TargetContext
         .collect(toImmutableSet());
   }
 
-  public boolean isAllowTagsPropagation() {
-    return getAnalysisEnvironment()
-        .getStarlarkSemantics()
-        .getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION);
-  }
-
   /**
    * If this {@code RuleContext} is for rule evaluation, returns the attribute-based prerequisites
    * of the rule and if it is for aspect evaluation, it returns the merged prerequisites of the rule

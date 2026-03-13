@@ -825,8 +825,7 @@ public class CcStarlarkInternal implements StarlarkValue {
 
     @Override
     public ImmutableMap<String, String> getExecutionInfo() {
-      return TargetUtils.getExecutionInfo(
-          ruleContext.getRule(), ruleContext.isAllowTagsPropagation());
+      return TargetUtils.getExecutionInfo(ruleContext.getRule());
     }
   }
 
@@ -949,9 +948,7 @@ public class CcStarlarkInternal implements StarlarkValue {
     ActionOwner owner =
         CppCompileActionBuilder.getActionOwner(starlarkRuleContext.getRuleContext(), toolchainType);
     ImmutableMap<String, String> executionInfo =
-        TargetUtils.getExecutionInfo(
-            starlarkRuleContext.getRuleContext().getRule(),
-            starlarkRuleContext.getRuleContext().isAllowTagsPropagation());
+        TargetUtils.getExecutionInfo(starlarkRuleContext.getRuleContext().getRule());
     CppCompileActionBuilder builder =
         createCppCompileActionBuilder(
             owner,
