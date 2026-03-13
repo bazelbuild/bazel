@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.FeatureSet;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -32,6 +34,14 @@ import net.starlark.java.eval.EvalException;
 
 /** A {@link SkyFunction} that returns the {@link PackageArgs} for a given repository. */
 public class RepoPackageArgsFunction implements SkyFunction {
+  private static final String BAZEL_FIRST_PARTY = "bazel_first_party";
+  private static final String BAZEL_THIRD_PARTY = "bazel_third_party";
+
+  private static final FeatureSet FIRST_PARTY_FEATURES =
+      new FeatureSet(ImmutableSet.of(BAZEL_FIRST_PARTY), ImmutableSet.of());
+  private static final FeatureSet THIRD_PARTY_FEATURES =
+      new FeatureSet(ImmutableSet.of(BAZEL_THIRD_PARTY), ImmutableSet.of());
+
   public static final RepoPackageArgsFunction INSTANCE = new RepoPackageArgsFunction();
 
   /** {@link SkyValue} wrapping a PackageArgs. */
@@ -116,6 +126,8 @@ public class RepoPackageArgsFunction implements SkyFunction {
         RepoFileFunction.getDisplayNameForRepo(repositoryName, mainRepoMapping.repositoryMapping());
 
     PackageArgs.Builder pkgArgsBuilder = PackageArgs.builder();
+    pkgArgsBuilder.setFeatures(
+        repositoryName.isMain() ? FIRST_PARTY_FEATURES : THIRD_PARTY_FEATURES);
     LabelConverter labelConverter =
         new LabelConverter(
             PackageIdentifier.create(repositoryName, PathFragment.EMPTY_FRAGMENT),

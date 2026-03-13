@@ -665,7 +665,8 @@ public class PackageLoadingTest extends FoundationTestCase {
         )
         """);
     assertThat(getPackage("peach").getPackageArgs().features())
-        .isEqualTo(FeatureSet.parse(ImmutableList.of("crosstool_default_false")));
+        .isEqualTo(
+            FeatureSet.parse(ImmutableList.of("bazel_first_party", "crosstool_default_false")));
   }
 
   @Test

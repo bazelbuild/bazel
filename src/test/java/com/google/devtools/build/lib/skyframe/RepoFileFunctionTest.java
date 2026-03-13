@@ -113,8 +113,76 @@ public class RepoFileFunctionTest extends BuildViewTestCase {
         """);
     invalidatePackages();
     RuleContext ruleContext = getRuleContext(getConfiguredTarget("//abc/def:what"));
-    assertThat(ruleContext.getFeatures()).containsExactly("b", "c", "d");
+    assertThat(ruleContext.getFeatures()).containsExactly("b", "c", "d", "bazel_first_party");
     assertThat(ruleContext.getDisabledFeatures()).containsExactly("a");
+  }
+
+  @Test
+  public void mainRepoHasFirstPartyFeature() throws Exception {
+    scratch.overwriteFile("REPO.bazel", "");
+    scratch.overwriteFile("abc/BUILD", "filegroup(name='t')");
+    invalidatePackages();
+    RuleContext ruleContext = getRuleContext(getConfiguredTarget("//abc:t"));
+    assertThat(ruleContext.getFeatures()).contains("bazel_first_party");
+    assertThat(ruleContext.getFeatures()).doesNotContain("bazel_third_party");
+  }
+
+  @Test
+  public void mainRepoHasFirstPartyFeatureWithNoRepoFile() throws Exception {
+    scratch.overwriteFile("abc/BUILD", "filegroup(name='t')");
+    invalidatePackages();
+    RuleContext ruleContext = getRuleContext(getConfiguredTarget("//abc:t"));
+    assertThat(ruleContext.getFeatures()).contains("bazel_first_party");
+    assertThat(ruleContext.getFeatures()).doesNotContain("bazel_third_party");
+  }
+
+  @Test
+  public void externalRepoHasThirdPartyFeature() throws Exception {
+    scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='foo',version='1.0')");
+    registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo',version='1.0')");
+    scratch.overwriteFile(
+        moduleRoot.getRelative("foo+1.0/MODULE.bazel").getPathString(), "");
+    scratch.overwriteFile(
+        moduleRoot.getRelative("foo+1.0/abc/BUILD").getPathString(), "filegroup(name='t')");
+    invalidatePackages();
+    RuleContext ruleContext = getRuleContext(getConfiguredTarget("@@foo+//abc:t"));
+    assertThat(ruleContext.getFeatures()).contains("bazel_third_party");
+    assertThat(ruleContext.getFeatures()).doesNotContain("bazel_first_party");
+  }
+
+  @Test
+  public void firstPartyFeatureCanBeDisabledByRepoFile() throws Exception {
+    scratch.overwriteFile("REPO.bazel", "repo(features=['-bazel_first_party'])");
+    scratch.overwriteFile("abc/BUILD", "filegroup(name='t')");
+    invalidatePackages();
+    RuleContext ruleContext = getRuleContext(getConfiguredTarget("//abc:t"));
+    assertThat(ruleContext.getFeatures()).doesNotContain("bazel_first_party");
+    assertThat(ruleContext.getDisabledFeatures()).contains("bazel_first_party");
+  }
+
+  @Test
+  public void thirdPartyFeatureCanBeDisabledByRepoFile() throws Exception {
+    scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='foo',version='1.0')");
+    registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo',version='1.0')");
+    scratch.overwriteFile(
+        moduleRoot.getRelative("foo+1.0/REPO.bazel").getPathString(),
+        "repo(features=['-bazel_third_party'])");
+    scratch.overwriteFile(
+        moduleRoot.getRelative("foo+1.0/abc/BUILD").getPathString(), "filegroup(name='t')");
+    invalidatePackages();
+    RuleContext ruleContext = getRuleContext(getConfiguredTarget("@@foo+//abc:t"));
+    assertThat(ruleContext.getFeatures()).doesNotContain("bazel_third_party");
+    assertThat(ruleContext.getDisabledFeatures()).contains("bazel_third_party");
+  }
+
+  @Test
+  public void firstPartyFeatureMergesWithUserFeatures() throws Exception {
+    scratch.overwriteFile("REPO.bazel", "repo(features=['custom_feature'])");
+    scratch.overwriteFile("abc/BUILD", "filegroup(name='t')");
+    invalidatePackages();
+    RuleContext ruleContext = getRuleContext(getConfiguredTarget("//abc:t"));
+    assertThat(ruleContext.getFeatures()).contains("bazel_first_party");
+    assertThat(ruleContext.getFeatures()).contains("custom_feature");
   }
 
   @Test
