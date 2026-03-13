@@ -35,7 +35,7 @@ bazel_dep(name = "rules_python", version = "1.7.0")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "rules_testing", version = "0.9.0")
 bazel_dep(name = "stardoc", version = "0.8.0", repo_name = "io_bazel_skydoc")
-bazel_dep(name = "llvm", version = "0.6.1")
+bazel_dep(name = "llvm", version = "0.6.7")
 
 bazel_dep(name = "with_cfg.bzl", version = "0.13.0")
 bazel_dep(name = "zlib", version = "1.3.1.bcr.7")
