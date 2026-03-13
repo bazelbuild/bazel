@@ -14,6 +14,7 @@
 
 package net.starlark.java.eval;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Arrays.stream;
 
 import com.google.common.base.Preconditions;
@@ -23,6 +24,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CheckReturnValue;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.math.BigInteger;
 import java.util.Arrays;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -141,7 +145,7 @@ final class MethodDescriptor {
 
   private StarlarkType buildStarlarkType() {
     if (getAnnotation().structField()) {
-      StarlarkType returnType = TypeChecker.fromJava(getMethod().getGenericReturnType());
+      StarlarkType returnType = starlarkTypeFromJava(getMethod().getGenericReturnType());
       if (allowReturnNones) {
         returnType = Types.union(returnType, Types.NONE);
       }
@@ -169,9 +173,9 @@ final class MethodDescriptor {
       ParamType[] allowedTypes = annotation.parameters()[i].allowedTypes();
       // User supplied type
       if (allowedTypes.length > 0) {
-        parameterTypes.add(TypeChecker.fromAnnotation(allowedTypes));
+        parameterTypes.add(starlarkTypeFromAnnotation(allowedTypes));
       } else {
-        parameterTypes.add(TypeChecker.fromJava(method.getGenericParameterTypes()[i]));
+        parameterTypes.add(starlarkTypeFromJava(method.getGenericParameterTypes()[i]));
       }
       if (parameters[i].getDefaultValue() == null) {
         mandatoryParameters.add(parameters[i].getName());
@@ -181,7 +185,7 @@ final class MethodDescriptor {
     if (getMethod().getReturnType() == Object.class) {
       returnType = Types.ANY;
     } else {
-      returnType = TypeChecker.fromJava(getMethod().getGenericReturnType());
+      returnType = starlarkTypeFromJava(getMethod().getGenericReturnType());
       if (allowReturnNones) {
         returnType = Types.union(returnType, Types.NONE);
       }
@@ -197,6 +201,79 @@ final class MethodDescriptor {
         acceptsExtraArgs() ? Types.ANY : null,
         acceptsExtraKwargs() ? Types.ANY : null,
         returnType);
+  }
+
+  private static class ParameterizedTypeImpl implements ParameterizedType {
+    private final Type rawType;
+    private final Type[] actualTypeArguments;
+
+    private ParameterizedTypeImpl(Type rawType, Type[] actualTypeArguments) {
+      this.rawType = rawType;
+      this.actualTypeArguments = actualTypeArguments;
+    }
+
+    @Override
+    public Type[] getActualTypeArguments() {
+      return actualTypeArguments;
+    }
+
+    @Override
+    public Type getRawType() {
+      return rawType;
+    }
+
+    @Override
+    public Type getOwnerType() {
+      return null;
+    }
+  }
+
+  static StarlarkType starlarkTypeFromAnnotation(ParamType[] paramTypes) {
+    return Types.union(
+        Arrays.stream(paramTypes)
+            .map(
+                paramType -> {
+                  if (paramType.type().getTypeParameters().length == 1) {
+                    return new ParameterizedTypeImpl(
+                        paramType.type(), new Type[] {paramType.generic1()});
+                  } else {
+                    return paramType.type();
+                  }
+                })
+            .map(MethodDescriptor::starlarkTypeFromJava)
+            .collect(toImmutableSet()));
+  }
+
+  /** Returns the Starlark type corresponding to the given Java type. */
+  static StarlarkType starlarkTypeFromJava(Type cls) {
+    if (cls == NoneType.class || cls == void.class) {
+      return Types.NONE;
+    } else if (cls == String.class) {
+      return Types.STR;
+    } else if (cls == Boolean.class || cls == boolean.class) {
+      return Types.BOOL;
+    } else if (cls == int.class
+        || cls == long.class
+        || cls == Integer.class
+        || cls == Long.class
+        || cls == StarlarkInt.class
+        || (cls instanceof Class<?> c && BigInteger.class.isAssignableFrom(c))) {
+      return Types.INT;
+    } else if (cls == double.class || cls == Double.class || cls == StarlarkFloat.class) {
+      return Types.FLOAT;
+    } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == StarlarkList.class) {
+      return Types.list(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
+    } else if (cls instanceof ParameterizedType ptype
+        && ptype.getRawType() == StarlarkIterable.class) {
+      return Types.collection(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
+    } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == Sequence.class) {
+      return Types.sequence(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
+    } else if (cls == Object.class || cls == StarlarkValue.class) {
+      return Types.OBJECT;
+    } else {
+      // TODO(ilist@): handle more complex types
+      return Types.ANY;
+    }
   }
 
   private static boolean paramUsableAsPositionalWithoutChecks(ParamDescriptor param) {
