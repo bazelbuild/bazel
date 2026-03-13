@@ -10,6 +10,8 @@ Cherry picks:
      4f793a81b502b345e47b55b09216430af0fb08f0.
    + 51907c4773cd91342f8f39f1e6f92938e6372784:
      Release 10.0.0-pre.20260308.2 (2026-03-13)
+   + fc4340c57c203e0cb7f93750dd3ec4d67d7eb358:
+     Release 10.0.0-pre.20260308.2 (2026-03-13)
 ```
 
 This release contains contributions from many people at Google, as well as .
