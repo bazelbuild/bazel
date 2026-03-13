@@ -42,10 +42,10 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 # Set a UTF-8 locale for test_fancy_symbol_encoding.
-if is_darwin; then
-  export LC_ALL=en_US.UTF-8
-else
+if is_linux; then
   export LC_ALL=C.UTF-8
+else
+  export LC_ALL=en_US.UTF-8
 fi
 
 case "$(uname -s | tr [:upper:] [:lower:])" in

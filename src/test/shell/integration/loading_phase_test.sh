@@ -43,11 +43,10 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# Override all locale categories for the UTF-8 tests in this file.
-if is_darwin; then
-  export LC_ALL=en_US.UTF-8
-else
+if is_linux; then
   export LC_ALL=C.UTF-8
+else
+  export LC_ALL=en_US.UTF-8
 fi
 
 output_base=$TEST_TMPDIR/out
