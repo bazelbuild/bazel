@@ -44,16 +44,6 @@ public class QueryOptions extends CommonQueryOptions {
   public String outputFormat;
 
   @Option(
-      name = "null",
-      defaultValue = "null",
-      expansion = {"--line_terminator_null=true"},
-      documentationCategory = OptionDocumentationCategory.QUERY,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help = "Whether each format is terminated with \\0 instead of newline.")
-  public Void isNull;
-
-
-  @Option(
     name = "order_results",
     defaultValue = "null",
     deprecationWarning = "Please use --order_output=auto or --order_output=no instead of this flag",
