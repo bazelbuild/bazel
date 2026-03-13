@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -49,7 +50,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -76,10 +76,18 @@ public final class TargetPatternsHelper {
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
 
     int optionCount = 0;
-    if (!targets.isEmpty()) optionCount++;
-    if (!buildRequestOptions.targetPatternFile.isEmpty()) optionCount++;
-    if (!buildRequestOptions.query.isEmpty()) optionCount++;
-    if (!buildRequestOptions.queryFile.isEmpty()) optionCount++;
+    if (!targets.isEmpty()) {
+      optionCount++;
+    }
+    if (!buildRequestOptions.targetPatternFile.isEmpty()) {
+      optionCount++;
+    }
+    if (!buildRequestOptions.query.isEmpty()) {
+      optionCount++;
+    }
+    if (!buildRequestOptions.queryFile.isEmpty()) {
+      optionCount++;
+    }
     if (optionCount > 1) {
       throw new TargetPatternsHelperException(
           "Only one of command-line target patterns, --target_pattern_file, --target_query, "
@@ -208,7 +216,7 @@ public final class TargetPatternsHelper {
             TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
       }
 
-      return new ArrayList<>(targetPatterns);
+      return ImmutableList.copyOf(targetPatterns);
     } catch (InterruptedException e) {
       throw new TargetPatternsHelperException("Query interrupted",
           TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
