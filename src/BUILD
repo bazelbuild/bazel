@@ -235,9 +235,15 @@ genrule(
     srcs = [
         ":embedded_jdk_vanilla",
         ":jdeps_modules.golden",
-    ],
+    ] + select({
+        "//src/conditions:windows_arm64": ["@openjdk_win_arm64_jmods//file"],
+        "//conditions:default": [],
+    }),
     outs = ["minimal_jdk.zip"],
-    cmd = "$(location :minimize_jdk) $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
+    cmd = "$(location :minimize_jdk) $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@" + select({
+        "//src/conditions:windows_arm64": " $(location @openjdk_win_arm64_jmods//file)",
+        "//conditions:default": "",
+    }),
     tools = [
         ":jdk_for_jlink",
         ":minimize_jdk",
@@ -250,9 +256,15 @@ genrule(
     srcs = [
         ":embedded_jdk_vanilla",
         ":jdeps_modules.golden",
-    ],
+    ] + select({
+        "//src/conditions:windows_arm64": ["@openjdk_win_arm64_jmods//file"],
+        "//conditions:default": [],
+    }),
     outs = ["allmodules_jdk.zip"],
-    cmd = "$(location :minimize_jdk) --allmodules $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
+    cmd = "$(location :minimize_jdk) --allmodules $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@" + select({
+        "//src/conditions:windows_arm64": " $(location @openjdk_win_arm64_jmods//file)",
+        "//conditions:default": "",
+    }),
     tools = [
         ":jdk_for_jlink",
         ":minimize_jdk",
