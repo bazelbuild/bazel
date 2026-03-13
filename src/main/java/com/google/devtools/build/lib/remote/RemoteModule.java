@@ -603,7 +603,10 @@ public final class RemoteModule extends BlazeModule {
               bazelOutputServiceChannel,
               lastBuildId);
     } else {
-      outputService = new RemoteOutputService(env.getDirectories());
+      outputService =
+          new RemoteOutputService(
+              env.getDirectories(),
+              buildRequestOptions != null && buildRequestOptions.rewindLostInputs);
     }
 
     if ((enableHttpCache || enableDiskCache) && !enableGrpcCache) {
@@ -1081,7 +1084,8 @@ public final class RemoteModule extends BlazeModule {
           new RemoteImportantOutputHandler(
               SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor()),
               remoteOutputChecker,
-              actionInputFetcher));
+              actionInputFetcher,
+              Preconditions.checkNotNull(outputService).getRewoundActionSynchronizer()));
     }
   }
 
