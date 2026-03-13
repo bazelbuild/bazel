@@ -116,4 +116,10 @@ function test_build_and_test_with_query() {
   [ -f "bazel-bin/c/x.out" ] || fail "Output c/x.out was not built"
 }
 
+function test_build_with_query_and_cli_targets() {
+  bazel build --target_query="//a:rule_a" //b:rule_b >& "$TEST_log" || fail "Build with query and CLI targets failed"
+  [ -f "bazel-bin/a/output_a.txt" ] || fail "Output a/output_a.txt was not built"
+  [ -f "bazel-bin/b/output_b.txt" ] || fail "Output b/output_b.txt was not built"
+}
+
 run_suite "build --target_query tests"

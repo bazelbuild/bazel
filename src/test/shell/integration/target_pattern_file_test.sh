@@ -80,7 +80,7 @@ function test_target_pattern_file_test() {
 function test_target_pattern_file_and_cli_pattern() {
   setup
   bazel build --target_pattern_file=build.params -- //:x >& $TEST_log && fail "Expected failure"
-  expect_log "Only one of command-line target patterns, --target_pattern_file, --target_query, or --target_query_file may be specified"
+  expect_log "Command-line target pattern and --target_pattern_file cannot both be specified"
 }
 
 function test_target_pattern_file_unicode() {

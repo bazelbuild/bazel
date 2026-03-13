@@ -112,8 +112,7 @@ public class TargetPatternsHelperTest {
             TargetPatternsHelperException.class, () -> TargetPatternsHelper.readFrom(env, options));
 
     String message =
-        "Only one of command-line target patterns, --target_pattern_file, --target_query, "
-            + "or --target_query_file may be specified";
+        "Command-line target pattern and --target_pattern_file cannot both be specified";
     assertThat(expected).hasMessageThat().isEqualTo(message);
     assertThat(expected.getFailureDetail())
         .isEqualTo(
@@ -142,7 +141,7 @@ public class TargetPatternsHelperTest {
   }
 
   @Test
-  public void testSpecifyMultipleOptionsThrows() throws OptionsParsingException {
+  public void testSpecifyPatternFileAndQueryThrows() throws OptionsParsingException {
     options.parse("--target_pattern_file=patterns.txt", "--target_query=deps(//...)");
 
     TargetPatternsHelperException expected =
@@ -150,8 +149,7 @@ public class TargetPatternsHelperTest {
             TargetPatternsHelperException.class, () -> TargetPatternsHelper.readFrom(env, options));
 
     String message =
-        "Only one of command-line target patterns, --target_pattern_file, --target_query, "
-            + "or --target_query_file may be specified";
+        "--target_pattern_file cannot be combined with --target_query or --target_query_file";
     assertThat(expected).hasMessageThat().isEqualTo(message);
     assertThat(expected.getFailureDetail())
         .isEqualTo(
@@ -164,17 +162,14 @@ public class TargetPatternsHelperTest {
   }
 
   @Test
-  public void testSpecifyQueryAndPatternThrows() throws OptionsParsingException {
-    options.parse("--target_query=deps(//...)");
-    options.setResidue(ImmutableList.of("//some:pattern"), ImmutableList.of());
+  public void testSpecifyQueryAndQueryFileThrows() throws OptionsParsingException {
+    options.parse("--target_query=deps(//...)", "--target_query_file=query.txt");
 
     TargetPatternsHelperException expected =
         assertThrows(
             TargetPatternsHelperException.class, () -> TargetPatternsHelper.readFrom(env, options));
 
-    String message =
-        "Only one of command-line target patterns, --target_pattern_file, --target_query, "
-            + "or --target_query_file may be specified";
+    String message = "--target_query and --target_query_file cannot both be specified";
     assertThat(expected).hasMessageThat().isEqualTo(message);
   }
 

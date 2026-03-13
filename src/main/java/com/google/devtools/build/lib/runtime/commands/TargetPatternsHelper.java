@@ -65,8 +65,11 @@ public final class TargetPatternsHelper {
 
   /**
    * Reads a list of target patterns, either from the command-line residue, by reading newline
-   * delimited target patterns from the --target_pattern_file flag, or from --target_query/--target_query_file.
-   * If multiple options are specified, throws {@link TargetPatternsHelperException}.
+   * delimited target patterns from the --target_pattern_file flag, or from
+   * --target_query/--target_query_file. Command-line target patterns may be combined with
+   * --target_query or --target_query_file, in which case query results come first followed by
+   * command-line patterns. Other conflicting combinations throw {@link
+   * TargetPatternsHelperException}.
    *
    * @return A list of target patterns.
    */
@@ -75,52 +78,59 @@ public final class TargetPatternsHelper {
     List<String> targets = options.getResidue();
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
 
-    int optionCount = 0;
-    if (!targets.isEmpty()) {
-      optionCount++;
-    }
-    if (!buildRequestOptions.targetPatternFile.isEmpty()) {
-      optionCount++;
-    }
-    if (!buildRequestOptions.query.isEmpty()) {
-      optionCount++;
-    }
-    if (!buildRequestOptions.queryFile.isEmpty()) {
-      optionCount++;
-    }
-    if (optionCount > 1) {
+    boolean hasQuery = !buildRequestOptions.query.isEmpty();
+    boolean hasQueryFile = !buildRequestOptions.queryFile.isEmpty();
+    boolean hasTargetPatternFile = !buildRequestOptions.targetPatternFile.isEmpty();
+
+    if (hasQuery && hasQueryFile) {
       throw new TargetPatternsHelperException(
-          "Only one of command-line target patterns, --target_pattern_file, --target_query, "
-              + "or --target_query_file may be specified",
+          "--target_query and --target_query_file cannot both be specified",
+          TargetPatterns.Code.TARGET_PATTERN_FILE_WITH_COMMAND_LINE_PATTERN);
+    }
+    if (hasTargetPatternFile && (hasQuery || hasQueryFile)) {
+      throw new TargetPatternsHelperException(
+          "--target_pattern_file cannot be combined with --target_query or --target_query_file",
+          TargetPatterns.Code.TARGET_PATTERN_FILE_WITH_COMMAND_LINE_PATTERN);
+    }
+    if (hasTargetPatternFile && !targets.isEmpty()) {
+      throw new TargetPatternsHelperException(
+          "Command-line target pattern and --target_pattern_file cannot both be specified",
           TargetPatterns.Code.TARGET_PATTERN_FILE_WITH_COMMAND_LINE_PATTERN);
     }
 
-    if (!buildRequestOptions.query.isEmpty()) {
-      try {
-        return executeQuery(env, buildRequestOptions.query, options);
-      } catch (QueryException | InterruptedException | IOException e) {
-        throw new TargetPatternsHelperException(
-            "Error executing query: " + e.getMessage(),
-            TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
+    if (hasQuery || hasQueryFile) {
+      List<String> queryTargets;
+      if (hasQuery) {
+        try {
+          queryTargets = executeQuery(env, buildRequestOptions.query, options);
+        } catch (QueryException | InterruptedException | IOException e) {
+          throw new TargetPatternsHelperException(
+              "Error executing query: " + e.getMessage(),
+              TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
+        }
+      } else {
+        Path queryFilePath = env.getWorkingDirectory().getRelative(buildRequestOptions.queryFile);
+        try {
+          env.getEventBus()
+              .post(
+                  InputFileEvent.create(
+                      /* type= */ "query_file", queryFilePath.getFileSize()));
+          String queryExpression = FileSystemUtils.readContent(queryFilePath, ISO_8859_1).trim();
+          queryTargets = executeQuery(env, queryExpression, options);
+        } catch (IOException e) {
+          throw new TargetPatternsHelperException(
+              "I/O error reading from " + queryFilePath.getPathString() + ": " + e.getMessage(),
+              TargetPatterns.Code.TARGET_PATTERN_FILE_READ_FAILURE);
+        } catch (QueryException | InterruptedException e) {
+          throw new TargetPatternsHelperException(
+              "Error executing query from file: " + e.getMessage(),
+              TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
+        }
       }
-    } else if (!buildRequestOptions.queryFile.isEmpty()) {
-      Path queryFilePath = env.getWorkingDirectory().getRelative(buildRequestOptions.queryFile);
-      try {
-        env.getEventBus()
-            .post(
-                InputFileEvent.create(
-                    /* type= */ "query_file", queryFilePath.getFileSize()));
-        String queryExpression = FileSystemUtils.readContent(queryFilePath, ISO_8859_1).trim();
-        return executeQuery(env, queryExpression, options);
-      } catch (IOException e) {
-        throw new TargetPatternsHelperException(
-            "I/O error reading from " + queryFilePath.getPathString() + ": " + e.getMessage(),
-            TargetPatterns.Code.TARGET_PATTERN_FILE_READ_FAILURE);
-      } catch (QueryException | InterruptedException e) {
-        throw new TargetPatternsHelperException(
-            "Error executing query from file: " + e.getMessage(),
-            TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
+      if (targets.isEmpty()) {
+        return queryTargets;
       }
+      return ImmutableList.<String>builder().addAll(queryTargets).addAll(targets).build();
     }
 
     if (!buildRequestOptions.targetPatternFile.isEmpty()) {

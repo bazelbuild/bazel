@@ -409,8 +409,9 @@ public class BuildRequestOptions extends OptionsBase {
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       help =
           "If set, build will evaluate the query expression and build the resulting targets. "
-              + "Example: --query='deps(//foo) - deps(//bar)'. It is an error to specify this "
-              + "along with command-line patterns, --target_pattern_file, or --target_query_file.")
+              + "Example: --target_query='deps(//foo) - deps(//bar)'. May be combined with "
+              + "command-line target patterns. Cannot be used with --target_pattern_file or "
+              + "--target_query_file.")
   public String query;
 
   @Option(
@@ -420,8 +421,8 @@ public class BuildRequestOptions extends OptionsBase {
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       help =
           "If set, build will read a query expression from the file named here and build the "
-              + "resulting targets. It is an error to specify this along with command-line patterns, "
-              + "--target_pattern_file, or --target_query.")
+              + "resulting targets. May be combined with command-line target patterns. Cannot be "
+              + "used with --target_pattern_file or --target_query.")
   public String queryFile;
 
   /**
