@@ -29,7 +29,6 @@ import build.bazel.remote.execution.v2.Tree;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -69,7 +68,7 @@ public class DiskCacheClientTest {
 
   @Before
   public void setUp() throws Exception {
-    client = new DiskCacheClient(root, DIGEST_UTIL, /* verifyDownloads= */ true);
+    client = new DiskCacheClient(root, DIGEST_UTIL);
   }
 
   @After
@@ -108,10 +107,7 @@ public class DiskCacheClientTest {
     assumeNotNull(BazelHashFunctions.BLAKE3); // BLAKE3 not available in Blaze.
 
     DiskCacheClient client =
-        new DiskCacheClient(
-            root,
-            new DigestUtil(SyscallCache.NO_CACHE, BazelHashFunctions.BLAKE3),
-            /* verifyDownloads= */ true);
+        new DiskCacheClient(root, new DigestUtil(SyscallCache.NO_CACHE, BazelHashFunctions.BLAKE3));
     Digest digest = Digest.newBuilder().setHash("0123456789abcdef").setSizeBytes(42).build();
     Path path = client.toPath(digest, Store.CAS);
 
@@ -123,10 +119,7 @@ public class DiskCacheClientTest {
     assumeNotNull(BazelHashFunctions.BLAKE3); // BLAKE3 not available in Blaze.
 
     DiskCacheClient client =
-        new DiskCacheClient(
-            root,
-            new DigestUtil(SyscallCache.NO_CACHE, BazelHashFunctions.BLAKE3),
-            /* verifyDownloads= */ true);
+        new DiskCacheClient(root, new DigestUtil(SyscallCache.NO_CACHE, BazelHashFunctions.BLAKE3));
     Digest digest = Digest.newBuilder().setHash("0123456789abcdef").setSizeBytes(42).build();
     Path path = client.toPath(digest, Store.AC);
 
@@ -229,17 +222,6 @@ public class DiskCacheClientTest {
     assertThrows(
         CacheNotFoundException.class,
         () -> getFromFuture(client.downloadBlob(getDigest("contents"), out.getOutputStream())));
-  }
-
-  @Test
-  public void downloadBlob_whenCorrupted_throwsOutputDigestMismatchException() throws Exception {
-    Digest digest = getDigest("contents");
-    populateCas(digest, "corrupted contents");
-    Path out = fs.getPath("/out");
-
-    assertThrows(
-        OutputDigestMismatchException.class,
-        () -> getFromFuture(client.downloadBlob(digest, out.getOutputStream())));
   }
 
   @Test
@@ -358,8 +340,7 @@ public class DiskCacheClientTest {
   public void concurrentUploadDownload()
       throws IOException, ExecutionException, InterruptedException {
     var nativeDiskCacheDir = TestUtils.createUniqueTmpDir(FileSystems.getNativeFileSystem());
-    var nativeClient =
-        new DiskCacheClient(nativeDiskCacheDir, DIGEST_UTIL, /* verifyDownloads= */ false);
+    var nativeClient = new DiskCacheClient(nativeDiskCacheDir, DIGEST_UTIL);
     var tasks = new ArrayList<Future<?>>();
     // Use 1 MB blobs to increase the window for concurrent access during write/rename.
     var contentSize = 1024 * 1024;
