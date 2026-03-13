@@ -579,7 +579,7 @@ public class ExecutionOptions extends OptionsBase {
   /** Converter for the --flaky_test_attempts option. */
   public static class TestAttemptsConverter extends PerLabelOptions.PerLabelOptionsConverter {
     private static final int MIN_VALUE = 1;
-    private static final int MAX_VALUE = 10;
+    private static final int MAX_VALUE = 1000;
 
     private void validateInput(String input) throws OptionsParsingException {
       if (!Objects.equals(input, "default")) {
