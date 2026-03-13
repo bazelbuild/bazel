@@ -15,8 +15,7 @@ filegroup(
 
 java_test(
     name = "http",
-    #srcs = glob(["*.java"]),
-		srcs = [ "HttpCacheClientTest.java", ],
+    srcs = glob(["*.java"]),
     tags = [
         "requires-network",
     ],
