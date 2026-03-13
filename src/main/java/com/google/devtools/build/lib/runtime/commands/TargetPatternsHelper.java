@@ -186,7 +186,9 @@ public final class TargetPatternsHelper {
 
       var starlarkSemantics =
           options.getOptions(BuildLanguageOptions.class).toStarlarkSemantics();
-      LabelPrinter labelPrinter =
+      // Query-specific options, like --tool_deps, are not available in the 'build' command,
+      // so we use default options. This only affects the label printing.
+      var labelPrinter =
           new QueryOptions().getLabelPrinter(starlarkSemantics, mainRepoTargetParser.getRepoMapping());
 
       var queryEnv =
