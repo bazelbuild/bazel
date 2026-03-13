@@ -199,6 +199,8 @@ public final class TargetPatternsHelper {
               UniverseScope.EMPTY,
               threadsOption.threads,
               Set.of(),
+              // Graphless query is sufficient since we only need target labels, not the
+              // dependency graph structure or ordering
               /* useGraphlessQuery= */ true,
               mainRepoTargetParser,
               labelPrinter);
