@@ -311,7 +311,8 @@ public final class RemoteModule extends BlazeModule {
         env.getBuildRequestId(),
         env.getCommandId().toString(),
         combinedCache,
-        env.getExecRoot(),
+        env.getDirectories()
+            .getExecRoot(env.getRuntime().getRuleClassProvider().getRunfilesPrefix()),
         tempPathGenerator,
         remoteOutputChecker,
         env.getOptions().getOptions(BuildRequestOptions.class) != null
@@ -1043,7 +1044,7 @@ public final class RemoteModule extends BlazeModule {
 
   private TempPathGenerator getTempPathGenerator(CommandEnvironment env)
       throws AbruptExitException {
-    Path tempDir = env.getActionTempsDirectory().getChild("remote");
+    Path tempDir = env.getOutputBase().getRelative("tmp/remote");
     if (tempDir.exists()) {
       env.getReporter()
           .handle(Event.warn("Found stale downloads from previous build, deleting..."));

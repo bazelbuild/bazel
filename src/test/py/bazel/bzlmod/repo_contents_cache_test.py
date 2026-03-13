@@ -19,6 +19,7 @@ import os
 import pathlib
 import tempfile
 import time
+import unittest
 
 from absl.testing import absltest
 from src.test.py.bazel import test_base
@@ -428,6 +429,9 @@ class RepoContentsCacheTest(test_base.TestBase):
     self.assertIn('JUST FETCHED', stderr)
     self.assertNotIn('WARNING', stderr)
 
+  # TODO: Enable after RepositoryDelegatorFunction is moved to Skyframe
+  # workers, which is needed for batch checking to work correctly.
+  @unittest.skip('Requires Skyframe workers (not available on 8.7.0)')
   def testReverseDependencyDirection(self):
     # Set up two repos that retain their predeclared input hashes across two
     #  builds but still reverse their dependency direction. Depending on how
