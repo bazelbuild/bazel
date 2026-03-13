@@ -19,21 +19,6 @@ function print_message_and_exit() {
   echo $1 >&2; exit 1;
 }
 
-# Ensure that the shell interprets UTF-8 byte sequences correctly so that
-# tests can handle multi-byte characters in file names, target names, and
-# action outputs. Only set LC_CTYPE (not LC_ALL) to avoid affecting other
-# locale categories like collation or numeric formatting that tests may
-# depend on.
-# macOS doesn't support C.UTF-8, but both Linux and MSYS2 (Windows) do.
-case "$(uname -s | tr [:upper:] [:lower:])" in
-darwin*)
-  export LC_CTYPE=en_US.UTF-8
-  ;;
-*)
-  export LC_CTYPE=C.UTF-8
-  ;;
-esac
-
 if type rlocation >&/dev/null; then
   # An incomplete rlocation function is defined in Bazel's test-setup.sh script,
   # load the actual Bash runfiles library from @bazel_tools//tools/bash/runfiles
