@@ -254,6 +254,9 @@ public class TestConfiguration extends Fragment {
             - `disabled` to never use test sharding.
             - `forced=k` to enforce `k` shards for testing regardless of the `shard_count` `BUILD`
               attribute.
+            - `only=k` to run only shard `k` (1-based) of a sharded test. The test must have a
+              `shard_count` set and `k` must be in range. `TEST_TOTAL_SHARDS` is preserved so
+              the test framework partitions tests correctly.
             """)
     public TestShardingStrategy testShardingStrategy;
 
