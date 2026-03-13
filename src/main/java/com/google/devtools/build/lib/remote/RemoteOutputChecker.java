@@ -192,24 +192,21 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     }
     var runfiles = runfilesSupport.getRunfiles();
     for (Artifact runfile : runfiles.getArtifacts().toList()) {
-      if (runfile.isSourceArtifact()) {
-        continue;
+      if (mayBeRemote(runfile)) {
+        addOutputToDownload(runfile);
       }
-      addOutputToDownload(runfile);
     }
     for (var symlink : runfiles.getSymlinks().toList()) {
       var artifact = symlink.getArtifact();
-      if (artifact.isSourceArtifact()) {
-        continue;
+      if (mayBeRemote(artifact)) {
+        addOutputToDownload(artifact);
       }
-      addOutputToDownload(artifact);
     }
     for (var symlink : runfiles.getRootSymlinks().toList()) {
       var artifact = symlink.getArtifact();
-      if (artifact.isSourceArtifact()) {
-        continue;
+      if (mayBeRemote(artifact)) {
+        addOutputToDownload(artifact);
       }
-      addOutputToDownload(artifact);
     }
   }
 
@@ -292,6 +289,19 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
       }
     }
     return false;
+  }
+
+  /**
+   * Returns whether this {@link ActionInput} could conceivably be only available remotely.
+   *
+   * <p>Use this as a quick check to avoid unnecessary extra work for artifacts that are definitely
+   * local.
+   */
+  public static boolean mayBeRemote(ActionInput actionInput) {
+    return !(actionInput instanceof Artifact artifact
+        && artifact.isSourceArtifact()
+        // Source artifacts in the main repo don't need to be fetched.
+        && (artifact.getOwner() == null || artifact.getOwner().getRepository().isMain()));
   }
 
   /** Returns whether this {@link ActionInput} should be downloaded. */
