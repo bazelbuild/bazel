@@ -1657,6 +1657,37 @@ public class XcodeConfigTest extends BuildViewTestCase {
         ImmutableList.of(ExecutionRequirements.REQUIRES_XCODE_LABEL + ":"));
   }
 
+  @Test
+  public void testXcodeVersionWithSdkVariant() throws Exception {
+    new BuildFileBuilder()
+        .addSdkVariant("ios_sdk_15", "17.0", "iPhoneOS", "arm64", "arm64e")
+        .addExplicitVersion("version15", "15.0", true)
+        .setVersionSdkVariant("version15", "ios_sdk_15")
+        .write(scratch, "xcode/BUILD");
+
+    useConfiguration("--xcode_version_config=//xcode:foo");
+    getConfiguredTarget("//xcode:foo");
+
+    assertXcodeVersion("15.0");
+  }
+
+  @Test
+  public void testXcodeVersionWithSdkVariant_localRemote() throws Exception {
+    new BuildFileBuilder()
+        .addSdkVariant("ios_sdk_15", "17.0", "iPhoneOS", "arm64", "arm64e")
+        .addRemoteVersion("version15", "15.0", true)
+        .addLocalVersion("version15_local", "15.0", true)
+        .setVersionSdkVariant("version15", "ios_sdk_15")
+        .setVersionSdkVariant("version15_local", "ios_sdk_15")
+        .write(scratch, "xcode/BUILD");
+
+    useConfiguration("--xcode_version_config=//xcode:foo");
+    getConfiguredTarget("//xcode:foo");
+
+    assertXcodeVersion("15.0");
+    assertAvailability("both");
+  }
+
   private DottedVersion getSdkVersionForPlatform(ApplePlatform platform) throws Exception {
     ConfiguredTarget xcodeConfig = getConfiguredTarget("//xcode:foo");
     StructImpl provider = (StructImpl) xcodeConfig.get(XCODE_VERSION_INFO_PROVIDER_KEY);
