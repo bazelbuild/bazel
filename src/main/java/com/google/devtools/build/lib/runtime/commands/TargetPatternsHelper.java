@@ -208,7 +208,7 @@ public final class TargetPatternsHelper {
             @Override
             public void processOutput(Iterable<Target> partialResult) {
               for (Target target : partialResult) {
-                targetPatterns.add(target.getLabel().toString());
+                targetPatterns.add(target.getLabel().getUnambiguousCanonicalForm());
               }
             }
           };
