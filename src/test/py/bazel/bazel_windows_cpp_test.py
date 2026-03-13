@@ -1310,5 +1310,35 @@ class BazelWindowsCppTest(test_base.TestBase):
     ])
     self.AssertExitCode(exit_code, 0, stderr)
 
+  def testUndeclaredInclusionOnCaseMismatchedIncludePath(self):
+    self.createModuleDotBazel()
+    self.ScratchFile(
+        'pkg/BUILD',
+        [
+            'load("@rules_cc//cc:cc_library.bzl", "cc_library")',
+            'cc_library(',
+            '    name = "lib",',
+            '    srcs = ["hello.cc"],',
+            '    hdrs = glob(["Include/**"]),',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'pkg/hello.cc',
+        [
+            '#include "include/shared/basetsd.h"',
+            'int hello() { return base_tsd_value(); }',
+        ],
+    )
+    self.ScratchFile(
+        'pkg/Include/shared/BaseTsd.h',
+        [
+            '#pragma once',
+            'static inline int base_tsd_value() { return 1; }',
+        ],
+    )
+
+    self.RunBazel(['build', '//pkg:lib'])
+
 if __name__ == '__main__':
   absltest.main()
