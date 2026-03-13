@@ -344,7 +344,7 @@ public class HttpCacheClientTest {
 		return createHttpBlobStore(
 				serverChannel,
 				timeoutSeconds,
-				/* remoteVerifyDownloads= */ true,
+				remoteVerifyDownloads,
 				ImmutableList.of(),
 				creds,
 				authAndTlsOptions,
@@ -1020,7 +1020,7 @@ public class HttpCacheClientTest {
 						ImmutableList.of(
 								Map.entry("CacheKey1", "CacheValue1"),
 								Map.entry("CacheKey2", "CacheValue2"));
-				remoteOptions.remoteExecHeaders = 
+				remoteOptions.remoteExecHeaders =
 						ImmutableList.of(
 								Map.entry("ExecKey1", "ExecValue1"),
 								Map.entry("ExecKey2", "ExecValue2"));
