@@ -21,19 +21,13 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
-import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.common.UniverseScope;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
-import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
@@ -54,7 +48,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
-import net.starlark.java.eval.StarlarkSemantics;
 
 /** Provides support for reading target patterns from a file or the command-line. */
 public final class TargetPatternsHelper {
@@ -184,19 +177,19 @@ public final class TargetPatternsHelper {
       CommandEnvironment env, String queryExpression, OptionsParsingResult options)
       throws QueryException, InterruptedException, IOException, TargetPatternsHelperException {
     try {
-      LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
-      RepositoryMapping repoMapping =
+      var threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
+      var repoMapping =
           env.getSkyframeExecutor()
               .getMainRepoMapping(false, threadsOption.threads, env.getReporter());
-      TargetPattern.Parser mainRepoTargetParser =
+      var mainRepoTargetParser =
           new TargetPattern.Parser(env.getRelativeWorkingDirectory(), RepositoryName.MAIN, repoMapping);
 
-      StarlarkSemantics starlarkSemantics =
+      var starlarkSemantics =
           options.getOptions(BuildLanguageOptions.class).toStarlarkSemantics();
       LabelPrinter labelPrinter =
           new QueryOptions().getLabelPrinter(starlarkSemantics, mainRepoTargetParser.getRepoMapping());
 
-      AbstractBlazeQueryEnvironment<Target> queryEnv =
+      var queryEnv =
           QueryEnvironmentBasedCommand.newQueryEnvironment(
               env,
               /* keepGoing=*/ false,
@@ -208,9 +201,9 @@ public final class TargetPatternsHelper {
               mainRepoTargetParser,
               labelPrinter);
 
-      QueryExpression expr = QueryExpression.parse(queryExpression, queryEnv);
+      var expr = QueryExpression.parse(queryExpression, queryEnv);
       Set<String> targetPatterns = new LinkedHashSet<>();
-      ThreadSafeOutputFormatterCallback<Target> callback =
+      var callback =
           new ThreadSafeOutputFormatterCallback<Target>() {
             @Override
             public void processOutput(Iterable<Target> partialResult) {
@@ -220,7 +213,7 @@ public final class TargetPatternsHelper {
             }
           };
 
-      QueryEvalResult result = queryEnv.evaluateQuery(expr, callback);
+      var result = queryEnv.evaluateQuery(expr, callback);
       if (!result.getSuccess()) {
         throw new TargetPatternsHelperException("Query evaluation failed",
             TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
