@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import io.netty.channel.unix.DomainSocketAddress;
 import java.io.IOException;
+import java.util.Map.Entry;
 import java.net.URI;
 import javax.annotation.Nullable;
 
@@ -93,7 +94,7 @@ public final class CombinedCacheClientFactory {
               Math.toIntExact(options.remoteTimeout.toSeconds()),
               options.remoteMaxConnections,
               options.remoteVerifyDownloads,
-              ImmutableList.copyOf(options.remoteHeaders),
+              effectiveHeaders(options),
               digestUtil,
               retrier,
               creds,
@@ -107,7 +108,7 @@ public final class CombinedCacheClientFactory {
             Math.toIntExact(options.remoteTimeout.toSeconds()),
             options.remoteMaxConnections,
             options.remoteVerifyDownloads,
-            ImmutableList.copyOf(options.remoteHeaders),
+            effectiveHeaders(options),
             digestUtil,
             retrier,
             creds,
@@ -132,5 +133,13 @@ public final class CombinedCacheClientFactory {
     return options.remoteCache != null
         && (Ascii.toLowerCase(options.remoteCache).startsWith("http://")
             || Ascii.toLowerCase(options.remoteCache).startsWith("https://"));
+  }
+
+  public static ImmutableList<Entry<String, String>> effectiveHeaders(RemoteOptions options) {
+	return ImmutableList.<Entry<String, String>>builder()
+	  .addAll(options.remoteHeaders)
+	  .addAll(options.remoteCacheHeaders)
+	  .addAll(options.remoteExecHeaders)
+	  .build();
   }
 }
