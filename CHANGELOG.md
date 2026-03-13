@@ -8,6 +8,22 @@ Cherry picks:
    + eb3941da848addebd7ebe530771a5839e8f9dfa3:
      Automated rollback of commit
      4f793a81b502b345e47b55b09216430af0fb08f0.
+   + 51907c4773cd91342f8f39f1e6f92938e6372784:
+     Release 10.0.0-pre.20260308.2 (2026-03-13)
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 10.0.0-pre.20260308.2 (2026-03-13)
+
+```
+Baseline: d67b13a5d8e8fa2715ae8ebbd4a0ca1b8c1d495a
+
+Cherry picks:
+
+   + eb3941da848addebd7ebe530771a5839e8f9dfa3:
+     Automated rollback of commit
+     4f793a81b502b345e47b55b09216430af0fb08f0.
 ```
 
 Incompatible changes:
