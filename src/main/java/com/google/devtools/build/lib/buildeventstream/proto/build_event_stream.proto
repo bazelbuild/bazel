@@ -612,6 +612,11 @@ message ActionExecuted {
   //
   // The default type will be `tools.proto.SpawnExec` found in `spawn.proto`.
   repeated google.protobuf.Any strategy_details = 14;
+
+  // Digests of spawns remotely cached or executed by this action.
+  // Typically one digest per action, but some actions may have multiple.
+  // In Bazel, each is a build.bazel.remote.execution.v2.Digest.
+  repeated google.protobuf.Any spawn_digests = 16;
 }
 
 // Collection of all output files belonging to that output group.
