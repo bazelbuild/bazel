@@ -126,6 +126,9 @@ public class BlazeOptionHandlerTest {
     structuredArgs.put(
         "build:platform_config",
         new RcChunkOfArgs("rc1", ImmutableList.of("--enable_platform_specific_config")));
+    structuredArgs.put(
+        "build:platform_config_disabled",
+        new RcChunkOfArgs("rc1", ImmutableList.of("--enable_platform_specific_config=false")));
     return structuredArgs;
   }
 
@@ -325,12 +328,87 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
+  public void testExpandConfigOptions_withPlatformSpecificConfigDisabledInConfig()
+      throws Exception {
+    parser.parse("--config=platform_config_disabled");
+    optionHandler.expandConfigOptions(eventHandler, structuredArgsForDifferentPlatforms());
+    assertThat(parser.getResidue()).isEmpty();
+  }
+
+  @Test
   public void testExpandConfigOptions_withPlatformSpecificConfigEnabledWhenNothingSpecified()
       throws Exception {
     parser.parse("--enable_platform_specific_config");
     optionHandler.parseRcOptions(eventHandler, ArrayListMultimap.create());
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
+  }
+
+  @Test
+  public void testExpandConfigOptions_platformSpecificConfigOverridesRegardlessOfOrder()
+      throws Exception {
+    // Platform-specific config options should override non-platform-specific options even when
+    // --enable_platform_specific_config appears before the non-platform-specific option in the
+    // bazelrc (or is enabled by default).
+    ListMultimap<String, RcChunkOfArgs> structuredArgs = ArrayListMultimap.create();
+    structuredArgs.put(
+        "build",
+        new RcChunkOfArgs("rc1", ImmutableList.of("--enable_platform_specific_config")));
+    structuredArgs.put(
+        "build",
+        new RcChunkOfArgs("rc1", ImmutableList.of("--test_multiple_string=common_value")));
+    structuredArgs.put(
+        "build:linux",
+        new RcChunkOfArgs("rc1", ImmutableList.of("--test_multiple_string=linux_value")));
+    structuredArgs.put(
+        "build:macos",
+        new RcChunkOfArgs("rc1", ImmutableList.of("--test_multiple_string=macos_value")));
+    structuredArgs.put(
+        "build:windows",
+        new RcChunkOfArgs("rc1", ImmutableList.of("--test_multiple_string=windows_value")));
+    structuredArgs.put(
+        "build:freebsd",
+        new RcChunkOfArgs("rc1", ImmutableList.of("--test_multiple_string=freebsd_value")));
+    structuredArgs.put(
+        "build:openbsd",
+        new RcChunkOfArgs("rc1", ImmutableList.of("--test_multiple_string=openbsd_value")));
+
+    optionHandler.parseRcOptions(eventHandler, structuredArgs);
+    optionHandler.expandConfigOptions(eventHandler, structuredArgs);
+
+    TestOptions options = parser.getOptions(TestOptions.class);
+    assertThat(options).isNotNull();
+    // The platform-specific value should come after the common value, meaning the last value
+    // (the platform-specific one) takes precedence for last-write-wins options.
+    switch (OS.getCurrent()) {
+      case LINUX:
+        assertThat(options.testMultipleString)
+            .containsExactly("common_value", "linux_value")
+            .inOrder();
+        break;
+      case DARWIN:
+        assertThat(options.testMultipleString)
+            .containsExactly("common_value", "macos_value")
+            .inOrder();
+        break;
+      case WINDOWS:
+        assertThat(options.testMultipleString)
+            .containsExactly("common_value", "windows_value")
+            .inOrder();
+        break;
+      case FREEBSD:
+        assertThat(options.testMultipleString)
+            .containsExactly("common_value", "freebsd_value")
+            .inOrder();
+        break;
+      case OPENBSD:
+        assertThat(options.testMultipleString)
+            .containsExactly("common_value", "openbsd_value")
+            .inOrder();
+        break;
+      default:
+        assertThat(options.testMultipleString).containsExactly("common_value");
+    }
   }
 
   @Test
