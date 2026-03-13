@@ -30,6 +30,13 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+# Override all locale categories for the UTF-8 tests in this file.
+if is_darwin; then
+  export LC_ALL=en_US.UTF-8
+else
+  export LC_ALL=C.UTF-8
+fi
+
 function set_up {
   touch WORKSPACE
   cp -f "$(rlocation "io_bazel/src/test/shell/integration/unicode_test_BUILD")" BUILD
