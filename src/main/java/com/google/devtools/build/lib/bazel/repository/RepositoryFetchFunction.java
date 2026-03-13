@@ -281,7 +281,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
       if (remoteRepoContentsCache != null) {
         try {
           if (remoteRepoContentsCache.lookupCache(
-              repositoryName, repoRoot, digestWriter.predeclaredInputHash, env.getListener())) {
+              repositoryName, repoRoot, digestWriter.predeclaredInputHash, env)) {
             return new Success(Root.fromPath(repoRoot), excludeRepoFromVendoring);
           }
         } catch (IOException e) {
