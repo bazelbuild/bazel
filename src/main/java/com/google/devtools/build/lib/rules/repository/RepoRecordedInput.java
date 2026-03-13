@@ -15,14 +15,15 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
+import static java.util.Comparator.naturalOrder;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -334,7 +335,7 @@ public abstract sealed class RepoRecordedInput {
    * of the input contains whether this is a file or a directory or nonexistent, and if it's a file,
    * the digest of its contents.
    */
-  public static final class File extends RepoRecordedInput {
+  public static final class File extends RepoRecordedInput implements Comparable<File> {
     public static final Parser PARSER =
         new Parser() {
           @Override
@@ -378,6 +379,11 @@ public abstract sealed class RepoRecordedInput {
     @Override
     public int hashCode() {
       return path.hashCode();
+    }
+
+    @Override
+    public int compareTo(File o) {
+      return path.toString().compareTo(o.path.toString());
     }
 
     @Override
@@ -433,7 +439,7 @@ public abstract sealed class RepoRecordedInput {
   }
 
   /** Represents the list of entries under a directory accessed during the fetch. */
-  public static final class Dirents extends RepoRecordedInput {
+  public static final class Dirents extends RepoRecordedInput implements Comparable<Dirents> {
     public static final Parser PARSER =
         new Parser() {
           @Override
@@ -472,6 +478,11 @@ public abstract sealed class RepoRecordedInput {
     @Override
     public int hashCode() {
       return path.hashCode();
+    }
+
+    @Override
+    public int compareTo(Dirents o) {
+      return path.toString().compareTo(o.path.toString());
     }
 
     @Override
@@ -524,7 +535,7 @@ public abstract sealed class RepoRecordedInput {
    * (including adding/removing/renaming files or directories and changing file contents) will cause
    * it to go out of date.
    */
-  public static final class DirTree extends RepoRecordedInput {
+  public static final class DirTree extends RepoRecordedInput implements Comparable<DirTree> {
     public static final Parser PARSER =
         new Parser() {
           @Override
@@ -566,6 +577,11 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
+    public int compareTo(DirTree o) {
+      return path.toString().compareTo(o.path.toString());
+    }
+
+    @Override
     public String toStringInternal() {
       return path.toString();
     }
@@ -597,7 +613,7 @@ public abstract sealed class RepoRecordedInput {
   }
 
   /** Represents an environment variable accessed during the repo fetch. */
-  public static final class EnvVar extends RepoRecordedInput {
+  public static final class EnvVar extends RepoRecordedInput implements Comparable<EnvVar> {
     public static final Parser PARSER =
         new Parser() {
           @Override
@@ -613,10 +629,12 @@ public abstract sealed class RepoRecordedInput {
 
     final String name;
 
-    public static ImmutableMap<EnvVar, Optional<String>> wrap(
+    public static ImmutableSortedMap<EnvVar, Optional<String>> wrap(
         Map<String, Optional<String>> envVars) {
       return envVars.entrySet().stream()
-          .collect(toImmutableMap(e -> new EnvVar(e.getKey()), Map.Entry::getValue));
+          .collect(
+              toImmutableSortedMap(
+                  naturalOrder(), e -> new EnvVar(e.getKey()), Map.Entry::getValue));
     }
 
     private EnvVar(String name) {
@@ -637,6 +655,11 @@ public abstract sealed class RepoRecordedInput {
     @Override
     public int hashCode() {
       return name.hashCode();
+    }
+
+    @Override
+    public int compareTo(EnvVar o) {
+      return name.compareTo(o.name);
     }
 
     @Override
