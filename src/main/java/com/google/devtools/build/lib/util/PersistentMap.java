@@ -83,7 +83,6 @@ public abstract class PersistentMap<K, V> extends ForwardingConcurrentMap<K, V> 
   private final Path journalFile;
 
   private final LinkedBlockingQueue<K> journal;
-  private DataOutputStream journalOut;
 
   /**
    * 'dirty' is true when the in-memory representation of the map is more recent than the on-disk
@@ -202,22 +201,24 @@ public abstract class PersistentMap<K, V> extends ForwardingConcurrentMap<K, V> 
    */
   private synchronized void writeJournal() {
     try {
-      if (journalOut == null) {
-        if (journalFile.exists()) {
-          // The journal file was left around after the last save() because
-          // keepJournal() was true. Append to it.
-          journalOut =
-              new DataOutputStream(new BufferedOutputStream(journalFile.getOutputStream(true)));
-        } else {
-          // Create new journal.
-          journalOut = createMapFile(journalFile);
-        }
+      DataOutputStream journalOut;
+      if (journalFile.exists()) {
+        // The journal file was left around after the last save() because
+        // keepJournal() was true. Append to it.
+        journalOut =
+            new DataOutputStream(new BufferedOutputStream(journalFile.getOutputStream(true)));
+      } else {
+        // Create new journal.
+        journalOut = createMapFile(journalFile);
       }
-      // Journal may have duplicates, we can ignore them.
-      LinkedHashSet<K> items = Sets.newLinkedHashSetWithExpectedSize(journal.size());
-      journal.drainTo(items);
-      writeEntries(journalOut, items, delegate());
-      journalOut.flush();
+      try {
+        // Journal may have duplicates, we can ignore them.
+        LinkedHashSet<K> items = Sets.newLinkedHashSetWithExpectedSize(journal.size());
+        journal.drainTo(items);
+        writeEntries(journalOut, items, delegate());
+      } finally {
+        journalOut.close();
+      }
     } catch (IOException e) {
       this.deferredIOFailure = e.getMessage() + " during journal append";
     }
@@ -303,8 +304,6 @@ public abstract class PersistentMap<K, V> extends ForwardingConcurrentMap<K, V> 
     if (dirty) {
       if (!fullSave && keepJournal()) {
         forceFlush();
-        journalOut.close();
-        journalOut = null;
         return journalSize() + cacheSize();
       } else {
         dirty = false;
@@ -343,12 +342,8 @@ public abstract class PersistentMap<K, V> extends ForwardingConcurrentMap<K, V> 
     return false;
   }
 
-  private synchronized void clearJournal() throws IOException {
+  private synchronized void clearJournal() {
     journal.clear();
-    if (journalOut != null) {
-      journalOut.close();
-      journalOut = null;
-    }
   }
 
   private synchronized void loadEntries(Path mapFile, boolean failFast) throws IOException {

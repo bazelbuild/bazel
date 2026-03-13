@@ -71,20 +71,24 @@ java_library(
 
 java_test(
     name = "RewindingTest",
+    timeout = "long",
     srcs = ["RewindingTest.java"],
+    jvm_flags = ["-Djava.lang.Thread.allowVirtualThreads=true"],
     shard_count = 12,
-    tags = ["no_windows"],  # BuildIntegrationTestCase isn't fully compatible with Windows.
     deps = [
         ":rewinding_tests_helper",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:target_configured_event",
+        "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
         "//src/main/java/com/google/devtools/build/lib/includescanning",
+        "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/remote/util:integration_test_utils",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//src/test/java/com/google/devtools/build/lib/testutil:action_event_recorder",
         "//third_party:guava",
