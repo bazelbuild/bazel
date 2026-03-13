@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.getSequenceValue;
 
-import com.github.benmanes.caffeine.cache.CacheLoader;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.annotations.VisibleForTesting;
@@ -50,7 +49,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
@@ -112,21 +110,8 @@ public class CcToolchainFeatures implements StarlarkValue {
 
   /** A single flag to be expanded under a set of variables. */
   @Immutable
-  public static class Flag implements Expandable {
-    private final ImmutableList<StringChunk> chunks;
-
-    public Flag(ImmutableList<StringChunk> chunks) {
-      this.chunks = chunks;
-    }
-
-    String getString() {
-      return Joiner.on("")
-          .join(
-              chunks.stream()
-                  .map(chunk -> chunk.getString())
-                  .collect(ImmutableList.toImmutableList()));
-    }
-
+  @AutoCodec
+  record Flag(ImmutableList<StringChunk> chunks) implements Expandable {
     /** Expand this flag into a single new entry in {@code commandLine}. */
     @Override
     public void expand(
@@ -142,24 +127,8 @@ public class CcToolchainFeatures implements StarlarkValue {
       commandLine.add(flag.toString().intern());
     }
 
-    @Override
-    public boolean equals(@Nullable Object object) {
-      if (this == object) {
-        return true;
-      }
-      if (object instanceof Flag that) {
-        return Iterables.elementsEqual(chunks, that.chunks);
-      }
-      return false;
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(chunks);
-    }
-
     /** A single environment key/value pair to be expanded under a set of variables. */
-    public static Expandable create(ImmutableList<StringChunk> chunks) {
+    static Expandable create(ImmutableList<StringChunk> chunks) {
       if (chunks.size() == 1) {
         return new SingleChunkFlag(chunks.get(0));
       }
@@ -168,13 +137,8 @@ public class CcToolchainFeatures implements StarlarkValue {
 
     /** Optimization for single-chunk case */
     @Immutable
-    static class SingleChunkFlag implements Expandable {
-      private final StringChunk chunk;
-
-      @VisibleForSerialization
-      SingleChunkFlag(StringChunk chunk) {
-        this.chunk = chunk;
-      }
+    @AutoCodec
+    record SingleChunkFlag(StringChunk chunk) implements Expandable {
 
       @Override
       public void expand(
@@ -185,61 +149,16 @@ public class CcToolchainFeatures implements StarlarkValue {
           throws ExpansionException {
         commandLine.add(chunk.expand(variables, pathMapper));
       }
-
-      @Override
-      public boolean equals(Object o) {
-        if (this == o) {
-          return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-          return false;
-        }
-        SingleChunkFlag that = (SingleChunkFlag) o;
-        return chunk.equals(that.chunk);
-      }
-
-      String getString() {
-        return chunk.getString();
-      }
-
-      @Override
-      public int hashCode() {
-        return chunk.hashCode();
-      }
     }
   }
 
   /** A single environment key/value pair to be expanded under a set of variables. */
   @Immutable
-  public static class EnvEntry {
-    private final String key;
-    private final ImmutableList<StringChunk> valueChunks;
-    private final ImmutableSet<String> expandIfAllAvailable;
-
-    EnvEntry(
-        String key,
-        ImmutableList<StringChunk> valueChunks,
-        ImmutableSet<String> expandIfAllAvailable) {
-      this.key = key;
-      this.valueChunks = valueChunks;
-      this.expandIfAllAvailable = expandIfAllAvailable;
-    }
-
-    String getKey() {
-      return key;
-    }
-
-    String getValue() {
-      return Joiner.on("")
-          .join(
-              valueChunks.stream()
-                  .map(stringChunk -> stringChunk.getString())
-                  .collect(ImmutableList.toImmutableList()));
-    }
-
-    ImmutableSet<String> getExpandIfAllAvailable() {
-      return expandIfAllAvailable;
-    }
+  @AutoCodec
+  public record EnvEntry(
+      String key,
+      ImmutableList<StringChunk> valueChunks,
+      ImmutableSet<String> expandIfAllAvailable) {
 
     private boolean canBeExpanded(CcToolchainVariables variables) {
       for (String variable : expandIfAllAvailable) {
@@ -268,75 +187,28 @@ public class CcToolchainFeatures implements StarlarkValue {
       }
       envBuilder.put(key, value.toString());
     }
-
-    @Override
-    public boolean equals(@Nullable Object object) {
-      if (this == object) {
-        return true;
-      }
-      if (object instanceof EnvEntry that) {
-        return Objects.equals(key, that.key)
-            && Iterables.elementsEqual(valueChunks, that.valueChunks);
-      }
-      return false;
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(key, valueChunks);
-    }
   }
 
   /** Used for equality check between a variable and a specific value. */
   @Immutable
-  static class VariableWithValue {
-    public final String variable;
-    public final String value;
-
-    public VariableWithValue(String variable, String value) {
-      this.variable = variable;
-      this.value = value;
-    }
-
-    String getVariable() {
-      return variable;
-    }
-
-    String getValue() {
-      return value;
-    }
-  }
+  @AutoCodec
+  record VariableWithValue(String variable, String value) {}
 
   /**
    * A group of flags. When iterateOverVariable is specified, we assume the variable is a sequence
    * and the flag_group will be expanded repeatedly for every value in the sequence.
    */
   @Immutable
-  static class FlagGroup implements Expandable {
-    private final ImmutableList<Expandable> expandables;
-    private String iterateOverVariable;
-    private final ImmutableSet<String> expandIfAllAvailable;
-    private final ImmutableSet<String> expandIfNoneAvailable;
-    private final String expandIfTrue;
-    private final String expandIfFalse;
-    private final VariableWithValue expandIfEqual;
-
-    FlagGroup(
-        ImmutableList<Expandable> expandables,
-        String iterateOverVariable,
-        ImmutableSet<String> expandIfAllAvailable,
-        ImmutableSet<String> expandIfNoneAvailable,
-        String expandIfTrue,
-        String expandIfFalse,
-        VariableWithValue expandIfEqual) {
-      this.expandables = expandables;
-      this.iterateOverVariable = iterateOverVariable;
-      this.expandIfAllAvailable = expandIfAllAvailable;
-      this.expandIfNoneAvailable = expandIfNoneAvailable;
-      this.expandIfTrue = expandIfTrue;
-      this.expandIfFalse = expandIfFalse;
-      this.expandIfEqual = expandIfEqual;
-    }
+  @AutoCodec
+  record FlagGroup(
+      ImmutableList<Expandable> expandables,
+      String iterateOverVariable,
+      ImmutableSet<String> expandIfAllAvailable,
+      ImmutableSet<String> expandIfNoneAvailable,
+      String expandIfTrue,
+      String expandIfFalse,
+      VariableWithValue expandIfEqual)
+      implements Expandable {
 
     @Override
     public void expand(
@@ -425,63 +297,6 @@ public class CcToolchainFeatures implements StarlarkValue {
         throws ExpansionException {
       expand(variables, inputMetadataProvider, pathMapper, commandLine);
     }
-
-    @Override
-    public boolean equals(@Nullable Object object) {
-      if (this == object) {
-        return true;
-      }
-      if (object instanceof FlagGroup that) {
-        return Iterables.elementsEqual(expandables, that.expandables)
-            && Objects.equals(iterateOverVariable, that.iterateOverVariable)
-            && Iterables.elementsEqual(expandIfAllAvailable, that.expandIfAllAvailable)
-            && Iterables.elementsEqual(expandIfNoneAvailable, that.expandIfNoneAvailable)
-            && Objects.equals(expandIfTrue, that.expandIfTrue)
-            && Objects.equals(expandIfFalse, that.expandIfFalse)
-            && Objects.equals(expandIfEqual, that.expandIfEqual);
-      }
-      return false;
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(
-          expandables,
-          iterateOverVariable,
-          expandIfAllAvailable,
-          expandIfNoneAvailable,
-          expandIfTrue,
-          expandIfFalse,
-          expandIfEqual);
-    }
-
-    ImmutableList<Expandable> getExpandables() {
-      return expandables;
-    }
-
-    String getIterateOverVariable() {
-      return iterateOverVariable;
-    }
-
-    ImmutableSet<String> getExpandIfAllAvailable() {
-      return expandIfAllAvailable;
-    }
-
-    ImmutableSet<String> getExpandIfNoneAvailable() {
-      return expandIfNoneAvailable;
-    }
-
-    String getExpandIfTrue() {
-      return expandIfTrue;
-    }
-
-    String getExpandIfFalse() {
-      return expandIfFalse;
-    }
-
-    VariableWithValue getExpandIfEqual() {
-      return expandIfEqual;
-    }
   }
 
   private static boolean isWithFeaturesSatisfied(
@@ -490,8 +305,8 @@ public class CcToolchainFeatures implements StarlarkValue {
       return true;
     }
     for (WithFeatureSet featureSet : withFeatureSets) {
-      if (enabledFeatureNames.containsAll(featureSet.getFeatures())
-          && featureSet.getNotFeatures().stream().noneMatch(enabledFeatureNames::contains)) {
+      if (enabledFeatureNames.containsAll(featureSet.features())
+          && featureSet.notFeatures().stream().noneMatch(enabledFeatureNames::contains)) {
         return true;
       }
     }
@@ -500,22 +315,12 @@ public class CcToolchainFeatures implements StarlarkValue {
 
   /** Groups a set of flags to apply for certain actions. */
   @Immutable
-  public static class FlagSet {
-    private final ImmutableSet<String> actions;
-    private final ImmutableSet<String> expandIfAllAvailable;
-    private final ImmutableSet<WithFeatureSet> withFeatureSets;
-    private final ImmutableList<FlagGroup> flagGroups;
-
-    FlagSet(
-        ImmutableSet<String> actions,
-        ImmutableSet<String> expandIfAllAvailable,
-        ImmutableSet<WithFeatureSet> withFeatureSets,
-        ImmutableList<FlagGroup> flagGroups) {
-      this.actions = actions;
-      this.expandIfAllAvailable = expandIfAllAvailable;
-      this.withFeatureSets = withFeatureSets;
-      this.flagGroups = flagGroups;
-    }
+  @AutoCodec
+  public record FlagSet(
+      ImmutableSet<String> actions,
+      ImmutableSet<String> expandIfAllAvailable,
+      ImmutableSet<WithFeatureSet> withFeatureSets,
+      ImmutableList<FlagGroup> flagGroups) {
 
     /** Adds the flags that apply to the given {@code action} to {@code commandLine}. */
     private void expandCommandLine(
@@ -541,38 +346,6 @@ public class CcToolchainFeatures implements StarlarkValue {
         flagGroup.expandCommandLine(variables, inputMetadataProvider, pathMapper, commandLine);
       }
     }
-
-    @Override
-    public boolean equals(@Nullable Object object) {
-      if (object instanceof FlagSet that) {
-        return Iterables.elementsEqual(actions, that.actions)
-            && Iterables.elementsEqual(expandIfAllAvailable, that.expandIfAllAvailable)
-            && Iterables.elementsEqual(withFeatureSets, that.withFeatureSets)
-            && Iterables.elementsEqual(flagGroups, that.flagGroups);
-      }
-      return false;
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(actions, expandIfAllAvailable, withFeatureSets, flagGroups);
-    }
-
-    ImmutableSet<String> getActions() {
-      return actions;
-    }
-
-    ImmutableSet<String> getExpandIfAllAvailable() {
-      return expandIfAllAvailable;
-    }
-
-    ImmutableSet<WithFeatureSet> getWithFeatureSets() {
-      return withFeatureSets;
-    }
-
-    ImmutableList<FlagGroup> getFlagGroups() {
-      return flagGroups;
-    }
   }
 
   /**
@@ -580,68 +353,16 @@ public class CcToolchainFeatures implements StarlarkValue {
    * is enabled, and every 'not_feature' is not enabled.
    */
   @Immutable
-  public static class WithFeatureSet {
-    private final ImmutableSet<String> features;
-    private final ImmutableSet<String> notFeatures;
-
-    WithFeatureSet(ImmutableSet<String> features, ImmutableSet<String> notFeatures) {
-      this.features = features;
-      this.notFeatures = notFeatures;
-    }
-
-    public ImmutableSet<String> getFeatures() {
-      return features;
-    }
-
-    public ImmutableSet<String> getNotFeatures() {
-      return notFeatures;
-    }
-
-    @Override
-    public boolean equals(@Nullable Object object) {
-      if (this == object) {
-        return true;
-      }
-      if (object instanceof WithFeatureSet that) {
-        return Iterables.elementsEqual(features, that.features)
-            && Iterables.elementsEqual(notFeatures, that.notFeatures);
-      }
-      return false;
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(features, notFeatures);
-    }
-  }
+  @AutoCodec
+  public record WithFeatureSet(ImmutableSet<String> features, ImmutableSet<String> notFeatures) {}
 
   /** Groups a set of environment variables to apply for certain actions. */
   @Immutable
-  public static class EnvSet {
-    private final ImmutableSet<String> actions;
-    private final ImmutableList<EnvEntry> envEntries;
-    private final ImmutableSet<WithFeatureSet> withFeatureSets;
-
-    EnvSet(
-        ImmutableSet<String> actions,
-        ImmutableList<EnvEntry> envEntries,
-        ImmutableSet<WithFeatureSet> withFeatureSets) {
-      this.actions = actions;
-      this.envEntries = envEntries;
-      this.withFeatureSets = withFeatureSets;
-    }
-
-    ImmutableSet<String> getActions() {
-      return actions;
-    }
-
-    ImmutableList<EnvEntry> getEnvEntries() {
-      return envEntries;
-    }
-
-    ImmutableSet<WithFeatureSet> getWithFeatureSets() {
-      return withFeatureSets;
-    }
+  @AutoCodec
+  public record EnvSet(
+      ImmutableSet<String> actions,
+      ImmutableList<EnvEntry> envEntries,
+      ImmutableSet<WithFeatureSet> withFeatureSets) {
 
     /**
      * Adds the environment key/value pairs that apply to the given {@code action} to {@code
@@ -664,24 +385,6 @@ public class CcToolchainFeatures implements StarlarkValue {
         envEntry.addEnvEntry(variables, envBuilder, pathMapper);
       }
     }
-
-    @Override
-    public boolean equals(@Nullable Object object) {
-      if (this == object) {
-        return true;
-      }
-      if (object instanceof EnvSet that) {
-        return Iterables.elementsEqual(actions, that.actions)
-            && Iterables.elementsEqual(envEntries, that.envEntries)
-            && Iterables.elementsEqual(withFeatureSets, that.withFeatureSets);
-      }
-      return false;
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(actions, envEntries, withFeatureSets);
-    }
   }
 
   /**
@@ -692,9 +395,7 @@ public class CcToolchainFeatures implements StarlarkValue {
    */
   interface CrosstoolSelectable {
 
-    /**
-     * Returns the name of this selectable.
-     */
+    /** Returns the name of this selectable. */
     String getName();
   }
 
@@ -911,9 +612,7 @@ public class CcToolchainFeatures implements StarlarkValue {
       };
     }
 
-    /**
-     * Returns a list of requirement hints that apply to the execution of this tool.
-     */
+    /** Returns a list of requirement hints that apply to the execution of this tool. */
     ImmutableSet<String> getExecutionRequirements() {
       return executionRequirements;
     }
@@ -990,32 +689,24 @@ public class CcToolchainFeatures implements StarlarkValue {
       return configName;
     }
 
-    /**
-     * Returns the name of the blaze action this action config applies to.
-     */
+    /** Returns the name of the blaze action this action config applies to. */
     String getActionName() {
       return actionName;
     }
 
     /**
-     * Returns the path to this action's tool relative to the provided crosstool path given a set
-     * of enabled features.
+     * Returns the path to this action's tool relative to the provided crosstool path given a set of
+     * enabled features.
      */
     private Tool getTool(final Set<String> enabledFeatureNames) {
-      Optional<Tool> tool =
-          tools
-              .stream()
-              .filter(t -> isWithFeaturesSatisfied(t.getWithFeatureSetSets(), enabledFeatureNames))
-              .findFirst();
-      if (tool.isPresent()) {
-        return tool.get();
-      } else {
-        throw new IllegalArgumentException(
-            "Matching tool for action "
-                + getActionName()
-                + " not "
-                + "found for given feature configuration");
-      }
+      return tools.stream()
+          .filter(t -> isWithFeaturesSatisfied(t.getWithFeatureSetSets(), enabledFeatureNames))
+          .findFirst()
+          .orElseThrow(
+              () ->
+                  new IllegalArgumentException(
+                      "Matching tool for action %s not found for given feature configuration"
+                          .formatted(getActionName())));
     }
 
     /** Adds the flags that apply to this action to {@code commandLine}. */
@@ -1078,22 +769,8 @@ public class CcToolchainFeatures implements StarlarkValue {
 
   /** A description of how artifacts of a certain type are named. */
   @Immutable
-  static class ArtifactNamePattern {
-    private final String prefix;
-    private final String extension;
-
-    private ArtifactNamePattern(String prefix, String extension) {
-      this.prefix = prefix;
-      this.extension = extension;
-    }
-
-    String getPrefix() {
-      return this.prefix;
-    }
-
-    String getExtension() {
-      return this.extension;
-    }
+  @AutoCodec
+  record ArtifactNamePattern(String prefix, String extension) {
 
     /** Returns the artifact name that this pattern selects. */
     private String getArtifactName(String baseName) {
@@ -1232,12 +909,16 @@ public class CcToolchainFeatures implements StarlarkValue {
       return requestedFeatures;
     }
 
-    /** @return whether an action config for the blaze action with the given name is enabled. */
+    /**
+     * @return whether an action config for the blaze action with the given name is enabled.
+     */
     boolean actionIsConfigured(String actionName) {
       return enabledActionConfigActionNames.contains(actionName);
     }
 
-    /** @return the command line for the given {@code action}. */
+    /**
+     * @return the command line for the given {@code action}.
+     */
     public List<String> getCommandLine(String action, CcToolchainVariables variables)
         throws ExpansionException {
       return getCommandLine(action, variables, /* inputMetadataProvider= */ null, PathMapper.NOOP);
@@ -1371,42 +1052,33 @@ public class CcToolchainFeatures implements StarlarkValue {
    */
   private final ImmutableList<CrosstoolSelectable> selectables;
 
-  /**
-   * Maps the selectables's name to the selectable.
-   */
+  /** Maps the selectables's name to the selectable. */
   private final ImmutableMap<String, CrosstoolSelectable> selectablesByName;
 
-  /**
-   * Maps an action's name to the ActionConfig.
-   */
+  /** Maps an action's name to the ActionConfig. */
   private final ImmutableMap<String, ActionConfig> actionConfigsByActionName;
 
-  /**
-   * Maps from a selectable to a set of all the selectables it has a direct 'implies' edge to.
-   */
+  /** Maps from a selectable to a set of all the selectables it has a direct 'implies' edge to. */
   private final ImmutableMultimap<CrosstoolSelectable, CrosstoolSelectable> implies;
 
   /**
-   * Maps from a selectable to all features that have an direct 'implies' edge to this
-   * selectable.
+   * Maps from a selectable to all features that have an direct 'implies' edge to this selectable.
    */
   private final ImmutableMultimap<CrosstoolSelectable, CrosstoolSelectable> impliedBy;
 
   /**
    * Maps from a selectable to a set of selecatable sets, where:
+   *
    * <ul>
-   * <li>a selectable set satisfies the 'requires' condition, if all selectables in the
-   *        selectable set are enabled</li>
-   * <li>the 'requires' condition is satisfied, if at least one of the selectable sets satisfies
-   *        the 'requires' condition.</li>
+   *   <li>a selectable set satisfies the 'requires' condition, if all selectables in the selectable
+   *       set are enabled
+   *   <li>the 'requires' condition is satisfied, if at least one of the selectable sets satisfies
+   *       the 'requires' condition.
    * </ul>
    */
-  private final ImmutableMultimap<CrosstoolSelectable, ImmutableSet<CrosstoolSelectable>>
-      requires;
+  private final ImmutableMultimap<CrosstoolSelectable, ImmutableSet<CrosstoolSelectable>> requires;
 
-  /**
-   * Maps from a string to the set of selectables that 'provide' it.
-   */
+  /** Maps from a string to the set of selectables that 'provide' it. */
   private final ImmutableMultimap<String, CrosstoolSelectable> provides;
 
   /**
@@ -1426,7 +1098,7 @@ public class CcToolchainFeatures implements StarlarkValue {
   private transient LoadingCache<ImmutableSet<String>, FeatureConfiguration> configurationCache =
       buildConfigurationCache();
 
-  private PathFragment ccToolchainPath;
+  private final PathFragment ccToolchainPath;
 
   /**
    * Constructs the feature configuration from a {@link CcToolchainConfigInfo}.
@@ -1555,19 +1227,14 @@ public class CcToolchainFeatures implements StarlarkValue {
     }
   }
 
-  /** @return an empty {@code FeatureConfiguration} cache. */
+  /**
+   * @return an empty {@code FeatureConfiguration} cache.
+   */
   private LoadingCache<ImmutableSet<String>, FeatureConfiguration> buildConfigurationCache() {
     return Caffeine.newBuilder()
         // TODO(klimek): Benchmark and tweak once we support a larger configuration.
         .maximumSize(10000)
-        .build(
-            new CacheLoader<ImmutableSet<String>, FeatureConfiguration>() {
-              @Override
-              public FeatureConfiguration load(ImmutableSet<String> requestedFeatures)
-                  throws CollidingProvidesException {
-                return computeFeatureConfiguration(requestedFeatures);
-              }
-            });
+        .build(requestedFeatures -> computeFeatureConfiguration(requestedFeatures));
   }
 
   @StarlarkMethod(
@@ -1691,6 +1358,6 @@ public class CcToolchainFeatures implements StarlarkValue {
    * Returns the artifact name extension selected by the toolchain for the given artifact category.
    */
   String getArtifactNameExtensionForCategory(ArtifactCategory artifactCategory) {
-    return artifactNamePatterns.get(artifactCategory).getExtension();
+    return artifactNamePatterns.get(artifactCategory).extension();
   }
 }
