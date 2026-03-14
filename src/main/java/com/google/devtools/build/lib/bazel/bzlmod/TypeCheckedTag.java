@@ -33,10 +33,11 @@ import net.starlark.java.syntax.Location;
  * in the {@link TagClass}.
  */
 @StarlarkBuiltin(name = "bazel_module_tag", documented = false)
-public class TypeCheckedTag implements Structure {
+public class TypeCheckedTag implements Structure, Comparable<TypeCheckedTag> {
   private final TagClass tagClass;
   private final ImmutableList<Object> attrValues;
   private final boolean devDependency;
+  private final long compareKey;
 
   // The properties below are only used for error reporting.
   private final Location location;
@@ -46,18 +47,28 @@ public class TypeCheckedTag implements Structure {
       TagClass tagClass,
       ImmutableList<Object> attrValues,
       boolean devDependency,
+      int moduleIndex,
+      int tagIndex,
       Location location,
       String tagClassName) {
     this.tagClass = tagClass;
     this.attrValues = attrValues;
     this.devDependency = devDependency;
+    // Sort by module first, then in the order tags were defined within the module.
+    this.compareKey =
+        (Integer.toUnsignedLong(moduleIndex) << 32) + Integer.toUnsignedLong(tagIndex);
     this.location = location;
     this.tagClassName = tagClassName;
   }
 
   /** Creates a {@link TypeCheckedTag}. */
   public static TypeCheckedTag create(
-      TagClass tagClass, Tag tag, LabelConverter labelConverter, String moduleDisplayString)
+      TagClass tagClass,
+      Tag tag,
+      LabelConverter labelConverter,
+      String moduleDisplayString,
+      int moduleIndex,
+      int tagIndex)
       throws ExternalDepsException {
     ImmutableList<Object> attrValues =
         AttributeUtils.typeCheckAttrValues(
@@ -70,7 +81,13 @@ public class TypeCheckedTag implements Structure {
             "'%s' tag".formatted(tag.getTagName()),
             "to the %s".formatted(moduleDisplayString));
     return new TypeCheckedTag(
-        tagClass, attrValues, tag.isDevDependency(), tag.getLocation(), tag.getTagName());
+        tagClass,
+        attrValues,
+        tag.isDevDependency(),
+        moduleIndex,
+        tagIndex,
+        tag.getLocation(),
+        tag.getTagName());
   }
 
   /**
@@ -110,5 +127,20 @@ public class TypeCheckedTag implements Structure {
   @Override
   public void debugPrint(Printer printer, StarlarkThread thread) {
     printer.append(String.format("'%s' tag at %s", tagClassName, location));
+  }
+
+  @Override
+  public int compareTo(TypeCheckedTag other) {
+    return Long.compareUnsigned(this.compareKey, other.compareKey);
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    return this == other || (other instanceof TypeCheckedTag o && this.compareKey == o.compareKey);
+  }
+
+  @Override
+  public int hashCode() {
+    return Long.hashCode(compareKey);
   }
 }
