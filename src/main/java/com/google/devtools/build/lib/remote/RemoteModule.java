@@ -364,6 +364,18 @@ public final class RemoteModule extends BlazeModule {
     this.remoteOptions = remoteOptions;
     this.env = env;
 
+    // Resolve --disk_cache sentinel values before any other processing.
+    if (RemoteOptions.DISK_CACHE_OFF.equals(remoteOptions.diskCache)) {
+      remoteOptions.diskCache = null;
+    } else if (RemoteOptions.DISK_CACHE_ON.equals(remoteOptions.diskCache)) {
+      remoteOptions.diskCache =
+          env.getDirectories()
+              .getServerDirectories()
+              .getOutputUserRoot()
+              .getRelative(RemoteOptions.DEFAULT_DISK_CACHE_LOCATION)
+              .asFragment();
+    }
+
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
     DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
     DigestUtil digestUtil = new DigestUtil(env.getXattrProvider(), hashFn);
