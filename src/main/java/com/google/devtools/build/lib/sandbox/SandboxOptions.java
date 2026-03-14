@@ -226,13 +226,40 @@ public class SandboxOptions extends OptionsBase {
   }
 
   @Option(
-      name = "experimental_enable_docker_sandbox",
+          name = "experimental_enable_docker_sandbox",
+          defaultValue = "false",
+          documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+          effectTags = {OptionEffectTag.EXECUTION},
+          help =
+                  "Enable Docker-based sandboxing. This option has no effect if Docker is not installed.")
+  public boolean enableDockerSandbox;
+
+  @Option(
+      name = "experimental_docker_sandbox_use_symlinks",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "Enable Docker-based sandboxing. This option has no effect if Docker is not installed.")
-  public boolean enableDockerSandbox;
+          "When Docker-based sandboxing is enabled, input files will be symlinked to the sandbox instead of copied to the sandbox.")
+  public boolean dockerSandboxUseSymlinks;
+
+  @Option(
+      name = "experimental_docker_sandbox_network_config",
+      defaultValue = "host",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "When Docker-based sandboxing is enabled and the action has network access, specifies what to pass to --network")
+  public String dockerSandboxNetworkConfig;
+
+  @Option(
+          name = "experimental_docker_sandbox_executable",
+          defaultValue = "docker",
+          documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+          effectTags = {OptionEffectTag.EXECUTION},
+          help =
+                  "When Docker-based sandboxing is enabled, use the specified docker-cli compatible executable to run the containers.")
+  public String dockerSandboxExecutable;
 
   @Option(
       name = "experimental_docker_image",

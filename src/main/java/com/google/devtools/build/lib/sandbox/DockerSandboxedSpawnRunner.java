@@ -215,6 +215,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     ImmutableMap<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
+    ImmutableSet<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment);
 
     SandboxInputs inputs =
         SandboxHelpers.processInputFiles(
@@ -247,12 +248,11 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         .setImageName(customizedImageName)
         .setCommandArguments(spawn.getArguments())
         .setSandboxExecRoot(sandboxExecRoot)
+        .setWritableFilesAndDirectories(writableDirs)
         .setAdditionalMounts(getSandboxOptions().sandboxAdditionalMounts)
         .setPrivileged(getSandboxOptions().dockerPrivileged)
         .setEnvironmentVariables(environment)
-        .setCreateNetworkNamespace(
-            !(allowNetwork
-                || Spawns.requiresNetwork(spawn, getSandboxOptions().defaultSandboxAllowNetwork)))
+        .setNetworkMode(getNetworkMode(spawn))
         .setCommandId(commandId)
         .setUuid(uuid);
     // If uid / gid are -1, we are on an operating system that doesn't require us to set them on the
@@ -274,19 +274,46 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // We register the container UUID for cleanup, but remove the UUID if the process ran
     // successfully.
     containersToCleanup.add(uuid);
-    return new CopyingSandboxedSpawn(
-        sandboxPath,
-        sandboxExecRoot,
-        cmdLine.build(),
-        cmdEnv.getClientEnv(),
-        inputs,
-        outputs,
-        ImmutableSet.of(),
-        treeDeleter,
-        /* sandboxDebugPath= */ null,
-        /* statisticsPath= */ null,
-        () -> containersToCleanup.remove(uuid),
-        spawn.getMnemonic());
+    if (cmdEnv.getOptions().getOptions(SandboxOptions.class).dockerSandboxUseSymlinks) {
+      return new SymlinkedSandboxedSpawn(
+              sandboxPath,
+              sandboxExecRoot,
+              cmdLine.build(),
+              environment,
+              inputs,
+              outputs,
+              writableDirs,
+              treeDeleter,
+              /* sandboxDebugPath= */ null,
+              /* statisticsPath= */ null,
+              () -> containersToCleanup.remove(uuid),
+              null,
+              spawn.getMnemonic(),
+              spawn.getTargetLabel());
+    } else {
+      return new CopyingSandboxedSpawn(
+              sandboxPath,
+              sandboxExecRoot,
+              cmdLine.build(),
+              environment,
+              inputs,
+              outputs,
+              writableDirs,
+              treeDeleter,
+              /* sandboxDebugPath= */ null,
+              /* statisticsPath= */ null,
+              () -> containersToCleanup.remove(uuid),
+              spawn.getMnemonic());
+    }
+  }
+
+  private String getNetworkMode(Spawn spawn) {
+    var networkRequested = allowNetwork || Spawns.requiresNetwork(spawn, getSandboxOptions().defaultSandboxAllowNetwork);
+    if (networkRequested) {
+      return getSandboxOptions().dockerSandboxNetworkConfig;
+    } else {
+      return "none";
+    }
   }
 
   private String getOrCreateCustomizedImage(String baseImage)

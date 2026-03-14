@@ -42,6 +42,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
   private final String mnemonic;
 
   private final Label targetLabel;
+  private final Runnable successCallback;
 
   @Nullable private final ImmutableList<String> interactiveDebugArguments;
 
@@ -56,6 +57,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
       TreeDeleter treeDeleter,
       @Nullable Path sandboxDebugPath,
       @Nullable Path statisticsPath,
+      @Nullable Runnable successCallback,
       @Nullable ImmutableList<String> interactiveDebugArguments,
       String mnemonic,
       Label targetLabel) {
@@ -74,6 +76,15 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
     this.mnemonic = isNullOrEmpty(mnemonic) ? "_NoMnemonic_" : mnemonic;
     this.interactiveDebugArguments = interactiveDebugArguments;
     this.targetLabel = targetLabel;
+    this.successCallback = successCallback;
+  }
+
+  @Override
+  public void copyOutputs(Path execRoot) throws IOException, InterruptedException {
+    if (successCallback != null) {
+      successCallback.run();
+    }
+    super.copyOutputs(execRoot);
   }
 
   @Override
