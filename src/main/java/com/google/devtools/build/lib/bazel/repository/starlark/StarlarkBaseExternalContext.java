@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.RemoteExternalOverlayFileSystem;
 import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.Dirents;
@@ -270,20 +271,20 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   protected abstract boolean shouldDeleteWorkingDirectoryOnClose(boolean successful);
 
   /** Returns the file digests used by this context object so far. */
-  public ImmutableMap<RepoRecordedInput.File, String> getRecordedFileInputs() {
+  public ImmutableSortedMap<RepoRecordedInput.File, String> getRecordedFileInputs() {
     return ImmutableSortedMap.copyOf(recordedFileInputs);
   }
 
-  public ImmutableMap<Dirents, String> getRecordedDirentsInputs() {
+  public ImmutableSortedMap<Dirents, String> getRecordedDirentsInputs() {
     return ImmutableSortedMap.copyOf(recordedDirentsInputs);
   }
 
-  public ImmutableMap<RepoRecordedInput.EnvVar, Optional<String>> getRecordedEnvVarInputs()
+  public ImmutableSortedMap<RepoRecordedInput.EnvVar, Optional<String>> getRecordedEnvVarInputs()
       throws InterruptedException {
     // getEnvVarValues doesn't return null since the Skyframe dependencies have already been
     // established by getenv calls.
     return RepoRecordedInput.EnvVar.wrap(
-        ImmutableSortedMap.copyOf(RepositoryFunction.getEnvVarValues(env, accumulatedEnvKeys)));
+        RepositoryFunction.getEnvVarValues(env, accumulatedEnvKeys));
   }
 
   protected void checkInOutputDirectory(String operation, StarlarkPath path)
@@ -2269,6 +2270,19 @@ func(
   // Resolve the label given by value into a file path.
   protected StarlarkPath getPathFromLabel(Label label) throws EvalException, InterruptedException {
     RootedPath rootedPath = RepositoryFunction.getRootedPathFromLabel(label, env);
+    if (rootedPath == null) {
+      throw new NeedsSkyframeRestartException();
+    }
+    if (!label.getRepository().isMain()
+        && directories.getOutputBase().getFileSystem()
+            instanceof RemoteExternalOverlayFileSystem remoteFs) {
+      try {
+        remoteFs.ensureMaterialized(label.getRepository(), env.getListener());
+      } catch (IOException e) {
+        throw Starlark.errorf(
+            "Failed to materialize remote repo %s: %s", label.getRepository(), e.getMessage());
+      }
+    }
     StarlarkPath starlarkPath = new StarlarkPath(this, rootedPath.asPath());
     try {
       maybeWatch(

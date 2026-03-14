@@ -14,9 +14,12 @@
 # limitations under the License.
 # pylint: disable=g-long-ternary
 
+import json
 import os
+import pathlib
 import tempfile
 import time
+import unittest
 
 from absl.testing import absltest
 from src.test.py.bazel import test_base
@@ -54,6 +57,18 @@ class RepoContentsCacheTest(test_base.TestBase):
       time.sleep(0.5)
     self.fail('repo contents cache still not empty after 5 seconds')
 
+  def repoDir(self, repo_name, cwd=None):
+    _, stdout, _ = self.RunBazel(['info', 'output_base'], cwd=cwd)
+    self.assertLen(stdout, 1)
+    output_base = stdout[0].strip()
+
+    _, stdout, _ = self.RunBazel(['mod', 'dump_repo_mapping', ''], cwd=cwd)
+    self.assertLen(stdout, 1)
+    mapping = json.loads(stdout[0])
+    canonical_repo_name = mapping[repo_name]
+
+    return output_base + '/external/' + canonical_repo_name
+
   def testCachedAfterCleanExpunge(self):
     self.ScratchFile(
         'MODULE.bazel',
@@ -76,6 +91,21 @@ class RepoContentsCacheTest(test_base.TestBase):
     # First fetch: not cached
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    # Verify that the repo directory under the output base is a symlink or
+    # junction into the repo contents cache.
+    repo_dir = self.repoDir('my_repo')
+    self.assertTrue(os.path.islink(repo_dir) or os.path.isjunction(repo_dir))
+    target_path = os.readlink(repo_dir)
+    real_target_path = os.path.realpath(target_path)
+    real_repo_contents_cache = os.path.realpath(self.repo_contents_cache)
+    for parent in pathlib.Path(real_target_path).parents:
+      if parent.samefile(real_repo_contents_cache):
+        break
+    else:
+      self.fail(
+          'repo target dir %s is not in the repo contents cache %s'
+          % (real_target_path, real_repo_contents_cache)
+      )
 
     # After expunging: cached
     self.RunBazel(['clean', '--expunge'])
@@ -295,7 +325,9 @@ class RepoContentsCacheTest(test_base.TestBase):
     # GC'd while server is alive: not cached, but also no crash
     self.sleepUntilCacheEmpty()
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
-    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertNotIn('WARNING', stderr)
 
   def testGc_singleServer_gcAfterCacheMiss(self):
     self.ScratchFile(
@@ -328,7 +360,9 @@ class RepoContentsCacheTest(test_base.TestBase):
     # GC'd while server is alive: not cached, but also no crash
     self.sleepUntilCacheEmpty()
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
-    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertNotIn('WARNING', stderr)
 
   def testGc_multipleServers(self):
     module_bazel_lines = [
@@ -383,13 +417,195 @@ class RepoContentsCacheTest(test_base.TestBase):
         ],
         cwd=dir_a,
     )
-    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertNotIn('WARNING', stderr)
 
     # GC'd while B's server is alive (after B's earlier cache hit):
     # not cached, but also no crash
     self.sleepUntilCacheEmpty()
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'], cwd=dir_b)
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertNotIn('WARNING', stderr)
+
+  # TODO: Enable after RepositoryDelegatorFunction is moved to Skyframe
+  # workers, which is needed for batch checking to work correctly.
+  @unittest.skip('Requires Skyframe workers (not available on 8.7.0)')
+  def testReverseDependencyDirection(self):
+    # Set up two repos that retain their predeclared input hashes across two
+    #  builds but still reverse their dependency direction. Depending on how
+    # repo cache candidates are checked, this could lead to a Skyframe cycle.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(',
+            '  name = "foo",',
+            '  deps_file = "//:foo_deps.txt",',
+            ')',
+            'repo(',
+            '  name = "bar",',
+            '  deps_file = "//:bar_deps.txt",',
+            ')',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  deps = rctx.read(rctx.attr.deps_file).splitlines()',
+            '  output = ""',
+            '  for dep in deps:',
+            '    if dep:',
+            '      output += "{}: {}\\n".format(dep, rctx.read(Label(dep)))',
+            '  rctx.file("output.txt", output)',
+            '  rctx.file("BUILD", "exports_files([\'output.txt\'])")',
+            '  print("JUST FETCHED: %s" % rctx.original_name)',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(',
+            '  implementation = _repo_impl,',
+            '  attrs = {',
+            '    "deps_file": attr.label(),  }',
+            ')',
+        ],
+    )
+
+    self.ScratchFile('foo_deps.txt', ['@bar//:output.txt'])
+    self.ScratchFile('bar_deps.txt', [''])
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@foo//:output.txt'])
+    self.assertIn('JUST FETCHED: bar', '\n'.join(stderr))
+    self.assertIn('JUST FETCHED: foo', '\n'.join(stderr))
+
+    # After expunging and reversing the dependency direction: not cached
+    self.RunBazel(['clean', '--expunge'])
+    self.ScratchFile('foo_deps.txt', [''])
+    self.ScratchFile('bar_deps.txt', ['@foo//:output.txt'])
+    self.RunBazel(['build', '@foo//:output.txt'])
+
+  def doTestRepoContentsCacheDeleted(self, check_external_repository_files):
+    repo_contents_cache = self.ScratchDir('repo_contents_cache')
+    workspace = self.ScratchDir('workspace')
+    extra_args = [
+        '--experimental_check_external_repository_files=%s'
+        % str(check_external_repository_files).lower(),
+        '--repo_contents_cache=%s' % repo_contents_cache,
+    ]
+
+    self.ScratchFile(
+        'workspace/MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile(
+        'workspace/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "gen",',
+            '  srcs = ["@my_repo//:haha", "in.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $(SRCS) > $(OUTS)",',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'workspace/repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD", "filegroup(name=\'haha\','
+                " srcs=['a.txt'], visibility=['//visibility:public'])\")"
+            ),
+            '  rctx.file("a.txt", "hello world")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    # First fetch: not cached
+    self.ScratchFile('workspace/in.txt', ['1'])
+    _, _, stderr = self.RunBazel(
+        [
+            'build',
+            '//:gen',
+        ]
+        + extra_args,
+        cwd=workspace,
+    )
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    with open(os.path.join(workspace, 'bazel-bin/out.txt'), 'r') as f:
+      self.assertEqual(f.read(), 'hello world1\n')
+
+    # Second fetch: cached
+    self.ScratchFile('workspace/in.txt', ['2'])
+    _, _, stderr = self.RunBazel(
+        [
+            'build',
+            '//:gen',
+        ]
+        + extra_args,
+        cwd=workspace,
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(os.path.join(workspace, 'bazel-bin/out.txt'), 'r') as f:
+      self.assertEqual(f.read(), 'hello world2\n')
+
+    # Delete the entire repo contents cache and fetch again: not cached
+    # Avoid access denied on Windows due to files being read-only by moving to
+    # a different location instead.
+    os.rename(repo_contents_cache, repo_contents_cache + '_deleted')
+    self.ScratchFile('workspace/in.txt', ['3'])
+    _, _, stderr = self.RunBazel(
+        ['build', '//:gen'] + extra_args,
+        cwd=workspace,
+    )
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertNotIn('WARNING', stderr)
+    with open(os.path.join(workspace, 'bazel-bin/out.txt'), 'r') as f:
+      self.assertEqual(f.read(), 'hello world3\n')
+
+    # Second fetch after deletion: cached
+    self.ScratchFile('workspace/in.txt', ['4'])
+    _, _, stderr = self.RunBazel(
+        ['build', '//:gen'] + extra_args,
+        cwd=workspace,
+    )
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertNotIn('WARNING', '\n'.join(stderr))
+    with open(os.path.join(workspace, 'bazel-bin/out.txt'), 'r') as f:
+      self.assertEqual(f.read(), 'hello world4\n')
+
+    # Delete the entire repo contents cache and fetch again with a different
+    # path: not cached
+    # Avoid access denied on Windows due to files being read-only by moving to
+    # a different location instead.
+    os.rename(repo_contents_cache, repo_contents_cache + '_deleted_again')
+    self.ScratchFile('workspace/in.txt', ['5'])
+    _, _, stderr = self.RunBazel(
+        ['build', '//:gen']
+        + extra_args
+        + [
+            '--repo_contents_cache=%s' % repo_contents_cache + '2',
+        ],
+        cwd=workspace,
+    )
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertNotIn('WARNING', stderr)
+    with open(os.path.join(workspace, 'bazel-bin/out.txt'), 'r') as f:
+      self.assertEqual(f.read(), 'hello world5\n')
+
+  def testRepoContentsCacheDeleted_withCheckExternalRepositoryFiles(self):
+    self.doTestRepoContentsCacheDeleted(check_external_repository_files=True)
+
+  def testRepoContentsCacheDeleted_withoutCheckExternalRepositoryFiles(self):
+    self.doTestRepoContentsCacheDeleted(check_external_repository_files=False)
 
 
 if __name__ == '__main__':
