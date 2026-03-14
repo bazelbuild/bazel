@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.config.Scope;
-import com.google.devtools.build.lib.analysis.config.Scope.ScopeType;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.packages.BuildSetting;
@@ -111,12 +110,6 @@ public class StarlarkOptionsParser {
 
   // Result of #parse, store the parsed options and their values.
   private final Map<String, Object> starlarkOptions = new TreeMap<>();
-
-  // Map of starlark options to their {@link Scope.ScopeType}.
-  private final Map<String, String> scopes = new TreeMap<>();
-
-  // Map of starlark options to their on-leave scope values.
-  private final Map<String, Object> onLeaveScopeValues = new TreeMap<>();
 
   // Map of parsed starlark options to their loaded BuildSetting objects (used for canonicalization)
   private final Map<String, BuildSetting> parsedBuildSettings = new LinkedHashMap<>();
@@ -229,8 +222,6 @@ public class StarlarkOptionsParser {
     }
 
     Map<String, Object> parsedOptions = new HashMap<>();
-    Map<String, String> scopeTypeMap = new HashMap<>();
-    Map<String, Object> onLeaveScopeMap = new HashMap<>();
     List<String> customExecFlags = new ArrayList<>();
     for (String buildSetting : buildSettingWithTargetAndValue.keySet()) {
       Pair<Target, Object> buildSettingAndFinalValue =
@@ -259,12 +250,12 @@ public class StarlarkOptionsParser {
         }
       }
 
-      // TODO: b/384058698 - use NonConfigurableAttributeMapper to ensure "scope" isn't selectable.
+      // Validate and check for custom exec scope to handle "exec:--<another_flag_name>" pattern.
       var attrMap = RawAttributeMapper.of(buildSettingTarget.getAssociatedRule());
-      String scopeType = ScopeType.DEFAULT.toString();
       if (attrMap.isAttributeValueExplicitlySpecified("scope")) {
-        scopeType = attrMap.get("scope", Type.STRING);
-        if (!ScopeType.allowedAttributeValues().contains(scopeType.toLowerCase(Locale.ROOT))
+        String scopeType = attrMap.get("scope", Type.STRING);
+        if (!Scope.ScopeType.allowedAttributeValues()
+                .contains(scopeType.toLowerCase(Locale.ROOT))
             && !scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
           throw new OptionsParsingException(
               String.format(
@@ -272,21 +263,13 @@ public class StarlarkOptionsParser {
                       + " [%s].",
                   buildSetting,
                   scopeType,
-                  ScopeType.allowedAttributeValues().stream()
+                  Scope.ScopeType.allowedAttributeValues().stream()
                       .map(s -> "\"" + s + "\"")
                       .collect(joining(", "))));
         }
-      }
-      scopeTypeMap.put(buildSetting, scopeType);
-      nativeOptionsParser.setScopesAttributes(ImmutableMap.copyOf(scopeTypeMap));
-
-      if (scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
-        customExecFlags.add(scopeType.substring(7));
-      }
-
-      if (attrMap.isAttributeValueExplicitlySpecified("on_leave_scope")) {
-        var onLeaveScopeValue = attrMap.get("on_leave_scope", buildSettingObject.getType());
-        onLeaveScopeMap.put(buildSetting, onLeaveScopeValue);
+        if (scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
+          customExecFlags.add(scopeType.substring(7));
+        }
       }
     }
 
@@ -302,14 +285,10 @@ public class StarlarkOptionsParser {
 
       // get the default value for the custom exec flag if it's not set yet.
       parsedOptions.put(customExecFlag, getDefaultValueForAnyBuildSetting(customExecFlag));
-      scopeTypeMap.put(customExecFlag, ScopeType.TARGET);
     }
 
     nativeOptionsParser.setStarlarkOptions(ImmutableMap.copyOf(parsedOptions));
-    nativeOptionsParser.setOnLeaveScopeValues(ImmutableMap.copyOf(onLeaveScopeMap));
     this.starlarkOptions.putAll(parsedOptions);
-    this.scopes.putAll(scopeTypeMap);
-    this.onLeaveScopeValues.putAll(onLeaveScopeMap);
     return true;
   }
 
@@ -470,16 +449,8 @@ public class StarlarkOptionsParser {
     return ImmutableMap.copyOf(this.starlarkOptions);
   }
 
-  public ImmutableMap<String, String> getScopesAttributes() {
-    return ImmutableMap.copyOf(this.scopes);
-  }
-
   public ImmutableMap<String, Object> getDefaultValues() {
     return ImmutableMap.copyOf(this.buildSettingDefaults);
-  }
-
-  public ImmutableMap<String, Object> getOnLeaveScopeValues() {
-    return ImmutableMap.copyOf(this.onLeaveScopeValues);
   }
 
   public boolean checkIfParsedOptionAllowsMultiple(String option) {

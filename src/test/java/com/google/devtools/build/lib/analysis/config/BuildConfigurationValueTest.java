@@ -521,9 +521,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
                 "//test:flag_in_exec_config_set_to_another_value",
                 "target_value",
                 "//test:flag_in_exec_config_reference_another_flag_value",
-                "target_value",
-                "//test:another_flag",
-                "default"),
+                "target_value"),
             "--experimental_exclude_starlark_flags_from_exec_config="
                 + (propagateByDefault ? "false" : "true"));
 
@@ -533,22 +531,51 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
               Label.parseCanonicalUnchecked("//test:universal_scope"),
               "custom",
               Label.parseCanonicalUnchecked("//test:default_scope"),
-              "custom",
-              Label.parseCanonicalUnchecked("//test:another_flag"),
-              "default");
+              "custom");
     } else {
       assertThat(execConfig.getOptions().getStarlarkOptions())
           .containsExactly(
               Label.parseCanonicalUnchecked("//test:universal_scope"),
               "custom",
               Label.parseCanonicalUnchecked("//test:flag_in_exec_config_set_to_another_value"),
-              "another_value",
-              Label.parseCanonicalUnchecked(
-                  "//test:flag_in_exec_config_reference_another_flag_value"),
-              "default",
-              Label.parseCanonicalUnchecked("//test:another_flag"),
-              "default");
+              "another_value");
     }
+  }
+
+  @Test
+  public void starlarkFlagExecScopeReferencingNativeFlag() throws Exception {
+    scratch.file("my_starlark_flag/BUILD");
+    scratch.file(
+        "my_starlark_flag/rule_defs.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(), "on_leave_scope": attr.string()},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//my_starlark_flag:rule_defs.bzl", "string_flag")
+        string_flag(
+            name = "flag_following_compilation_mode",
+            build_setting_default = "default",
+            scope = "exec:--//command_line_option:compilation_mode",
+        )
+        """);
+
+    BuildConfigurationValue execConfig =
+        createExec(
+            ImmutableMap.of("//test:flag_following_compilation_mode", "target_value"),
+            "--compilation_mode=dbg",
+            "--experimental_exclude_starlark_flags_from_exec_config=true");
+
+    // The flag's value in exec config should match the target config's --compilation_mode value.
+    assertThat(execConfig.getOptions().getStarlarkOptions())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//test:flag_following_compilation_mode"),
+            CompilationMode.DBG);
   }
 
   @Test
