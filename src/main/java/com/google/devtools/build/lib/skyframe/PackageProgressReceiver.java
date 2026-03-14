@@ -17,6 +17,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.LinkedHashSet;
+import java.util.Locale;
 
 /**
  * A class that, when being told about start and end of a package being loaded, keeps track of the
@@ -53,14 +54,14 @@ public class PackageProgressReceiver {
    * running activities. The later always include the oldest loading package not finished loading.
    */
   public synchronized Pair<String, String> progressState() {
-    String progress = "" + packagesCompleted + " packages loaded";
+    String progress = String.format(Locale.ENGLISH, "%,d packages loaded", packagesCompleted);
     StringBuffer activity = new StringBuffer();
     if (pendingSet.size() > 0) {
       activity
           .append("currently loading: ")
           .append(Iterables.getFirst(pendingSet, null).toString());
       if (pendingSet.size() > 1) {
-        activity.append(" ... (" + pendingSet.size() + " packages)");
+        activity.append(String.format(Locale.ENGLISH, " ... (%,d packages)", pendingSet.size()));
       }
     }
     return new Pair<String, String>(progress, activity.toString());
