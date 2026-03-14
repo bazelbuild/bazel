@@ -708,8 +708,8 @@ public final class MethodLibraryTest {
    * string and chars argument. If chars is null no argument is passed.
    */
   private void checkStrip(
-      String input, Object chars,
-      String expLeft, String expRight, String expBoth) throws Exception {
+      String input, Object chars, String expLeft, String expRight, String expBoth)
+      throws Exception {
     if (chars == null) {
       ev.new Scenario()
           .update("s", input)
@@ -739,9 +739,7 @@ public final class MethodLibraryTest {
     checkStrip(" a b c ", Starlark.NONE, "a b c ", " a b c", "a b c");
     // Default whitespace with full range of Latin-1 whitespace chars.
     String whitespace = "\u0009\n\u000B\u000C\r\u001C\u001D\u001E\u001F\u0020\u0085\u00A0";
-    checkStrip(
-        whitespace + "a" + whitespace, null,
-        "a" + whitespace, whitespace + "a", "a");
+    checkStrip(whitespace + "a" + whitespace, null, "a" + whitespace, whitespace + "a", "a");
     checkStrip(
         whitespace + "a" + whitespace, Starlark.NONE, "a" + whitespace, whitespace + "a", "a");
     // Empty cases.
@@ -760,6 +758,42 @@ public final class MethodLibraryTest {
         .testIfErrorContains("1, 2, 3", "fail(1, 2, 3, sep=', ')")
         .testIfErrorContains("attribute foo: 1 2 3", "fail(1, 2, 3, attr='foo')") // deprecated
         .testIfErrorContains("0 1 2 3", "fail(1, 2, 3, msg=0)"); // deprecated
+  }
+
+  @Test
+  public void testFail_stackTrace() throws Exception {
+    final StarlarkSemantics withoutForce =
+        StarlarkSemantics.DEFAULT.toBuilder()
+            .setBool(StarlarkSemantics.FORCE_STARLARK_STACK_TRACE, false)
+            .build();
+
+    final StarlarkSemantics withForce =
+        StarlarkSemantics.DEFAULT.toBuilder()
+            .setBool(StarlarkSemantics.FORCE_STARLARK_STACK_TRACE, true)
+            .build();
+
+    EvaluationTestCase customSemanticsEv = new EvaluationTestCase();
+
+    try {
+      customSemanticsEv.setSemantics(withoutForce);
+      customSemanticsEv.eval("fail('with_a_trace')");
+    } catch (EvalException e) {
+      assertThat(e.getMessageWithStack()).contains("Traceback (most recent call last)");
+    }
+
+    try {
+      customSemanticsEv.setSemantics(withoutForce);
+      customSemanticsEv.eval("fail('without_a_trace', stack_trace=False)");
+    } catch (EvalException e) {
+      assertThat(e.getMessageWithStack()).doesNotContain("Traceback (most recent call last)");
+    }
+
+    try {
+      customSemanticsEv.setSemantics(withForce);
+      customSemanticsEv.eval("fail('without_a_trace', stack_trace=False)");
+    } catch (EvalException e) {
+      assertThat(e.getMessageWithStack()).contains("Traceback (most recent call last)");
+    }
   }
 
   @Test
