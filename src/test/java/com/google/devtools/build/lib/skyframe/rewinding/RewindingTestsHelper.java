@@ -315,7 +315,7 @@ public class RewindingTestsHelper {
         input.getExecPathString().endsWith(".inlined"),
         "Only inputs ending in .inlined are guaranteed readable. Tried to read: %s",
         input);
-    return new String(readContentAsLatin1(context.getInputPath(input)));
+    return new String(readContentAsLatin1(context.getInputPath(input))).replace("\r\n", "\n");
   }
 
   /**
