@@ -92,6 +92,18 @@ public final class TestTargetUtils {
   }
 
   /**
+   * Returns whether a test with a rule name matches a filter (as specified by the set
+   * of its positive and its negative filters).
+   */
+  public static boolean testMatchesRuleFilters(
+      String ruleName,
+      Collection<String> requiredRules,
+      Collection<String> excludedRules) {
+    return (requiredRules.isEmpty() || requiredRules.contains(ruleName)) &&
+            !excludedRules.contains(ruleName);
+  }
+
+  /**
    * Filters 'tests' (by mutation) according to the 'tags' attribute, specifically those that
    * match ALL of the tags in tagsAttribute.
    *
