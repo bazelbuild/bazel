@@ -2366,4 +2366,198 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         /*expected:*/ ImmutableList.of(DEFAULTDEP_INPUT),
         /*not expected:*/ ImmutableList.of(ADEP_INPUT, BDEP_INPUT));
   }
+
+  @Test
+  public void selectOnHierarchicalConstraints_configSetting() throws Exception {
+    // Tests that hierarchical constraint settings resolve select() ambiguity.
+    scratch.file(
+        "conditions/BUILD",
+        """
+        constraint_setting(name = 'libc')
+        constraint_value(name = 'glibc', constraint_setting = 'libc')
+        constraint_setting(
+            name = 'glibc_version',
+            refines_constraint_value = ':glibc',
+        )
+        constraint_value(name = 'glibc_2_42', constraint_setting = 'glibc_version')
+        platform(
+            name = 'glibc_2_42_platform',
+            constraint_values = [':glibc', ':glibc_2_42'],
+        )
+        config_setting(
+            name = 'is_glibc',
+            constraint_values = [':glibc'],
+        )
+        config_setting(
+            name = 'is_glibc_2_42',
+            constraint_values = [':glibc_2_42'],
+        )
+        """);
+    scratch.file(
+        "check/BUILD",
+        """
+        filegroup(name = 'glibc_dep', srcs = ['glibcfile'])
+        filegroup(name = 'glibc_2_42_dep', srcs = ['glibc242file'])
+        filegroup(name = 'hello',
+            srcs = select({
+                '//conditions:is_glibc': [':glibc_dep'],
+                '//conditions:is_glibc_2_42': [':glibc_2_42_dep'],
+            }))
+        """);
+    // Both match, but is_glibc_2_42 refines is_glibc, so it wins.
+    checkRule(
+        "//check:hello",
+        "srcs",
+        ImmutableList.of("--experimental_platforms=//conditions:glibc_2_42_platform"),
+        /*expected:*/ ImmutableList.of("src check/glibc242file"),
+        /*not expected:*/ ImmutableList.of("src check/glibcfile"));
+  }
+
+  @Test
+  public void selectOnHierarchicalConstraints_directConstraintValues() throws Exception {
+    // Tests select()ing directly on constraint_values with hierarchical refinement.
+    scratch.file(
+        "conditions/BUILD",
+        """
+        constraint_setting(name = 'libc')
+        constraint_value(name = 'glibc', constraint_setting = 'libc')
+        constraint_setting(
+            name = 'glibc_version',
+            refines_constraint_value = ':glibc',
+        )
+        constraint_value(name = 'glibc_2_42', constraint_setting = 'glibc_version')
+        platform(
+            name = 'glibc_2_42_platform',
+            constraint_values = [':glibc', ':glibc_2_42'],
+        )
+        """);
+    scratch.file(
+        "check/defs.bzl",
+        """
+        def _impl(ctx):
+          pass
+        simple_rule = rule(
+          implementation = _impl,
+          attrs = {'srcs': attr.label_list(allow_files = True)}
+        )
+        """);
+    scratch.file(
+        "check/BUILD",
+        """
+        load('//check:defs.bzl', 'simple_rule')
+        filegroup(name = 'glibc_dep', srcs = ['glibcfile'])
+        filegroup(name = 'glibc_2_42_dep', srcs = ['glibc242file'])
+        simple_rule(name = 'hello',
+            srcs = select({
+                '//conditions:glibc': [':glibc_dep'],
+                '//conditions:glibc_2_42': [':glibc_2_42_dep'],
+            }))
+        """);
+    // Both match, but glibc_2_42 refines glibc (via hierarchical setting), so it wins.
+    checkRule(
+        "//check:hello",
+        "srcs",
+        ImmutableList.of("--platforms=//conditions:glibc_2_42_platform"),
+        /*expected:*/ ImmutableList.of("src check/glibc242file"),
+        /*not expected:*/ ImmutableList.of("src check/glibcfile"));
+  }
+
+  @Test
+  public void selectOnHierarchicalConstraints_onlyRefinedMatches() throws Exception {
+    // When only the refined constraint matches (platform doesn't have the refining value),
+    // the refined branch should be selected.
+    scratch.file(
+        "conditions/BUILD",
+        """
+        constraint_setting(name = 'libc')
+        constraint_value(name = 'glibc', constraint_setting = 'libc')
+        constraint_setting(
+            name = 'glibc_version',
+            refines_constraint_value = ':glibc',
+        )
+        constraint_value(name = 'glibc_2_42', constraint_setting = 'glibc_version')
+        platform(
+            name = 'glibc_platform',
+            constraint_values = [':glibc'],
+        )
+        config_setting(
+            name = 'is_glibc',
+            constraint_values = [':glibc'],
+        )
+        config_setting(
+            name = 'is_glibc_2_42',
+            constraint_values = [':glibc_2_42'],
+        )
+        """);
+    scratch.file(
+        "check/BUILD",
+        """
+        filegroup(name = 'glibc_dep', srcs = ['glibcfile'])
+        filegroup(name = 'glibc_2_42_dep', srcs = ['glibc242file'])
+        filegroup(name = 'defaultdep', srcs = ['defaultfile'])
+        filegroup(name = 'hello',
+            srcs = select({
+                '//conditions:is_glibc': [':glibc_dep'],
+                '//conditions:is_glibc_2_42': [':glibc_2_42_dep'],
+                '//conditions:default': [':defaultdep'],
+            }))
+        """);
+    // Only is_glibc matches (platform has glibc but not glibc_2_42).
+    checkRule(
+        "//check:hello",
+        "srcs",
+        ImmutableList.of("--experimental_platforms=//conditions:glibc_platform"),
+        /*expected:*/ ImmutableList.of("src check/glibcfile"),
+        /*not expected:*/ ImmutableList.of("src check/glibc242file", "src check/defaultfile"));
+  }
+
+  @Test
+  public void selectOnHierarchicalConstraints_noAmbiguityWithExtraSettings() throws Exception {
+    // When the refining config_setting also has additional flag values, it should still
+    // refine the base constraint.
+    scratch.file(
+        "conditions/BUILD",
+        """
+        constraint_setting(name = 'libc')
+        constraint_value(name = 'glibc', constraint_setting = 'libc')
+        constraint_setting(
+            name = 'glibc_version',
+            refines_constraint_value = ':glibc',
+        )
+        constraint_value(name = 'glibc_2_42', constraint_setting = 'glibc_version')
+        platform(
+            name = 'glibc_2_42_platform',
+            constraint_values = [':glibc', ':glibc_2_42'],
+        )
+        config_setting(
+            name = 'is_glibc',
+            constraint_values = [':glibc'],
+        )
+        config_setting(
+            name = 'is_glibc_2_42_dbg',
+            constraint_values = [':glibc_2_42'],
+            values = {'compilation_mode': 'dbg'},
+        )
+        """);
+    scratch.file(
+        "check/BUILD",
+        """
+        filegroup(name = 'glibc_dep', srcs = ['glibcfile'])
+        filegroup(name = 'glibc_2_42_dbg_dep', srcs = ['glibc242dbgfile'])
+        filegroup(name = 'hello',
+            srcs = select({
+                '//conditions:is_glibc': [':glibc_dep'],
+                '//conditions:is_glibc_2_42_dbg': [':glibc_2_42_dbg_dep'],
+            }))
+        """);
+    // is_glibc_2_42_dbg refines is_glibc (hierarchical constraint + extra flag)
+    checkRule(
+        "//check:hello",
+        "srcs",
+        ImmutableList.of(
+            "--experimental_platforms=//conditions:glibc_2_42_platform",
+            "--compilation_mode=dbg"),
+        /*expected:*/ ImmutableList.of("src check/glibc242dbgfile"),
+        /*not expected:*/ ImmutableList.of("src check/glibcfile"));
+  }
 }

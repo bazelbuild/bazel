@@ -173,6 +173,9 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
    * @param label the build label corresponding to this matcher
    * @param settingsMap the condition settings that trigger this matcher
    * @param flagSettingsMap the label-keyed settings that trigger this matcher
+   * @param constraintValueSettings the constraint value labels that trigger this matcher
+   * @param constraintValueRefinements maps constraint value labels to the constraint value labels
+   *     they refine via hierarchical constraint settings
    * @param result whether the current associated configuration matches, doesn't match, or is
    *     irresolvable due to specified issue
    */
@@ -181,9 +184,26 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
       ImmutableMultimap<String, String> settingsMap,
       ImmutableMap<Label, String> flagSettingsMap,
       ImmutableSet<Label> constraintValueSettings,
+      ImmutableMap<Label, Label> constraintValueRefinements,
       MatchResult result) {
     return new AutoValue_ConfigMatchingProvider(
-        label, settingsMap, flagSettingsMap, constraintValueSettings, result);
+        label,
+        settingsMap,
+        flagSettingsMap,
+        constraintValueSettings,
+        constraintValueRefinements,
+        result);
+  }
+
+  /** Overload for callers that do not need hierarchical constraint refinement. */
+  public static ConfigMatchingProvider create(
+      Label label,
+      ImmutableMultimap<String, String> settingsMap,
+      ImmutableMap<Label, String> flagSettingsMap,
+      ImmutableSet<Label> constraintValueSettings,
+      MatchResult result) {
+    return create(
+        label, settingsMap, flagSettingsMap, constraintValueSettings, ImmutableMap.of(), result);
   }
 
   /** The target's label. */
@@ -196,6 +216,13 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
   public abstract ImmutableSet<Label> constraintValuesSetting();
 
   /**
+   * Maps constraint value labels to the constraint value labels they refine via hierarchical
+   * constraint settings. Used for determining select() specialization across constraint settings
+   * linked by {@code refines_constraint_value}.
+   */
+  public abstract ImmutableMap<Label, Label> constraintValueRefinements();
+
+  /**
    * Whether or not the configuration criteria defined by this target match its actual
    * configuration.
    */
@@ -204,6 +231,10 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
   /**
    * Returns true if this matcher's conditions are a proper superset of another matcher's
    * conditions, i.e. if this matcher is a specialization of the other one.
+   *
+   * <p>For constraint values, this also considers hierarchical refinement: if this matcher's
+   * constraint value refines (via {@code refines_constraint_value}) a constraint value in the other
+   * matcher, this matcher is considered more specific.
    */
   public boolean refines(ConfigMatchingProvider other) {
     ImmutableSet<Map.Entry<String, String>> settings = ImmutableSet.copyOf(settingsMap().entries());
@@ -212,18 +243,62 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
     ImmutableSet<Map.Entry<Label, String>> flagSettings = flagSettingsMap().entrySet();
     ImmutableSet<Map.Entry<Label, String>> otherFlagSettings = other.flagSettingsMap().entrySet();
 
-    ImmutableSet<Label> constraintValueSettings = constraintValuesSetting();
-    ImmutableSet<Label> otherConstraintValueSettings = other.constraintValuesSetting();
-
     if (!settings.containsAll(otherSettings)
-        || !flagSettings.containsAll(otherFlagSettings)
-        || !constraintValueSettings.containsAll(otherConstraintValueSettings)) {
+        || !flagSettings.containsAll(otherFlagSettings)) {
       return false; // Not a superset.
+    }
+
+    // For constraint values, check "covers" relationship: each of the other's constraint values
+    // must be either directly in ours or refined by one of ours.
+    if (!constraintValuesCovers(other.constraintValuesSetting())) {
+      return false;
     }
 
     return settings.size() > otherSettings.size()
         || flagSettings.size() > otherFlagSettings.size()
-        || constraintValueSettings.size() > otherConstraintValueSettings.size();
+        || constraintValuesSetting().size() > other.constraintValuesSetting().size()
+        || constraintValuesStrictlyRefines(other.constraintValuesSetting());
+  }
+
+  /**
+   * Returns true if every constraint value label in {@code other} is either directly present in
+   * this provider's constraint values or is refined by one of this provider's constraint values via
+   * the hierarchical constraint setting relationship.
+   */
+  private boolean constraintValuesCovers(ImmutableSet<Label> other) {
+    ImmutableSet<Label> mine = constraintValuesSetting();
+    for (Label otherLabel : other) {
+      if (mine.contains(otherLabel)) {
+        continue;
+      }
+      boolean covered = false;
+      for (Label myLabel : mine) {
+        Label refinesLabel = constraintValueRefinements().get(myLabel);
+        if (otherLabel.equals(refinesLabel)) {
+          covered = true;
+          break;
+        }
+      }
+      if (!covered) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Returns true if at least one of this provider's constraint values hierarchically refines a
+   * constraint value in {@code other} (rather than matching it directly). This means this provider
+   * is strictly more specific even if the set sizes are the same.
+   */
+  private boolean constraintValuesStrictlyRefines(ImmutableSet<Label> other) {
+    for (Label myLabel : constraintValuesSetting()) {
+      Label refinesLabel = constraintValueRefinements().get(myLabel);
+      if (refinesLabel != null && other.contains(refinesLabel)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Format this provider as its label. */

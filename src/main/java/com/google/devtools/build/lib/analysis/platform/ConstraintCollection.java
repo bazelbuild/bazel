@@ -209,6 +209,19 @@ public abstract class ConstraintCollection
   }
 
   /**
+   * Returns whether any constraint value in this collection (including from parents) has the given
+   * label.
+   */
+  public boolean hasConstraintValueWithLabel(Label label) {
+    for (ConstraintValueInfo cv : constraints().values()) {
+      if (cv.label().equals(label)) {
+        return true;
+      }
+    }
+    return parent() != null && parent().hasConstraintValueWithLabel(label);
+  }
+
+  /**
    * Returns the {@link ConstraintValueInfo} for the given {@link ConstraintSettingInfo}, or {@code
    * null} if none exists.
    */

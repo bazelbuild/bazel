@@ -37,10 +37,15 @@ public class ConstraintSettingInfo extends NativeInfo implements ConstraintSetti
 
   private final Label label;
   @Nullable private final Label defaultConstraintValueLabel;
+  @Nullable private final Label refinesConstraintValueLabel;
 
-  private ConstraintSettingInfo(Label label, Label defaultConstraintValueLabel) {
+  private ConstraintSettingInfo(
+      Label label,
+      @Nullable Label defaultConstraintValueLabel,
+      @Nullable Label refinesConstraintValueLabel) {
     this.label = label;
     this.defaultConstraintValueLabel = defaultConstraintValueLabel;
+    this.refinesConstraintValueLabel = refinesConstraintValueLabel;
   }
 
   @Override
@@ -65,6 +70,17 @@ public class ConstraintSettingInfo extends NativeInfo implements ConstraintSetti
       return null;
     }
     return ConstraintValueInfo.create(this, defaultConstraintValueLabel);
+  }
+
+  @Override
+  public boolean hasRefinesConstraintValue() {
+    return refinesConstraintValueLabel != null;
+  }
+
+  @Override
+  @Nullable
+  public Label refinesConstraintValueLabel() {
+    return refinesConstraintValueLabel;
   }
 
   /** Add this constraint setting to the given fingerprint. */
@@ -92,17 +108,29 @@ public class ConstraintSettingInfo extends NativeInfo implements ConstraintSetti
     if (defaultConstraintValueLabel != null) {
       printer.append(", default_constraint_value=").str(defaultConstraintValueLabel, semantics);
     }
+    if (refinesConstraintValueLabel != null) {
+      printer.append(", refines_constraint_value=").str(refinesConstraintValueLabel, semantics);
+    }
     printer.append(")");
   }
 
   /** Returns a new {@link ConstraintSettingInfo} with the given data. */
   public static ConstraintSettingInfo create(Label constraintSetting) {
-    return create(constraintSetting, null);
+    return create(constraintSetting, null, null);
   }
 
   /** Returns a new {@link ConstraintSettingInfo} with the given data. */
   public static ConstraintSettingInfo create(
-      Label constraintSetting, Label defaultConstraintValue) {
-    return new ConstraintSettingInfo(constraintSetting, defaultConstraintValue);
+      Label constraintSetting, @Nullable Label defaultConstraintValue) {
+    return create(constraintSetting, defaultConstraintValue, null);
+  }
+
+  /** Returns a new {@link ConstraintSettingInfo} with the given data. */
+  public static ConstraintSettingInfo create(
+      Label constraintSetting,
+      @Nullable Label defaultConstraintValue,
+      @Nullable Label refinesConstraintValue) {
+    return new ConstraintSettingInfo(
+        constraintSetting, defaultConstraintValue, refinesConstraintValue);
   }
 }

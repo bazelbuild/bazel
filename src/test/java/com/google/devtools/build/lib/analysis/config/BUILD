@@ -283,3 +283,15 @@ java_test(
         "//third_party:truth",
     ],
 )
+
+java_test(
+    name = "ConfigMatchingProviderTest",
+    srcs = ["ConfigMatchingProviderTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:config_matching_provider",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)

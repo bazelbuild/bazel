@@ -158,6 +158,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
             settings.nativeFlagSettings,
             userDefinedFlags.getSpecifiedFlagValues(),
             ImmutableSet.copyOf(getSpecifiedConstraintValues(ruleContext)),
+            getConstraintValueRefinements(ruleContext),
             Stream.of(userDefinedFlags.result(), nativeFlagsResult, constraintValuesResult)
                 .reduce(MatchResult::combine)
                 .get());
@@ -847,5 +848,25 @@ Either remove one of these settings or ensure they match the same value.
     return ruleContext.getPrerequisites(ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE).stream()
         .map(TransitiveInfoCollection::getLabel)
         .collect(Collectors.toList());
+  }
+
+  /**
+   * Builds a map from constraint value labels to the constraint value labels they refine, based on
+   * the {@code refines_constraint_value} attribute on their constraint settings.
+   */
+  private static ImmutableMap<Label, Label> getConstraintValueRefinements(
+      RuleContext ruleContext) {
+    ImmutableMap.Builder<Label, Label> refinements = ImmutableMap.builder();
+    for (TransitiveInfoCollection dep :
+        ruleContext.getPrerequisites(ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE)) {
+      ConstraintValueInfo cvInfo = PlatformProviderUtils.constraintValue(dep);
+      if (cvInfo != null) {
+        Label refinedLabel = cvInfo.constraint().refinesConstraintValueLabel();
+        if (refinedLabel != null) {
+          refinements.put(dep.getLabel(), refinedLabel);
+        }
+      }
+    }
+    return refinements.buildOrThrow();
   }
 }

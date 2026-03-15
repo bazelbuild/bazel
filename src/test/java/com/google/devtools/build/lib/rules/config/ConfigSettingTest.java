@@ -3431,4 +3431,233 @@ public final class ConfigSettingTest extends BuildViewTestCase {
           .doesNotContain(PrecomputedValue.STAMP_SETTING_MARKER.getKey());
     }
   }
+
+  @Test
+  public void refinesSettingWithHierarchicalConstraintValues() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = "libc",
+        )
+
+        constraint_setting(
+            name = "glibc_version",
+            refines_constraint_value = ":glibc",
+        )
+
+        constraint_value(
+            name = "glibc_2_42",
+            constraint_setting = "glibc_version",
+        )
+
+        platform(
+            name = "glibc_platform",
+            constraint_values = [
+                ":glibc",
+                ":glibc_2_42",
+            ],
+        )
+
+        config_setting(
+            name = "is_glibc",
+            constraint_values = [":glibc"],
+        )
+
+        config_setting(
+            name = "is_glibc_2_42",
+            constraint_values = [":glibc_2_42"],
+        )
+        """);
+    useConfiguration("--platforms=//test:glibc_platform");
+    assertThat(
+            getConfigMatchingProvider("//test:is_glibc_2_42")
+                .refines(getConfigMatchingProvider("//test:is_glibc")))
+        .isTrue();
+    assertThat(
+            getConfigMatchingProvider("//test:is_glibc")
+                .refines(getConfigMatchingProvider("//test:is_glibc_2_42")))
+        .isFalse();
+  }
+
+  @Test
+  public void hierarchicalConstraintRefinesWithAdditionalConstraints() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = "libc",
+        )
+
+        constraint_setting(
+            name = "glibc_version",
+            refines_constraint_value = ":glibc",
+        )
+
+        constraint_value(
+            name = "glibc_2_42",
+            constraint_setting = "glibc_version",
+        )
+
+        constraint_setting(name = "arch")
+
+        constraint_value(
+            name = "x86_64",
+            constraint_setting = "arch",
+        )
+
+        platform(
+            name = "platform",
+            constraint_values = [
+                ":glibc",
+                ":glibc_2_42",
+                ":x86_64",
+            ],
+        )
+
+        config_setting(
+            name = "is_glibc_x86",
+            constraint_values = [
+                ":glibc",
+                ":x86_64",
+            ],
+        )
+
+        config_setting(
+            name = "is_glibc_2_42_x86",
+            constraint_values = [
+                ":glibc_2_42",
+                ":x86_64",
+            ],
+        )
+        """);
+    useConfiguration("--platforms=//test:platform");
+    // is_glibc_2_42_x86 refines is_glibc_x86 because glibc_2_42 refines glibc
+    // and both share x86_64
+    assertThat(
+            getConfigMatchingProvider("//test:is_glibc_2_42_x86")
+                .refines(getConfigMatchingProvider("//test:is_glibc_x86")))
+        .isTrue();
+    assertThat(
+            getConfigMatchingProvider("//test:is_glibc_x86")
+                .refines(getConfigMatchingProvider("//test:is_glibc_2_42_x86")))
+        .isFalse();
+  }
+
+  @Test
+  public void hierarchicalConstraintDoesNotRefineUnrelatedConstraint() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = "libc",
+        )
+
+        constraint_value(
+            name = "musl",
+            constraint_setting = "libc",
+        )
+
+        constraint_setting(
+            name = "glibc_version",
+            refines_constraint_value = ":glibc",
+        )
+
+        constraint_value(
+            name = "glibc_2_42",
+            constraint_setting = "glibc_version",
+        )
+
+        platform(
+            name = "platform",
+            constraint_values = [
+                ":glibc",
+                ":glibc_2_42",
+            ],
+        )
+
+        config_setting(
+            name = "is_musl",
+            constraint_values = [":musl"],
+        )
+
+        config_setting(
+            name = "is_glibc_2_42",
+            constraint_values = [":glibc_2_42"],
+        )
+        """);
+    useConfiguration("--platforms=//test:platform");
+    // glibc_2_42 refines glibc, NOT musl - so neither should refine the other
+    assertThat(
+            getConfigMatchingProvider("//test:is_glibc_2_42")
+                .refines(getConfigMatchingProvider("//test:is_musl")))
+        .isFalse();
+    assertThat(
+            getConfigMatchingProvider("//test:is_musl")
+                .refines(getConfigMatchingProvider("//test:is_glibc_2_42")))
+        .isFalse();
+  }
+
+  @Test
+  public void hierarchicalConstraintValueMatches() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = "libc",
+        )
+
+        constraint_setting(
+            name = "glibc_version",
+            refines_constraint_value = ":glibc",
+        )
+
+        constraint_value(
+            name = "glibc_2_42",
+            constraint_setting = "glibc_version",
+        )
+
+        constraint_value(
+            name = "glibc_2_40",
+            constraint_setting = "glibc_version",
+        )
+
+        platform(
+            name = "glibc_2_42_platform",
+            constraint_values = [
+                ":glibc",
+                ":glibc_2_42",
+            ],
+        )
+
+        platform(
+            name = "glibc_2_40_platform",
+            constraint_values = [
+                ":glibc",
+                ":glibc_2_40",
+            ],
+        )
+
+        config_setting(
+            name = "is_glibc_2_42",
+            constraint_values = [":glibc_2_42"],
+        )
+        """);
+    useConfiguration("--platforms=//test:glibc_2_42_platform");
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:is_glibc_2_42")).isTrue();
+    useConfiguration("--platforms=//test:glibc_2_40_platform");
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:is_glibc_2_42")).isFalse();
+  }
 }

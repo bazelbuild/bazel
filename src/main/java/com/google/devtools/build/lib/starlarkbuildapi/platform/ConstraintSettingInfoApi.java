@@ -54,4 +54,19 @@ public interface ConstraintSettingInfoApi extends StructApi {
       doc = "Whether there is a default constraint_value for this setting.",
       structField = true)
   boolean hasDefaultConstraintValue();
+
+  @StarlarkMethod(
+      name = "refines_constraint_value",
+      doc = "The constraint_value that this constraint setting refines, or None.",
+      structField = true,
+      allowReturnNones = true,
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API)
+  @Nullable
+  Label refinesConstraintValueLabel();
+
+  @StarlarkMethod(
+      name = "has_refines_constraint_value",
+      doc = "Whether this constraint setting refines a constraint_value.",
+      structField = true)
+  boolean hasRefinesConstraintValue();
 }

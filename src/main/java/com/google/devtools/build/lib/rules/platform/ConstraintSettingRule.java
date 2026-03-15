@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.Types;
 public class ConstraintSettingRule implements RuleDefinition {
   public static final String RULE_NAME = "constraint_setting";
   public static final String DEFAULT_CONSTRAINT_VALUE_ATTR = "default_constraint_value";
+  public static final String REFINES_CONSTRAINT_VALUE_ATTR = "refines_constraint_value";
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -60,6 +61,18 @@ public class ConstraintSettingRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(DEFAULT_CONSTRAINT_VALUE_ATTR, BuildType.NODEP_LABEL)
+                .nonconfigurable("constants must be consistent across configurations"))
+        /* <!-- #BLAZE_RULE(constraint_setting).ATTRIBUTE(refines_constraint_value) -->
+        The label of the <code>constraint_value</code> that this constraint setting refines. If set,
+        any platform specifying a <code>constraint_value</code> of this setting must also specify
+        the refined <code>constraint_value</code>. Additionally, in <code>select()</code>
+        expressions, a <code>constraint_value</code> of this setting is considered more specific
+        than the refined <code>constraint_value</code>, resolving ambiguity.
+
+        <p>This attribute is mutually exclusive with <code>default_constraint_value</code>.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr(REFINES_CONSTRAINT_VALUE_ATTR, BuildType.NODEP_LABEL)
                 .nonconfigurable("constants must be consistent across configurations"))
         .build();
   }
