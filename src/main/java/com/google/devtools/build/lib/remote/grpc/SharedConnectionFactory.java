@@ -28,6 +28,8 @@ import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.functions.Action;
 import io.reactivex.rxjava3.subjects.AsyncSubject;
 import java.io.IOException;
+import java.net.NoRouteToHostException;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -202,9 +204,14 @@ public class SharedConnectionFactory implements ConnectionPool {
     }
   }
 
+  // A low-level HTTP or netty error indicates that the connection is fundamentally broken and
+  // should not be reused for retries.
   private static boolean isFatalError(@Nullable Throwable t) {
-    // A low-level netty error indicates that the connection is fundamentally broken
-    // and should not be reused for retries.
-    return t instanceof Errors.NativeIoException;
+    return switch (t) {
+      case Errors.NativeIoException e -> true;
+      case NoRouteToHostException e -> true;
+      case UnknownHostException e -> true;
+      case null, default -> false;
+    };
   }
 }
