@@ -41,13 +41,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       documented = false)
   int incrementalDexingShardsAfterProguard();
 
-  @StarlarkMethod(
-      name = "incremental_dexing_use_dex_sharder",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean incrementalDexingUseDexSharder();
-
   @StarlarkMethod(name = "apk_signing_method_v1", structField = true, doc = "", documented = false)
   boolean apkSigningMethodV1();
 

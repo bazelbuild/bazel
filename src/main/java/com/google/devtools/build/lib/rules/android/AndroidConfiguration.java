@@ -319,16 +319,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + "Values > 0 turn the feature on, values > 1 run that many dexbuilder shards.")
     public int incrementalDexingShardsAfterProguard;
 
-    /** Whether to use a separate tool to shard classes before merging them into final dex files. */
-    @Option(
-        name = "experimental_use_dex_splitter_for_incremental_dexing",
-        defaultValue = "true",
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        help = "Do not use.")
-    public boolean incrementalDexingUseDexSharder;
-
     @Option(
         name = "experimental_android_use_parallel_dex2oat",
         defaultValue = "false",
@@ -940,7 +930,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final ConfigurationDistinguisher configurationDistinguisher;
   private final boolean incrementalDexing;
   private final int incrementalDexingShardsAfterProguard;
-  private final boolean incrementalDexingUseDexSharder;
   private final ImmutableList<String> dexoptsSupportedInIncrementalDexing;
   private final ImmutableList<String> targetDexoptsThatPreventIncrementalDexing;
   private final ImmutableList<String> dexoptsSupportedInDexMerger;
@@ -983,7 +972,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.configurationDistinguisher = options.configurationDistinguisher;
     this.incrementalDexing = options.incrementalDexing;
     this.incrementalDexingShardsAfterProguard = options.incrementalDexingShardsAfterProguard;
-    this.incrementalDexingUseDexSharder = options.incrementalDexingUseDexSharder;
     this.dexoptsSupportedInIncrementalDexing =
         ImmutableList.copyOf(options.dexoptsSupportedInIncrementalDexing);
     this.targetDexoptsThatPreventIncrementalDexing =
@@ -1051,12 +1039,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public int incrementalDexingShardsAfterProguard() {
     return incrementalDexingShardsAfterProguard;
-  }
-
-  /** Whether to use a separate tool to shard classes before merging them into final dex files. */
-  @Override
-  public boolean incrementalDexingUseDexSharder() {
-    return incrementalDexingUseDexSharder;
   }
 
   /** dx flags supported in incremental dexing actions. */
