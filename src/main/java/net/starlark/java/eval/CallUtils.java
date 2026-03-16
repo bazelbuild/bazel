@@ -107,8 +107,11 @@ public final class CallUtils {
     ImmutableMap<String, MethodDescriptor> methods;
 
     /**
-     * The type constructor produced by augmenting this class's base type constructor with method
-     * information; or null if this class cannot be used as a type.
+     * The type constructor to be called when the Starlark symbol that acts as this class's Starlark
+     * constructor appears in a type application expression; or null if this class cannot be used as
+     * a Starlark type.
+     *
+     * <p>For example, for {@link StarlarkList}'s descriptor this is {@link Types#LIST_CONSTRUCTOR}.
      *
      * <p>See {@link StarlarkMethod#isTypeConstructor}.
      */
@@ -207,8 +210,7 @@ public final class CallUtils {
     MethodDescriptor selfCall = null;
     ImmutableMap.Builder<String, MethodDescriptor> methods = ImmutableMap.builder();
 
-    TypeConstructor typeConstructor = getBaseTypeConstructor(clazz);
-    // TODO: #28325 - Programmatically augment this type with the @StarlarkMethods.
+    TypeConstructor typeConstructor = getAssociatedTypeConstructor(clazz);
 
     // Sort methods by Java name, for determinism.
     Method[] classMethods = clazz.getMethods();
@@ -258,17 +260,14 @@ public final class CallUtils {
   }
 
   /**
-   * Returns the base type constructor identified by the given class's {@code
-   * getBaseTypeConstructor()} static method, or null if it does not have one.
-   *
-   * <p>The base type constructor is not the final constructor stored on the {@link
-   * ClassDescriptor}; it lacks type information about the class's methods.
+   * Returns the type constructor identified by calling the given class's {@code
+   * getAssociatedTypeConstructor()} static method, or null if it does not have such a method.
    *
    * @throws IllegalArgumentException if the method exists but has an unexpected signature, or if it
    *     does not evaluate successfully
    */
   @Nullable
-  private static TypeConstructor getBaseTypeConstructor(Class<?> clazz) {
+  private static TypeConstructor getAssociatedTypeConstructor(Class<?> clazz) {
     // Special-case bool, which is represented by Java booleans and does not have its own class.
     // (String.class does not need special-casing because it's already been replaced by
     // StringModule.class by this point.)
@@ -278,11 +277,12 @@ public final class CallUtils {
 
     Method found = null;
     for (Method m : clazz.getDeclaredMethods()) {
-      if (m.getName().equals("getBaseTypeConstructor")) {
+      if (m.getName().equals("getAssociatedTypeConstructor")) {
         if (found != null) {
           throw new IllegalArgumentException(
               String.format(
-                  "Class %s has multiple methods named getBaseTypeConstructor", clazz.getName()));
+                  "Class %s has multiple methods named getAssociatedTypeConstructor",
+                  clazz.getName()));
         }
         found = m;
       }
@@ -298,8 +298,8 @@ public final class CallUtils {
         || found.getParameterCount() != 0) {
       throw new IllegalArgumentException(
           String.format(
-              "Method %s#getBaseTypeConstructor has an invalid signature; "
-                  + "expected 'public static TypeConstructor getBaseTypeConstructor()'",
+              "Method %s#getAssociatedTypeConstructor has an invalid signature; "
+                  + "expected 'public static TypeConstructor getAssociatedTypeConstructor()'",
               clazz.getName()));
     }
 
@@ -307,7 +307,7 @@ public final class CallUtils {
       return (TypeConstructor) found.invoke(null);
     } catch (IllegalAccessException | InvocationTargetException | RuntimeException e) {
       throw new IllegalArgumentException(
-          String.format("Error invoking %s#getBaseTypeConstructor", clazz.getName()), e);
+          String.format("Error invoking %s#getAssociatedTypeConstructor", clazz.getName()), e);
     }
   }
 }

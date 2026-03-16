@@ -131,7 +131,7 @@ public final class Types {
     }
 
     @Override
-    public StarlarkType getField(String name) {
+    public StarlarkType getField(String name, TypeContext context) {
       return ANY;
     }
 
@@ -599,10 +599,10 @@ public final class Types {
 
     @Override
     @Nullable
-    public StarlarkType getField(String name) {
+    public StarlarkType getField(String name, TypeContext context) {
       ArrayList<StarlarkType> resultTypes = new ArrayList<>(getTypes().size());
       for (StarlarkType type : getTypes()) {
-        StarlarkType result = type.getField(name);
+        StarlarkType result = type.getField(name, context);
         if (result == null) {
           return null;
         }
@@ -653,6 +653,12 @@ public final class Types {
     }
 
     @Override
+    @Nullable
+    public StarlarkType getField(String name, TypeContext context) {
+      return context.getListFieldType(name);
+    }
+
+    @Override
     protected boolean isComparable(StarlarkType that) {
       if (that.equals(Types.ANY)) {
         return true;
@@ -692,6 +698,12 @@ public final class Types {
     }
 
     @Override
+    @Nullable
+    public StarlarkType getField(String name, TypeContext context) {
+      return context.getDictFieldType(name);
+    }
+
+    @Override
     public boolean hasSetIndex() {
       return true;
     }
@@ -715,6 +727,12 @@ public final class Types {
     @Override
     public final String toString() {
       return "set[" + getElementType() + "]";
+    }
+
+    @Override
+    @Nullable
+    public StarlarkType getField(String name, TypeContext context) {
+      return context.getSetFieldType(name);
     }
 
     @Override

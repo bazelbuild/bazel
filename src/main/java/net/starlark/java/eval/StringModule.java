@@ -64,7 +64,7 @@ import net.starlark.java.syntax.Types;
             + "use <code>==</code> to test for equality.")
 final class StringModule implements StarlarkValue {
 
-  public static TypeConstructor getBaseTypeConstructor() {
+  public static TypeConstructor getAssociatedTypeConstructor() {
     return Types.STR_CONSTRUCTOR;
   }
 

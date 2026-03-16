@@ -145,5 +145,23 @@ public final class TestUtils {
       resolve(name); // throws if unknown
       return typeConstructors.get(name);
     }
+
+    @Override
+    @Nullable
+    public StarlarkType getListFieldType(String name) {
+      return null;
+    }
+
+    @Override
+    @Nullable
+    public StarlarkType getDictFieldType(String name) {
+      return null;
+    }
+
+    @Override
+    @Nullable
+    public StarlarkType getSetFieldType(String name) {
+      return null;
+    }
   }
 }

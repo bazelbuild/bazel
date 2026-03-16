@@ -42,7 +42,7 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
    * If this type has a field by the given name, returns the type of that field, or null otherwise.
    */
   @Nullable
-  public StarlarkType getField(String name) {
+  public StarlarkType getField(String name, TypeContext context) {
     return null;
   }
 

@@ -46,7 +46,9 @@ import net.starlark.java.spelling.SpellChecker;
 public final class TypeChecker extends NodeVisitor {
 
   private final List<SyntaxError> errors;
-  // Empty if we were invoked via inferTypeOf(Expression) to type-check an expression (since inside
+  private final TypeContext typeContext;
+
+  // Empty if we were invoked via inferTypeOf() to type-check an expression (since inside
   // an expression, no function definitions are allowed). Populated and mutated by visitation.
   private final ArrayDeque<Resolver.Function> functionStack = new ArrayDeque<>();
 
@@ -93,8 +95,9 @@ public final class TypeChecker extends NodeVisitor {
     return n == 1 ? "" : "s";
   }
 
-  private TypeChecker(List<SyntaxError> errors) {
+  private TypeChecker(List<SyntaxError> errors, TypeContext typeContext) {
     this.errors = errors;
+    this.typeContext = typeContext;
   }
 
   /**
@@ -299,7 +302,7 @@ public final class TypeChecker extends NodeVisitor {
     ImmutableList.Builder<StarlarkType> resultTypes =
         ImmutableList.builderWithExpectedSize(objElemTypes.size());
     for (StarlarkType objElemType : objElemTypes) {
-      StarlarkType fieldType = objElemType.getField(name);
+      StarlarkType fieldType = objElemType.getField(name, typeContext);
       if (fieldType == null) {
         errorf(
             dot.getDotLocation(),
@@ -983,16 +986,17 @@ public final class TypeChecker extends NodeVisitor {
   }
 
   /**
-   * Infers the type of an expression.
+   * Returns the inferred type of an expression.
    *
    * <p>The expression must have already been resolved and type-tagged, i.e. identifiers must have
    * their bindings set and these bindings must contain type information.
    *
    * @throws SyntaxError.Exception if a static type error is present in the expression
    */
-  static StarlarkType inferTypeOf(Expression expr) throws SyntaxError.Exception {
+  static StarlarkType inferTypeOf(Expression expr, TypeContext typeContext)
+      throws SyntaxError.Exception {
     List<SyntaxError> errors = new ArrayList<>();
-    TypeChecker tc = new TypeChecker(errors);
+    TypeChecker tc = new TypeChecker(errors, typeContext);
     StarlarkType result = tc.infer(expr);
     if (!errors.isEmpty()) {
       throw new SyntaxError.Exception(tc.errors);
@@ -1361,7 +1365,7 @@ public final class TypeChecker extends NodeVisitor {
 
   /**
    * Returns true if the current function is considered to use type syntax, or if we were invoked
-   * via {@link #inferTypeOf(Expression)}. If false, the current node must not be type-checked.
+   * via {@link #inferTypeOf}. If false, the current node must not be type-checked.
    */
   private boolean usesTypeSyntax() {
     return functionStack.isEmpty() || functionStack.peek().usesTypeSyntax();
@@ -1374,8 +1378,8 @@ public final class TypeChecker extends NodeVisitor {
    *
    * <p>Any type checking errors are appended to the file's errors list.
    */
-  public static void checkFile(StarlarkFile file) {
-    TypeChecker checker = new TypeChecker(file.errors);
+  public static void checkFile(StarlarkFile file, TypeContext typeContext) {
+    TypeChecker checker = new TypeChecker(file.errors, typeContext);
     checker.visit(file);
   }
 }

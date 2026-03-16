@@ -74,7 +74,7 @@ public final class TypeCheckerTest {
    */
   private StarlarkFile typecheckFilePossiblyFailing(String... lines) throws Exception {
     StarlarkFile file = prepareFile(lines);
-    TypeChecker.checkFile(file);
+    TypeChecker.checkFile(file, module);
     return file;
   }
 
@@ -99,7 +99,7 @@ public final class TypeCheckerTest {
   private StarlarkType inferTypeGivenDecls(String expr, String... decls) throws Exception {
     StarlarkFile file = prepareFile(ObjectArrays.concat(decls, expr));
     var resolvedExpr = ((ExpressionStatement) file.getStatements().getLast()).getExpression();
-    return TypeChecker.inferTypeOf(resolvedExpr);
+    return TypeChecker.inferTypeOf(resolvedExpr, module);
   }
 
   /**
@@ -120,11 +120,11 @@ public final class TypeCheckerTest {
   private void assertTypeAfterTypecheck(String expr, StarlarkType expected, String... decls)
       throws Exception {
     StarlarkFile file = prepareFile(ObjectArrays.concat(decls, expr));
-    TypeChecker.checkFile(file);
+    TypeChecker.checkFile(file, module);
     assertThat(file.errors()).isEmpty();
     var resolvedExpr = ((ExpressionStatement) file.getStatements().getLast()).getExpression();
     assertWithMessage("type of %s", expr)
-        .that(TypeChecker.inferTypeOf(resolvedExpr))
+        .that(TypeChecker.inferTypeOf(resolvedExpr, module))
         .isEqualTo(expected);
   }
 
@@ -355,7 +355,7 @@ public final class TypeCheckerTest {
     }
 
     @Override
-    public StarlarkType getField(String name) {
+    public StarlarkType getField(String name, TypeContext context) {
       return name.equals("f") ? fieldType : null;
     }
 

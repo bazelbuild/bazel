@@ -114,7 +114,7 @@ public class Dict<K, V>
         StarlarkIndexable,
         StarlarkIterable<K> {
 
-  public static TypeConstructor getBaseTypeConstructor() {
+  public static TypeConstructor getAssociatedTypeConstructor() {
     return Types.DICT_CONSTRUCTOR;
   }
 

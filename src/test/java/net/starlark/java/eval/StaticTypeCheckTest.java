@@ -142,7 +142,7 @@ public final class StaticTypeCheckTest {
   @StarlarkBuiltin(name = "BadBodyTypeBuiltin")
   public static final class BadBodyTypeBuiltin implements StarlarkValue {
     @SuppressWarnings("DoNotCallSuggester")
-    public static TypeConstructor getBaseTypeConstructor() {
+    public static TypeConstructor getAssociatedTypeConstructor() {
       throw new RuntimeException("fail");
     }
   }
@@ -150,14 +150,14 @@ public final class StaticTypeCheckTest {
   @StarlarkBuiltin(name = "BadSignatureTypeBuiltin")
   public static final class BadSignatureTypeBuiltin implements StarlarkValue {
     @SuppressWarnings("DoNotCallSuggester")
-    public TypeConstructor getBaseTypeConstructor() { // missing `static`
+    public TypeConstructor getAssociatedTypeConstructor() { // missing `static`
       throw new RuntimeException("fail");
     }
   }
 
   @StarlarkBuiltin(name = "MissingStaticMethodTypeBuiltin")
   public static final class MissingStaticMethodTypeBuiltin implements StarlarkValue {
-    // no getBaseTypeConstructor()
+    // no getAssociatedTypeConstructor()
   }
 
   public static final class DummyLibrary {
@@ -178,7 +178,7 @@ public final class StaticTypeCheckTest {
   }
 
   @Test
-  public void starlarkBuiltinWithBadBaseTypeConstructor() {
+  public void starlarkBuiltinWithBadAssociatedTypeConstructor() {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     Starlark.addMethods(env, new DummyLibrary());
     module = Module.withPredeclared(StarlarkSemantics.DEFAULT, env.buildOrThrow());
@@ -186,12 +186,13 @@ public final class StaticTypeCheckTest {
     var ex = assertThrows(IllegalArgumentException.class, () -> compile("x: BadSignature = None"));
     assertThat(ex)
         .hasMessageThat()
-        .containsMatch(".*BadSignatureTypeBuiltin#getBaseTypeConstructor has an invalid signature");
+        .containsMatch(
+            ".*BadSignatureTypeBuiltin#getAssociatedTypeConstructor has an invalid signature");
 
     ex = assertThrows(IllegalArgumentException.class, () -> compile("x: BadBody = None"));
     assertThat(ex)
         .hasMessageThat()
-        .containsMatch("Error invoking .*BadBodyTypeBuiltin#getBaseTypeConstructor");
+        .containsMatch("Error invoking .*BadBodyTypeBuiltin#getAssociatedTypeConstructor");
 
     ex =
         assertThrows(
@@ -199,5 +200,47 @@ public final class StaticTypeCheckTest {
     assertThat(ex)
         .hasMessageThat()
         .containsMatch("invalid type constructor proxy: .*MissingStaticMethodTypeBuiltin");
+  }
+
+  @Test
+  public void listMethods() {
+    assertValid(
+        """
+        x: list[int]
+        x.pop(0)
+        """);
+
+    assertInvalid(
+        "in call to 'x.pop()', parameter 'i' got value of type 'str', want 'int'",
+        """
+        x: list[int]
+        x.pop("abc")
+        """);
+
+    assertInvalid(
+        "'x' of type 'list[int]' does not have field 'does_not_exist'",
+        """
+        x: list[int]
+        x.does_not_exist
+        """);
+  }
+
+  @Test
+  public void dictMethods() {
+    assertValid(
+        """
+        d: dict[str, int]
+        v = d.get("a", 0)
+        d.setdefault("b", 2)
+        """);
+  }
+
+  @Test
+  public void setMethods() {
+    assertValid(
+        """
+        s: set[int]
+        s.add(3)
+        """);
   }
 }
