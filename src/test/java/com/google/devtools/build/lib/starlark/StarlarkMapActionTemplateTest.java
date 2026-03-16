@@ -1013,6 +1013,65 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
   }
 
   @Test
+  public void internalActionsCannotTakeTopLevelDirectoriesAsInputs() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
+    write(
+        "test/rule_def.bzl",
+        """
+        load(":helpers.bzl", "create_seed_dir", "create_seed_subdir")
+
+        def combined_impl(
+                template_ctx,
+                input_directories,
+                output_directories,
+                tools,
+                **kwargs):
+            output_dir1 = output_directories["output_dir1"]
+            output_dir2 = output_directories["output_dir2"]
+            output_file = template_ctx.declare_file(
+                "combined.txt",
+                directory = output_dir2,
+            )
+            template_ctx.run(
+                inputs = [output_dir1],
+                outputs = [output_file],
+                executable = tools["cat_tool"],
+                # Args don't matter, it should fail.
+                arguments = [template_ctx.args()],
+            )
+
+        def rule_impl(ctx):
+            input_dir = create_seed_dir(ctx, "input_dir", 1, 1)
+            output_dir1 = ctx.actions.declare_directory(ctx.attr.name + "_output_dir1")
+            output_dir2 = ctx.actions.declare_directory(ctx.attr.name + "_output_dir2")
+            ctx.actions.map_directory(
+                implementation = combined_impl,
+                input_directories = {
+                    "input_dir": input_dir,
+                },
+                output_directories = {
+                    "output_dir1": output_dir1,
+                    "output_dir2": output_dir2,
+                },
+                tools = {
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
+                    "gen_subdir_tool": ctx.attr.gen_subdir_tool.files_to_run,
+                },
+            )
+            return [DefaultInfo(files = depset([output_dir2]))]
+        """);
+    RecordingOutErr recordingOutErr = new RecordingOutErr();
+    this.outErr = recordingOutErr;
+    assertThrows(BuildFailedException.class, () -> buildTarget("//test:target"));
+    assertThat(recordingOutErr.errAsLatin1())
+        .containsMatch(
+            "ERROR: .*/test/BUILD:2:8: Expanding \\[File:\\[.*\\]test/target_input_dir\\] into"
+                + " actions\\. failed: Output directory"
+                + " File:\\[.*\\]test/target_output_dir1"
+                + " cannot be used as an input to template_ctx\\.run\\(\\)");
+  }
+
+  @Test
   public void actionConflicts_declaredFileWithPrefixOfSubdir() throws Exception {
     SkyframeExecutorTestHelper.process(getSkyframeExecutor());
     write(
