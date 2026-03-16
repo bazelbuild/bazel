@@ -353,6 +353,7 @@ use_repo(
     "openjdk_linux_vanilla",
     "openjdk_macos_aarch64_vanilla",
     "openjdk_macos_x86_64_vanilla",
+    "openjdk_win_arm64_jmods",
     "openjdk_win_arm64_vanilla",
     "openjdk_win_vanilla",
 )

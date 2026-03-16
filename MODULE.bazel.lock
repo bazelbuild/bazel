@@ -373,7 +373,7 @@
   "moduleExtensions": {
     "//:repositories.bzl%async_profiler_repos": {
       "general": {
-        "bzlTransitiveDigest": "Ilg8GQT+f15+hygKAhbGD+qLdQhPyylJMENZ+S52+f8=",
+        "bzlTransitiveDigest": "a1xrHVXmxLybCb+A//ojsugr4+2DTldziVmOqT/ijHg=",
         "usagesDigest": "OtEjntl27qRj/reKm6+KihKPMyBd4tlRLe6Q/xITqWk=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
