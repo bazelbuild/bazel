@@ -92,9 +92,10 @@ import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheDeps;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheManager;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -288,9 +289,10 @@ public class BuildView {
       try (SilentCloseable c = Profiler.instance().profile("skycache.metadataQuery")) {
         remoteAnalysisCachingDependenciesProvider.queryMetadataAndMaybeBailout();
       }
-      if (remoteAnalysisCachingDependenciesProvider.bailedOut()) {
-        remoteAnalysisCachingDependenciesProvider = DisabledDependenciesProvider.INSTANCE;
-        remoteAnalysisCacheReaderDeps = DisabledDependenciesProvider.INSTANCE;
+      if (remoteAnalysisCachingDependenciesProvider.mode() != RemoteAnalysisCacheMode.OFF
+          && remoteAnalysisCachingDependenciesProvider.bailedOut()) {
+        remoteAnalysisCachingDependenciesProvider = RemoteAnalysisCacheManager.createDisabled();
+        remoteAnalysisCacheReaderDeps = RemoteAnalysisCacheDeps.createDisabled();
       } else {
         eventBus.post(new RemoteAnalysisCachingEnabledEvent());
       }

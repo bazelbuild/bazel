@@ -102,7 +102,7 @@ import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStor
 import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataParams;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheManager;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheFactory;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.SerializationDependenciesProvider;
@@ -366,7 +366,7 @@ public class BuildTool {
         applyHeuristicInstrumentationFilter(buildOptions, targetPatternPhaseValue);
       }
       var analysisDeps =
-          RemoteAnalysisCacheManager.create(
+          RemoteAnalysisCacheFactory.create(
               env,
               projectEvaluationResult.activeDirectoriesMatcher(),
               targetPatternPhaseValue.getTargetLabels(),
@@ -439,13 +439,15 @@ public class BuildTool {
             reportOnlyBailOutReason(analysisCacheReaderDeps);
           } else {
             logAnalysisCachingStats(analysisCacheReaderDeps);
-            RemoteAnalysisJsonLogWriter logWriter =
-                serializationDependenciesProvider.getJsonLogWriter();
-            if (logWriter != null) {
-              logWriter.close();
-              if (logWriter.hadErrors()) {
-                env.getReporter()
-                    .handle(Event.warn("Skycache JSON log writing had errors, check Java logs"));
+            if (analysisCacheReaderDeps.mode() != RemoteAnalysisCacheMode.OFF) {
+              RemoteAnalysisJsonLogWriter logWriter =
+                  serializationDependenciesProvider.getJsonLogWriter();
+              if (logWriter != null) {
+                logWriter.close();
+                if (logWriter.hadErrors()) {
+                  env.getReporter()
+                      .handle(Event.warn("Skycache JSON log writing had errors, check Java logs"));
+                }
               }
             }
           }

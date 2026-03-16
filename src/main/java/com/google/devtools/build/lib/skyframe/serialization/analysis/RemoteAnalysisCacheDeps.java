@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+import com.google.common.base.Preconditions;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -38,7 +39,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
-class RemoteAnalysisCacheDeps
+/**
+ * Implementation of remote analysis cache functionality that is needed for reading and writing.
+ *
+ * <p>The parts that are needed for maintenance of Skyframe, etc. are in {@link
+ * RemoteAnalysisCacheManager}.
+ */
+public class RemoteAnalysisCacheDeps
     implements SerializationDependenciesProvider, RemoteAnalysisCacheReaderDepsProvider {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -59,6 +66,10 @@ class RemoteAnalysisCacheDeps
 
   private final AtomicBoolean bailedOut = new AtomicBoolean();
   private final ExtendedEventHandler eventHandler;
+
+  public static RemoteAnalysisCacheDeps createDisabled() {
+    return new RemoteAnalysisCacheDeps();
+  }
 
   RemoteAnalysisCacheDeps(
       ExtendedEventHandler eventHandler,
@@ -89,6 +100,21 @@ class RemoteAnalysisCacheDeps
     this.analysisCacheClient = servicesSupplier.getAnalysisCacheClient();
   }
 
+  private RemoteAnalysisCacheDeps() {
+    this.mode = RemoteAnalysisCacheMode.OFF;
+    this.bailOutOnMissingFingerprint = false;
+    this.serializedFrontierProfile = "";
+    this.activeDirectoriesMatcher = Optional.empty();
+    this.eventHandler = null;
+    this.jsonLogWriter = null;
+    this.objectCodecs = null;
+    this.listener = null;
+    this.frontierNodeVersion = null;
+    this.fingerprintValueServiceFuture = null;
+    this.metadataWriter = null;
+    this.analysisCacheClient = null;
+  }
+
   static <T> T resolveWithTimeout(Future<? extends T> future, String what)
       throws InterruptedException {
     if (future == null) {
@@ -102,6 +128,11 @@ class RemoteAnalysisCacheDeps
     }
   }
 
+  private void checkEnabled() {
+    Preconditions.checkState(
+        mode != RemoteAnalysisCacheMode.OFF, "Remote analysis cache is disabled");
+  }
+
   @Override
   public RemoteAnalysisCacheMode mode() {
     return mode;
@@ -109,21 +140,25 @@ class RemoteAnalysisCacheDeps
 
   @Override
   public String getSerializedFrontierProfile() {
+    checkEnabled();
     return serializedFrontierProfile;
   }
 
   @Override
   public Optional<Predicate<PackageIdentifier>> getActiveDirectoriesMatcher() {
+    checkEnabled();
     return activeDirectoriesMatcher;
   }
 
   @Override
   public FrontierNodeVersion getSkyValueVersion() {
+    checkEnabled();
     return frontierNodeVersion;
   }
 
   @Override
   public ObjectCodecs getObjectCodecs() throws InterruptedException {
+    checkEnabled();
     try {
       return objectCodecs.get();
     } catch (ExecutionException e) {
@@ -133,44 +168,52 @@ class RemoteAnalysisCacheDeps
 
   @Override
   public FingerprintValueService getFingerprintValueService() throws InterruptedException {
+    checkEnabled();
     return resolveWithTimeout(fingerprintValueServiceFuture, "fingerprint value service");
   }
 
   @Override
   public KeyValueWriter getFileInvalidationWriter() throws InterruptedException {
+    checkEnabled();
     return getFingerprintValueService();
   }
 
   @Override
   @Nullable
   public RemoteAnalysisCacheClient getAnalysisCacheClient() throws InterruptedException {
+    checkEnabled();
     return resolveWithTimeout(analysisCacheClient, "analysis cache client");
   }
 
   @Override
   @Nullable
   public RemoteAnalysisMetadataWriter getMetadataWriter() throws InterruptedException {
+    checkEnabled();
     return resolveWithTimeout(metadataWriter, "metadata writer");
   }
 
   @Nullable
   @Override
   public RemoteAnalysisJsonLogWriter getJsonLogWriter() {
+    checkEnabled();
     return jsonLogWriter;
   }
 
   @Override
   public void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key) {
+    checkEnabled();
     listener.recordRetrievalResult(retrievalResult, key);
   }
 
   @Override
   public void recordSerializationException(SerializationException e, SkyKey key) {
+    checkEnabled();
     listener.recordSerializationException(e, key);
   }
 
   @Override
   public boolean shouldBailOutOnMissingFingerprint() {
+    checkEnabled();
     if (!bailOutOnMissingFingerprint) {
       return false;
     }

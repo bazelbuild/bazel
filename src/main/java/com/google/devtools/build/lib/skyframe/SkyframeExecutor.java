@@ -233,9 +233,10 @@ import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheDeps;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheManager;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServerState;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsCycleReporter;
@@ -527,11 +528,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private boolean remoteAnalysisCachingHasEverBeenEnabled = false;
 
   private RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider =
-      DisabledDependenciesProvider.INSTANCE;
+      RemoteAnalysisCacheManager.createDisabled();
 
   @Nullable
   private RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDepsProvider =
-      DisabledDependenciesProvider.INSTANCE;
+      RemoteAnalysisCacheDeps.createDisabled();
 
   /**
    * The state of the remote analysis caching.
@@ -559,12 +560,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * Returns the dependencies for remote analysis caching.
    *
    * <p>Should not be called before analysis begins.
-   *
-   * <p>This will reture {@link DisabledDependenciesProvider} until the top level configuration is
-   * determined at the beginning of the analysis Skyframe evaluation, because it contains that
-   * value. See the callsite of {@link
-   * #setRemoteAnalysisCachingDependenciesProvider(RemoteAnalysisCachingDependenciesProvider)} for
-   * the exact point.
    */
   @VisibleForTesting // productionVisibility = Visibility.PRIVATE
   public RemoteAnalysisCachingDependenciesProvider getRemoteAnalysisCachingDependenciesProvider() {
@@ -1069,8 +1064,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   /** Inform this SkyframeExecutor that a new command is starting. */
   public void noteCommandStart() {
     // Prevent stale Skycache configuration from persisting between builds.
-    remoteAnalysisCachingDependenciesProvider =
-        RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider.INSTANCE;
+    remoteAnalysisCachingDependenciesProvider = RemoteAnalysisCacheManager.createDisabled();
   }
 
   /**
@@ -1201,8 +1195,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     skyframeBuildView.reset();
     // Prevent stale Skycache configuration from persisting between cleans.
     remoteAnalysisCachingState = RemoteAnalysisCachingServerState.initializeEmpty();
-    remoteAnalysisCachingDependenciesProvider =
-        RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider.INSTANCE;
+    remoteAnalysisCachingDependenciesProvider = RemoteAnalysisCacheManager.createDisabled();
     skyfocusState = DISABLED;
     // cleanupInterningPools must be called before init(), since init() initializes a new graph,
     // losing all references to the SkyKeyInterners that must be cleaned up.
