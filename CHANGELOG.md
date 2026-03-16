@@ -28,6 +28,8 @@ Cherry picks:
      Release 10.0.0-pre.20260308.2 (2026-03-16)
    + 2aebc4d79e03f8347d3dcefdf7c6d0b83144d609:
      Release 10.0.0-pre.20260308.2 (2026-03-16)
+   + 8a81d0bb0eeaab8b3a5a33e2988d92322ca5f4cb:
+     Release 10.0.0-pre.20260308.2 (2026-03-16)
 ```
 
 Incompatible changes:
