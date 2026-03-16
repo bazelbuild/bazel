@@ -366,7 +366,7 @@ public class BuildTool {
         applyHeuristicInstrumentationFilter(buildOptions, targetPatternPhaseValue);
       }
       var analysisDeps =
-          RemoteAnalysisCacheManager.forAnalysis(
+          RemoteAnalysisCacheManager.create(
               env,
               projectEvaluationResult.activeDirectoriesMatcher(),
               targetPatternPhaseValue.getTargetLabels(),

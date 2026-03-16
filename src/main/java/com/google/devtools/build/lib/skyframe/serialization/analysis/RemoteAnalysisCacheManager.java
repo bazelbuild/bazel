@@ -20,7 +20,6 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.ForkJoinPool.commonPool;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
@@ -61,11 +60,8 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
-import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataParams;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.LongVersionClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient.LookupTopLevelTargetsResult;
@@ -89,7 +85,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
@@ -115,21 +110,6 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
 
   private final boolean minimizeMemory;
 
-  private static final long CLIENT_LOOKUP_TIMEOUT_SEC = 20L;
-
-  private static <T> T resolveWithTimeout(Future<? extends T> future, String what)
-      throws InterruptedException {
-    if (future == null) {
-      return null;
-    }
-    try {
-      return future.get(CLIENT_LOOKUP_TIMEOUT_SEC, SECONDS);
-    } catch (ExecutionException | TimeoutException e) {
-      logger.atWarning().withCause(e).log("Unable to initialize %s", what);
-      return null;
-    }
-  }
-
   /**
    * A collection of various parts of this class that various parts of Bazel (cache reading, cache
    * writing, in-memory bookkeeping) need.
@@ -142,7 +122,7 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
       RemoteAnalysisCacheReaderDepsProvider readerDeps,
       SerializationDependenciesProvider serializationDeps) {}
 
-  public static AnalysisDeps forAnalysis(
+  public static AnalysisDeps create(
       CommandEnvironment env,
       Optional<PathFragmentPrefixTrie> maybeActiveDirectoriesMatcher,
       Collection<Label> topLevelTargets,
@@ -515,7 +495,7 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
     } else {
       try {
         LookupTopLevelTargetsResult result =
-            resolveWithTimeout(analysisCacheClient, "analysis cache client")
+            RemoteAnalysisCacheDeps.resolveWithTimeout(analysisCacheClient, "analysis cache client")
                 .lookupTopLevelTargets(
                     skycacheMetadataParams.getEvaluatingVersion(),
                     skycacheMetadataParams.getConfigurationHash(),
@@ -570,7 +550,8 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
       RemoteAnalysisCachingServerState remoteAnalysisCachingState)
       throws InterruptedException {
     AnalysisCacheInvalidator invalidator =
-        resolveWithTimeout(analysisCacheInvalidator, "analysis cache invalidator");
+        RemoteAnalysisCacheDeps.resolveWithTimeout(
+            analysisCacheInvalidator, "analysis cache invalidator");
     if (invalidator == null) {
       // We need to know which keys to invalidate but we don't have an invalidator, presumably
       // because the backend services couldn't be contacted. Play if safe and invalidate every
@@ -596,149 +577,4 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
     return minimizeMemory;
   }
 
-  private static class RemoteAnalysisCacheDeps
-      implements SerializationDependenciesProvider, RemoteAnalysisCacheReaderDepsProvider {
-    private final RemoteAnalysisCacheMode mode;
-    private final boolean bailOutOnMissingFingerprint;
-    private final String serializedFrontierProfile;
-    private final Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher;
-    private final RemoteAnalysisCachingEventListener listener;
-    private final FrontierNodeVersion frontierNodeVersion;
-    @Nullable private final RemoteAnalysisJsonLogWriter jsonLogWriter;
-
-    private final ListenableFuture<ObjectCodecs> objectCodecs;
-    private final ListenableFuture<FingerprintValueService> fingerprintValueServiceFuture;
-    @Nullable
-    private final ListenableFuture<? extends RemoteAnalysisCacheClient> analysisCacheClient;
-    @Nullable private final ListenableFuture<? extends RemoteAnalysisMetadataWriter> metadataWriter;
-
-    private final AtomicBoolean bailedOut = new AtomicBoolean();
-    private final ExtendedEventHandler eventHandler;
-
-    RemoteAnalysisCacheDeps(
-        ExtendedEventHandler eventHandler,
-        RemoteAnalysisCacheMode mode,
-        boolean bailOutOnMissingFingerprint,
-        RemoteAnalysisCachingServicesSupplier servicesSupplier,
-        RemoteAnalysisCachingEventListener listener,
-        RemoteAnalysisJsonLogWriter jsonLogWriter,
-        ListenableFuture<ObjectCodecs> objectCodecs,
-        FrontierNodeVersion frontierNodeVersion,
-        Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher,
-        String serializedFrontierProfile) {
-      this.mode = mode;
-      this.bailOutOnMissingFingerprint = bailOutOnMissingFingerprint;
-      this.serializedFrontierProfile = serializedFrontierProfile;
-      this.activeDirectoriesMatcher = activeDirectoriesMatcher;
-      this.eventHandler = eventHandler;
-
-      this.jsonLogWriter = jsonLogWriter;
-
-      this.objectCodecs = objectCodecs;
-      this.listener = listener;
-
-      this.frontierNodeVersion = frontierNodeVersion;
-
-      this.fingerprintValueServiceFuture = servicesSupplier.getFingerprintValueService();
-      this.metadataWriter = servicesSupplier.getMetadataWriter();
-      this.analysisCacheClient = servicesSupplier.getAnalysisCacheClient();
-    }
-
-    @Override
-    public RemoteAnalysisCacheMode mode() {
-      return mode;
-    }
-
-    @Override
-    public String getSerializedFrontierProfile() {
-      return serializedFrontierProfile;
-    }
-
-    @Override
-    public Optional<Predicate<PackageIdentifier>> getActiveDirectoriesMatcher() {
-      return activeDirectoriesMatcher;
-    }
-
-    @Override
-    public FrontierNodeVersion getSkyValueVersion() throws InterruptedException {
-      return frontierNodeVersion;
-    }
-
-    @Override
-    public ObjectCodecs getObjectCodecs() throws InterruptedException {
-      try {
-        return objectCodecs.get();
-      } catch (ExecutionException e) {
-        throw new IllegalStateException("Failed to initialize ObjectCodecs", e);
-      }
-    }
-
-    @Override
-    public FingerprintValueService getFingerprintValueService() throws InterruptedException {
-      return resolveWithTimeout(fingerprintValueServiceFuture, "fingerprint value service");
-    }
-
-    @Override
-    public KeyValueWriter getFileInvalidationWriter() throws InterruptedException {
-      return getFingerprintValueService();
-    }
-
-    @Override
-    @Nullable
-    public RemoteAnalysisCacheClient getAnalysisCacheClient() throws InterruptedException {
-      return resolveWithTimeout(analysisCacheClient, "analysis cache client");
-    }
-
-    @Override
-    @Nullable
-    public RemoteAnalysisMetadataWriter getMetadataWriter() throws InterruptedException {
-      return resolveWithTimeout(metadataWriter, "metadata writer");
-    }
-
-    @Nullable
-    @Override
-    public RemoteAnalysisJsonLogWriter getJsonLogWriter() {
-      return jsonLogWriter;
-    }
-
-    @Override
-    public void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key) {
-      listener.recordRetrievalResult(retrievalResult, key);
-    }
-
-    @Override
-    public void recordSerializationException(SerializationException e, SkyKey key) {
-      listener.recordSerializationException(e, key);
-    }
-
-    @Override
-    public boolean shouldBailOutOnMissingFingerprint() {
-      if (!bailOutOnMissingFingerprint) {
-        return false;
-      }
-      if (bailedOut.get()) {
-        return true;
-      }
-
-      try {
-        FingerprintValueService service = getFingerprintValueService();
-        boolean retVal = service != null && service.getStats().entriesNotFound() > 0;
-        if (retVal) {
-          bailedOut.set(true);
-          eventHandler.handle(
-              Event.warn(
-                  "Skycache: falling back to local evaluation due to unexpected missing cache"
-                      + " entries"));
-          analysisCacheClient.get().bailOutDueToMissingFingerprint();
-        }
-        return retVal;
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        return false;
-      } catch (ExecutionException e) {
-        throw new IllegalStateException(
-            "At this point the Skycache client should have been initialized", e);
-      }
-    }
-  }
 }
