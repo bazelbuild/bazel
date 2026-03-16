@@ -1,3 +1,52 @@
+## Release 10.0.0-pre.20260308.2 (2026-03-16)
+
+```
+Baseline: d67b13a5d8e8fa2715ae8ebbd4a0ca1b8c1d495a
+
+Cherry picks:
+
+   + eb3941da848addebd7ebe530771a5839e8f9dfa3:
+     Automated rollback of commit
+     4f793a81b502b345e47b55b09216430af0fb08f0.
+   + 51907c4773cd91342f8f39f1e6f92938e6372784:
+     Release 10.0.0-pre.20260308.2 (2026-03-13)
+   + fc4340c57c203e0cb7f93750dd3ec4d67d7eb358:
+     Release 10.0.0-pre.20260308.2 (2026-03-13)
+   + 7a135942ed0da98456dafff07130e5df5d871d9e:
+     Release 10.0.0-pre.20260308.2 (2026-03-13)
+   + a933bce49ec0cc3a0463a6e7691b1d10a4d85849:
+     Release 10.0.0-pre.20260308.2 (2026-03-13)
+   + 9b133bc7d7c0e2514cf83ef7a922ec812c2247d9:
+     Release 10.0.0-pre.20260308.2 (2026-03-13)
+   + 9bc159f6cc9c2e9205d259123513bd58abd82e46:
+     Release 10.0.0-pre.20260308.2 (2026-03-13)
+   + e0f314633c0b4c2e28202ad757e7c4c80420459a:
+     Release 10.0.0-pre.20260308.2 (2026-03-14)
+   + 9ef180ef79914603d56088335993ce90a78acc6d:
+     Release 10.0.0-pre.20260308.2 (2026-03-16)
+   + 704831db809db3a7c45b75e88866c6dea2459d4b:
+     Release 10.0.0-pre.20260308.2 (2026-03-16)
+   + 2aebc4d79e03f8347d3dcefdf7c6d0b83144d609:
+     Release 10.0.0-pre.20260308.2 (2026-03-16)
+   + 8a81d0bb0eeaab8b3a5a33e2988d92322ca5f4cb:
+     Release 10.0.0-pre.20260308.2 (2026-03-16)
+```
+
+Incompatible changes:
+
+  - `--incompatible_check_testonly_for_output_files` has been
+    flipped. See https://github.com/bazelbuild/bazel/issues/28875 for
+    more details.
+
+Important changes:
+
+  - Fix --lockfile_mode=error validation when rolling back changes to
+    module extension facts
+  - `package_group` now supports labels with external repositories in
+    the `packages` attribute.
+
+This release contains contributions from many people at Google, as well as Alan Mond, Armando Montanez, Benjamin Peterson, dependabot[bot], Fabian Meumertzheim, Jesse Schalken, John Cater, Keith Smiley, Markus Hofbauer, Michael Mitchell, Ted Kaplan.
+
 ## Release 9.0.1 (2026-03-10)
 
 ```
