@@ -63,9 +63,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   @Nullable
   Boolean apkSigningMethodV4();
 
-  @StarlarkMethod(name = "assume_min_sdk_version", structField = true, doc = "", documented = false)
-  boolean assumeMinSdkVersion();
-
   @StarlarkMethod(
       name = "get_dexopts_supported_in_incremental_dexing",
       structField = true,

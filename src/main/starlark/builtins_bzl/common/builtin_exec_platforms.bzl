@@ -119,7 +119,6 @@ bazel_fragments["AndroidConfiguration.Options"] = fragment(
         "//command_line_option:incremental_dexing",
         "//command_line_option:experimental_incremental_dexing_after_proguard",
         "//command_line_option:experimental_use_dex_splitter_for_incremental_dexing",
-        "//command_line_option:experimental_android_assume_minsdkversion",
         "//command_line_option:non_incremental_per_target_dexopts",
         "//command_line_option:dexopts_supported_in_incremental_dexing",
         "//command_line_option:dexopts_supported_in_dexmerger",

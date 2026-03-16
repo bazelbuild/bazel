@@ -329,21 +329,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         help = "Do not use.")
     public boolean incrementalDexingUseDexSharder;
 
-    // TODO(b/31711689): Remove this flag when this optimization is proven to work globally.
-    @Option(
-        name = "experimental_android_assume_minsdkversion",
-        defaultValue = "false",
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {
-          OptionEffectTag.ACTION_COMMAND_LINES,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-        },
-        help =
-            "When enabled, the minSdkVersion is parsed from the merged AndroidManifest and used to "
-                + "instruct Proguard on valid Android build versions.")
-    public boolean assumeMinSdkVersion;
-
     @Option(
         name = "experimental_android_use_parallel_dex2oat",
         defaultValue = "false",
@@ -956,7 +941,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean incrementalDexing;
   private final int incrementalDexingShardsAfterProguard;
   private final boolean incrementalDexingUseDexSharder;
-  private final boolean assumeMinSdkVersion;
   private final ImmutableList<String> dexoptsSupportedInIncrementalDexing;
   private final ImmutableList<String> targetDexoptsThatPreventIncrementalDexing;
   private final ImmutableList<String> dexoptsSupportedInDexMerger;
@@ -1000,7 +984,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.incrementalDexing = options.incrementalDexing;
     this.incrementalDexingShardsAfterProguard = options.incrementalDexingShardsAfterProguard;
     this.incrementalDexingUseDexSharder = options.incrementalDexingUseDexSharder;
-    this.assumeMinSdkVersion = options.assumeMinSdkVersion;
     this.dexoptsSupportedInIncrementalDexing =
         ImmutableList.copyOf(options.dexoptsSupportedInIncrementalDexing);
     this.targetDexoptsThatPreventIncrementalDexing =
@@ -1074,15 +1057,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean incrementalDexingUseDexSharder() {
     return incrementalDexingUseDexSharder;
-  }
-
-  /**
-   * Returns true if an -assumevalues should be generated for Proguard based on the minSdkVersion of
-   * the merged AndroidManifest.
-   */
-  @Override
-  public boolean assumeMinSdkVersion() {
-    return assumeMinSdkVersion;
   }
 
   /** dx flags supported in incremental dexing actions. */
