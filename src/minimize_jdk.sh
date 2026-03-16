@@ -50,6 +50,13 @@ fi
 tooljdk=$1
 fulljdk=$2
 out=$4
+# Optional 5th argument: a separate jmods archive for JDKs that don't ship
+# with jmods (e.g. Adoptium Temurin with JEP 493 enabled).
+jmods_archive=${5:-}
+# Convert to absolute path since we cd later.
+if [ -n "$jmods_archive" ]; then
+  jmods_archive=$(cd "$(dirname "$jmods_archive")" && echo "$(pwd)/$(basename "$jmods_archive")")
+fi
 
 UNAME=$(uname -s | tr 'A-Z' 'a-z')
 # Options for the JVM that runs the Bazel server, which are either required or
@@ -66,6 +73,25 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   # The archives contain a single top-level directory.
   tool_jdk_home=$(cd tool_jdk.$$/* && pwd)
   cd full_jdk.$$/*
+  # If the full JDK doesn't ship with jmods (e.g. JEP 493), use the separately
+  # provided jmods archive.
+  if [ ! -f jmods/java.base.jmod ]; then
+    if [ -n "$jmods_archive" ]; then
+      unzip -q "$jmods_archive" -d jmods_tmp
+      # The archive contains a single top-level directory with jmod files.
+      mv jmods_tmp/*/* jmods_tmp/ 2>/dev/null || true
+      # Move all .jmod files into the jmods directory.
+      mkdir -p jmods
+      mv jmods_tmp/*.jmod jmods/
+      rm -rf jmods_tmp
+    else
+      echo >&2 "ERROR: Full JDK does not contain jmods/java.base.jmod and no" \
+        "separate jmods archive was provided. Cross-jlinking requires jmods." \
+        "JDKs with JEP 493 enabled (e.g. Adoptium Temurin 24+) need a separate" \
+        "jmods download."
+      exit 1
+    fi
+  fi
   # We have to add this module explicitly because it is windows specific, it allows
   # the usage of the Windows truststore
   # e.g. -Djavax.net.ssl.trustStoreType=WINDOWS-ROOT
@@ -98,6 +124,20 @@ else
   mkdir target_jdk
   tar xf "$fulljdk" --no-same-owner --strip-components=1 -C target_jdk
   cd target_jdk
+  # If the full JDK doesn't ship with jmods (e.g. JEP 493), use the separately
+  # provided jmods archive.
+  if [ ! -f jmods/java.base.jmod ]; then
+    if [ -n "$jmods_archive" ]; then
+      mkdir -p jmods
+      tar xf "$jmods_archive" --no-same-owner --strip-components=1 -C jmods --wildcards '*.jmod'
+    else
+      echo >&2 "ERROR: Full JDK does not contain jmods/java.base.jmod and no" \
+        "separate jmods archive was provided. Cross-jlinking requires jmods." \
+        "JDKs with JEP 493 enabled (e.g. Adoptium Temurin 24+) need a separate" \
+        "jmods download."
+      exit 1
+    fi
+  fi
   "../tool_jdk/bin/jlink" --module-path ./jmods/ --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages --no-header-files \
     --add-options=" ${JVM_OPTIONS}" \
