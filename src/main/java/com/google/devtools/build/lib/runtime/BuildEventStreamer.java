@@ -289,77 +289,74 @@ public class BuildEventStreamer {
   // @GuardedBy annotation is doing lexical analysis that doesn't understand the closures below
   // will be running under the synchronized block.
   @SuppressWarnings("GuardedBy")
-  private void post(BuildEvent event) {
+  private synchronized void post(BuildEvent event) {
     List<BuildEvent> linkEvents = null;
     BuildEventId id = event.getEventId();
     List<BuildEvent> flushEvents = null;
     boolean lastEvent = false;
 
-    synchronized (this) {
-      if (announcedEvents == null) {
-        announcedEvents = new HashSet<>();
-        // The very first event of a stream is implicitly announced by the convention that
-        // a complete stream has to have at least one entry. In this way we keep the invariant
-        // that the set of posted events is always a subset of the set of announced events.
-        maybeRegisterAnnouncedEvent(id);
-        if (!event.getChildrenEvents().contains(ProgressEvent.INITIAL_PROGRESS_UPDATE)) {
-          BuildEvent progress = ProgressEvent.progressChainIn(progressCount, event.getEventId());
-          linkEvents = ImmutableList.of(progress);
-          progressCount++;
-          maybeRegisterAnnouncedEvents(progress.getChildrenEvents());
-          // the new first event in the stream, implicitly announced by the fact that complete
-          // stream may not be empty.
-          maybeRegisterAnnouncedEvent(progress.getEventId());
-          postedEvents.add(progress.getEventId());
-        }
-
-        if (!bufferedStdoutStderrPairs.isEmpty()) {
-          flushEvents = new ArrayList<>(bufferedStdoutStderrPairs.size());
-          for (Pair<String, String> outErrPair : bufferedStdoutStderrPairs) {
-            flushEvents.add(flushStdoutStderrEvent(outErrPair.getFirst(), outErrPair.getSecond()));
-          }
-        }
-        bufferedStdoutStderrPairs = null;
-      } else {
-        if (!announcedEvents.contains(id)) {
-          Iterable<String> allOut = ImmutableList.of();
-          Iterable<String> allErr = ImmutableList.of();
-          if (outErrProvider != null) {
-            allOut = orEmpty(outErrProvider.getOut());
-            allErr = orEmpty(outErrProvider.getErr());
-            progressBufferState.set(ProgressBufferState.ACCEPT_STDERR_AND_STDOUT);
-          }
-          linkEvents = new ArrayList<>();
-          List<BuildEvent> finalLinkEvents = linkEvents;
-          consumeAsPairsofStrings(
-              allOut,
-              allErr,
-              (out, err) -> {
-                BuildEvent progressEvent =
-                    ProgressEvent.progressChainIn(progressCount, id, out, err);
-                finalLinkEvents.add(progressEvent);
-                progressCount++;
-                maybeRegisterAnnouncedEvents(progressEvent.getChildrenEvents());
-                postedEvents.add(progressEvent.getEventId());
-              });
-        }
+    if (announcedEvents == null) {
+      announcedEvents = new HashSet<>();
+      // The very first event of a stream is implicitly announced by the convention that
+      // a complete stream has to have at least one entry. In this way we keep the invariant
+      // that the set of posted events is always a subset of the set of announced events.
+      maybeRegisterAnnouncedEvent(id);
+      if (!event.getChildrenEvents().contains(ProgressEvent.INITIAL_PROGRESS_UPDATE)) {
+        BuildEvent progress = ProgressEvent.progressChainIn(progressCount, event.getEventId());
+        linkEvents = ImmutableList.of(progress);
+        progressCount++;
+        maybeRegisterAnnouncedEvents(progress.getChildrenEvents());
+        // the new first event in the stream, implicitly announced by the fact that complete
+        // stream may not be empty.
+        maybeRegisterAnnouncedEvent(progress.getEventId());
+        postedEvents.add(progress.getEventId());
       }
 
-      if (event instanceof BuildInfoEvent) {
-        // The specification for BuildInfoEvent says that there may be many such events,
-        // but all except the first one should be ignored.
-        if (postedEvents.contains(id)) {
-          return;
+      if (!bufferedStdoutStderrPairs.isEmpty()) {
+        flushEvents = new ArrayList<>(bufferedStdoutStderrPairs.size());
+        for (Pair<String, String> outErrPair : bufferedStdoutStderrPairs) {
+          flushEvents.add(flushStdoutStderrEvent(outErrPair.getFirst(), outErrPair.getSecond()));
         }
       }
-
-      postedEvents.add(id);
-      maybeRegisterAnnouncedEvents(event.getChildrenEvents());
-      // We keep as an invariant that postedEvents is a subset of announced events, so this is a
-      // cheaper test for equality
-      if (announcedEvents.size() == postedEvents.size()) {
-        lastEvent = true;
+      bufferedStdoutStderrPairs = null;
+    } else {
+      if (!announcedEvents.contains(id)) {
+        Iterable<String> allOut = ImmutableList.of();
+        Iterable<String> allErr = ImmutableList.of();
+        if (outErrProvider != null) {
+          allOut = orEmpty(outErrProvider.getOut());
+          allErr = orEmpty(outErrProvider.getErr());
+          progressBufferState.set(ProgressBufferState.ACCEPT_STDERR_AND_STDOUT);
+        }
+        linkEvents = new ArrayList<>();
+        List<BuildEvent> finalLinkEvents = linkEvents;
+        consumeAsPairsofStrings(
+            allOut,
+            allErr,
+            (out, err) -> {
+              BuildEvent progressEvent = ProgressEvent.progressChainIn(progressCount, id, out, err);
+              finalLinkEvents.add(progressEvent);
+              progressCount++;
+              maybeRegisterAnnouncedEvents(progressEvent.getChildrenEvents());
+              postedEvents.add(progressEvent.getEventId());
+            });
       }
+    }
+
+    if (event instanceof BuildInfoEvent) {
+      // The specification for BuildInfoEvent says that there may be many such events,
+      // but all except the first one should be ignored.
+      if (postedEvents.contains(id)) {
+        return;
+      }
+    }
+
+    postedEvents.add(id);
+    maybeRegisterAnnouncedEvents(event.getChildrenEvents());
+    // We keep as an invariant that postedEvents is a subset of announced events, so this is a
+    // cheaper test for equality
+    if (announcedEvents.size() == postedEvents.size()) {
+      lastEvent = true;
     }
 
     BuildEvent mainEvent = event;
