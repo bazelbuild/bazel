@@ -572,6 +572,11 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       this.locationIndex = locationIndex;
     }
 
+    /**
+     * Prefer {@link #createWithMaterializationData} if the remote file may be materialized in the
+     * local filesystem at a later point, as the value returned here doesn't support the {@link
+     * FileContentsProxy} optimization.
+     */
     public static RemoteFileArtifactValue create(byte[] digest, long size, int locationIndex) {
       return new RemoteFileArtifactValue(digest, size, locationIndex);
     }

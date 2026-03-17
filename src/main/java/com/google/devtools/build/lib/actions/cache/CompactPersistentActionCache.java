@@ -585,10 +585,6 @@ public class CompactPersistentActionCache implements ActionCache {
           PathFragment.create(getStringForIndex(indexer, VarInt.getVarInt(source)));
     }
 
-    if (expireAtEpochMilli < 0 && materializationExecPath == null) {
-      return RemoteFileArtifactValue.create(digest, size, locationIndex);
-    }
-
     return RemoteFileArtifactValue.createWithMaterializationData(
         digest, size, locationIndex, expireAtEpochMilli, materializationExecPath);
   }
