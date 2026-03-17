@@ -19,12 +19,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
+import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
+import javax.annotation.Nullable;
 
 /** The main class. */
 public final class Bazel {
@@ -109,7 +111,7 @@ public final class Bazel {
     // use of SubprocessBuilder.
     WindowsSubprocessFactory.maybeInstallWindowsSubprocessFactory();
     BlazeVersionInfo.setBuildInfo(tryGetBuildInfo());
-    BlazeRuntime.main(BAZEL_MODULES, BAZEL_SERVICES, args);
+    BlazeRuntime.main(BAZEL_MODULES, BAZEL_SERVICES, args, getDelayedJniLinkingError());
   }
 
   /**
@@ -138,5 +140,18 @@ public final class Bazel {
     } catch (IOException ignored) {
       return ImmutableMap.of();
     }
+  }
+
+  @Nullable
+  private static Throwable getDelayedJniLinkingError() {
+    if (!JniLoader.isJniAvailable()) {
+      return null;
+    }
+    try {
+      JniLoader.forceLinking();
+    } catch (UnsatisfiedLinkError e) {
+      return e;
+    }
+    return null;
   }
 }

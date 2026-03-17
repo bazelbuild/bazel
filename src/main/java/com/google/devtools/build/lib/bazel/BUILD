@@ -192,6 +192,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventservice",
         "//src/main/java/com/google/devtools/build/lib/dynamic",
         "//src/main/java/com/google/devtools/build/lib/includescanning",
+        "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/metrics:memory-use-recorder",
         "//src/main/java/com/google/devtools/build/lib/metrics:metrics_module",
         "//src/main/java/com/google/devtools/build/lib/network:noop_connectivity",
@@ -221,6 +222,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkprofiler:cpu_profiler_module",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_module",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
