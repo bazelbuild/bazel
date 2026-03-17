@@ -854,6 +854,259 @@ public class IndexRegistryTest extends FoundationTestCase {
                     sha256(registryJson)));
   }
 
+  @Test
+  public void testGetArchiveRepoSpec_emptyMainIntegrity() throws Exception {
+    server.serve(
+        "/modules/foo/1.0/source.json",
+        "{",
+        "  \"url\": \"http://mysite.com/thing.zip\",",
+        "  \"integrity\": \"\"",
+        "}");
+    server.serve("/modules/foo/1.0/MODULE.bazel", "module(name = \"foo\", version = \"1.0\")");
+    server.start();
+
+    Registry registry =
+        registryFactory.createRegistry(
+            server.getUrl(),
+            LockfileMode.UPDATE,
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.empty(),
+            ImmutableSet.of());
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                registry.getRepoSpec(
+                    createModuleKey("foo", "1.0"),
+                    ImmutableMap.of(
+                        server.getUrl() + "/modules/foo/1.0/MODULE.bazel",
+                        Optional.of(sha256("module(name = \"foo\", version = \"1.0\")"))),
+                    reporter,
+                    downloadManager));
+    assertThat(e).hasMessageThat().contains("Missing integrity for module foo@1.0");
+  }
+
+  @Test
+  public void testGetArchiveRepoSpec_emptyPatchIntegrity() throws Exception {
+    server.serve(
+        "/modules/foo/1.0/source.json",
+        "{",
+        "  \"url\": \"http://mysite.com/thing.zip\",",
+        "  \"integrity\": \"sha256-blah\",",
+        "  \"patches\": {",
+        "    \"fix.patch\": \"\"",
+        "  }",
+        "}");
+    server.serve("/modules/foo/1.0/MODULE.bazel", "module(name = \"foo\", version = \"1.0\")");
+    server.start();
+
+    Registry registry =
+        registryFactory.createRegistry(
+            server.getUrl(),
+            LockfileMode.UPDATE,
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.empty(),
+            ImmutableSet.of());
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                registry.getRepoSpec(
+                    createModuleKey("foo", "1.0"),
+                    ImmutableMap.of(
+                        server.getUrl() + "/modules/foo/1.0/MODULE.bazel",
+                        Optional.of(sha256("module(name = \"foo\", version = \"1.0\")"))),
+                    reporter,
+                    downloadManager));
+    assertThat(e).hasMessageThat().contains("Missing integrity for patch fix.patch of module foo@1.0");
+  }
+
+  @Test
+  public void testGetArchiveRepoSpec_emptyOverlayIntegrity() throws Exception {
+    server.serve(
+        "/modules/foo/1.0/source.json",
+        "{",
+        "  \"url\": \"http://mysite.com/thing.zip\",",
+        "  \"integrity\": \"sha256-blah\",",
+        "  \"overlay\": {",
+        "    \"BUILD.bazel\": \"\"",
+        "  }",
+        "}");
+    server.serve("/modules/foo/1.0/MODULE.bazel", "module(name = \"foo\", version = \"1.0\")");
+    server.start();
+
+    Registry registry =
+        registryFactory.createRegistry(
+            server.getUrl(),
+            LockfileMode.UPDATE,
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.empty(),
+            ImmutableSet.of());
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                registry.getRepoSpec(
+                    createModuleKey("foo", "1.0"),
+                    ImmutableMap.of(
+                        server.getUrl() + "/modules/foo/1.0/MODULE.bazel",
+                        Optional.of(sha256("module(name = \"foo\", version = \"1.0\")"))),
+                    reporter,
+                    downloadManager));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Missing integrity for overlay file BUILD.bazel of module foo@1.0");
+  }
+
+  @Test
+  public void testGetGitRepoSpec_emptyPatchIntegrity() throws Exception {
+    server.serve(
+        "/modules/foo/1.0/source.json",
+        """
+        {
+            "type": "git_repository",
+            "remote": "https://github.com/raspberrypi/pico-sdk.git",
+            "commit": "4b6e647590213f253f2789ad9026df1d00f38c5d",
+            "patches": {
+                "foo.patch": ""
+            }
+        }
+        """);
+    server.serve("/modules/foo/1.0/MODULE.bazel", "module(name = \"foo\", version = \"1.0\")");
+    server.start();
+
+    Registry registry =
+        registryFactory.createRegistry(
+            server.getUrl(),
+            LockfileMode.UPDATE,
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.empty(),
+            ImmutableSet.of());
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                registry.getRepoSpec(
+                    createModuleKey("foo", "1.0"),
+                    ImmutableMap.of(
+                        server.getUrl() + "/modules/foo/1.0/MODULE.bazel",
+                        Optional.of(sha256("module(name = \"foo\", version = \"1.0\")"))),
+                    reporter,
+                    downloadManager));
+    assertThat(e).hasMessageThat().contains("Missing integrity for patch foo.patch of module foo@1.0");
+  }
+
+  @Test
+  public void testGetArchiveRepoSpec_whitespacePatchIntegrity() throws Exception {
+    server.serve(
+        "/modules/foo/1.0/source.json",
+        "{",
+        "  \"url\": \"http://mysite.com/thing.zip\",",
+        "  \"integrity\": \"sha256-blah\",",
+        "  \"patches\": {",
+        "    \"fix.patch\": \"  \"",
+        "  }",
+        "}");
+    server.serve("/modules/foo/1.0/MODULE.bazel", "module(name = \"foo\", version = \"1.0\")");
+    server.start();
+
+    Registry registry =
+        registryFactory.createRegistry(
+            server.getUrl(),
+            LockfileMode.UPDATE,
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.empty(),
+            ImmutableSet.of());
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                registry.getRepoSpec(
+                    createModuleKey("foo", "1.0"),
+                    ImmutableMap.of(
+                        server.getUrl() + "/modules/foo/1.0/MODULE.bazel",
+                        Optional.of(sha256("module(name = \"foo\", version = \"1.0\")"))),
+                    reporter,
+                    downloadManager));
+    assertThat(e).hasMessageThat().contains("Missing integrity for patch fix.patch of module foo@1.0");
+  }
+
+  @Test
+  public void testGetArchiveRepoSpec_whitespaceOverlayIntegrity() throws Exception {
+    server.serve(
+        "/modules/foo/1.0/source.json",
+        "{",
+        "  \"url\": \"http://mysite.com/thing.zip\",",
+        "  \"integrity\": \"sha256-blah\",",
+        "  \"overlay\": {",
+        "    \"BUILD.bazel\": \"\t\"",
+        "  }",
+        "}");
+    server.serve("/modules/foo/1.0/MODULE.bazel", "module(name = \"foo\", version = \"1.0\")");
+    server.start();
+
+    Registry registry =
+        registryFactory.createRegistry(
+            server.getUrl(),
+            LockfileMode.UPDATE,
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.empty(),
+            ImmutableSet.of());
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                registry.getRepoSpec(
+                    createModuleKey("foo", "1.0"),
+                    ImmutableMap.of(
+                        server.getUrl() + "/modules/foo/1.0/MODULE.bazel",
+                        Optional.of(sha256("module(name = \"foo\", version = \"1.0\")"))),
+                    reporter,
+                    downloadManager));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Missing integrity for overlay file BUILD.bazel of module foo@1.0");
+  }
+
+  @Test
+  public void testGetArchiveRepoSpec_whitespaceIntegrity() throws Exception {
+    server.serve(
+        "/modules/foo/1.0/source.json",
+        "{",
+        "  \"url\": \"http://mysite.com/thing.zip\",",
+        "  \"integrity\": \" \"",
+        "}");
+    server.serve("/modules/foo/1.0/MODULE.bazel", "module(name = \"foo\", version = \"1.0\")");
+    server.start();
+
+    Registry registry =
+        registryFactory.createRegistry(
+            server.getUrl(),
+            LockfileMode.UPDATE,
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.empty(),
+            ImmutableSet.of());
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                registry.getRepoSpec(
+                    createModuleKey("foo", "1.0"),
+                    ImmutableMap.of(
+                        server.getUrl() + "/modules/foo/1.0/MODULE.bazel",
+                        Optional.of(sha256("module(name = \"foo\", version = \"1.0\")"))),
+                    reporter,
+                    downloadManager));
+    assertThat(e).hasMessageThat().contains("Missing integrity for module foo@1.0");
+  }
+
   private static Checksum sha256(String content) throws Checksum.InvalidChecksumException {
     return Checksum.fromString(
         DownloadCache.KeyType.SHA256, Hashing.sha256().hashString(content, UTF_8).toString());
