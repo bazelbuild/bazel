@@ -395,6 +395,11 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     return new InlineFileArtifactValue(bytes, hashFunction.hashBytes(bytes).asBytes());
   }
 
+  /**
+   * Prefer {@link #createForRemoteFileWithMaterializationData} if the remote file may be
+   * materialized in the local filesystem at a later point as this overload doesn't support {@link
+   * #setContentsProxy}.
+   */
   public static FileArtifactValue createForRemoteFile(byte[] digest, long size, int locationIndex) {
     return new RemoteFileArtifactValue(digest, size, locationIndex);
   }
