@@ -78,7 +78,9 @@ public class CredentialHelperTest {
   private GetCredentialsResponse getCredentialsFromHelper(
       String uri, ImmutableMap<String, String> env) throws Exception {
     String credHelperPath =
-        Runfiles.create().rlocation(TEST_CREDENTIAL_HELPER_PATH.getPathString());
+        Runfiles.preload()
+            .withSourceRepository("")
+            .rlocation(TEST_CREDENTIAL_HELPER_PATH.getPathString());
 
     return getCredentialsFromHelper(credHelperPath, uri, env);
   }
