@@ -81,61 +81,60 @@ def embedded_jdk_repositories():
     """OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK."""
     http_file(
         name = "openjdk_linux_vanilla",
-        integrity = "sha256-8XUtAFG2yiM2Jd2ywYyRcO2+VcXuZRW/79jqAZfuHCA=",
+        integrity = "sha256-fWZj6o1CmN9l3gZeMvn0SXRf9gfTC6XRN3fLkunUYT0=",
         downloaded_file_path = "zulu-linux-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu25.32.17-ca-jdk25.0.2-linux_x64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu26.30.11-ca-jdk26.0.1-linux_x64.tar.gz",
     )
     http_file(
         name = "openjdk_linux_aarch64_vanilla",
-        integrity = "sha256-9ylaux3ssvbg6p92CnCRfy1HNW20Nm1hXHq5sBw8aGY=",
+        integrity = "sha256-zBtFncRC10IrRqO1/lKsrqVIefp5E+KaBWUM71Rof18=",
         downloaded_file_path = "zulu-linux-aarch64-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu25.32.17-ca-jdk25.0.2-linux_aarch64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu26.30.11-ca-jdk26.0.1-linux_aarch64.tar.gz",
     )
     http_file(
         name = "openjdk_linux_ppc64le_vanilla",
-        integrity = "sha256-smK3NbIVFzADdm2jZYjV9xfc6toChttBtDn5P7KtpGg=",
+        integrity = "sha256-c5b8MsMRQpxLFXPr/JjsprgsJzX58OI6y8zctD4O3uk=",
         downloaded_file_path = "adoptopenjdk-ppc64le-vanilla.tar.gz",
-        url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.2%2B10/OpenJDK25U-jdk_ppc64le_linux_hotspot_25.0.2_10.tar.gz",
+        url = "https://github.com/adoptium/temurin26-binaries/releases/download/jdk-26%2B35/OpenJDK26U-jdk_ppc64le_linux_hotspot_26_35.tar.gz",
     )
     http_file(
         name = "openjdk_linux_riscv64_vanilla",
-        integrity = "sha256-FoEZ5PujUPTms8qSRQorkKhQK4miNaBEFemt+fXTFk4=",
+        integrity = "sha256-BEzRBxUkJeGJxwlLDxxWav3fJVFJxWp3WOMASBkj/sY=",
         downloaded_file_path = "adoptopenjdk-riscv64-vanilla.tar.gz",
-        url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.2%2B10/OpenJDK25U-jdk_riscv64_linux_hotspot_25.0.2_10.tar.gz",
+        url = "https://github.com/adoptium/temurin26-binaries/releases/download/jdk-26%2B35/OpenJDK26U-jdk_riscv64_linux_hotspot_26_35.tar.gz",
     )
     http_file(
         name = "openjdk_linux_s390x_vanilla",
-        integrity = "sha256-FeXLytzz1DYjwxuCUGPNwoF7nxuoQLUdxu9w5dM8hOM=",
+        integrity = "sha256-h/zbv9Ct/UWJItj4AZ7aI3Vaull+OG3iOX+EzfG1iAg=",
         downloaded_file_path = "adoptopenjdk-s390x-vanilla.tar.gz",
-        url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.2%2B10/OpenJDK25U-jdk_s390x_linux_hotspot_25.0.2_10.tar.gz",
+        url = "https://github.com/adoptium/temurin26-binaries/releases/download/jdk-26%2B35/OpenJDK26U-jdk_s390x_linux_hotspot_26_35.tar.gz",
     )
     http_file(
         name = "openjdk_macos_x86_64_vanilla",
-        integrity = "sha256-/iI0bBkpIMW4SyP0qiTj3rsLuU/EKAFvfCssd5DIJ4A=",
+        integrity = "sha256-GSYQQQ3N+27cokKbDV0rHN8yL1MiGKwAMn4bz43+KbM=",
         downloaded_file_path = "zulu-macos-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu25.32.17-ca-jdk25.0.2-macosx_x64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu26.30.11-ca-jdk26.0.1-macosx_x64.tar.gz",
     )
     http_file(
         name = "openjdk_macos_aarch64_vanilla",
-        integrity = "sha256-U3rHT6HKLE3Y9gY93t4BOK5KiW8Si/4QtCin3MSqkp8=",
+        integrity = "sha256-fxsSMjJTejCm7UqofWqE1Ca3Wr81Dr4jVnhKJh6dYHY=",
         downloaded_file_path = "zulu-macos-aarch64-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu25.32.17-ca-jdk25.0.2-macosx_aarch64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu26.30.11-ca-jdk26.0.1-macosx_aarch64.tar.gz",
     )
     http_file(
         name = "openjdk_win_vanilla",
-        integrity = "sha256-kLy7y+L7euxDzo/S76Ak/MSPALvc16drWPkS1rl+bVY=",
+        integrity = "sha256-j3b0CLDiKJdLDJV4qSdZGJu13Pp/elIVgnd+QEoyRKA=",
         downloaded_file_path = "zulu-win-vanilla.zip",
-        url = "https://cdn.azul.com/zulu/bin/zulu25.32.17-ca-jdk25.0.2-win_x64.zip",
+        url = "https://cdn.azul.com/zulu/bin/zulu26.30.11-ca-jdk26.0.1-win_x64.zip",
     )
     http_file(
         name = "openjdk_win_arm64_vanilla",
-        integrity = "sha256-zhWbTuPBCc1RNXrPhCZBQsHdsOGHjSBGbqxQsBU0cVQ=",
-        downloaded_file_path = "zulu-win-arm64.zip",
-        # Use an EA release of 25.0.3 here since versions <= 25.0.2 are affected by a severe JDK bug
-        # that causes virtual threads (and thus repo rules) to hang indefinitely on Windows ARM64.
+        integrity = "sha256-SJLNlxTiIpR94adBWmlvQ632kVYFItxYWMCorwcJEsA=",
+        downloaded_file_path = "adoptopenjdk-win-arm64-vanilla.zip",
+        # Use an EA release of 26 here since Adoptium does not yet ship a GA
+        # Windows ARM64 build for JDK 26.
         # https://github.com/bazelbuild/bazel/issues/28520
-        # https://mail.openjdk.org/pipermail/loom-dev/2026-February/008286.html
-        url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.3%2B1-ea-beta/OpenJDK25U-jdk_aarch64_windows_hotspot_25.0.3_1-ea.zip",
+        url = "https://github.com/adoptium/temurin26-binaries/releases/download/jdk-26%2B35-ea-beta/OpenJDK26U-jdk_aarch64_windows_hotspot_26_35-ea.zip",
     )
 
     # The Adoptium Temurin JDK above has JEP 493 enabled, which means it does not ship with jmods.
@@ -143,9 +142,9 @@ def embedded_jdk_repositories():
     # https://adoptium.net/news/2025/08/eclipse-temurin-jdk24-JEP493-enabled
     http_file(
         name = "openjdk_win_arm64_jmods",
-        integrity = "sha256-2rjwZCoUIYD7L9nLwLJindsYPkDMvpI4km5a9UlxFtg=",
+        integrity = "sha256-YLUU5f4mRQg3YXvVdStcAFgbq4rF7Ki6XuTaSfl+h/g=",
         downloaded_file_path = "temurin-win-arm64-jmods.zip",
-        url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.3%2B1-ea-beta/OpenJDK25U-jmods_aarch64_windows_hotspot_25.0.3_1-ea.zip",
+        url = "https://github.com/adoptium/temurin26-binaries/releases/download/jdk-26%2B35-ea-beta/OpenJDK26U-jmods_aarch64_windows_hotspot_26_35-ea.zip",
     )
 
 def _async_profiler_repos(ctx):
