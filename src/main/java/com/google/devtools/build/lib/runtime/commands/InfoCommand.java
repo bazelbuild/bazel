@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -71,6 +72,7 @@ import com.google.devtools.build.lib.runtime.commands.info.WorkerMetricsInfoItem
 import com.google.devtools.build.lib.runtime.commands.info.WorkspaceInfoItem;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -80,8 +82,11 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.ParsedOptionDescription;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -183,8 +188,14 @@ public class InfoCommand implements BlazeCommand {
                 // the package path. Since info inherits all the build options, all the necessary
                 // information is available here.
                 ensureSyncPackageLoading(env, optionsParsingResult);
+                // The info command has buildPhase NONE, so options are not reparsed with the main
+                // repo mapping by BlazeCommandDispatcher. Re-parse them here so that label-typed
+                // options (like --host_platform) referencing external repos resolve correctly.
+                // See https://github.com/bazelbuild/bazel/issues/28954.
+                OptionsParsingResult reParsedOptions =
+                    reparseWithRepoMapping(env, optionsParsingResult);
                 // TODO(bazel-team): What if there are multiple configurations? [multi-config]
-                BuildOptions buildOptions = runtime.createBuildOptions(optionsParsingResult);
+                BuildOptions buildOptions = runtime.createBuildOptions(reParsedOptions);
                 env.getSkyframeExecutor().setBaselineConfiguration(buildOptions, env.getReporter());
                 return env.getSkyframeExecutor()
                     .getConfiguration(env.getReporter(), buildOptions, /* keepGoing= */ true);
@@ -283,6 +294,59 @@ public class InfoCommand implements BlazeCommand {
     if (!env.hasSyncedPackageLoading()) {
       env.syncPackageLoading(options);
     }
+  }
+
+  /**
+   * Re-parses options with the main repo mapping so that label-typed options referencing external
+   * repos are correctly resolved. Without this, apparent repo names (e.g. {@code @mod1}) are parsed
+   * as canonical names via {@link com.google.devtools.build.lib.cmdline.Label#parseCanonical}, which
+   * don't resolve correctly for Bzlmod dependencies.
+   *
+   * <p>This is normally done by {@link
+   * com.google.devtools.build.lib.runtime.BlazeCommandDispatcher} for commands with {@code
+   * buildPhase().analyzes()}, but the info command has {@code buildPhase = NONE} and performs
+   * package loading lazily.
+   */
+  private static OptionsParsingResult reparseWithRepoMapping(
+      CommandEnvironment env, OptionsParsingResult optionsParsingResult)
+      throws InterruptedException, AbruptExitException {
+    RepositoryMapping mainRepoMapping;
+    try {
+      mainRepoMapping = env.getSkyframeExecutor().getMainRepoMapping(env.getReporter());
+    } catch (RepositoryMappingResolutionException e) {
+      // If we can't compute the repo mapping, fall back to the original options. Any error will
+      // surface later during configuration creation with a more specific error message.
+      return optionsParsingResult;
+    }
+
+    OptionsParser oldParser = (OptionsParser) optionsParsingResult;
+    OptionsParser newParser =
+        oldParser.toBuilder().withConversionContext(mainRepoMapping).build();
+    // Replay all explicitly-set options (not from expansion or implicit deps) in priority order.
+    // Expansion and implicit options will be re-derived by the new parser.
+    for (ParsedOptionDescription option : oldParser.asCompleteListOfParsedOptions()) {
+      if (option.getCommandLineForm() != null
+          && option.getOrigin().getImplicitDependent() == null
+          && option.getOrigin().getExpandedFrom() == null) {
+        try {
+          newParser.parse(
+              option.getPriority().getPriorityCategory(),
+              option.getSource(),
+              ImmutableList.of(option.getCommandLineForm()));
+        } catch (OptionsParsingException e) {
+          throw new AbruptExitException(
+              DetailedExitCode.of(
+                  ExitCode.COMMAND_LINE_ERROR,
+                  FailureDetail.newBuilder()
+                      .setMessage(e.getMessage())
+                      .setInfoCommand(
+                          FailureDetails.InfoCommand.newBuilder()
+                              .setCode(FailureDetails.InfoCommand.Code.INFO_BLOCK_WRITE_FAILURE))
+                      .build()));
+        }
+      }
+    }
+    return newParser;
   }
 
   private static BlazeCommandResult createFailureResult(
