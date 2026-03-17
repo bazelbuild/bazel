@@ -67,12 +67,36 @@ UNAME=$(uname -s | tr 'A-Z' 'a-z')
 # Compact object headers reduce retained and peak memory usage.
 JVM_OPTIONS='--enable-native-access=ALL-UNNAMED -XX:+UseCompactObjectHeaders'
 
+# Strips an extracted JDK archive to its home directory.
+# Some JDK archives (e.g., macOS .jdk bundles) nest the JDK home inside
+# additional directories like Contents/Home/. This function detects the
+# actual JDK home by locating the 'release' file and moves it to the
+# expected top-level directory.
+strip_to_jdk_home() {
+  local dir=$1
+  local release
+  release=$(find "$dir" -name release -maxdepth 4 -print -quit)
+  if [[ -z "$release" ]]; then
+    echo "ERROR: could not find 'release' file in $dir" >&2
+    exit 1
+  fi
+  local jdk_home
+  jdk_home=$(dirname "$release")
+  if [[ "$jdk_home" != "$dir" ]]; then
+    local tmp="${dir}_tmp"
+    mv "$jdk_home" "$tmp"
+    rm -rf "$dir"
+    mv "$tmp" "$dir"
+  fi
+}
+
 if [[ "$UNAME" =~ msys_nt* ]]; then
   unzip -q "$tooljdk" -d "tool_jdk.$$"
+  strip_to_jdk_home "tool_jdk.$$"
   unzip -q "$fulljdk" -d "full_jdk.$$"
-  # The archives contain a single top-level directory.
-  tool_jdk_home=$(cd tool_jdk.$$/* && pwd)
-  cd full_jdk.$$/*
+  strip_to_jdk_home "full_jdk.$$"
+  tool_jdk_home=$(cd "tool_jdk.$$" && pwd)
+  cd "full_jdk.$$"
   # If the full JDK doesn't ship with jmods (e.g. JEP 493), use the separately
   # provided jmods archive.
   if [ ! -f jmods/java.base.jmod ]; then
@@ -112,18 +136,20 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   # These are necessary for --host_jvm_debug to work.
   cp bin/dt_socket.dll bin/jdwp.dll reduced/bin
   zip -q -X -r ../reduced.zip reduced/
-  cd ../..
-  mv "full_jdk.$$/reduced.zip" "$out"
+  cd ..
+  mv reduced.zip "$out"
   rm -rf "full_jdk.$$" "tool_jdk.$$"
 else
   # The --no-same-owner flag instructs tar to not try to chown extracted files
   # to the owner stored in the archive - it will try to do that when running as
   # root, but fail when running inside Docker, so we explicitly disable it.
-  mkdir tool_jdk
-  tar xf "$tooljdk" --no-same-owner --strip-components=1 -C tool_jdk
-  mkdir target_jdk
-  tar xf "$fulljdk" --no-same-owner --strip-components=1 -C target_jdk
-  cd target_jdk
+  mkdir "tool_jdk.$$"
+  tar xf "$tooljdk" --no-same-owner -C "tool_jdk.$$"
+  strip_to_jdk_home "tool_jdk.$$"
+  mkdir "target_jdk.$$"
+  tar xf "$fulljdk" --no-same-owner -C "target_jdk.$$"
+  strip_to_jdk_home "target_jdk.$$"
+  cd "target_jdk.$$"
   # If the full JDK doesn't ship with jmods (e.g. JEP 493), use the separately
   # provided jmods archive.
   if [ ! -f jmods/java.base.jmod ]; then
@@ -138,7 +164,7 @@ else
       exit 1
     fi
   fi
-  "../tool_jdk/bin/jlink" --module-path ./jmods/ --add-modules "$modules" \
+  "../tool_jdk.$$/bin/jlink" --module-path ./jmods/ --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages --no-header-files \
     --add-options=" ${JVM_OPTIONS}" \
     --output reduced
@@ -149,4 +175,5 @@ else
   zip -q -X -r ../reduced.zip reduced/
   cd ..
   mv reduced.zip "$out"
+  rm -rf "target_jdk.$$" "tool_jdk.$$"
 fi
