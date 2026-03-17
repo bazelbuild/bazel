@@ -10,6 +10,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/remote/chunking:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/circuitbreaker:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/common:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/disk:srcs",
@@ -63,6 +64,8 @@ java_library(
             "RemoteActionFileSystemTestBase.java",
             "BuildWithoutTheBytesIntegrationTest.java",
             "BuildWithoutTheBytesIntegrationTestBase.java",
+            "ChunkedCacheIntegrationTest.java",
+            "ChunkedDiskCacheIntegrationTest.java",
             "DiskCacheIntegrationTest.java",
         ],
     ),
@@ -134,6 +137,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote:scrubber",
         "//src/main/java/com/google/devtools/build/lib/remote:store",
         "//src/main/java/com/google/devtools/build/lib/remote:upload_manifest",
+        "//src/main/java/com/google/devtools/build/lib/remote/chunking",
         "//src/main/java/com/google/devtools/build/lib/remote/circuitbreaker",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/common:action_key",
@@ -299,6 +303,62 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
+    ],
+)
+
+java_test(
+    name = "ChunkedCacheIntegrationTest",
+    srcs = ["ChunkedCacheIntegrationTest.java"],
+    jvm_flags = ["-Djava.lang.Thread.allowVirtualThreads=true"],
+    tags = ["requires-network"],
+    runtime_deps = [
+        "//third_party/grpc-java:grpc-jar",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
+        "//src/main/java/com/google/devtools/build/lib/remote:remote_module",
+        "//src/main/java/com/google/devtools/build/lib/remote/util",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/runtime:block_waiting_module",
+        "//src/main/java/com/google/devtools/build/lib/runtime:build_summary_stats_module",
+        "//src/main/java/com/google/devtools/build/lib/standalone",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/remote/util:integration_test_utils",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "//third_party/grpc-java:grpc-jar",
+        "@googleapis//google/bytestream:bytestream_java_grpc",
+        "@googleapis//google/bytestream:bytestream_java_proto",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)
+
+java_test(
+    name = "ChunkedDiskCacheIntegrationTest",
+    srcs = ["ChunkedDiskCacheIntegrationTest.java"],
+    jvm_flags = ["-Djava.lang.Thread.allowVirtualThreads=true"],
+    tags = ["requires-network"],
+    runtime_deps = [
+        "//third_party/grpc-java:grpc-jar",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
+        "//src/main/java/com/google/devtools/build/lib/remote:remote_module",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/runtime:block_waiting_module",
+        "//src/main/java/com/google/devtools/build/lib/runtime:build_summary_stats_module",
+        "//src/main/java/com/google/devtools/build/lib/standalone",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/remote/util:integration_test_utils",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 

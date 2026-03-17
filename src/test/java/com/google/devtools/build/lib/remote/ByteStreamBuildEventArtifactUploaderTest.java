@@ -540,7 +540,11 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         .findMissingDigests(any(), any());
 
     return new CombinedCache(
-        cacheClient, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, DIGEST_UTIL);
+        cacheClient,
+        /* diskCacheClient= */ null,
+        /* symlinkTemplate= */ null,
+        DIGEST_UTIL,
+        /* chunkingEnabled= */ false);
   }
 
   private ByteStreamBuildEventArtifactUploader newArtifactUploader(CombinedCache combinedCache) {
