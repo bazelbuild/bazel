@@ -159,7 +159,7 @@ level `android_binary` target. In this example, it is `app`.
 To configure the C++ STL, use the flag `--android_crosstool_top`.
 
 ```posix-terminal
-bazel build //:app --android_crosstool_top={{ "<var>" }}target label{{ "</var>" }}
+bazel build //:app --android_crosstool_top=<var>target label</var>
 ```
 
 The available STLs in `@androidndk` are:
@@ -187,7 +187,7 @@ for more information on these STLs.
 To configure the target ABI, use the `--fat_apk_cpu` flag as follows:
 
 ```posix-terminal
-bazel build //:app --fat_apk_cpu={{ "<var>" }}comma-separated list of ABIs{{ "</var>" }}
+bazel build //:app --fat_apk_cpu=<var>comma-separated list of ABIs</var>
 ```
 
 By default, Bazel builds native Android code for `armeabi-v7a`. To build for x86
@@ -346,7 +346,7 @@ dependency without any flags, you may encounter an error about a missing JNI
 header:
 
 ```
-ERROR: {{ "<var>" }}project{{ "</var>" }}/app/src/main/BUILD.bazel:16:1: C++ compilation of rule '//app/src/main:jni_lib' failed (Exit 1)
+ERROR: <var>project</var>/app/src/main/BUILD.bazel:16:1: C++ compilation of rule '//app/src/main:jni_lib' failed (Exit 1)
 app/src/main/cpp/native-lib.cpp:1:10: fatal error: 'jni.h' file not found
 #include <jni.h>
          ^~~~~~~
@@ -390,7 +390,7 @@ use [Bazel wild-cards](/docs/build#specifying-build-targets) like
 `/...` and `:all`.
 
 These flags can be put into a `bazelrc` config (one for each ABI), in
-`{{ "<var>" }}project{{ "</var>" }}/.bazelrc`:
+`<var>project</var>/.bazelrc`:
 
 ```
 common:android_x86 --crosstool_top=@androidndk//:default_crosstool
