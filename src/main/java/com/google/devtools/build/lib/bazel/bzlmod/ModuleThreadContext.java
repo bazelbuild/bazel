@@ -349,7 +349,9 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   }
 
   public void addOverride(String moduleName, ModuleOverride override) throws EvalException {
-    if (shouldIgnoreDevDeps()) {
+    // Only skip overrides in the root module when --ignore_dev_dependency is set.
+    // Non-root modules always ignore overrides anyway (ignoreDevDeps is always true for them).
+    if (ignoreDevDeps && ModuleKey.ROOT.equals(module.getKey())) {
       return;
     }
     ModuleOverride existingOverride = overrides.putIfAbsent(moduleName, override);
