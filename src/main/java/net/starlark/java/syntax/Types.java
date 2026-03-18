@@ -115,6 +115,9 @@ public final class Types {
   // hashCode and equals implementation is a workaround for serialization code that may duplicate
   // otherwise singletons
   private static final class AnyType extends StarlarkType {
+    // Singleton.
+    private AnyType() {}
+
     @Override
     public String toString() {
       return "Any";
@@ -174,6 +177,9 @@ public final class Types {
   }
 
   private static final class ObjectType extends StarlarkType {
+    // Singleton.
+    private ObjectType() {}
+
     @Override
     public String toString() {
       return "object";
@@ -191,6 +197,9 @@ public final class Types {
   }
 
   private static final class NeverType extends StarlarkType {
+    // Singleton.
+    private NeverType() {}
+
     @Override
     public String toString() {
       return "Never";
@@ -225,6 +234,9 @@ public final class Types {
   }
 
   private static final class NoneType extends StarlarkType {
+    // Singleton.
+    private NoneType() {}
+
     @Override
     public String toString() {
       return "None";
@@ -242,6 +254,9 @@ public final class Types {
   }
 
   private static final class BoolType extends StarlarkType {
+    // Singleton.
+    private BoolType() {}
+
     @Override
     public String toString() {
       return "bool";
@@ -264,6 +279,9 @@ public final class Types {
   }
 
   private static final class IntType extends StarlarkType {
+    // Singleton.
+    private IntType() {}
+
     @Override
     public String toString() {
       return "int";
@@ -301,7 +319,10 @@ public final class Types {
     }
   }
 
-  private static final class FloatType extends StarlarkType { // Float clashes with java.lang.Float
+  private static final class FloatType extends StarlarkType {
+    // Singleton.
+    private FloatType() {}
+
     @Override
     public String toString() {
       return "float";
@@ -334,6 +355,9 @@ public final class Types {
   }
 
   private static final class StrType extends StarlarkType {
+    // Singleton.
+    private StrType() {}
+
     @Override
     public String toString() {
       return "str";
@@ -364,6 +388,12 @@ public final class Types {
             !thisLeft && (that.equals(STR) || that.equals(ANY)) ? BOOL : null;
         default -> null;
       };
+    }
+
+    @Override
+    @Nullable
+    public StarlarkType getField(String name, TypeContext context) {
+      return context.getStrFieldType(name);
     }
 
     @Override
@@ -1092,7 +1122,7 @@ public final class Types {
     };
   }
 
-  private static final TypeConstructor wrapTupleConstructor() {
+  private static TypeConstructor wrapTupleConstructor() {
     // This is a function instead of a constant, so that the order of evaluation doesn't depend on
     // the position in the class.
     return args -> {

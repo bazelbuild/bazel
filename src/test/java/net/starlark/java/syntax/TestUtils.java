@@ -148,6 +148,12 @@ public final class TestUtils {
 
     @Override
     @Nullable
+    public StarlarkType getStrFieldType(String name) {
+      return null;
+    }
+
+    @Override
+    @Nullable
     public StarlarkType getListFieldType(String name) {
       return null;
     }

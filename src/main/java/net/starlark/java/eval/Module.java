@@ -272,6 +272,13 @@ public final class Module implements Resolver.Module {
 
   @Override
   @Nullable
+  public StarlarkType getStrFieldType(String name) {
+    MethodDescriptor desc = getMethods(String.class).get(name);
+    return desc == null ? null : desc.getStarlarkType();
+  }
+
+  @Override
+  @Nullable
   public StarlarkType getListFieldType(String name) {
     MethodDescriptor desc = getMethods(StarlarkList.class).get(name);
     return desc == null ? null : desc.getStarlarkType();

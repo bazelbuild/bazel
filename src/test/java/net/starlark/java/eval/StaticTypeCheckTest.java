@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static net.starlark.java.syntax.TestUtils.assertContainsError;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -58,6 +59,7 @@ public final class StaticTypeCheckTest {
   private Module module = Module.create();
 
   private Program compile(String... lines) throws SyntaxError.Exception {
+    Preconditions.checkArgument(lines.length > 0);
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
     return Program.compileFile(file, module);
@@ -95,7 +97,7 @@ public final class StaticTypeCheckTest {
         "operator '+' cannot be applied to types 'int' and 'str'",
         """
         n = 123 + 'abc'
-        _unused : bool  # ensure file uses type syntax
+        _unused: bool  # ensure file uses type syntax
         """);
   }
 
@@ -104,7 +106,7 @@ public final class StaticTypeCheckTest {
     assertInvalid(
         "name 'unknown' is not defined",
         """
-        x : unknown
+        x: unknown
         """);
   }
 
@@ -113,24 +115,24 @@ public final class StaticTypeCheckTest {
     assertInvalid(
         "universal symbol 'len' cannot be used as a type",
         """
-        x : len
+        x: len
         """);
   }
 
   @Test
   public void noneAsType() {
-    assertValid("x : None = None");
+    assertValid("x: None = None");
 
     assertInvalid(
         "cannot assign type 'int' to 'x' of type 'None'",
         """
-        x : None = 123
+        x: None = 123
         """);
   }
 
   @Test
   public void starlarkBuiltinAsType() {
-    assertValid("x : list[int] = [123]");
+    assertValid("x: list[int] = [123]");
 
     assertInvalid(
         "cannot assign type 'list[str]' to 'x' of type 'list[int]'",
@@ -241,6 +243,25 @@ public final class StaticTypeCheckTest {
         """
         s: set[int]
         s.add(3)
+        """);
+  }
+
+  @Test
+  public void strMethods() {
+    // Note that StringModule is special-cased to take the receiver string object as a separate
+    // parameter to the Java method, yet it doesn't appear in the signature for type-checking
+    // purposes.
+    assertValid(
+        """
+        s: str
+        s.startswith("abc")
+        """);
+
+    assertInvalid(
+        "'s.startswith()' missing 1 required argument: sub",
+        """
+        s: str
+        s.startswith()
         """);
   }
 }

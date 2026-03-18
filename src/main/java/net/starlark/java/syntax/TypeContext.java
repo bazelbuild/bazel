@@ -24,6 +24,10 @@ import javax.annotation.Nullable;
  */
 public interface TypeContext {
 
+  /** Returns the type of the given field of a {@code str} type, or null if no such field exists. */
+  @Nullable
+  StarlarkType getStrFieldType(String name);
+
   /**
    * Returns the type of the given field of a {@code list[T]} type, or null if no such field exists.
    */

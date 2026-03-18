@@ -883,6 +883,9 @@ public final class TypeChecker extends NodeVisitor {
       ArrayList<String> missingMandatory = new ArrayList<>(0);
       for (int i = 0; i < callable.getParameterNames().size(); i++) {
         String name = callable.getParameterNames().get(i);
+        if (!callable.getMandatoryParameters().contains(name)) {
+          continue;
+        }
         if (!seenMandatorySet.contains(name)) {
           if (i < callable.getNumPositionalOnlyParameters() && !callHasVarargs) {
             missingMandatory.add(name);

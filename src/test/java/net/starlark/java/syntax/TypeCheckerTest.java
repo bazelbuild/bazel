@@ -20,6 +20,7 @@ import static net.starlark.java.syntax.TestUtils.assertContainsError;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ObjectArrays;
 import java.util.Objects;
 import net.starlark.java.syntax.Resolver.Module;
@@ -56,6 +57,7 @@ public final class TypeCheckerTest {
    * <p>Returns a file without errors or else asserts failure.
    */
   private StarlarkFile prepareFile(String... lines) throws Exception {
+    Preconditions.checkArgument(lines.length > 0);
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
     assertNoErrors("parsing", file);
@@ -1640,6 +1642,20 @@ public final class TypeCheckerTest {
         "'f()' missing 2 required arguments: y, z",
         """
         def f(x: int, y: int, *, z) -> int:
+            return 0
+        f(42)
+        """);
+    assertInvalid(
+        "'f()' missing 1 required argument: y",
+        """
+        def f(x: int, y: int, z: str = "has_default") -> int:
+            return 0
+        f(42)
+        """);
+    assertInvalid(
+        "'f()' missing 1 required argument: y",
+        """
+        def f(x: int, y: int, *, z: str = "has_default") -> int:
             return 0
         f(42)
         """);
