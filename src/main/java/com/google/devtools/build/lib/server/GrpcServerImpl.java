@@ -87,18 +87,12 @@ import javax.annotation.Nullable;
  * <p>This class is a little complicated and rich in multithreading, so an explanation of its
  * innards follows.
  *
- * <p>We use the direct executor for gRPC so that it calls our methods directly on its event handler
- * threads (which it creates itself). This is acceptable for {@code ping()} and {@code cancel()}
- * because they run very quickly. For {@code run()}, we transfer the call to our own threads in
- * {@code commandExecutorPool}. We do this instead of setting an executor on the server object
- * because gRPC insists on serializing calls within a single RPC call, which means that the Runnable
- * passed to {@code setOnReadyHandler} doesn't get called while the main RPC method is running,
- * which means we can't use flow control, which we need so that gRPC doesn't buffer an unbounded
- * amount of outgoing data.
- *
- * <p>Two threads are spawned for each command: one that handles the command in {@code
- * commandExecutorPool} and one that streams the result back to the client in {@code
- * streamExecutorPool}.
+ * <p>Every gRPC call is transferred to a separate thread in {@code commandExecutorPool} so that
+ * long-lived calls don't block the event loop. We do this instead of setting an executor on the
+ * server object because gRPC insists on serializing calls within a single RPC call, which means
+ * that the Runnable passed to {@code setOnReadyHandler} doesn't get called while the main RPC
+ * method is running, which means we can't use flow control, which we need so that gRPC doesn't
+ * buffer an unbounded amount of outgoing data.
  *
  * <p>In addition to these threads, we maintain one extra thread for handling the server timeout and
  * an interrupt watcher thread is started for each interrupt request that logs if it takes too long
@@ -158,6 +152,10 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
   @VisibleForTesting
   static class BlockingStreamObserver<T> {
     private final ServerCallStreamObserver<T> observer;
+
+    BlockingStreamObserver(StreamObserver<T> observer) {
+      this((ServerCallStreamObserver<T>) observer);
+    }
 
     BlockingStreamObserver(ServerCallStreamObserver<T> observer) {
       this.observer = observer;
@@ -309,10 +307,9 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
   private static final String RESPONSE_COOKIE_FILE = "response_cookie";
   private static final String SERVER_INFO_FILE = "server_info.rawproto";
 
-
   private final CommandManager commandManager;
   private final CommandDispatcher dispatcher;
-  private final Executor commandExecutorPool;
+  private final Executor commandExecutor;
   private final ShutdownHooks shutdownHooks;
   private final Clock clock;
   private final Path serverDirectory;
@@ -358,7 +355,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
     this.shutdownOnLowSysMem = shutdownOnLowSysMem;
     this.serving = false;
 
-    this.commandExecutorPool =
+    this.commandExecutor =
         Context.currentContextExecutor(
             Executors.newCachedThreadPool(
                 new ThreadFactoryBuilder()
@@ -534,7 +531,14 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
     shutdownHooks.deleteAtExit(file);
   }
 
-  private void executeCommand(RunRequest request, BlockingStreamObserver<RunResponse> observer) {
+  @Override
+  public void run(RunRequest request, StreamObserver<RunResponse> streamObserver) {
+    BlockingStreamObserver<RunResponse> blockingObserver =
+        new BlockingStreamObserver<>(streamObserver);
+    commandExecutor.execute(() -> doRun(request, blockingObserver));
+  }
+
+  private void doRun(RunRequest request, BlockingStreamObserver<RunResponse> observer) {
     boolean badCookie = !isValidRequestCookie(request.getCookie());
     if (badCookie || request.getClientDescription().isEmpty()) {
       try {
@@ -603,7 +607,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
                 .collect(ImmutableList.toImmutableList());
 
         InvocationPolicy policy = InvocationPolicyParser.parsePolicy(request.getInvocationPolicy());
-        logger.atInfo().log("%s", SafeRequestLogging.getRequestLogString(args));
+        logger.atInfo().log("Executing command %s", SafeRequestLogging.getRequestLogString(args));
         result =
             dispatcher.exec(
                 policy,
@@ -669,44 +673,38 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
   }
 
   @Override
-  public void run(final RunRequest request, final StreamObserver<RunResponse> observer) {
-    // Switch to our own threads so that onReadyStateHandler can be called (see class-level
-    // comment).
-    ServerCallStreamObserver<RunResponse> serverCallStreamObserver =
-        ((ServerCallStreamObserver<RunResponse>) observer);
-    BlockingStreamObserver<RunResponse> blockingStreamObserver =
-        new BlockingStreamObserver<>(serverCallStreamObserver);
-    commandExecutorPool.execute(() -> executeCommand(request, blockingStreamObserver));
+  public void ping(PingRequest pingRequest, StreamObserver<PingResponse> streamObserver) {
+    BlockingStreamObserver<PingResponse> blockingObserver =
+        new BlockingStreamObserver<>(streamObserver);
+    commandExecutor.execute(() -> doPing(pingRequest, blockingObserver));
   }
 
-  @Override
-  public void ping(PingRequest pingRequest, StreamObserver<PingResponse> streamObserver) {
+  private void doPing(
+      PingRequest pingRequest, BlockingStreamObserver<PingResponse> streamObserver) {
     try (RunningCommand command = commandManager.createCommand()) {
       PingResponse.Builder response = PingResponse.newBuilder();
       if (isValidRequestCookie(pingRequest.getCookie())) {
         response.setCookie(responseCookie);
       }
-
       streamObserver.onNext(response.build());
       streamObserver.onCompleted();
     }
   }
 
   @Override
-  public void cancel(
-      final CancelRequest request, final StreamObserver<CancelResponse> streamObserver) {
+  public void cancel(CancelRequest request, StreamObserver<CancelResponse> streamObserver) {
     logger.atInfo().log("Got CancelRequest for command id %s", request.getCommandId());
+    BlockingStreamObserver<CancelResponse> blockingObserver =
+        new BlockingStreamObserver<>(streamObserver);
+    commandExecutor.execute(() -> doCancel(request, blockingObserver));
+  }
+
+  private void doCancel(
+      CancelRequest request, BlockingStreamObserver<CancelResponse> streamObserver) {
     if (!isValidRequestCookie(request.getCookie())) {
       streamObserver.onCompleted();
       return;
     }
-
-    // Actually performing the cancellation can result in some blocking which we don't want
-    // to do on the dispatcher thread, instead offload to command pool.
-    commandExecutorPool.execute(() -> doCancel(request, streamObserver));
-  }
-
-  private void doCancel(CancelRequest request, StreamObserver<CancelResponse> streamObserver) {
     commandManager.doCancel(request);
     try {
       streamObserver.onNext(CancelResponse.newBuilder().setCookie(responseCookie).build());
