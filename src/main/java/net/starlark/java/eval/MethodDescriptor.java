@@ -139,20 +139,44 @@ final class MethodDescriptor {
       conditionalCheck = null;
     }
 
-    // relies on instance state: annotation, parameters, method, extraKeywords, extraPositionals
-    starlarkType = buildStarlarkType();
+    starlarkType =
+        buildStarlarkType(
+            method,
+            annotation,
+            parameters,
+            structField,
+            extraPositionals,
+            extraKeywords,
+            allowReturnNones);
   }
 
-  private StarlarkType buildStarlarkType() {
-    if (getAnnotation().structField()) {
-      StarlarkType returnType = starlarkTypeFromJava(getMethod().getGenericReturnType());
+  private static StarlarkType buildStarlarkType(
+      Method method,
+      StarlarkMethod annotation,
+      ParamDescriptor[] parameters,
+      boolean structField,
+      boolean extraPositionals,
+      boolean extraKeywords,
+      boolean allowReturnNones) {
+    if (structField) {
+      StarlarkType returnType = starlarkTypeFromJava(method.getGenericReturnType());
       if (allowReturnNones) {
         returnType = Types.union(returnType, Types.NONE);
       }
       return returnType;
     }
 
-    ParamDescriptor[] parameters = getParameters();
+    Param[] paramAnnotations = annotation.parameters();
+    Type[] methodParamTypes = method.getGenericParameterTypes();
+
+    // String methods are special-cased to pass the string receiver object as the first parameter
+    // to the Java method. We don't want to include the string receiver in the callable's signature.
+    if (method.getDeclaringClass().equals(StringModule.class)) {
+      parameters = Arrays.copyOfRange(parameters, 1, parameters.length);
+      paramAnnotations = Arrays.copyOfRange(paramAnnotations, 1, paramAnnotations.length);
+      methodParamTypes = Arrays.copyOfRange(methodParamTypes, 1, methodParamTypes.length);
+    }
+
     ImmutableList.Builder<String> parameterNames = ImmutableList.builder();
     ImmutableList.Builder<StarlarkType> parameterTypes = ImmutableList.builder();
     ImmutableSet.Builder<String> mandatoryParameters = ImmutableSet.builder();
@@ -170,22 +194,22 @@ final class MethodDescriptor {
         numOrdinaryParameters = i;
       }
       parameterNames.add(parameters[i].getName());
-      ParamType[] allowedTypes = annotation.parameters()[i].allowedTypes();
+      ParamType[] allowedTypes = paramAnnotations[i].allowedTypes();
       // User supplied type
       if (allowedTypes.length > 0) {
         parameterTypes.add(starlarkTypeFromAnnotation(allowedTypes));
       } else {
-        parameterTypes.add(starlarkTypeFromJava(method.getGenericParameterTypes()[i]));
+        parameterTypes.add(starlarkTypeFromJava(methodParamTypes[i]));
       }
       if (parameters[i].getDefaultValue() == null) {
         mandatoryParameters.add(parameters[i].getName());
       }
     }
     StarlarkType returnType;
-    if (getMethod().getReturnType() == Object.class) {
+    if (method.getReturnType() == Object.class) {
       returnType = Types.ANY;
     } else {
-      returnType = starlarkTypeFromJava(getMethod().getGenericReturnType());
+      returnType = starlarkTypeFromJava(method.getGenericReturnType());
       if (allowReturnNones) {
         returnType = Types.union(returnType, Types.NONE);
       }
@@ -198,8 +222,8 @@ final class MethodDescriptor {
         numOrdinaryParameters,
         mandatoryParameters.build(),
         // TODO(ilist@): more precise type on args and kwargs
-        acceptsExtraArgs() ? Types.ANY : null,
-        acceptsExtraKwargs() ? Types.ANY : null,
+        extraPositionals ? Types.ANY : null,
+        extraKeywords ? Types.ANY : null,
         returnType);
   }
 
