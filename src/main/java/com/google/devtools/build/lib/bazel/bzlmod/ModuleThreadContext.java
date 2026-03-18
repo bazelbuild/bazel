@@ -31,12 +31,10 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -59,7 +57,6 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   private final Map<String, ModuleOverride> overrides = new LinkedHashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
   private final List<Event> warnings = new ArrayList<>();
-  private final Set<String> ignoredDevDeps = new HashSet<>();
 
   private final Map<String, RepoOverride> overriddenRepos = new HashMap<>();
   private final Map<String, RepoOverride> overridingRepos = new HashMap<>();
@@ -351,11 +348,10 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     return currentModuleFilePath;
   }
 
-  public void addIgnoredDevDep(String moduleName) {
-    ignoredDevDeps.add(moduleName);
-  }
-
   public void addOverride(String moduleName, ModuleOverride override) throws EvalException {
+    if (shouldIgnoreDevDeps()) {
+      return;
+    }
     ModuleOverride existingOverride = overrides.putIfAbsent(moduleName, override);
     if (existingOverride != null) {
       throw Starlark.errorf("multiple overrides for dep %s found", moduleName);
@@ -418,14 +414,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   }
 
   public ImmutableMap<String, ModuleOverride> buildOverrides() {
-    // Build the result from a filtered copy rather than mutating the internal overrides map,
-    // so that this method remains idempotent and free of hidden side effects.
-    Map<String, ModuleOverride> result = new LinkedHashMap<>();
-    for (Map.Entry<String, ModuleOverride> entry : overrides.entrySet()) {
-      if (!ignoredDevDeps.contains(entry.getKey())) {
-        result.put(entry.getKey(), entry.getValue());
-      }
-    }
+    Map<String, ModuleOverride> result = new LinkedHashMap<>(overrides);
     // Add overrides for builtin modules if there is no existing override for them.
     if (ModuleKey.ROOT.equals(module.getKey())) {
       for (Map.Entry<String, NonRegistryOverride> entry : builtinModules.entrySet()) {
