@@ -17,6 +17,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /** Prefetches files to local disk. */
 public interface ActionInputPrefetcher {

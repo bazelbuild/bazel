@@ -41,6 +41,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import javax.annotation.Nullable;
 
 /**
  * Implementation of {@link ImportantOutputHandler} for Build without the Bytes.
