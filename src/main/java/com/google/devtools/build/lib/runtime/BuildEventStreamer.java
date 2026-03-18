@@ -409,14 +409,21 @@ public class BuildEventStreamer {
   private synchronized void clearPendingEvents() {
     while (!pendingEvents.isEmpty()) {
       BuildEventId id = pendingEvents.keySet().iterator().next();
-      boolean bufferedEventsPendingOnThisType =
+      Collection<BuildEventId> bufferedEventsPendingOnThisType =
           releaseReplaceableBuildEvent(new ReleaseReplaceableBuildEvent(id));
-      if (bufferedEventsPendingOnThisType) {
+      if (!bufferedEventsPendingOnThisType.isEmpty()) {
         // Replaceable (BUFERED_FOR_REPLACEMENT) events finally trigger on build abort, so
         // we don't need a distinct AbortedEvent to acknowledge them. Normal buffered events
         // don't trigger because their trigger event never happened, so they need an
         // AbortedEvent.
-        buildEvent(new AbortedEvent(id, getLastAbortReason(), getAbortReasonDetails()));
+        ImmutableList.Builder<BuildEventId> children = ImmutableList.builder();
+        for (BuildEventId bufferedId : bufferedEventsPendingOnThisType) {
+          if (!announcedEvents.contains(bufferedId)) {
+            children.add(bufferedId);
+          }
+        }
+        buildEvent(
+            new AbortedEvent(id, children.build(), getLastAbortReason(), getAbortReasonDetails()));
       }
     }
   }
@@ -539,14 +546,13 @@ public class BuildEventStreamer {
    * most one pending replaceable event for any build type.
    *
    * @param event event id of the replaceable event to post
-   * @return true iff normal buffered events are also waiting on this event id. This is useful to
-   *     distinguish from replaceable events because when builds abort, pending replaceable events
-   *     trigger while normal buffered events are dropped and noted with a matching AbortedEvent.
+   * @return the IDs of normal buffered events which are also waiting on this event id, if any. This
+   *     is useful when builds abort, as they can become children of the AbortedEvent.
    */
   @Subscribe
-  public boolean releaseReplaceableBuildEvent(ReleaseReplaceableBuildEvent event) {
+  public Collection<BuildEventId> releaseReplaceableBuildEvent(ReleaseReplaceableBuildEvent event) {
+    ImmutableList.Builder<BuildEventId> bufferedEventIDs = ImmutableList.builder();
     BuildEvent replaceable = null;
-    boolean bufferedEventsAlsoPending = false;
     synchronized (this) {
       var pendingEventsThisType = pendingEvents.get(event.getEventId()).iterator();
       while (pendingEventsThisType.hasNext()) {
@@ -559,14 +565,14 @@ public class BuildEventStreamer {
           replaceable = pendingEvent;
           pendingEventsThisType.remove();
         } else {
-          bufferedEventsAlsoPending = true;
+          bufferedEventIDs.add(pendingEvent.getEventId());
         }
       }
     }
     if (replaceable != null) {
       post(replaceable);
     }
-    return bufferedEventsAlsoPending;
+    return bufferedEventIDs.build();
   }
 
   @Subscribe
