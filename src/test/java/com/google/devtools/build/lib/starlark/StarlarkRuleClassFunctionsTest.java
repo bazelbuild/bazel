@@ -1357,7 +1357,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testAttrDefaultValueBadType() throws Exception {
-    ev.checkEvalErrorContains("got value of type 'int', want 'string'", "attr.string(default = 1)");
+    ev.checkEvalErrorContains("got value of type 'int', want 'string", "attr.string(default = 1)");
   }
 
   @Test
@@ -1649,17 +1649,19 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     // to Starlark; the bug was that the @StarlarkMethod
     // annotation was more permissive than the method declaration.)
     ev.checkEvalErrorContains(
-        "got value of type 'function', want 'string'", "attr.string(default=f)");
+        "got value of type 'function', want 'string", "attr.string(default=f)");
     ev.checkEvalErrorContains(
-        "got value of type 'function', want 'sequence'", "attr.string_list(default=f)");
-    ev.checkEvalErrorContains("got value of type 'function', want 'int'", "attr.int(default=f)");
+        "got value of type 'function', want 'sequence", "attr.string_list(default=f)");
     ev.checkEvalErrorContains(
-        "got value of type 'function', want 'sequence'", "attr.int_list(default=f)");
-    ev.checkEvalErrorContains("got value of type 'function', want 'bool'", "attr.bool(default=f)");
+        "got value of type 'function', want 'int", "attr.int(default=f)");
     ev.checkEvalErrorContains(
-        "got value of type 'function', want 'dict'", "attr.string_dict(default=f)");
+        "got value of type 'function', want 'sequence", "attr.int_list(default=f)");
     ev.checkEvalErrorContains(
-        "got value of type 'function', want 'dict'", "attr.string_list_dict(default=f)");
+        "got value of type 'function', want 'bool", "attr.bool(default=f)");
+    ev.checkEvalErrorContains(
+        "got value of type 'function', want 'dict", "attr.string_dict(default=f)");
+    ev.checkEvalErrorContains(
+        "got value of type 'function', want 'dict", "attr.string_list_dict(default=f)");
     // Note: attr.license appears to be disabled already.
     // (see --incompatible_no_attr_license)
   }
@@ -1860,6 +1862,81 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
     Attribute a = c.getAttributeProvider().getAttributeByName("a1");
     assertThat(a.getDefaultValueUnchecked()).isEqualTo(StarlarkInt.of(42));
+  }
+
+  @Test
+  public void testSelectDefaultValue_string() throws Exception {
+    Attribute attr =
+        buildAttribute("a1", "attr.string(default = select({'//conditions:default': 'foo'}))");
+    assertThat(attr.getDefaultValueUnchecked()).isInstanceOf(BuildType.SelectorList.class);
+    @SuppressWarnings("unchecked")
+    BuildType.SelectorList<String> selectorList =
+        (BuildType.SelectorList<String>) attr.getDefaultValueUnchecked();
+    assertThat(selectorList.getOriginalType()).isEqualTo(Type.STRING);
+  }
+
+  @Test
+  public void testSelectDefaultValue_int() throws Exception {
+    Attribute attr =
+        buildAttribute("a1", "attr.int(default = select({'//conditions:default': 42}))");
+    assertThat(attr.getDefaultValueUnchecked()).isInstanceOf(BuildType.SelectorList.class);
+  }
+
+  @Test
+  public void testSelectDefaultValue_bool() throws Exception {
+    Attribute attr =
+        buildAttribute("a1", "attr.bool(default = select({'//conditions:default': True}))");
+    assertThat(attr.getDefaultValueUnchecked()).isInstanceOf(BuildType.SelectorList.class);
+  }
+
+  @Test
+  public void testSelectDefaultValue_stringList() throws Exception {
+    Attribute attr =
+        buildAttribute(
+            "a1", "attr.string_list(default = select({'//conditions:default': ['a', 'b']}))");
+    assertThat(attr.getDefaultValueUnchecked()).isInstanceOf(BuildType.SelectorList.class);
+  }
+
+  @Test
+  public void testSelectDefaultValue_label() throws Exception {
+    Attribute attr =
+        buildAttribute(
+            "a1", "attr.label(default = select({'//conditions:default': '//foo:bar'}))");
+    assertThat(attr.getDefaultValueUnchecked()).isInstanceOf(BuildType.SelectorList.class);
+  }
+
+  @Test
+  public void testSelectDefaultValue_labelList() throws Exception {
+    Attribute attr =
+        buildAttribute(
+            "a1",
+            "attr.label_list(default = select({'//conditions:default': ['//foo:bar']}))");
+    assertThat(attr.getDefaultValueUnchecked()).isInstanceOf(BuildType.SelectorList.class);
+  }
+
+  @Test
+  public void testSelectDefaultValue_keysResolvedEagerly() throws Exception {
+    // select() keys in attribute defaults are always resolved to Labels, matching the behavior
+    // of --incompatible_resolve_select_keys_eagerly regardless of the flag's state.
+    Attribute attr =
+        buildAttribute(
+            "a1",
+            "attr.string(default = select({'//some:condition': 'a',"
+                + " '//conditions:default': 'b'}))");
+    @SuppressWarnings("unchecked")
+    BuildType.SelectorList<String> selectorList =
+        (BuildType.SelectorList<String>) attr.getDefaultValueUnchecked();
+    // getKeyLabels() excludes the default condition, so only //some:condition should be present.
+    assertThat(selectorList.getKeyLabels())
+        .containsExactly(Label.parseCanonicalUnchecked("//some:condition"));
+  }
+
+  @Test
+  public void testSelectDefaultValue_invalidType() throws Exception {
+    // select() values still get type-checked against the attribute type.
+    ev.checkEvalErrorContains(
+        "expected value of type 'string",
+        "attr.string(default = select({'//conditions:default': 42}))");
   }
 
   @Test
@@ -2251,7 +2328,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void testLabelAttrWrongDefault() throws Exception {
     ev.checkEvalErrorContains(
-        "got value of type 'int', want 'Label, string, LateBoundDefault, function, or NoneType'",
+        "got value of type 'int', want 'Label, string, LateBoundDefault, function, select,"
+            + " or NoneType'",
         "attr.label(default = 123)");
   }
 

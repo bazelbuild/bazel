@@ -524,6 +524,11 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
       return null;
     }
     Object attrValue = getAttrIfStored(index);
+    if (attrValue == null) {
+      // Also check the attribute's default value, which may be a SelectorList if the rule
+      // definition used select() as a default.
+      attrValue = getAttributeProvider().getAttribute(index).getDefaultValueUnchecked();
+    }
     if (!(attrValue instanceof BuildType.SelectorList)) {
       return null;
     }
