@@ -351,9 +351,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     if (result.hasError()) {
       fail(result.getError().toString());
     }
-    // All overrides in root MODULE.bazel should be ignored when --ignore_dev_dependency is set.
-    assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).overrides())
-        .doesNotContainKey("hhh");
+    // Overrides for dev-only deps (ddd, eee, fff, ggg) should be filtered out.
+    // Override for non-dev dep (hhh) should be preserved.
+    assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).overrides()).containsKey("hhh");
     assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).overrides())
         .doesNotContainKey("ddd");
     assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).overrides())
@@ -381,7 +381,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     if (result.hasError()) {
       fail(result.getError().toString());
     }
-    // Overrides are ignored when --ignore_dev_dependency is set.
+    // The override for 'mydep' should be filtered since it's a dev-only dep.
     assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).overrides())
         .doesNotContainKey("mydep");
   }

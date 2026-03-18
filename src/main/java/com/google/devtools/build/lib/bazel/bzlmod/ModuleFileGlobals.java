@@ -311,6 +311,8 @@ public class ModuleFileGlobals {
 
     if (!(context.shouldIgnoreDevDeps() && devDependency)) {
       context.addDep(repoName, new DepSpec(name, parsedVersion, -1));
+    } else {
+      context.addIgnoredDevDep(name);
     }
 
     if (repoName.isPresent()) {

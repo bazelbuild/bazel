@@ -71,6 +71,7 @@
     "https://bcr.bazel.build/modules/boringssl/0.20240913.0/MODULE.bazel": "fcaa7503a5213290831a91ed1eb538551cf11ac0bc3a6ad92d0fef92c5bd25fb",
     "https://bcr.bazel.build/modules/boringssl/0.20241024.0/MODULE.bazel": "b540cff73d948cb79cb0bc108d7cef391d2098a25adabfda5043e4ef548dbc87",
     "https://bcr.bazel.build/modules/boringssl/0.20241024.0/source.json": "d843092e682b84188c043ac742965d7f96e04c846c7e338187e03238674909a9",
+    "https://bcr.bazel.build/modules/buildozer/8.2.1/MODULE.bazel": "61e9433c574c2bd9519cad7fa66b9c1d2b8e8d5f3ae5d6528a2c2d26e68d874d",
     "https://bcr.bazel.build/modules/buildozer/8.5.1/MODULE.bazel": "a35d9561b3fc5b18797c330793e99e3b834a473d5fbd3d7d7634aafc9bdb6f8f",
     "https://bcr.bazel.build/modules/buildozer/8.5.1/source.json": "e3386e6ff4529f2442800dee47ad28d3e6487f36a1f75ae39ae56c70f0cd2fbd",
     "https://bcr.bazel.build/modules/c-ares/1.15.0/MODULE.bazel": "ba0a78360fdc83f02f437a9e7df0532ad1fbaa59b722f6e715c11effebaa0166",
@@ -276,6 +277,7 @@
     "https://bcr.bazel.build/modules/rules_java/8.5.1/MODULE.bazel": "d8a9e38cc5228881f7055a6079f6f7821a073df3744d441978e7a43e20226939",
     "https://bcr.bazel.build/modules/rules_java/8.6.0/MODULE.bazel": "9c064c434606d75a086f15ade5edb514308cccd1544c2b2a89bbac4310e41c71",
     "https://bcr.bazel.build/modules/rules_java/8.6.1/MODULE.bazel": "f4808e2ab5b0197f094cabce9f4b006a27766beb6a9975931da07099560ca9c2",
+    "https://bcr.bazel.build/modules/rules_java/9.0.3/MODULE.bazel": "1f98ed015f7e744a745e0df6e898a7c5e83562d6b759dfd475c76456dda5ccea",
     "https://bcr.bazel.build/modules/rules_java/9.5.0/MODULE.bazel": "1c2f1c9e2fc75db13164da56012ff626cfb525c1a3de04329286c46829f2d6d9",
     "https://bcr.bazel.build/modules/rules_java/9.5.0/source.json": "ba5c06fe7b6a31922e8b9c11947177ebed8fa46b45b70a5f810d97ac74bf888b",
     "https://bcr.bazel.build/modules/rules_jvm_external/6.6/MODULE.bazel": "153042249c7060536dc95b6bb9f9bb8063b8a0b0cb7acdb381bddbc2374aed55",
@@ -458,7 +460,7 @@
     },
     "@@rules_kotlin+//src/main/starlark/core/repositories:bzlmod_setup.bzl%rules_kotlin_extensions": {
       "general": {
-        "bzlTransitiveDigest": "q5WovbsuiZCto9a5UMikEQn6IbdHGSccgiKTJaq+ChQ=",
+        "bzlTransitiveDigest": "ABI1D/sbS1ovwaW/kHDoj8nnXjQ0oKU9fzmzEG4iT8o=",
         "usagesDigest": "QI2z8ZUR+mqtbwsf2fLqYdJAkPOHdOV+tF2yVAUgRzw=",
         "recordedInputs": [
           "REPO_MAPPING:rules_kotlin+,bazel_tools bazel_tools"
@@ -578,7 +580,7 @@
     },
     "@@rules_python+//python/extensions:config.bzl%config": {
       "general": {
-        "bzlTransitiveDigest": "PQM4M1U1YI3IMEJ5vxFEfZPNYOqCZrNL9Kzhr/u9LVE=",
+        "bzlTransitiveDigest": "2hLgIvNVTLgxus0ZuXtleBe70intCfo0cHs8qvt6cdM=",
         "usagesDigest": "ZVSXMAGpD+xzVNPuvF1IoLBkty7TROO0+akMapt1pAg=",
         "recordedInputs": [
           "REPO_MAPPING:rules_python+,bazel_tools bazel_tools",
