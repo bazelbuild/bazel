@@ -108,14 +108,9 @@ filegroup(
         "zip_main.cc",
         "zlib_client.cc",
         "zlib_client.h",
-    ] + select({
-        "//src/conditions:windows": [
-            "mapped_file_windows.cc",
-        ],
-        "//conditions:default": [
-            "mapped_file_unix.cc",
-        ],
-    }),
+        "mapped_file_windows.cc",
+        "mapped_file_unix.cc",
+    ],
     visibility = ["//visibility:public"],
 )
 
