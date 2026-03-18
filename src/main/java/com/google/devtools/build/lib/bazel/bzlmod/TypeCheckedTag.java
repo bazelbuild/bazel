@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.repository.AttributeUtils;
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
@@ -23,7 +24,9 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Location;
@@ -33,11 +36,58 @@ import net.starlark.java.syntax.Location;
  * in the {@link TagClass}.
  */
 @StarlarkBuiltin(name = "bazel_module_tag", documented = false)
-public class TypeCheckedTag implements Structure, Comparable<TypeCheckedTag> {
+public class TypeCheckedTag implements Structure {
+
+  /**
+   * An opaque object that can be used to sort tags in the order they are defined across all tag
+   * classes within a module file and across modules in BFS order.
+   */
+  @StarlarkBuiltin(name = "sort_key", documented = false)
+  private static final class SortKey implements StarlarkValue, Comparable<SortKey> {
+    private final long key;
+
+    private SortKey(int moduleIndex, int tagIndex) {
+      // Sort by module first, then in the order tags were defined within the module.
+      this.key = (Integer.toUnsignedLong(moduleIndex) << 32) + Integer.toUnsignedLong(tagIndex);
+    }
+
+    @Override
+    public boolean isImmutable() {
+      return true;
+    }
+
+    @Override
+    public int compareTo(SortKey other) {
+      return Long.compareUnsigned(this.key, other.key);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      return this == other || (other instanceof SortKey o && this.key == o.key);
+    }
+
+    @Override
+    public int hashCode() {
+      return Long.hashCode(key);
+    }
+
+    @Override
+    public void repr(Printer printer, StarlarkSemantics semantics) {
+      printer.append("<sort_key>");
+    }
+
+    @Override
+    public void debugPrint(Printer printer, StarlarkThread thread) {
+      printer.append("<sort_key key=%d>".formatted(key));
+    }
+  }
+
+  private static final String SORT_KEY = "_sort_key";
+
   private final TagClass tagClass;
   private final ImmutableList<Object> attrValues;
   private final boolean devDependency;
-  private final long compareKey;
+  private final SortKey sortKey;
 
   // The properties below are only used for error reporting.
   private final Location location;
@@ -54,14 +104,14 @@ public class TypeCheckedTag implements Structure, Comparable<TypeCheckedTag> {
     this.tagClass = tagClass;
     this.attrValues = attrValues;
     this.devDependency = devDependency;
-    // Sort by module first, then in the order tags were defined within the module.
-    this.compareKey =
-        (Integer.toUnsignedLong(moduleIndex) << 32) + Integer.toUnsignedLong(tagIndex);
+    this.sortKey = new SortKey(moduleIndex, tagIndex);
     this.location = location;
     this.tagClassName = tagClassName;
   }
 
-  /** Creates a {@link TypeCheckedTag}. */
+  /**
+   * Creates a {@link TypeCheckedTag}.
+   */
   public static TypeCheckedTag create(
       TagClass tagClass,
       Tag tag,
@@ -108,6 +158,9 @@ public class TypeCheckedTag implements Structure, Comparable<TypeCheckedTag> {
   public Object getValue(String name) throws EvalException {
     Integer attrIndex = tagClass.attributeIndices().get(name);
     if (attrIndex == null) {
+      if (name.equals(SORT_KEY)) {
+        return sortKey;
+      }
       return null;
     }
     return attrValues.get(attrIndex);
@@ -115,7 +168,11 @@ public class TypeCheckedTag implements Structure, Comparable<TypeCheckedTag> {
 
   @Override
   public ImmutableCollection<String> getFieldNames() {
-    return tagClass.attributeIndices().keySet();
+    return ImmutableSet.<String>builderWithExpectedSize(
+            tagClass.attributeIndices().size() + 1)
+        .addAll(tagClass.attributeIndices().keySet())
+        .add(SORT_KEY)
+        .build();
   }
 
   @Nullable
@@ -127,20 +184,5 @@ public class TypeCheckedTag implements Structure, Comparable<TypeCheckedTag> {
   @Override
   public void debugPrint(Printer printer, StarlarkThread thread) {
     printer.append(String.format("'%s' tag at %s", tagClassName, location));
-  }
-
-  @Override
-  public int compareTo(TypeCheckedTag other) {
-    return Long.compareUnsigned(this.compareKey, other.compareKey);
-  }
-
-  @Override
-  public boolean equals(Object other) {
-    return this == other || (other instanceof TypeCheckedTag o && this.compareKey == o.compareKey);
-  }
-
-  @Override
-  public int hashCode() {
-    return Long.hashCode(compareKey);
   }
 }

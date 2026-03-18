@@ -2828,7 +2828,7 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
         "    tags += module.tags.foo",
         "    tags += module.tags.bar",
         "    tags += module.tags.baz",
-        "  ids = [tag.id for tag in sorted(tags)]",
+        "  ids = [tag.id for tag in sorted(tags, key=lambda tag: tag._sort_key)]",
         "  data_repo(name='ext_data',data=str(ids))",
         "foo = tag_class(attrs = {'id': attr.int()})",
         "bar = tag_class(attrs = {'id': attr.int()})",
