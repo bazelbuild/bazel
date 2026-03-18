@@ -299,9 +299,9 @@ public class RepositoryOptions extends OptionsBase {
       help =
           """
           If true, Bazel ignores `bazel_dep` and `use_extension` declared as `dev_dependency` in
-          the `MODULE.bazel` of the root module. Note that, those dev dependencies are always
-          ignored in the `MODULE.bazel` if it's not the root module regardless of the value
-          of this flag.
+          the `MODULE.bazel` of the root module, and ignores all module overrides declared in the
+          root module's `MODULE.bazel`. Note that those dev dependencies and overrides are always
+          ignored in a `MODULE.bazel` if it's not the root module, regardless of this flag.
           """)
   public boolean ignoreDevDependency;
 
