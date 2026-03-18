@@ -44,9 +44,11 @@ public interface TypeConstructor {
    * These are needed for type expressions like {@code tuple[Any, ...]} and {@code Callable[[int],
    * bool]}.
    */
-  // TODO: #27370 - Support other type arguments besides StarlarkType and Ellipsis when we need them
-  sealed interface Arg permits StarlarkType, Arg.Ellipsis {
+  // TODO: #27370 - Support other type arguments besides StarlarkType, Ellipsis, and EmptyTuple when
+  // we need them
+  sealed interface Arg permits StarlarkType, Arg.Ellipsis, Arg.EmptyTuple {
     public static final Ellipsis ELLIPSIS = new Ellipsis();
+    public static final EmptyTuple EMPTY_TUPLE = new EmptyTuple();
 
     /** An ellipsis type argument, {@code ...}. */
     public static final class Ellipsis implements Arg {
@@ -55,6 +57,16 @@ public interface TypeConstructor {
       @Override
       public String toString() {
         return "...";
+      }
+    }
+
+    /** An empty tuple type argument, {@code ()}. */
+    public static final class EmptyTuple implements Arg {
+      private EmptyTuple() {}
+
+      @Override
+      public String toString() {
+        return "()";
       }
     }
   }

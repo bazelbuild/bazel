@@ -388,7 +388,6 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testDependsOnTestOnlyOutputFileDisallowed() throws Exception {
-    useConfiguration("--incompatible_check_testonly_for_output_files");
     scratch.file(
         "testonly/BUILD",
         """

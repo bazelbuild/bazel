@@ -261,7 +261,7 @@ Assume the project `foo` provides the following macro which takes `version` as
 an argument.
 
 ```python
-## repositories.bzl in foo {:#repositories.bzl-foo}
+## repositories.bzl in foo
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 def data_deps(version = "1.0"):
     http_file(

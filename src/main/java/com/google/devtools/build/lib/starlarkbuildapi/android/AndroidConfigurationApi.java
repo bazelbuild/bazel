@@ -41,20 +41,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       documented = false)
   int incrementalDexingShardsAfterProguard();
 
-  @StarlarkMethod(
-      name = "incremental_dexing_use_dex_sharder",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean incrementalDexingUseDexSharder();
-
-  @StarlarkMethod(
-      name = "incremental_dexing_after_proguard_by_default",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean incrementalDexingAfterProguardByDefault();
-
   @StarlarkMethod(name = "apk_signing_method_v1", structField = true, doc = "", documented = false)
   boolean apkSigningMethodV1();
 
@@ -69,9 +55,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       allowReturnNones = true)
   @Nullable
   Boolean apkSigningMethodV4();
-
-  @StarlarkMethod(name = "assume_min_sdk_version", structField = true, doc = "", documented = false)
-  boolean assumeMinSdkVersion();
 
   @StarlarkMethod(
       name = "get_dexopts_supported_in_incremental_dexing",
@@ -111,13 +94,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   boolean checkDesugarDeps();
 
   @StarlarkMethod(
-      name = "use_rex_to_compress_dex_files",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean useRexToCompressDexFiles();
-
-  @StarlarkMethod(
       name = "use_android_resource_shrinking",
       structField = true,
       doc = "",
@@ -147,13 +123,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(name = "use_parallel_dex2oat", structField = true, doc = "", documented = false)
   boolean useParallelDex2Oat();
-
-  @StarlarkMethod(
-      name = "break_build_on_parallel_dex2oat_failure",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean breakBuildOnParallelDex2OatFailure();
 
   @StarlarkMethod(
       name = "compress_java_resources",

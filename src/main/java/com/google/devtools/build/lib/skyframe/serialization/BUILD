@@ -24,6 +24,7 @@ java_library(
     name = "serialization_registry_setup_helpers",
     srcs = ["SerializationRegistrySetupHelpers.java"],
     deps = [
+        ":builtin_manager_codec",
         ":module_codec",
         ":serialization",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -59,7 +60,7 @@ java_library(
         ":serialization",
         ":serialization_registry_setup_helpers",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
-        "//src/main/java/com/google/devtools/build/lib/runtime",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_client",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_caching_services_supplier",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
@@ -94,6 +95,7 @@ java_library(
         ["**/*.java"],
         exclude = [
             "AbstractExportedStarlarkSymbolCodec.java",
+            "BuiltinManagerCodec.java",
             "CodecScanningConstants.java",
             "DependOnFutureShim.java",
             "DeserializedSkyValue.java",
@@ -173,6 +175,18 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:error_prone_annotations",
+        "//third_party:guava",
+        "@com_google_protobuf//:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "builtin_manager_codec",
+    srcs = ["BuiltinManagerCodec.java"],
+    deps = [
+        ":serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
         "@com_google_protobuf//:protobuf_java",
     ],

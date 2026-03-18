@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.exec.BinTools;
-import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
@@ -83,6 +82,7 @@ import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
+import com.google.devtools.build.lib.server.FailureDetails.JniLinking;
 import com.google.devtools.build.lib.server.GcAndInternerShrinkingIdleTask;
 import com.google.devtools.build.lib.server.GrpcServerImpl;
 import com.google.devtools.build.lib.server.IdleTask;
@@ -924,7 +924,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   public static void main(
       Iterable<Class<? extends BlazeModule>> blazeModuleClasses,
       Iterable<BlazeService> blazeServices,
-      String[] args) {
+      String[] args,
+      @Nullable Throwable delayedJniLinkingError) {
     // Transform args into Bazel's internal string representation.
     args = Arrays.stream(args).map(StringEncoding::platformToInternal).toArray(String[]::new);
     setupUncaughtHandlerAtStartup(args);
@@ -932,14 +933,16 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     // blaze.cc will put --batch first if the user set it.
     if (args.length >= 1 && args[0].equals("--batch")) {
       // Run Blaze in batch mode.
-      exit(batchMain(blazeModules, blazeServices, args));
+      exit(batchMain(blazeModules, blazeServices, args, delayedJniLinkingError));
     }
     logger.atInfo().log(
         "Starting Bazel server with pid %d, args %s",
         ProcessHandle.current().pid(), Arrays.toString(args));
     try {
       // Run Blaze in server mode.
-      exit(serverMain(blazeModules, blazeServices, OutErr.SYSTEM_OUT_ERR, args));
+      exit(
+          serverMain(
+              blazeModules, blazeServices, OutErr.SYSTEM_OUT_ERR, args, delayedJniLinkingError));
     } catch (RuntimeException | Error e) { // A definite bug...
       Crash crash = Crash.from(e);
       BugReport.handleCrash(crash, CrashContext.keepAlive().withArgs(args));
@@ -1096,7 +1099,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    * exit status of the program.
    */
   private static int batchMain(
-      Iterable<BlazeModule> blazeModules, Iterable<BlazeService> blazeServices, String[] args) {
+      Iterable<BlazeModule> blazeModules,
+      Iterable<BlazeService> blazeServices,
+      String[] args,
+      @Nullable Throwable delayedJniLinkingError) {
     InterruptSignalHandler signalHandler =
         captureSigint(getSlowInterruptMessageSuffix(blazeModules));
     CommandLineOptions commandLineOptions =
@@ -1110,7 +1116,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     BlazeServerStartupOptions startupOptions;
 
     try {
-      runtime = newRuntime(blazeModules, blazeServices, commandLineOptions.getStartupArgs(), null);
+      runtime =
+          newRuntime(
+              blazeModules,
+              blazeServices,
+              commandLineOptions.getStartupArgs(),
+              delayedJniLinkingError,
+              /* abruptShutdownHandler= */ null);
       startupOptions = runtime.startupOptionsProvider.getOptions(BlazeServerStartupOptions.class);
       policy = InvocationPolicyParser.parsePolicy(startupOptions.invocationPolicy);
     } catch (OptionsParsingException e) {
@@ -1214,13 +1226,19 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       Iterable<BlazeModule> blazeModules,
       Iterable<BlazeService> blazeServices,
       OutErr outErr,
-      String[] args) {
+      String[] args,
+      @Nullable Throwable delayedJniLinkingError) {
     InterruptSignalHandler sigintHandler = null;
     try {
       AtomicReference<GrpcServerImpl> rpcServerRef = new AtomicReference<>();
       Runnable prepareForAbruptShutdown = () -> rpcServerRef.get().prepareForAbruptShutdown();
       BlazeRuntime runtime =
-          newRuntime(blazeModules, blazeServices, Arrays.asList(args), prepareForAbruptShutdown);
+          newRuntime(
+              blazeModules,
+              blazeServices,
+              Arrays.asList(args),
+              delayedJniLinkingError,
+              prepareForAbruptShutdown);
 
       // server.pid was written in the C++ launcher after fork() but before exec(). The client only
       // accesses the pid file after connecting to the socket which ensures that it gets the correct
@@ -1332,7 +1350,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       Iterable<BlazeModule> blazeModules,
       Iterable<BlazeService> blazeServices,
       List<String> args,
-      Runnable abruptShutdownHandler)
+      @Nullable Throwable delayedJniLinkingError,
+      @Nullable Runnable abruptShutdownHandler)
       throws AbruptExitException, OptionsParsingException {
     OptionsParsingResult options =
         parseStartupOptions(Iterables.concat(blazeModules, blazeServices), args);
@@ -1364,9 +1383,20 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     PathFragment outputBase = startupOptions.outputBase;
     PathFragment execRootBase = outputBase.getRelative(ServerDirectories.EXECROOT);
 
-    // Force JNI linking before the first real use of JNI to emit a helpful error message now that
-    // we have the install base path handy.
-    forceJniLinking(installBase);
+    // Emit a helpful error message (now that we have the install base path handy) if we detected a
+    // JNI linking error earlier.
+    if (delayedJniLinkingError != null) {
+      System.err.printf(
+          "JNI initialization failed: %s. Possibly your installation has been corrupted; if this"
+              + " problem persists, try 'rm -fr %s'.\n",
+          delayedJniLinkingError.getMessage(), installBase);
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(delayedJniLinkingError.getMessage())
+                  .setJniLinking(JniLinking.newBuilder().setCode(JniLinking.Code.JNI_LINKING_ERROR))
+                  .build()));
+    }
 
     // From the point of view of the Java program --install_base, --output_base, --output_user_root,
     // and --failure_detail_out are mandatory options, despite the comment in their declarations.
@@ -1558,25 +1588,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                 .setFilesystem(Filesystem.newBuilder().setCode(detailedCode))
                 .build()),
         e);
-  }
-
-  /**
-   * Loads and links JNI libraries, if necessary under the current platform, and prints an
-   * informative error to stderr if that fails.
-   */
-  private static void forceJniLinking(PathFragment installBase) {
-    if (!JniLoader.isJniAvailable()) {
-      return;
-    }
-    try {
-      JniLoader.forceLinking();
-    } catch (UnsatisfiedLinkError t) {
-      System.err.printf(
-          "JNI initialization failed: %s. Possibly your installation has been corrupted; if this"
-              + " problem persists, try 'rm -fr %s'.\n",
-          t.getMessage(), installBase);
-      throw t;
-    }
   }
 
   /**

@@ -130,9 +130,13 @@ public final class Converters {
   }
 
   /** Standard converter for TriState values. */
-  public static class TriStateConverter extends Converter.Contextless<TriState> {
+  public static class TriStateConverter extends EnumConverter<TriState> {
+    public TriStateConverter() {
+      super(TriState.class, "tri-state (auto, yes, no) option value");
+    }
+
     @Override
-    public TriState convert(String input) throws OptionsParsingException {
+    public TriState convert(@Nullable String input) throws OptionsParsingException {
       if (input == null) {
         return TriState.AUTO;
       }
@@ -146,7 +150,8 @@ public final class Converters {
       if (DISABLED_REPS.contains(input)) {
         return TriState.NO;
       }
-      throw new OptionsParsingException("'" + input + "' is not a boolean");
+      throw new OptionsParsingException(
+          "Not a valid %s: '%s' (should be auto or a boolean)".formatted(typeName, input));
     }
 
     @Override

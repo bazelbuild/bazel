@@ -830,6 +830,7 @@ sh_test(
     timeout = "long",
     srcs = ["target_compatible_with_test.sh"],
     data = [":test-deps"],
+    shard_count = 10,
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 

@@ -14,17 +14,10 @@
 
 package net.starlark.java.eval;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
-import java.math.BigInteger;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Objects;
-import net.starlark.java.annot.ParamType;
 import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.Types;
 import net.starlark.java.syntax.Types.CollectionType;
@@ -158,79 +151,6 @@ public final class TypeChecker {
       return true;
     }
     return isSubtypeOf(Starlark.getStarlarkType(value), type2);
-  }
-
-  private static class ParameterizedTypeImpl implements ParameterizedType {
-    private final Type rawType;
-    private final Type[] actualTypeArguments;
-
-    private ParameterizedTypeImpl(Type rawType, Type[] actualTypeArguments) {
-      this.rawType = rawType;
-      this.actualTypeArguments = actualTypeArguments;
-    }
-
-    @Override
-    public Type[] getActualTypeArguments() {
-      return actualTypeArguments;
-    }
-
-    @Override
-    public Type getRawType() {
-      return rawType;
-    }
-
-    @Override
-    public Type getOwnerType() {
-      return null;
-    }
-  }
-
-  public static StarlarkType fromAnnotation(ParamType[] paramTypes) {
-    return Types.union(
-        Arrays.stream(paramTypes)
-            .map(
-                paramType -> {
-                  if (paramType.type().getTypeParameters().length == 1) {
-                    return new ParameterizedTypeImpl(
-                        paramType.type(), new Type[] {paramType.generic1()});
-                  } else {
-                    return paramType.type();
-                  }
-                })
-            .map(TypeChecker::fromJava)
-            .collect(toImmutableSet()));
-  }
-
-  /** Returns the Starlark type corresponding to the given Java type. */
-  public static StarlarkType fromJava(Type cls) {
-    if (cls == NoneType.class || cls == void.class) {
-      return Types.NONE;
-    } else if (cls == String.class) {
-      return Types.STR;
-    } else if (cls == Boolean.class || cls == boolean.class) {
-      return Types.BOOL;
-    } else if (cls == int.class
-        || cls == long.class
-        || cls == Integer.class
-        || cls == Long.class
-        || cls == StarlarkInt.class
-        || (cls instanceof Class<?> c && BigInteger.class.isAssignableFrom(c))) {
-      return Types.INT;
-    } else if (cls == double.class || cls == Double.class || cls == StarlarkFloat.class) {
-      return Types.FLOAT;
-    } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == StarlarkList.class) {
-      return Types.list(fromJava(ptype.getActualTypeArguments()[0]));
-    } else if (cls instanceof ParameterizedType ptype
-        && ptype.getRawType() == StarlarkIterable.class) {
-      return Types.collection(fromJava(ptype.getActualTypeArguments()[0]));
-    } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == Sequence.class) {
-      return Types.sequence(fromJava(ptype.getActualTypeArguments()[0]));
-    } else if (cls == Object.class || cls == StarlarkValue.class) {
-      return Types.OBJECT;
-    } else {
-      // TODO(ilist@): handle more complex types
-      return Types.ANY;
-    }
   }
 
   private TypeChecker() {}

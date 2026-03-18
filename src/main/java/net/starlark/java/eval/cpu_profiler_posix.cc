@@ -20,6 +20,7 @@
 #include <jni.h>
 #include <signal.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
@@ -33,13 +34,6 @@
 #endif
 
 namespace cpu_profiler {
-
-// native boolean supported();
-extern "C" JNIEXPORT jboolean JNICALL
-Java_net_starlark_java_eval_CpuProfilerNativeSupportImpl_supported(
-    JNIEnv* env, jobject instance) {
-  return true;
-}
 
 static int fd;  // the write end of the profile event pipe
 

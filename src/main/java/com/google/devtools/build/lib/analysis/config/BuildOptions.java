@@ -28,6 +28,8 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
+import com.google.common.escape.CharEscaperBuilder;
+import com.google.common.escape.Escaper;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
@@ -51,6 +53,7 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -63,11 +66,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Starlark;
 
 /** Stores the command-line options from a set of configuration fragments. */
 // TODO(janakr): If overhead of FragmentOptions class names is too high, add constructor that just
 // takes fragments and gets names from them.
 public final class BuildOptions implements Cloneable {
+
+  private static final Escaper ESCAPER =
+      new CharEscaperBuilder().addEscape('\\', "\\\\").addEscape('"', "\\\"").toEscaper();
 
   @SerializationConstant
   static final Comparator<Class<? extends FragmentOptions>> LEXICAL_FRAGMENT_OPTIONS_COMPARATOR =
@@ -186,17 +193,65 @@ public final class BuildOptions implements Cloneable {
           } else {
             Fingerprint fingerprint = new Fingerprint();
             for (FragmentOptions options : fragmentOptionsMap.values()) {
-              fingerprint.addString(options.cacheKey());
+              fingerprint.addString(optionsToCacheKey(options));
             }
-            fingerprint.addString(OptionsBase.starlarkMapToCacheKey(starlarkOptionsMap));
-            fingerprint.addString(OptionsBase.mapToCacheKey(scopes));
-            fingerprint.addString(OptionsBase.starlarkMapToCacheKey(onLeaveScopeValuesMap));
+            fingerprint.addString(starlarkMapToCacheKey(starlarkOptionsMap));
+            fingerprint.addString(mapToCacheKey(scopes));
+            fingerprint.addString(starlarkMapToCacheKey(onLeaveScopeValuesMap));
             checksum = fingerprint.hexDigestAndReset();
           }
         }
       }
     }
     return checksum;
+  }
+
+  /** Returns a string that uniquely identifies the options. */
+  public static String optionsToCacheKey(OptionsBase options) {
+    StringBuilder result = new StringBuilder(options.getClass().getName()).append("{");
+    result.append(mapToCacheKey(options.asMap()));
+    return result.append("}").toString();
+  }
+
+  /** Returns a string that uniquely identifies the options map. */
+  private static String mapToCacheKey(Map<?, ?> optionsMap) {
+    return mapToCacheKey(optionsMap, /* distinguishStarlarkTypes= */ false);
+  }
+
+  private static String mapToCacheKey(Map<?, ?> optionsMap, boolean distinguishStarlarkTypes) {
+    StringBuilder result = new StringBuilder();
+    for (Map.Entry<?, ?> entry : optionsMap.entrySet()) {
+      result.append(entry.getKey()).append("=");
+
+      Object value = entry.getValue();
+
+      if (value == null) {
+        result.append("NULL");
+      } else {
+        if (distinguishStarlarkTypes) {
+          result.append(Starlark.type(value));
+        }
+        // This special case is needed because Collection.toString() prints the same ("[]") for an
+        // empty collection and for a collection with a single empty string.
+        if (value instanceof Collection<?> c && c.isEmpty()) {
+          result.append("EMPTY");
+        } else {
+          result.append('"').append(ESCAPER.escape(value.toString())).append('"');
+        }
+      }
+      result.append(", ");
+    }
+    return result.toString();
+  }
+
+  /**
+   * Returns a string that uniquely identifies the options map. Like {@link #mapToCacheKey} but the
+   * returned key is sensitive to the {@link Starlark#type} of values in the map.
+   *
+   * <p>This is important because types are observable to starlark code. See b/478938163.
+   */
+  private static String starlarkMapToCacheKey(Map<?, ?> starlarkOptionsMap) {
+    return mapToCacheKey(starlarkOptionsMap, /* distinguishStarlarkTypes= */ true);
   }
 
   /**

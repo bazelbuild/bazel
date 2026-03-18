@@ -1125,13 +1125,20 @@ final class Parser {
     return expr;
   }
 
-  // TypeArgument = TypeExpr | ListOfTypes | DictOfTypes | string | ellipsis
+  // TypeArgument = TypeExpr | ListOfTypes | DictOfTypes | '(' ')' | string | ellipsis
   private Expression parseTypeArgument() {
     switch (token.kind) {
       case LBRACKET: // [...]
         return parseTypeList();
       case LBRACE: // {...}
         return parseTypeDict();
+      case LPAREN: // the empty tuple ()
+        {
+          int lparenOffset = expect(TokenKind.LPAREN);
+          int rparenOffset = expect(TokenKind.RPAREN);
+          return new ListExpression(
+              locs, /* isTuple= */ true, lparenOffset, ImmutableList.of(), rparenOffset);
+        }
       case STRING:
         return parseStringLiteral();
       case ELLIPSIS:
@@ -1198,9 +1205,7 @@ final class Parser {
   private Expression parseTypeApplication(Identifier constructor) {
     expect(TokenKind.LBRACKET);
     ImmutableList.Builder<Expression> args = ImmutableList.builder();
-    if (token.kind != TokenKind.RBRACKET) {
-      args.add(parseTypeArgument());
-    }
+    args.add(parseTypeArgument());
     while (token.kind != TokenKind.RBRACKET && token.kind != TokenKind.EOF) {
       expect(TokenKind.COMMA);
       args.add(parseTypeArgument());

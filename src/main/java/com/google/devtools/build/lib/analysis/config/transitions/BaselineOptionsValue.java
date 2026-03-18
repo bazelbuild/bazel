@@ -40,8 +40,11 @@ import javax.annotation.Nullable;
  * baseline. It is expected that this is set whenever the given options have isExec set (and thus an
  * exec transition has already been applied to those options). The expectation here is that, as the
  * exec transition particularly sets many options, comparing against a post-exec baseline will yield
- * fewer diffenences. Note that some indicator must be added to the mnemonic (e.g. -exec-) in order
+ * fewer differences. Note that some indicator must be added to the mnemonic (e.g. -exec-) in order
  * to deconflict for similar options where isExec is not set.
+ *
+ * <p>Similarly, the trimTestOptions option in the key will apply test trimming to the usual
+ * baseline to reduce the number of differences for non-test targets.
  */
 @CheckReturnValue
 @Immutable
@@ -56,8 +59,9 @@ public record BaselineOptionsValue(BuildOptions toOptions) implements SkyValue {
     return new BaselineOptionsValue(toOptions);
   }
 
-  public static Key key(boolean afterExecTransition, @Nullable Label newPlatform) {
-    return Key.create(afterExecTransition, newPlatform);
+  public static Key key(
+      boolean afterExecTransition, boolean trimTestOptions, @Nullable Label newPlatform) {
+    return Key.create(afterExecTransition, trimTestOptions, newPlatform);
   }
 
   /** {@link SkyKey} implementation used for {@link BaselineOptionsValue}. */
@@ -65,7 +69,9 @@ public record BaselineOptionsValue(BuildOptions toOptions) implements SkyValue {
   @Immutable
   @ThreadSafe
   @AutoCodec
-  public record Key(boolean afterExecTransition, @Nullable Label newPlatform) implements SkyKey {
+  public record Key(
+      boolean afterExecTransition, boolean trimTestOptions, @Nullable Label newPlatform)
+      implements SkyKey {
 
     @Override
     public SkyFunctionName functionName() {
@@ -73,16 +79,14 @@ public record BaselineOptionsValue(BuildOptions toOptions) implements SkyValue {
     }
 
     @Override
-    public final String toString() {
-      return "BaselineOptionsValue.Key{afterExecTransition="
-          + afterExecTransition()
-          + ", newPlatform="
-          + newPlatform()
-          + "}";
+    public String toString() {
+      return "BaselineOptionsValue.Key{afterExecTransition=%s, trimTestOptions=%s, newPlatform=%s}"
+          .formatted(afterExecTransition(), trimTestOptions(), newPlatform());
     }
 
-    static Key create(boolean afterExecTransition, @Nullable Label newPlatform) {
-      return new Key(afterExecTransition, newPlatform);
+    static Key create(
+        boolean afterExecTransition, boolean trimTestOptions, @Nullable Label newPlatform) {
+      return new Key(afterExecTransition, trimTestOptions, newPlatform);
     }
   }
 }

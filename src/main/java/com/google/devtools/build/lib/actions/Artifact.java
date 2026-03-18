@@ -1113,7 +1113,6 @@ public abstract sealed class Artifact
    */
   public static final class TreeFileArtifact extends DerivedArtifact {
     private final SpecialArtifact parent;
-    private final PathFragment parentRelativePath;
 
     /**
      * Creates a {@link TreeFileArtifact} representing a child of the given parent tree artifact.
@@ -1192,7 +1191,6 @@ public abstract sealed class Artifact
           "%s is not a proper normalized relative path",
           parentRelativePath);
       this.parent = parent;
-      this.parentRelativePath = parentRelativePath;
     }
 
     @Override
@@ -1202,12 +1200,15 @@ public abstract sealed class Artifact
 
     @Override
     public PathFragment getParentRelativePath() {
-      return parentRelativePath;
+      // getTreeRelativePathString is computed from two PathFragments, so we know it's normalized.
+      return PathFragment.createAlreadyNormalized(getTreeRelativePathString());
     }
 
     @Override
     public String getTreeRelativePathString() {
-      return parentRelativePath.getPathString();
+      // The constructor concatenates the parent's exec path and the parent-relative path, so we can
+      // skip the checks in PathFragment#relativeTo and just take a substring.
+      return getExecPathString().substring(parent.getExecPathString().length() + 1);
     }
 
     @Override

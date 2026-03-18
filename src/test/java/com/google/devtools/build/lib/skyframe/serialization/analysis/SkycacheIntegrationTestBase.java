@@ -461,6 +461,18 @@ genrule(
   }
 
   @Test
+  public void errorOnWarmSkyframeNoBuildUploadBuilds() throws Exception {
+    setupScenarioWithConfiguredTargets();
+
+    writeProjectSclWithActiveDirs("foo");
+
+    addOptions("--nobuild");
+    assertUploadSuccess("//foo:A");
+    var exception = assertThrows(AbruptExitException.class, () -> buildTarget("//foo:A"));
+    assertThat(exception).hasMessageThat().contains(BuildView.UPLOAD_BUILDS_MUST_BE_COLD);
+  }
+
+  @Test
   public void cquery_succeedsAndDoesNotTriggerUpload() throws Exception {
     setupScenarioWithConfiguredTargets();
     addUploadOptions();

@@ -18,14 +18,6 @@ import java.io.FileDescriptor;
 /** Provides access to the native CPU profiler implementation. */
 @SuppressWarnings("GoodTime")
 public interface CpuProfilerNativeSupport {
-
-  /**
-   * Returns whether CPU profiling is supported on this platform.
-   *
-   * <p>Other methods may not be called if this returns false.
-   */
-  boolean supported();
-
   /**
    * Returns the read end of a pipe from which profiling events may be read. Each event is an
    * operating system thread ID as returned by {@code getThreadId()}, encoded as a big-endian 32-bit

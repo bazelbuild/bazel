@@ -172,7 +172,7 @@ public class DynamicTypeCheckTest {
 
   @Test
   public void runtimeTypecheck_tuple() throws Exception {
-    ev.exec("def f(a: tuple[]): pass", "f(())");
+    ev.exec("def f(a: tuple[()]): pass", "f(())");
     ev.exec("def f(a: tuple[int, str]): pass", "f((1, 'a'))");
     ev.exec("def f(a: tuple[int, str, bool]): pass", "f((1, 'a', True))");
     assertExecThrows(EvalException.class, "def f(a: tuple[int, str]): pass", "f((1, 2))")
@@ -349,33 +349,33 @@ public class DynamicTypeCheckTest {
 
     assertThat(builder.build())
         .containsAtLeast(
-            "capitalize: (str, /) -> str",
-            "count: (str, str, [int|None], [int|None], /) -> int",
-            "elems: (str, /) -> Sequence[str]",
-            "find: (str, str, [int|None], [int|None], /) -> int",
-            "index: (str, str, [int|None], [int|None], /) -> int",
-            "isalnum: (str, /) -> bool",
-            "isalpha: (str, /) -> bool",
-            "isdigit: (str, /) -> bool",
-            "islower: (str, /) -> bool",
-            "isspace: (str, /) -> bool",
-            "istitle: (str, /) -> bool",
-            "isupper: (str, /) -> bool",
-            "join: (str, Collection[str], /) -> str",
-            "lower: (str, /) -> str",
-            "lstrip: (str, [str|None], /) -> str",
-            "removeprefix: (str, str, /) -> str",
-            "removesuffix: (str, str, /) -> str",
-            "replace: (str, str, str, [int], /) -> str",
-            "rfind: (str, str, [int|None], [int|None], /) -> int",
-            "rindex: (str, str, [int|None], [int|None], /) -> int",
-            "rsplit: (str, /, sep: str, maxsplit: [int]) -> list[str]",
-            "rstrip: (str, [str|None], /) -> str",
-            "split: (str, /, sep: str, maxsplit: [int]) -> list[str]",
-            "splitlines: (str, [bool], /) -> Sequence[str]",
-            "strip: (str, [str|None], /) -> str",
-            "title: (str, /) -> str",
-            "upper: (str, /) -> str");
+            "capitalize: () -> str",
+            "count: (str, [int|None], [int|None], /) -> int",
+            "elems: () -> Sequence[str]",
+            "find: (str, [int|None], [int|None], /) -> int",
+            "index: (str, [int|None], [int|None], /) -> int",
+            "isalnum: () -> bool",
+            "isalpha: () -> bool",
+            "isdigit: () -> bool",
+            "islower: () -> bool",
+            "isspace: () -> bool",
+            "istitle: () -> bool",
+            "isupper: () -> bool",
+            "join: (Collection[str], /) -> str",
+            "lower: () -> str",
+            "lstrip: ([str|None], /) -> str",
+            "removeprefix: (str, /) -> str",
+            "removesuffix: (str, /) -> str",
+            "replace: (str, str, [int], /) -> str",
+            "rfind: (str, [int|None], [int|None], /) -> int",
+            "rindex: (str, [int|None], [int|None], /) -> int",
+            "rsplit: (sep: str, maxsplit: [int]) -> list[str]",
+            "rstrip: ([str|None], /) -> str",
+            "split: (sep: str, maxsplit: [int]) -> list[str]",
+            "splitlines: ([bool], /) -> Sequence[str]",
+            "strip: ([str|None], /) -> str",
+            "title: () -> str",
+            "upper: () -> str");
     // TODO(ilist@): format (args,kwargs), partition, rpartition (returns tuple), startswith,
     // endswith (takes tuple)
   }

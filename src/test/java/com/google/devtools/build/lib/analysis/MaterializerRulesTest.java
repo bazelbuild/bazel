@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.test.AnalysisTestResultInfo;
@@ -2718,5 +2719,75 @@ my_test(
     ConfiguredTarget target = getConfiguredTarget("//:my_test");
     AnalysisTestResultInfo info = target.get(AnalysisTestResultInfo.STARLARK_CONSTRUCTOR);
     assertThat(info.getSuccess()).isTrue();
+  }
+
+  /**
+   * Tests that top-level aspects do not run on top-level materializer targets. Test for
+   * b/488412397.
+   */
+  @Test
+  public void topLevelAspectSkipsMaterializerTarget_works() throws Exception {
+    scratch.file(
+        "defs.bzl",
+"""
+# Component ############################################################
+
+def _component_impl(ctx):
+    return DefaultInfo()
+
+component = rule(
+    implementation = _component_impl,
+)
+
+# Aspect ###############################################################
+
+AspectInfo = provider(fields = ["info_artifact"])
+
+def _mt_aspect_impl(target, ctx):
+    artifact = ctx.actions.declare_file(target.label.name + ".info")
+    # Materializer rules don't have access to ctx.actions, so this will fail if the aspect is run
+    # on the materializer target, hence why we do not run aspects on materializer targets.
+    ctx.actions.write(artifact, str(target.label))
+    return AspectInfo(info_artifact = artifact)
+
+mt_aspect = aspect(
+    implementation = _mt_aspect_impl,
+)
+
+# Component selector ###################################################
+
+def _component_selector_impl(ctx):
+    return MaterializedDepsInfo(deps = ctx.attr.all_components)
+
+component_selector = materializer_rule(
+    implementation = _component_selector_impl,
+    attrs = {
+        "all_components": attr.dormant_label_list(),
+    },
+)
+""");
+
+    scratch.file(
+        "BUILD",
+"""
+load(":defs.bzl", "component", "component_selector")
+
+component(name = "foo_1")
+component(name = "foo_2")
+component(name = "foo_3")
+
+component_selector(
+    name = "component_selector",
+    all_components = [
+        ":foo_1",
+        ":foo_2",
+        ":foo_3",
+    ],
+)
+""");
+
+    // Should not result in errors from trying to register an action from an aspect, because the
+    // aspect should not run on the materializer target.
+    var unused = update(ImmutableList.of("//:defs.bzl%mt_aspect"), "//:component_selector");
   }
 }

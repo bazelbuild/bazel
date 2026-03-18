@@ -18,13 +18,13 @@ import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
-import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -37,19 +37,6 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
   ServerCapabilities getServerCapabilities() throws IOException;
 
   ListenableFuture<String> getAuthority();
-
-  /**
-   * A key in the remote action cache. The type wraps around a {@link Digest} of an {@link Action}.
-   * Action keys are special in that they aren't content-addressable but refer to action results.
-   *
-   * <p>Terminology note: "action" is used here in the remote execution protocol sense, which is
-   * equivalent to a Bazel "spawn" (a Bazel "action" being a higher-level concept).
-   */
-  record ActionKey(Digest digest) {
-    public ActionKey {
-      Preconditions.checkNotNull(digest, "digest");
-    }
-  }
 
   /**
    * Downloads an action result for the {@code actionKey}.
@@ -158,6 +145,25 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
   default ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
     return uploadBlob(context, digest, data::newInput);
+  }
+
+  /**
+   * Registers a blob as the concatenation of the given chunks via SpliceBlob RPC.
+   *
+   * <p>This is used for CDC (Content-Defined Chunking) uploads. After uploading all chunks,
+   * SpliceBlob is called to register the blob with the given digest as the concatenation of the
+   * chunks.
+   *
+   * @param context the context for the action.
+   * @param blobDigest The digest of the complete blob.
+   * @param chunkDigests The digests of the chunks that make up the blob, in order.
+   * @return A future representing pending completion of the splice operation, or null if SpliceBlob
+   *     is not supported by this cache client.
+   */
+  @Nullable
+  default ListenableFuture<Void> spliceBlob(
+      RemoteActionExecutionContext context, Digest blobDigest, List<Digest> chunkDigests) {
+    return null;
   }
 
   /** Close resources associated with the remote cache. */

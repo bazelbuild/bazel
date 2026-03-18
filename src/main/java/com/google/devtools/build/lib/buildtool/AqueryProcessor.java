@@ -119,7 +119,9 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
       env.getReporter().handle(Event.error(message));
       return getFailureResult(message, Code.TEMPLATE_EXPANSION_FAILURE);
     } catch (IOException e) {
-      String message = "Error while emitting output: " + e.getMessage();
+      String message =
+          "Error while emitting output: "
+              + (e.getMessage() != null ? e.getMessage() : e.getClass().getName());
       env.getReporter().handle(Event.error(message));
       return getFailureResult(message, Code.OUTPUT_FAILURE);
     } catch (QueryRuntimeHelperException e) {

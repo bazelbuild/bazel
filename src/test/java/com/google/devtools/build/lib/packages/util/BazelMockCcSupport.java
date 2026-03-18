@@ -204,6 +204,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
         CcToolchainConfigInfo = _CcToolchainConfigInfo
         """);
     config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/BUILD");
+    config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/impl/BUILD");
     config.overwrite("third_party/bazel_rules/rules_cc/cc/common/BUILD");
     config.overwrite("third_party/bazel_rules/rules_cc/cc/private/BUILD");
   }

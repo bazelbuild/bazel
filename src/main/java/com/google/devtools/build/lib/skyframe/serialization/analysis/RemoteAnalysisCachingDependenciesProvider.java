@@ -14,19 +14,14 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -38,8 +33,6 @@ import javax.annotation.Nullable;
  */
 public interface RemoteAnalysisCachingDependenciesProvider {
   RemoteAnalysisCacheMode mode();
-
-  void setTopLevelBuildOptions(BuildOptions buildOptions);
 
   void queryMetadataAndMaybeBailout() throws InterruptedException;
 
@@ -69,7 +62,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
      * Returns the string distinguisher to invalidate SkyValues, in addition to the corresponding
      * SkyKey.
      */
-    FrontierNodeVersion getSkyValueVersion() throws SerializationException;
+    FrontierNodeVersion getSkyValueVersion() throws InterruptedException;
 
     /**
      * Returns the {@link ObjectCodecs} supplier for remote analysis caching.
@@ -89,8 +82,6 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
     Optional<Predicate<PackageIdentifier>> getActiveDirectoriesMatcher();
 
-    Collection<Label> getTopLevelTargets();
-
     /** Returns the destination for file invalidation data when uploading. */
     @Nullable
     KeyValueWriter getFileInvalidationWriter() throws InterruptedException;
@@ -99,109 +90,4 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     RemoteAnalysisMetadataWriter getMetadataWriter() throws InterruptedException;
   }
 
-  /** A stub dependencies provider for when analysis caching is disabled. */
-  final class DisabledDependenciesProvider
-      implements RemoteAnalysisCachingDependenciesProvider,
-          RemoteAnalysisCacheReaderDepsProvider,
-          SerializationDependenciesProvider {
-
-    public static final DisabledDependenciesProvider INSTANCE = new DisabledDependenciesProvider();
-
-    private DisabledDependenciesProvider() {}
-
-    @Override
-    public RemoteAnalysisCacheMode mode() {
-      return RemoteAnalysisCacheMode.OFF;
-    }
-
-    @Override
-    public FrontierNodeVersion getSkyValueVersion() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ObjectCodecs getObjectCodecs() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public FingerprintValueService getFingerprintValueService() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public RemoteAnalysisCacheClient getAnalysisCacheClient() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    @Nullable
-    public RemoteAnalysisJsonLogWriter getJsonLogWriter() {
-      return null;
-    }
-
-    @Override
-    public String getSerializedFrontierProfile() {
-      return "";
-    }
-
-    @Override
-    public Optional<Predicate<PackageIdentifier>> getActiveDirectoriesMatcher() {
-      return Optional.empty();
-    }
-
-    @Override
-    public void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void recordSerializationException(SerializationException e, SkyKey key) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void setTopLevelBuildOptions(BuildOptions buildOptions) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void queryMetadataAndMaybeBailout() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ImmutableSet<SkyKey> lookupKeysToInvalidate(
-        ImmutableSet<SkyKey> keysToLookup,
-        RemoteAnalysisCachingServerState remoteAnalysisCachingState) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void computeSelectionAndMinimizeMemory(InMemoryGraph graph) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Collection<Label> getTopLevelTargets() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    @Nullable
-    public KeyValueWriter getFileInvalidationWriter() {
-      return null;
-    }
-
-    @Override
-    @Nullable
-    public RemoteAnalysisMetadataWriter getMetadataWriter() {
-      return null;
-    }
-
-    @Override
-    public boolean shouldMinimizeMemory() {
-      throw new UnsupportedOperationException();
-    }
-  }
 }

@@ -347,18 +347,54 @@ public final class ActionExecutionFunction implements SkyFunction {
           checkCacheAndExecuteIfNeeded(
               action, state, env, clientEnv, actionLookupData, previousExecution, actionStartTime);
     } catch (LostInputsActionExecutionException e) {
+      ImmutableSet<SkyKey> inputDepKeys =
+          getInputDepKeys(
+              /* consumedArtifactsTracker= */ null,
+              allInputs,
+              action.getSchedulingDependencies(),
+              /* state= */ null);
+      ActionInputMap inputArtifactData = state.inputArtifactData;
+      if (inputArtifactData == null) {
+        // Reconstitute inputArtifactData if it was not present in `state`.
+        //
+        // This can happen after Skyframe restarts inside `handleLostInputs`, when remote analysis
+        // is enabled. This is primarily for non-input discovering actions, but could potentially
+        // occur for input-discovering actions if SkyKeyComputeState is evicted.
+        try {
+          // Since `checkInputs` must have succeeded prior to `checkCacheAndExecuteIfNeeded`, it
+          // should succeed here.
+          inputArtifactData =
+              checkInputs(
+                      env,
+                      action,
+                      env.getValuesAndExceptions(inputDepKeys),
+                      allInputs,
+                      inputDepKeys)
+                  .actionInputMap;
+        } catch (ActionExecutionException e2) {
+          // This should be impossible since metadata was already checked once, but we handle it
+          // for completeness.
+          throw new ActionExecutionFunctionException(e2);
+        }
+      }
+      NestedSet<Artifact> discoveredInputs = null;
+      if (action.discoversInputs()) {
+        if (state.discoveredInputs != null) {
+          discoveredInputs = state.discoveredInputs;
+        } else if (action.inputsKnown()) {
+          discoveredInputs = action.getInputs();
+        }
+      }
+
       return handleLostInputs(
           e,
           actionLookupData,
           action,
           actionStartTime,
           env,
-          getInputDepKeys(
-              /* consumedArtifactsTracker= */ null,
-              allInputs,
-              action.getSchedulingDependencies(),
-              state),
-          state);
+          inputDepKeys,
+          discoveredInputs,
+          inputArtifactData);
     } catch (ActionExecutionException e) {
       // In this case we do not report the error to the action reporter because we have already
       // done it in SkyframeActionExecutor.reportErrorIfNotAbortingMode() method. That method
@@ -403,16 +439,17 @@ public final class ActionExecutionFunction implements SkyFunction {
   }
 
   private static ImmutableSet<SkyKey> getInputDepKeys(
-      ConsumedArtifactsTracker consumedArtifactsTracker,
+      @Nullable ConsumedArtifactsTracker consumedArtifactsTracker,
       NestedSet<Artifact> allInputs,
       NestedSet<Artifact> schedulingDependencies,
-      InputDiscoveryState state) {
+      @Nullable // may be null if consumedArtifactsTracker is null
+          InputDiscoveryState state) {
     ImmutableSet.Builder<SkyKey> result = ImmutableSet.builder();
 
     // Register the action's inputs and scheduling deps as "consumed" in the build.
     // As a general rule, we do it before requesting for the evaluation of these artifacts. This
     // would provide a good estimate of which outputs are consumed.
-    if (!state.checkedForConsumedArtifactRegistration && consumedArtifactsTracker != null) {
+    if (consumedArtifactsTracker != null && !state.checkedForConsumedArtifactRegistration) {
       // Only registering the leaves here, since the Artifacts under non-leaves will be registered
       // in ArtifactNestedSetFunction. Similarly for the non-singleton Scheduling Dependencies.
       for (Artifact input : allInputs.getLeaves()) {
@@ -459,7 +496,9 @@ public final class ActionExecutionFunction implements SkyFunction {
       long actionStartTimeNanos,
       Environment env,
       ImmutableSet<SkyKey> inputDepKeys,
-      InputDiscoveryState state)
+      @Nullable // non-null if the Action discovers inputs and input discovery succeeded
+          NestedSet<Artifact> discoveredInputs,
+      ActionInputMap inputArtifactData)
       throws InterruptedException, ActionExecutionFunctionException {
     checkState(
         e.isPrimaryAction(actionLookupData),
@@ -480,11 +519,11 @@ public final class ActionExecutionFunction implements SkyFunction {
                   Collections2.transform(
                       e.getLostInputs().values(), input -> Artifact.key((Artifact) input)))
               .build();
-    } else if (state.discoveredInputs != null) {
+    } else if (discoveredInputs != null) {
       failedActionDeps =
           ImmutableSet.<SkyKey>builder()
               .addAll(inputDepKeys)
-              .addAll(Artifact.keys(state.discoveredInputs.toList()))
+              .addAll(Artifact.keys(discoveredInputs.toList()))
               .build();
     } else {
       failedActionDeps = inputDepKeys;
@@ -498,7 +537,7 @@ public final class ActionExecutionFunction implements SkyFunction {
               action,
               failedActionDeps,
               e,
-              state.inputArtifactData,
+              inputArtifactData,
               env,
               actionStartTimeNanos);
     } catch (ActionRewindException rewindingFailedException) {
@@ -521,7 +560,7 @@ public final class ActionExecutionFunction implements SkyFunction {
         // ActionCompletionEvent because it hoped rewinding would fix things. Because it won't, this
         // must emit one to compensate.
         ActionInputMetadataProvider inputMetadataProvider =
-            new ActionInputMetadataProvider(state.inputArtifactData);
+            new ActionInputMetadataProvider(inputArtifactData);
         env.getListener()
             .post(
                 new ActionCompletionEvent(

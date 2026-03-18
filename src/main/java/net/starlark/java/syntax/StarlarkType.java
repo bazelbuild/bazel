@@ -42,7 +42,7 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
    * If this type has a field by the given name, returns the type of that field, or null otherwise.
    */
   @Nullable
-  public StarlarkType getField(String name) {
+  public StarlarkType getField(String name, TypeContext context) {
     return null;
   }
 
@@ -120,6 +120,22 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
    * <p>Do not call this method directly; instead, use {@link #comparable}.
    */
   protected boolean isComparable(StarlarkType that) {
+    return false;
+  }
+
+  /**
+   * Returns true if an index expression on a value of this type can be used as the LHS of an
+   * assignment.
+   */
+  public boolean hasSetIndex() {
+    return false;
+  }
+
+  /**
+   * Returns true if a dot expressions on a value of this type can be used as the LHS of an
+   * assignment.
+   */
+  public boolean hasSetField() {
     return false;
   }
 }

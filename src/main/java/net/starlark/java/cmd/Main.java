@@ -22,6 +22,8 @@ import java.io.InputStreamReader;
 import java.time.Duration;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.CpuProfiler;
+import net.starlark.java.eval.CpuProfilerNativeSupportImpl;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
@@ -56,9 +58,17 @@ class Main {
       FileOptions.DEFAULT.toBuilder().allowToplevelRebinding(true).loadBindsGlobally(true).build();
 
   static {
+    maybeInstallCpuProfilerNativeSupport();
     Mutability mu = Mutability.create("interpreter");
     thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
     thread.setPrintHandler((th, msg) -> System.out.println(msg));
+  }
+
+  private static void maybeInstallCpuProfilerNativeSupport() {
+    String osName = System.getProperty("os.name");
+    if (osName.equals("Linux") || osName.equals("Mac OS X")) {
+      CpuProfiler.setNativeSupport(new CpuProfilerNativeSupportImpl());
+    }
   }
 
   // Prompts the user for a chunk of input, and returns it.

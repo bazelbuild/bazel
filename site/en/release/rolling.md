@@ -10,6 +10,6 @@ This page contains an overview of all rolling releases, as per our
 [Bazelisk](https://github.com/bazelbuild/bazelisk) is the best way to use
 these releases.
 
-## Index {: #index }
+## Index {:#index}
 
 <iframe src="https://releases.bazel.build/rolling.html" style="height: 3000px; width: 100%" ></iframe>

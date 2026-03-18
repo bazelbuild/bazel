@@ -14,6 +14,7 @@
 
 package net.starlark.java.eval;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Arrays.stream;
 
 import com.google.common.base.Preconditions;
@@ -23,6 +24,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CheckReturnValue;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.math.BigInteger;
 import java.util.Arrays;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -41,6 +45,8 @@ import net.starlark.java.syntax.Types;
  * which are ~7× slower.
  */
 final class MethodDescriptor {
+  private final CallUtils.BuiltinManager manager;
+
   private final Method method;
   @Nullable private transient StarlarkMethod annotation;
 
@@ -71,6 +77,7 @@ final class MethodDescriptor {
   private final HowToHandleReturn howToHandleReturn;
 
   private MethodDescriptor(
+      CallUtils.BuiltinManager manager,
       Method method,
       StarlarkMethod annotation,
       String name,
@@ -85,6 +92,7 @@ final class MethodDescriptor {
       boolean useStarlarkThread,
       boolean useStarlarkSemantics,
       boolean isTypeConstructor) {
+    this.manager = manager;
     this.method = method;
     this.annotation = annotation;
     this.name = name;
@@ -131,20 +139,44 @@ final class MethodDescriptor {
       conditionalCheck = null;
     }
 
-    // relies on instance state: annotation, parameters, method, extraKeywords, extraPositionals
-    starlarkType = buildStarlarkType();
+    starlarkType =
+        buildStarlarkType(
+            method,
+            annotation,
+            parameters,
+            structField,
+            extraPositionals,
+            extraKeywords,
+            allowReturnNones);
   }
 
-  private StarlarkType buildStarlarkType() {
-    if (getAnnotation().structField()) {
-      StarlarkType returnType = TypeChecker.fromJava(getMethod().getGenericReturnType());
+  private static StarlarkType buildStarlarkType(
+      Method method,
+      StarlarkMethod annotation,
+      ParamDescriptor[] parameters,
+      boolean structField,
+      boolean extraPositionals,
+      boolean extraKeywords,
+      boolean allowReturnNones) {
+    if (structField) {
+      StarlarkType returnType = starlarkTypeFromJava(method.getGenericReturnType());
       if (allowReturnNones) {
         returnType = Types.union(returnType, Types.NONE);
       }
       return returnType;
     }
 
-    ParamDescriptor[] parameters = getParameters();
+    Param[] paramAnnotations = annotation.parameters();
+    Type[] methodParamTypes = method.getGenericParameterTypes();
+
+    // String methods are special-cased to pass the string receiver object as the first parameter
+    // to the Java method. We don't want to include the string receiver in the callable's signature.
+    if (method.getDeclaringClass().equals(StringModule.class)) {
+      parameters = Arrays.copyOfRange(parameters, 1, parameters.length);
+      paramAnnotations = Arrays.copyOfRange(paramAnnotations, 1, paramAnnotations.length);
+      methodParamTypes = Arrays.copyOfRange(methodParamTypes, 1, methodParamTypes.length);
+    }
+
     ImmutableList.Builder<String> parameterNames = ImmutableList.builder();
     ImmutableList.Builder<StarlarkType> parameterTypes = ImmutableList.builder();
     ImmutableSet.Builder<String> mandatoryParameters = ImmutableSet.builder();
@@ -162,22 +194,22 @@ final class MethodDescriptor {
         numOrdinaryParameters = i;
       }
       parameterNames.add(parameters[i].getName());
-      ParamType[] allowedTypes = annotation.parameters()[i].allowedTypes();
+      ParamType[] allowedTypes = paramAnnotations[i].allowedTypes();
       // User supplied type
       if (allowedTypes.length > 0) {
-        parameterTypes.add(TypeChecker.fromAnnotation(allowedTypes));
+        parameterTypes.add(starlarkTypeFromAnnotation(allowedTypes));
       } else {
-        parameterTypes.add(TypeChecker.fromJava(method.getGenericParameterTypes()[i]));
+        parameterTypes.add(starlarkTypeFromJava(methodParamTypes[i]));
       }
       if (parameters[i].getDefaultValue() == null) {
         mandatoryParameters.add(parameters[i].getName());
       }
     }
     StarlarkType returnType;
-    if (getMethod().getReturnType() == Object.class) {
+    if (method.getReturnType() == Object.class) {
       returnType = Types.ANY;
     } else {
-      returnType = TypeChecker.fromJava(getMethod().getGenericReturnType());
+      returnType = starlarkTypeFromJava(method.getGenericReturnType());
       if (allowReturnNones) {
         returnType = Types.union(returnType, Types.NONE);
       }
@@ -190,9 +222,82 @@ final class MethodDescriptor {
         numOrdinaryParameters,
         mandatoryParameters.build(),
         // TODO(ilist@): more precise type on args and kwargs
-        acceptsExtraArgs() ? Types.ANY : null,
-        acceptsExtraKwargs() ? Types.ANY : null,
+        extraPositionals ? Types.ANY : null,
+        extraKeywords ? Types.ANY : null,
         returnType);
+  }
+
+  private static class ParameterizedTypeImpl implements ParameterizedType {
+    private final Type rawType;
+    private final Type[] actualTypeArguments;
+
+    private ParameterizedTypeImpl(Type rawType, Type[] actualTypeArguments) {
+      this.rawType = rawType;
+      this.actualTypeArguments = actualTypeArguments;
+    }
+
+    @Override
+    public Type[] getActualTypeArguments() {
+      return actualTypeArguments;
+    }
+
+    @Override
+    public Type getRawType() {
+      return rawType;
+    }
+
+    @Override
+    public Type getOwnerType() {
+      return null;
+    }
+  }
+
+  static StarlarkType starlarkTypeFromAnnotation(ParamType[] paramTypes) {
+    return Types.union(
+        Arrays.stream(paramTypes)
+            .map(
+                paramType -> {
+                  if (paramType.type().getTypeParameters().length == 1) {
+                    return new ParameterizedTypeImpl(
+                        paramType.type(), new Type[] {paramType.generic1()});
+                  } else {
+                    return paramType.type();
+                  }
+                })
+            .map(MethodDescriptor::starlarkTypeFromJava)
+            .collect(toImmutableSet()));
+  }
+
+  /** Returns the Starlark type corresponding to the given Java type. */
+  static StarlarkType starlarkTypeFromJava(Type cls) {
+    if (cls == NoneType.class || cls == void.class) {
+      return Types.NONE;
+    } else if (cls == String.class) {
+      return Types.STR;
+    } else if (cls == Boolean.class || cls == boolean.class) {
+      return Types.BOOL;
+    } else if (cls == int.class
+        || cls == long.class
+        || cls == Integer.class
+        || cls == Long.class
+        || cls == StarlarkInt.class
+        || (cls instanceof Class<?> c && BigInteger.class.isAssignableFrom(c))) {
+      return Types.INT;
+    } else if (cls == double.class || cls == Double.class || cls == StarlarkFloat.class) {
+      return Types.FLOAT;
+    } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == StarlarkList.class) {
+      return Types.list(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
+    } else if (cls instanceof ParameterizedType ptype
+        && ptype.getRawType() == StarlarkIterable.class) {
+      return Types.collection(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
+    } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == Sequence.class) {
+      return Types.sequence(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
+    } else if (cls == Object.class || cls == StarlarkValue.class) {
+      return Types.OBJECT;
+    } else {
+      // TODO(ilist@): handle more complex types
+      return Types.ANY;
+    }
   }
 
   private static boolean paramUsableAsPositionalWithoutChecks(ParamDescriptor param) {
@@ -204,14 +309,15 @@ final class MethodDescriptor {
   /** Returns the StarlarkMethod annotation corresponding to this method. */
   StarlarkMethod getAnnotation() {
     if (annotation == null) {
-      // Annotation is null on deserialization, becuase deserializer can't handle annotations
+      // Annotation is null on deserialization, because deserializer can't handle annotations
       annotation = StarlarkAnnotations.getStarlarkMethod(method);
     }
     return annotation;
   }
 
   /** Returns starlark method descriptor for provided Java method and signature annotation. */
-  static MethodDescriptor of(Method method, StarlarkMethod annotation) {
+  static MethodDescriptor of(
+      CallUtils.BuiltinManager manager, Method method, StarlarkMethod annotation) {
     // This happens when the interface is public but the implementation classes
     // have reduced visibility.
     method.setAccessible(true);
@@ -222,6 +328,7 @@ final class MethodDescriptor {
     Arrays.setAll(params, i -> ParamDescriptor.of(paramAnnots[i], paramClasses[i]));
 
     return new MethodDescriptor(
+        manager,
         method,
         annotation,
         annotation.name(),
@@ -336,6 +443,10 @@ final class MethodDescriptor {
   /** @see StarlarkMethod#name() */
   String getName() {
     return name;
+  }
+
+  CallUtils.BuiltinManager getManager() {
+    return manager;
   }
 
   Method getMethod() {

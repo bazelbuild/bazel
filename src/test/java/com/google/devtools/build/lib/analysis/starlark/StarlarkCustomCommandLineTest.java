@@ -534,7 +534,9 @@ public final class StarlarkCustomCommandLineTest {
 
     FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
     fakeActionInputFileCache.putFileset(
-        fileset, FilesetOutputTree.create(ImmutableList.of(symlink1, symlink2)));
+        fileset,
+        FilesetOutputTree.create(
+            ImmutableList.of(symlink1, symlink2), /* treeArtifacts= */ ImmutableMap.of()));
     commandLine.addToFingerprint(
         actionKeyContext, fakeActionInputFileCache, CoreOptions.OutputPathsMode.OFF, fingerprint);
 
@@ -614,7 +616,9 @@ public final class StarlarkCustomCommandLineTest {
 
     FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
     fakeActionInputFileCache.putFileset(
-        fileset, FilesetOutputTree.create(ImmutableList.of(symlink1, symlink2)));
+        fileset,
+        FilesetOutputTree.create(
+            ImmutableList.of(symlink1, symlink2), /* treeArtifacts= */ ImmutableMap.of()));
 
     CommandLine commandLine =
         builder

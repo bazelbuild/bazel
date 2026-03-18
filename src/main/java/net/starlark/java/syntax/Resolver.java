@@ -439,7 +439,7 @@ public final class Resolver extends NodeVisitor {
    * checking, but is not used directly in the resolver. It may include information about
    * user-defined types, i.e. types introduced as global symbols in the resolved code.
    */
-  public interface Module {
+  public interface Module extends TypeContext {
 
     /**
      * Resolves a name to a GLOBAL, PREDECLARED, or UNIVERSAL binding.

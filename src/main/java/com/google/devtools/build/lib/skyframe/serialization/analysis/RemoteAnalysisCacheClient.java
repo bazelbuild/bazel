@@ -64,4 +64,12 @@ public interface RemoteAnalysisCacheClient {
       boolean useFakeStampData,
       String bazelVersion)
       throws ExecutionException, TimeoutException, InterruptedException;
+
+  /**
+   * Sets the status of the metadata result to MATCH_STATUS_MISSING_FINGERPRINT. This signals that
+   * the build bailed out due to a missing fingerprint during deserialization. This can happen after
+   * having started in Skycache mode and having confirmed with metadata that cache hits were
+   * possible.
+   */
+  void bailOutDueToMissingFingerprint();
 }

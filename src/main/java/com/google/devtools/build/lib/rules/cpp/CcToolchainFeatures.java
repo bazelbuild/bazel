@@ -19,6 +19,8 @@ import static com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.getSe
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -440,6 +442,11 @@ public class CcToolchainFeatures implements StarlarkValue {
       return name;
     }
 
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this).add("name", name).add("enabled", enabled).toString();
+    }
+
     /** Adds environment variables for the given action to the provided builder. */
     private void expandEnvironment(
         String action,
@@ -851,7 +858,11 @@ public class CcToolchainFeatures implements StarlarkValue {
         ImmutableSet<String> enabledActionConfigActionNames,
         ImmutableMap<String, ActionConfig> actionConfigByActionName,
         PathFragment ccToolchainPath) {
-      this.requestedFeatures = requestedFeatures;
+      // The order of elements in requestFeatures does not matter for equality of any behavior, but
+      // coupled with interning, it makes serialization non-deterministic because it'd depend on
+      // the order in which two objects that are equal but have the different order are first
+      // encountered. Sorting prevents this issue.
+      this.requestedFeatures = ImmutableSet.copyOf(ImmutableList.sortedCopyOf(requestedFeatures));
       this.enabledFeatures = enabledFeatures;
 
       this.actionConfigByActionName = actionConfigByActionName;

@@ -51,7 +51,6 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkInt;
-import net.starlark.java.eval.StarlarkValue;
 
 /**
  * {@link Converter}s for {@link com.google.devtools.common.options.Option}s that aren't
@@ -308,7 +307,7 @@ public class CoreOptionConverters {
   }
 
   /** Values for the --strict_*_deps option */
-  public enum StrictDepsMode implements StarlarkValue {
+  public enum StrictDepsMode {
     /** Silently allow referencing transitive dependencies. */
     OFF,
     /** Warn about transitive dependencies being used directly. */

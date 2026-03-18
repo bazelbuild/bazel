@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Resolver;
+import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TypeConstructor;
 
 /**
@@ -263,6 +264,31 @@ public final class Module implements Resolver.Module {
       default -> throw new AssertionError(String.format("Unexpected scope: %s", scope));
     }
     return value instanceof TypeConstructor constructorValue ? constructorValue : null;
+  }
+
+  private ImmutableMap<String, MethodDescriptor> getMethods(Class<?> clazz) {
+    return CallUtils.getBuiltinManager(semantics).getAnnotatedMethods(clazz);
+  }
+
+  @Override
+  @Nullable
+  public StarlarkType getListFieldType(String name) {
+    MethodDescriptor desc = getMethods(StarlarkList.class).get(name);
+    return desc == null ? null : desc.getStarlarkType();
+  }
+
+  @Override
+  @Nullable
+  public StarlarkType getDictFieldType(String name) {
+    MethodDescriptor desc = getMethods(Dict.class).get(name);
+    return desc == null ? null : desc.getStarlarkType();
+  }
+
+  @Override
+  @Nullable
+  public StarlarkType getSetFieldType(String name) {
+    MethodDescriptor desc = getMethods(StarlarkSet.class).get(name);
+    return desc == null ? null : desc.getStarlarkType();
   }
 
   /**
