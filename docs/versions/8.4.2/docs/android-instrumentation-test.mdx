@@ -284,7 +284,7 @@ android_device(
 The device target names use this template:
 
 ```
-@android_test_support//tools/android/emulated_devices/{{ "<var>" }}device_type{{ "</var>" }}:{{ "<var>" }}system{{ "</var>" }}_{{ "<var>" }}api_level{{ "</var>" }}_x86_qemu2
+@android_test_support//tools/android/emulated_devices/<var>device_type</var>:<var>system</var>_<var>api_level</var>_x86_qemu2
 ```
 
 In order to launch an `android_device`, the `system_image` for the selected API
@@ -306,7 +306,7 @@ Bazel currently supports x86-based emulators only. For better performance, use
 ## Running tests
 
 To run tests, add these lines to your project's
-`{{ '<var>' }}project root{{ '</var>' }}:{{ '<var>' }}/.bazelrc` file.
+`<var>project root</var>:<var>/.bazelrc` file.
 
 ```
 # Configurations for testing with Bazel
@@ -391,7 +391,7 @@ junit:junit
 ```
 
 One way to organize these dependencies is to create a `//:test_deps` shared
-library in your `{{ "<var>" }}project root{{ "</var>" }}/BUILD.bazel` file:
+library in your `<var>project root</var>/BUILD.bazel` file:
 
 ```python
 java_library(
@@ -408,7 +408,7 @@ java_library(
 )
 ```
 
-Then, add the required dependencies in `{{ "<var>" }}project root{{ "</var>" }}/WORKSPACE`:
+Then, add the required dependencies in `<var>project root</var>/WORKSPACE`:
 
 ```python
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")

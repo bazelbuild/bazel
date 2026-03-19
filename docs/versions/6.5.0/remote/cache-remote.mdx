@@ -63,7 +63,7 @@ If you are not getting the cache hit rate you are expecting, do the following:
       ```posix-terminal
       bazel clean
 
-      bazel {{ '<var>' }}--optional-flags{{ '</var>' }} build //{{ '<var>' }}your:target{{ '</var>' }} --execution_log_binary_file=/tmp/exec1.log
+      bazel <var>--optional-flags</var> build //<var>your:target</var> --execution_log_binary_file=/tmp/exec1.log
       ```
 
    b. [Compare the execution logs](#compare-logs-the-execution-logs) between the

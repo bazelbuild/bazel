@@ -97,7 +97,7 @@ To pull the `rbe-ubuntu16-04` container from Container Registry, run the
 following command:
 
 ```posix-terminal
-gcloud docker -- pull gcr.io/cloud-marketplace/google/rbe-ubuntu16-04@sha256:{{ '<var>' }}sha256-checksum{{ '</var>' }}
+gcloud docker -- pull gcr.io/cloud-marketplace/google/rbe-ubuntu16-04@sha256:<var>sha256-checksum</var>
 ```
 
 Replace <var>sha256-checksum</var> with the SHA256 checksum value for
@@ -155,8 +155,8 @@ If you are new to Docker, read the following:
 For example, the following `Dockerfile` snippet installs `<var>my_tool_package</var>`:
 
 ```
-FROM gcr.io/cloud-marketplace/google/rbe-ubuntu16-04@sha256:{{ '<var>' }}sha256-checksum{{ '</var>' }}
-RUN apt-get update && yes | apt-get install -y {{ '<var>' }}my_tool_package{{ '</var>' }}
+FROM gcr.io/cloud-marketplace/google/rbe-ubuntu16-04@sha256:<var>sha256-checksum</var>
+RUN apt-get update && yes | apt-get install -y <var>my_tool_package</var>
 ```
 
 ### Pushing the custom container to Container Registry

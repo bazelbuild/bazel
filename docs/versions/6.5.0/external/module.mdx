@@ -175,9 +175,8 @@ Bazel supports the following non-registry overrides:
 ## Repository names and strict deps
 
 The [canonical name](/external/overview#canonical-repo-name) of a repo backing a
-module is `{{ "<var>" }}module_name{{ "</var>" }}~{{ "<var>" }}version{{
-"</var>" }}` (for example, `bazel_skylib~1.0.3`). For modules with a
-non-registry override, replace the `{{ "<var>" }}version{{ "</var>" }}` part
+module is `<var>module_name</var>~<var>version</var>` (for example, `bazel_skylib~1.0.3`). For modules with a
+non-registry override, replace the `<var>version</var>` part
 with the string `override`. Note that the canonical name format is not an API
 you should depend on and is subject to change at any time.
 
