@@ -298,6 +298,7 @@ blaze_exit_code::ExitCode ParseErrorToExitCode(RcFile::ParseError parse_error) {
       return blaze_exit_code::INTERNAL_ERROR;
     case RcFile::ParseError::INVALID_FORMAT:
     case RcFile::ParseError::IMPORT_LOOP:
+    case RcFile::ParseError::IMPORT_DEPTH_EXCEEDED:
       return blaze_exit_code::BAD_ARGV;
     default:
       return blaze_exit_code::INTERNAL_ERROR;
@@ -374,8 +375,8 @@ blaze_exit_code::ExitCode GetAndValidateExistingRcFiles(
 blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
     const WorkspaceLayout* workspace_layout, const std::string& workspace,
     const std::string& cwd, const CommandLine* cmd_line,
-    std::vector<std::unique_ptr<RcFile>>* result_rc_files,
-    std::string* error) const {
+    std::vector<std::unique_ptr<RcFile>>* result_rc_files, std::string* error,
+    int max_import_depth) const {
   assert(cmd_line != nullptr);
   assert(result_rc_files != nullptr);
 
@@ -451,7 +452,7 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
     std::unique_ptr<RcFile> parsed_rc;
     blaze_exit_code::ExitCode parse_rcfile_exit_code =
         ParseRcFile(workspace_layout, workspace, top_level_bazelrc_path,
-                    build_label_, sem_ver, &parsed_rc, error);
+                    build_label_, sem_ver, &parsed_rc, error, max_import_depth);
     if (parse_rcfile_exit_code != blaze_exit_code::SUCCESS) {
       return parse_rcfile_exit_code;
     }
@@ -495,14 +496,15 @@ blaze_exit_code::ExitCode ParseRcFile(const WorkspaceLayout* workspace_layout,
                                       const std::string& build_label,
                                       const std::optional<SemVer>& sem_ver,
                                       std::unique_ptr<RcFile>* result_rc_file,
-                                      std::string* error) {
+                                      std::string* error,
+                                      int max_import_depth) {
   assert(!rc_file_path.empty());
   assert(result_rc_file != nullptr);
 
   RcFile::ParseError parse_error;
   std::unique_ptr<RcFile> parsed_file =
       RcFile::Parse(rc_file_path, workspace_layout, workspace, build_label,
-                    sem_ver, &parse_error, error);
+                    sem_ver, &parse_error, error, max_import_depth);
   if (parsed_file == nullptr) {
     return internal::ParseErrorToExitCode(parse_error);
   }
@@ -514,15 +516,16 @@ blaze_exit_code::ExitCode ParseRcFile(const WorkspaceLayout* workspace_layout,
                                       const std::string& workspace,
                                       const std::string& rc_file_path,
                                       std::unique_ptr<RcFile>* result_rc_file,
-                                      std::string* error) {
+                                      std::string* error,
+                                      int max_import_depth) {
   return ParseRcFile(workspace_layout, workspace, rc_file_path,
-                      /*build_label=*/"", /*sem_ver=*/std::nullopt,
-                      result_rc_file, error);
+                     /*build_label=*/"", /*sem_ver=*/std::nullopt,
+                     result_rc_file, error, max_import_depth);
 }
 
 blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
     const vector<string>& args, const string& workspace, const string& cwd,
-    string* error) {
+    string* error, int max_import_depth) {
   assert(!parse_options_called_);
   parse_options_called_ = true;
   cmd_line_ = SplitCommandLine(args, error);
@@ -538,8 +541,9 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
   std::vector<std::unique_ptr<RcFile>> rc_files;
   if (!SearchNullaryOption(cmd_line_->startup_args, "ignore_all_rc_files",
                            false)) {
-    const blaze_exit_code::ExitCode rc_parsing_exit_code = GetRcFiles(
-        workspace_layout_, workspace, cwd, cmd_line_.get(), &rc_files, error);
+    const blaze_exit_code::ExitCode rc_parsing_exit_code =
+        GetRcFiles(workspace_layout_, workspace, cwd, cmd_line_.get(),
+                   &rc_files, error, max_import_depth);
     if (rc_parsing_exit_code != blaze_exit_code::SUCCESS) {
       return rc_parsing_exit_code;
     }

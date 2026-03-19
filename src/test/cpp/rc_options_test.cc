@@ -555,7 +555,8 @@ TEST(RemoteFileTest, ParsingRemoteFiles) {
   std::unique_ptr<RcFile> rcfile = RcFile::Parse(
       "the base file", &workspace_layout, "my workspace", test_build_label,
       SemVer::Parse(test_build_label), &error, &error_text,
-      read_file.AsStdFunction(), canonicalize_path.AsStdFunction());
+      RcFile::MaxImportDepth, read_file.AsStdFunction(),
+      canonicalize_path.AsStdFunction());
   EXPECT_THAT(error_text, IsEmpty());
   ASSERT_EQ(error, RcFile::ParseError::NONE);
   EXPECT_THAT(rcfile, Pointee(Property(
