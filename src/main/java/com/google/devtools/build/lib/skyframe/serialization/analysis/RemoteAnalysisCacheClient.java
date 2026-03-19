@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus;
 import com.google.devtools.build.lib.util.DecimalBucketer;
 import com.google.protobuf.ByteString;
@@ -51,8 +52,15 @@ public interface RemoteAnalysisCacheClient {
           ImmutableList.of(),
           TopLevelTargetsMatchStatus.MATCH_STATUS_UNSPECIFIED);
 
+  /** The result of a remote analysis cache lookup. */
+  record LookupResult(ByteString value, MissReason missReason) {
+    public LookupResult(ByteString value) {
+      this(value, MissReason.MISS_REASON_UNSPECIFIED);
+    }
+  }
+
   /** Looks up an entry in the remote analysis cache based on a serialized key. */
-  ListenableFuture<ByteString> lookup(ByteString key);
+  ListenableFuture<LookupResult> lookup(ByteString key);
 
   /** Returns the usage statistics. */
   Stats getStats();

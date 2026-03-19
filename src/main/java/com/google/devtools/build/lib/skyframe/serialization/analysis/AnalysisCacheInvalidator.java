@@ -164,7 +164,7 @@ public final class AnalysisCacheInvalidator {
             ForkJoinPool.commonPool());
 
     // 3. Submit the fingerprint to the analysis cache service
-    ListenableFuture<ByteString> responseFuture =
+    ListenableFuture<RemoteAnalysisCacheClient.LookupResult> responseFuture =
         Futures.transformAsync(
             fingerprint,
             f -> analysisCacheClient.lookup(ByteString.copyFrom(f.toBytes())),
@@ -174,7 +174,7 @@ public final class AnalysisCacheInvalidator {
     // empty response, cache miss)
     return Futures.transform(
         responseFuture,
-        response -> response.isEmpty() ? Optional.of(key) : Optional.empty(),
+        response -> response.value().isEmpty() ? Optional.of(key) : Optional.empty(),
         directExecutor());
   }
 }

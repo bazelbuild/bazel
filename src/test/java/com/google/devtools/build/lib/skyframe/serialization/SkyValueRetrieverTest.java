@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec.
 import com.google.devtools.build.lib.skyframe.serialization.DependOnFutureShim.ObservedFutureStatus;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.InMemoryFingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.PeerFailedException;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.CacheMissReason;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.NoCachedData;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
@@ -47,6 +46,8 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Wa
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.WaitingForLookupContinuation;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.SnapshotClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient.LookupResult;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.GetRecordingStore;
 import com.google.devtools.build.skyframe.IntVersion;
@@ -139,7 +140,7 @@ public final class SkyValueRetrieverTest {
       assertThat(result).isEqualTo(RESTART);
     } else {
       assertThat(state.getState()).isInstanceOf(NoCachedData.class);
-      assertThat(((NoCachedData) result).reason()).isEqualTo(CacheMissReason.SKYVALUE_MISS);
+      assertThat(((NoCachedData) result).reason()).isEqualTo(MissReason.MISS_REASON_SKYVALUE_MISS);
     }
   }
 
@@ -148,7 +149,7 @@ public final class SkyValueRetrieverTest {
       @TestParameter InitialQueryCases testCase) throws Exception {
     var fingerprintValueService = FingerprintValueService.createForAnalysisCacheTesting();
     var data = new HashMap<ByteString, ByteString>();
-    var captured = new ArrayList<SettableFuture<ByteString>>();
+    var captured = new ArrayList<SettableFuture<LookupResult>>();
     RemoteAnalysisCacheClient analysisCacheClient =
         switch (testCase) {
           case IMMEDIATE_EMPTY_VALUE, IMMEDIATE_MISSING_VALUE ->
@@ -193,7 +194,7 @@ public final class SkyValueRetrieverTest {
           maybeWaitForAnalysisCacheService(
               fingerprintValueService, analysisCacheClient, state, key, result);
       assertThat(state.getState()).isInstanceOf(NoCachedData.class);
-      assertThat(((NoCachedData) result).reason()).isEqualTo(CacheMissReason.SKYVALUE_MISS);
+      assertThat(((NoCachedData) result).reason()).isEqualTo(MissReason.MISS_REASON_SKYVALUE_MISS);
     }
   }
 
@@ -262,13 +263,15 @@ public final class SkyValueRetrieverTest {
       RetrievalResult previousResult)
       throws SerializationException, ExecutionException, InterruptedException {
     if (state.getState()
-        instanceof WaitingForCacheServiceResponse(ListenableFuture<ByteString> futureBytes)) {
+        instanceof
+        WaitingForCacheServiceResponse(
+            ListenableFuture<RemoteAnalysisCacheClient.LookupResult> futureResult)) {
       // There's a race condition here due to the RequestBatcher's response handling executor.
       // Most of the time, the test thread will outrace the executor and require a restart, but
       // RequestBatcher could occasionally outrace this thread.
 
       // Waits for the future to complete and simulates a restart.
-      var unused = futureBytes.get();
+      var unused = futureResult.get();
       return SkyValueRetriever.tryRetrieve(
           NO_LOOKUP_ENVIRONMENT,
           SkyValueRetrieverTest::dependOnFutureImpl,
@@ -298,7 +301,7 @@ public final class SkyValueRetrieverTest {
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
 
     assertThat(state.getState()).isInstanceOf(NoCachedData.class);
-    assertThat(((NoCachedData) result).reason()).isEqualTo(CacheMissReason.SKYVALUE_MISS);
+    assertThat(((NoCachedData) result).reason()).isEqualTo(MissReason.MISS_REASON_SKYVALUE_MISS);
   }
 
   @Test
@@ -414,7 +417,7 @@ public final class SkyValueRetrieverTest {
                     key,
                     state,
                     /* frontierNodeVersion= */ CONSTANT_FOR_TESTING));
-    assertThat(e.getReason()).isEqualTo(CacheMissReason.REFERENCED_OBJECT_MISS);
+    assertThat(e.getReason()).isEqualTo(MissReason.MISS_REASON_REFERENCED_OBJECT_MISS);
 
     // Also check just in case that if we remove the SkyValue entry, we get a SKYVALUE_MISS
     store.remove(skyValueFingerprint);
@@ -429,7 +432,7 @@ public final class SkyValueRetrieverTest {
             key,
             state2,
             /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
-    assertThat(((NoCachedData) result).reason()).isEqualTo(CacheMissReason.SKYVALUE_MISS);
+    assertThat(((NoCachedData) result).reason()).isEqualTo(MissReason.MISS_REASON_SKYVALUE_MISS);
   }
 
   @Test
@@ -711,7 +714,7 @@ public final class SkyValueRetrieverTest {
               }
             });
 
-    assertThat(thrown.getReason()).isEqualTo(CacheMissReason.REFERENCED_OBJECT_MISS);
+    assertThat(thrown.getReason()).isEqualTo(MissReason.MISS_REASON_REFERENCED_OBJECT_MISS);
   }
 
   @Test
@@ -1174,7 +1177,13 @@ public final class SkyValueRetrieverTest {
         .thenAnswer(
             invocation -> {
               ByteString key = invocation.getArgument(0);
-              return immediateFuture(data.getOrDefault(key, ByteString.empty()));
+              ByteString value = data.getOrDefault(key, ByteString.empty());
+              return immediateFuture(
+                  new LookupResult(
+                      value,
+                      value.isEmpty()
+                          ? MissReason.MISS_REASON_SKYVALUE_MISS
+                          : MissReason.MISS_REASON_UNSPECIFIED));
             });
 
     return result;
@@ -1186,13 +1195,13 @@ public final class SkyValueRetrieverTest {
    * <p>The client sets the {@link SettableFuture} to complete the request.
    */
   private static RemoteAnalysisCacheClient createCapturingAnalysisCacheClient(
-      Consumer<SettableFuture<ByteString>> capturer) {
+      Consumer<SettableFuture<LookupResult>> capturer) {
     RemoteAnalysisCacheClient result = mock(RemoteAnalysisCacheClient.class);
 
     when(result.lookup(any()))
         .thenAnswer(
             invocation -> {
-              var settable = SettableFuture.<ByteString>create();
+              var settable = SettableFuture.<LookupResult>create();
               capturer.accept(settable);
               return settable;
             });

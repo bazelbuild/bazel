@@ -30,7 +30,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec.DeferredValue;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.CacheMissReason;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult.QueryDepCallback;
@@ -630,7 +630,7 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
         new MissingSharedValueBytesException();
 
     private MissingSharedValueBytesException() {
-      super("Missing shared value bytes", CacheMissReason.REFERENCED_OBJECT_MISS);
+      super("Missing shared value bytes", MissReason.MISS_REASON_REFERENCED_OBJECT_MISS);
     }
 
     /**
