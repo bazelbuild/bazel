@@ -1,3 +1,26 @@
+## Release 10.0.0-pre.20260312.1 (2026-03-19)
+
+```
+Baseline: f3ab7948c2dff519f8228890b3878a5586d2b723
+```
+
+Incompatible changes:
+
+  - string.splitlines() no longer incorrectly treats u+0085 (NEL) as a
+    newline character
+
+Important changes:
+
+  - Bazel no longer verifies the digests of disk cache entries upon a
+    cache hit. This honors the description but not the previous
+    behavior of the `--remote_verify_downloads` flag, which in fact
+    controlled digest verification for both remote and disk caches.
+  - Bazel now has experimental support for --rewind_lost_inputs,
+    which can rerun actions within a single build to recover from
+    (remote or disk) cache evictions.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, H5-O5, Keith Smiley.
+
 ## Release 10.0.0-pre.20260308.2 (2026-03-16)
 
 ```
