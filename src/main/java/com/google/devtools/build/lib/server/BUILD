@@ -25,7 +25,9 @@ java_library(
     name = "server",
     srcs = [
         "CommandManager.java",
-        "GrpcServerImpl.java",
+        "CommandServer.java",
+        "GrpcCommandServer.java",
+        "GrpcCommandServerImpl.java",
         "IdleTaskManager.java",
         "ServerWatcherRunnable.java",
     ],

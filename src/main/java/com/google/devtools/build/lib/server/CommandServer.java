@@ -17,12 +17,9 @@ package com.google.devtools.build.lib.server;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.net.InetAddresses;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
@@ -49,7 +46,6 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -57,55 +53,38 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.InvocationPolicyParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
-import io.grpc.Context;
-import io.grpc.Server;
 import io.grpc.StatusRuntimeException;
-import io.grpc.netty.NettyServerBuilder;
-import io.grpc.stub.ServerCallStreamObserver;
-import io.grpc.stub.StreamObserver;
-import io.netty.channel.epoll.Epoll;
-import io.netty.channel.unix.Socket;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.Inet4Address;
+import java.net.Inet6Address;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Optional;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import javax.annotation.Nullable;
 
 /**
- * gRPC server class.
+ * Manages the client request/response loop.
  *
- * <p>Only this class should depend on gRPC so that we only need to exclude this during
- * bootstrapping.
- *
- * <p>This class is a little complicated and rich in multithreading, so an explanation of its
- * innards follows.
- *
- * <p>Every gRPC call is transferred to a separate thread in {@code commandExecutorPool} so that
- * long-lived calls don't block the event loop. We do this instead of setting an executor on the
- * server object because gRPC insists on serializing calls within a single RPC call, which means
- * that the Runnable passed to {@code setOnReadyHandler} doesn't get called while the main RPC
- * method is running, which means we can't use flow control, which we need so that gRPC doesn't
- * buffer an unbounded amount of outgoing data.
- *
- * <p>In addition to these threads, we maintain one extra thread for handling the server timeout and
- * an interrupt watcher thread is started for each interrupt request that logs if it takes too long
- * to take effect.
+ * <p>In addition to the request threads (managed by {@link GrpcCommandServer}), we maintain one
+ * extra thread for handling the server timeout, and an interrupt watcher thread is started for each
+ * interrupt request that logs if it takes too long to take effect.
  *
  * <p>Each running RPC has a UUID associated with it that is used to identify it when a client wants
- * to cancel it. Cancellation is done by the client sending the server a {@code cancel()} RPC call
- * which results in the main thread of the command being interrupted.
+ * to cancel it. Cancellation is done by the client sending the server a Cancel RPC, which results
+ * in the main thread of the command being interrupted.
  */
-public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
+public class CommandServer implements GrpcCommandServer.Callback {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  public static GrpcServerImpl create(
+  public static CommandServer create(
+      GrpcCommandServer grpcCommandServer,
       CommandDispatcher dispatcher,
       ShutdownHooks shutdownHooks,
       PidFileWatcher pidFileWatcher,
@@ -118,7 +97,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
       boolean idleServerTasks,
       @Nullable String slowInterruptMessageSuffix) {
     SecureRandom random = new SecureRandom();
-    return new GrpcServerImpl(
+    return new CommandServer(
+        grpcCommandServer,
         dispatcher,
         shutdownHooks,
         pidFileWatcher,
@@ -140,67 +120,6 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
     STDERR,
   }
 
-  /**
-   * A wrapper for {@link StreamObserver} that blocks on {@link #onNext} calls if the underlying
-   * observer is not ready.
-   *
-   * <p>It does not react to the interrupt flag in order to allow Bazel to complete the current
-   * command while printing output as well as sending the final exit code to the client. However, it
-   * maintains the interrupt flag if it is already set.
-   */
-  // TODO(ulfjack): Move FlowControl and its tests to top-level classes.
-  @VisibleForTesting
-  static class BlockingStreamObserver<T> {
-    private final ServerCallStreamObserver<T> observer;
-
-    BlockingStreamObserver(StreamObserver<T> observer) {
-      this((ServerCallStreamObserver<T>) observer);
-    }
-
-    BlockingStreamObserver(ServerCallStreamObserver<T> observer) {
-      this.observer = observer;
-      this.observer.setOnReadyHandler(this::notifyWaiters);
-      this.observer.setOnCancelHandler(this::notifyWaiters);
-    }
-
-    private synchronized void notifyWaiters() {
-      // This class does not restrict the number of concurrent calls to onNext, so we call notifyAll
-      // here. In practice we'll usually only see one concurrent call; the ExperimentalEventHandler
-      // uses synchronization to prevent multiple concurrent calls, but let's not rely on that here.
-      notifyAll();
-    }
-
-    public synchronized void onNext(T response) {
-      boolean interrupted = false;
-      while (!observer.isReady() && !observer.isCancelled()) {
-        try {
-          wait();
-        } catch (InterruptedException e) {
-          // We intentionally do not break or return here. The interrupt signal can be due the user
-          // pressing ctrl-c: it can take Bazel a while to shut down (e.g., it is not currently
-          // possible to interrupt persistent workers), and we must allow it to continue printing
-          // output until the current operation comes to a finish.
-          interrupted = true;
-        }
-      }
-      try {
-        // According to the documentation, if onNext is called in a canceled stream, it will be
-        // silently ignored.
-        observer.onNext(response);
-      } finally {
-        // onNext does not specify whether it can throw unchecked exceptions. We use a finally block
-        // here to make sure that the interrupt bit is not lost even if it does.
-        if (interrupted || observer.isCancelled()) {
-          Thread.currentThread().interrupt();
-        }
-      }
-    }
-
-    public void onCompleted() {
-      observer.onCompleted();
-    }
-  }
-
   /** Command extension reporter that packs the protobuf into a RunResponse and sends it. */
   private static class RpcCommandExtensionReporter implements CommandExtensionReporter {
 
@@ -209,18 +128,20 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
     private final ByteString commandIdBytes;
     private final ByteString responseCookieBytes;
 
-    private final BlockingStreamObserver<RunResponse> observer;
+    private final GrpcCommandServer.Responder<RunResponse> responder;
 
     RpcCommandExtensionReporter(
-        String commandId, String responseCookie, BlockingStreamObserver<RunResponse> observer) {
+        String commandId,
+        String responseCookie,
+        GrpcCommandServer.Responder<RunResponse> responder) {
       this.commandIdBytes = ByteString.copyFromUtf8(commandId);
       this.responseCookieBytes = ByteString.copyFromUtf8(responseCookie);
-      this.observer = observer;
+      this.responder = responder;
     }
 
     @Override
     public synchronized void report(Any commandExtension) {
-      observer.onNext(
+      responder.onNext(
           RunResponse.newBuilder()
               .setCookieBytes(responseCookieBytes)
               .setCommandIdBytes(commandIdBytes)
@@ -251,37 +172,36 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
     private final ByteString responseCookieBytes;
 
     private final StreamType type;
-    private final BlockingStreamObserver<RunResponse> observer;
+    private final GrpcCommandServer.Responder<RunResponse> responder;
 
     RpcOutputStream(
         String commandId,
         String responseCookie,
         StreamType type,
-        BlockingStreamObserver<RunResponse> observer) {
+        GrpcCommandServer.Responder<RunResponse> responder) {
       this.commandIdBytes = ByteString.copyFromUtf8(commandId);
       this.responseCookieBytes = ByteString.copyFromUtf8(responseCookie);
       this.type = type;
-      this.observer = observer;
+      this.responder = responder;
     }
 
     @Override
     public void write(byte[] b, int off, int inlen) throws IOException {
       for (int i = 0; i < inlen; i += CHUNK_SIZE) {
         ByteString input = ByteString.copyFrom(b, off + i, Math.min(CHUNK_SIZE, inlen - i));
-        RunResponse.Builder response = RunResponse
-            .newBuilder()
-            .setCookieBytes(responseCookieBytes)
-            .setCommandIdBytes(commandIdBytes);
+        RunResponse.Builder response =
+            RunResponse.newBuilder()
+                .setCookieBytes(responseCookieBytes)
+                .setCommandIdBytes(commandIdBytes);
 
         switch (type) {
-          case STDOUT: response.setStandardOutput(input); break;
-          case STDERR: response.setStandardError(input); break;
-          default: throw new IllegalStateException();
+          case STDOUT -> response.setStandardOutput(input);
+          case STDERR -> response.setStandardError(input);
         }
 
         try {
           // This can block waiting for the client to read the available data.
-          observer.onNext(response.build());
+          responder.onNext(response.build());
         } catch (StatusRuntimeException e) {
           // I am not sure whether there are any circumstances under which this call could throw an
           // exception, but I'd rather it be logged than that we crash silently. The documentation
@@ -307,9 +227,9 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
   private static final String RESPONSE_COOKIE_FILE = "response_cookie";
   private static final String SERVER_INFO_FILE = "server_info.rawproto";
 
+  private final GrpcCommandServer grpcCommandServer;
   private final CommandManager commandManager;
   private final CommandDispatcher dispatcher;
-  private final Executor commandExecutor;
   private final ShutdownHooks shutdownHooks;
   private final Clock clock;
   private final Path serverDirectory;
@@ -321,11 +241,9 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
   private final int serverPid;
   private final int port;
 
-  private Server server;
-  private boolean serving;
-
   @VisibleForTesting
-  GrpcServerImpl(
+  CommandServer(
+      GrpcCommandServer grpcCommandServer,
       CommandDispatcher dispatcher,
       ShutdownHooks shutdownHooks,
       PidFileWatcher pidFileWatcher,
@@ -339,29 +257,18 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
       boolean shutdownOnLowSysMem,
       boolean doIdleServerTasks,
       @Nullable String slowInterruptMessageSuffix) {
+    this.grpcCommandServer = grpcCommandServer;
     this.dispatcher = dispatcher;
     this.shutdownHooks = shutdownHooks;
     this.pidFileWatcher = pidFileWatcher;
-
     this.clock = clock;
     this.port = port;
     this.requestCookie = requestCookie;
     this.responseCookie = responseCookie;
-
     this.serverDirectory = serverDirectory;
     this.serverPid = serverPid;
-
     this.maxIdleSeconds = maxIdleSeconds;
     this.shutdownOnLowSysMem = shutdownOnLowSysMem;
-    this.serving = false;
-
-    this.commandExecutor =
-        Context.currentContextExecutor(
-            Executors.newCachedThreadPool(
-                new ThreadFactoryBuilder()
-                    .setNameFormat("grpc-command-%d")
-                    .setDaemon(true)
-                    .build()));
 
     commandManager = new CommandManager(doIdleServerTasks, slowInterruptMessageSuffix);
   }
@@ -406,95 +313,65 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
     commandManager.interruptInflightCommands();
   }
 
-  private Server bindIpv6WithRetries(InetSocketAddress address, int maxRetries) throws IOException {
-    Server server = null;
-    for (int attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        server =
-            NettyServerBuilder.forAddress(address)
-                .addService(this)
-                .directExecutor()
-                .build()
-                .start();
-        break;
-      } catch (IOException | RuntimeException e) {
-        // NettyServerBuilder.build() can throw a RuntimeException on epoll failures.
-        if (attempt == maxRetries) {
-          throw e;
-        }
-      }
-    }
-    return server;
-  }
-
-  /** Starts serving and block until the shutdown command is received. */
-  // Suppress ErrorProne warnings for hardcoding "[::1]" and "127.0.0.1" instead of
-  // InetAddress.getLoopbackAddress().
-  @SuppressWarnings("AddressSelection")
-  public void serve() throws AbruptExitException {
-    Preconditions.checkState(!serving);
-
-    // For reasons only Apple knows, you cannot bind to IPv4-localhost when you run in a sandbox
-    // that only allows loopback traffic, but binding to IPv6-localhost works fine. This would
-    // however break on systems that don't support IPv6. So what we'll do is to try to bind to IPv6
-    // and if that fails, try again with IPv4.
-    InetSocketAddress address = new InetSocketAddress("[::1]", port);
+  /**
+   * Starts serving, writes the server status files, and blocks until the shutdown command is
+   * received.
+   */
+  public void serveAndAwaitTermination() throws AbruptExitException {
+    SocketAddress address;
     try {
-      // TODO(bazel-team): Remove the following check after upgrading netty to a version with a fix
-      //   for https://github.com/netty/netty/issues/10402
-      if (Epoll.isAvailable() && !Socket.isIPv6Preferred()) {
-        throw new IOException("ipv6 is not preferred on the system.");
-      }
-      // For some strange reasons, Bazel server sometimes fails to bind to IPv6 localhost when
-      // running in macOS sandbox-exec with internet blocked. Retrying seems to help.
-      // See https://github.com/bazelbuild/bazel/issues/20743
-      server = bindIpv6WithRetries(address, OS.getCurrent() == OS.DARWIN ? 3 : 1);
-    } catch (IOException ipv6Exception) {
-      address = new InetSocketAddress("127.0.0.1", port);
-      try {
-        server =
-            NettyServerBuilder.forAddress(address)
-                .addService(this)
-                .directExecutor()
-                .build()
-                .start();
-      } catch (IOException | RuntimeException ipv4Exception) {
-        // NettyServerBuilder.build() can throw a RuntimeException on epoll failures.
-        throw new AbruptExitException(
-            DetailedExitCode.of(
-                createFailureDetail(
-                    String.format(
-                        "gRPC server failed to bind to IPv4 and IPv6 localhosts on port %d: [IPv4] "
-                            + "%s\n[IPv6] %s",
-                        port, ipv4Exception.getMessage(), ipv6Exception.getMessage()),
-                    GrpcServer.Code.SERVER_BIND_FAILURE)),
-            ipv4Exception);
-      }
+      address = serve();
+    } catch (IOException e) {
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              createFailureDetail(e.getMessage(), GrpcServer.Code.SERVER_BIND_FAILURE)),
+          e);
     }
 
     if (maxIdleSeconds > 0) {
       Thread timeoutAndMemoryCheckingThread =
           new Thread(
               new ServerWatcherRunnable(
-                  server, maxIdleSeconds, shutdownOnLowSysMem, commandManager));
+                  grpcCommandServer, maxIdleSeconds, shutdownOnLowSysMem, commandManager));
       timeoutAndMemoryCheckingThread.setName("grpc-timeout-and-memory");
       timeoutAndMemoryCheckingThread.setDaemon(true);
       timeoutAndMemoryCheckingThread.start();
     }
-    serving = true;
 
     writeServerStatusFiles(address);
 
     try {
-      server.awaitTermination();
+      awaitTermination();
     } catch (InterruptedException e) {
       // TODO(lberki): Handle SIGINT in a reasonable way
       throw new IllegalStateException(e);
     }
   }
 
-  private void writeServerStatusFiles(InetSocketAddress address) throws AbruptExitException {
-    String addressString = InetAddresses.toUriString(address.getAddress()) + ":" + server.getPort();
+  @VisibleForTesting
+  @CanIgnoreReturnValue
+  SocketAddress serve() throws IOException {
+    return grpcCommandServer.serve(port, this);
+  }
+
+  @VisibleForTesting
+  void shutdown() {
+    grpcCommandServer.shutdown();
+  }
+
+  @VisibleForTesting
+  void shutdownNow() {
+    grpcCommandServer.shutdownNow();
+  }
+
+  @VisibleForTesting
+  void awaitTermination() throws InterruptedException {
+    grpcCommandServer.awaitTermination();
+  }
+
+  private void writeServerStatusFiles(SocketAddress address) throws AbruptExitException {
+    String addressString = formatAddress(address);
+
     writeServerFile(PORT_FILE, addressString);
     writeServerFile(REQUEST_COOKIE_FILE, requestCookie);
     writeServerFile(RESPONSE_COOKIE_FILE, responseCookie);
@@ -521,6 +398,18 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
     }
   }
 
+  private String formatAddress(SocketAddress address) {
+    if (address instanceof InetSocketAddress inetAddress) {
+      if (inetAddress.getAddress() instanceof Inet4Address inet4Addr) {
+        return inet4Addr.getHostAddress() + ":" + inetAddress.getPort();
+      } else if (inetAddress.getAddress() instanceof Inet6Address inet6Addr) {
+        return "[" + inet6Addr.getHostAddress() + "]:" + inetAddress.getPort();
+      }
+    }
+    // Can only happen in tests using an in-memory implementation; representation doesn't matter.
+    return address.toString();
+  }
+
   private void writeServerFile(String name, String contents) throws AbruptExitException {
     Path file = serverDirectory.getChild(name);
     try {
@@ -532,13 +421,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
   }
 
   @Override
-  public void run(RunRequest request, StreamObserver<RunResponse> streamObserver) {
-    BlockingStreamObserver<RunResponse> blockingObserver =
-        new BlockingStreamObserver<>(streamObserver);
-    commandExecutor.execute(() -> doRun(request, blockingObserver));
-  }
-
-  private void doRun(RunRequest request, BlockingStreamObserver<RunResponse> observer) {
+  public void run(RunRequest request, GrpcCommandServer.Responder<RunResponse> responder) {
     boolean badCookie = !isValidRequestCookie(request.getCookie());
     if (badCookie || request.getClientDescription().isEmpty()) {
       try {
@@ -548,15 +431,15 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
                 : createFailureDetail(
                     "Invalid RunRequest: no client description",
                     GrpcServer.Code.NO_CLIENT_DESCRIPTION);
-        observer.onNext(
+        responder.onNext(
             RunResponse.newBuilder()
                 .setFinished(true)
                 .setExitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR.getNumericExitCode())
                 .setFailureDetail(failureDetail)
                 .build());
-        observer.onCompleted();
+        responder.onCompleted();
       } catch (StatusRuntimeException e) {
-        logger.atInfo().withCause(e).log("Client cancelled command while rejecting it");
+        logger.atInfo().withCause(e).log("Error while sending RunResponse");
       }
       return;
     }
@@ -587,23 +470,22 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
 
       try {
         // Send the client the command id as soon as we know it.
-        observer.onNext(
+        responder.onNext(
             RunResponse.newBuilder().setCookie(responseCookie).setCommandId(commandId).build());
       } catch (StatusRuntimeException e) {
-        logger.atInfo().withCause(e).log(
-            "The client cancelled the command before receiving the command id");
+        logger.atInfo().withCause(e).log("Error while sending initial RunResponse");
       }
 
       OutErr rpcOutErr =
           OutErr.create(
-              new RpcOutputStream(command.getId(), responseCookie, StreamType.STDOUT, observer),
-              new RpcOutputStream(command.getId(), responseCookie, StreamType.STDERR, observer));
+              new RpcOutputStream(command.getId(), responseCookie, StreamType.STDOUT, responder),
+              new RpcOutputStream(command.getId(), responseCookie, StreamType.STDERR, responder));
 
       try {
         // Transform args into Bazel's internal string representation.
         ImmutableList<String> args =
             request.getArgList().stream()
-                .map(GrpcServerImpl::platformBytesToInternalString)
+                .map(CommandServer::platformBytesToInternalString)
                 .collect(ImmutableList.toImmutableList());
 
         InvocationPolicy policy = InvocationPolicyParser.parsePolicy(request.getInvocationPolicy());
@@ -620,7 +502,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
                 Optional.of(startupOptions.build()),
                 commandManager::getIdleTaskResults,
                 request.getCommandExtensionsList(),
-                new RpcCommandExtensionReporter(command.getId(), responseCookie, observer));
+                new RpcCommandExtensionReporter(command.getId(), responseCookie, responder));
       } catch (OptionsParsingException e) {
         rpcOutErr.printErrLn(e.getMessage());
         result =
@@ -643,11 +525,12 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
               InterruptedFailureDetails.detailedExitCode("Command dispatch interrupted"));
       commandId = ""; // The default value, the client will ignore it
     }
-    RunResponse.Builder response = RunResponse.newBuilder()
-        .setCookie(responseCookie)
-        .setCommandId(commandId)
-        .setFinished(true)
-        .setTerminationExpected(result.shutdown());
+    RunResponse.Builder response =
+        RunResponse.newBuilder()
+            .setCookie(responseCookie)
+            .setCommandId(commandId)
+            .setFinished(true)
+            .setTerminationExpected(result.shutdown());
 
     if (result.getExecRequest() != null) {
       response.setExitCode(0);
@@ -660,59 +543,44 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
     }
 
     try {
-      observer.onNext(response.addAllCommandExtensions(result.getResponseExtensions()).build());
-      observer.onCompleted();
-    } catch (StatusRuntimeException e) {
-      logger.atInfo().withCause(e).log(
-          "The client cancelled the command before receiving the command id");
-    }
+      responder.onNext(response.addAllCommandExtensions(result.getResponseExtensions()).build());
+      responder.onCompleted();
 
+    } catch (StatusRuntimeException e) {
+      logger.atInfo().withCause(e).log("Error while sending RunResponse");
+    }
     if (result.shutdown()) {
-      server.shutdown();
+      grpcCommandServer.shutdown();
     }
   }
 
   @Override
-  public void ping(PingRequest pingRequest, StreamObserver<PingResponse> streamObserver) {
-    BlockingStreamObserver<PingResponse> blockingObserver =
-        new BlockingStreamObserver<>(streamObserver);
-    commandExecutor.execute(() -> doPing(pingRequest, blockingObserver));
-  }
-
-  private void doPing(
-      PingRequest pingRequest, BlockingStreamObserver<PingResponse> streamObserver) {
+  public void ping(PingRequest pingRequest, GrpcCommandServer.Responder<PingResponse> responder) {
+    logger.atInfo().log("Got PingRequest");
     try (RunningCommand command = commandManager.createCommand()) {
       PingResponse.Builder response = PingResponse.newBuilder();
       if (isValidRequestCookie(pingRequest.getCookie())) {
         response.setCookie(responseCookie);
       }
-      streamObserver.onNext(response.build());
-      streamObserver.onCompleted();
+      responder.onNext(response.build());
+      responder.onCompleted();
     }
   }
 
   @Override
-  public void cancel(CancelRequest request, StreamObserver<CancelResponse> streamObserver) {
+  public void cancel(CancelRequest request, GrpcCommandServer.Responder<CancelResponse> responder) {
     logger.atInfo().log("Got CancelRequest for command id %s", request.getCommandId());
-    BlockingStreamObserver<CancelResponse> blockingObserver =
-        new BlockingStreamObserver<>(streamObserver);
-    commandExecutor.execute(() -> doCancel(request, blockingObserver));
-  }
-
-  private void doCancel(
-      CancelRequest request, BlockingStreamObserver<CancelResponse> streamObserver) {
     if (!isValidRequestCookie(request.getCookie())) {
-      streamObserver.onCompleted();
+      responder.onCompleted();
       return;
     }
     commandManager.doCancel(request);
     try {
-      streamObserver.onNext(CancelResponse.newBuilder().setCookie(responseCookie).build());
-      streamObserver.onCompleted();
+      responder.onNext(CancelResponse.newBuilder().setCookie(responseCookie).build());
+      responder.onCompleted();
     } catch (StatusRuntimeException e) {
-      // There is no one to report the failure to
-      logger.atInfo().log(
-          "Client cancelled RPC of cancellation request for %s", request.getCommandId());
+      // There is no one to report the failure to.
+      logger.atInfo().withCause(e).log("Error while sending CancelResponse");
     }
   }
 
