@@ -18,8 +18,12 @@ import java.util.concurrent.CountDownLatch;
 
 /** Service interface for Skyframe native dependencies. */
 public interface FsEventsNativeDepsService extends BlazeService {
-  /** Returns true if the JNI code is available. */
-  boolean isJniAvailable();
+  /**
+   * Returns whether this service is available.
+   *
+   * <p>If not available, the remainder of this interface may not be used.
+   */
+  boolean isAvailable();
 
   /**
    * Helper function to start the watch of <code>paths</code>, which is expected to be an array of

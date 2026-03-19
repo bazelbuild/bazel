@@ -143,7 +143,8 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
 
   @Override
   public View getCurrentView(OptionsProvider options) throws BrokenDiffAwarenessException {
-    if (!service.isJniAvailable()) {
+    if (!service.isAvailable()) {
+      // This may be the case during bootstrapping, where JNI isn't available.
       return EVERYTHING_MODIFIED;
     }
     // See WatchServiceDiffAwareness#getCurrentView for an explanation of this logic.

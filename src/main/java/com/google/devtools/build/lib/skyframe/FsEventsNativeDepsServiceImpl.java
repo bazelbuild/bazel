@@ -18,19 +18,9 @@ import java.util.concurrent.CountDownLatch;
 
 /** Implementation of {@link FsEventsNativeDepsService}. */
 public class FsEventsNativeDepsServiceImpl implements FsEventsNativeDepsService {
-  private static final boolean JNI_AVAILABLE;
 
   static {
-    boolean loadJniWorked = false;
-    try {
-      JniLoader.loadJni();
-      loadJniWorked = true;
-    } catch (UnsatisfiedLinkError ignored) {
-      // Unfortunately, we compile this class into the Bazel bootstrap binary, which doesn't have
-      // access to the JNI code (to simplify bootstrap). This is the quick and dirty way to
-      // hard-disable --watchfs in the bootstrap binary.
-    }
-    JNI_AVAILABLE = loadJniWorked;
+    JniLoader.loadJni();
   }
 
   // Keep a pointer to a native structure in the JNI code (the FsEvents callback needs that
@@ -38,8 +28,8 @@ public class FsEventsNativeDepsServiceImpl implements FsEventsNativeDepsService 
   private long nativePointer;
 
   @Override
-  public boolean isJniAvailable() {
-    return JNI_AVAILABLE;
+  public boolean isAvailable() {
+    return JniLoader.isJniAvailable();
   }
 
   @Override
