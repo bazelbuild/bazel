@@ -27,10 +27,6 @@ information about Bazel's release model.
 All Bazel LTS releases can be found on the [release
 page](https://github.com/bazelbuild/bazel/releases){: .external} on GitHub.
 
-Note: Bazel version older than Bazel 5 are no longer supported, Bazel users are
-recommended to upgrade to the latest LTS release or use rolling releases if you
-want to keep up with the latest changes at HEAD.
-
 ## Release versioning {:#bazel-versioning}
 
 Bazel uses a _major.minor.patch_ [Semantic
