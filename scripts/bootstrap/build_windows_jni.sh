@@ -95,10 +95,8 @@ fi
 
 # Convert all compilation units to Windows paths.
 WINDOWS_SOURCES=()
-for i in $*; do
-  if [[ "$i" =~ ^.*\.cc$ ]]; then
-    WINDOWS_SOURCES+=("\"$(cygpath -a -w $i)\"")
-  fi
+for f in src/main/native/common.cc src/main/native/windows/*.cc; do
+  WINDOWS_SOURCES+=("\"$(cygpath -a -w $f)\"")
 done
 
 # Copy jni headers to src/main/native folder
