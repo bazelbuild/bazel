@@ -248,7 +248,7 @@ called.
 <p>The following APIs are unavailable within a macro implementation function and any Starlark
 function it transitively calls:
 <ul>
-  <li><a href="/reference/be/functions#package"><code>package()</code>, <code>licenses()</code>
+  <li><a href="/reference/be/functions#package"><code>package()</code>, <code>licenses()</code></a>
   <li><code>environment_group()</code>
   <li><a href="../toplevel/native#glob"><code>native.glob()</code></a> &ndash; instead, you may pass
     a glob into the macro via a label list attribute
@@ -259,7 +259,7 @@ function it transitively calls:
   <li>(for <code>WORKSPACE</code> threads)
     <a href="../globals/workspace#workspace"><code>workspace()</code></a>,
     <a href="../globals/workspace#register_toolchains"><code>register_toolchains()</code></a>,
-    <a href="../globals/workspace#register_execution_platforms><code>register_execution_platforms()</code></a>,
+    <a href="../globals/workspace#register_execution_platforms"><code>register_execution_platforms()</code></a>,
     <a href="../globals/workspace#bind"><code>bind()</code></a>, repository rule instantiation
 </ul>
 """),
