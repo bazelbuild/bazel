@@ -27,6 +27,7 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -60,6 +61,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkSet;
 
 /**
  * Utility class for common work done across {@link StarlarkAttributeTransitionProvider} and {@link
@@ -660,11 +662,26 @@ public final class FunctionTransitionUtil {
                 optionKey, Starlark.type(optionValue));
           }
         } else if (oldValue instanceof Set) {
-          // If this is a set-typed build setting, for backwards compatibility, if the provided
-          // value is a List, we need to convert it to a Set.
-          if (optionValue instanceof List<?>) {
-            optionValue = ImmutableSet.copyOf((List<?>) optionValue);
-          } else if (!(optionValue instanceof Set)) {
+          // If this is a set-typed build setting, we need to ensure the value is a sorted
+          // set for consistency and to match rule expectations.
+          if (optionValue instanceof List<?> list) {
+            try {
+              optionValue =
+                  ImmutableSortedSet.copyOf(
+                      list.stream()
+                          // Cast each element to avoid unchecked exception.
+                          .map(Comparable.class::cast)
+                          .collect(toImmutableList()));
+            } catch (ClassCastException e) {
+              // If sorting fails (e.g. mixed types), convert to an unsorted ImmutableSet.
+              // This allows the subsequent type validation to handle the invalid values
+              // and produce a user-friendly error message.
+              optionValue = ImmutableSet.copyOf(list);
+            }
+          } else if (optionValue instanceof Set<?> set) {
+            // If the value is already a set, just convert it to a sorted set.
+            optionValue = StarlarkSet.immutableCopyOf(ImmutableSortedSet.copyOf(set));
+          } else {
             throw ValidationException.format(
                 "Invalid value type for option '%s': want set, got %s",
                 optionKey, Starlark.type(optionValue));
