@@ -38,6 +38,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** Options for remote execution and distributed caching for Bazel only. */
@@ -368,13 +369,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + " the unit is omitted, the value is interpreted as seconds.")
   public Duration remoteRetryMaxDelay;
 
-  /**
-   * Internal marker produced by {@link DiskCacheConverter} when the user enables the default disk
-   * cache location; resolved to a path under the output user root in {@code RemoteModule}.
-   */
-  public static final PathFragment DISK_CACHE_USE_DEFAULT_LOCATION =
-      PathFragment.create("__bazel_default_disk_cache__");
-
   /** Default disk cache subdirectory under outputUserRoot/cache. */
   public static final String DEFAULT_DISK_CACHE_LOCATION = "cache/disk";
 
@@ -383,31 +377,30 @@ public final class RemoteOptions extends CommonRemoteOptions {
    * --disk_cache}, {@code --disk_cache=true}, etc.) or disabling the cache ({@code --nodisk_cache},
    * {@code --disk_cache=false}, etc.). The spellings {@code on} and {@code off} are treated like
    * {@code true} and {@code false} for compatibility.
+   *
+   * <p>{@link Optional#empty()} means use the default directory under the output user root; {@code
+   * RemoteModule} replaces it with {@link Optional#of} a concrete path. {@code null} means the disk
+   * cache is disabled.
    */
-  public static final class DiskCacheConverter extends Converter.Contextless<PathFragment>
+  public static final class DiskCacheConverter extends Converter.Contextless<Optional<PathFragment>>
       implements BooleanStyleOption {
 
     private static final BooleanConverter BOOLEAN_CONVERTER = new BooleanConverter();
 
     @Override
     @Nullable
-    public PathFragment convert(String input) throws OptionsParsingException {
-      if (input == null || input.isEmpty()) {
-        return null;
-      }
+    public Optional<PathFragment> convert(String input) throws OptionsParsingException {
       String lower = Ascii.toLowerCase(input);
       if (lower.equals("on")) {
-        return DISK_CACHE_USE_DEFAULT_LOCATION;
+        return Optional.empty();
       }
       if (lower.equals("off")) {
         return null;
       }
       try {
-        return BOOLEAN_CONVERTER.convert(input, null)
-            ? DISK_CACHE_USE_DEFAULT_LOCATION
-            : null;
+        return BOOLEAN_CONVERTER.convert(input, null) ? Optional.empty() : null;
       } catch (OptionsParsingException e) {
-        return new OptionsUtils.PathFragmentConverter().convert(input);
+        return Optional.of(new OptionsUtils.PathFragmentConverter().convert(input));
       }
     }
 
@@ -431,7 +424,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + "--disk_cache=false to disable. "
               + "As a compatibility alias, --disk_cache=on and --disk_cache=off behave like true "
               + "and false.")
-  public PathFragment diskCache;
+  public Optional<PathFragment> diskCache;
 
   @Option(
       name = "experimental_disk_cache_gc_idle_delay",
@@ -856,8 +849,18 @@ public final class RemoteOptions extends CommonRemoteOptions {
   /** Returns {@code true} if remote cache or disk cache is enabled. */
   public boolean isRemoteCacheEnabled() {
     return !Strings.isNullOrEmpty(remoteCache)
-        || !(diskCache == null || diskCache.isEmpty())
+        || isDiskCacheEnabled()
         || isRemoteExecutionEnabled();
+  }
+
+  private boolean isDiskCacheEnabled() {
+    if (diskCache == null) {
+      return false;
+    }
+    if (diskCache.isEmpty()) {
+      return true;
+    }
+    return diskCache.filter(p -> !p.isEmpty()).isPresent();
   }
 
   /** Returns {@code true} if remote execution is enabled. */

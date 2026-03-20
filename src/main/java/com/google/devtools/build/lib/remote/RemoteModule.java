@@ -365,14 +365,15 @@ public final class RemoteModule extends BlazeModule {
     this.remoteOptions = remoteOptions;
     this.env = env;
 
-    // Resolve default disk cache location marker from --disk_cache / --disk_cache=true, etc.
-    if (RemoteOptions.DISK_CACHE_USE_DEFAULT_LOCATION.equals(remoteOptions.diskCache)) {
+    // Resolve default disk cache location from --disk_cache / --disk_cache=true, etc.
+    if (remoteOptions.diskCache != null && remoteOptions.diskCache.isEmpty()) {
       remoteOptions.diskCache =
-          env.getDirectories()
-              .getServerDirectories()
-              .getOutputUserRoot()
-              .getRelative(RemoteOptions.DEFAULT_DISK_CACHE_LOCATION)
-              .asFragment();
+          Optional.of(
+              env.getDirectories()
+                  .getServerDirectories()
+                  .getOutputUserRoot()
+                  .getRelative(RemoteOptions.DEFAULT_DISK_CACHE_LOCATION)
+                  .asFragment());
     }
 
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
@@ -430,7 +431,8 @@ public final class RemoteModule extends BlazeModule {
             "Failed to resolve output base: %s".formatted(e.getMessage()),
             FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
       }
-      Path resolvedDiskCache = env.getWorkingDirectory().getRelative(remoteOptions.diskCache);
+      Path resolvedDiskCache =
+          env.getWorkingDirectory().getRelative(remoteOptions.diskCache.orElseThrow());
       try {
         resolvedDiskCache = resolvedDiskCache.resolveSymbolicLinks();
       } catch (FileNotFoundException ignored) {

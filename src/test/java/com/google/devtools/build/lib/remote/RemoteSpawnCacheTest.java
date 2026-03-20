@@ -104,6 +104,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
@@ -446,7 +447,7 @@ public class RemoteSpawnCacheTest {
     // (even if it is a local cache) and that the results/artifacts are not uploaded to the cache.
 
     RemoteOptions withLocalCache = Options.getDefaults(RemoteOptions.class);
-    withLocalCache.diskCache = PathFragment.create("/etc/something/cache/here");
+    withLocalCache.diskCache = Optional.of(PathFragment.create("/etc/something/cache/here"));
     for (var remoteOptions :
         ImmutableList.of(Options.getDefaults(RemoteOptions.class), withLocalCache)) {
 
@@ -543,7 +544,7 @@ public class RemoteSpawnCacheTest {
     // with NO_REMOTE can sill hit it.
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.remoteCache = "https://somecache.com";
-    remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
+    remoteOptions.diskCache = Optional.of(PathFragment.create("/etc/something/cache/here"));
     RemoteSpawnCache remoteSpawnCache = remoteSpawnCacheWithOptions(remoteOptions);
     RemoteCacheClient remoteCacheClient = mock(RemoteCacheClient.class);
     DiskCacheClient diskCacheClient = mock(DiskCacheClient.class);
@@ -582,7 +583,7 @@ public class RemoteSpawnCacheTest {
   @Test
   public void noRemoteCacheStillUsesLocalCache() throws Exception {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
+    remoteOptions.diskCache = Optional.of(PathFragment.create("/etc/something/cache/here"));
     when(combinedCache.hasRemoteCache()).thenReturn(false);
     when(combinedCache.hasDiskCache()).thenReturn(true);
     RemoteSpawnCache cache = remoteSpawnCacheWithOptions(remoteOptions);

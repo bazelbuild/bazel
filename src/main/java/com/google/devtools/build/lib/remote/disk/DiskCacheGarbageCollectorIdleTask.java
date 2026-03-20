@@ -57,7 +57,9 @@ public final class DiskCacheGarbageCollectorIdleTask implements IdleTask {
   @Nullable
   public static DiskCacheGarbageCollectorIdleTask create(
       RemoteOptions remoteOptions, Path workingDirectory) {
-    if (remoteOptions.diskCache == null || remoteOptions.diskCache.isEmpty()) {
+    if (remoteOptions.diskCache == null
+        || remoteOptions.diskCache.isEmpty()
+        || remoteOptions.diskCache.get().isEmpty()) {
       return null;
     }
     Optional<Long> maxSizeBytes = Optional.empty();
@@ -75,7 +77,7 @@ public final class DiskCacheGarbageCollectorIdleTask implements IdleTask {
     var policy = new CollectionPolicy(maxSizeBytes, maxAge);
     var gc =
         new DiskCacheGarbageCollector(
-            workingDirectory.getRelative(remoteOptions.diskCache), executorService, policy);
+            workingDirectory.getRelative(remoteOptions.diskCache.get()), executorService, policy);
     return new DiskCacheGarbageCollectorIdleTask(delay, gc);
   }
 

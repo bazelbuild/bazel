@@ -24,6 +24,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.SortedMap;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -94,7 +95,7 @@ public class RemoteOptionsTest {
     OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
     parser.parse("--disk_cache");
     RemoteOptions options = parser.getOptions(RemoteOptions.class);
-    assertThat(options.diskCache).isEqualTo(RemoteOptions.DISK_CACHE_USE_DEFAULT_LOCATION);
+    assertThat(options.diskCache).isEqualTo(Optional.empty());
   }
 
   @Test
@@ -110,15 +111,14 @@ public class RemoteOptionsTest {
     OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
     parser.parse("--disk_cache=custom/cache/dir");
     RemoteOptions options = parser.getOptions(RemoteOptions.class);
-    assertThat(options.diskCache).isEqualTo(PathFragment.create("custom/cache/dir"));
+    assertThat(options.diskCache).isEqualTo(Optional.of(PathFragment.create("custom/cache/dir")));
   }
 
   @Test
   public void diskCache_onAndOff_compatibilitySpellings() throws Exception {
     OptionsParser onParser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
     onParser.parse("--disk_cache=on");
-    assertThat(onParser.getOptions(RemoteOptions.class).diskCache)
-        .isEqualTo(RemoteOptions.DISK_CACHE_USE_DEFAULT_LOCATION);
+    assertThat(onParser.getOptions(RemoteOptions.class).diskCache).isEqualTo(Optional.empty());
 
     OptionsParser offParser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
     offParser.parse("--disk_cache=off");

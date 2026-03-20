@@ -120,12 +120,19 @@ public final class CombinedCacheClientFactory {
 
   public static DiskCacheClient createDiskCache(
       Path workingDirectory, RemoteOptions options, DigestUtil digestUtil) throws IOException {
-    Path cacheDir = workingDirectory.getRelative(Preconditions.checkNotNull(options.diskCache));
+    Path cacheDir =
+        workingDirectory.getRelative(Preconditions.checkNotNull(options.diskCache).orElseThrow());
     return new DiskCacheClient(cacheDir, digestUtil);
   }
 
   public static boolean isDiskCache(RemoteOptions options) {
-    return options.diskCache != null && !options.diskCache.isEmpty();
+    if (options.diskCache == null) {
+      return false;
+    }
+    if (options.diskCache.isEmpty()) {
+      return true;
+    }
+    return !options.diskCache.get().isEmpty();
   }
 
   public static boolean isHttpCache(RemoteOptions options) {

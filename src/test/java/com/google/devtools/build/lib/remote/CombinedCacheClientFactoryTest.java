@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import java.io.IOException;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.junit.Before;
@@ -72,7 +73,7 @@ public class CombinedCacheClientFactoryTest {
   @Test
   public void createCombinedCacheWithExistingWorkingDirectory() throws IOException {
     remoteOptions.remoteCache = "http://doesnotexist.com";
-    remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
+    remoteOptions.diskCache = Optional.of(PathFragment.create("/etc/something/cache/here"));
     fs.getPath("/etc/something/cache/here").createDirectoryAndParents();
 
     var blobStore =
@@ -91,7 +92,7 @@ public class CombinedCacheClientFactoryTest {
   @Test
   public void createCombinedCacheWithNotExistingWorkingDirectory() throws IOException {
     remoteOptions.remoteCache = "http://doesnotexist.com";
-    remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
+    remoteOptions.diskCache = Optional.of(PathFragment.create("/etc/something/cache/here"));
     assertThat(workingDirectory.exists()).isFalse();
 
     var blobStore =
@@ -112,7 +113,7 @@ public class CombinedCacheClientFactoryTest {
   public void createCombinedCacheWithMissingWorkingDirectoryShouldThrowException() {
     // interesting case: workingDirectory = null -> NPE.
     remoteOptions.remoteCache = "http://doesnotexist.com";
-    remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
+    remoteOptions.diskCache = Optional.of(PathFragment.create("/etc/something/cache/here"));
 
     assertThrows(
         NullPointerException.class,
@@ -186,7 +187,7 @@ public class CombinedCacheClientFactoryTest {
 
   @Test
   public void createDiskCache() throws IOException {
-    remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
+    remoteOptions.diskCache = Optional.of(PathFragment.create("/etc/something/cache/here"));
 
     var blobStore =
         CombinedCacheClientFactory.create(
@@ -227,14 +228,14 @@ public class CombinedCacheClientFactoryTest {
 
   @Test
   public void isRemoteCacheOptions_diskCacheEnabled() {
-    remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
+    remoteOptions.diskCache = Optional.of(PathFragment.create("/etc/something/cache/here"));
     assertThat(CombinedCacheClientFactory.isRemoteCacheOptions(remoteOptions)).isTrue();
   }
 
   @Test
   public void isRemoteCacheOptions_httpAndDiskCacheEnabled() {
     remoteOptions.remoteCache = "http://doesnotexist:90";
-    remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
+    remoteOptions.diskCache = Optional.of(PathFragment.create("/etc/something/cache/here"));
 
     assertThat(CombinedCacheClientFactory.isRemoteCacheOptions(remoteOptions)).isTrue();
   }
@@ -242,7 +243,7 @@ public class CombinedCacheClientFactoryTest {
   @Test
   public void isRemoteCacheOptions_httpsAndDiskCacheEnabled() {
     remoteOptions.remoteCache = "https://doesnotexist:90";
-    remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
+    remoteOptions.diskCache = Optional.of(PathFragment.create("/etc/something/cache/here"));
 
     assertThat(CombinedCacheClientFactory.isRemoteCacheOptions(remoteOptions)).isTrue();
   }
@@ -263,7 +264,7 @@ public class CombinedCacheClientFactoryTest {
 
   @Test
   public void isRemoteCacheOptions_diskCacheOptionEmpty() {
-    remoteOptions.diskCache = PathFragment.EMPTY_FRAGMENT;
+    remoteOptions.diskCache = Optional.of(PathFragment.EMPTY_FRAGMENT);
     assertThat(CombinedCacheClientFactory.isRemoteCacheOptions(remoteOptions)).isFalse();
   }
 

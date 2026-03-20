@@ -590,7 +590,7 @@ public final class RemoteModuleTest {
   @Test
   public void diskCacheGarbageCollectionIdleTask_disabled() throws Exception {
     var diskCacheDir = TestUtils.createUniqueTmpDir(null);
-    remoteOptions.diskCache = diskCacheDir.asFragment();
+    remoteOptions.diskCache = Optional.of(diskCacheDir.asFragment());
 
     var env = beforeCommand();
 
@@ -600,7 +600,7 @@ public final class RemoteModuleTest {
   @Test
   public void diskCacheGarbageCollectionIdleTask_enabled() throws Exception {
     var diskCacheDir = TestUtils.createUniqueTmpDir(null);
-    remoteOptions.diskCache = diskCacheDir.asFragment();
+    remoteOptions.diskCache = Optional.of(diskCacheDir.asFragment());
     remoteOptions.diskCacheGcIdleDelay = Duration.ofMinutes(2);
     remoteOptions.diskCacheGcMaxSize = 1234567890L;
     remoteOptions.diskCacheGcMaxAge = Duration.ofDays(7);
@@ -627,7 +627,7 @@ public final class RemoteModuleTest {
 
   @Test
   public void diskCache_onSentinel_resolvesToDefaultLocation() throws Exception {
-    remoteOptions.diskCache = RemoteOptions.DISK_CACHE_USE_DEFAULT_LOCATION;
+    remoteOptions.diskCache = Optional.empty();
 
     var env = beforeCommand();
 
@@ -637,14 +637,15 @@ public final class RemoteModuleTest {
             .getServerDirectories()
             .getOutputUserRoot()
             .getRelative(RemoteOptions.DEFAULT_DISK_CACHE_LOCATION);
-    assertThat(remoteOptions.diskCache.getPathString())
+    assertThat(remoteOptions.diskCache).isPresent();
+    assertThat(remoteOptions.diskCache.get().getPathString())
         .isEqualTo(expectedPath.getPathString());
-    assertThat(remoteOptions.diskCache.isAbsolute()).isTrue();
+    assertThat(remoteOptions.diskCache.get().isAbsolute()).isTrue();
   }
 
   @Test
   public void diskCache_onSentinel_withGarbageCollection() throws Exception {
-    remoteOptions.diskCache = RemoteOptions.DISK_CACHE_USE_DEFAULT_LOCATION;
+    remoteOptions.diskCache = Optional.empty();
     remoteOptions.diskCacheGcIdleDelay = Duration.ofMinutes(2);
     remoteOptions.diskCacheGcMaxSize = 1234567890L;
 
