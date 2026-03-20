@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.skyframe.CoverageReportValue.COVERAG
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
@@ -68,6 +69,7 @@ public class SkyframeBuilder implements Builder {
   private final ResourceManager resourceManager;
   private final SkyframeExecutor skyframeExecutor;
   private final String actionExecutionSalt;
+  private final ImmutableMap<String, String> mnemonicCacheSalts;
   private final ModifiedFileSet modifiedOutputFiles;
   private final InputMetadataProvider fileCache;
   private final ActionInputPrefetcher actionInputPrefetcher;
@@ -81,6 +83,7 @@ public class SkyframeBuilder implements Builder {
       ResourceManager resourceManager,
       ActionCacheChecker actionCacheChecker,
       String actionExecutionSalt,
+      ImmutableMap<String, String> mnemonicCacheSalts,
       ModifiedFileSet modifiedOutputFiles,
       InputMetadataProvider fileCache,
       ActionInputPrefetcher actionInputPrefetcher,
@@ -90,6 +93,7 @@ public class SkyframeBuilder implements Builder {
     this.skyframeExecutor = skyframeExecutor;
     this.actionCacheChecker = actionCacheChecker;
     this.actionExecutionSalt = actionExecutionSalt;
+    this.mnemonicCacheSalts = mnemonicCacheSalts;
     this.modifiedOutputFiles = modifiedOutputFiles;
     this.fileCache = fileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
@@ -125,6 +129,7 @@ public class SkyframeBuilder implements Builder {
           fileCache,
           actionInputPrefetcher,
           actionExecutionSalt,
+          mnemonicCacheSalts,
           options.getOptions(UiOptions.class).maxStdoutErrBytes);
     }
     // Note that executionProgressReceiver accesses builtTargets concurrently (after wrapping in a

@@ -233,6 +233,7 @@ public final class SkyframeActionExecutor {
   private InputMetadataProvider perBuildFileCache;
   private ActionInputPrefetcher actionInputPrefetcher;
   private String actionExecutionSalt;
+  private ImmutableMap<String, String> mnemonicCacheSalts;
   private int maxStdoutErrBytes;
 
   /** These variables are nulled out between executions. */
@@ -768,6 +769,7 @@ public final class SkyframeActionExecutor {
               inputMetadataProvider,
               outputMetadataStore,
               actionExecutionSalt,
+              mnemonicCacheSalts,
               outputChecker,
               useArchivedTreeArtifacts(action));
 
@@ -810,6 +812,7 @@ public final class SkyframeActionExecutor {
                     inputMetadataProvider,
                     outputMetadataStore,
                     actionExecutionSalt,
+                    mnemonicCacheSalts,
                     outputChecker,
                     useArchivedTreeArtifacts(action));
           }
@@ -857,6 +860,7 @@ public final class SkyframeActionExecutor {
           clientEnv,
           getOutputPermissions(),
           actionExecutionSalt,
+          mnemonicCacheSalts,
           useArchivedTreeArtifacts(action));
     } catch (IOException e) {
       // Skyframe has already done all the filesystem access needed for outputs and swallows
@@ -1007,11 +1011,13 @@ public final class SkyframeActionExecutor {
       ActionInputPrefetcher actionInputPrefetcher,
       DiscoveredModulesPruner discoveredModulesPruner,
       String actionExecutionSalt,
+      ImmutableMap<String, String> mnemonicCacheSalts,
       int maxStdoutErrBytes) {
     this.perBuildFileCache = fileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
     this.discoveredModulesPruner = discoveredModulesPruner;
     this.actionExecutionSalt = actionExecutionSalt;
+    this.mnemonicCacheSalts = mnemonicCacheSalts;
     this.maxStdoutErrBytes = maxStdoutErrBytes;
   }
 

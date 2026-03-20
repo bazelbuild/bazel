@@ -367,7 +367,7 @@ public class RemoteExecutionService {
   }
 
   @Nullable
-  private static ByteString buildSalt(Spawn spawn, @Nullable SpawnScrubber spawnScrubber) {
+  private ByteString buildSalt(Spawn spawn, @Nullable SpawnScrubber spawnScrubber) {
     CacheSalt.Builder saltBuilder =
         CacheSalt.newBuilder().setMayBeExecutedRemotely(Spawns.mayBeExecutedRemotely(spawn));
 
@@ -380,6 +380,12 @@ public class RemoteExecutionService {
     if (spawnScrubber != null) {
       saltBuilder.setScrubSalt(
           CacheSalt.ScrubSalt.newBuilder().setSalt(spawnScrubber.getSalt()).build());
+    }
+
+    // Add mnemonic-specific salt for targeted cache invalidation.
+    String mnemonicSalt = executionOptions.getMnemonicCacheSalts().get(spawn.getMnemonic());
+    if (mnemonicSalt != null) {
+      saltBuilder.setMnemonicSalt(mnemonicSalt);
     }
 
     return saltBuilder.build().toByteString();

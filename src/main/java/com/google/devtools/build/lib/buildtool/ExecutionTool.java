@@ -145,6 +145,7 @@ public class ExecutionTool {
 
   @Nullable private ActionCacheChecker actionCacheChecker;
   private final String actionExecutionSalt;
+  private final ImmutableMap<String, String> mnemonicCacheSalts;
 
   private boolean informedOutputServiceToStartTheBuild = false;
   private IncrementalPackageRoots incrementalPackageRoots;
@@ -202,6 +203,7 @@ public class ExecutionTool {
     // in prod. Thus, for SpawnActions, we decide the action context to use not only based on the
     // context class, but also the mnemonic of the action.
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
+    this.mnemonicCacheSalts = options.getMnemonicCacheSalts();
     // TODO(jmmv): This should live in some testing-related Blaze module, not here.
     actionContextRegistryBuilder.restrictTo(TestActionContext.class, options.testStrategy);
 
@@ -327,6 +329,7 @@ public class ExecutionTool {
           skyframeBuilder.getFileCache(),
           skyframeBuilder.getActionInputPrefetcher(),
           actionExecutionSalt,
+          mnemonicCacheSalts,
           env.getOptions().getOptions(UiOptions.class).maxStdoutErrBytes);
     }
     skyframeExecutor.setSaltAndDeleteActionsIfChanged(actionExecutionSalt);
@@ -963,6 +966,7 @@ public class ExecutionTool {
                     outputService.shouldStoreRemoteOutputMetadataInActionCache())
                 .build()),
         actionExecutionSalt,
+        mnemonicCacheSalts,
         modifiedOutputFiles,
         env.getFileCache(),
         prefetcher,
