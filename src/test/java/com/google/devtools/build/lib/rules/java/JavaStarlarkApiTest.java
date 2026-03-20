@@ -16,13 +16,11 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.Arrays.stream;
 
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
-import java.util.List;
 import net.starlark.java.annot.StarlarkMethod;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -30,64 +28,6 @@ import org.junit.runner.RunWith;
 /** Tests Starlark API for Java rules. */
 @RunWith(TestParameterInjector.class)
 public class JavaStarlarkApiTest extends BuildViewTestCase {
-  @Test
-  public void testPackSourcesWithExternalResourceArtifact() throws Exception {
-    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
-    scratch.file(
-        "foo/custom_rule.bzl",
-        "load('@rules_java//java:defs.bzl', 'java_common')",
-        "def _impl(ctx):",
-        "  out = ctx.actions.declare_file('output.jar')",
-        "  java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo]",
-        "  java_common.pack_sources(",
-        "    ctx.actions,",
-        "    java_toolchain = java_toolchain,",
-        "    output_source_jar = out,",
-        "    sources = ctx.files.srcs,",
-        "  )",
-        "  return [DefaultInfo(files = depset([out]))]",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'srcs': attr.label_list(allow_files = True),",
-        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
-        "  },",
-        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
-        "  fragments = ['java']",
-        ")");
-    scratch.file("my_other_repo/MODULE.bazel", "module(name='other_repo')");
-    scratch.file("my_other_repo/external-file.txt");
-    scratch.file("my_other_repo/BUILD", "exports_files(['external-file.txt'])");
-    scratch.appendFile(
-        "MODULE.bazel",
-        "bazel_dep(name = 'other_repo')",
-        "local_path_override(module_name = 'other_repo', path = 'my_other_repo')");
-    scratch.file(
-        "foo/BUILD",
-        """
-        load(":custom_rule.bzl", "java_custom_library")
-
-        java_custom_library(
-            name = "custom",
-            srcs = [
-                "internal-file.txt",
-                "@other_repo//:external-file.txt",
-            ],
-        )
-        """);
-    invalidatePackages();
-
-    List<String> arguments =
-        ((SpawnAction) getGeneratingAction(getConfiguredTarget("//foo:custom"), "foo/output.jar"))
-            .getArguments();
-
-    assertThat(arguments)
-        .containsAtLeast(
-            "--resources",
-            "foo/internal-file.txt:foo/internal-file.txt",
-            "external/other_repo+/external-file.txt:external-file.txt")
-        .inOrder();
-  }
 
   @Test // not to be Starlarkified: tests native functionality
   @TestParameters({
