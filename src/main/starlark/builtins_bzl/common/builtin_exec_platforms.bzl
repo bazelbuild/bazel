@@ -148,6 +148,7 @@ bazel_fragments["AndroidConfiguration.Options"] = fragment(
         "//command_line_option:experimental_persistent_aar_extractor",
         "//command_line_option:experimental_remove_r_classes_from_instrumentation_test_jar",
         "//command_line_option:experimental_use_rtxt_from_merged_resources",
+        "//command_line_option:incompatible_remove_ctx_android_fragment",
     ],
     outputs = [
         "//command_line_option:Android configuration distinguisher",

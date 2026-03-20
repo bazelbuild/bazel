@@ -925,6 +925,18 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
             "Get Java resources from _proguard.jar instead of _deploy.jar in android_binary when "
                 + "bundling the final APK.")
     public boolean getJavaResourcesFromOptimizedJar;
+
+    @Option(
+        name = "incompatible_remove_ctx_android_fragment",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help =
+            "When true, Android build flags are defined with Android rules (in BUIILD files) and"
+                + " ctx.fragments.android is undefined. This is a migration flag to move all"
+                + " Android flags  from core Bazel to Python rules.")
+    public boolean disableAndroidFragment;
   }
 
   private final ConfigurationDistinguisher configurationDistinguisher;
@@ -966,6 +978,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final Label optimizingDexer;
   private final boolean disableInstrumentationManifestMerging;
   private final boolean getJavaResourcesFromOptimizedJar;
+  private final boolean disableAndroidFragment;
 
   public AndroidConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
     Options options = buildOptions.get(Options.class);
@@ -1017,6 +1030,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.optimizingDexer = options.optimizingDexer;
     this.disableInstrumentationManifestMerging = options.disableInstrumentationManifestMerging;
     this.getJavaResourcesFromOptimizedJar = options.getJavaResourcesFromOptimizedJar;
+    this.disableAndroidFragment = options.disableAndroidFragment;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
@@ -1027,6 +1041,11 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       throw new InvalidConfigurationException(
           "Java 8 library support requires --desugar_java8 to be enabled.");
     }
+  }
+
+  @Override
+  public boolean shouldInclude() {
+    return !disableAndroidFragment;
   }
 
   /** Returns whether to use incremental dexing. */
