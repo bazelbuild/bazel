@@ -99,7 +99,6 @@ cc_binary(
     ],
     copts = [
         "-fPIC",
-        "-DBLAZE_JAVA_CPU=\"k8\"",
     ],
     includes = ["."],  # For jni headers.
     linkopts = select({
