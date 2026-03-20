@@ -14,9 +14,8 @@
 
 #include "src/tools/singlejar/options.h"
 
-#include <memory>
+#include <iterator>
 
-#include "src/main/cpp/util/port.h"
 #include "googletest/include/gtest/gtest.h"
 
 TEST(OptionsTest, Flags1) {
@@ -25,7 +24,7 @@ TEST(OptionsTest, Flags1) {
       "--no_duplicates",      "--output",          "output_jar",
       "--hermetic_java_home", "hermetic_java_home"};
   Options options;
-  options.ParseCommandLine(arraysize(args), args);
+  options.ParseCommandLine(std::size(args), args);
 
   EXPECT_TRUE(options.exclude_build_data);
   EXPECT_TRUE(options.force_compression);
@@ -49,7 +48,7 @@ TEST(OptionsTest, Flags2) {
                         "output_jar",
                         "--multi_release"};
   Options options;
-  options.ParseCommandLine(arraysize(args), args);
+  options.ParseCommandLine(std::size(args), args);
 
   ASSERT_FALSE(options.exclude_build_data);
   ASSERT_FALSE(options.force_compression);
@@ -72,7 +71,7 @@ TEST(OptionsTest, SingleOptargs) {
       "--extra_build_info", "extra_build_line2", "--cds_archive",
       "classes.jsa",        "--jdk_lib_modules", "modules"};
   Options options;
-  options.ParseCommandLine(arraysize(args), args);
+  options.ParseCommandLine(std::size(args), args);
 
   EXPECT_EQ("output_jar", options.output_jar);
   EXPECT_EQ("com.google.Main", options.main_class);
@@ -118,7 +117,7 @@ TEST(OptionsTest, MultiOptargs) {
                         "open1",
                         "open2"};
   Options options;
-  options.ParseCommandLine(arraysize(args), args);
+  options.ParseCommandLine(std::size(args), args);
 
   ASSERT_EQ(3UL, options.input_jars.size());
   EXPECT_EQ("jar1", options.input_jars[0].first);
@@ -162,7 +161,7 @@ TEST(OptionsTest, EmptyMultiOptargs) {
                         "prefix1",
                         "--resources"};
   Options options;
-  options.ParseCommandLine(arraysize(args), args);
+  options.ParseCommandLine(std::size(args), args);
 
   EXPECT_EQ(0UL, options.input_jars.size());
   EXPECT_EQ(0UL, options.resources.size());
@@ -174,13 +173,13 @@ TEST(OptionTest, CustomCreatedBy) {
   const char* args[] = {"--output", "output_file", "--output_jar_creator",
                         "CustomCreatedBy 123.456"};
   Options options;
-  options.ParseCommandLine(arraysize(args), args);
+  options.ParseCommandLine(std::size(args), args);
   EXPECT_EQ("CustomCreatedBy 123.456", options.output_jar_creator);
 }
 
 TEST(OptionTest, DefaultCreatedBy) {
   const char* args[] = {"--output", "output_file"};
   Options options;
-  options.ParseCommandLine(arraysize(args), args);
+  options.ParseCommandLine(std::size(args), args);
   EXPECT_EQ("singlejar", options.output_jar_creator);
 }

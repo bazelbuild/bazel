@@ -116,8 +116,6 @@ cc_binary(
         ":common",
         ":latin1_jni_path",
         "//src/main/cpp/util:logging",
-        "//src/main/cpp/util:md5",
-        "//src/main/cpp/util:port",
     ],
 )
 
