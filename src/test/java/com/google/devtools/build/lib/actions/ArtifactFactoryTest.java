@@ -382,6 +382,49 @@ public class ArtifactFactoryTest {
   }
 
   @Test
+  public void
+      testResolveSourceArtifactCaseInsensitively_staleArtifactWithDifferentCasingRevalidated() {
+    // First build: create an artifact with specific casing.
+    artifactFactory.noteAnalysisStarting();
+    PathFragment originalPath = PathFragment.create("foo/Header.h");
+    Artifact.SourceArtifact original =
+        artifactFactory.getSourceArtifact(originalPath, clientRoot);
+
+    // Second build: the artifact from the first build is stale. Resolve with different casing.
+    artifactFactory.noteAnalysisStarting();
+    PathFragment wrongCasePath = PathFragment.create("foo/header.h");
+    ImmutableList<Artifact.SourceArtifact> result =
+        artifactFactory.resolveSourceArtifactsAsciiCaseInsensitively(wrongCasePath, MAIN);
+
+    // Should return the original artifact with correct casing, not a new one.
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).getExecPath()).isEqualTo(originalPath);
+    assertThat(result.get(0)).isSameInstanceAs(original);
+  }
+
+  @Test
+  public void
+      testResolveSourceArtifactCaseInsensitively_multipleStaleArtifactsWithDifferentCasingsRevalidated() {
+    // First build: create artifacts with different casings.
+    artifactFactory.noteAnalysisStarting();
+    PathFragment path1 = PathFragment.create("foo/Header.h");
+    PathFragment path2 = PathFragment.create("foo/HEADER.h");
+    Artifact.SourceArtifact artifact1 =
+        artifactFactory.getSourceArtifact(path1, clientRoot);
+    Artifact.SourceArtifact artifact2 =
+        artifactFactory.getSourceArtifact(path2, clientRoot);
+
+    // Second build: both are stale. Resolve with yet another casing.
+    artifactFactory.noteAnalysisStarting();
+    PathFragment queryCasePath = PathFragment.create("foo/header.h");
+    ImmutableList<Artifact.SourceArtifact> result =
+        artifactFactory.resolveSourceArtifactsAsciiCaseInsensitively(queryCasePath, MAIN);
+
+    // Both original artifacts should be revalidated and returned.
+    assertThat(result).containsExactly(artifact1, artifact2);
+  }
+
+  @Test
   public void testClearResetsCaseInsensitiveCache() {
     artifactFactory.noteAnalysisStarting();
     PathFragment path = PathFragment.create("foo/header.h");

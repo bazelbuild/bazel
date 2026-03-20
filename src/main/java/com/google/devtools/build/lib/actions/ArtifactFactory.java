@@ -176,6 +176,26 @@ public class ArtifactFactory implements ArtifactResolver {
     }
 
     /**
+     * Returns all entries with case-insensitively equivalent exec paths. The returned list contains
+     * the raw cache entries, which may or may not be valid for the current build.
+     */
+    @SuppressWarnings("unchecked")
+    @ThreadSafe
+    private ImmutableList<Entry> getEntriesWithAsciiCaseInsensitivePath(PathFragment execPath) {
+      Object cacheObject = pathToSourceArtifact.get(execPath);
+      return switch (cacheObject) {
+        case null -> ImmutableList.of();
+        case Entry entry -> ImmutableList.of(entry);
+        case CopyOnWriteArrayList<?> entries ->
+            ImmutableList.copyOf((CopyOnWriteArrayList<Entry>) entries);
+        default ->
+            throw new IllegalStateException(
+                "Unexpected cache object type: %s, value: %s"
+                    .formatted(cacheObject.getClass(), cacheObject));
+      };
+    }
+
+    /**
      * Returns a list of artifacts with case-insensitively equivalent exec paths that are present in
      * the cache and have been verified to be valid for this build. Note that if the artifacts'
      * packages are not part of the current build, our differing methods of validating source roots
@@ -186,28 +206,24 @@ public class ArtifactFactory implements ArtifactResolver {
     @ThreadSafe
     ImmutableList<SourceArtifact> getValidArtifactsWithAsciiCaseInsensitivePath(
         PathFragment execPath) {
-      Object cacheObject = pathToSourceArtifact.get(execPath);
-      if (cacheObject == null) {
-        return ImmutableList.of();
-      }
-      return switch (cacheObject) {
-        case Entry entry ->
-            entry.isInvalid(buildId) ? ImmutableList.of() : ImmutableList.of(entry.artifact());
-        case CopyOnWriteArrayList<?> entries -> {
-          var validArtifacts = ImmutableList.<SourceArtifact>builder();
-          for (Object entryObject : entries) {
-            var entry = (Entry) entryObject;
-            if (!entry.isInvalid(buildId)) {
-              validArtifacts.add(entry.artifact());
-            }
-          }
-          yield validArtifacts.build();
-        }
-        default ->
-            throw new IllegalStateException(
-                "Unexpected cache object type: %s, value: %s"
-                    .formatted(cacheObject.getClass(), cacheObject));
-      };
+      return getEntriesWithAsciiCaseInsensitivePath(execPath).stream()
+          .filter(entry -> !entry.isInvalid(buildId))
+          .map(Entry::artifact)
+          .collect(ImmutableList.toImmutableList());
+    }
+
+    /**
+     * Returns a list of all artifacts with case-insensitively equivalent exec paths that are
+     * present in the cache, regardless of whether they have been verified to be valid for this
+     * build. This is used to find stale artifacts from previous builds that can be revalidated
+     * using their original (correct-casing) exec paths.
+     */
+    @ThreadSafe
+    ImmutableList<SourceArtifact> getAllArtifactsWithAsciiCaseInsensitivePath(
+        PathFragment execPath) {
+      return getEntriesWithAsciiCaseInsensitivePath(execPath).stream()
+          .map(Entry::artifact)
+          .collect(ImmutableList.toImmutableList());
     }
 
     void newBuild() {
@@ -567,6 +583,30 @@ public class ArtifactFactory implements ArtifactResolver {
     var artifacts = sourceArtifactCache.getValidArtifactsWithAsciiCaseInsensitivePath(execPath);
     if (!artifacts.isEmpty()) {
       return artifacts;
+    }
+    // The case-insensitive cache may have artifacts from a previous build that aren't valid yet.
+    // Try to revalidate them using their original (correct-casing) exec paths before falling back
+    // to creating a new artifact with the queried (potentially wrong-casing) exec path.
+    var staleArtifacts =
+        sourceArtifactCache.getAllArtifactsWithAsciiCaseInsensitivePath(execPath);
+    if (!staleArtifacts.isEmpty()) {
+      var revalidated = ImmutableList.<SourceArtifact>builder();
+      for (SourceArtifact stale : staleArtifacts) {
+        Root sourceRoot =
+            findSourceRoot(
+                stale.getExecPath(),
+                /* baseExecPath= */ null,
+                /* baseRoot= */ null,
+                repositoryName);
+        SourceArtifact valid = createArtifactIfNotValid(sourceRoot, stale.getExecPath());
+        if (valid != null) {
+          revalidated.add(valid);
+        }
+      }
+      var result = revalidated.build();
+      if (!result.isEmpty()) {
+        return result;
+      }
     }
     Root sourceRoot =
         findSourceRoot(execPath, /* baseExecPath= */ null, /* baseRoot= */ null, repositoryName);
