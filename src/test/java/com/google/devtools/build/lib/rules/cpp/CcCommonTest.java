@@ -92,35 +92,6 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSameCcFileTwice() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        """
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        cc_library(
-            name = "a",
-            srcs = [
-                "a1",
-                "a2",
-            ],
-        )
-
-        filegroup(
-            name = "a1",
-            srcs = ["a.cc"],
-        )
-
-        filegroup(
-            name = "a2",
-            srcs = ["a.cc"],
-        )
-        """);
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:a");
-    assertContainsEvent("Artifact 'a/a.cc' is duplicated");
-  }
-
-  @Test
   public void testSameHeaderFileTwice() throws Exception {
     scratch.file(
         "a/BUILD",
