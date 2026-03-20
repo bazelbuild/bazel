@@ -365,10 +365,8 @@ public final class RemoteModule extends BlazeModule {
     this.remoteOptions = remoteOptions;
     this.env = env;
 
-    // Resolve --disk_cache sentinel values before any other processing.
-    if (RemoteOptions.DISK_CACHE_OFF.equals(remoteOptions.diskCache)) {
-      remoteOptions.diskCache = null;
-    } else if (RemoteOptions.DISK_CACHE_ON.equals(remoteOptions.diskCache)) {
+    // Resolve default disk cache location marker from --disk_cache / --disk_cache=true, etc.
+    if (RemoteOptions.DISK_CACHE_USE_DEFAULT_LOCATION.equals(remoteOptions.diskCache)) {
       remoteOptions.diskCache =
           env.getDirectories()
               .getServerDirectories()

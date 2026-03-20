@@ -14,12 +14,14 @@
 
 package com.google.devtools.build.lib.remote.options;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.remote.Scrubber;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
+import com.google.devtools.common.options.BooleanStyleOption;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.AssignmentConverter;
@@ -36,6 +38,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import javax.annotation.Nullable;
 
 /** Options for remote execution and distributed caching for Bazel only. */
 public final class RemoteOptions extends CommonRemoteOptions {
@@ -365,27 +368,69 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + " the unit is omitted, the value is interpreted as seconds.")
   public Duration remoteRetryMaxDelay;
 
-  /** Sentinel value for --disk_cache to enable the default location. */
-  public static final PathFragment DISK_CACHE_ON = PathFragment.create("on");
-
-  /** Sentinel value for --disk_cache to explicitly disable the disk cache. */
-  public static final PathFragment DISK_CACHE_OFF = PathFragment.create("off");
+  /**
+   * Internal marker produced by {@link DiskCacheConverter} when the user enables the default disk
+   * cache location; resolved to a path under the output user root in {@code RemoteModule}.
+   */
+  public static final PathFragment DISK_CACHE_USE_DEFAULT_LOCATION =
+      PathFragment.create("__bazel_default_disk_cache__");
 
   /** Default disk cache subdirectory under outputUserRoot/cache. */
   public static final String DEFAULT_DISK_CACHE_LOCATION = "cache/disk";
+
+  /**
+   * Accepts a filesystem path, or boolean-like values selecting the default location ({@code
+   * --disk_cache}, {@code --disk_cache=true}, etc.) or disabling the cache ({@code --nodisk_cache},
+   * {@code --disk_cache=false}, etc.). The spellings {@code on} and {@code off} are treated like
+   * {@code true} and {@code false} for compatibility.
+   */
+  public static final class DiskCacheConverter extends Converter.Contextless<PathFragment>
+      implements BooleanStyleOption {
+
+    private static final BooleanConverter BOOLEAN_CONVERTER = new BooleanConverter();
+
+    @Override
+    @Nullable
+    public PathFragment convert(String input) throws OptionsParsingException {
+      if (input == null || input.isEmpty()) {
+        return null;
+      }
+      String lower = Ascii.toLowerCase(input);
+      if (lower.equals("on")) {
+        return DISK_CACHE_USE_DEFAULT_LOCATION;
+      }
+      if (lower.equals("off")) {
+        return null;
+      }
+      try {
+        return BOOLEAN_CONVERTER.convert(input, null)
+            ? DISK_CACHE_USE_DEFAULT_LOCATION
+            : null;
+      } catch (OptionsParsingException e) {
+        return new OptionsUtils.PathFragmentConverter().convert(input);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a path, or a boolean to use the default disk cache location";
+    }
+  }
 
   @Option(
       name = "disk_cache",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      converter = OptionsUtils.PathFragmentConverter.class,
+      converter = DiskCacheConverter.class,
       help =
           "A path to a directory where Bazel can read and write actions and action outputs. "
               + "If the directory does not exist, it will be created. "
-              + "If set to 'on', the disk cache is placed in a default location under the output "
-              + "user root. If set to 'off', the disk cache is disabled (equivalent to not setting "
-              + "this flag).")
+              + "Use --disk_cache with no value (or --disk_cache=true) to use a default location "
+              + "under the output user root (<outputUserRoot>/cache/disk). Use --nodisk_cache or "
+              + "--disk_cache=false to disable. "
+              + "As a compatibility alias, --disk_cache=on and --disk_cache=off behave like true "
+              + "and false.")
   public PathFragment diskCache;
 
   @Option(

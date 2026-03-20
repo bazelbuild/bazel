@@ -627,7 +627,7 @@ public final class RemoteModuleTest {
 
   @Test
   public void diskCache_onSentinel_resolvesToDefaultLocation() throws Exception {
-    remoteOptions.diskCache = RemoteOptions.DISK_CACHE_ON;
+    remoteOptions.diskCache = RemoteOptions.DISK_CACHE_USE_DEFAULT_LOCATION;
 
     var env = beforeCommand();
 
@@ -644,7 +644,7 @@ public final class RemoteModuleTest {
 
   @Test
   public void diskCache_onSentinel_withGarbageCollection() throws Exception {
-    remoteOptions.diskCache = RemoteOptions.DISK_CACHE_ON;
+    remoteOptions.diskCache = RemoteOptions.DISK_CACHE_USE_DEFAULT_LOCATION;
     remoteOptions.diskCacheGcIdleDelay = Duration.ofMinutes(2);
     remoteOptions.diskCacheGcMaxSize = 1234567890L;
 
@@ -663,8 +663,8 @@ public final class RemoteModuleTest {
   }
 
   @Test
-  public void diskCache_offSentinel_disablesDiskCache() throws Exception {
-    remoteOptions.diskCache = RemoteOptions.DISK_CACHE_OFF;
+  public void diskCacheUnset_disablesDiskCache() throws Exception {
+    remoteOptions.diskCache = null;
 
     var env = beforeCommand();
 

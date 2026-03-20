@@ -163,7 +163,8 @@ public abstract class OptionDefinition implements Comparable<OptionDefinition> {
   public boolean usesBooleanValueSyntax() {
     return getType().equals(boolean.class)
         || getType().equals(TriState.class)
-        || getConverter() instanceof BoolOrEnumConverter;
+        || getConverter() instanceof BoolOrEnumConverter
+        || getConverter() instanceof BooleanStyleOption;
   }
 
   /**
