@@ -65,7 +65,7 @@ then the `BUILD` files are misleading.
 ## Using the `.bazelrc` file
 
 For project-specific options, use the configuration file your
-`{{ '<var>' }}workspace{{ '</var>' }}/.bazelrc` (see [bazelrc format](/versions/8.2.1/run/bazelrc)).
+`<var>workspace</var>/.bazelrc` (see [bazelrc format](/versions/8.2.1/run/bazelrc)).
 
 If you want to support per-user options for your project that you **do not**
 want to check into source control, include the line:
@@ -73,7 +73,7 @@ want to check into source control, include the line:
 ```
 try-import %workspace%/user.bazelrc
 ```
-(or any other file name) in your `{{ '<var>' }}workspace{{ '</var>' }}/.bazelrc`
+(or any other file name) in your `<var>workspace</var>/.bazelrc`
 and add `user.bazelrc` to your `.gitignore`.
 
 ## Packages

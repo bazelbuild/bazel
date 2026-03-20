@@ -163,7 +163,7 @@ level `android_binary` target. In this example, it is `app`.
 To configure the target ABI, use the `--android_platforms` flag as follows:
 
 ```posix-terminal
-bazel build //:app --android_platforms={{ "<var>" }}comma-separated list of platforms{{ "</var>" }}
+bazel build //:app --android_platforms=<var>comma-separated list of platforms</var>
 ```
 
 Just like the `--platforms` flag, the values passed to `--android_platforms` are
@@ -267,7 +267,7 @@ use [Bazel wild-cards](/versions/8.2.1/run/build#specifying-build-targets) like
 `/...` and `:all`.
 
 These flags can be put into a `bazelrc` config (one for each ABI), in
-`{{ "<var>" }}project{{ "</var>" }}/.bazelrc`:
+`<var>project</var>/.bazelrc`:
 
 ```
 common:android_x86 --platforms=//my/platforms:x86

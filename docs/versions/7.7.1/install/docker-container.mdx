@@ -41,7 +41,7 @@ docker run \
   build //absl/...
 ```
 
-Build the project with sanitizers by adding the `--config={{ "<var>" }}asan{{ "</var>" }}|{{ "<var>" }}tsan{{ "</var>" }}|{{ "<var>" }}msan{{ "</var>" }}` build
+Build the project with sanitizers by adding the `--config=<var>asan</var>|<var>tsan</var>|<var>msan</var>` build
 flag to select AddressSanitizer (asan), ThreadSanitizer (tsan) or
 MemorySanitizer (msan) accordingly.
 
@@ -84,7 +84,7 @@ Do a regular build.
 root@5a99103747c6:~/abseil-cpp# bazel build //absl/...
 ```
 
-Build the project with sanitizers by adding the `--config={{ "<var>" }}asan{{ "</var>" }}|{{ "<var>" }}tsan{{ "</var>" }}|{{ "<var>" }}msan{{ "</var>" }}`
+Build the project with sanitizers by adding the `--config=<var>asan</var>|<var>tsan</var>|<var>msan</var>`
 build flag to select AddressSanitizer (asan), ThreadSanitizer (tsan) or
 MemorySanitizer (msan) accordingly.
 

@@ -94,7 +94,7 @@ You can run the following command to see the contents of the repo with the
 canonical name `canonical_name`:
 
 ```posix-terminal
-ls $(bazel info output_base)/external/{{ '<var>' }} canonical_name {{ '</var>' }}
+ls $(bazel info output_base)/external/<var> canonical_name </var>
 ```
 
 ## Manage external dependencies with Bzlmod
@@ -165,7 +165,7 @@ The snippet defines a repo whose canonical name is `foo`. In the `WORKSPACE`
 system, by default, the canonical name of a repo is also its apparent name to
 all other repos.
 
-<!-- TODO(wyv): add link to WORKSPACE globals -->
+{/* TODO(wyv): add link to WORKSPACE globals */}
 
 ### Shortcomings of the `WORKSPACE` system
 
