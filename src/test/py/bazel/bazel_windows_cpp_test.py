@@ -1340,5 +1340,18 @@ class BazelWindowsCppTest(test_base.TestBase):
 
     self.RunBazel(['build', '//pkg:lib'])
 
+    # Modify the .cc file to trigger recompilation without re-analyzing the
+    # headers. On an incremental build, the header artifacts become stale in the
+    # cache and must be revalidated using case-insensitive matching.
+    self.ScratchFile(
+        'pkg/hello.cc',
+        [
+            '#include "include/shared/basetsd.h"',
+            'int hello() { return base_tsd_value() + 1; }',
+        ],
+    )
+
+    self.RunBazel(['build', '//pkg:lib'])
+
 if __name__ == '__main__':
   absltest.main()
