@@ -19,10 +19,9 @@
 # support multiple compilers in the same build yet, so we need to hack around
 # this limitation using a genrule.
 
-set -eu
+set -euo pipefail
 
 DLL="$1"
-shift 1
 
 function fail() {
   echo >&2 "ERROR: $*"
@@ -94,11 +93,10 @@ else
 fi
 
 # Convert all compilation units to Windows paths.
-WINDOWS_SOURCES=()
-for i in $*; do
-  if [[ "$i" =~ ^.*\.cc$ ]]; then
-    WINDOWS_SOURCES+=("\"$(cygpath -a -w $i)\"")
-  fi
+# Omit blake3, which would require an external dependency.
+SOURCES=()
+for f in src/main/native/common.cc src/main/native/windows/*.cc; do
+  SOURCES+=("\"$(cygpath -a -w $f)\"")
 done
 
 # Copy jni headers to src/main/native folder
@@ -122,7 +120,7 @@ cat > "${VSTEMP}/windows_jni.bat" <<EOF
 @$pwd_drive
 @cd "$abs_pwd"
 @set TMP=$(cygpath -a -w "${VSTEMP}")
-@CL /O2 /EHsc /LD /Fe:"$(cygpath -a -w ${DLL})" /I "%TMP%" /I . /I ${JNI_HEADERS_DIR} ${WINDOWS_SOURCES[*]} /link /DEFAULTLIB:advapi32.lib
+@CL /O2 /EHsc /LD /Fe:"$(cygpath -a -w ${DLL})" /I "%TMP%" /I . /I ${JNI_HEADERS_DIR} ${SOURCES[*]} /link /DEFAULTLIB:advapi32.lib
 EOF
 
 # Invoke the file and hopefully generate the .DLL .
