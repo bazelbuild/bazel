@@ -139,7 +139,6 @@ public final class CombinedCacheClientFactory {
 	return ImmutableList.<Entry<String, String>>builder()
 	  .addAll(options.remoteHeaders)
 	  .addAll(options.remoteCacheHeaders)
-	  .addAll(options.remoteExecHeaders)
 	  .build();
   }
 }

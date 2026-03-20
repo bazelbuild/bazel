@@ -1008,7 +1008,7 @@ public class HttpCacheClientTest {
   }
 
   @Test
-  public void extraHeaders() throws Exception {
+  public void extraCacheHeaders() throws Exception {
 		ServerChannel server = null;
 		try {
 			RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
@@ -1033,8 +1033,8 @@ public class HttpCacheClientTest {
 							assertThat(request.headers().get("CommonKey2")).isEqualTo("CommonValue2");
 							assertThat(request.headers().get("CacheKey1")).isEqualTo("CacheValue1");
 							assertThat(request.headers().get("CacheKey2")).isEqualTo("CacheValue2");
-							assertThat(request.headers().get("ExecKey1")).isEqualTo("ExecValue1");
-							assertThat(request.headers().get("ExecKey2")).isEqualTo("ExecValue2");
+							assertThat(request.headers().get("ExecKey1")).isNull();
+							assertThat(request.headers().get("ExecKey2")).isNull();
 
 							ByteBuf content = ctx.alloc().buffer();
 							content.writeCharSequence("File Contents", StandardCharsets.US_ASCII);
