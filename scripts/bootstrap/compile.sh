@@ -337,7 +337,7 @@ function build_jni() {
     mkdir -p "$(dirname "$tmp_output")"
     mkdir -p "$(dirname "$output")"
 
-    build_windows_jni.sh "$tmp_output"
+    scripts/bootstrap/build_windows_jni.sh "$tmp_output"
 
     cp "$tmp_output" "$output"
     chmod 0555 "$output"

@@ -288,6 +288,11 @@ domain socket:
 
 This feature is unsupported on Windows.
 
+### Chunked transfer {:#chunked-transfer}
+
+Use the `--experimental_remote_cache_chunking` flag to read and write large
+blobs to/from the remote cache in chunks. This requires server support.
+
 ## Disk cache {:#disk-cache}
 
 Bazel can use a directory on the file system as a remote cache. This is
