@@ -79,6 +79,7 @@ public class CombinedCacheClientFactoryTest {
     var blobStore =
         CombinedCacheClientFactory.create(
             remoteOptions,
+            remoteOptions.getDiskCachePath(workingDirectory),
             /* creds= */ null,
             authAndTlsOptions,
             workingDirectory,
@@ -98,6 +99,7 @@ public class CombinedCacheClientFactoryTest {
     var blobStore =
         CombinedCacheClientFactory.create(
             remoteOptions,
+            remoteOptions.getDiskCachePath(workingDirectory),
             /* creds= */ null,
             authAndTlsOptions,
             workingDirectory,
@@ -120,6 +122,7 @@ public class CombinedCacheClientFactoryTest {
         () ->
             CombinedCacheClientFactory.create(
                 remoteOptions,
+                remoteOptions.getDiskCachePath(/* outputUserRoot= */ null),
                 /* creds= */ null,
                 authAndTlsOptions,
                 /* workingDirectory= */ null,
@@ -138,6 +141,7 @@ public class CombinedCacheClientFactoryTest {
     var blobStore =
         CombinedCacheClientFactory.create(
             remoteOptions,
+            remoteOptions.getDiskCachePath(workingDirectory),
             /* creds= */ null,
             authAndTlsOptions,
             workingDirectory,
@@ -159,6 +163,7 @@ public class CombinedCacheClientFactoryTest {
                 () ->
                     CombinedCacheClientFactory.create(
                         remoteOptions,
+                        remoteOptions.getDiskCachePath(workingDirectory),
                         /* creds= */ null,
                         authAndTlsOptions,
                         workingDirectory,
@@ -175,6 +180,7 @@ public class CombinedCacheClientFactoryTest {
     var blobStore =
         CombinedCacheClientFactory.create(
             remoteOptions,
+            remoteOptions.getDiskCachePath(workingDirectory),
             /* creds= */ null,
             authAndTlsOptions,
             workingDirectory,
@@ -192,6 +198,7 @@ public class CombinedCacheClientFactoryTest {
     var blobStore =
         CombinedCacheClientFactory.create(
             remoteOptions,
+            remoteOptions.getDiskCachePath(workingDirectory),
             /* creds= */ null,
             authAndTlsOptions,
             workingDirectory,

@@ -26,6 +26,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/server:idle_task",
         "//src/main/java/com/google/devtools/build/lib/util:file_system_lock",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
