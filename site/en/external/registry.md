@@ -97,12 +97,12 @@ field, which defaults to `archive`.
         extracted archive. The patch files are located under the
         `/modules/$MODULE/$VERSION/overlay` directory. The keys are the
         overlay file names, and the values are the integrity checksum of
-        the overlay files. The overlays are applied before the patch files.
+        the overlay files (must be non-empty). The overlays are applied before the patch files.
     *   `patches`: A JSON object containing patch files to apply to the
         extracted archive. The patch files are located under the
         `/modules/$MODULE/$VERSION/patches` directory. The keys are the
         patch file names, and the values are the integrity checksum of
-        the patch files. The patches are applied after the overlay files and in
+        the patch files (must be non-empty). The patches are applied after the overlay files and in
         the order they appear in `patches`.
     *   `patch_strip`: A number; the same as the `--strip` argument of Unix
         `patch`.
@@ -119,7 +119,7 @@ field, which defaults to `archive`.
         cloned repository. The patch files are located under the
         `/modules/$MODULE/$VERSION/patches` directory. The keys are the
         patch file names, and the values are the integrity checksum of
-        the patch files. The patches are applied in the order they appear in
+        the patch files (must be non-empty). The patches are applied in the order they appear in
         `patches`.
 *   If `type` is `local_path`, this module version is backed by a
     [`local_repository`](/rules/lib/repo/local#local_repository) repo rule;

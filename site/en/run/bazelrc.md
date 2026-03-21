@@ -142,6 +142,11 @@ try-import-if-bazel-version ~1.2 %workspace%/configs/1.2_flags.rc
 try-import-if-bazel-version ~1 %workspace%/configs/v1_flags.rc
 ```
 
+Imports may be chained recursively up to a maximum depth of 512. If Bazel
+reports "Maximum import depth exceeded parsing config file", check for
+unexpectedly long import chains. Set the `BAZEL_UNLIMITED_IMPORT_DEPTH`
+environment variable to any value to disable this limit.
+
 Import precedence:
 
 -   Options in the imported file take precedence over options specified before
