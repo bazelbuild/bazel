@@ -114,14 +114,4 @@ public class RemoteOptionsTest {
     assertThat(options.diskCache).isEqualTo(Optional.of(PathFragment.create("custom/cache/dir")));
   }
 
-  @Test
-  public void diskCache_onAndOff_compatibilitySpellings() throws Exception {
-    OptionsParser onParser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
-    onParser.parse("--disk_cache=on");
-    assertThat(onParser.getOptions(RemoteOptions.class).diskCache).isEqualTo(Optional.empty());
-
-    OptionsParser offParser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
-    offParser.parse("--disk_cache=off");
-    assertThat(offParser.getOptions(RemoteOptions.class).diskCache).isNull();
-  }
 }

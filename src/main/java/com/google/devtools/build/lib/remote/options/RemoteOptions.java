@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.remote.options;
 
-import com.google.common.base.Ascii;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.remote.Scrubber;
 import com.google.devtools.build.lib.util.OptionsUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.BooleanStyleOption;
@@ -370,17 +370,16 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public Duration remoteRetryMaxDelay;
 
   /** Default disk cache subdirectory under outputUserRoot/cache. */
-  public static final String DEFAULT_DISK_CACHE_LOCATION = "cache/disk";
+  private static final String DEFAULT_DISK_CACHE_LOCATION = "cache/disk";
 
   /**
    * Accepts a filesystem path, or boolean-like values selecting the default location ({@code
    * --disk_cache}, {@code --disk_cache=true}, etc.) or disabling the cache ({@code --nodisk_cache},
-   * {@code --disk_cache=false}, etc.). The spellings {@code on} and {@code off} are treated like
-   * {@code true} and {@code false} for compatibility.
+   * {@code --disk_cache=false}, etc.).
    *
-   * <p>{@link Optional#empty()} means use the default directory under the output user root; {@code
-   * RemoteModule} replaces it with {@link Optional#of} a concrete path. {@code null} means the disk
-   * cache is disabled.
+   * <p>{@link Optional#empty()} means use the default directory under the output user root; callers
+   * should use {@link #getDiskCachePath} to resolve this to a concrete path. {@code null} means the
+   * disk cache is disabled.
    */
   public static final class DiskCacheConverter extends Converter.Contextless<Optional<PathFragment>>
       implements BooleanStyleOption {
@@ -390,13 +389,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
     @Override
     @Nullable
     public Optional<PathFragment> convert(String input) throws OptionsParsingException {
-      String lower = Ascii.toLowerCase(input);
-      if (lower.equals("on")) {
-        return Optional.empty();
-      }
-      if (lower.equals("off")) {
-        return null;
-      }
       try {
         return BOOLEAN_CONVERTER.convert(input, null) ? Optional.empty() : null;
       } catch (OptionsParsingException e) {
@@ -421,9 +413,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + "If the directory does not exist, it will be created. "
               + "Use --disk_cache with no value (or --disk_cache=true) to use a default location "
               + "under the output user root (<outputUserRoot>/cache/disk). Use --nodisk_cache or "
-              + "--disk_cache=false to disable. "
-              + "As a compatibility alias, --disk_cache=on and --disk_cache=off behave like true "
-              + "and false.")
+              + "--disk_cache=false to disable.")
   public Optional<PathFragment> diskCache;
 
   @Option(
@@ -853,14 +843,24 @@ public final class RemoteOptions extends CommonRemoteOptions {
         || isRemoteExecutionEnabled();
   }
 
-  private boolean isDiskCacheEnabled() {
+  /** Returns {@code true} if disk cache is enabled. */
+  public boolean isDiskCacheEnabled() {
+    return diskCache != null;
+  }
+
+  /**
+   * Returns the resolved disk cache path, or {@code null} if the disk cache is disabled.
+   *
+   * <p>When the user passes {@code --disk_cache} without an explicit path, the default location
+   * under the given {@code outputUserRoot} is used.
+   */
+  @Nullable
+  public PathFragment getDiskCachePath(Path outputUserRoot) {
     if (diskCache == null) {
-      return false;
+      return null;
     }
-    if (diskCache.isEmpty()) {
-      return true;
-    }
-    return diskCache.filter(p -> !p.isEmpty()).isPresent();
+    return diskCache.orElseGet(
+        () -> outputUserRoot.getRelative(DEFAULT_DISK_CACHE_LOCATION).asFragment());
   }
 
   /** Returns {@code true} if remote execution is enabled. */

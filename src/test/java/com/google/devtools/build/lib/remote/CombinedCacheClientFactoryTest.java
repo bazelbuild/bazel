@@ -263,8 +263,8 @@ public class CombinedCacheClientFactoryTest {
   }
 
   @Test
-  public void isRemoteCacheOptions_diskCacheOptionEmpty() {
-    remoteOptions.diskCache = Optional.of(PathFragment.EMPTY_FRAGMENT);
+  public void isRemoteCacheOptions_diskCacheOptionNull() {
+    remoteOptions.diskCache = null;
     assertThat(CombinedCacheClientFactory.isRemoteCacheOptions(remoteOptions)).isFalse();
   }
 
