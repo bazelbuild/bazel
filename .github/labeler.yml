@@ -107,14 +107,60 @@ team-OSS:
 - changed-files:
   - any-glob-to-any-file: .github/**/*
 
-# team-Rules-Server
+team-Rules-Server:
+- changed-files:
+  - any-glob-to-any-file:
+    - src/main/java/com/google/devtools/build/lib/server/**/*'
+    - src/main/java/com/google/devtools/build/lib/runtime/**/*'
 
-# team-Starlark-Interpreter
+team-Starlark-Interpreter
+- changed-files:
+  - any-glob-to-any-file:
+    - src/main/java/net/starlark/java/**/*
+    - src/test/java/net/starlark/java/**/*
 
-# team-Starlark-Integration
+team-Starlark-Integration
+- changed-files:
+  - any-glob-to-any-file:
+    - src/main/java/com/google/devtools/build/lib/starlark/**/*
+    - src/test/java/com/google/devtools/build/lib/starlark/**/*
 
-# team-Rules-API
+team-Rules-API
+- changed-files:
+  - any-glob-to-any-file:
+    - src/main/java/com/google/devtools/build/lib/starlarkbuildapi/**/*
 
-# team-Loading-API
+team-Loading-API
+- changed-files:
+  - any-glob-to-any-file:
+    - src/main/java/com/google/devtools/build/lib/packages/**/*
 
-# team-Core
+team-Core
+- changed-files:
+  - any-glob-to-any-file:
+    - src/main/java/com/google/devtools/build/lib/skyframe/**/*
+    - src/main/java/com/google/devtools/build/lib/vfs/**/*
+    - src/main/java/com/google/devtools/build/lib/events/**/*
+    - src/main/java/com/google/devtools/build/lib/buildeventservice/**/*
+
+area-Bzlmod:
+- changed-files:
+  - any-glob-to-any-file:
+    - src/main/java/com/google/devtools/build/lib/bazel/bzlmod/**/*
+    - src/test/java/com/google/devtools/build/lib/bazel/bzlmod/**/*
+
+area-EngProd:
+- changed-files:
+  - any-glob-to-any-file:
+    - scripts/bootstrap/**/*
+    - scripts/release/**/*
+    - tools/build_defs/pkg/**/*
+    - .bazelci/**/*
+
+area-Windows:
+- changed-files:
+  - any-glob-to-any-file:
+    - src/main/native/windows/**/*
+    - src/main/java/com/google/devtools/build/lib/windows/**/*
+    - src/test/java/com/google/devtools/build/lib/windows/**/*
+    - src/test/native/windows/**/*
