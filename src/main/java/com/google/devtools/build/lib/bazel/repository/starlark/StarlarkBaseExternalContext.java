@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -1026,6 +1027,35 @@ the same path on case-insensitive filesystems.
             positional = false,
             named = true,
             defaultValue = "''"),
+        @Param(
+            name = "include",
+            positional = false,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "[]",
+            named = true,
+            doc =
+                """
+                Extract only files or directories that match the specified glob pattern. Glob
+                pattern matching support is the same as the Bazel Starlark <code>glob</code>
+                function. Pattern matching takes place directly on the paths from the archive
+                (before <code>strip_prefix</code> and <code>rename_files</code> is processed).
+                Note that exclusions specified with	<code>--exclude</code> take precedence over
+                inclusions. If no inclusions are explicitly specified, all entries are processed by
+                default.
+                """),
+        @Param(
+            name = "exclude",
+            positional = false,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "[]",
+            named = true,
+            doc =
+                """
+	              Do not process files or directories that match the specified glob pattern. Glob
+	              pattern matching support is the same as the Bazel Starlark <code>glob</code>
+	              function. Pattern matching takes place directly on the paths from the archive
+	              (before <code>strip_prefix</code> and <code>rename_files</code> is processed)
+	              """),
       })
   public StructImpl downloadAndExtract(
       Object url,
@@ -1040,8 +1070,12 @@ the same path on case-insensitive filesystems.
       String integrity,
       Dict<?, ?> renameFiles, // <String, String> expected
       String oldStripPrefix,
+      Sequence<?> include,
+      Sequence<?> exclude,
       StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
+    List<String> includes = Types.STRING_LIST.convert(include, "'download_and_extract' argument");
+    List<String> excludes = Types.STRING_LIST.convert(exclude, "'download_and_extract' argument");
     stripPrefix = renamedStripPrefix("download_and_extract", stripPrefix, oldStripPrefix);
     ImmutableMap<URI, Map<String, List<String>>> authHeaders =
         getAuthHeaders(getAuthContents(authUnchecked, "auth"));
@@ -1145,6 +1179,8 @@ the same path on case-insensitive filesystems.
               .setDestinationPath(outputPath.getPath())
               .setPrefix(stripPrefix)
               .setRenameFiles(renameFilesMap)
+              .setIncludes(includes)
+              .setExcludes(excludes)
               .build(),
           // Type does NOT need to be passed here, as the existing code renames the archive path to
           // include the type extension. The decompression code then uses the file extension to get
@@ -1291,6 +1327,34 @@ the same path on case-insensitive filesystems.
                 """
                     + SUPPORTED_DECOMPRESSION_FORMATS
                     + " here."),
+        @Param(
+            name = "include",
+            positional = false,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "[]",
+            named = true,
+            doc =
+                """
+	              Extract only files or directories that match the	specified glob pattern. Glob
+	              pattern matching support is the same as the Bazel Starlark <code>glob</code>
+	              function. Patternmatching takes place directly on the paths from the archive (before
+	              <code>strip_prefix</code> and <code>rename_files</code> is processed). Note that
+	              exclusions  specified  with	<code>--exclude</code> take precedence over inclusions.
+	              If no  inclusions are explicitly specified, all entries are processed by default.
+	              """),
+        @Param(
+            name = "exclude",
+            positional = false,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "[]",
+            named = true,
+            doc =
+                """
+	              Do not process files or directories that match the specified glob pattern. Glob
+	              pattern matching support is the same as the Bazel Starlark <code>glob</code>
+	              function. Pattern matching takes place directly on the paths from the archive
+	              (before <code>strip_prefix</code> and <code>rename_files</code> is processed)
+	              """),
       })
   public void extract(
       Object archive,
@@ -1300,8 +1364,12 @@ the same path on case-insensitive filesystems.
       String watchArchive,
       String oldStripPrefix,
       String type,
+      Sequence<?> include,
+      Sequence<?> exclude,
       StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
+    List<String> includes = Types.STRING_LIST.convert(include, "'extract' argument");
+    List<String> excludes = Types.STRING_LIST.convert(exclude, "'extract' argument");
     stripPrefix = renamedStripPrefix("extract", stripPrefix, oldStripPrefix);
     StarlarkPath archivePath = getPath(archive);
 
@@ -1341,6 +1409,8 @@ the same path on case-insensitive filesystems.
             .setDestinationPath(outputPath.getPath())
             .setPrefix(stripPrefix)
             .setRenameFiles(renameFilesMap)
+            .setIncludes(includes)
+            .setExcludes(excludes)
             .build(),
         Optional.ofNullable(type).filter(s -> !s.isBlank()));
     env.getListener().post(new ExtractProgress(outputPath.getPath().toString()));

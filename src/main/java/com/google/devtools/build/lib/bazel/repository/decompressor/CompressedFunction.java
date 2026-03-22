@@ -32,6 +32,10 @@ import java.io.OutputStream;
  *
  * <p>It ignores the {@link DecompressorDescriptor#prefix()} setting because compressed files cannot
  * contain directories.
+ *
+ * <p>It ignores the {@link DecompressorDescriptor#includes()} and {@link
+ * DecompressorDescriptor#excludes()} setting because there is no reason to exclude/skip a set of
+ * files when there is only one file.
  */
 public abstract class CompressedFunction implements Decompressor {
 

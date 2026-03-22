@@ -14,14 +14,18 @@
 
 package com.google.devtools.build.lib.bazel.repository.decompressor;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
@@ -33,12 +37,14 @@ import org.apache.commons.compress.archivers.ar.ArArchiveOutputStream;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests decompressing archives. */
 @RunWith(JUnit4.class)
 public class ArFunctionTest {
+  @Rule public TestName name = new TestName();
   @Rule public TemporaryFolder folder = new TemporaryFolder();
 
   /*
@@ -67,6 +73,19 @@ public class ArFunctionTest {
     // There are 20 bytes in the content "this is the second test file"
     assertThat(secondFile.getFileSize()).isEqualTo(29);
     assertThat(secondFile.isSymbolicLink()).isFalse();
+  }
+
+  @Test
+  public void testDecompressSingleFile() throws Exception {
+    Path outputDir =
+        decompress(
+            createDescriptorBuilder().setIncludes(ImmutableList.of("archived_first.txt")).build());
+
+    ImmutableList<String> files =
+        outputDir.readdir(Symlinks.NOFOLLOW).stream()
+            .map(Dirent::getName)
+            .collect(toImmutableList());
+    assertThat(files).containsExactly("archived_first.txt");
   }
 
   /**
@@ -120,7 +139,7 @@ public class ArFunctionTest {
     Path tarballPath = testFS.getPath(Runfiles.create().rlocation(path));
 
     Path workingDir = testFS.getPath(new File(TestUtils.tmpDir()).getCanonicalPath());
-    Path outDir = workingDir.getRelative("out");
+    Path outDir = workingDir.getRelative("out").getRelative(name.getMethodName());
 
     return DecompressorDescriptor.builder().setDestinationPath(outDir).setArchivePath(tarballPath);
   }

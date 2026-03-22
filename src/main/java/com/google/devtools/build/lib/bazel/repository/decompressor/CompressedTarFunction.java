@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 
@@ -74,6 +75,7 @@ public abstract class CompressedTarFunction implements Decompressor {
     Set<String> availablePrefixes = new HashSet<>();
     // Store link, target info of symlinks, we create them after regular files are extracted.
     Map<Path, PathFragment> symlinks = new HashMap<>();
+    Map<String, Pattern> patternCache = new HashMap<>();
 
     try (InputStream compressedInputStream = descriptor.archivePath().getInputStream();
         InputStream decompressorStream =
@@ -87,6 +89,9 @@ public abstract class CompressedTarFunction implements Decompressor {
       TarArchiveEntry entry;
       while ((entry = tarStream.getNextTarEntry()) != null) {
         String entryName = toRawBytesString(entry.getName());
+        if (descriptor.skipArchiveEntry(entryName, patternCache)) {
+          continue;
+        }
         entryName = renameFiles.getOrDefault(entryName, entryName);
         StripPrefixedPath entryPath =
             StripPrefixedPath.maybeDeprefix(entryName.getBytes(ISO_8859_1), prefix);
