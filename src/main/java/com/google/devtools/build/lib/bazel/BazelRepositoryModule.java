@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelFetchAllFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModTidyFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.BuildozerBinaryFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.LocalPathRepoSpecs;
@@ -159,6 +160,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private RepoSpecFunction repoSpecFunction;
   private YankedVersionsFunction yankedVersionsFunction;
 
+  private final ModCommand modCommand = new ModCommand();
   private final VendorCommand vendorCommand = new VendorCommand(nonstrictRepoEnvSupplier);
   private final RegistryFactoryImpl registryFactory =
       new RegistryFactoryImpl(nonstrictRepoEnvSupplier);
@@ -201,7 +203,7 @@ public class BazelRepositoryModule extends BlazeModule {
   @Override
   public void serverInit(OptionsParsingResult startupOptions, ServerBuilder builder) {
     builder.addCommands(new FetchCommand());
-    builder.addCommands(new ModCommand());
+    builder.addCommands(modCommand);
     builder.addCommands(vendorCommand);
     builder.addInfoItems(new RepositoryCacheInfoItem(repositoryCache));
   }
@@ -242,6 +244,7 @@ public class BazelRepositoryModule extends BlazeModule {
             new BazelLockFileFunction(directories.getWorkspace(), directories.getOutputBase()))
         .addSkyFunction(SkyFunctions.BAZEL_FETCH_ALL, new BazelFetchAllFunction())
         .addSkyFunction(SkyFunctions.BAZEL_MOD_TIDY, new BazelModTidyFunction())
+        .addSkyFunction(SkyFunctions.BUILDOZER_BINARY, new BuildozerBinaryFunction())
         .addSkyFunction(SkyFunctions.BAZEL_MODULE_INSPECTION, new BazelModuleInspectorFunction())
         .addSkyFunction(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION, new SingleExtensionFunction())
@@ -280,6 +283,7 @@ public class BazelRepositoryModule extends BlazeModule {
     this.moduleFileFunction.setDownloadManager(downloadManager);
     this.repoSpecFunction.setDownloadManager(downloadManager);
     this.yankedVersionsFunction.setDownloadManager(downloadManager);
+    this.modCommand.setDownloadManager(downloadManager);
     this.vendorCommand.setDownloadManager(downloadManager);
 
     repoEnvSupplier.set(env.getRepoEnv());
