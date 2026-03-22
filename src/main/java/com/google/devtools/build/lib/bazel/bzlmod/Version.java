@@ -137,7 +137,7 @@ public record Version(
    * non-empty). A prerelease version compares lower than the same version without the prerelease
    * part.
    */
-  boolean isPrerelease() {
+  public boolean isPrerelease() {
     return !prerelease.isEmpty();
   }
 
