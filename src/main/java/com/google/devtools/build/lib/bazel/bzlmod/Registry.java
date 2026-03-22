@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
@@ -70,4 +71,12 @@ public interface Registry extends NotComparableSkyValue {
    * based on the lockfile (if possible).
    */
   Optional<YankedVersionsValue> tryGetYankedVersionsFromLockfile(ModuleKey selectedModuleKey);
+
+  /**
+   * Retrieves all available versions of the module identified by {@code moduleName} from the
+   * registry. Returns {@code Optional.empty()} when the information is not found in the registry.
+   */
+  Optional<ImmutableList<Version>> getAvailableVersions(
+      String moduleName, ExtendedEventHandler eventHandler, DownloadManager downloadManager)
+      throws IOException, InterruptedException;
 }

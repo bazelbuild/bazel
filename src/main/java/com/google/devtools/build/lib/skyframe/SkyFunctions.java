@@ -174,7 +174,6 @@ public final class SkyFunctions {
   public static final SkyFunctionName REPO_SPEC = SkyFunctionName.createNonHermetic("REPO_SPEC");
   public static final SkyFunctionName YANKED_VERSIONS =
       SkyFunctionName.createNonHermetic("YANKED_VERSIONS");
-
   public static final SkyFunctionName MODULE_EXTENSION_REPO_MAPPING_ENTRIES =
       SkyFunctionName.createHermetic("MODULE_EXTENSION_REPO_MAPPING_ENTRIES");
   public static final SkyFunctionName VENDOR_FILE = SkyFunctionName.createHermetic("VENDOR_FILE");
