@@ -575,31 +575,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean fixedResourceNeverlinking;
 
     @Option(
-        name = "android_migration_tag_check",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {
-          OptionEffectTag.EAGERNESS_TO_EXIT,
-        },
-        help =
-            "If enabled, strict usage of the Starlark migration tag is enabled for android rules. "
-                + "Prefer using --incompatible_disable_native_android_rules.")
-    public boolean checkForMigrationTag;
-
-    @Option(
-        name = "incompatible_disable_native_android_rules",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-        effectTags = {
-          OptionEffectTag.EAGERNESS_TO_EXIT,
-        },
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help =
-            "If enabled, direct usage of the native Android rules is disabled. Please use the"
-                + " Starlark Android rules from https://github.com/bazelbuild/rules_android")
-    public boolean disableNativeAndroidRules;
-
-    @Option(
         name = "experimental_filter_r_jars_from_android_test",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -937,7 +912,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean useParallelDex2Oat;
   private final boolean omitResourcesInfoProviderFromAndroidBinary;
   private final boolean fixedResourceNeverlinking;
-  private final boolean checkForMigrationTag;
   private final boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
   private final boolean persistentAarExtractor;
   private final boolean persistentBusyboxTools;
@@ -984,9 +958,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.omitResourcesInfoProviderFromAndroidBinary =
         options.omitResourcesInfoProviderFromAndroidBinary;
     this.fixedResourceNeverlinking = options.fixedResourceNeverlinking;
-    // use --incompatible_disable_native_android_rules, and also the old flag for backwards
-    // compatibility
-    this.checkForMigrationTag = options.checkForMigrationTag || options.disableNativeAndroidRules;
     this.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
         options.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
     this.persistentAarExtractor = options.persistentAarExtractor;
@@ -1154,11 +1125,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean fixedResourceNeverlinking() {
     return this.fixedResourceNeverlinking;
-  }
-
-  @Override
-  public boolean checkForMigrationTag() {
-    return checkForMigrationTag;
   }
 
   @Override

@@ -156,13 +156,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   boolean fixedResourceNeverlinking();
 
   @StarlarkMethod(
-      name = "check_for_migration_tag",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean checkForMigrationTag();
-
-  @StarlarkMethod(
       name = "get_one_version_enforcement_use_transitive_jars_for_binary_under_test",
       structField = true,
       doc = "",
