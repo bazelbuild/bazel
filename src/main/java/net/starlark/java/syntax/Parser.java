@@ -1175,7 +1175,15 @@ final class Parser {
 
   // TypeEntry = string ':' TypeArgument .
   private DictExpression.Entry parseTypeDictEntry() {
-    Expression key = parseStringLiteral();
+    Expression key;
+    if (token.kind == TokenKind.STRING) {
+      key = parseStringLiteral();
+    } else {
+      int start = token.start;
+      syntaxError(String.format("expected %s", TokenKind.STRING));
+      int end = syncTo(EXPR_TERMINATOR_SET);
+      key = makeErrorExpression(start, end);
+    }
     int colonOffset = expect(TokenKind.COLON);
     Expression value = parseTypeArgument();
     return new DictExpression.Entry(locs, key, colonOffset, value);
