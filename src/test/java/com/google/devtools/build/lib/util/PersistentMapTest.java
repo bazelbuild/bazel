@@ -138,6 +138,28 @@ public final class PersistentMapTest {
   }
 
   @Test
+  public void computeIfAbsent() throws Exception {
+    createMap();
+    assertThat(map.computeIfAbsent("foo", k -> "bar")).isEqualTo("bar");
+    assertThat(map.computeIfAbsent("foo", k -> "ignored")).isEqualTo("bar");
+    assertThat(map.computeIfAbsent("baz", k -> "bang")).isEqualTo("bang");
+    assertThat(map.computeIfAbsent("baz", k -> "ignored")).isEqualTo("bang");
+    assertThat(map).containsEntry("foo", "bar");
+    assertThat(map).containsEntry("baz", "bang");
+    assertThat(map).hasSize(2);
+    long size = map.save();
+    assertThat(size).isEqualTo(mapFile.getFileSize());
+    assertThat(map).containsEntry("foo", "bar");
+    assertThat(map).containsEntry("baz", "bang");
+    assertThat(map).hasSize(2);
+
+    createMap(); // create a new map
+    assertThat(map).containsEntry("foo", "bar");
+    assertThat(map).containsEntry("baz", "bang");
+    assertThat(map).hasSize(2);
+  }
+
+  @Test
   public void remove() throws Exception {
     createMap();
     map.put("foo", "bar");
