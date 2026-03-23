@@ -87,23 +87,23 @@ import javax.annotation.Nullable;
  * The contents are represented as an output file for the marker file and an output directory for
  * the contents.
  *
- * <p>If a repo rule has no dynamic dependencies, this hash is just the predeclared inputs hash
- * {@link DigestWriter}. If it has dynamic dependencies, then the AC entry for the predeclared
- * inputs hash will be an intermediate entry that lists one or more sets of {@link
+ * <p>If a repo rule does not record any {@link RepoRecordedInput}s during its execution, this hash
+ * is just the predeclared inputs hash {@link DigestWriter}. Otherwise, the AC entry for the
+ * predeclared inputs hash will be an intermediate entry that lists one or more sets of {@link
  * RepoRecordedInput}s that a previously cached repo consumed during the evaluation of its rule. The
  * cache requests the current values of these inputs and computes the next hash to look up by a
  * rolling construction that combines the previous hash with the string representations of the
  * {@link RepoRecordedInput.WithValue}. This process is repeated until a final entry with the repo
  * contents is found or no matching entry exists.
  *
- * <p>By representing repos with dynamic dependencies as linked trees of AC entries, lookups are
- * efficient (they don't scale with the number of cached repos per predeclared inputs hash) and
- * regular LRU eviction policies remain effective for the most part. If a repo rule often requests
- * different inputs even with the same predeclared inputs hash and previously requested inputs and
- * values, it could result in large action results that grow over time. This is considered an
- * acceptable trade-off for simplicity for now and could be mitigated in the future by an explicit
- * GC mechanism such as "least recently added" eviction when the size of action result exceeds a
- * certain threshold.
+ * <p>By representing repos with dynamic dependencies as DAGs of AC entries, lookups are efficient
+ * (they don't scale with the number of cached repos per predeclared inputs hash) and regular LRU
+ * eviction policies remain effective for the most part. If a repo rule often requests different
+ * inputs even with the same predeclared inputs hash and previously requested inputs and values, it
+ * could result in large action results that grow over time. This is considered an acceptable
+ * trade-off for simplicity for now and could be mitigated in the future by an explicit GC mechanism
+ * such as "least recently added" eviction when the size of action result exceeds a certain
+ * threshold.
  */
 public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCache {
   private static final UUID GUID = UUID.fromString("f4a165a9-5557-45a7-bf25-230b6d42393a");
@@ -366,7 +366,9 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
    * intermediate action results will only contain a single set of recorded inputs.
    */
   private ListenableFuture<Void> addToActionResult(
-      RemoteActionExecutionContext context, Action action, Collection<RepoRecordedInput> inputs) {
+      RemoteActionExecutionContext context,
+      Action action,
+      Collection<RepoRecordedInput> newInputs) {
     var actionKey = digestUtil.computeActionKey(action);
     var currentInputsFuture =
         Futures.transformAsync(
@@ -387,12 +389,12 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
           // spaces or newlines. We can thus safely use spaces to separate inputs within a batch
           // and newlines to separate different batches.
           var newInputString =
-              inputs.stream().map(RepoRecordedInput::toString).collect(joining(" "));
+              newInputs.stream().map(RepoRecordedInput::toString).collect(joining(" "));
           if (currentInputsString.lines().anyMatch(newInputString::equals)) {
             // The current batch of inputs is already present, no need to update the action result.
             return immediateFuture(null);
           }
-          // Add the new input to the top so that the most recently added inputs stay at the top.
+          // Add the new inputs to the top so that the most recently added inputs stay at the top.
           // This could be used to implement a simple "least recently added" eviction strategy in
           // the future in case the size of action results becomes a concern.
           //
@@ -406,13 +408,12 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
           var stdoutDigest = digestUtil.compute(stdoutBytes);
           var actionResult =
               ActionResult.newBuilder().setExitCode(0).setStdoutDigest(stdoutDigest).build();
-          return transformAsync(
-              whenAllSucceed(
-                      cache.uploadBlob(context, actionKey.digest(), action.toByteString()),
-                      cache.uploadBlob(context, stdoutDigest, ByteString.copyFrom(stdoutBytes)))
-                  .run(() -> {}, directExecutor()),
-              unused -> cache.uploadActionResult(context, actionKey, actionResult),
-              directExecutor());
+          return whenAllSucceed(
+                  cache.uploadBlob(context, actionKey.digest(), action.toByteString()),
+                  cache.uploadBlob(context, stdoutDigest, ByteString.copyFrom(stdoutBytes)))
+              .callAsync(
+                  () -> cache.uploadActionResult(context, actionKey, actionResult),
+                  directExecutor());
         },
         directExecutor());
   }
@@ -535,7 +536,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
                         .collect(toImmutableList()))
             .collect(toImmutableList());
     var uniqueNextInputs =
-        nextInputBatches.stream().flatMap(List::stream).distinct().collect(toImmutableSet());
+        nextInputBatches.stream().flatMap(List::stream).collect(toImmutableSet());
     RepoRecordedInput.prefetch(env, directories, uniqueNextInputs);
     if (env.valuesMissing()) {
       return null;

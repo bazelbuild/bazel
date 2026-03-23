@@ -34,6 +34,8 @@ public interface RemoteRepoContentsCache {
   /**
    * Retrieves a repository from the remote cache if possible.
    *
+   * <p>Callers have to check {@code env.valuesMissing()} after this method returns.
+   *
    * @return true if there was a cache hit and the repository has been fetched into the given
    *     directory.
    */
