@@ -644,8 +644,10 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       }
     } catch (IOException e) {
       if (pendingDownload.allowFail) {
-        return StarlarkInfo.create(
-            StructProvider.STRUCT, ImmutableMap.of("success", false), Location.BUILTIN);
+        Map<String, Object> struct = ImmutableMap.of(
+            "success", false,
+            "error", e.toString());
+        return StarlarkInfo.create(StructProvider.STRUCT, struct, Location.BUILTIN);
       } else {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
@@ -1122,8 +1124,10 @@ the same path on case-insensitive filesystems.
     } catch (IOException e) {
       env.getListener().post(w);
       if (allowFail) {
-        return StarlarkInfo.create(
-            StructProvider.STRUCT, ImmutableMap.of("success", false), Location.BUILTIN);
+        Map<String, Object> struct = ImmutableMap.of(
+            "success", false,
+            "error", e.toString());
+        return StarlarkInfo.create(StructProvider.STRUCT, struct, Location.BUILTIN);
       } else {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
