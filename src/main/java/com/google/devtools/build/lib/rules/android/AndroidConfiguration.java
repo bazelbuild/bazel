@@ -393,15 +393,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         help = "dx flags supported in tool that groups classes for inclusion in final .dex files.")
     public List<String> dexoptsSupportedInDexSharder;
 
-    @Deprecated
-    @Option(
-        name = "experimental_allow_android_library_deps_without_srcs",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "No-op. Kept here for backwards compatibility.")
-    public boolean allowAndroidLibraryDepsWithoutSrcs;
-
     @Option(
         name = "experimental_android_resource_shrinking",
         defaultValue = "false",
