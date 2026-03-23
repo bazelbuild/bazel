@@ -337,7 +337,8 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       List<RepoRecordedInput.WithValue> recordedInputValues)
       throws IOException, InterruptedException {
     // The command is shared by all action results and small enough that FindMissingBlobs is not
-    // worthwhile.
+    // worthwhile. The REAPI spec requires the command to be uploaded before an action result that
+    // references it.
     waitForBulkTransfer(ImmutableSet.of(cache.uploadBlob(context, commandDigest, COMMAND_BYTES)));
 
     String rollingHash = predeclaredInputHash;
@@ -448,8 +449,8 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
 
   /**
    * Fetches a final cache entry for the given predeclared input hash by recursively following
-   * intermediate entries if needed or returns null if no final entry could be found. The return
-   * value must be ignored if {@link SkyFunction.Environment#valuesMissing()} is true.
+   * intermediate entries if needed or returns null if no final entry could be found or a Skyframe
+   * restart is needed.
    */
   @Nullable
   private CacheEntry.Final fetchFinalCacheEntry(
