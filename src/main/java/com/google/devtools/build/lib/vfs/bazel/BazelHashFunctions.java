@@ -26,20 +26,19 @@ public final class BazelHashFunctions {
   @Nullable public static final DigestHashFunction GITSHA1;
 
   static {
-    DigestHashFunction hashFunction = null;
+    DigestHashFunction blake3HashFunction = null;
 
     if (JniLoader.isJniAvailable()) {
       try {
         Security.addProvider(new Blake3Provider());
-        hashFunction = DigestHashFunction.register(Blake3HashFunction.INSTANCE, "BLAKE3");
+        blake3HashFunction = DigestHashFunction.register(Blake3HashFunction.INSTANCE, "BLAKE3");
       } catch (UnsatisfiedLinkError ignored) {
-        // This can happen if bazel was compiled manually (with compile.sh),
-        // on windows. In that case jni is available, but missing the blake3
-        // symbols necessary to register the hasher.
+        // This can happen when bootstrapping a Bazel binary via compile.sh. In that case JNI is
+        // available, but missing the blake3 symbols necessary to register the hasher.
       }
     }
 
-    BLAKE3 = hashFunction;
+    BLAKE3 = blake3HashFunction;
 
     Security.addProvider(new GitSha1Provider());
     GITSHA1 = DigestHashFunction.register(GitSha1HashFunction.INSTANCE, "GITSHA1");

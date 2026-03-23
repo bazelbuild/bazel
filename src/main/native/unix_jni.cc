@@ -31,6 +31,7 @@
 #include <unistd.h>
 #include <utime.h>
 
+#include <iterator>
 // Linting disabled for this line because for google code we could use
 // absl::Mutex but we cannot yet because Bazel doesn't depend on absl.
 #include <mutex>  // NOLINT

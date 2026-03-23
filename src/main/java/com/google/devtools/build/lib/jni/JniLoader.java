@@ -38,33 +38,15 @@ public final class JniLoader {
     Throwable jniLoadError;
     try {
       switch (OS.getCurrent()) {
-        case LINUX:
-        case FREEBSD:
-        case OPENBSD:
-        case UNKNOWN:
+        case LINUX, FREEBSD, OPENBSD, UNKNOWN -> {
           loadLibrary("main/native/libunix_jni.so");
-          break;
-
-        case DARWIN:
+        }
+        case DARWIN -> {
           loadLibrary("main/native/libunix_jni.dylib");
-          break;
-
-        case WINDOWS:
-          try {
-            // TODO(jmmv): This is here only for the bootstrapping process, which builds the JNI
-            // library and passes a -Djava.library.path to the JVM to find it. I'm sure that this
-            // can be replaced by properly bundling the library as a resource in the JAR. For some
-            // strange reason that I haven't fully understood yet, this also must come first.
-            System.loadLibrary("windows_jni");
-          } catch (UnsatisfiedLinkError e) {
-            try {
-              loadLibrary("main/native/windows/windows_jni.dll");
-            } catch (IOException e2) {
-              e2.addSuppressed(e);
-              throw e2;
-            }
-          }
-          break;
+        }
+        case WINDOWS -> {
+          loadLibrary("main/native/windows/windows_jni.dll");
+        }
       }
       jniLoadError = null;
     } catch (IOException | UnsatisfiedLinkError e) {
