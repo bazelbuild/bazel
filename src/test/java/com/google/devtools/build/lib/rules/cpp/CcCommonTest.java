@@ -556,36 +556,9 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testDisabledGenfilesDontShowUpInSystemIncludePaths() throws Exception {
-    scratch.file(
-        "bang/BUILD",
-        """
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        cc_library(
-            name = "bang",
-            srcs = ["bang.cc"],
-            includes = ["bang_includes"],
-        )
-        """);
-    String includesRoot = "bang/bang_includes";
-
-    useConfiguration("--noincompatible_merge_genfiles_directory");
-    ConfiguredTarget foo = getConfiguredTarget("//bang:bang");
-    PathFragment genfilesDir =
-        targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot);
-    assertThat(CcInfo.get(foo).getCcCompilationContext().getIncludeDirs()).contains(genfilesDir);
-
-    useConfiguration("--incompatible_merge_genfiles_directory");
-    foo = getConfiguredTarget("//bang:bang");
-    assertThat(CcInfo.get(foo).getCcCompilationContext().getIncludeDirs())
-        .doesNotContain(genfilesDir);
-  }
-
-  @Test
   public void testUseIsystemForIncludes() throws Exception {
     // Tests the effect of using `-isystem` for include paths.
-    useConfiguration(
-        "--incompatible_merge_genfiles_directory=false", "--features=system_include_paths");
+    useConfiguration("--features=system_include_paths");
     scratch.file(
         "no_includes/BUILD",
         """
@@ -616,7 +589,6 @@ public class CcCommonTest extends BuildViewTestCase {
         new ImmutableList.Builder<PathFragment>()
             .addAll(CcInfo.get(noIncludes).getCcCompilationContext().getSystemIncludeDirs())
             .add(PathFragment.create(includesRoot))
-            .add(targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot))
             .add(targetConfig.getBinFragment(RepositoryName.MAIN).getRelative(includesRoot))
             .build();
     assertThat(CcInfo.get(foo).getCcCompilationContext().getSystemIncludeDirs())
@@ -626,7 +598,6 @@ public class CcCommonTest extends BuildViewTestCase {
   @Test
   public void testUseIForIncludes() throws Exception {
     // Tests that includes use -I without the alternative feature (system_include_paths).
-    useConfiguration("--incompatible_merge_genfiles_directory=false");
     scratch.file(
         "no_includes/BUILD",
         """
@@ -656,7 +627,6 @@ public class CcCommonTest extends BuildViewTestCase {
         new ImmutableList.Builder<PathFragment>()
             .addAll(CcInfo.get(noIncludes).getCcCompilationContext().getIncludeDirs())
             .add(PathFragment.create(includesRoot))
-            .add(targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot))
             .add(targetConfig.getBinFragment(RepositoryName.MAIN).getRelative(includesRoot))
             .build();
     assertThat(CcInfo.get(foo).getCcCompilationContext().getIncludeDirs())
