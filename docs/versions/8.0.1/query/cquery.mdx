@@ -17,22 +17,22 @@ For example:
 $ cat > tree/BUILD &lt;&lt;EOF
 sh_library(
     name = "ash",
-    deps = select({
+    deps = select(&#123;
         ":excelsior": [":manna-ash"],
         ":americana": [":white-ash"],
         "//conditions:default": [":common-ash"],
-    }),
+    &#125;),
 )
 sh_library(name = "manna-ash")
 sh_library(name = "white-ash")
 sh_library(name = "common-ash")
 config_setting(
     name = "excelsior",
-    values = {"define": "species=excelsior"},
+    values = &#123;"define": "species=excelsior"&#125;,
 )
 config_setting(
     name = "americana",
-    values = {"define": "species=americana"},
+    values = &#123;"define": "species=americana"&#125;,
 )
 EOF
 </pre>
@@ -490,7 +490,7 @@ Extract a value from a user defined Provider.
 <pre>
   $ cat some_package/my_rule.bzl
 
-  MyRuleInfo = provider(fields={"color": "the name of a color"})
+  MyRuleInfo = provider(fields=&#123;"color": "the name of a color"&#125;)
 
   def _my_rule_impl(ctx):
       ...
@@ -498,7 +498,7 @@ Extract a value from a user defined Provider.
 
   my_rule = rule(
       implementation = _my_rule_impl,
-      attrs = {...},
+      attrs = &#123;...&#125;,
   )
 
   $ cat example.cquery
