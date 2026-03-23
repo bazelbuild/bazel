@@ -574,17 +574,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + " will be preserved.")
     public boolean fixedResourceNeverlinking;
 
-    @Option(
-        name = "experimental_filter_r_jars_from_android_test",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {
-          OptionEffectTag.CHANGES_INPUTS,
-        },
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help = "If enabled, R Jars will be filtered from the test apk built by android_test.")
-    public boolean filterRJarsFromAndroidTest;
-
     // TODO(eaftan): enable this by default and delete it
     @Option(
         name = "experimental_one_version_enforcement_use_transitive_jars_for_binary_under_test",
@@ -918,7 +907,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean persistentMultiplexBusyboxTools;
   private final boolean persistentDexDesugar;
   private final boolean persistentMultiplexDexDesugar;
-  private final boolean filterRJarsFromAndroidTest;
   private final boolean removeRClassesFromInstrumentationTestJar;
   private final boolean alwaysFilterDuplicateClassesFromAndroidTest;
   private final boolean filterLibraryJarWithProgramJar;
@@ -965,7 +953,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.persistentMultiplexBusyboxTools = options.persistentMultiplexBusyboxTools;
     this.persistentDexDesugar = options.persistentDexDesugar;
     this.persistentMultiplexDexDesugar = options.persistentMultiplexDexDesugar;
-    this.filterRJarsFromAndroidTest = options.filterRJarsFromAndroidTest;
     this.removeRClassesFromInstrumentationTestJar =
         options.removeRClassesFromInstrumentationTestJar;
     this.alwaysFilterDuplicateClassesFromAndroidTest =
@@ -1170,10 +1157,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     if (configurationDistinguisher.suffix != null) {
       ctx.addToMnemonic(configurationDistinguisher.suffix);
     }
-  }
-
-  public boolean filterRJarsFromAndroidTest() {
-    return filterRJarsFromAndroidTest;
   }
 
   public boolean removeRClassesFromInstrumentationTestJar() {
