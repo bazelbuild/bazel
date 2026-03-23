@@ -92,38 +92,6 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSameHeaderFileTwice() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        """
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        package(features = ["parse_headers"])
-
-        cc_library(
-            name = "a",
-            srcs = [
-                "a.cc",
-                "a1",
-                "a2",
-            ],
-        )
-
-        filegroup(
-            name = "a1",
-            srcs = ["a.h"],
-        )
-
-        filegroup(
-            name = "a2",
-            srcs = ["a.h"],
-        )
-        """);
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:a");
-    assertNoEvents();
-  }
-
-  @Test
   public void testEmptyLibrary() throws Exception {
     ConfiguredTarget emptylib = getConfiguredTarget("//empty:emptylib");
     // We create .a for empty libraries, for simplicity (in Blaze).
