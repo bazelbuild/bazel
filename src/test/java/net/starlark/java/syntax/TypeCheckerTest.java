@@ -21,6 +21,8 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ObjectArrays;
 import java.util.Objects;
 import net.starlark.java.syntax.Resolver.Module;
@@ -348,17 +350,24 @@ public final class TypeCheckerTest {
     // TODO: #28037 - Check break/continue, once we support for and def statements
   }
 
-  /** A dummy type having a single field 'f' of type int. */
+  /** A dummy type having a single field 'f' of a given type. */
   private static sealed class FooType extends StarlarkType permits FooType.Mutable {
     protected final StarlarkType fieldType;
+    private final ImmutableList<StarlarkType> supertypes;
 
     FooType(StarlarkType fieldType) {
       this.fieldType = fieldType;
+      this.supertypes = ImmutableList.of(Types.struct(ImmutableMap.of("f", fieldType)));
     }
 
     @Override
     public StarlarkType getField(String name, TypeContext context) {
       return name.equals("f") ? fieldType : null;
+    }
+
+    @Override
+    public ImmutableList<StarlarkType> getSupertypes() {
+      return supertypes;
     }
 
     @Override
@@ -398,6 +407,8 @@ public final class TypeCheckerTest {
 
   private final Module fooModule =
       TestUtils.Module.withUniversalTypesAnd(
+          "struct",
+          Types.STRUCT_CONSTRUCTOR,
           "Foo",
           Types.wrapTypeConstructor("Foo", t -> new FooType(t)),
           "MutableFoo",
@@ -411,6 +422,7 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls(
         "o.f", Types.union(Types.STR, Types.INT, Types.BOOL), "o: Foo[str] | MutableFoo[int|bool]");
     assertTypeGivenDecls("o.f", Types.ANY, "o: Any");
+    assertTypeGivenDecls("o.f + o.g", Types.FLOAT, "o: struct[{'f': int, 'g': float}]");
 
     assertInvalid(
         ":2:2: 'n' of type 'int' does not have field 'f'",
@@ -471,6 +483,28 @@ public final class TypeCheckerTest {
         """
         o: MutableFoo[int] | MutableFoo[bool]
         o.f = 123
+        """);
+  }
+
+  @Test
+  public void assignment_to_struct() throws Exception {
+    module = fooModule;
+
+    assertValid(
+        """
+        lhs: struct[{"f": int | str}]
+        rhs: Foo[int]
+
+        lhs = rhs
+        """);
+
+    assertInvalid(
+        ":4:1: cannot assign type 'Foo[int]' to 'lhs' of type 'struct[{f: int, g: str}]'",
+        """
+        lhs: struct[{"f": int, "g": str}]
+        rhs: Foo[int]
+
+        lhs = rhs
         """);
   }
 

@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,6 +43,24 @@ public class TypesTest {
         .isFalse();
   }
 
+  /** Asserts {@code t1} is assignable to {@code t2}, but not vice versa. */
+  private static void assertStrictLt(StarlarkType t1, StarlarkType t2) {
+    assertLt(t1, t2);
+    assertNotLt(t2, t1);
+  }
+
+  /** Asserts {@code t1} and {@code t2} are assignable in both directions. */
+  private static void assertLtAndGt(StarlarkType t1, StarlarkType t2) {
+    assertLt(t1, t2);
+    assertLt(t2, t1);
+  }
+
+  /** Asserts {@code t1} and {@code t2} are *not* assignable in either direction. */
+  private static void assertIncomparable(StarlarkType t1, StarlarkType t2) {
+    assertNotLt(t1, t2);
+    assertNotLt(t2, t1);
+  }
+
   /**
    * Asserts that the given types form a strict chain of assignability, with the ith element being
    * assignable to all jth elements where i < j, but not vice versa.
@@ -49,8 +68,7 @@ public class TypesTest {
   private static void assertStrictLtChain(StarlarkType... types) {
     for (int i = 0; i < types.length - 1; i++) {
       for (int j = i + 1; j < types.length; j++) {
-        assertLt(types[i], types[j]);
-        assertNotLt(types[j], types[i]);
+        assertStrictLt(types[i], types[j]);
       }
     }
   }
@@ -64,25 +82,22 @@ public class TypesTest {
 
   @Test
   public void assignability_anyPassesEitherDirection() {
-    assertLt(Types.INT, Types.ANY);
-    assertLt(Types.ANY, Types.INT);
+    assertLtAndGt(Types.INT, Types.ANY);
   }
 
   @Test
   public void assignability_objectIsTop() {
-    assertLt(Types.INT, Types.OBJECT);
-    assertNotLt(Types.OBJECT, Types.INT);
-    assertLt(Types.ANY, Types.OBJECT);
-    assertLt(Types.OBJECT, Types.ANY);
+    assertStrictLt(Types.INT, Types.OBJECT);
+    assertLtAndGt(Types.ANY, Types.OBJECT);
   }
 
   @Test
   public void assignability_primitiveTypesAreIncompatible() {
-    assertNotLt(Types.INT, Types.STR);
-    assertNotLt(Types.INT, Types.FLOAT); // unlike Python
-    assertNotLt(Types.STR, Types.FLOAT);
-    assertNotLt(Types.BOOL, Types.INT); // unlike Python
-    assertNotLt(Types.NONE, Types.STR);
+    assertIncomparable(Types.INT, Types.STR);
+    assertIncomparable(Types.INT, Types.FLOAT); // unlike Python
+    assertIncomparable(Types.STR, Types.FLOAT);
+    assertIncomparable(Types.BOOL, Types.INT); // unlike Python
+    assertIncomparable(Types.NONE, Types.STR);
   }
 
   @Test
@@ -125,18 +140,40 @@ public class TypesTest {
         Types.collection(intOrStr));
 
     assertStrictLtChain(Types.set(Types.STR), Types.collection(Types.STR));
-    assertNotLt(Types.set(Types.STR), Types.sequence(Types.STR));
+    assertIncomparable(Types.set(Types.STR), Types.sequence(Types.STR));
 
     assertStrictLtChain(
         Types.dict(Types.STR, Types.INT),
         Types.mapping(Types.STR, Types.INT),
         Types.collection(Types.STR));
-    assertNotLt(Types.dict(Types.STR, Types.INT), Types.sequence(Types.STR));
+    assertIncomparable(Types.dict(Types.STR, Types.INT), Types.sequence(Types.STR));
 
     // Works with unions too.
     assertStrictLtChain(
         Types.union(Types.dict(Types.STR, Types.INT), Types.list(Types.STR)),
         Types.union(Types.collection(Types.STR), Types.collection(Types.BOOL)));
+  }
+
+  @Test
+  public void assignability_struct() {
+    assertLtAndGt(
+        Types.struct(ImmutableMap.of("f", Types.INT)),
+        Types.struct(ImmutableMap.of("f", Types.ANY)));
+
+    // Order of fields is irrelevant.
+    assertLtAndGt(
+        Types.struct(ImmutableMap.of("f", Types.INT, "g", Types.BOOL)),
+        Types.struct(ImmutableMap.of("g", Types.BOOL, "f", Types.INT)));
+
+    assertIncomparable(
+        Types.struct(ImmutableMap.of("f", Types.INT, "g", Types.INT)),
+        Types.struct(ImmutableMap.of("f", Types.INT, "h", Types.INT)));
+
+    assertStrictLtChain(
+        Types.struct(ImmutableMap.of("f", Types.INT, "g", Types.STR, "h", Types.BOOL)),
+        Types.struct(ImmutableMap.of("f", Types.INT, "h", Types.ANY)),
+        Types.struct(ImmutableMap.of("f", Types.union(Types.INT, Types.FLOAT))),
+        Types.struct(ImmutableMap.of()));
   }
 
   @Test
