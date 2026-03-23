@@ -548,21 +548,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean dataBindingUpdatedArgs;
 
     @Option(
-        name = "android_databinding_use_androidx",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-        effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        },
-        metadataTags = OptionMetadataTag.EXPERIMENTAL,
-        help =
-            "Generate AndroidX-compatible data-binding files. "
-                + "This is only used with databinding v2. This flag is a no-op.")
-    public boolean dataBindingAndroidX;
-
-    @Option(
         name = "experimental_android_library_exports_manifest_default",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
