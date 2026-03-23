@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -1188,7 +1189,7 @@ public class CcToolchainFeatures implements StarlarkValue {
       this.requestedFeatures = ImmutableSet.copyOf(ImmutableList.sortedCopyOf(requestedFeatures));
       this.enabledFeatures = enabledFeatures;
 
-      this.actionConfigByActionName = actionConfigByActionName;
+      this.actionConfigByActionName = ImmutableSortedMap.copyOf(actionConfigByActionName);
       ImmutableSet.Builder<String> featureBuilder = ImmutableSet.builder();
       for (Feature feature : enabledFeatures) {
         featureBuilder.add(feature.getName());
@@ -1469,7 +1470,7 @@ public class CcToolchainFeatures implements StarlarkValue {
     this.defaultSelectables = defaultSelectablesBuilder.build();
 
     this.selectables = selectablesBuilder.build();
-    this.selectablesByName = ImmutableMap.copyOf(selectablesByName);
+    this.selectablesByName = ImmutableSortedMap.copyOf(selectablesByName);
 
     checkForActionNameDups(actionConfigs);
     checkForActivatableDups(this.selectables);
