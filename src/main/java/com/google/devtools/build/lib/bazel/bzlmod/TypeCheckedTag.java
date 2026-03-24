@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.repository.AttributeUtils;
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
+import java.util.Comparator;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.EvalException;
@@ -43,13 +44,9 @@ public class TypeCheckedTag implements Structure {
    * classes within a module file and across modules in BFS order.
    */
   @StarlarkBuiltin(name = "sort_key", documented = false)
-  private static final class SortKey implements StarlarkValue, Comparable<SortKey> {
-    private final long key;
-
-    private SortKey(int moduleIndex, int tagIndex) {
-      // Sort by module first, then in the order tags were defined within the module.
-      this.key = (Integer.toUnsignedLong(moduleIndex) << 32) + Integer.toUnsignedLong(tagIndex);
-    }
+  private record SortKey(int moduleIndex, int tagIndex) implements StarlarkValue, Comparable<SortKey> {
+    private static final Comparator<SortKey> COMPARATOR =
+        Comparator.comparingInt(SortKey::moduleIndex).thenComparingInt(SortKey::tagIndex);
 
     @Override
     public boolean isImmutable() {
@@ -58,17 +55,7 @@ public class TypeCheckedTag implements Structure {
 
     @Override
     public int compareTo(SortKey other) {
-      return Long.compareUnsigned(this.key, other.key);
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      return this == other || (other instanceof SortKey o && this.key == o.key);
-    }
-
-    @Override
-    public int hashCode() {
-      return Long.hashCode(key);
+      return COMPARATOR.compare(this, other);
     }
 
     @Override
@@ -78,7 +65,7 @@ public class TypeCheckedTag implements Structure {
 
     @Override
     public void debugPrint(Printer printer, StarlarkThread thread) {
-      printer.append("<sort_key key=%d>".formatted(key));
+      printer.append("<sort_key module=%d tag=%d>".formatted(moduleIndex, tagIndex));
     }
   }
 
