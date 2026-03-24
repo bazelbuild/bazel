@@ -177,7 +177,7 @@ The pattern is a regex and is applied to the full name of the rule. It's similar
 
 <pre>
 fullname=$(bazel query path/to/file/bar.java)
-bazel query "attr('srcs', $fullname, ${fullname//:*/}:*)"
+bazel query "attr('srcs', $fullname, $&#123;fullname//:*/&#125;:*)"
 </pre>
 
 ### What package dependencies exist ...
@@ -205,10 +205,7 @@ referenced by `subinclude`; see the reference manual for details.
 
 ##### ...Now find the definitions of all the Java binaries that depend on them
 
-<pre>bazel query 'let jbs = kind(java_binary, //java/com/example/frontend/...) in
-  let cls = kind(cc_.*library, deps($jbs)) in
-    $jbs intersect allpaths($jbs, $cls)'
-</pre>
+<pre>bazel query 'let jbs = kind(java_binary, //java/com/example/frontend/...) in let cls = kind(cc_.*library, deps($jbs)) in $jbs intersect allpaths($jbs, $cls)'</pre>
 
 ### What file dependencies exist ...
 
@@ -263,17 +260,14 @@ This query boils down to: "show me the subgraph of `//photos/frontend:lib` that
 depends on both libraries". When shown in topological order, the last element
 of the result is the most likely culprit.
 
-<pre>bazel query 'allpaths(//photos/frontend:lib, //third_party/jpeglib)
-                intersect
-               allpaths(//photos/frontend:lib, //third_party/jpeg)'
+<pre>&#123;`bazel query 'allpaths(//photos/frontend:lib, //third_party/jpeglib) intersect allpaths(//photos/frontend:lib, //third_party/jpeg)'
 //photos/frontend:lib
 //photos/frontend:lib_impl
 //photos/frontend:lib_dispatcher
 //photos/frontend:icons
 //photos/frontend/modules/gadgets:gadget_icon
 //photos/thumbnailer:thumbnail_lib
-//third_party/jpeg/img:renderer
-</pre>
+//third_party/jpeg/img:renderer`&#125;</pre>
 
 ### What depends on  ...
 
