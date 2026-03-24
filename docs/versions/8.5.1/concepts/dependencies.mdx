@@ -70,21 +70,22 @@ depends on `c`.
   </tr>
   <tr>
     <td>
-      <pre>rule(
+      ```
+rule(
     name = "a",
     srcs = "a.in",
     deps = "//b:b",
 )
-      </pre>
+      ```
     </td>
     <td>
-      <pre>
+      ```
 rule(
     name = "b",
     srcs = "b.in",
     deps = "//c:c",
 )
-      </pre>
+      ```
     </td>
   </tr>
   <tr class="alt">
@@ -92,18 +93,19 @@ rule(
     <td><code>b / b.in</code></td>
   </tr>
   <tr>
-    <td><pre>
+    <td>
+      ```
 import b;
 b.foo();
-    </pre>
+      ```
     </td>
     <td>
-      <pre>
+      ```
 import c;
 function foo() {
   c.bar();
 }
-      </pre>
+      ```
     </td>
   </tr>
   <tr>
@@ -140,12 +142,12 @@ direct _actual_ dependency on `c`, but forgets to declare it in the build file
   </tr>
   <tr>
     <td>
-      <pre>
+      ```
         import b;
         import c;
         b.foo();
         c.garply();
-      </pre>
+      ```
     </td>
     <td>&nbsp;</td>
   </tr>
@@ -187,12 +189,13 @@ fault of their own.
   <tr>
     <td>&nbsp;</td>
     <td>
-      <pre>rule(
+      ```
+rule(
     name = "b",
     srcs = "b.in",
     <strong>deps = "//d:d",</strong>
 )
-      </pre>
+      ```
     </td>
   </tr>
   <tr class="alt">
@@ -202,12 +205,12 @@ fault of their own.
   <tr>
     <td>&nbsp;</td>
     <td>
-      <pre>
+      ```
       import d;
       function foo() {
         d.baz();
       }
-      </pre>
+      ```
     </td>
   </tr>
   <tr>
@@ -299,17 +302,11 @@ As you look over our `BUILD` files, you might notice that some `data` labels
 refer to directories. These labels end with `/.` or `/` like these examples,
 which you should not use:
 
-<p><span class="compare-worse">Not recommended</span> —
-  <code>data = ["//data/regression:unittest/."]</code>
-</p>
+<div><span class="compare-worse">Not recommended</span> — <code>data = ["//data/regression:unittest/."]</code></div>
 
-<p><span class="compare-worse">Not recommended</span> —
-  <code>data = ["testdata/."]</code>
-</p>
+<div><span class="compare-worse">Not recommended</span> — <code>data = ["testdata/."]</code></div>
 
-<p><span class="compare-worse">Not recommended</span> —
-  <code>data = ["testdata/"]</code>
-</p>
+<div><span class="compare-worse">Not recommended</span> — <code>data = ["testdata/"]</code></div>
 
 This seems convenient, particularly for tests because it allows a test to
 use all the data files in the directory.
@@ -325,9 +322,7 @@ enumerate the set of files contained within them, either explicitly or using the
 [`glob()`](/versions/8.5.1/reference/be/functions#glob) function. (Use `**` to force the
 `glob()` to be recursive.)
 
-<p><span class="compare-better">Recommended</span> —
-  <code>data = glob(["testdata/**"])</code>
-</p>
+<div><span class="compare-better">Recommended</span> — <code>data = glob(["testdata/**"])</code></div>
 
 Unfortunately, there are some scenarios where directory labels must be used.
 For example, if the `testdata` directory contains files whose names don't
@@ -360,13 +355,17 @@ You can then reference the label `my_data` as the data dependency in your test.
 
 <table class="columns">
   <tr>
-    <td><a class="button button-with-icon button-primary"
+    <td>
+      <a class="button button-with-icon button-primary"
            href="/versions/8.5.1/concepts/build-files">
-        <span class="material-icons" aria-hidden="true">arrow_back</span>BUILD files</a>
+        <span class="material-icons" aria-hidden="true">arrow_back</span>BUILD files
+      </a>
     </td>
-    <td><a class="button button-with-icon button-primary"
+    <td>
+      <a class="button button-with-icon button-primary"
            href="/versions/8.5.1/concepts/visibility">
-        Visibility<span class="material-icons icon-after" aria-hidden="true">arrow_forward</span></a>
+        Visibility<span class="material-icons icon-after" aria-hidden="true">arrow_forward</span>
+      </a>
     </td>
   </tr>
 </table>
