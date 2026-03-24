@@ -96,7 +96,7 @@ import javax.annotation.Nullable;
  * {@link RepoRecordedInput.WithValue}. This process is repeated until a final entry with the repo
  * contents is found or no matching entry exists.
  *
- * <p>By representing repos with dynamic dependencies as DAGs of AC entries, lookups are efficient
+ * <p>By representing repos with recorded inputs as DAGs of AC entries, lookups are efficient
  * (they don't scale with the number of cached repos per predeclared inputs hash) and regular LRU
  * eviction policies remain effective for the most part. If a repo rule often requests different
  * inputs even with the same predeclared inputs hash and previously requested inputs and values, it
