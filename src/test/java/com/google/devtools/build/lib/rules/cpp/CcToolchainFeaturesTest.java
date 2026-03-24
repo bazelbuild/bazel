@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.skyframe.serialization.testutils.Serializat
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import org.junit.Test;
@@ -367,8 +366,16 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
             CppActionNames.CPP_COMPILE, createVariables(), PathMapper.NOOP);
     assertThat(env)
         .containsExactly(
-            "foo", "bar", "cat", "meow", "dog", "woof",
-            "withFeature", "value1", "withoutNotFeature", "value4")
+            "foo",
+            "bar",
+            "cat",
+            "meow",
+            "dog",
+            "woof",
+            "withFeature",
+            "value1",
+            "withoutNotFeature",
+            "value4")
         .inOrder();
     assertThat(env).doesNotContainEntry("withoutFeature", "value2");
     assertThat(env).doesNotContainEntry("withNotFeature", "value3");
@@ -539,14 +546,9 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
    * overhead is prohibitively big.
    */
   @Immutable
-  private static final class StructureValue extends VariableValueAdapter {
+  private record StructureValue(ImmutableMap<String, VariableValue> value)
+      implements VariableValueAdapter {
     private static final String STRUCTURE_VARIABLE_TYPE_NAME = "structure";
-
-    private final ImmutableMap<String, VariableValue> value;
-
-    private StructureValue(ImmutableMap<String, VariableValue> value) {
-      this.value = value;
-    }
 
     @Nullable
     @Override
@@ -567,22 +569,6 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
     @Override
     public boolean isTruthy() {
       return !value.isEmpty();
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (!(other instanceof StructureValue)) {
-        return false;
-      }
-      if (this == other) {
-        return true;
-      }
-      return Objects.equals(value, ((StructureValue) other).value);
-    }
-
-    @Override
-    public int hashCode() {
-      return value.hashCode();
     }
   }
 
