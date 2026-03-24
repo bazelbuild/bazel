@@ -126,7 +126,7 @@ A file that defines rules, [macros](#macro), and constants written in
 [Starlark](#starlark). These can then be imported into [`BUILD`
 files](#build-file) using the `load()` function.
 
-### Build event protocol
+### Build Event Protocol
 
 The set of protocol buffer messages used to communicate information about build
 and test results, build progress, build configuration, and much more.
@@ -138,7 +138,10 @@ and test results, build progress, build configuration, and much more.
 A flag passed to Bazel to control Bazel itself and build actions. Flags are
 either [startup flags](#startup-flags) or [command flags](#command-flags).
 
-Usage is always `bazel <startup flags> command <command flags> -- <command arguments>`.
+Usage is always `bazel <startup flags> command <command flags> -- <command
+arguments>`. A typical example would be `bazel --host_jvm_args=-Xmx512M test
+--compilation_mode=dbg --test_output=errors -- //test:target1 //test:target2
+//test/local/...`.
 
 ### Build graph
 
@@ -194,13 +197,22 @@ target platform, action environment variables, and command-line [build
 flags](#command-flags). [Transitions](#transition) may create additional
 configurations, such as for host tools or cross-compilation.
 
+A configuration is composed of one of more [configuration
+fragments](#configuration-fragment), and separately contains all set [Starlark
+flags](#starlark-flags).
+
 **See also:** [Configurations](/extending/rules#configurations)
 
 ### Configuration fragment
 
-Fragments are parts of the native [configuration](#configuration). Native flags are groups into related fragments, such as test flags, platform flags, remote execution flags, etc. Some fragments are [exposed to Starlark rules](/rules/lib/overview#configuration-fragments).
+Fragments are parts of the native [configuration](#configuration). Configuration
+fragments give rules access to language-specific parts of
+[configuration](#configuration). Native flags are groups into related fragments,
+such as test flags, platform flags, remote execution flags, etc. Some fragments
+are [exposed to Starlark rules](/rules/lib/overview#configuration-fragments).
 
-[Starlark flags](#starlark-flags) are not part of any configuration fragment.
+[Starlark flags](#starlark-flags) are not part of any configuration fragment,
+and are accessed directly using providers.
 
 ### Configuration trimming
 
@@ -323,7 +335,7 @@ build.
 The location where Bazel unpacks required tools that are delivered as part of
 the binary.
 
-Can be found with `bazel info install_base`.
+You can find the install base using `bazel info install_base`.
 
 ### Label
 
@@ -588,18 +600,23 @@ On Linux, it's not significant, but on macOS it can make sandboxing unusable.
 
 ### Spawn strategy
 
-The way Bazel attempts to execute build actions. Can be set for all actions not
-otherwise overridden (`--spawn_strategy`), for specific action mnemonics
-(`--strategy`), among other choices.
+Also known as the [execution strategy](/docs/user-manual#execution-strategy), this
+denotes the way Bazel attempts to execute build actions. The chosen strategy
+impacts build hermeticity and speed. Build outputs remain the same for all
+strategies.
+
+**Usage**: Specify the execution strategy using a flag. Commonly used flags to specify execution strategy are:
+* `--spawn_strategy`: Set as the global default for all actions.
+* `--strategy <mnemonic>`: Override the global default strategy for a specific action mnemonic. 
+
+See [Execution strategy](/docs/user-manual#execution-strategy) for the full list of flags. 
 
 Strategies include:
 * `local` causes commands to be executed as local subprocesses.
-* `sandboxed` causes commands to be executed inside a sandbox on the local machine. See [Sandboxing](/docs/sandboxing)
+* `sandboxed` causes commands to be executed inside a sandbox on the local machine. See [Sandboxing](/docs/sandboxing).
 * `worker` causes commands to be executed using a [persistent worker](/remote/persistent).
-* `docker` causes commands to be executed inside a docker sandbox on the local machine.
+* `docker` causes commands to be executed inside a Docker sandbox on the local machine.
 * `remote` causes commands to be [executed remotely](/remote/rbe).
-
-**See also**: [Strategy flags](/docs/user-manual#execution-strategy)
 
 ### Stamping
 
@@ -622,7 +639,10 @@ known as Skylark.
 
 ### Starlark flags
 
-Rules can define [custom flags ](/extending/config#user-defined-build-settings) to control how the rule behaves at a higher level than individual BUILD files.
+Rules can define [custom flags](/extending/config#user-defined-build-settings),
+known as Starlark flags because they are implemented using [Starlark
+rules](#starlark-rules). These flags control how the rule behaves at a higher
+level than individual BUILD files.
 
 **See also**: [Configurations](/extending/config)
 
