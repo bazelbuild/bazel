@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs.bazel;
 
-import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.GitSha1HashFunction;
 import com.google.devtools.build.lib.vfs.GitSha1Provider;
@@ -28,14 +27,12 @@ public final class BazelHashFunctions {
   static {
     DigestHashFunction blake3HashFunction = null;
 
-    if (JniLoader.isJniAvailable()) {
-      try {
-        Security.addProvider(new Blake3Provider());
-        blake3HashFunction = DigestHashFunction.register(Blake3HashFunction.INSTANCE, "BLAKE3");
-      } catch (UnsatisfiedLinkError ignored) {
-        // This can happen when bootstrapping a Bazel binary via compile.sh. In that case JNI is
-        // available, but missing the blake3 symbols necessary to register the hasher.
-      }
+    try {
+      Security.addProvider(new Blake3Provider());
+      blake3HashFunction = DigestHashFunction.register(Blake3HashFunction.INSTANCE, "BLAKE3");
+    } catch (UnsatisfiedLinkError ignored) {
+      // This can happen when bootstrapping a Bazel binary via compile.sh. In that case JNI is
+      // available, but missing the blake3 symbols necessary to register the hasher.
     }
 
     BLAKE3 = blake3HashFunction;

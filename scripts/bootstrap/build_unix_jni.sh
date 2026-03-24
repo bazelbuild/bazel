@@ -23,7 +23,6 @@ OUT="$3"
 # Source files common to all platforms.
 # Omit blake3, which would require an external dependency.
 SOURCES=(
-  src/main/native/common.cc
   src/main/native/latin1_jni_path.cc
   src/main/native/process.cc
   src/main/native/unix_jni.cc

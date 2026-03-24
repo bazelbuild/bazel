@@ -95,7 +95,7 @@ fi
 # Convert all compilation units to Windows paths.
 # Omit blake3, which would require an external dependency.
 SOURCES=()
-for f in src/main/native/common.cc src/main/native/windows/*.cc; do
+for f in src/main/native/windows/*.cc; do
   SOURCES+=("\"$(cygpath -a -w $f)\"")
 done
 

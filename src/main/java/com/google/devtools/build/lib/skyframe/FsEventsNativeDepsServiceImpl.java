@@ -28,11 +28,6 @@ public class FsEventsNativeDepsServiceImpl implements FsEventsNativeDepsService 
   private long nativePointer;
 
   @Override
-  public boolean isAvailable() {
-    return JniLoader.isJniAvailable();
-  }
-
-  @Override
   public void createFsEvents(byte[][] paths, byte[][] excludedPaths, double latency) {
     create(paths, excludedPaths, latency);
   }

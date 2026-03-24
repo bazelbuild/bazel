@@ -120,41 +120,23 @@ public final class JniLoader {
   private JniLoader() {}
 
   /**
-   * Triggers the load of the JNI bundle in a platform-independent basis.
+   * Ensures that the JNI library has been loaded.
    *
-   * <p>This does <b>not</b> fail if the JNI bundle cannot be loaded because there are scenarios in
-   * which we want to run Bazel without JNI (e.g. during bootstrapping) or are able to fall back to
-   * an alternative implementation (e.g. in some filesystem implementations).
-   *
-   * <p>Callers can check if the JNI bundle was successfully loaded via {@link #isJniAvailable()}
-   * and obtain the load error via {@link #getJniLoadError()}.
+   * <p>If the JNI library cannot be loaded, this method returns normally, but the error can be
+   * later retrieved via {@link #getJniLoadError()}. This makes it possible for this method to be
+   * called during static initialization, while delaying the failure to a later stage where we're in
+   * a better position to display an error message (see {@link BlazeRuntime#main()}).
    */
-  public static void loadJni() {}
-
-  /** Returns whether the JNI bundle was successfully loaded. */
-  public static boolean isJniAvailable() {
-    return JNI_LOAD_ERROR == null;
-  }
-
-  /** Returns the exception thrown while loading the JNI bundle, if it failed. */
-  @Nullable
-  public static Throwable getJniLoadError() {
-    return JNI_LOAD_ERROR;
+  public static void loadJni() {
+    // No-op: loading occurs in the static initializer.
   }
 
   /**
-   * Forcibly link a native method to eagerly trigger an {@link UnsatisfiedLinkError} in case of
-   * issues with the JNI library.
+   * Ensures that the JNI library has been loaded and returns the exception thrown while loading it,
+   * if any.
    */
-  public static void forceLinking() throws UnsatisfiedLinkError {
-    if (isJniAvailable()) {
-      ForceLinkingHelper.link();
-    }
-  }
-
-  private static final class ForceLinkingHelper {
-    private static native void link();
-
-    private ForceLinkingHelper() {}
+  @Nullable
+  public static Throwable getJniLoadError() {
+    return JNI_LOAD_ERROR;
   }
 }
