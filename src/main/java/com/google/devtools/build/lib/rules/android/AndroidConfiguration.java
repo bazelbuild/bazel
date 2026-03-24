@@ -782,20 +782,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean removeRClassesFromInstrumentationTestJar;
 
     @Option(
-        name = "experimental_always_filter_duplicate_classes_from_android_test",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {
-          OptionEffectTag.CHANGES_INPUTS,
-        },
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help =
-            "If enabled and the android_test defines a binary_under_test, the class filterering "
-                + "applied to the test's deploy jar will always filter duplicate classes based "
-                + "solely on matching class and package name, ignoring hash values.")
-    public boolean alwaysFilterDuplicateClassesFromAndroidTest;
-
-    @Option(
         name = "experimental_filter_library_jar_with_program_jar",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
@@ -908,7 +894,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean persistentDexDesugar;
   private final boolean persistentMultiplexDexDesugar;
   private final boolean removeRClassesFromInstrumentationTestJar;
-  private final boolean alwaysFilterDuplicateClassesFromAndroidTest;
   private final boolean filterLibraryJarWithProgramJar;
   private final boolean useRTxtFromMergedResources;
   private final boolean outputLibraryMergedAssets;
@@ -955,8 +940,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.persistentMultiplexDexDesugar = options.persistentMultiplexDexDesugar;
     this.removeRClassesFromInstrumentationTestJar =
         options.removeRClassesFromInstrumentationTestJar;
-    this.alwaysFilterDuplicateClassesFromAndroidTest =
-        options.alwaysFilterDuplicateClassesFromAndroidTest;
     this.filterLibraryJarWithProgramJar = options.filterLibraryJarWithProgramJar;
     this.useRTxtFromMergedResources = options.useRTxtFromMergedResources;
     this.outputLibraryMergedAssets = options.outputLibraryMergedAssets;
@@ -1161,10 +1144,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   public boolean removeRClassesFromInstrumentationTestJar() {
     return removeRClassesFromInstrumentationTestJar;
-  }
-
-  public boolean alwaysFilterDuplicateClassesFromAndroidTest() {
-    return alwaysFilterDuplicateClassesFromAndroidTest;
   }
 
   @Override

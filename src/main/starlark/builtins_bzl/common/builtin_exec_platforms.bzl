@@ -128,7 +128,6 @@ bazel_fragments["AndroidConfiguration.Options"] = fragment(
         "//command_line_option:internal_persistent_busybox_tools",
         "//command_line_option:internal_persistent_multiplex_busybox_tools",
         "//command_line_option:android_databinding_use_v3_4_args",
-        "//command_line_option:experimental_always_filter_duplicate_classes_from_android_test",
         "//command_line_option:experimental_android_compress_java_resources",
         "//command_line_option:experimental_android_databinding_v2",
         "//command_line_option:experimental_android_library_exports_manifest_default",
