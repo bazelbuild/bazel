@@ -30,15 +30,19 @@ public interface GrpcCommandServer {
      * Sends a response.
      *
      * <p>May be called multiple times for a streaming RPC.
+     *
+     * @throws IOException if an I/O error occurs
      */
-    void onNext(T value);
+    void onNext(T value) throws IOException;
 
     /**
      * Signals that the response is complete.
      *
      * <p>Must be called exactly once, after which {@link #onNext} must not be called again.
+     *
+     * @throws IOException if an I/O error occurs
      */
-    void onCompleted();
+    void onCompleted() throws IOException;
   }
 
   /** The callback interface for handling RPCs. */

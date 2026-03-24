@@ -87,11 +87,14 @@ public final class Types {
       wrapTypeConstructor("Sequence", Types::sequence);
   public static final TypeConstructor MAPPING_CONSTRUCTOR =
       wrapTypeConstructor("Mapping", Types::mapping);
+  public static final TypeConstructor STRUCT_CONSTRUCTOR = wrapStructConstructor();
 
   private Types() {} // uninstantiable
 
   public static final ImmutableMap<String, TypeConstructor> TYPE_UNIVERSE = makeTypeUniverse();
 
+  // Note that STRUCT_CONSTRUCTOR is not in the type universe; applications are responsible for
+  // adding it if needed.
   private static ImmutableMap<String, TypeConstructor> makeTypeUniverse() {
     ImmutableMap.Builder<String, TypeConstructor> env = ImmutableMap.builder();
     env //
@@ -1056,6 +1059,56 @@ public final class Types {
     }
   }
 
+  /** Struct type */
+  public static StructType struct(ImmutableMap<String, StarlarkType> fields) {
+    return new AutoValue_Types_StructType(fields);
+  }
+
+  /**
+   * Struct type.
+   *
+   * <p>This is intended to be either the type or a supertype for values implementing {@link
+   * net.starlark.java.eval.Structure} - for example, Bazel's structs and providers.
+   *
+   * <p>Morally non-struct types shouldn't add a {@link StructType} to their supertypes just because
+   * they happen to have fields. For example, a {@code list} has {@code append} and {@code extend}
+   * methods, but it is *not* a subtype of {@code struct[{"append": ..., "extend": ...}]}.
+   */
+  @AutoValue
+  public abstract static class StructType extends StarlarkType {
+    /** Returns the names and types of the mandatory fields of this struct type. */
+    // TODO: #27370 - should we add optional fields? (Maybe useful for Bazel's providers.)
+    // TODO: #27370 - should we add mutable fields / hasSetField()?
+    public abstract ImmutableMap<String, StarlarkType> getFields();
+
+    @Nullable
+    @Override
+    public StarlarkType getField(String name, TypeContext context) {
+      return getField(name);
+    }
+
+    /**
+     * Returns the type of the field with the given name, or null if there is no such field.
+     *
+     * <p>Unlike for {@link StarlarkType#getField}, this method doesn't take a {@link TypeContext}
+     * because it's expected that the names and types of a struct's fields are fixed at type
+     * construction time.
+     */
+    @Nullable
+    public StarlarkType getField(String name) {
+      return getFields().get(name);
+    }
+
+    @Override
+    public final String toString() {
+      StringBuilder buf = new StringBuilder();
+      buf.append("struct[");
+      TypeConstructor.Arg.TypeDict.print(buf, getFields());
+      buf.append("]");
+      return buf.toString();
+    }
+  }
+
   static TypeConstructor wrapType(String name, StarlarkType type) {
     return argsTuple -> {
       if (!argsTuple.isEmpty()) {
@@ -1153,6 +1206,23 @@ public final class Types {
       @SuppressWarnings("unchecked") // list is immutable and all elements verified above
       var result = (ImmutableList<StarlarkType>) (ImmutableList<?>) args;
       return tuple(result);
+    };
+  }
+
+  private static final TypeConstructor wrapStructConstructor() {
+    return args -> {
+      if (args.size() == 1) {
+        TypeConstructor.Arg arg = args.getFirst();
+        if (arg instanceof TypeConstructor.Arg.TypeDict dict) {
+          return struct(dict.getTypes());
+        } else {
+          throw new TypeConstructor.Failure(
+              String.format("in application to struct, got '%s', expected a dict", arg));
+        }
+      } else {
+        throw new TypeConstructor.Failure(
+            String.format("struct[] accepts exactly 1 argument but got %d", args.size()));
+      }
     };
   }
 }

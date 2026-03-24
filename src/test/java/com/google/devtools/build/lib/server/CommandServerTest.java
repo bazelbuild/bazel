@@ -214,17 +214,21 @@ public final class CommandServerTest {
             idleTaskResultsSupplier,
             cmdExts,
             cmdExtOut) -> {
-          // Send the first extension.
-          cmdExtOut.report(commandExtension1);
-          afterFirstExtensionLatch.countDown();
-          // Send the second extension.
-          beforeSecondExtensionLatch.await(WAIT_TIMEOUT_SECONDS, SECONDS);
-          cmdExtOut.report(commandExtension2);
-          afterSecondExtensionLatch.countDown();
-          // Send the third extension.
-          beforeThirdExtensionLatch.await(WAIT_TIMEOUT_SECONDS, SECONDS);
-          cmdExtOut.report(commandExtension3);
-          afterThirdExtensionLatch.countDown();
+          try {
+            // Send the first extension.
+            cmdExtOut.report(commandExtension1);
+            afterFirstExtensionLatch.countDown();
+            // Send the second extension.
+            beforeSecondExtensionLatch.await(WAIT_TIMEOUT_SECONDS, SECONDS);
+            cmdExtOut.report(commandExtension2);
+            afterSecondExtensionLatch.countDown();
+            // Send the third extension.
+            beforeThirdExtensionLatch.await(WAIT_TIMEOUT_SECONDS, SECONDS);
+            cmdExtOut.report(commandExtension3);
+            afterThirdExtensionLatch.countDown();
+          } catch (IOException e) {
+            throw new IllegalStateException(e);
+          }
           // Finish the fake command.
           return BlazeCommandResult.success();
         };

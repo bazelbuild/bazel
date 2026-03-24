@@ -96,8 +96,8 @@ The following options only affect the subcommands that print graphs (`graph`,
     modules which were originally present in the dependency graph, but became
     unused after module resolution.
 
-*   `--extension_info <mode>`: Include information about the module extension
-    usages as part of the output graph (see [example](#mod-example7)). `<mode>`
+*   `--extension_info <var>mode</var>`: Include information about the module extension
+    usages as part of the output graph (see [example](#mod-example7)). `<var>mode</var>`
     can be one of:
 
     *   `hidden` *(default)*: Don't show anything about extensions.
@@ -137,8 +137,8 @@ The following options only affect the subcommands that print graphs (`graph`,
     Therefore, the `"ascii"` charset is present to also support the usage on
     legacy platforms which cannot use Unicode.
 
-*   `--output <mode>`: Include information about the module extension usages as
-    part of the output graph. `<mode>' can be one of:
+*   `--output <var>mode</var>`: Include information about the module extension usages as
+    part of the output graph. `<var>mode</var>' can be one of:
 
     *   `text` *(default)*: A human-readable representation of the output graph
         (flattened as a tree).
@@ -157,8 +157,8 @@ The following options only affect the subcommands that print graphs (`graph`,
 
     ### show_repo options
 `show_repo` supports a different set of output formats:
-*   `--output <mode>`: Change how repository definitions are displayed.
-    `<mode>` can be one of:
+*   `--output <var>mode</var>`: Change how repository definitions are displayed.
+    `<var>mode</var>` can be one of:
     *   `text` *(default)*: Display repo definitions in Starlark.
     *   `streamed_proto`: Prints a
         [length-delimited](https://protobuf.dev/programming-guides/encoding/#size-limit)
@@ -210,10 +210,10 @@ use_repo(toolchains, my_jdk="remotejdk17_linux")
   <tr style="display: flex; flex-direction: row">
     <td style="flex: 5; display: flex; flex-direction: column">
       <figure style="height: 100%; display: flex; flex-direction: column;">
-        <img src="images/mod_exampleBefore.svg" alt="Graph Before Resolution" style="object-fit: cover; max-width: 100%;">
+        <img src="/images/mod_exampleBefore.svg" alt="Graph Before Resolution" style="object-fit: cover; max-width: 100%;" />
         <figcaption style="margin-top: auto; margin-left: auto; margin-right: auto ">Graph Before Resolution</figcaption>
       </figure>
-<!-- digraph mygraph {
+{/* digraph mygraph {
   node [ shape=box ]
   edge [ fontsize=8 ]
   "<root>" [ label="<root> (my_project@1.0)" ]
@@ -236,14 +236,14 @@ use_repo(toolchains, my_jdk="remotejdk17_linux")
   "bazel_skylib@1.0.3" -> "platforms@0.0.4" [  ]
   "rules_java@4.0.0" [  ]
   "rules_java@4.0.0" -> "bazel_skylib@1.0.3" [  ]
-} -->
+} */}
     </td>
     <td style="flex: 3; display: flex; flex-direction: column">
       <figure style="height: 100%; display: flex; flex-direction: column;">
-        <img src="images/mod_exampleResolved.svg" alt="Graph After Resolution" style="object-fit: cover; max-width: 100%;">
+        <img src="/images/mod_exampleResolved.svg" alt="Graph After Resolution" style="object-fit: cover; max-width: 100%;" />
        <figcaption style="margin-top: auto; margin-left: auto; margin-right: auto ">Graph After Resolution</figcaption>
       </figure>
-<!-- digraph mygraph {
+{/* digraph mygraph {
   node [ shape=box ]
   edge [ fontsize=8 ]
   "<root>" [ label="<root> (my_project@1.0)" ]
@@ -262,7 +262,7 @@ use_repo(toolchains, my_jdk="remotejdk17_linux")
   "rules_cc@0.0.1" -> "platforms@0.0.4" [  ]
   "rules_proto@4.0.0" -> "bazel_skylib@1.1.1" [  ]
   "rules_proto@4.0.0" -> "rules_cc@0.0.1" [  ]
-} -->
+} */}
     </td>
   </tr>
 </table>

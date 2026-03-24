@@ -76,6 +76,17 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
     if (t1 instanceof Types.UnionType union1) {
       return union1.getTypes().stream().anyMatch(sub1 -> assignableFrom(sub1, t2));
     }
+    if (t1 instanceof Types.StructType struct1 && t2 instanceof Types.StructType struct2) {
+      // True iff every field of struct 1 is assignable from a field of the same name in struct 2.
+      return struct1.getFields().entrySet().stream()
+          .allMatch(
+              entry1 -> {
+                String fieldName = entry1.getKey();
+                StarlarkType fieldType1 = entry1.getValue();
+                @Nullable StarlarkType fieldType2 = struct2.getField(fieldName);
+                return fieldType2 != null && assignableFrom(fieldType1, fieldType2);
+              });
+    }
     if (t2.getSupertypes().stream().anyMatch(super2 -> assignableFrom(t1, super2))) {
       return true;
     }

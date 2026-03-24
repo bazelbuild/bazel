@@ -619,7 +619,7 @@ TEST_F(OutputJarSimpleTest, ExtraHandler) {
   const char* option_list[] = {"--output", out_path.c_str(), "--sources",
                                resolvedLibDataPath1.c_str(),
                                resolvedLibDataPath2.c_str()};
-  options_.ParseCommandLine(arraysize(option_list), option_list);
+  options_.ParseCommandLine(std::size(option_list), option_list);
   CustomOutputJar custom_output_jar(&options_);
   ASSERT_EQ(0, custom_output_jar.Doit());
   EXPECT_EQ(0, VerifyZip(out_path));

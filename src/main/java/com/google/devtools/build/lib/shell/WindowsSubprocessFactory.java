@@ -20,7 +20,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
@@ -39,7 +38,7 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
   public static final WindowsSubprocessFactory INSTANCE = new WindowsSubprocessFactory();
 
   public static void maybeInstallWindowsSubprocessFactory() {
-    if (JniLoader.isJniAvailable() && OS.getCurrent() == OS.WINDOWS) {
+    if (OS.getCurrent() == OS.WINDOWS) {
       SubprocessBuilder.setDefaultSubprocessFactory(INSTANCE);
     }
   }

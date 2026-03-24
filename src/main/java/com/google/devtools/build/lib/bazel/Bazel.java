@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
-import javax.annotation.Nullable;
 
 /** The main class. */
 public final class Bazel {
@@ -111,7 +110,7 @@ public final class Bazel {
     // use of SubprocessBuilder.
     WindowsSubprocessFactory.maybeInstallWindowsSubprocessFactory();
     BlazeVersionInfo.setBuildInfo(tryGetBuildInfo());
-    BlazeRuntime.main(BAZEL_MODULES, BAZEL_SERVICES, args, getDelayedJniLinkingError());
+    BlazeRuntime.main(BAZEL_MODULES, BAZEL_SERVICES, args, JniLoader.getJniLoadError());
   }
 
   /**
@@ -142,16 +141,5 @@ public final class Bazel {
     }
   }
 
-  @Nullable
-  private static Throwable getDelayedJniLinkingError() {
-    if (!JniLoader.isJniAvailable()) {
-      return null;
-    }
-    try {
-      JniLoader.forceLinking();
-    } catch (UnsatisfiedLinkError e) {
-      return e;
-    }
-    return null;
-  }
+  private Bazel() {}
 }

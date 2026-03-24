@@ -13,8 +13,8 @@ need to make a new workspace.
 
 ```posix-terminal
 bazel help
-                             [Bazel release bazel {{ "<var>" }}version{{ "</var>" }}]
-Usage: bazel {{ "<var>" }}command{{ "</var>" }} {{ "<var>" }}options{{ "</var>" }} ...
+                             [Bazel release bazel <var>version</var>]
+Usage: bazel <var>command</var> <var>options</var> ...
 ```
 
 ### Available commands
@@ -38,8 +38,8 @@ Usage: bazel {{ "<var>" }}command{{ "</var>" }} {{ "<var>" }}options{{ "</var>" 
 
 ### Getting help
 
-* `bazel help {{ '<var>' }}command{{ '</var>' }}`: Prints help and options for
-  `{{ '<var>' }}command{{ '</var>' }}`.
+* `bazel help <var>command</var>`: Prints help and options for
+  `<var>command</var>`.
 * `bazel help `[`startup_options`](/docs/user-manual#startup-options): Options for the JVM hosting Bazel.
 * `bazel help `[`target-syntax`](#specifying-build-targets): Explains the syntax for specifying targets.
 * `bazel help info-keys`: Displays a list of keys used by the info command.
@@ -179,7 +179,8 @@ current _working directory_. These examples assume a working directory of `foo`:
 </tr>
 <tr>
   <td><code>bar/wiz</code></td>
-  <td>Equivalent to:
+  <td>
+    Equivalent to:
     <ul>
       <li><code>//foo/bar/wiz:wiz</code> if <code>foo/bar/wiz</code> is a package</li>
       <li><code>//foo/bar:wiz</code> if <code>foo/bar</code> is a package</li>
@@ -466,7 +467,7 @@ flag pointing to the directory. For convenience, you can add it as an `.bazelrc`
 entry:
 
 ```posix-terminal
-build --distdir={{ '<var>' }}path{{ '</var>' }}/to/{{ '<var>' }}directory{{ '</var>' }}
+build --distdir=<var>path</var>/to/<var>directory</var>
 ```
 
 ### Build configurations and cross-compilation

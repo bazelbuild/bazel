@@ -293,17 +293,17 @@ it is faster and uses less memory.
 This is the grammar of the Bazel query language, expressed in EBNF notation:
 
 ```none
-expr ::= {{ '<var>' }}word{{ '</var>' }}
-       | let {{ '<var>' }}name{{ '</var>' }} = {{ '<var>' }}expr{{ '</var>' }} in {{ '<var>' }}expr{{ '</var>' }}
-       | ({{ '<var>' }}expr{{ '</var>' }})
-       | {{ '<var>' }}expr{{ '</var>' }} intersect {{ '<var>' }}expr{{ '</var>' }}
-       | {{ '<var>' }}expr{{ '</var>' }} ^ {{ '<var>' }}expr{{ '</var>' }}
-       | {{ '<var>' }}expr{{ '</var>' }} union {{ '<var>' }}expr{{ '</var>' }}
-       | {{ '<var>' }}expr{{ '</var>' }} + {{ '<var>' }}expr{{ '</var>' }}
-       | {{ '<var>' }}expr{{ '</var>' }} except {{ '<var>' }}expr{{ '</var>' }}
-       | {{ '<var>' }}expr{{ '</var>' }} - {{ '<var>' }}expr{{ '</var>' }}
-       | set({{ '<var>' }}word{{ '</var>' }} *)
-       | {{ '<var>' }}word{{ '</var>' }} '(' {{ '<var>' }}int{{ '</var>' }} | {{ '<var>' }}word{{ '</var>' }} | {{ '<var>' }}expr{{ '</var>' }} ... ')'
+expr ::= <var>word</var>
+       | let <var>name</var> = <var>expr</var> in <var>expr</var>
+       | (<var>expr</var>)
+       | <var>expr</var> intersect <var>expr</var>
+       | <var>expr</var> ^ <var>expr</var>
+       | <var>expr</var> union <var>expr</var>
+       | <var>expr</var> + <var>expr</var>
+       | <var>expr</var> except <var>expr</var>
+       | <var>expr</var> - <var>expr</var>
+       | set(<var>word</var> *)
+       | <var>word</var> '(' <var>int</var> | <var>word</var> | <var>expr</var> ... ')'
 ```
 
 The following sections describe each of the productions of this grammar in order.
@@ -311,7 +311,7 @@ The following sections describe each of the productions of this grammar in order
 ### Target patterns
 
 ```
-expr ::= {{ '<var>' }}word{{ '</var>' }}
+expr ::= <var>word</var>
 ```
 
 Syntactically, a _target pattern_ is just a word. It's interpreted as an
@@ -354,21 +354,21 @@ of the result nodes against other nodes.) For more details, see the
 ### Variables
 
 ```none
-expr ::= let {{ '<var>' }}name{{ '</var>' }} = {{ '<var>' }}expr{{ '</var>' }}{{ '<sub>' }}1{{ '</sub>' }} in {{ '<var>' }}expr{{ '</var>' }}{{ '<sub>' }}2{{ '</sub>' }}
-       | {{ '<var>' }}$name{{ '</var>' }}
+expr ::= let <var>name</var> = <var>expr</var>{{ '<sub>' }}1{{ '</sub>' }} in <var>expr</var>{{ '<sub>' }}2{{ '</sub>' }}
+       | <var>$name</var>
 ```
 
 The Bazel query language allows definitions of and references to
 variables. The result of evaluation of a `let` expression is the same as
-that of {{ '<var>' }}expr{{ '</var>' }}<sub>2</sub>, with all free occurrences
-of variable {{ '<var>' }}name{{ '</var>' }} replaced by the value of
-{{ '<var>' }}expr{{ '</var>' }}<sub>1</sub>.
+that of <var>expr</var><sub>2</sub>, with all free occurrences
+of variable <var>name</var> replaced by the value of
+<var>expr</var><sub>1</sub>.
 
 For example, `let v = foo/... in allpaths($v, //common) intersect $v` is
 equivalent to the `allpaths(foo/...,//common) intersect foo/...`.
 
 An occurrence of a variable reference `name` other than in
-an enclosing `let {{ '<var>' }}name{{ '</var>' }} = ...` expression is an
+an enclosing `let <var>name</var> = ...` expression is an
 error. In other words, top-level query expressions cannot have free
 variables.
 
@@ -392,7 +392,7 @@ efficient query evaluation.
 ### Parenthesized expressions
 
 ```none
-expr ::= ({{ '<var>' }}expr{{ '</var>' }})
+expr ::= (<var>expr</var>)
 ```
 
 Parentheses associate subexpressions to force an order of evaluation.
@@ -401,12 +401,12 @@ A parenthesized expression evaluates to the value of its argument.
 ### Algebraic set operations: intersection, union, set difference
 
 ```none
-expr ::= {{ '<var>' }}expr{{ '</var>' }} intersect {{ '<var>' }}expr{{ '</var>' }}
-       | {{ '<var>' }}expr{{ '</var>' }} ^ {{ '<var>' }}expr{{ '</var>' }}
-       | {{ '<var>' }}expr{{ '</var>' }} union {{ '<var>' }}expr{{ '</var>' }}
-       | {{ '<var>' }}expr{{ '</var>' }} + {{ '<var>' }}expr{{ '</var>' }}
-       | {{ '<var>' }}expr{{ '</var>' }} except {{ '<var>' }}expr{{ '</var>' }}
-       | {{ '<var>' }}expr{{ '</var>' }} - {{ '<var>' }}expr{{ '</var>' }}
+expr ::= <var>expr</var> intersect <var>expr</var>
+       | <var>expr</var> ^ <var>expr</var>
+       | <var>expr</var> union <var>expr</var>
+       | <var>expr</var> + <var>expr</var>
+       | <var>expr</var> except <var>expr</var>
+       | <var>expr</var> - <var>expr</var>
 ```
 
 These three operators compute the usual set operations over their arguments.
@@ -445,10 +445,10 @@ query expression.
 ### Read targets from an external source: set
 
 ```none
-expr ::= set({{ '<var>' }}word{{ '</var>' }} *)
+expr ::= set(<var>word</var> *)
 ```
 
-The `set({{ '<var>' }}a{{ '</var>' }} {{ '<var>' }}b{{ '</var>' }} {{ '<var>' }}c{{ '</var>' }} ...)`
+The `set(<var>a</var> <var>b</var> <var>c</var> ...)`
 operator computes the union of a set of zero or more
 [target patterns](#target-patterns), separated by whitespace (no commas).
 
@@ -483,7 +483,7 @@ see the [graph order](#graph-order) section below.
 ## Functions
 
 ```none
-expr ::= {{ '<var>' }}word{{ '</var>' }} '(' {{ '<var>' }}int{{ '</var>' }} | {{ '<var>' }}word{{ '</var>' }} | {{ '<var>' }}expr{{ '</var>' }} ... ')'
+expr ::= <var>word</var> '(' <var>int</var> | <var>word</var> | <var>expr</var> ... ')'
 ```
 
 The query language defines several functions. The name of the function
@@ -512,13 +512,13 @@ functions are available:
 ### Transitive closure of dependencies: deps
 
 ```none
-expr ::= deps({{ '<var>' }}expr{{ '</var>' }})
-       | deps({{ '<var>' }}expr{{ '</var>' }}, {{ '<var>' }}depth{{ '</var>' }})
+expr ::= deps(<var>expr</var>)
+       | deps(<var>expr</var>, <var>depth</var>)
 ```
 
-The `deps({{ '<var>' }}x{{ '</var>' }})` operator evaluates to the graph formed
+The `deps(<var>x</var>)` operator evaluates to the graph formed
 by the transitive closure of dependencies of its argument set
-{{ '<var>' }}x{{ '</var>' }}. For example, the value of `deps(//foo)` is the
+<var>x</var>. For example, the value of `deps(//foo)` is the
 dependency graph rooted at the single node `foo`, including all its
 dependencies. The value of `deps(foo/...)` is the dependency graphs whose roots
 are all rules in every package beneath the `foo` directory. In this context,
@@ -536,20 +536,20 @@ literal specifying an upper bound on the depth of the search. So
 `foo` package, and `deps(foo:*, 2)` further includes the nodes directly
 reachable from the nodes in `deps(foo:*, 1)`, and so on. (These numbers
 correspond to the ranks shown in the [`minrank`](#output-ranked) output format.)
-If the {{ '<var>' }}depth{{ '</var>' }} parameter is omitted, the search is
+If the <var>depth</var> parameter is omitted, the search is
 unbounded: it computes the reflexive transitive closure of prerequisites.
 
 ### Transitive closure of reverse dependencies: rdeps
 
 ```none
-expr ::= rdeps({{ '<var>' }}expr{{ '</var>' }}, {{ '<var>' }}expr{{ '</var>' }})
-       | rdeps({{ '<var>' }}expr{{ '</var>' }}, {{ '<var>' }}expr{{ '</var>' }}, {{ '<var>' }}depth{{ '</var>' }})
+expr ::= rdeps(<var>expr</var>, <var>expr</var>)
+       | rdeps(<var>expr</var>, <var>expr</var>, <var>depth</var>)
 ```
 
-The `rdeps({{ '<var>' }}u{{ '</var>' }}, {{ '<var>' }}x{{ '</var>' }})`
+The `rdeps(<var>u</var>, <var>x</var>)`
 operator evaluates to the reverse dependencies of the argument set
-{{ '<var>' }}x{{ '</var>' }} within the transitive closure of the universe set
-{{ '<var>' }}u{{ '</var>' }}.
+<var>x</var> within the transitive closure of the universe set
+<var>u</var>.
 
 The resulting graph is ordered according to the dependency relation. See the
 section on [graph order](#graph-order) for more details.
@@ -560,14 +560,14 @@ graph only includes nodes within a distance of the specified depth from any
 node in the argument set. So `rdeps(//foo, //common, 1)` evaluates to all nodes
 in the transitive closure of `//foo` that directly depend on `//common`. (These
 numbers correspond to the ranks shown in the [`minrank`](#output-ranked) output
-format.) If the {{ '<var>' }}depth{{ '</var>' }} parameter is omitted, the
+format.) If the <var>depth</var> parameter is omitted, the
 search is unbounded.
 
 ### Transitive closure of all reverse dependencies: allrdeps
 
 ```
-expr ::= allrdeps({{ '<var>' }}expr{{ '</var>' }})
-       | allrdeps({{ '<var>' }}expr{{ '</var>' }}, {{ '<var>' }}depth{{ '</var>' }})
+expr ::= allrdeps(<var>expr</var>)
+       | allrdeps(<var>expr</var>, <var>depth</var>)
 ```
 
 Note: Only available with [Sky Query](#sky-query)
@@ -581,36 +581,36 @@ equivalent to `rdeps(//foo/..., //bar)`.
 ### Direct reverse dependencies in the same package: same_pkg_direct_rdeps
 
 ```
-expr ::= same_pkg_direct_rdeps({{ '<var>' }}expr{{ '</var>' }})
+expr ::= same_pkg_direct_rdeps(<var>expr</var>)
 ```
 
-The `same_pkg_direct_rdeps({{ '<var>' }}x{{ '</var>' }})` operator evaluates to the full set of targets
+The `same_pkg_direct_rdeps(<var>x</var>)` operator evaluates to the full set of targets
 that are in the same package as a target in the argument set, and which directly depend on it.
 
 ### Dealing with a target's package: siblings
 
 ```
-expr ::= siblings({{ '<var>' }}expr{{ '</var>' }})
+expr ::= siblings(<var>expr</var>)
 ```
 
-The `siblings({{ '<var>' }}x{{ '</var>' }})` operator evaluates to the full set of targets that are in
+The `siblings(<var>x</var>)` operator evaluates to the full set of targets that are in
 the same package as a target in the argument set.
 
 ### Arbitrary choice: some
 
 ```
-expr ::= some({{ '<var>' }}expr{{ '</var>' }})
-       | some({{ '<var>' }}expr{{ '</var>' }}, {{ '<var>' }}count{{ '</var> '}})
+expr ::= some(<var>expr</var>)
+       | some(<var>expr</var>, <var>count{{ '</var> '}})
 ```
 
-The `some({{ '<var>' }}x{{ '</var>' }}, {{ '<var>' }}k{{ '</var>' }})` operator
-selects at most {{ '<var>' }}k{{ '</var>' }} targets arbitrarily from its
-argument set {{ '<var>' }}x{{ '</var>' }}, and evaluates to a set containing
-only those targets. Parameter {{ '<var>' }}k{{ '</var>' }} is optional; if
+The `some(<var>x</var>, <var>k</var>)` operator
+selects at most <var>k</var> targets arbitrarily from its
+argument set <var>x</var>, and evaluates to a set containing
+only those targets. Parameter <var>k</var> is optional; if
 missing, the result will be a singleton set containing only one target
-arbitrarily selected. If the size of argument set {{ '<var>' }}x{{ '</var>' }} is
-smaller than {{ '<var>' }}k{{ '</var>' }}, the whole argument set
-{{ '<var>' }}x{{ '</var>' }} will be returned.
+arbitrarily selected. If the size of argument set <var>x</var> is
+smaller than <var>k</var>, the whole argument set
+<var>x</var> will be returned.
 
 For example, the expression `some(//foo:main union //bar:baz)` evaluates to a
 singleton set containing either `//foo:main` or `//bar:baz`—though which
@@ -628,19 +628,19 @@ expression `some(//foo:main intersect //bar:baz)`.
 ### Path operators: somepath, allpaths
 
 ```
-expr ::= somepath({{ '<var>' }}expr{{ '</var>' }}, {{ '<var>' }}expr{{ '</var>' }})
-       | allpaths({{ '<var>' }}expr{{ '</var>' }}, {{ '<var>' }}expr{{ '</var>' }})
+expr ::= somepath(<var>expr</var>, <var>expr</var>)
+       | allpaths(<var>expr</var>, <var>expr</var>)
 ```
 
-The `somepath({{ '<var>' }}S{{ '</var>' }}, {{ '<var>' }}E{{ '</var>' }})` and
-`allpaths({{ '<var>' }}S{{ '</var>' }}, {{ '<var>' }}E{{ '</var>' }})` operators compute
+The `somepath(<var>S</var>, <var>E</var>)` and
+`allpaths(<var>S</var>, <var>E</var>)` operators compute
 paths between two sets of targets. Both queries accept two
-arguments, a set {{ '<var>' }}S{{ '</var>' }} of starting points and a set
-{{ '<var>' }}E{{ '</var>' }} of ending points. `somepath` returns the
+arguments, a set <var>S</var> of starting points and a set
+<var>E</var> of ending points. `somepath` returns the
 graph of nodes on _some_ arbitrary path from a target in
-{{ '<var>' }}S{{ '</var>' }} to a target in {{ '<var>' }}E{{ '</var>' }}; `allpaths`
+<var>S</var> to a target in <var>E</var>; `allpaths`
 returns the graph of nodes on _all_ paths from any target in
-{{ '<var>' }}S{{ '</var>' }} to any target in {{ '<var>' }}E{{ '</var>' }}.
+<var>S</var> to any target in <var>E</var>.
 
 The resulting graphs are ordered according to the dependency relation.
 See the section on [graph order](#graph-order) for more details.
@@ -649,10 +649,10 @@ See the section on [graph order](#graph-order) for more details.
   <tr>
     <td>
       <figure>
-        <img src="/versions/6.5.0/docs/images/somepath1.svg" alt="Somepath">
+        <img src="/versions/6.5.0/docs/images/somepath1.svg" alt="Somepath" />
         <figcaption><code>somepath(S1 + S2, E)</code>, one possible result.</figcaption>
       </figure>
-<!-- digraph somepath1 {
+{/* digraph somepath1 {
   graph [size="4,4"]
   node [label="",shape=circle];
   n1;
@@ -676,14 +676,14 @@ See the section on [graph order](#graph-order) for more details.
   n3 -> n10;
   n10 -> n4;
   n10 -> n11;
-} -->
+} */}
     </td>
     <td>
       <figure>
-        <img src="/versions/6.5.0/docs/images/somepath2.svg" alt="Somepath">
+        <img src="/versions/6.5.0/docs/images/somepath2.svg" alt="Somepath" />
         <figcaption><code>somepath(S1 + S2, E)</code>, another possible result.</figcaption>
       </figure>
-<!-- digraph somepath2 {
+{/* digraph somepath2 {
   graph [size="4,4"]
   node [label="",shape=circle];
   n1; n2; n3;
@@ -705,14 +705,14 @@ See the section on [graph order](#graph-order) for more details.
   n3 -> n10;
   n10 -> n4;
   n10 -> n11;
-} -->
+} */}
     </td>
     <td>
       <figure>
-        <img src="/versions/6.5.0/docs/images/allpaths.svg" alt="Allpaths">
+        <img src="/versions/6.5.0/docs/images/allpaths.svg" alt="Allpaths" />
         <figcaption><code>allpaths(S1 + S2, E)</code></figcaption>
       </figure>
-<!-- digraph allpaths {
+{/* digraph allpaths {
   graph [size="4,4"]
   node [label="",shape=circle];
   n1;
@@ -737,7 +737,7 @@ See the section on [graph order](#graph-order) for more details.
   n3 -> n10;
   n10 -> n4;
   n10 -> n11;
-} -->
+} */}
     </td>
   </tr>
 </table>
@@ -745,12 +745,12 @@ See the section on [graph order](#graph-order) for more details.
 ### Target kind filtering: kind
 
 ```
-expr ::= kind({{ '<var>' }}word{{ '</var>' }}, {{ '<var>' }}expr{{ '</var>' }})
+expr ::= kind(<var>word</var>, <var>expr</var>)
 ```
 
-The `kind({{ '<var>' }}pattern{{ '</var>' }}, {{ '<var>' }}input{{ '</var>' }})`
+The `kind(<var>pattern</var>, <var>input</var>)`
 operator applies a filter to a set of targets, and discards those targets
-that are not of the expected kind. The {{ '<var>' }}pattern{{ '</var>' }}
+that are not of the expected kind. The <var>pattern</var>
 parameter specifies what kind of target to match.
 
 For example, the kinds for the four targets defined by the `BUILD` file
@@ -796,7 +796,7 @@ rule targets beneath `foo`, and `kind("source file", deps(//foo))`
 evaluates to the set of all source files in the transitive closure
 of dependencies of the `//foo` target.
 
-Quotation of the {{ '<var>' }}pattern{{ '</var>' }} argument is often required
+Quotation of the <var>pattern</var> argument is often required
 because without it, many [regular expressions](#regex), such as `source
 file` and `.*_test`, are not considered words by the parser.
 
@@ -806,21 +806,21 @@ When matching for `package group`, targets ending in
 ### Target name filtering: filter
 
 ```
-expr ::= filter({{ '<var>' }}word{{ '</var>' }}, {{ '<var>' }}expr{{ '</var>' }})
+expr ::= filter(<var>word</var>, <var>expr</var>)
 ```
 
-The `filter({{ '<var>' }}pattern{{ '</var>' }}, {{ '<var>' }}input{{ '</var>' }})`
+The `filter(<var>pattern</var>, <var>input</var>)`
 operator applies a filter to a set of targets, and discards targets whose
 labels (in absolute form) do not match the pattern; it
 evaluates to a subset of its input.
 
-The first argument, {{ '<var>' }}pattern{{ '</var>' }} is a word containing a
+The first argument, <var>pattern</var> is a word containing a
 [regular expression](#regex) over target names. A `filter` expression
-evaluates to the set containing all targets {{ '<var>' }}x{{ '</var>' }} such that
-{{ '<var>' }}x{{ '</var>' }} is a member of the set {{ '<var>' }}input{{ '</var>' }} and the
+evaluates to the set containing all targets <var>x</var> such that
+<var>x</var> is a member of the set <var>input</var> and the
 label (in absolute form, such as `//foo:bar`)
-of {{ '<var>' }}x{{ '</var>' }} contains an (unanchored) match
-for the regular expression {{ '<var>' }}pattern{{ '</var>' }}. Since all
+of <var>x</var> contains an (unanchored) match
+for the regular expression <var>pattern</var>. Since all
 target names start with `//`, it may be used as an alternative
 to the `^` regular expression anchor.
 
@@ -845,8 +845,8 @@ which would first calculate the set of `//foo` dependencies and
 then would filter only targets matching the provided pattern—in other
 words, targets with names containing `//bar` as a substring.
 
-Another common use of the `filter({{ '<var>' }}pattern{{ '</var>' }},
-{{ '<var>' }}expr{{ '</var>' }})` operator is to filter specific files by their
+Another common use of the `filter(<var>pattern</var>,
+<var>expr</var>)` operator is to filter specific files by their
 name or extension. For example,
 
 ```
@@ -858,27 +858,27 @@ will provide a list of all `.cc` files used to build `//foo`.
 ### Rule attribute filtering: attr
 
 ```
-expr ::= attr({{ '<var>' }}word{{ '</var>' }}, {{ '<var>' }}word{{ '</var>' }}, {{ '<var>' }}expr{{ '</var>' }})
+expr ::= attr(<var>word</var>, <var>word</var>, <var>expr</var>)
 ```
 
 The
-`attr({{ '<var>' }}name{{ '</var>' }}, {{ '<var>' }}pattern{{ '</var>' }}, {{ '<var>' }}input{{ '</var>' }})`
+`attr(<var>name</var>, <var>pattern</var>, <var>input</var>)`
 operator applies a filter to a set of targets, and discards targets that aren't
-rules, rule targets that do not have attribute {{ '<var>' }}name{{ '</var>' }}
+rules, rule targets that do not have attribute <var>name</var>
 defined or rule targets where the attribute value does not match the provided
-[regular expression](#regex) {{ '<var>' }}pattern{{ '</var>' }}; it evaluates
+[regular expression](#regex) <var>pattern</var>; it evaluates
 to a subset of its input.
 
-The first argument, {{ '<var>' }}name{{ '</var>' }} is the name of the rule
+The first argument, <var>name</var> is the name of the rule
 attribute that should be matched against the provided
 [regular expression](#regex) pattern. The second argument,
-{{ '<var>' }}pattern{{ '</var>' }} is a regular expression over the attribute
+<var>pattern</var> is a regular expression over the attribute
 values. An `attr` expression evaluates to the set containing all targets
-{{ '<var>' }}x{{ '</var>' }} such that  {{ '<var>' }}x{{ '</var>' }} is a
-member of the set {{ '<var>' }}input{{ '</var>' }}, is a rule with the defined
-attribute {{ '<var>' }}name{{ '</var>' }} and the attribute value contains an
+<var>x</var> such that  <var>x</var> is a
+member of the set <var>input</var>, is a rule with the defined
+attribute <var>name</var> and the attribute value contains an
 (unanchored) match for the regular expression
-{{ '<var>' }}pattern{{ '</var>' }}. If {{ '<var>' }}name{{ '</var>' }} is an
+<var>pattern</var>. If <var>name</var> is an
 optional attribute and rule does not specify it explicitly then default
 attribute value will be used for comparison. For example,
 
@@ -930,18 +930,18 @@ character after `value` will be a comma or `]`.
 ### Rule visibility filtering: visible
 
 ```
-expr ::= visible({{ '<var>' }}expr{{ '</var>' }}, {{ '<var>' }}expr{{ '</var>' }})
+expr ::= visible(<var>expr</var>, <var>expr</var>)
 ```
 
-The `visible({{ '<var>' }}predicate{{ '</var>' }}, {{ '<var>' }}input{{ '</var>' }})` operator
+The `visible(<var>predicate</var>, <var>input</var>)` operator
 applies a filter to a set of targets, and discards targets without the
 required visibility.
 
-The first argument, {{ '<var>' }}predicate{{ '</var>' }}, is a set of targets that all targets
-in the output must be visible to. A {{ '<var>' }}visible{{ '</var>' }} expression
-evaluates to the set containing all targets {{ '<var>' }}x{{ '</var>' }} such that {{ '<var>' }}x{{ '</var>' }}
-is a member of the set {{ '<var>' }}input{{ '</var>' }}, and for all targets {{ '<var>' }}y{{ '</var>' }} in
-{{ '<var>' }}predicate{{ '</var>' }} {{ '<var>' }}x{{ '</var>' }} is visible to {{ '<var>' }}y{{ '</var>' }}. For example:
+The first argument, <var>predicate</var>, is a set of targets that all targets
+in the output must be visible to. A <var>visible</var> expression
+evaluates to the set containing all targets <var>x</var> such that <var>x</var>
+is a member of the set <var>input</var>, and for all targets <var>y</var> in
+<var>predicate</var> <var>x</var> is visible to <var>y</var>. For example:
 
 ```
 visible(//foo, //bar:*)
@@ -953,28 +953,28 @@ can depend on without violating visibility restrictions.
 ### Evaluation of rule attributes of type label: labels
 
 ```
-expr ::= labels({{ '<var>' }}word{{ '</var>' }}, {{ '<var>' }}expr{{ '</var>' }})
+expr ::= labels(<var>word</var>, <var>expr</var>)
 ```
 
-The `labels({{ '<var>' }}attr_name{{ '</var>' }}, {{ '<var>' }}inputs{{ '</var>' }})`
+The `labels(<var>attr_name</var>, <var>inputs</var>)`
 operator returns the set of targets specified in the
-attribute {{ '<var>' }}attr_name{{ '</var>' }} of type "label" or "list of label" in
-some rule in set {{ '<var>' }}inputs{{ '</var>' }}.
+attribute <var>attr_name</var> of type "label" or "list of label" in
+some rule in set <var>inputs</var>.
 
 For example, `labels(srcs, //foo)` returns the set of
 targets appearing in the `srcs` attribute of
 the `//foo` rule. If there are multiple rules
-with `srcs` attributes in the {{ '<var>' }}inputs{{ '</var>' }} set, the
+with `srcs` attributes in the <var>inputs</var> set, the
 union of their `srcs` is returned.
 
 ### Expand and filter test_suites: tests
 
 ```
-expr ::= tests({{ '<var>' }}expr{{ '</var>' }})
+expr ::= tests(<var>expr</var>)
 ```
 
-The `tests({{ '<var>' }}x{{ '</var>' }})` operator returns the set of all test
-rules in set {{ '<var>' }}x{{ '</var>' }}, expanding any `test_suite` rules into
+The `tests(<var>x</var>)` operator returns the set of all test
+rules in set <var>x</var>, expanding any `test_suite` rules into
 the set of individual tests that they refer to, and applying filtering by
 `tag` and `size`.
 
@@ -995,12 +995,12 @@ via `test_suite` rules.
 ### Package definition files: buildfiles
 
 ```
-expr ::= buildfiles({{ '<var>' }}expr{{ '</var>' }})
+expr ::= buildfiles(<var>expr</var>)
 ```
 
-The `buildfiles({{ '<var>' }}x{{ '</var>' }})` operator returns the set
+The `buildfiles(<var>x</var>)` operator returns the set
 of files that define the packages of each target in
-set {{ '<var>' }}x{{ '</var>' }}; in other words, for each package, its `BUILD` file,
+set <var>x</var>; in other words, for each package, its `BUILD` file,
 plus any .bzl files it references via `load`. Note that this
 also returns the `BUILD` files of the packages containing these
 `load`ed files.
@@ -1031,7 +1031,7 @@ misleading when formatted in a structured way, such as
 ### Package definition files: rbuildfiles
 
 ```
-expr ::= rbuildfiles({{ '<var>' }}word{{ '</var>' }}, ...)
+expr ::= rbuildfiles(<var>word</var>, ...)
 ```
 
 Note: Only available with [Sky Query](#sky-query).
@@ -1063,12 +1063,12 @@ not those targets, but rather the path fragments that correspond to those target
 ### Package definition files: loadfiles
 
 ```
-expr ::= loadfiles({{ '<var>' }}expr{{ '</var>' }})
+expr ::= loadfiles(<var>expr</var>)
 ```
 
-The `loadfiles({{ '<var>' }}x{{ '</var>' }})` operator returns the set of
+The `loadfiles(<var>x</var>)` operator returns the set of
 Starlark files that are needed to load the packages of each target in
-set {{ '<var>' }}x{{ '</var>' }}. In other words, for each package, it returns the
+set <var>x</var>. In other words, for each package, it returns the
 .bzl files that are referenced from its `BUILD` files.
 
 Warning: Bazel pretends each of these .bzl files has a corresponding target
@@ -1236,7 +1236,7 @@ are specified, respectively.
 
 <table>
   <tr>
-    <td><img src="/versions/6.5.0/docs/images/out-ranked.svg" alt="Out ranked">
+    <td><img src="/versions/6.5.0/docs/images/out-ranked.svg" alt="Out ranked" />
     </td>
     <td>
       <pre>
@@ -1330,7 +1330,7 @@ same `genrule`; in the factored graph, all these files
 are represented by a single node. This behavior may be disabled
 with the `--nograph:factored` option.
 
-#### `--graph:node_limit {{ '<var>' }}n{{ '</var>' }}`
+#### `--graph:node_limit <var>n</var>`
 
 The option specifies the maximum length of the label string for a
 graph node in the output. Longer labels will be truncated; -1
@@ -1362,8 +1362,8 @@ form. The output starts with an XML header such as this
   <query version="2">
 ```
 
-<!-- The docs should continue to document version 2 into perpetuity,
-     even if we add new formats, to handle clients synced to old CLs. -->
+{/* The docs should continue to document version 2 into perpetuity,
+     even if we add new formats, to handle clients synced to old CLs. */}
 
 and then continues with an XML element for each target
 in the result graph, in topological order (unless
