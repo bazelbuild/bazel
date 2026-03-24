@@ -746,7 +746,7 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
             '  rctx.file("data.txt", "hello")',
             '  rctx.symlink("data.txt", "internal_link.txt")',
             (
-                '  rctx.symlink(rctx.path(rctx.attr.external_file),'
+                '  rctx.symlink(rctx.attr.external_file,'
                 ' "external_link.txt")'
             ),
             '  print("JUST FETCHED MY_REPO")',
@@ -762,9 +762,12 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
         [
             'def _other_repo_impl(rctx):',
             # Materialize dep_repo before my_repo so that the external
-            # symlink target exists when my_repo is materialized.
-            '  rctx.read(rctx.path(rctx.attr.dep_file))',
-            '  rctx.file("BUILD", rctx.read(rctx.path(rctx.attr.build_file)))',
+            # symlink target exists when my_repo is materialized. Without
+            # this, the symlink would be dangling.
+            '  rctx.watch(rctx.attr.dep_file)',
+            '  rctx.file("BUILD", rctx.read(rctx.attr.build_file))',
+            # other_repo is not reproducible, so it is always fetched
+            # and triggers materialization of my_repo and dep_repo.
             '  return rctx.repo_metadata()',
             (
                 'other_repo_rule = repository_rule(_other_repo_impl,'
@@ -815,19 +818,20 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
       self.assertEqual(f.read(), 'dep_hello')
 
   def testMaterializationWithInternalAndExternalSymlinks(self):
-    self.doTestMaterializationWithInternalAndExternalSymlinks(expect_symlinks=(not self.IsWindows()))
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          [
+              'startup --windows_enable_symlinks',
+          ],
+          mode='a',
+      )
+    self.doTestMaterializationWithInternalAndExternalSymlinks(expect_symlinks=True)
 
-  def testMaterializationWithInternalAndExternalSymlinks_withSymlinksOnWindows(self):
+  def testMaterializationWithInternalAndExternalSymlinks_withoutSymlinksOnWindows(self):
     if not self.IsWindows():
       self.skipTest('This test is only relevant on Windows')
-    self.ScratchFile(
-        '.bazelrc',
-        [
-            'startup --windows_enable_symlinks',
-        ],
-        mode='a',
-    )
-    self.doTestMaterializationWithInternalAndExternalSymlinks(expect_symlinks=True)
+    self.doTestMaterializationWithInternalAndExternalSymlinks(expect_symlinks=False)
 
   def testBzlFilePrefetching(self):
     self.ScratchFile(
