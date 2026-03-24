@@ -39,7 +39,7 @@ An index registry must have the following format:
     *   `overlay/`: An optional directory containing overlay files, only used
         when `source.json` has "archive" type
 
-### `bazel_registry.json`
+### `bazel_registry.json` {#bazel-registry-json}
 
 `bazel_registry.json` is an optional file that specifies metadata applying to
 the entire registry. It can contain the following fields:
@@ -57,7 +57,7 @@ the entire registry. It can contain the following fields:
 *   `module_base_path`: a string, specifying the base path for modules with
     `local_path` type in the `source.json` file
 
-### `metadata.json`
+### `metadata.json` {#metadata-json}
 
 `metadata.json` is an optional JSON file containing information about the
 module, with the following fields:
@@ -73,7 +73,7 @@ module, with the following fields:
 
 Note that the BCR requires more information in the `metadata.json` file.
 
-### `source.json`
+### `source.json` {#source-json}
 
 `source.json` is a required JSON file containing information about how to fetch
 a specific version of a module. The schema of this file depends on its `type`
@@ -132,7 +132,7 @@ field, which defaults to `archive`.
             `--registry=file://<registry_path>`. Otherwise, Bazel will
             throw an error
 
-## Bazel Central Registry
+## Bazel Central Registry {#bazel-central-registry}
 
 The Bazel Central Registry (BCR) at https://bcr.bazel.build/ is an index
 registry with contents backed by the GitHub repo

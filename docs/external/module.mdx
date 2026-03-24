@@ -32,7 +32,7 @@ By default, Bazel then [selects](#version-selection) one version of each module
 to use. Bazel represents each module with a repo, and consults the registry
 again to learn how to define each of the repos.
 
-## Version format
+## Version format {#version-format}
 
 Bazel has a diverse ecosystem and projects use various versioning schemes. The
 most popular by far is [SemVer](https://semver.org), but there are
@@ -59,7 +59,7 @@ they're compared as Bazel module versions.
 Finally, to learn more about module versioning, [see the `MODULE.bazel`
 FAQ](faq#module-versioning-best-practices).
 
-## Version selection
+## Version selection {#version-selection}
 
 Consider the diamond dependency problem, a staple in the versioned dependency
 management space. Suppose you have the dependency graph:
@@ -156,7 +156,7 @@ downsides when the module is being overridden with a non-registry override. To
 learn more about this [see the `MODULE.bazel`
 FAQ](faq#module-versioning-best-practices).
 
-## Define repos that don't represent Bazel modules
+## Define repos that don't represent Bazel modules {#use_repo_rule}
 
 With `bazel_dep`, you can define repos that represent other Bazel modules.
 Sometimes there is a need to define a repo that does _not_ represent a Bazel
