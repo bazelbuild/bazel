@@ -124,7 +124,6 @@ bazel_fragments["AndroidConfiguration.Options"] = fragment(
         "//command_line_option:dexopts_supported_in_dexsharder",
         "//command_line_option:android_manifest_merger",
         "//command_line_option:android_manifest_merger_order",
-        "//command_line_option:experimental_one_version_enforcement_use_transitive_jars_for_binary_under_test",
         "//command_line_option:internal_persistent_busybox_tools",
         "//command_line_option:internal_persistent_multiplex_busybox_tools",
         "//command_line_option:android_databinding_use_v3_4_args",

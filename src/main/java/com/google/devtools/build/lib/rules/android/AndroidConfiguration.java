@@ -574,21 +574,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + " will be preserved.")
     public boolean fixedResourceNeverlinking;
 
-    // TODO(eaftan): enable this by default and delete it
-    @Option(
-        name = "experimental_one_version_enforcement_use_transitive_jars_for_binary_under_test",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {
-          OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-          OptionEffectTag.ACTION_COMMAND_LINES
-        },
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help =
-            "If enabled, one version enforcement for android_test uses the binary_under_test's "
-                + "transitive classpath, otherwise it uses the deploy jar")
-    public boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
-
     @Option(
         name = "experimental_persistent_aar_extractor",
         defaultValue = "false",
@@ -887,7 +872,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean useParallelDex2Oat;
   private final boolean omitResourcesInfoProviderFromAndroidBinary;
   private final boolean fixedResourceNeverlinking;
-  private final boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
   private final boolean persistentAarExtractor;
   private final boolean persistentBusyboxTools;
   private final boolean persistentMultiplexBusyboxTools;
@@ -931,8 +915,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.omitResourcesInfoProviderFromAndroidBinary =
         options.omitResourcesInfoProviderFromAndroidBinary;
     this.fixedResourceNeverlinking = options.fixedResourceNeverlinking;
-    this.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
-        options.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
     this.persistentAarExtractor = options.persistentAarExtractor;
     this.persistentBusyboxTools = options.persistentBusyboxTools;
     this.persistentMultiplexBusyboxTools = options.persistentMultiplexBusyboxTools;
@@ -1095,11 +1077,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean fixedResourceNeverlinking() {
     return this.fixedResourceNeverlinking;
-  }
-
-  @Override
-  public boolean getOneVersionEnforcementUseTransitiveJarsForBinaryUnderTest() {
-    return oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
   }
 
   @Override
