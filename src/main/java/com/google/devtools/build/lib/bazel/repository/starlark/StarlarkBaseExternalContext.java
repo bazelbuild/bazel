@@ -562,6 +562,12 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   }
 
   private class PendingDownload implements StarlarkValue, AsyncTask {
+    public enum State {
+      PENDING,
+      CANCELLED,
+      ERROR,
+      COMPLETE
+    }
     private final boolean executable;
     private final boolean allowFail;
     private final StarlarkPath outputPath;
@@ -570,6 +576,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     private final Future<Path> future;
     private final Phaser downloadPhaser;
     private final Location location;
+    private State state;
 
     private PendingDownload(
         boolean executable,
@@ -588,6 +595,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       this.future = future;
       this.downloadPhaser = downloadPhaser;
       this.location = location;
+      this.state = State.PENDING;
     }
 
     @Override
@@ -602,7 +610,11 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
     @Override
     public boolean cancel() {
-      return !future.cancel(true);
+      boolean cancelSuccessful = future.cancel(true);
+      if (cancelSuccessful) {
+        this.state = State.CANCELLED;
+      }
+      return !cancelSuccessful;
     }
 
     @Override
@@ -614,6 +626,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       }
       try (SilentCloseable c = Profiler.instance().profile("Cancelling download " + outputPath)) {
         downloadPhaser.arriveAndAwaitAdvance();
+        this.state = State.CANCELLED;
       }
     }
 
@@ -630,7 +643,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
     @Override
     public void repr(Printer printer, StarlarkSemantics semantics) {
-      printer.append(String.format("<pending download to '%s'>", outputPath));
+      printer.append(String.format("<pending download (state: %s) to '%s'>", this.state, outputPath));
     }
   }
 
@@ -644,6 +657,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       }
     } catch (IOException e) {
       if (pendingDownload.allowFail) {
+        pendingDownload.state = PendingDownload.State.ERROR;
         Map<String, Object> struct = ImmutableMap.of(
             "success", false,
             "error", e.toString());
@@ -660,10 +674,12 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       pendingDownload.close();
     }
     if (pendingDownload.checksumValidation != null) {
+      pendingDownload.state = PendingDownload.State.ERROR;
       throw pendingDownload.checksumValidation;
     }
-
-    return calculateDownloadResult(pendingDownload.checksum, downloadedPath);
+    StructImpl result = calculateDownloadResult(pendingDownload.checksum, downloadedPath);
+    pendingDownload.state = PendingDownload.State.COMPLETE;
+    return result;
   }
 
   @StarlarkMethod(
