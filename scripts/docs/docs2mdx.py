@@ -69,7 +69,16 @@ _REPLACED_CODE_CHARACTERS = {
   **_REPLACED_JS_CHARACTERS,
 }
 
-def _escape_sensitive_chars(text, replacements):
+def _escape_chars(text, replacements):
+  """Escapes characters in a string.
+
+  Args:
+    text: str; string that needs characters escaped.
+    replacements: dict[str, str]; a dictionary mapping
+      characters to escape with their replacements.
+  Returns:
+    The escaped version of `text`.
+  """
   for c in replacements.keys():
     text = text.replace(c, replacements[c])
   return text
@@ -79,9 +88,9 @@ class AcornSafeMarkdownConverter(markdownify.MarkdownConverter):
   """Custom converter that produces Acorn-parsable MDX output."""
 
   def convert_code(self, node, text, parent_tags):
-    """Escape curly braces in code blocks so they're not misinterpreted as JS."""
+    """Escape sensitive characters in code blocks so they're not mishandled."""
     text = super().convert_code(node, text, parent_tags)
-    return _escape_sensitive_chars(text, _REPLACED_CODE_CHARACTERS)
+    return _escape_chars(text, _REPLACED_CODE_CHARACTERS)
 
   def escape(self, text, parent_tags):
     """Custom escape handling."""
@@ -91,7 +100,7 @@ class AcornSafeMarkdownConverter(markdownify.MarkdownConverter):
 
     # Unescape underscores that are in the middle of words.
     escaped = re.sub(r'(\w)\\_(\w)', r'\1_\2', escaped)
-    return _escape_sensitive_chars(escaped, _REPLACED_CODE_CHARACTERS)
+    return _escape_chars(escaped, _REPLACED_CODE_CHARACTERS)
 
 
 def _convert_directory(root_dir, mdx_dir):
@@ -183,7 +192,12 @@ def _remove_trailing_whitespaces(content):
 
 
 def _escape_chars_in_pre_blocks(matches):
-  content = _escape_sensitive_chars(matches.group(1), _REPLACED_JS_CHARACTERS)
+  """Escapes characters in <pre> blocks that cause mdx parse errors.
+
+  Because some <pre> blocks contain valid HTML elements (e.g. links), < and >
+  are not escaped.
+  """
+  content = _escape_chars(matches.group(1), _REPLACED_JS_CHARACTERS)
   return f'<pre>{content}</pre>'
 
 
