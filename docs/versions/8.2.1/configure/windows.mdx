@@ -189,12 +189,10 @@ If everything is set up, you can build a C++ target now!
 Try building a target from one of our [sample
 projects](https://github.com/bazelbuild/bazel/tree/master/examples):
 
-<pre class="devsite-click-to-copy">
-<code class="devsite-terminal"
-            data-terminal-prefix="C:\projects\bazel&gt; ">bazel build //examples/cpp:hello-world</code>
-<code class="devsite-terminal"
-            data-terminal-prefix="C:\projects\bazel&gt; ">bazel-bin\examples\cpp\hello-world.exe</code>
-</pre>
+```posix-terminal
+C:\projects\bazel> bazel build //examples/cpp:hello-world
+C:\projects\bazel> bazel-bin\examples\cpp\hello-world.exe
+```
 
 By default, the built binaries target x64 architecture. To specify a different
 target architecture, set the `--cpu` build option for your target architecture:
@@ -207,10 +205,9 @@ Note: `--cpu=x64_arm64_windows` to target ARM64 architecture is deprecated. Plea
 
 For example, to build targets for ARM architecture, run:
 
-<pre class="devsite-terminal devsite-click-to-copy"
-     data-terminal-prefix="C:\projects\bazel&gt; ">
-bazel build //examples/cpp:hello-world --cpu=x64_arm_windows
-</pre>
+```posix-terminal
+C:\projects\bazel> bazel build //examples/cpp:hello-world --cpu=x64_arm_windows
+```
 
 To build and use Dynamically Linked Libraries (DLL files), see [this
 example](https://github.com/bazelbuild/bazel/tree/master/examples/windows/dll).
@@ -295,12 +292,10 @@ On Windows, Bazel builds two output files for `java_binary` rules:
 Try building a target from one of our [sample
 projects](https://github.com/bazelbuild/bazel/tree/master/examples):
 
-<pre class="devsite-click-to-copy">
-  <code class="devsite-terminal"
-        data-terminal-prefix="C:\projects\bazel&gt; ">bazel build //examples/java-native/src/main/java/com/example/<var>myproject</var>:hello-world</code>
-  <code class="devsite-terminal"
-        data-terminal-prefix="C:\projects\bazel&gt; ">bazel-bin\examples\java-native\src\main\java\com\example\<var>myproject</var>\hello-world.exe</code>
-</pre>
+```posix-terminal
+C:\projects\bazel> bazel build //examples/java-native/src/main/java/com/example/myproject:hello-world
+C:\projects\bazel> bazel-bin\examples\java-native\src\main\java\com\example\myproject\hello-world.exe
+```
 
 ### Build Python {#python}
 
@@ -320,14 +315,11 @@ Python with the self-extracting zip file as the argument.
 Try building a target from one of our [sample
 projects](https://github.com/bazelbuild/bazel/tree/master/examples):
 
-<pre class="devsite-click-to-copy">
-  <code class="devsite-terminal"
-        data-terminal-prefix="C:\projects\bazel&gt; ">bazel build //examples/py_native:bin</code>
-  <code class="devsite-terminal"
-        data-terminal-prefix="C:\projects\bazel&gt; ">bazel-bin\examples\py_native\bin.exe</code>
-  <code class="devsite-terminal"
-        data-terminal-prefix="C:\projects\bazel&gt; ">python bazel-bin\examples\py_native\bin.zip</code>
-</pre>
+```posix-terminal
+C:\projects\bazel> bazel build //examples/py_native:bin
+C:\projects\bazel> bazel-bin\examples\py_native\bin.exe
+C:\projects\bazel> python bazel-bin\examples\py_native\bin.zip
+```
 
 If you are interested in details about how Bazel builds Python targets on
 Windows, check out this [design

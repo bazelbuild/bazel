@@ -57,9 +57,9 @@ When using remote execution or caching (both disk and remote), you can signal to
 Bazel that you
 want to download <strong>all</strong> (intermediate) build artifacts as follows:
 
-<pre class="prettyprint lang-sh">
+```sh
 --remote_download_outputs=<strong>all</strong>
-</pre>
+```
 
 By default, Bazel only downloads top-level artifacts, such as the final binary,
 and intermediate artifacts that are necessary for local actions.
@@ -201,9 +201,9 @@ Limits the amount of RAM the Bazel server uses.
 
 For example, the following limits the Bazel heap size to <strong>3</strong>GB:
 
-<pre class="prettyprint lang-sh">
+```sh
 --host_jvm_args=<strong>-Xmx3g</strong>
-</pre>
+```
 
 <aside class="note">
   <b>Note:</b> <code>-Xmx</code> is used to set the maximum heap size for the
