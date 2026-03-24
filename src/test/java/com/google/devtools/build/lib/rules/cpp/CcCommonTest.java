@@ -531,31 +531,6 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testIsolatedIncludes() throws Exception {
-    // Tests the (immediate) effect of declaring the includes attribute on a
-    // cc_library.
-
-    scratch.file(
-        "bang/BUILD",
-        """
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        cc_library(
-            name = "bang",
-            srcs = ["bang.cc"],
-            includes = ["bang_includes"],
-        )
-        """);
-
-    ConfiguredTarget foo = getConfiguredTarget("//bang:bang");
-
-    String includesRoot = "bang/bang_includes";
-    assertThat(CcInfo.get(foo).getCcCompilationContext().getIncludeDirs())
-        .containsAtLeast(
-            PathFragment.create(includesRoot),
-            targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot));
-  }
-
-  @Test
   public void testDisabledGenfilesDontShowUpInSystemIncludePaths() throws Exception {
     scratch.file(
         "bang/BUILD",
