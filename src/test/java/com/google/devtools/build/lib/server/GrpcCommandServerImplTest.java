@@ -26,6 +26,7 @@ import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
+import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -63,16 +64,20 @@ public final class GrpcCommandServerImplTest {
             Thread t =
                 new Thread(
                     () -> {
-                      RunResponse response =
-                          RunResponse.newBuilder()
-                              .setStandardOutput(ByteString.copyFrom(new byte[1024]))
-                              .build();
-                      for (int i = 0; i < 100; i++) {
-                        blockingStreamObserver.onNext(response);
-                        sentCount.incrementAndGet();
+                      try {
+                        RunResponse response =
+                            RunResponse.newBuilder()
+                                .setStandardOutput(ByteString.copyFrom(new byte[1024]))
+                                .build();
+                        for (int i = 0; i < 100; i++) {
+                          blockingStreamObserver.onNext(response);
+                          sentCount.incrementAndGet();
+                        }
+                        blockingStreamObserver.onCompleted();
+                        serverDone.countDown();
+                      } catch (IOException e) {
+                        throw new IllegalStateException(e);
                       }
-                      blockingStreamObserver.onCompleted();
-                      serverDone.countDown();
                     });
             t.start();
           }
@@ -151,20 +156,24 @@ public final class GrpcCommandServerImplTest {
             Thread t =
                 new Thread(
                     () -> {
-                      RunResponse response =
-                          RunResponse.newBuilder()
-                              .setStandardOutput(ByteString.copyFrom(new byte[1024]))
-                              .build();
-                      for (int i = 0; i < 100; i++) {
-                        blockingStreamObserver.onNext(response);
-                        sentCount.incrementAndGet();
+                      try {
+                        RunResponse response =
+                            RunResponse.newBuilder()
+                                .setStandardOutput(ByteString.copyFrom(new byte[1024]))
+                                .build();
+                        for (int i = 0; i < 100; i++) {
+                          blockingStreamObserver.onNext(response);
+                          sentCount.incrementAndGet();
+                        }
+                        // FlowControl should have interrupted the current thread after learning of
+                        // the server
+                        // cancel.
+                        assertThat(Thread.currentThread().isInterrupted()).isTrue();
+                        blockingStreamObserver.onCompleted();
+                        serverDone.countDown();
+                      } catch (IOException e) {
+                        throw new IllegalStateException(e);
                       }
-                      // FlowControl should have interrupted the current thread after learning of
-                      // the server
-                      // cancel.
-                      assertThat(Thread.currentThread().isInterrupted()).isTrue();
-                      blockingStreamObserver.onCompleted();
-                      serverDone.countDown();
                     });
             t.start();
           }
@@ -234,28 +243,33 @@ public final class GrpcCommandServerImplTest {
             Thread t =
                 new Thread(
                     () -> {
-                      RunResponse response =
-                          RunResponse.newBuilder()
-                              .setStandardOutput(ByteString.copyFrom(new byte[1024]))
-                              .build();
-                      // We want to trigger isReady() -> false, and we use sentCount to control
-                      // whether to sleep on the client side. Therefore, we only set sentCount after
-                      // isReady() changes.
-                      int sent = 0;
-                      while (serverCallStreamObserver.isReady()) {
-                        blockingStreamObserver.onNext(response);
-                        sent++;
+                      try {
+                        RunResponse response =
+                            RunResponse.newBuilder()
+                                .setStandardOutput(ByteString.copyFrom(new byte[1024]))
+                                .build();
+                        // We want to trigger isReady() -> false, and we use sentCount to control
+                        // whether to sleep on the client side. Therefore, we only set sentCount
+                        // after
+                        // isReady() changes.
+                        int sent = 0;
+                        while (serverCallStreamObserver.isReady()) {
+                          blockingStreamObserver.onNext(response);
+                          sent++;
+                        }
+                        sentCount.set(sent);
+                        // If the current thread is interrupted, the subsequent onNext calls should
+                        // not hang, but complete eventually (they may block on flow control).
+                        Thread.currentThread().interrupt();
+                        for (int i = 0; i < 10; i++) {
+                          blockingStreamObserver.onNext(response);
+                          sentCount.incrementAndGet();
+                        }
+                        blockingStreamObserver.onCompleted();
+                        serverDone.countDown();
+                      } catch (IOException e) {
+                        throw new IllegalStateException(e);
                       }
-                      sentCount.set(sent);
-                      // If the current thread is interrupted, the subsequent onNext calls should
-                      // not hang, but complete eventually (they may block on flow control).
-                      Thread.currentThread().interrupt();
-                      for (int i = 0; i < 10; i++) {
-                        blockingStreamObserver.onNext(response);
-                        sentCount.incrementAndGet();
-                      }
-                      blockingStreamObserver.onCompleted();
-                      serverDone.countDown();
                     });
             t.start();
           }

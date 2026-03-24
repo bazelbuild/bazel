@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.server.CommandProtos.RunResponse;
 import com.google.devtools.build.lib.util.OS;
 import io.grpc.Context;
 import io.grpc.Server;
+import io.grpc.StatusRuntimeException;
 import io.grpc.netty.NettyServerBuilder;
 import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
@@ -65,8 +66,6 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
    * command while printing output as well as sending the final exit code to the client. However, it
    * maintains the interrupt flag if it is already set.
    */
-  // TODO(tjgq): Avoid surfacing StatusRuntimeException (and possibly other unchecked exceptions)
-  // from onNext() and onCompleted() by wrapping it into an IOException.
   @VisibleForTesting
   static class BlockingStreamObserver<T> implements GrpcCommandServer.Responder<T> {
     private final ServerCallStreamObserver<T> observer;
@@ -89,7 +88,7 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
     }
 
     @Override
-    public synchronized void onNext(T response) {
+    public synchronized void onNext(T response) throws IOException {
       boolean interrupted = false;
       while (!observer.isReady() && !observer.isCancelled()) {
         try {
@@ -106,9 +105,10 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
         // According to the documentation, if onNext is called in a canceled stream, it will be
         // silently ignored.
         observer.onNext(response);
+      } catch (StatusRuntimeException e) {
+        throw new IOException(e.getMessage(), e);
       } finally {
-        // onNext does not specify whether it can throw unchecked exceptions. We use a finally block
-        // here to make sure that the interrupt bit is not lost even if it does.
+        // Restore the interrupt bit.
         if (interrupted || observer.isCancelled()) {
           Thread.currentThread().interrupt();
         }
@@ -116,8 +116,12 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
     }
 
     @Override
-    public void onCompleted() {
-      observer.onCompleted();
+    public void onCompleted() throws IOException {
+      try {
+        observer.onCompleted();
+      } catch (StatusRuntimeException e) {
+        throw new IOException(e.getMessage(), e);
+      }
     }
   }
 

@@ -56,7 +56,6 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
-import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Inet4Address;
@@ -140,7 +139,7 @@ public class CommandServer implements GrpcCommandServer.Callback {
     }
 
     @Override
-    public synchronized void report(Any commandExtension) {
+    public synchronized void report(Any commandExtension) throws IOException {
       responder.onNext(
           RunResponse.newBuilder()
               .setCookieBytes(responseCookieBytes)
@@ -202,7 +201,7 @@ public class CommandServer implements GrpcCommandServer.Callback {
         try {
           // This can block waiting for the client to read the available data.
           responder.onNext(response.build());
-        } catch (StatusRuntimeException e) {
+        } catch (IOException e) {
           // I am not sure whether there are any circumstances under which this call could throw an
           // exception, but I'd rather it be logged than that we crash silently. The documentation
           // only says that onNext does not throw a CancelledException if the stream is canceled,
@@ -438,7 +437,7 @@ public class CommandServer implements GrpcCommandServer.Callback {
                 .setFailureDetail(failureDetail)
                 .build());
         responder.onCompleted();
-      } catch (StatusRuntimeException e) {
+      } catch (IOException e) {
         logger.atInfo().withCause(e).log("Error while sending RunResponse");
       }
       return;
@@ -472,7 +471,7 @@ public class CommandServer implements GrpcCommandServer.Callback {
         // Send the client the command id as soon as we know it.
         responder.onNext(
             RunResponse.newBuilder().setCookie(responseCookie).setCommandId(commandId).build());
-      } catch (StatusRuntimeException e) {
+      } catch (IOException e) {
         logger.atInfo().withCause(e).log("Error while sending initial RunResponse");
       }
 
@@ -546,7 +545,7 @@ public class CommandServer implements GrpcCommandServer.Callback {
       responder.onNext(response.addAllCommandExtensions(result.getResponseExtensions()).build());
       responder.onCompleted();
 
-    } catch (StatusRuntimeException e) {
+    } catch (IOException e) {
       logger.atInfo().withCause(e).log("Error while sending RunResponse");
     }
     if (result.shutdown()) {
@@ -555,30 +554,31 @@ public class CommandServer implements GrpcCommandServer.Callback {
   }
 
   @Override
-  public void ping(PingRequest pingRequest, GrpcCommandServer.Responder<PingResponse> responder) {
+  public void ping(PingRequest request, GrpcCommandServer.Responder<PingResponse> responder) {
     logger.atInfo().log("Got PingRequest");
     try (RunningCommand command = commandManager.createCommand()) {
       PingResponse.Builder response = PingResponse.newBuilder();
-      if (isValidRequestCookie(pingRequest.getCookie())) {
+      if (isValidRequestCookie(request.getCookie())) {
         response.setCookie(responseCookie);
       }
       responder.onNext(response.build());
       responder.onCompleted();
+    } catch (IOException e) {
+      // There is no one to report the failure to.
+      logger.atInfo().withCause(e).log("Error while sending PingResponse");
     }
   }
 
   @Override
   public void cancel(CancelRequest request, GrpcCommandServer.Responder<CancelResponse> responder) {
     logger.atInfo().log("Got CancelRequest for command id %s", request.getCommandId());
-    if (!isValidRequestCookie(request.getCookie())) {
-      responder.onCompleted();
-      return;
-    }
-    commandManager.doCancel(request);
     try {
-      responder.onNext(CancelResponse.newBuilder().setCookie(responseCookie).build());
+      if (isValidRequestCookie(request.getCookie())) {
+        commandManager.doCancel(request);
+        responder.onNext(CancelResponse.newBuilder().setCookie(responseCookie).build());
+      }
       responder.onCompleted();
-    } catch (StatusRuntimeException e) {
+    } catch (IOException e) {
       // There is no one to report the failure to.
       logger.atInfo().withCause(e).log("Error while sending CancelResponse");
     }
