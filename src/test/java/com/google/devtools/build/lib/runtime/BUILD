@@ -233,6 +233,7 @@ java_test(
 
 java_test(
     name = "RuntimeTests",
+    shard_count = 2,
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":RuntimeTests_lib",

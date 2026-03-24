@@ -67,7 +67,6 @@ import com.google.devtools.build.lib.runtime.ExecutionGraphModule.DependencyInfo
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestFileOutErr;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -89,18 +88,19 @@ import org.mockito.ArgumentCaptor;
 
 /** Unit tests for {@link ExecutionGraphModule}. */
 @RunWith(TestParameterInjector.class)
-public class ExecutionGraphModuleTest extends FoundationTestCase {
-  protected final DigestHashFunction digestHashFunction = DigestHashFunction.SHA256;
-  private ExecutionGraphModule module;
+public final class ExecutionGraphModuleTest extends FoundationTestCase {
+
+  @TestParameter({"-1", "1", "256"})
+  private int queueSize;
+
+  @TestParameter({"-1", "1", "256"})
+  private int queuedBytesLimit;
+
+  private final ExecutionGraphModule module = new ExecutionGraphModule();
   private ArtifactRoot artifactRoot;
 
   @Before
-  public void createModule() {
-    module = new ExecutionGraphModule();
-  }
-
-  @Before
-  public final void initializeRoots() {
+  public void initializeRoots() {
     artifactRoot = ArtifactRoot.asDerivedRoot(scratch.resolve("/"), RootType.OUTPUT, "output");
   }
 
@@ -510,7 +510,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
             /* logFileWriteEdges= */ false,
             OutputStream.nullOutputStream(),
             DependencyInfo.NONE,
-            -1) {
+            queueSize,
+            queuedBytesLimit) {
           @Override
           protected void updateLogs(BuildToolLogCollection logs) {}
 
@@ -551,7 +552,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
             logFileWriteEdges,
             buffer,
             depType,
-            -1) {
+            queueSize,
+            queuedBytesLimit) {
           @Override
           protected void updateLogs(BuildToolLogCollection logs) {}
         };
