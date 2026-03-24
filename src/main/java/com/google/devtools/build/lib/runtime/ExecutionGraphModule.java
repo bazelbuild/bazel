@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.common.eventbus.AllowConcurrentEvents;
+import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
@@ -83,7 +84,6 @@ import java.io.OutputStream;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -671,6 +671,7 @@ public class ExecutionGraphModule extends BlazeModule {
     }
 
     private final BugReporter bugReporter;
+    private final EventBus eventBus;
     private final boolean localLockFreeOutputEnabled;
     private final boolean logFileWriteEdges;
     private final Map<ActionInput, NodeInfo> outputToNode = new ConcurrentHashMap<>();
@@ -688,6 +689,8 @@ public class ExecutionGraphModule extends BlazeModule {
     // but the vast majority of builds don't have that many actions.
     private final BlockingQueue<byte[]> queue;
     private final AtomicLong blockedMillis = new AtomicLong(0);
+    private final AtomicLong currentQueuedBytes = new AtomicLong(0);
+    private final AtomicLong maxQueuedBytes = new AtomicLong(0);
     private final OutputStream outStream;
     private final Thread thread;
 
@@ -700,13 +703,14 @@ public class ExecutionGraphModule extends BlazeModule {
 
     ActionDumpWriter(
         BugReporter bugReporter,
+        EventBus eventBus,
         boolean localLockFreeOutputEnabled,
         boolean logFileWriteEdges,
         OutputStream outStream,
-        UUID commandId,
         DependencyInfo depType,
         int queueSize) {
       this.bugReporter = bugReporter;
+      this.eventBus = eventBus;
       this.localLockFreeOutputEnabled = localLockFreeOutputEnabled;
       this.logFileWriteEdges = logFileWriteEdges;
       this.outStream = outStream;
@@ -727,6 +731,11 @@ public class ExecutionGraphModule extends BlazeModule {
     }
 
     void enqueue(byte[] entry) {
+      long current = currentQueuedBytes.addAndGet(entry.length);
+      // Avoid expensive CAS operations in accumulateAndGet() once a high peak is established.
+      if (current > maxQueuedBytes.get()) {
+        maxQueuedBytes.accumulateAndGet(current, Math::max);
+      }
       if (queue.offer(entry)) {
         return;
       }
@@ -736,6 +745,7 @@ public class ExecutionGraphModule extends BlazeModule {
       } catch (InterruptedException e) {
         logger.atWarning().atMostEvery(10, SECONDS).withCause(e).log(
             "Interrupted while trying to put to queue");
+        currentQueuedBytes.addAndGet(-entry.length);
         Thread.currentThread().interrupt();
       }
       blockedMillis.addAndGet(sw.elapsed().toMillis());
@@ -784,6 +794,11 @@ public class ExecutionGraphModule extends BlazeModule {
       if (logs != null) {
         updateLogs(logs);
       }
+      eventBus.post(
+          ExecutionGraphWriterStats.newBuilder()
+              .setBlockedMillis(blockedMs)
+              .setMaxQueuedBytes(maxQueuedBytes.get())
+              .build());
     }
 
     void actionShared(SharedActionEvent event) {
@@ -836,6 +851,7 @@ public class ExecutionGraphModule extends BlazeModule {
           CodedOutputStream codedOut = CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE);
           byte[] data;
           while ((data = queue.take()) != INVOCATION_COMPLETED) {
+            currentQueuedBytes.addAndGet(-data.length);
             codedOut.writeByteArrayNoTag(data);
           }
           receivedLastEntry = true;
@@ -844,8 +860,9 @@ public class ExecutionGraphModule extends BlazeModule {
           // Fixing b/117951060 should mitigate, but may happen regardless.
           logger.atWarning().withCause(e).log("Failure writing action dump");
           if (!receivedLastEntry) {
-            while (queue.take() != INVOCATION_COMPLETED) {
-              // We keep emptying the queue to avoid OOMs or blocking, but we can't write anything.
+            byte[] data;
+            while ((data = queue.take()) != INVOCATION_COMPLETED) {
+              currentQueuedBytes.addAndGet(-data.length);
             }
           }
         }
@@ -876,10 +893,10 @@ public class ExecutionGraphModule extends BlazeModule {
         && executionGraphOptions.executionGraphLogPath.isBlank()) {
       return new StreamingActionDumpWriter(
           env.getRuntime().getBugReporter(),
+          env.getEventBus(),
           env.getOptions().getOptions(LocalExecutionOptions.class).localLockfreeOutput,
           executionGraphOptions.logFileWriteEdges,
           newUploader(env, bepOptions).startUpload(LocalFileType.PERFORMANCE_LOG, null),
-          env.getCommandId(),
           executionGraphOptions.depType,
           executionGraphOptions.queueSize);
     }
@@ -892,10 +909,10 @@ public class ExecutionGraphModule extends BlazeModule {
     try {
       return new FilesystemActionDumpWriter(
           env.getRuntime().getBugReporter(),
+          env.getEventBus(),
           env.getOptions().getOptions(LocalExecutionOptions.class).localLockfreeOutput,
           executionGraphOptions.logFileWriteEdges,
           actionGraphFile,
-          env.getCommandId(),
           executionGraphOptions.depType,
           executionGraphOptions.queueSize);
     } catch (IOException e) {
@@ -906,21 +923,21 @@ public class ExecutionGraphModule extends BlazeModule {
   private static final class FilesystemActionDumpWriter extends ActionDumpWriter {
     private final Path actionGraphFile;
 
-    public FilesystemActionDumpWriter(
+    FilesystemActionDumpWriter(
         BugReporter bugReporter,
+        EventBus eventBus,
         boolean localLockFreeOutputEnabled,
         boolean logFileWriteEdges,
         Path actionGraphFile,
-        UUID uuid,
         DependencyInfo depType,
         int queueSize)
         throws IOException {
       super(
           bugReporter,
+          eventBus,
           localLockFreeOutputEnabled,
           logFileWriteEdges,
           actionGraphFile.getOutputStream(),
-          uuid,
           depType,
           queueSize);
       this.actionGraphFile = actionGraphFile;
@@ -956,18 +973,18 @@ public class ExecutionGraphModule extends BlazeModule {
 
     public StreamingActionDumpWriter(
         BugReporter bugReporter,
+        EventBus eventBus,
         boolean localLockFreeOutputEnabled,
         boolean logFileWriteEdges,
         UploadContext uploadContext,
-        UUID commandId,
         DependencyInfo depType,
         int queueSize) {
       super(
           bugReporter,
+          eventBus,
           localLockFreeOutputEnabled,
           logFileWriteEdges,
           uploadContext.getOutputStream(),
-          commandId,
           depType,
           queueSize);
       this.uploadContext = uploadContext;

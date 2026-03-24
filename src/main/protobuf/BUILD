@@ -24,6 +24,7 @@ FILES = [
     "test_status",
     "worker_protocol",
     "execution_graph",
+    "execution_graph_writer",
     "file_invalidation_data",
 ]
 
