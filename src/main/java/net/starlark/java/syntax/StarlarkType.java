@@ -31,11 +31,30 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
    *
    * <p>Preferred order is from the most specific to the least specific supertype. But if that is
    * not possible, the order can be arbitrary.
+   *
+   * <p>This method is intended to return only supertypes of other {@link StarlarkType} subclasses.
+   * To express subtype/supertype relation with other instances of the same {@link StarlarkType}
+   * subclass, use {@link #assignableFromHook}.
    */
   // TODO: #27370 - Add getSubtypes(), with the semantics that the actual subtype relation is the
   // union of these two methods.
   public List<StarlarkType> getSupertypes() {
     return ImmutableList.of();
+  }
+
+  /**
+   * Returns true if Starlark values of this type can be assigned from Starlark values of type
+   * {@code t}, where {@code t} is not {@code Any}, {@code Object}, {@code Never}, or a union; and
+   * not a type one of whose {@link #getSupertypes} is assignable to this type.
+   *
+   * <p>Subclasses of {@link StarlarkType} should override this method to implement covariance,
+   * contravariance, or consistent-equals-based invariance in type arguments.
+   *
+   * <p>See {@link #getSupertypes()} for subtype/supertype relation with other subclasses of {@link
+   * StarlarkType}.
+   */
+  public boolean assignableFromHook(StarlarkType t) {
+    return this.equals(t);
   }
 
   /**
@@ -56,10 +75,6 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
    * <p>The Python glossary uses the term "assignable [to/from]" for this relation, and
    * "materialization" to refer to the process of substituting {@code Any}.
    */
-  // TODO: #28043 - Add support for:
-  // - covariance (Sequence[int] <= Sequence[object])
-  // - proper treatment of materializing Any (Sequence[int] <= Sequence[Any])
-  // - transitive application of all of the above
   public static boolean assignableFrom(StarlarkType t1, StarlarkType t2) {
     if (t1.equals(Types.ANY) || t2.equals(Types.ANY)) {
       return true;
@@ -70,27 +85,34 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
     if (t1.equals(t2)) {
       return true;
     }
+    if (t1.assignableFromHook(t2)) {
+      return true;
+    }
     if (t2 instanceof Types.UnionType union2) {
       return union2.getTypes().stream().allMatch(sub2 -> assignableFrom(t1, sub2));
     }
     if (t1 instanceof Types.UnionType union1) {
       return union1.getTypes().stream().anyMatch(sub1 -> assignableFrom(sub1, t2));
     }
-    if (t1 instanceof Types.StructType struct1 && t2 instanceof Types.StructType struct2) {
-      // True iff every field of struct 1 is assignable from a field of the same name in struct 2.
-      return struct1.getFields().entrySet().stream()
-          .allMatch(
-              entry1 -> {
-                String fieldName = entry1.getKey();
-                StarlarkType fieldType1 = entry1.getValue();
-                @Nullable StarlarkType fieldType2 = struct2.getField(fieldName);
-                return fieldType2 != null && assignableFrom(fieldType1, fieldType2);
-              });
-    }
     if (t2.getSupertypes().stream().anyMatch(super2 -> assignableFrom(t1, super2))) {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Returns true if values of the two types can be assigned to each other.
+   *
+   * <p>This relationship is symmetric but not transitive; {@code int} and {@code float} are both
+   * consistent-equals to {@code Any}, but {@code int} and {@code float} are not consistent-equals
+   * to each other.
+   *
+   * <p>The consistent-equals check should be used for type parameter invariance; for example,
+   * {@code list[int]} is consistent-equals to {@code list[Any]} because {@code int} is
+   * consistent-equals to {@code Any}.
+   */
+  public static boolean consistentEquals(StarlarkType t1, StarlarkType t2) {
+    return assignableFrom(t1, t2) && assignableFrom(t2, t1);
   }
 
   /**

@@ -65,6 +65,8 @@ public final class Types {
   public static final UnionType NUMERIC = (UnionType) union(INT, FLOAT);
   // A frequently-used empty tuple type.
   public static final FixedLengthTupleType EMPTY_TUPLE = tuple(ImmutableList.of());
+  // A frequently-used arbitrary collection.
+  public static final CollectionType COLLECTION_OF_ANY = collection(ANY);
 
   // A frequently used function without parameters, that returns Any.
   public static final CallableType NO_PARAMS_CALLABLE =
@@ -832,6 +834,24 @@ public final class Types {
     }
 
     @Override
+    public boolean assignableFromHook(StarlarkType t) {
+      if (!(t instanceof FixedLengthTupleType that)) {
+        return false;
+      }
+      // Covariant in each element type; the number of elements must match exactly.
+      if (this.getElementTypes().size() != that.getElementTypes().size()) {
+        return false;
+      }
+      for (int i = 0; i < this.getElementTypes().size(); i++) {
+        if (!StarlarkType.assignableFrom(
+            this.getElementTypes().get(i), that.getElementTypes().get(i))) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    @Override
     public List<StarlarkType> getSupertypes() {
       HomogeneousTupleType homogeneous = toHomogeneous();
       return ImmutableList.of(
@@ -906,6 +926,15 @@ public final class Types {
     }
 
     @Override
+    public boolean assignableFromHook(StarlarkType t) {
+      if (!(t instanceof HomogeneousTupleType that)) {
+        return false;
+      }
+      // Covariant in element type.
+      return StarlarkType.assignableFrom(this.getElementType(), that.getElementType());
+    }
+
+    @Override
     public final String toString() {
       return "tuple[" + getElementType() + ", ...]";
     }
@@ -943,9 +972,32 @@ public final class Types {
     return new AutoValue_Types_CollectionType(elementType);
   }
 
-  /** Abstract collection type implementing common functionality. Exists to be subclassed. */
+  /** Returns true if {@code type} may be used as a collection. */
+  public static boolean isCollection(StarlarkType type) {
+    return StarlarkType.assignableFrom(COLLECTION_OF_ANY, type);
+  }
+
+  /**
+   * Abstract collection type implementing common functionality. Exists to be subclassed.
+   *
+   * <p>{@code AbstractCollectionType}'s default {@link #assignableFromHook} always returns false if
+   * {@code t} and this are not of the same Java class. Therefore, subclasses having multiple Java
+   * classes corresponding to the same Starlark type family may need to override {@link
+   * #assignableFromHook}.
+   */
   public abstract static class AbstractCollectionType extends StarlarkType {
     public abstract StarlarkType getElementType();
+
+    @Override
+    public boolean assignableFromHook(StarlarkType t) {
+      // Assume 1-1 correspondence between Java subclass and Starlark type family.
+      if (!this.getClass().equals(t.getClass())) {
+        return false;
+      }
+      // Invariant in element type because `that` might be mutable.
+      AbstractCollectionType that = (AbstractCollectionType) t;
+      return StarlarkType.consistentEquals(this.getElementType(), that.getElementType());
+    }
 
     @Override
     @Nullable
@@ -959,11 +1011,22 @@ public final class Types {
   }
 
   /** Collection type. */
-  // We need CollectionType to be a separate class from AbstractCollectionType only because one
-  // @AutoValue class may not extend another - so we cannot have SequenceType or SetType be
-  // subclasses of CollectionType (they are subclasses of AbstractCollectionType instead).
+  // We need CollectionType to be a separate class from AbstractCollectionType for 2 reasons.
+  // First, CollectionType is an immutable view of a collection (and so can be covariant in element
+  // type), while AbstractCollectionType has mutable subtypes (which are invariant in element type).
+  // Second, an @AutoValue class may not extend another - so we cannot have SequenceType or SetType
+  // be subclasses of CollectionType (they are subclasses of AbstractCollectionType instead).
   @AutoValue
   public abstract static class CollectionType extends AbstractCollectionType {
+    @Override
+    public boolean assignableFromHook(StarlarkType t) {
+      if (!(t instanceof CollectionType that)) {
+        return false;
+      }
+      // Covariant in element type.
+      return StarlarkType.assignableFrom(this.getElementType(), that.getElementType());
+    }
+
     @Override
     public final String toString() {
       return "Collection[" + getElementType() + "]";
@@ -987,13 +1050,24 @@ public final class Types {
   }
 
   /** Sequence type. */
-  // We need SequenceType to be a separate class from AbstractSequenceType only because one
-  // @AutoValue class may not extend another - so we cannot have ListType or
-  // TupleType be subclasses of SequenceType (they are subclasses of AbstractSequenceType instead).
+  // We need SequenceType to be a separate class from AbstractSequenceType for 2 reasons.
+  // First, SequenceType is an immutable view of a sequence (and so can be covariant in element
+  // type), while AbstractSequenceType has mutable subtypes (which are invariant in element type).
+  // Second, an @AutoValue class may not extend another - so we cannot have ListType or TupleType
+  // be subclasses of SequenceType (they are subclasses of AbstractSequenceType instead).
   @AutoValue
   public abstract static class SequenceType extends AbstractSequenceType {
     @Override
     public abstract StarlarkType getElementType();
+
+    @Override
+    public boolean assignableFromHook(StarlarkType t) {
+      if (!(t instanceof SequenceType that)) {
+        return false;
+      }
+      // Covariant in element type.
+      return StarlarkType.assignableFrom(this.getElementType(), that.getElementType());
+    }
 
     @Override
     public final String toString() {
@@ -1006,7 +1080,14 @@ public final class Types {
     return new AutoValue_Types_MappingType(keyType, valueType);
   }
 
-  /** Abstract mapping type for common map functionality. Exists to be subclassed. */
+  /**
+   * Abstract mapping type for common map functionality. Exists to be subclassed.
+   *
+   * <p>{@code AbstractMappingType}'s default {@link #assignableFromHook} always returns false if
+   * {@code t} and this are not of the same Java class. Therefore, subclasses having multiple Java
+   * classes corresponding to the same Starlark type family may need to override {@link
+   * #assignableFromHook}.
+   */
   public abstract static class AbstractMappingType extends AbstractCollectionType {
     public abstract StarlarkType getKeyType();
 
@@ -1020,6 +1101,18 @@ public final class Types {
     @Override
     public StarlarkType getElementType() {
       return getKeyType();
+    }
+
+    @Override
+    public boolean assignableFromHook(StarlarkType t) {
+      // Assume 1-1 correspondence between Java subclass and Starlark type family.
+      if (!this.getClass().equals(t.getClass())) {
+        return false;
+      }
+      // Invariant in both key and value types because `that` might be mutable.
+      AbstractMappingType that = (AbstractMappingType) t;
+      return StarlarkType.consistentEquals(this.getKeyType(), that.getKeyType())
+          && StarlarkType.consistentEquals(this.getValueType(), that.getValueType());
     }
 
     @Override
@@ -1042,9 +1135,11 @@ public final class Types {
   }
 
   /** Mapping type. */
-  // We need MappingType to be a separate class from AbstractMappingType only because one @AutoValue
-  // class may not extend another - so we cannot have DictType be a subclass of MappingType (it is a
-  // subclass of AbstractMappingType instead).
+  // We need MappingType to be a separate class from AbstractMappingType for 2 reasons.
+  // First, MappingType is an immutable view of a mapping (and so can be covariant in value type),
+  // while AbstractMappingType has mutable subtypes (which are invariant in value type).
+  // Second, an @AutoValue class may not extend another - so we cannot have DictType be a subclass
+  // of MappingType (it is a subclass of AbstractMappingType instead).
   @AutoValue
   public abstract static class MappingType extends AbstractMappingType {
     @Override
@@ -1052,6 +1147,16 @@ public final class Types {
 
     @Override
     public abstract StarlarkType getValueType();
+
+    @Override
+    public boolean assignableFromHook(StarlarkType t) {
+      if (!(t instanceof MappingType that)) {
+        return false;
+      }
+      // Invariant in key type; covariant in value type.
+      return StarlarkType.consistentEquals(this.getKeyType(), that.getKeyType())
+          && StarlarkType.assignableFrom(this.getValueType(), that.getValueType());
+    }
 
     @Override
     public final String toString() {
@@ -1080,6 +1185,22 @@ public final class Types {
     // TODO: #27370 - should we add optional fields? (Maybe useful for Bazel's providers.)
     // TODO: #27370 - should we add mutable fields / hasSetField()?
     public abstract ImmutableMap<String, StarlarkType> getFields();
+
+    @Override
+    public boolean assignableFromHook(StarlarkType t) {
+      if (t instanceof StructType that) {
+        // Covariant in LHS fields; LHS field names must be a subset of RHS field names.
+        return this.getFields().entrySet().stream()
+            .allMatch(
+                entry1 -> {
+                  String fieldName = entry1.getKey();
+                  StarlarkType fieldType1 = entry1.getValue();
+                  @Nullable StarlarkType fieldType2 = that.getField(fieldName);
+                  return fieldType2 != null && assignableFrom(fieldType1, fieldType2);
+                });
+      }
+      return false;
+    }
 
     @Nullable
     @Override

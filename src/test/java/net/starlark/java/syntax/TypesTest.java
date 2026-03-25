@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import java.util.function.Function;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -55,10 +56,14 @@ public class TypesTest {
     assertLt(t2, t1);
   }
 
-  /** Asserts {@code t1} and {@code t2} are *not* assignable in either direction. */
-  private static void assertIncomparable(StarlarkType t1, StarlarkType t2) {
-    assertNotLt(t1, t2);
-    assertNotLt(t2, t1);
+  /** Asserts that the given types are *not* assignable in either direction. */
+  private static void assertIncomparable(StarlarkType... types) {
+    for (int i = 0; i < types.length - 1; i++) {
+      for (int j = i + 1; j < types.length; j++) {
+        assertNotLt(types[i], types[j]);
+        assertNotLt(types[j], types[i]);
+      }
+    }
   }
 
   /**
@@ -152,6 +157,93 @@ public class TypesTest {
     assertStrictLtChain(
         Types.union(Types.dict(Types.STR, Types.INT), Types.list(Types.STR)),
         Types.union(Types.collection(Types.STR), Types.collection(Types.BOOL)));
+  }
+
+  @Test
+  public void assignability_homogeneousCollections_covariance() {
+    // Immutable collections: covariant in element type
+    ImmutableList<Function<StarlarkType, StarlarkType>> immutableCollectionConstructors =
+        ImmutableList.of(Types::collection, Types::sequence, Types::homogeneousTuple);
+    for (var ctor : immutableCollectionConstructors) {
+      assertLtAndGt(ctor.apply(Types.INT), ctor.apply(Types.ANY));
+      assertIncomparable(ctor.apply(Types.INT), ctor.apply(Types.FLOAT));
+      assertStrictLtChain(
+          ctor.apply(Types.INT), ctor.apply(Types.NUMERIC), ctor.apply(Types.OBJECT));
+    }
+
+    // Mutable collections: invariant in element type
+    ImmutableList<Function<StarlarkType, StarlarkType>> mutableCollectionConstructors =
+        ImmutableList.of(Types::list, Types::set);
+    for (var ctor : mutableCollectionConstructors) {
+      assertLtAndGt(ctor.apply(Types.INT), ctor.apply(Types.ANY));
+      assertIncomparable(
+          ctor.apply(Types.INT),
+          ctor.apply(Types.FLOAT),
+          ctor.apply(Types.NUMERIC),
+          ctor.apply(Types.OBJECT));
+    }
+  }
+
+  @Test
+  public void assignability_fixedLengthTuple_covariance() {
+    // Covariant in element types; element count must match exactly.
+    assertLtAndGt(Types.tuple(Types.INT, Types.STR), Types.tuple(Types.ANY, Types.ANY));
+    assertIncomparable(Types.tuple(Types.INT, Types.STR), Types.tuple(Types.ANY));
+    assertIncomparable(
+        Types.tuple(Types.INT, Types.STR), Types.tuple(Types.ANY, Types.ANY, Types.ANY));
+
+    assertIncomparable(Types.tuple(Types.INT, Types.STR), Types.tuple(Types.FLOAT, Types.STR));
+    assertIncomparable(Types.tuple(Types.INT, Types.STR), Types.tuple(Types.INT, Types.BOOL));
+    assertIncomparable(Types.tuple(Types.INT, Types.STR), Types.tuple(Types.STR, Types.INT));
+    assertIncomparable(Types.tuple(Types.INT, Types.STR), Types.tuple(Types.INT));
+    assertIncomparable(
+        Types.tuple(Types.INT, Types.STR), Types.tuple(Types.INT, Types.STR, Types.BOOL));
+
+    assertStrictLtChain(
+        Types.tuple(Types.INT, Types.STR),
+        Types.tuple(Types.NUMERIC, Types.STR),
+        Types.tuple(Types.OBJECT, Types.OBJECT));
+  }
+
+  @Test
+  public void assignability_mapping_covariance() {
+    // Invariant in key type (but allowing Any); covariant in value type.
+
+    // keys
+    assertLtAndGt(Types.mapping(Types.STR, Types.INT), Types.mapping(Types.ANY, Types.INT));
+    assertIncomparable(
+        Types.mapping(Types.STR, Types.INT),
+        Types.mapping(Types.OBJECT, Types.INT),
+        Types.mapping(Types.INT, Types.INT),
+        Types.mapping(Types.NUMERIC, Types.INT));
+
+    // values
+    assertLtAndGt(Types.mapping(Types.STR, Types.INT), Types.mapping(Types.STR, Types.ANY));
+    assertStrictLtChain(
+        Types.mapping(Types.STR, Types.INT),
+        Types.mapping(Types.STR, Types.NUMERIC),
+        Types.mapping(Types.STR, Types.OBJECT));
+  }
+
+  @Test
+  public void assignability_dict_invariance() {
+    // Invariant in key and value types.
+
+    // keys
+    assertLtAndGt(Types.dict(Types.STR, Types.INT), Types.dict(Types.ANY, Types.INT));
+    assertIncomparable(
+        Types.dict(Types.STR, Types.INT),
+        Types.dict(Types.OBJECT, Types.INT),
+        Types.dict(Types.INT, Types.INT),
+        Types.dict(Types.NUMERIC, Types.INT));
+
+    // values
+    assertLtAndGt(Types.dict(Types.STR, Types.INT), Types.dict(Types.STR, Types.ANY));
+    assertIncomparable(
+        Types.dict(Types.STR, Types.INT),
+        Types.dict(Types.STR, Types.FLOAT),
+        Types.dict(Types.STR, Types.NUMERIC),
+        Types.dict(Types.STR, Types.OBJECT));
   }
 
   @Test

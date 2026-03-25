@@ -613,6 +613,10 @@ public final class TypeChecker extends NodeVisitor {
             callFunctionType);
         return Types.ANY;
       }
+
+      // TODO: #28043 - Some of the checks below can be used to implement
+      // Types.CallableType.assignableFromHook().
+
       // Indices of residual arguments in call.getArguments() and their corresponding types in
       // argTypes. (Micro-optimization to avoid allocating <Argument, StarlarkType> pairs.)
       ArrayList<Integer> residualPositional = new ArrayList<>(0);
@@ -944,7 +948,7 @@ public final class TypeChecker extends NodeVisitor {
     } else {
       ArrayList<StarlarkType> varUnionElements = new ArrayList<>();
       for (StarlarkType iterableUnionElement : Types.unfoldUnion(iterableType)) {
-        // TODO: #28037 - Check getSubtypes() instead of relying purely on Java inheritance.
+        // TODO: #28037 - Replace with inferring T when assigning iterableType to Collection[T]
         // TODO: #28037 - Introduce an Iterable type and use it here to match language spec.
         if (iterableUnionElement.equals(Types.ANY)) {
           varUnionElements.add(Types.ANY);
@@ -1130,9 +1134,7 @@ public final class TypeChecker extends NodeVisitor {
               lhs.getElements().size());
           return;
         }
-      } else if (!rhsUnionElement.equals(Types.ANY)
-          && !(rhsUnionElement instanceof Types.AbstractCollectionType)) {
-        // TODO: #27370 - use `assignableFrom` once it supports covariance / materialization
+      } else if (!Types.isCollection(rhsType)) {
         // TODO: #28043 - consider checking for an Iterable type (as it is in the eval layer)
         errorf(lhs, "cannot assign non-iterable type '%s' to '%s'", rhsType, lhs);
         return;
