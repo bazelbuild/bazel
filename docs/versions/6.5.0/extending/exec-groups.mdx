@@ -7,7 +7,7 @@ Execution groups allow for multiple execution platforms within a single target.
 Each execution group has its own [toolchain](/docs/toolchains) dependencies and
 performs its own [toolchain resolution](/docs/toolchains#toolchain-resolution).
 
-## Background
+## Background {#background}
 
 Execution groups allow the rule author to define sets of actions, each with a
 potentially different execution platform. Multiple execution platforms can allow
@@ -20,7 +20,7 @@ unique and can only reference a single action. This is especially helpful in
 allocating extra resources to specific memory and processing intensive actions
 like linking in C++ builds without over-allocating to less demanding tasks.
 
-## Defining execution groups
+## Defining execution groups {#defining-exec-groups}
 
 During rule definition, rule authors can
 [declare](/rules/lib/globals#exec_group)
@@ -102,7 +102,7 @@ of:
 - `@platforms//os:linux`
 - `:local_constraint`
 
-## Accessing execution groups
+## Accessing execution groups {#accessing-exec-groups}
 
 In the rule implementation, you can declare that actions should be run on the
 execution platform of an execution group. You can do this by using the `exec_group`
@@ -140,7 +140,7 @@ that execution group in the action declaration, that may potentially cause
 issues. A mismatch like this may not immediately cause failures, but is a latent
 problem.
 
-## Using execution groups to set execution properties
+## Using execution groups to set execution properties {#using-exec-groups-for-exec-properties}
 
 Execution groups are integrated with the
 [`exec_properties`](/reference/be/common-definitions#common-attributes)
@@ -166,7 +166,7 @@ All actions with `exec_group = "link"` would see the exec properties
 dictionary as `{"mem": "16g"}`. As you see here, execution-group-level
 settings override target-level settings.
 
-### Execution groups for native rules
+### Execution groups for native rules {#execution-groups-for-native-rules}
 
 The following execution groups are available for actions defined by native rules:
 
@@ -203,7 +203,7 @@ my_rule = rule(
 #
 ```
 
-### Execution groups and platform execution properties
+### Execution groups and platform execution properties {#platform-execution-properties}
 
 It is possible to define `exec_properties` for arbitrary execution groups on
 platform targets (unlike `exec_properties` set directly on a target, where

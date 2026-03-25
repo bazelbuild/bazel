@@ -6,7 +6,7 @@ title: 'Testing'
 There are several different approaches to testing Starlark code in Bazel. This
 page gathers the current best practices and frameworks by use case.
 
-## Testing rules
+## Testing rules {#testing-rules}
 
 [Skylib](https://github.com/bazelbuild/bazel-skylib) has a test framework called
 [`unittest.bzl`](https://github.com/bazelbuild/bazel-skylib/blob/main/lib/unittest.bzl)
@@ -45,7 +45,7 @@ generated script that fails at test execution time.
 
 See below for a minimal toy example, followed by an example that checks actions.
 
-### Minimal example
+### Minimal example {#testing-rules-example}
 
 `//mypkg/myrules.bzl`:
 
@@ -175,7 +175,7 @@ Then:
 Note that the labels of all targets can conflict with other labels in the same
 BUILD package, so it's helpful to use a unique name for the test.
 
-### Failure testing
+### Failure testing {#failure-testing}
 
 It may be useful to verify that a rule fails given certain inputs or in certain
 state. This can be done using the analysis test framework:
@@ -216,7 +216,7 @@ def _test_failure():
 # ":failure_testing_test" to the suite's test targets.
 ```
 
-### Verifying registered actions
+### Verifying registered actions {#verifying-registered-actions}
 
 You may want to write tests which make assertions about the actions that your
 rule registers, for example, using `ctx.actions.run()`. This can be done in your
@@ -239,7 +239,7 @@ Note that `analysistest.target_actions(env)` returns a list of
 [`Action`](lib/Action) objects which represent actions registered by the
 target under test.
 
-### Verifying rule behavior under different flags
+### Verifying rule behavior under different flags {#verifying-rule-behavior}
 
 You may want to verify your real rule behaves a certain way given certain build
 flags. For example, your rule may behave differently if a user specifies:
@@ -288,7 +288,7 @@ prefixed with a special placeholder value `//command_line_option:`, as is shown
 above.
 
 
-## Validating artifacts
+## Validating artifacts {#validating-artifacts}
 
 The main ways to check that your generated files are correct are:
 
@@ -297,7 +297,7 @@ The main ways to check that your generated files are correct are:
 
 *   You can use a specialized rule for the kind of test you want to perform.
 
-### Using a test target
+### Using a test target {#using-test-target}
 
 The most straightforward way to validate an artifact is to write a script and
 add a `*_test` target to your BUILD file. The specific artifacts you want to
@@ -338,7 +338,7 @@ sh_test(
 )
 ```
 
-### Using a custom rule
+### Using a custom rule {#using-custom-rule}
 
 A more complicated alternative is to write the shell script as a template that
 gets instantiated by a new rule. This involves more indirection and Starlark
@@ -420,7 +420,7 @@ Alternatively, instead of using a template expansion action, you could have
 inlined the template into the .bzl file as a string and expanded it during the
 analysis phase using the `str.format` method or `%`-formatting.
 
-## Testing Starlark utilities
+## Testing Starlark utilities {#testing-starlark-utilities}
 
 [Skylib](https://github.com/bazelbuild/bazel-skylib)'s
 [`unittest.bzl`](https://github.com/bazelbuild/bazel-skylib/blob/main/lib/unittest.bzl)
