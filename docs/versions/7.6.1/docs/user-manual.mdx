@@ -113,13 +113,11 @@ Here are some typical values for this option:
   </tr>
   <tr>
     <td>`--output_filter=`</td>
-    <td>Show everything.
-    </td>
+    <td>Show everything.</td>
   </tr>
   <tr>
     <td>`--output_filter=DONT_MATCH_ANYTHING`</td>
-    <td>Show nothing.
-    </td>
+    <td>Show nothing.</td>
   </tr>
 </table>
 
@@ -488,9 +486,7 @@ regular expression.
 The following example will limit scheduling of `extra_actions`
 to only apply to actions of which the owner's label contains '/bar/':
 
-<pre>% bazel build --experimental_action_listener=//test:al //foo/... \
-  --experimental_extra_action_filter=.*/bar/.*
-</pre>
+<pre>% bazel build --experimental_action_listener=//test:al //foo/... --experimental_extra_action_filter=.*/bar/.*</pre>
 
 #### `--host_cpu=<var>cpu</var>`
 
@@ -1020,7 +1016,7 @@ test (or build if `--build_tests_only` is also specified) only
 targets of the referenced rule classes. To instead exclude those targets, use
 the string "-foo". For example,
 
-</p>
+
 <pre>
   % bazel test --test_lang_filters=foo,bar //baz/...
 </pre>
@@ -1998,7 +1994,8 @@ through `sed -ne /key:/s/key://p`:
 
 Example: the process ID of the Bazel server.
 
-<pre>% bazel info server_pid
+<pre>
+% bazel info server_pid
 1285
 </pre>
 
@@ -2042,7 +2039,8 @@ configuration. This is guaranteed to be correct even in cases where
 the `bazel-bin` symlink cannot be created for some reason
 (such as if you are building from a read-only directory).
 
-<pre>% bazel info --cpu=piii bazel-bin
+<pre>
+% bazel info --cpu=piii bazel-bin
 /var/tmp/_bazel_johndoe/fbd0e8a34f61ce5d491e3da69d959fe6/execroot/io_bazel/bazel-out/piii-opt/bin
 % bazel info --cpu=k8 bazel-bin
 /var/tmp/_bazel_johndoe/fbd0e8a34f61ce5d491e3da69d959fe6/execroot/io_bazel/bazel-out/k8-opt/bin
@@ -2137,7 +2135,8 @@ Extra arguments to `adb`. These come before the subcommand in the
 command line and are typically used to specify which device to install to.
 For example, to select the Android device or emulator to use:
 
-<pre>% bazel mobile-install --adb_arg=-s --adb_arg=deadbeef
+<pre>
+% bazel mobile-install --adb_arg=-s --adb_arg=deadbeef
 </pre>
 
 invokes `adb` as
