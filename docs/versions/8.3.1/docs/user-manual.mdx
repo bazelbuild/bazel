@@ -116,13 +116,11 @@ Here are some typical values for this option:
   </tr>
   <tr>
     <td>`--output_filter=`</td>
-    <td>Show everything.
-    </td>
+    <td>Show everything.</td>
   </tr>
   <tr>
     <td>`--output_filter=DONT_MATCH_ANYTHING`</td>
-    <td>Show nothing.
-    </td>
+    <td>Show nothing.</td>
   </tr>
 </table>
 
@@ -491,9 +489,8 @@ regular expression.
 The following example will limit scheduling of `extra_actions`
 to only apply to actions of which the owner's label contains '/bar/':
 
-<pre>% bazel build --experimental_action_listener=//test:al //foo/... \
-  --experimental_extra_action_filter=.*/bar/.*
-</pre>
+<pre>{`% bazel build --experimental_action_listener=//test:al //foo/... \
+  --experimental_extra_action_filter=.*/bar/.*`}</pre>
 
 #### `--host_cpu=<var>cpu</var>`
 
@@ -1002,21 +999,21 @@ test (or build if `--build_tests_only` is also specified) only
 targets of the referenced rule classes. To instead exclude those targets, use
 the string "-foo". For example,
 
-</p>
+&lt;/p&gt;
 <pre>
   % bazel test --test_lang_filters=foo,bar //baz/...
 </pre>
-<p>
+&lt;p&gt;
   will test only targets that are instances of `foo_test` or `bar_test` in
   `//baz/...`, while
-</p>
+&lt;/p&gt;
 <pre>
   % bazel test --test_lang_filters=-foo,-bar //baz/...
 </pre>
-<p>
+&lt;p&gt;
   will test all the targets in `//baz/...` except for the `foo_test` and
   `bar_test` instances.
-</p>
+&lt;/p&gt;
 
 Tip: You can use `bazel query --output=label_kind "//p:t"` to
 learn the rule class name of the target `//p:t`. And you can
@@ -1991,8 +1988,7 @@ through `sed -ne /key:/s/key://p`:
 Example: the process ID of the Bazel server.
 
 <pre>% bazel info server_pid
-1285
-</pre>
+1285</pre>
 
 #### Configuration-specific data
 
@@ -2037,8 +2033,7 @@ the `bazel-bin` symlink cannot be created for some reason
 <pre>% bazel info --cpu=piii bazel-bin
 /var/tmp/_bazel_johndoe/fbd0e8a34f61ce5d491e3da69d959fe6/execroot/io_bazel/bazel-out/piii-opt/bin
 % bazel info --cpu=k8 bazel-bin
-/var/tmp/_bazel_johndoe/fbd0e8a34f61ce5d491e3da69d959fe6/execroot/io_bazel/bazel-out/k8-opt/bin
-</pre>
+/var/tmp/_bazel_johndoe/fbd0e8a34f61ce5d491e3da69d959fe6/execroot/io_bazel/bazel-out/k8-opt/bin</pre>
 
 ### `version` and `--version`
 
@@ -2129,8 +2124,7 @@ Extra arguments to `adb`. These come before the subcommand in the
 command line and are typically used to specify which device to install to.
 For example, to select the Android device or emulator to use:
 
-<pre>% bazel mobile-install --adb_arg=-s --adb_arg=deadbeef
-</pre>
+<pre>% bazel mobile-install --adb_arg=-s --adb_arg=deadbeef</pre>
 
 invokes `adb` as
 

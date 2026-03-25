@@ -64,73 +64,73 @@ use them. Also, this is done only if the workspace root is writable.
 The directories are laid out as follows:
 
 <pre>
-&lt;workspace-name&gt;/                         <== The workspace root
-  bazel-my-project => <..._main>          <== Symlink to execRoot
-  bazel-out => <...bazel-out>             <== Convenience symlink to outputPath
-  bazel-bin => <...bin>                   <== Convenience symlink to most recent written bin dir $(BINDIR)
-  bazel-testlogs => <...testlogs>         <== Convenience symlink to the test logs directory
+&lt;workspace-name&gt;/                         &lt;== The workspace root
+  bazel-my-project =&gt; &lt;..._main&gt;          &lt;== Symlink to execRoot
+  bazel-out =&gt; &lt;...bazel-out&gt;             &lt;== Convenience symlink to outputPath
+  bazel-bin =&gt; &lt;...bin&gt;                   &lt;== Convenience symlink to most recent written bin dir $(BINDIR)
+  bazel-testlogs =&gt; &lt;...testlogs&gt;         &lt;== Convenience symlink to the test logs directory
 
-/home/user/.cache/bazel/                  <== Root for all Bazel output on a machine: outputRoot
-  _bazel_$USER/                           <== Top level directory for a given user depends on the user name:
+/home/user/.cache/bazel/                  &lt;== Root for all Bazel output on a machine: outputRoot
+  _bazel_$USER/                           &lt;== Top level directory for a given user depends on the user name:
                                               outputUserRoot
     install/
-      fba9a2c87ee9589d72889caf082f1029/   <== Hash of the Bazel install manifest: installBase
-        _embedded_binaries/               <== Contains binaries and scripts unpacked from the data section of
+      fba9a2c87ee9589d72889caf082f1029/   &lt;== Hash of the Bazel install manifest: installBase
+        _embedded_binaries/               &lt;== Contains binaries and scripts unpacked from the data section of
                                               the bazel executable on first run (such as helper scripts and the
                                               main Java file BazelServer_deploy.jar)
-    7ffd56a6e4cb724ea575aba15733d113/     <== Hash of the client's workspace root (such as
+    7ffd56a6e4cb724ea575aba15733d113/     &lt;== Hash of the client's workspace root (such as
                                               /home/user/src/my-project): outputBase
-      action_cache/                       <== Action cache directory hierarchy
+      action_cache/                       &lt;== Action cache directory hierarchy
                                               This contains the persistent record of the file
                                               metadata (timestamps, and perhaps eventually also MD5
                                               sums) used by the FilesystemValueChecker.
-      command.log                         <== A copy of the stdout/stderr output from the most
+      command.log                         &lt;== A copy of the stdout/stderr output from the most
                                               recent bazel command.
-      external/                           <== The directory that remote repositories are
+      external/                           &lt;== The directory that remote repositories are
                                               downloaded/symlinked into.
-      server/                             <== The Bazel server puts all server-related files (such
+      server/                             &lt;== The Bazel server puts all server-related files (such
                                               as socket file, logs, etc) here.
-        jvm.out                           <== The debugging output for the server.
-      execroot/                           <== The working directory for all actions. For special
+        jvm.out                           &lt;== The debugging output for the server.
+      execroot/                           &lt;== The working directory for all actions. For special
                                               cases such as sandboxing and remote execution, the
                                               actions run in a directory that mimics execroot.
                                               Implementation details, such as where the directories
                                               are created, are intentionally hidden from the action.
                                               Every action can access its inputs and outputs relative
                                               to the execroot directory.
-        _main/                            <== Working tree for the Bazel build & root of symlink forest: execRoot
-          _bin/                           <== Helper tools are linked from or copied to here.
+        _main/                            &lt;== Working tree for the Bazel build & root of symlink forest: execRoot
+          _bin/                           &lt;== Helper tools are linked from or copied to here.
 
-          bazel-out/                      <== All actual output of the build is under here: outputPath
-            _tmp/actions/                 <== Action output directory. This contains a file with the
+          bazel-out/                      &lt;== All actual output of the build is under here: outputPath
+            _tmp/actions/                 &lt;== Action output directory. This contains a file with the
                                               stdout/stderr for every action from the most recent
                                               bazel run that produced output.
-            local_linux-fastbuild/        <== one subdirectory per unique target BuildConfiguration instance;
+            local_linux-fastbuild/        &lt;== one subdirectory per unique target BuildConfiguration instance;
                                               this is currently encoded
-              bin/                        <== Bazel outputs binaries for target configuration here: $(BINDIR)
-                foo/bar/_objs/baz/        <== Object files for a cc_* rule named //foo/bar:baz
-                  foo/bar/baz1.o          <== Object files from source //foo/bar:baz1.cc
-                  other_package/other.o   <== Object files from source //other_package:other.cc
-                foo/bar/baz               <== foo/bar/baz might be the artifact generated by a cc_binary named
+              bin/                        &lt;== Bazel outputs binaries for target configuration here: $(BINDIR)
+                foo/bar/_objs/baz/        &lt;== Object files for a cc_* rule named //foo/bar:baz
+                  foo/bar/baz1.o          &lt;== Object files from source //foo/bar:baz1.cc
+                  other_package/other.o   &lt;== Object files from source //other_package:other.cc
+                foo/bar/baz               &lt;== foo/bar/baz might be the artifact generated by a cc_binary named
                                               //foo/bar:baz
-                foo/bar/baz.runfiles/     <== The runfiles symlink farm for the //foo/bar:baz executable.
+                foo/bar/baz.runfiles/     &lt;== The runfiles symlink farm for the //foo/bar:baz executable.
                   MANIFEST
                   _main/
                     ...
-              genfiles/                   <== Bazel puts generated source for the target configuration here:
+              genfiles/                   &lt;== Bazel puts generated source for the target configuration here:
                                               $(GENDIR)
                 foo/bar.h                     such as foo/bar.h might be a headerfile generated by //foo:bargen
-              testlogs/                   <== Bazel internal test runner puts test log files here
+              testlogs/                   &lt;== Bazel internal test runner puts test log files here
                 foo/bartest.log               such as foo/bar.log might be an output of the //foo:bartest test with
                 foo/bartest.status            foo/bartest.status containing exit status of the test (such as
                                               PASSED or FAILED (Exit 1), etc)
-              include/                    <== a tree with include symlinks, generated as needed. The
+              include/                    &lt;== a tree with include symlinks, generated as needed. The
                                               bazel-include symlinks point to here. This is used for
                                               linkstamp stuff, etc.
-            host/                         <== BuildConfiguration for build host (user's workstation), for
+            host/                         &lt;== BuildConfiguration for build host (user's workstation), for
                                               building prerequisite tools, that will be used in later stages
                                               of the build (ex: Protocol Compiler)
-        &lt;packages&gt;/                       <== Packages referenced in the build appear as if under a regular workspace
+        &lt;packages&gt;/                       &lt;== Packages referenced in the build appear as if under a regular workspace
 </pre>
 
 The layout of the \*.runfiles directories is documented in more detail in the places pointed to by RunfilesSupport.
