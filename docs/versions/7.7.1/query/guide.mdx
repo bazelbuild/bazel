@@ -19,12 +19,7 @@ To execute a query while ignoring errors such as missing targets, use the
 To see the dependencies of `//foo`, use the
 `deps` function in bazel query:
 
-<pre>
-$ bazel query "deps(//foo)"
-//foo:foo
-//foo:foo-dep
-...
-</pre>
+<pre>&#10;$ bazel query "deps(//foo)"&#10;//foo:foo&#10;//foo:foo-dep&#10;...&#10;</pre>
 
 This is the set of all targets required to build `//foo`.
 
@@ -40,54 +35,19 @@ what is included in the artifact you built, and not every possible job.
 To visualize the graph of all dependencies, pipe the bazel query output through
   the `dot` command-line tool:
 
-<pre>
-$ bazel query "allpaths(//foo, third_party/...)" --notool_deps --output graph | dot -Tsvg > /tmp/deps.svg
-</pre>
+<pre>&#10;$ bazel query "allpaths(//foo, third_party/...)" --notool_deps --output graph | dot -Tsvg > /tmp/deps.svg&#10;</pre>
 
 Note: `dot` supports other image formats, just replace `svg` with the
 format identifier, for example, `png`.
 
 When a dependency graph is big and complicated, it can be helpful start with a single path:
 
-<pre>
-$ bazel query "somepath(//foo:foo, third_party/zlib:zlibonly)"
-//foo:foo
-//translations/tools:translator
-//translations/base:base
-//third_party/py/MySQL:MySQL
-//third_party/py/MySQL:_MySQL.so
-//third_party/mysql:mysql
-//third_party/zlib:zlibonly
-</pre>
+<pre>&#10;$ bazel query "somepath(//foo:foo, third_party/zlib:zlibonly)"&#10;//foo:foo&#10;//translations/tools:translator&#10;//translations/base:base&#10;//third_party/py/MySQL:MySQL&#10;//third_party/py/MySQL:_MySQL.so&#10;//third_party/mysql:mysql&#10;//third_party/zlib:zlibonly&#10;</pre>
 
 If you do not specify `--output graph` with `allpaths`,
 you will get a flattened list of the dependency graph.
 
-<pre>
-$ bazel query "allpaths(//foo, third_party/...)"
-  ...many errors detected in BUILD files...
-//foo:foo
-//translations/tools:translator
-//translations/tools:aggregator
-//translations/base:base
-//tools/pkg:pex
-//tools/pkg:pex_phase_one
-//tools/pkg:pex_lib
-//third_party/python:python_lib
-//translations/tools:messages
-//third_party/py/xml:xml
-//third_party/py/xml:utils/boolean.so
-//third_party/py/xml:parsers/sgmlop.so
-//third_party/py/xml:parsers/pyexpat.so
-//third_party/py/MySQL:MySQL
-//third_party/py/MySQL:_MySQL.so
-//third_party/mysql:mysql
-//third_party/openssl:openssl
-//third_party/zlib:zlibonly
-//third_party/zlib:zlibonly_v1_2_3
-//third_party/python:headers
-//third_party/openssl:crypto
-</pre>
+<pre>&#10;$ bazel query "allpaths(//foo, third_party/...)"&#10;  ...many errors detected in BUILD files...&#10;//foo:foo&#10;//translations/tools:translator&#10;//translations/tools:aggregator&#10;//translations/base:base&#10;//tools/pkg:pex&#10;//tools/pkg:pex_phase_one&#10;//tools/pkg:pex_lib&#10;//third_party/python:python_lib&#10;//translations/tools:messages&#10;//third_party/py/xml:xml&#10;//third_party/py/xml:utils/boolean.so&#10;//third_party/py/xml:parsers/sgmlop.so&#10;//third_party/py/xml:parsers/pyexpat.so&#10;//third_party/py/MySQL:MySQL&#10;//third_party/py/MySQL:_MySQL.so&#10;//third_party/mysql:mysql&#10;//third_party/openssl:openssl&#10;//third_party/zlib:zlibonly&#10;//third_party/zlib:zlibonly_v1_2_3&#10;//third_party/python:headers&#10;//third_party/openssl:crypto&#10;</pre>
 
 ### Aside: implicit dependencies
 
@@ -149,13 +109,7 @@ You can use `bazel query` to analyze many dependency relationships.
 
 #### Which of those are small?  Medium?  Large?
 
-<pre>
-bazel query 'attr(size, small, tests(//foo:smoke_tests))'
-
-bazel query 'attr(size, medium, tests(//foo:smoke_tests))'
-
-bazel query 'attr(size, large, tests(//foo:smoke_tests))'
-</pre>
+<pre>&#10;bazel query 'attr(size, small, tests(//foo:smoke_tests))'&#10;&#10;bazel query 'attr(size, medium, tests(//foo:smoke_tests))'&#10;&#10;bazel query 'attr(size, large, tests(//foo:smoke_tests))'&#10;</pre>
 
 #### What are the tests beneath `foo` that match a pattern?
 
@@ -175,10 +129,7 @@ The pattern is a regex and is applied to the full name of the rule. It's similar
 
 #### What rule target(s) contain file `path/to/file/bar.java` as a source?
 
-<pre>
-fullname=$(bazel query path/to/file/bar.java)
-bazel query "attr('srcs', $fullname, ${fullname//:*/}:*)"
-</pre>
+<pre>&#10;fullname=$(bazel query path/to/file/bar.java)&#10;bazel query "attr('srcs', $fullname, $\{fullname//:*/\}:*)"&#10;</pre>
 
 ### What package dependencies exist ...
 
@@ -205,10 +156,7 @@ referenced by `subinclude`; see the reference manual for details.
 
 ##### ...Now find the definitions of all the Java binaries that depend on them
 
-<pre>bazel query 'let jbs = kind(java_binary, //java/com/example/frontend/...) in
-  let cls = kind(cc_.*library, deps($jbs)) in
-    $jbs intersect allpaths($jbs, $cls)'
-</pre>
+<pre>bazel query 'let jbs = kind(java_binary, //java/com/example/frontend/...) in let cls = kind(cc_.*library, deps($jbs)) in $jbs intersect allpaths($jbs, $cls)'</pre>
 
 ### What file dependencies exist ...
 
@@ -254,8 +202,7 @@ dependency of `bar`. The query can then be further refined to:
 
 #### Show me a path from `docker/updater:updater_systest` (a `py_test`) to some `cc_library` that it depends upon:
 
-<pre>bazel query 'let cc = kind(cc_library, deps(docker/updater:updater_systest)) in
-  somepath(docker/updater:updater_systest, $cc)'</pre>
+<pre>bazel query 'let cc = kind(cc_library, deps(docker/updater:updater_systest)) in&#10;  somepath(docker/updater:updater_systest, $cc)'</pre>
 
 #### Why does library `//photos/frontend:lib` depend on two variants of the same library `//third_party/jpeglib` and `//third_party/jpeg`?
 
@@ -263,17 +210,7 @@ This query boils down to: "show me the subgraph of `//photos/frontend:lib` that
 depends on both libraries". When shown in topological order, the last element
 of the result is the most likely culprit.
 
-<pre>bazel query 'allpaths(//photos/frontend:lib, //third_party/jpeglib)
-                intersect
-               allpaths(//photos/frontend:lib, //third_party/jpeg)'
-//photos/frontend:lib
-//photos/frontend:lib_impl
-//photos/frontend:lib_dispatcher
-//photos/frontend:icons
-//photos/frontend/modules/gadgets:gadget_icon
-//photos/thumbnailer:thumbnail_lib
-//third_party/jpeg/img:renderer
-</pre>
+<pre>bazel query 'allpaths(//photos/frontend:lib, //third_party/jpeglib) intersect allpaths(//photos/frontend:lib, //third_party/jpeg)'&#10;//photos/frontend:lib&#10;//photos/frontend:lib_impl&#10;//photos/frontend:lib_dispatcher&#10;//photos/frontend:icons&#10;//photos/frontend/modules/gadgets:gadget_icon&#10;//photos/thumbnailer:thumbnail_lib&#10;//third_party/jpeg/img:renderer</pre>
 
 ### What depends on  ...
 
@@ -308,8 +245,10 @@ from x to y, but it can find the (or rather _a_) most distant node from the
 starting point, or show you the _lengths_ of the longest path from x to every
 y that it depends on. Use `maxrank`:
 
-<pre>bazel query 'deps(//foo-tests)' --output maxrank | tail -1
-85 //third_party/zlib:zutil.c</pre>
+<pre>bazel query 'deps(//foo-tests)' --output maxrank | tail -1&#10;85 //third_party/zlib:zutil.c</pre>
 
 The result indicates that there exist paths of length 85 that must occur in
+order in this build.
+this build.
+ paths of length 85 that must occur in
 order in this build.
