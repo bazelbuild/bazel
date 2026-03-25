@@ -182,7 +182,7 @@ is a parent platform:
 1. If `remote_execution_property` is not set on the child platform, the parent's
    `remote_execution_properties` will be used.
 2. If `remote_execution_property` is set on the child platform, and contains the
-   literal string {PARENT\_REMOTE\_EXECUTION\_PROPERTIES}, that macro will be
+   literal string &#123;PARENT\_REMOTE\_EXECUTION\_PROPERTIES&#125;, that macro will be
    replaced with the contents of the parent's `remote_execution_property` attribute.
 3. If `remote_execution_property` is set on the child platform, and does not contain
    the macro, the child's `remote_execution_property` will be used unchanged.
@@ -228,10 +228,10 @@ In this example, the child platforms have the following properties:
 ```
 platform(
     name = "parent",
-    exec_properties = {
+    exec_properties = &#123;
       "k1": "v1",
       "k2": "v2",
-    },
+    &#125;,
 )
 platform(
     name = "child_a",
@@ -240,23 +240,23 @@ platform(
 platform(
     name = "child_b",
     parents = [":parent"],
-    exec_properties = {
+    exec_properties = &#123;
       "k1": "child"
-    }
+    &#125;
 )
 platform(
     name = "child_c",
     parents = [":parent"],
-    exec_properties = {
+    exec_properties = &#123;
       "k1": ""
-    }
+    &#125;
 )
 platform(
     name = "child_d",
     parents = [":parent"],
-    exec_properties = {
+    exec_properties = &#123;
       "k3": "v3"
-    }
+    &#125;
 )
 ```
 
@@ -265,13 +265,13 @@ In this example, the child platforms have the following properties:
 * `child_a` inherits the "exec\_properties" of the parent and does not set its own.
 * `child_b` inherits the parent's `exec_properties` and overrides the
   value of `k1`. Its `exec_properties` will be:
-  `{ "k1": "child", "k2": "v2" }`.
+  `&#123; "k1": "child", "k2": "v2" &#125;`.
 * `child_c` inherits the parent's `exec_properties` and unsets
   `k1`. Its `exec_properties` will be:
-  `{ "k2": "v2" }`.
+  `&#123; "k2": "v2" &#125;`.
 * `child_d` inherits the parent's `exec_properties` and adds a new
   property. Its `exec_properties` will be:
-  `{ "k1": "v1", "k2": "v2", "k3": "v3" }`.
+  `&#123; "k1": "v1", "k2": "v2", "k3": "v3" &#125;`.
 
 ### Arguments
 
@@ -279,11 +279,11 @@ In this example, the child platforms have the following properties:
 | --- | --- |
 | `name` | [Name](/versions/9.0.0/concepts/labels#target-names); required  A unique name for this target. |
 | `constraint_values` | List of [labels](/versions/9.0.0/concepts/labels); [nonconfigurable](common-definitions#configurable-attributes); default is `[]` The combination of constraint choices that this platform comprises. In order for a platform to apply to a given environment, the environment must have at least the values in this list. Each `constraint_value` in this list must be for a different `constraint_setting`. For example, you cannot define a platform that requires the cpu architecture to be both `@platforms//cpu:x86_64` and `@platforms//cpu:arm`. |
-| `exec_properties` | Dictionary: String -> String; [nonconfigurable](common-definitions#configurable-attributes); default is `{}` A map of strings that affect the way actions are executed remotely. Bazel makes no attempt to interpret this, it is treated as opaque data that's forwarded via the Platform field of the [remote execution protocol](https://github.com/bazelbuild/remote-apis). This includes any data from the parent platform's `exec_properties` attributes. If the child and parent platform define the same keys, the child's values are kept. Any keys associated with a value that is an empty string are removed from the dictionary. This attribute is a full replacement for the deprecated `remote_execution_properties`. |
+| `exec_properties` | Dictionary: String -> String; [nonconfigurable](common-definitions#configurable-attributes); default is `&#123;&#125;` A map of strings that affect the way actions are executed remotely. Bazel makes no attempt to interpret this, it is treated as opaque data that's forwarded via the Platform field of the [remote execution protocol](https://github.com/bazelbuild/remote-apis). This includes any data from the parent platform's `exec_properties` attributes. If the child and parent platform define the same keys, the child's values are kept. Any keys associated with a value that is an empty string are removed from the dictionary. This attribute is a full replacement for the deprecated `remote_execution_properties`. |
 | `flags` | List of strings; [nonconfigurable](common-definitions#configurable-attributes); default is `[]` A list of flags that will be enabled when this platform is used as the target platform in a configuration. Only flags that are part of the configuration can be set, such as those that can be used in transitions, or the `--define` flag. |
 | `missing_toolchain_error` | String; [nonconfigurable](common-definitions#configurable-attributes); default is `"For more information on platforms or toolchains see https://bazel.build/concepts/platforms-intro."` A custom error message that is displayed when a mandatory toolchain requirement cannot be satisfied for this target platform. Intended to point to relevant documentation users can read to understand why their toolchains are misconfigured. Not inherited from parent platforms. |
 | `parents` | List of [labels](/versions/9.0.0/concepts/labels); [nonconfigurable](common-definitions#configurable-attributes); default is `[]` The label of a `platform` target that this platform should inherit from. Although the attribute takes a list, there should be no more than one platform present. Any constraint\_settings not set directly on this platform will be found in the parent platform. See the section on [Platform Inheritance](#platform_inheritance) for details. |
-| `remote_execution_properties` | String; [nonconfigurable](common-definitions#configurable-attributes); default is `""` DEPRECATED. Please use exec\_properties attribute instead. A string used to configure a remote execution platform. Actual builds make no attempt to interpret this, it is treated as opaque data that can be used by a specific SpawnRunner. This can include data from the parent platform's "remote\_execution\_properties" attribute, by using the macro "{PARENT\_REMOTE\_EXECUTION\_PROPERTIES}". See the section on [Platform Inheritance](#platform_inheritance) for details. |
+| `remote_execution_properties` | String; [nonconfigurable](common-definitions#configurable-attributes); default is `""` DEPRECATED. Please use exec\_properties attribute instead. A string used to configure a remote execution platform. Actual builds make no attempt to interpret this, it is treated as opaque data that can be used by a specific SpawnRunner. This can include data from the parent platform's "remote\_execution\_properties" attribute, by using the macro "&#123;PARENT\_REMOTE\_EXECUTION\_PROPERTIES&#125;". See the section on [Platform Inheritance](#platform_inheritance) for details. |
 | `required_settings` | List of [labels](/versions/9.0.0/concepts/labels); default is `[]` A list of `config_setting`s that must be satisfied by the target configuration in order for this platform to be used as an execution platform during toolchain resolution. Required settings are not inherited from parent platforms. |
 
 ## toolchain
@@ -339,11 +339,11 @@ This can be used in a bzl file.
 ```
 bar_binary = rule(
     implementation = _bar_binary_impl,
-    attrs = {
+    attrs = &#123;
         "srcs": attr.label_list(allow_files = True),
         ...
         # No `_compiler` attribute anymore.
-    },
+    &#125;,
     toolchains = ["//bar_tools:toolchain_type"]
 )
 ```
