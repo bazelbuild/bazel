@@ -45,7 +45,7 @@ types are supported:
 * [list](lib/list)
 * [string](lib/string)
 
-## Type annotations
+## Type annotations {#StarlarkTypes}
 
 **Experimental**. Type annotations are an experimental feature and may change
 at any time. Don't depend on it. It may be enabled in Bazel at HEAD
@@ -104,7 +104,7 @@ Global variables defined in `bzl` files cannot be changed outside of the
 `bzl` file that defined them. Just like the above example using `bzl` files,
 values returned by rules are immutable.
 
-## Differences between BUILD and .bzl files
+## Differences between BUILD and .bzl files {#differences-between-build-and-bzl-files}
 
 `BUILD` files register targets via making calls to rules. `.bzl` files provide
 definitions for constants, rules, macros, and functions.

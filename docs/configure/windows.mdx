@@ -7,16 +7,16 @@ title: 'Using Bazel on Windows'
 This page covers Best Practices for using Bazel on Windows. For installation
 instructions, see [Install Bazel on Windows](/install/windows).
 
-## Known issues
+## Known issues {#known-issues}
 
 Windows-related Bazel issues are marked with the "area-Windows" label on GitHub.
 [GitHub-Windows].
 
 [GitHub-Windows]: https://github.com/bazelbuild/bazel/issues?q=is%3Aopen+is%3Aissue+label%3Aarea-Windows
 
-## Best practices
+## Best practices {#best-practices}
 
-### Avoid long path issues
+### Avoid long path issues {#long-path-issues}
 
 Some tools have the [Maximum Path Length Limitation](https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#maximum-path-length-limitation) on Windows, including the MSVC compiler.
 To avoid hitting this issue, you can specify a short output directory for Bazel by the [\-\-output_user_root](/reference/command-line-reference#flag--output_user_root) flag.
@@ -27,7 +27,7 @@ For example, add the following line to your bazelrc file:
 startup --output_user_root=C:/tmp
 ```
 
-### Enable symlink support
+### Enable symlink support {#symlink}
 
 Some features require Bazel to be able to create file symlinks on Windows,
 either by enabling
@@ -51,7 +51,7 @@ build --enable_runfiles
 {/* TODO(pcloudy): https://github.com/bazelbuild/bazel/issues/6402
                     Write a doc about runfiles library and add a link to it here */}
 
-### Running Bazel: MSYS2 shell vs. command prompt vs. PowerShell
+### Running Bazel: MSYS2 shell vs. command prompt vs. PowerShell {#running-bazel-shells}
 
 **Recommendation:** Run Bazel from the command prompt (`cmd.exe`) or from
 PowerShell.
@@ -66,9 +66,9 @@ that _look like_ Unix paths (such as `//foo:bar`) into Windows paths. See
 [this StackOverflow answer](https://stackoverflow.com/a/49004265/7778502)
 for details.
 
-### Using Bazel without Bash (MSYS2)
+### Using Bazel without Bash (MSYS2) {#using-bazel-without-bash}
 
-#### Using bazel build without Bash
+#### Using bazel build without Bash {#bazel-build-without-bash}
 
 Bazel versions before 1.0 used to require Bash to build some rules.
 
@@ -86,7 +86,7 @@ in the
 [bazel-skylib repository](https://github.com/bazelbuild/bazel-skylib/tree/main/rules).
 When built on Windows, **these rules do not require Bash**.
 
-#### Using bazel test without Bash
+#### Using bazel test without Bash {#bazel-test-without-bash}
 
 Bazel versions before 1.0 used to require Bash to `bazel test` anything.
 
@@ -95,7 +95,7 @@ Starting with Bazel 1.0, you can test any rule without Bash, except when:
 - you use `--run_under`
 - the test rule itself requires Bash (because its executable is a shell script)
 
-#### Using bazel run without Bash
+#### Using bazel run without Bash {#bazel-run-without-bash}
 
 Bazel versions before 1.0 used to require Bash to `bazel run` anything.
 
@@ -104,7 +104,7 @@ Starting with Bazel 1.0, you can run any rule without Bash, except when:
 - you use `--run_under` or `--script_path`
 - the test rule itself requires Bash (because its executable is a shell script)
 
-#### Using sh\_binary and sh\_* rules, and ctx.actions.run_shell() without Bash
+#### Using sh\_binary and sh\_* rules, and ctx.actions.run_shell() without Bash {#sh-rules-without-bash}
 
 You need Bash to build and test `sh_*` rules, and to build and test Starlark
 rules that use `ctx.actions.run_shell()` and `ctx.resolve_command()`. This
@@ -115,7 +115,7 @@ In the future, there may be an option to use Windows Subsystem for
 Linux (WSL) to build these rules, but currently it is not a priority for
 the Bazel-on-Windows subteam.
 
-### Setting environment variables
+### Setting environment variables {#set-environment-variables}
 
 Environment variables you set in the Windows Command Prompt (`cmd.exe`) are only
 set in that command prompt session. If you start a new `cmd.exe`, you need to
@@ -123,9 +123,9 @@ set the variables again. To always set the variables when `cmd.exe` starts, you
 can add them to the User variables or System variables in the `Control Panel >
 System Properties > Advanced > Environment Variables...` dialog box.
 
-## Build on Windows
+## Build on Windows {#using}
 
-### Build C++ with MSVC
+### Build C++ with MSVC {#build_cpp}
 
 To build C++ targets with MSVC, you need:
 
@@ -214,7 +214,7 @@ example](https://github.com/bazelbuild/bazel/tree/master/examples/windows/dll).
 [Windows command line length limit issue](https://github.com/bazelbuild/bazel/issues/5163),
 enable the compiler parameter file feature via `--features=compiler_param_file`.
 
-### Build C++ with Clang
+### Build C++ with Clang {#clang}
 
 From 0.29.0, Bazel supports building with LLVM's MSVC-compatible compiler driver (`clang-cl.exe`).
 
@@ -370,7 +370,7 @@ necessary for consistent behavior between WORKSPACE and Bzlmod setups in Bazel
 *   Clang is not supported.
 
 
-### Build Java
+### Build Java {#java}
 
 To build Java targets, you need:
 
@@ -391,7 +391,7 @@ projects](https://github.com/bazelbuild/bazel/tree/master/examples):
         data-terminal-prefix="C:\projects\bazel> ">bazel-bin\examples\java-native\src\main\java\com\example\<var>myproject</var>\hello-world.exe</code>
 ```
 
-### Build Python
+### Build Python {#python}
 
 To build Python targets, you need:
 
