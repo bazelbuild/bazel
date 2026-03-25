@@ -473,7 +473,7 @@ public final class BuildEventServiceUploader implements Runnable {
                 new StreamEvent.BazelEvent(
                     sendRegularBuildEventCmd.creationTime(),
                     sendRegularBuildEventCmd.sequenceNumber(),
-                    serializedRegularBuildEvent.toByteString());
+                    serializedRegularBuildEvent.toByteArray());
             ackQueue.addLast(new Command.SendSerializedBuildEvent(bazelEvent));
             streamContext.sendOverStream(bazelEvent);
           }
