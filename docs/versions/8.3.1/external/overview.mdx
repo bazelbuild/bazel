@@ -18,9 +18,9 @@ migrate.
 This document explains the concepts surrounding external dependency management
 in Bazel, before going into a bit more detail about the two systems in order.
 
-## Concepts
+## Concepts {#concepts}
 
-### Repository
+### Repository {#repository}
 
 A directory tree with a boundary marker file at its root, containing source
 files that can be used in a Bazel build. Often shortened to just **repo**.
@@ -31,14 +31,14 @@ legacy contexts, `WORKSPACE` or `WORKSPACE.bazel`. Any repo boundary marker file
 will signify the boundary of a repo; multiple such files can coexist in a
 directory.
 
-### Main repository
+### Main repository {#main-repository}
 
 The repository in which the current Bazel command is being run.
 
 The root of the main repository is also known as the
 <span id="#workspace-root">**workspace root**</span>.
 
-### Workspace
+### Workspace {#workspace}
 
 The environment shared by all Bazel commands run in the same main repository. It
 encompasses the main repo and the set of all defined external repos.
@@ -47,7 +47,7 @@ Note that historically the concepts of "repository" and "workspace" have been
 conflated; the term "workspace" has often been used to refer to the main
 repository, and sometimes even used as a synonym of "repository".
 
-### Canonical repository name
+### Canonical repository name {#canonical-repo-name}
 
 The canonical name a repository is addressable by. Within the context of a
 workspace, each repository has a single canonical name. A target inside a repo
@@ -56,7 +56,7 @@ whose canonical name is `canonical_name` can be addressed by the label
 
 The main repository always has the empty string as the canonical name.
 
-### Apparent repository name
+### Apparent repository name {#apparent-repo-name}
 
 The name a repository is addressable by in the context of a certain other repo.
 This can be thought of as a repo's "nickname": The repo with the canonical name
@@ -68,7 +68,7 @@ This can be thought of as a repo's "nickname": The repo with the canonical name
 Conversely, this can be understood as a **repository mapping**: each repo
 maintains a mapping from "apparent repo name" to a "canonical repo name".
 
-### Repository rule
+### Repository rule {#repo-rule}
 
 A schema for repository definitions that tells Bazel how to materialize a
 repository. For example, it could be "download a zip archive from a certain URL
@@ -85,7 +85,7 @@ from a URL and extracts it, and
 [`local_repository`](/versions/8.3.1/reference/be/workspace#local_repository), which symlinks a
 local directory that is already a Bazel repository.
 
-### Fetch a repository
+### Fetch a repository {#fetch-repository}
 
 The action of making a repo available on local disk by running its associated
 repo rule. The repos defined in a workspace are not available on local disk
@@ -107,7 +107,7 @@ failure.
 See [fetch options](/versions/8.3.1/reference/command-line-reference#fetch-options) for more
 information about controlling fetch.
 
-### Directory layout
+### Directory layout {#directory-layout}
 
 After being fetched, the repo can be found in the subdirectory `external` in the
 [output base](/versions/8.3.1/remote/output-directories), under its canonical name.
@@ -119,7 +119,7 @@ canonical name `canonical_name`:
 ls $(bazel info output_base)/external/<var> canonical_name </var>
 ```
 
-### REPO.bazel file
+### REPO.bazel file {#repo.bazel}
 
 The `REPO.bazel` file is used to mark the topmost boundary of the directory tree
 that constitutes a repo. It doesn't need to contain anything to serve as a repo
@@ -180,7 +180,7 @@ requests. Among other things, they allow Bazel to interact with other package
 management systems while also respecting the dependency graph built out of Bazel
 modules.
 
-### External links on Bzlmod
+### External links on Bzlmod {#external-links}
 
 *   [Bzlmod usage examples in bazelbuild/examples](https://github.com/bazelbuild/examples/tree/main/bzlmod)
 *   [Bazel External Dependencies Overhaul](https://docs.google.com/document/d/1moQfNcEIttsk6vYanNKIy3ZuK53hQUFq1b1r0rmsYVg/edit)
@@ -213,7 +213,7 @@ all other repos.
 See the [full list](/versions/8.3.1/rules/lib/globals/workspace) of functions available in
 `WORKSPACE` files.
 
-### Shortcomings of the `WORKSPACE` system
+### Shortcomings of the `WORKSPACE` system {#workspace-shortcomings}
 
 In the years since the `WORKSPACE` system was introduced, users have reported
 many pain points, including:

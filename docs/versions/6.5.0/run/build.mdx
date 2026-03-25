@@ -5,7 +5,7 @@ title: 'Build programs with Bazel'
 This page covers how to build a program with Bazel, build command syntax, and
 target pattern syntax.
 
-## Quickstart
+## Quickstart {#quickstart}
 
 To run Bazel, go to your base [workspace](/versions/6.5.0/concepts/build-ref#workspace) directory
 or any of its subdirectories and type `bazel`. See [build](#bazel-build) if you
@@ -17,7 +17,7 @@ bazel help
 Usage: bazel <var>command</var> <var>options</var> ...
 ```
 
-### Available commands
+### Available commands {#available-commands}
 
 * [`analyze-profile`](/versions/6.5.0/docs/user-manual#analyze-profile): Analyzes build profile data.
 * [`aquery`](/versions/6.5.0/docs/user-manual#aquery): Executes a query on the [post-analysis](#analysis) action graph.
@@ -36,7 +36,7 @@ Usage: bazel <var>command</var> <var>options</var> ...
 * [`test`](/versions/6.5.0/docs/user-manual#running-tests): Builds and runs the specified test targets.
 * [`version`](/versions/6.5.0/docs/user-manual#version): Prints version information for Bazel.
 
-### Getting help
+### Getting help {#getting-help}
 
 * `bazel help <var>command</var>`: Prints help and options for
   `<var>command</var>`.
@@ -48,7 +48,7 @@ The `bazel` tool performs many functions, called commands. The most commonly
 used ones are `bazel build` and `bazel test`. You can browse the online help
 messages using `bazel help`.
 
-### Building one target
+### Building one target {#bazel-build}
 
 Before you can start a build, you need a _workspace_. A workspace is a
 directory tree that contains all the source files needed to build your
@@ -108,7 +108,7 @@ and no build steps to execute. If something changed in 'foo' or its
 dependencies, Bazel would re-execute some build actions, or complete an
 _incremental build_.
 
-### Building multiple targets
+### Building multiple targets {#specifying-build-targets}
 
 Bazel allows a number of ways to specify the targets to be built. Collectively,
 these are known as _target patterns_. This syntax is used in commands like
@@ -263,7 +263,7 @@ to build/test them. In contrast, `bazel query` doesn't perform any
 such filtering automatically (that would defeat the purpose of
 `bazel query`).
 
-### Fetching external dependencies
+### Fetching external dependencies {#fetching-external-dependencies}
 
 By default, Bazel will download and symlink external dependencies during the
 build. However, this can be undesirable, either because you'd like to know
@@ -308,7 +308,7 @@ However, if you're using anything outside of the workspace directory then Bazel
 will automatically run `bazel fetch` before running
 `bazel build`.
 
-#### The repository cache
+#### The repository cache {#repository-cache}
 
 Bazel tries to avoid fetching the same file several times, even if the same
 file is needed in different workspaces, or if the definition of an external
@@ -350,7 +350,7 @@ reduces the number of candidate files to one per specified directory. In this
 way, specifying distribution files directories remains efficient, even if the
 number of files in such a directory grows large.
 
-#### Running Bazel in an airgapped environment
+#### Running Bazel in an airgapped environment {#running-bazel-airgapped}
 
 To keep Bazel's binary size small, Bazel's implicit dependencies are fetched
 over the network while running for the first time. These implicit dependencies
@@ -404,7 +404,7 @@ entry:
 build --distdir=<var>path</var>/to/<var>directory</var>
 ```
 
-### Build configurations and cross-compilation
+### Build configurations and cross-compilation {#build-config-cross-compilation}
 
 All the inputs that specify the behavior and result of a given build can be
 divided into two distinct categories. The first kind is the intrinsic
@@ -507,7 +507,7 @@ builds in which changes of configuration are infrequent (especially certain Java
 builds), and builds where the amount of code that must be built in both host and
 target configurations is large, may not benefit.
 
-### Correct incremental rebuilds
+### Correct incremental rebuilds {#correct-incremental-rebuilds}
 
 One of the primary goals of the Bazel project is to ensure correct incremental
 rebuilds. Previous build tools, especially those based on Make, make several
@@ -542,7 +542,7 @@ The benefit to users of correct incremental builds is: less time wasted due to
 confusion. (Also, less time spent waiting for rebuilds caused by use of `make
 clean`, whether necessary or pre-emptive.)
 
-#### Build consistency and incremental builds
+#### Build consistency and incremental builds {#build-consistency}
 
 Formally, we define the state of a build as _consistent_ when all the expected
 output files exist, and their contents are correct, as specified by the steps or
@@ -584,7 +584,7 @@ build tool.
 
 If you ever detect a stable inconsistent state with Bazel, please report a bug.
 
-#### Sandboxed execution
+#### Sandboxed execution {#sandboxed-execution}
 
 Note: Sandboxing is enabled by default for local execution.
 
@@ -620,13 +620,13 @@ In that case, try to deactivate the sandbox for genrules with
 issue tracker and mention which Linux distribution you're using so that we can
 investigate and provide a fix in a subsequent release.
 
-### Phases of a build
+### Phases of a build {#build-phases}
 
 In Bazel, a build occurs in three distinct phases; as a user, understanding the
 difference between them provides insight into the options which control a build
 (see below).
 
-#### Loading phase
+#### Loading phase {#loading}
 
 The first is **loading** during which all the necessary BUILD files for the
 initial targets, and their transitive closure of dependencies, are loaded,
@@ -640,7 +640,7 @@ very quickly.
 Errors reported during this phase include: package not found, target not found,
 lexical and grammatical errors in a BUILD file, and evaluation errors.
 
-#### Analysis phase
+#### Analysis phase {#analysis}
 
 The second phase, **analysis**, involves the semantic analysis and validation of
 each build rule, the construction of a build dependency graph, and the
@@ -660,7 +660,7 @@ done. This is by design, and makes Bazel a good foundation for analysis tools,
 such as Bazel's [query](/versions/6.5.0/docs/query-how-to) command, which is implemented atop the loading
 phase.
 
-#### Execution phase
+#### Execution phase {#execution}
 
 The third and final phase of the build is **execution**. This phase ensures that
 the outputs of each step in the build are consistent with its inputs, re-running

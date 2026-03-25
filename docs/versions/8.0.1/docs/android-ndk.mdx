@@ -5,7 +5,7 @@ title: 'Using the Android Native Development Kit with Bazel'
 _If you're new to Bazel, please start with the [Building Android with
 Bazel](/versions/8.0.1/start/android-app ) tutorial._
 
-## Overview
+## Overview {#overview}
 
 Bazel can run in many different build configurations, including several that use
 the Android Native Development Kit (NDK) toolchain. This means that normal
@@ -13,7 +13,7 @@ the Android Native Development Kit (NDK) toolchain. This means that normal
 Bazel. Bazel accomplishes this by using the `android_ndk_repository` repository
 rule.
 
-## Prerequisites
+## Prerequisites {#prerequisites}
 
 Please ensure that you have installed the Android SDK and NDK.
 
@@ -39,7 +39,7 @@ Starlark implementation of `android_ndk_repository`.
 Follow the instructions in
 [its README](https://github.com/bazelbuild/rules_android_ndk).
 
-## Quick start
+## Quick start {#quick-start}
 
 To build C++ for Android, simply add `cc_library` dependencies to your
 `android_binary` or `android_library` rules.
@@ -104,7 +104,7 @@ targeted for the `armeabi-v7a` ABI by default. To change this or build for
 multiple ABIs at the same time, see the section on [configuring the target
 ABI](#configuring-target-abi).
 
-## Example setup
+## Example setup {#example-setup}
 
 This example is available in the [Bazel examples
 repository](https://github.com/bazelbuild/examples/tree/master/android/ndk).
@@ -158,7 +158,7 @@ public class MainActivity extends AppCompatActivity {
 Note: The name of the native library is derived from the name of the top
 level `android_binary` target. In this example, it is `app`.
 
-## Configuring the target ABI
+## Configuring the target ABI {#configuring-target-abi}
 
 To configure the target ABI, use the `--android_platforms` flag as follows:
 
@@ -214,7 +214,7 @@ for more information on these ABIs.
 Multi-ABI Fat APKs are not recommended for release builds since they increase
 the size of the APK, but can be useful for development and QA builds.
 
-## Selecting a C++ standard
+## Selecting a C++ standard {#selecting-c-standard}
 
 Use the following flags to build according to a C++ standard:
 
@@ -246,7 +246,7 @@ cc_library(
 )
 ```
 
-## Building a `cc_library` for Android without using `android_binary`
+## Building a `cc_library` for Android without using `android_binary` {#cclibrary-android}
 
 To build a standalone `cc_binary` or `cc_library` for Android without using an
 `android_binary`, use the `--platforms` flag.

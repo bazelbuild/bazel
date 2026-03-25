@@ -6,12 +6,12 @@ This page describes the requirements and steps to install Bazel on Windows.
 It also includes troubleshooting and other ways to install Bazel, such as
 using Chocolatey or Scoop.
 
-## Installing Bazel
+## Installing Bazel {#installing-bazel}
 
 This section covers the prerequisites, environment setup, and detailed
 steps during installation on Windows.
 
-### Check your system
+### Check your system {#check-system}
 
 Recommended: 64 bit Windows 10, version 1703 (Creators Update) or newer
 
@@ -21,11 +21,11 @@ To check your Windows version:
 * Type `winver` in the search box and press Enter.
 * You should see the About Windows box with your Windows version information.
 
-### Install the prerequisites
+### Install the prerequisites {#install-prerequisites}
 
 *   [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170)
 
-### Download Bazel
+### Download Bazel {#download-bazel}
 
 *Recommended*: [Use Bazelisk](/versions/7.6.1/install/bazelisk)
 
@@ -37,7 +37,7 @@ Alternatively you can:
 *   [Install Bazel from Scoop](#scoop)
 *   [Build Bazel from source](/versions/7.6.1/install/compile-source)
 
-### Set up your environment
+### Set up your environment {#set-environment}
 
 To make Bazel easily accessible from command prompts or PowerShell by default, you can rename the Bazel binary to `bazel.exe` and add it to your default paths.
 
@@ -47,7 +47,7 @@ set PATH=%PATH%;<var>path to the Bazel binary</var>
 
 You can also change your system `PATH` environment variable to make it permanent. Check out how to [set environment variables](/versions/7.6.1/configure/windows#set-environment-variables).
 
-### Done
+### Done {#done}
 
 "Success: You've installed Bazel."
 
@@ -64,7 +64,7 @@ Next, you can check out more tips and guidance here:
 *   [Best practices on Windows](/versions/7.6.1/configure/windows#best-practices)
 *   [Tutorials](/versions/7.6.1/start/#tutorials)
 
-## Installing compilers and language runtimes
+## Installing compilers and language runtimes {#install-compilers}
 
 Depending on which languages you want to build, you will need:
 
@@ -113,7 +113,7 @@ Depending on which languages you want to build, you will need:
 
     Also supported: Python 2.7 or newer for Windows x86-64
 
-## Troubleshooting
+## Troubleshooting {#troubleshooting}
 
 ### Bazel does not find Bash or bash.exe
 
@@ -192,9 +192,9 @@ If that doesn't help:
 
     If you open a new cmd.exe or PowerShell terminal and run Bazel now, it will find Visual C++.
 
-## Other ways to install Bazel
+## Other ways to install Bazel {#install-options}
 
-### Using Chocolatey
+### Using Chocolatey {#chocolately}
 
 1.  Install the [Chocolatey](https://chocolatey.org) package manager
 
@@ -212,7 +212,7 @@ See [Chocolatey installation and package maintenance
 guide](/versions/7.6.1/contribute/windows-chocolatey-maintenance) for more
 information about the Chocolatey package.
 
-### Using Scoop
+### Using Scoop {#scoop}
 
 1.  Install the [Scoop](https://scoop.sh/) package manager using the following PowerShell command:
 
@@ -230,6 +230,6 @@ See [Scoop installation and package maintenance
 guide](/versions/7.6.1/contribute/windows-scoop-maintenance) for more
 information about the Scoop package.
 
-### Build from source
+### Build from source {#build-from-source}
 
 To build Bazel from scratch instead of installing, see [Compiling from source](/versions/7.6.1/install/compile-source).

@@ -95,7 +95,7 @@ Note: It is an error for a platform to specify more than one value of the
 same constraint setting, such as `@platforms//cpu:x86_64` and
 `@platforms//cpu:arm` for `@platforms//cpu:cpu`.
 
-## Generally useful constraints and platforms
+## Generally useful constraints and platforms {#useful-constraints-platforms}
 
 To keep the ecosystem consistent, Bazel team maintains a repository with
 constraint definitions for the most popular CPU architectures and operating
@@ -124,7 +124,7 @@ command-line flags:
    *  If `--host_platform` is set and not `--platforms`, the value of
       `--host_platform` is both the host and target platform.
 
-## Skipping incompatible targets
+## Skipping incompatible targets {#skipping-incompatible-targets}
 
 When building for a specific target platform it is often desirable to skip
 targets that will never work on that platform. For example, your Windows device
@@ -154,7 +154,7 @@ incompatible with all else. Incompatibility is transitive. Any targets
 that transitively depend on an incompatible target are themselves considered
 incompatible.
 
-### When are targets skipped?
+### When are targets skipped? {#when-targets-skipped}
 
 Targets are skipped when they are considered incompatible and included in the
 build as part of a target pattern expansion. For example, the following two
@@ -189,7 +189,7 @@ FAILED: Build did NOT complete successfully
 Incompatible explicit targets are silently skipped if
 `--skip_incompatible_explicit_targets` is enabled.
 
-### More expressive constraints
+### More expressive constraints {#expressive-constraints}
 
 For more flexibility in expressing constraints, use the
 `@platforms//:incompatible`
@@ -241,7 +241,7 @@ cc_library(
 )
 ```
 
-### Detecting incompatible targets using `bazel cquery`
+### Detecting incompatible targets using `bazel cquery` {#cquery-incompatible-target-detection}
 
 You can use the
 [`IncompatiblePlatformProvider`](/versions/8.4.2/rules/lib/providers/IncompatiblePlatformProvider)
