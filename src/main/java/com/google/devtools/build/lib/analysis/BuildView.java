@@ -448,6 +448,10 @@ public class BuildView {
                 executors,
                 checkForActionConflicts);
         setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
+        if (skyframeExecutor.getRemoteAnalysisCachingDependenciesProvider().mode()
+            == RemoteAnalysisCacheMode.UPLOAD) {
+          skyframeExecutor.clearPackageValues();
+        }
       }
     } finally {
       skyframeBuildView.clearInvalidatedActionLookupKeys();
