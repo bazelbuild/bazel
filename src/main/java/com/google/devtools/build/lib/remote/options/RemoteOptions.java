@@ -389,6 +389,9 @@ public final class RemoteOptions extends CommonRemoteOptions {
     @Override
     @Nullable
     public Optional<PathFragment> convert(String input) throws OptionsParsingException {
+      if (input.isEmpty()) {
+        return null;
+      }
       try {
         return BOOLEAN_CONVERTER.convert(input, null) ? Optional.empty() : null;
       } catch (OptionsParsingException e) {

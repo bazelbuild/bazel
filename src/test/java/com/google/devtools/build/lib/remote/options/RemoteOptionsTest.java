@@ -114,4 +114,12 @@ public class RemoteOptionsTest {
     assertThat(options.diskCache).isEqualTo(Optional.of(PathFragment.create("custom/cache/dir")));
   }
 
+  @Test
+  public void diskCache_emptyValue_disables() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse("--disk_cache=");
+    RemoteOptions options = parser.getOptions(RemoteOptions.class);
+    assertThat(options.diskCache).isNull();
+  }
+
 }
