@@ -36,9 +36,9 @@ partial source tree.
 
 _To specify a custom package path_ using the `--package_path` option:
 
-<pre>
+```
   % bazel build --package_path %workspace%:/some/other/root
-</pre>
+```
 
 Package path elements may be specified in three formats:
 
@@ -68,12 +68,12 @@ on the package path.
 
 Example: Building from an empty client
 
-<pre>
+```
   % mkdir -p foo/bazel
   % cd foo/bazel
   % touch WORKSPACE
   % bazel build --package_path /some/other/path //foo
-</pre>
+```
 
 #### `--deleted_packages`
 
@@ -113,13 +113,11 @@ Here are some typical values for this option:
   </tr>
   <tr>
     <td>`--output_filter=`</td>
-    <td>Show everything.
-    </td>
+    <td>Show everything.</td>
   </tr>
   <tr>
     <td>`--output_filter=DONT_MATCH_ANYTHING`</td>
-    <td>Show nothing.
-    </td>
+    <td>Show nothing.</td>
   </tr>
 </table>
 
@@ -136,9 +134,9 @@ assembler code. It will not be passed when linking.
 
 This option can be used multiple times. For example:
 
-<pre>
+```
   % bazel build --copt="-g0" --copt="-fpic" //foo
-</pre>
+```
 
 will compile the `foo` library without debug tables, generating
 position-independent code.
@@ -206,9 +204,9 @@ not to C compilation or linking. So you can pass C++-specific options
 
 For example:
 
-<pre>
+```
   % bazel build --cxxopt="-fpermissive" --cxxopt="-Wno-error" //foo/cruddy_code
-</pre>
+```
 
 Note: copts parameters listed in specific cc_library or cc_binary build rules
 are placed on the compiler command line _after_ these options.
@@ -222,9 +220,9 @@ not to compilation. So you can pass compiler options that only make sense
 at link time (such as `-lssp` or `-Wl,--wrap,abort`)
 using `--linkopt`. For example:
 
-<pre>
+```
   % bazel build --copt="-fmudflap" --linkopt="-lmudflap" //foo/buggy_code
-</pre>
+```
 
 Build rules can also specify link options in their attributes. This option's
 settings always take precedence. Also see
@@ -239,9 +237,9 @@ all binaries and shared libraries, by invoking the linker with the `-Wl,--strip-
 The default value of `--strip=sometimes` means strip if the `--compilation_mode`
 is `fastbuild`.
 
-<pre>
+```
   % bazel build --strip=always //foo:bar
-</pre>
+```
 
 will compile the target while stripping debugging information from all generated
 binaries.
@@ -316,9 +314,9 @@ The options `--fdo_instrument` and `--fdo_optimize` cannot be used at the same t
 
 This option specifies the version of Java sources. For example:
 
-<pre>
+```
   % bazel build --java_language_version=8 java/com/example/common/foo:all
-</pre>
+```
 
 compiles and allows only constructs compatible with Java 8 specification.
 Default value is 11.
@@ -335,9 +333,9 @@ Default value is 11.
 This option specifies the version of JVM to use to execute the code and run the tests. For
 example:
 
-<pre>
+```
   % bazel run --java_runtime_version=remotejdk_11 java/com/example/common/foo:java_application
-</pre>
+```
 
 downloads JDK 11 from a remote repository and run the Java application using it.
 
@@ -357,9 +355,9 @@ Default value is `remotejdk_11`.
 This option allows option arguments to be passed to the Java VM. It can be used
 with one big argument, or multiple times with individual arguments. For example:
 
-<pre>
+```
   % bazel build --jvmopt="-server -Xms256m" java/com/example/common/foo:all
-</pre>
+```
 
 will use the server VM for launching all Java binaries and set the
 startup heap size for the VM to 256 MB.
@@ -369,9 +367,9 @@ startup heap size for the VM to 256 MB.
 This option allows option arguments to be passed to javac. It can be used
 with one big argument, or multiple times with individual arguments. For example:
 
-<pre>
+```
   % bazel build --javacopt="-g:source,lines" //myprojects:prog
-</pre>
+```
 
 will rebuild a java_binary with the javac default debug info
 (instead of the bazel default).
@@ -380,9 +378,9 @@ The option is passed to javac after the Bazel built-in default options for
 javac and before the per-rule options. The last specification of
 any option to javac wins. The default options for javac are:
 
-<pre>
+```
   -source 8 -target 8 -encoding UTF-8
-</pre>
+```
 
 Note: Changing `--javacopt` settings will force a recompilation
 of all affected classes. Also note that javacopts parameters listed in
@@ -488,9 +486,10 @@ regular expression.
 The following example will limit scheduling of `extra_actions`
 to only apply to actions of which the owner's label contains '/bar/':
 
-<pre>% bazel build --experimental_action_listener=//test:al //foo/... \
+```
+  % bazel build --experimental_action_listener=//test:al //foo/... \
   --experimental_extra_action_filter=.*/bar/.*
-</pre>
+```
 
 #### `--host_cpu=<var>cpu</var>`
 
@@ -965,15 +964,15 @@ is specified as comma delimited list of allowed test size values (small,
 medium, large or enormous), optionally preceded with '-' sign used to denote
 excluded test sizes. For example,
 
-<pre>
+```
   % bazel test --test_size_filters=small,medium //foo:all
-</pre>
+```
 
 and
 
-<pre>
+```
   % bazel test --test_size_filters=-large,-enormous //foo:all
-</pre>
+```
 
 will test only small and medium tests inside //foo.
 
@@ -1001,9 +1000,9 @@ have a preceding '+' sign.
 
 For example,
 
-<pre>
+```
   % bazel test --test_tag_filters=performance,stress,-flaky //myproject:all
-</pre>
+```
 
 will test targets that are tagged with either `performance` or
 `stress` tag but are **not** tagged with the `flaky` tag.
@@ -1020,17 +1019,18 @@ test (or build if `--build_tests_only` is also specified) only
 targets of the referenced rule classes. To instead exclude those targets, use
 the string "-foo". For example,
 
-</p>
-<pre>
+<p/>
+
+```
   % bazel test --test_lang_filters=foo,bar //baz/...
-</pre>
+```
 <p>
   will test only targets that are instances of `foo_test` or `bar_test` in
   `//baz/...`, while
 </p>
-<pre>
+```
   % bazel test --test_lang_filters=-foo,-bar //baz/...
-</pre>
+```
 <p>
   will test all the targets in `//baz/...` except for the `foo_test` and
   `bar_test` instances.
@@ -1166,12 +1166,12 @@ during execution can be examined.
 This option causes Bazel's execution phase to print the full command line
 for each command prior to executing it.
 
-<pre>
+```
   &gt;&gt;&gt;&gt;&gt; # //examples/cpp:hello-world [action 'Linking examples/cpp/hello-world']
   (cd /home/johndoe/.cache/bazel/_bazel_johndoe/4c084335afceb392cfbe7c31afee3a9f/bazel && \
     exec env - \
     /usr/bin/gcc -o bazel-out/local-fastbuild/bin/examples/cpp/hello-world -B/usr/bin/ -Wl,-z,relro,-z,now -no-canonical-prefixes -pass-exit-codes -Wl,-S -Wl,@bazel-out/local_linux-fastbuild/bin/examples/cpp/hello-world-2.params)
-</pre>
+```
 
 Where possible, commands are printed in a Bourne shell compatible syntax,
 so that they can be easily copied and pasted to a shell command prompt.
@@ -1269,13 +1269,13 @@ If the workspace status command fails (exits non-zero) for any reason, the build
 
 Example program on Linux using Git:
 
-<pre>
+```
 #!/bin/bash
 echo "CURRENT_TIME $(date +%s)"
 echo "RANDOM_HASH $(cat /proc/sys/kernel/random/uuid)"
 echo "STABLE_GIT_COMMIT $(git rev-parse HEAD)"
 echo "STABLE_USER_NAME $USER"
-</pre>
+```
 
 Pass this program's path with `--workspace_status_command`, and the stable status file
 will include the STABLE lines and the volatile status file will include the rest of the lines.
@@ -1397,7 +1397,7 @@ to the named file.
 Use this option to help identify Starlark functions that
 make loading and analysis slow due to excessive computation. For example:
 
-<pre>
+```
 $ bazel build --nobuild --starlark_cpu_profile=/tmp/pprof.gz my/project/...
 $ pprof /tmp/pprof.gz
 (pprof) top
@@ -1413,7 +1413,7 @@ Showing nodes accounting for 3.34s, 100% of 3.34s total
          0     0%   100%      1.38s 41.32%  my/project/main/BUILD
          0     0%   100%      1.96s 58.68%  my/project/library.bzl
          0     0%   100%      3.34s   100%  main
-</pre>
+```
 
 For different views of the same data, try the `pprof` commands `svg`,
 `web`, and `list`.
@@ -1685,12 +1685,12 @@ Some caveats apply:
 
 Examples:
 
-<pre>
+```
         --run_under=/usr/bin/strace
         --run_under='/usr/bin/strace -c'
         --run_under=/usr/bin/valgrind
         --run_under='/usr/bin/valgrind --quiet --num-callers=20'
-</pre>
+```
 
 #### Test selection
 
@@ -1712,7 +1712,7 @@ The syntax and the remaining options are exactly like
 The `bazel run` command is similar to `bazel build`, except
 it is used to build _and run_ a single target. Here is a typical session:
 
-<pre>
+```
   % bazel run java/myapp:myapp -- --arg1 --arg2
   Welcome to Bazel
   INFO: Loading package: java/myapp
@@ -1729,7 +1729,7 @@ it is used to build _and run_ a single target. Here is a typical session:
   $EXEC_ROOT/java/myapp/myapp
   --arg1
   --arg2
-</pre>
+```
 
 Note: `--` is needed so that Bazel
 does not interpret `--arg1` and `--arg2` as
@@ -1812,9 +1812,9 @@ stops the Bazel server after the clean, equivalent to the [`shutdown`](#shutdown
 clean up all disk and memory traces of a Bazel instance, you could
 specify:
 
-<pre>
+```
   % bazel clean --expunge
-</pre>
+```
 
 Alternatively, you can expunge in the background by using
 `--expunge_async`. It is safe to invoke a Bazel command
@@ -1867,9 +1867,9 @@ but added by bazel.
 Example: "Show the locations of the definitions (in BUILD files) of
 all genrules required to build all the tests in the PEBL tree."
 
-<pre>
+```
   bazel query --output location 'kind(genrule, deps(kind(".*_test rule", foo/bar/pebl/...)))'
-</pre>
+```
 
 ## Querying the action graph
 
@@ -1998,9 +1998,10 @@ through `sed -ne /key:/s/key://p`:
 
 Example: the process ID of the Bazel server.
 
-<pre>% bazel info server_pid
+```
+% bazel info server_pid
 1285
-</pre>
+```
 
 #### Configuration-specific data
 
@@ -2032,21 +2033,22 @@ Example: the C++ compiler for the current configuration.
 This is the `$(CC)` variable in the "Make" environment,
 so the `--show_make_env` flag is needed.
 
-<pre>
+```
   % bazel info --show_make_env -c opt COMPILATION_MODE
   opt
-</pre>
+```
 
 Example: the `bazel-bin` output directory for the current
 configuration. This is guaranteed to be correct even in cases where
 the `bazel-bin` symlink cannot be created for some reason
 (such as if you are building from a read-only directory).
 
-<pre>% bazel info --cpu=piii bazel-bin
+```
+% bazel info --cpu=piii bazel-bin
 /var/tmp/_bazel_johndoe/fbd0e8a34f61ce5d491e3da69d959fe6/execroot/io_bazel/bazel-out/piii-opt/bin
 % bazel info --cpu=k8 bazel-bin
 /var/tmp/_bazel_johndoe/fbd0e8a34f61ce5d491e3da69d959fe6/execroot/io_bazel/bazel-out/k8-opt/bin
-</pre>
+```
 
 ### `version` and `--version`
 
@@ -2137,14 +2139,15 @@ Extra arguments to `adb`. These come before the subcommand in the
 command line and are typically used to specify which device to install to.
 For example, to select the Android device or emulator to use:
 
-<pre>% bazel mobile-install --adb_arg=-s --adb_arg=deadbeef
-</pre>
+```
+% bazel mobile-install --adb_arg=-s --adb_arg=deadbeef
+```
 
 invokes `adb` as
 
-<pre>
+```
 adb -s deadbeef install ...
-</pre>
+```
 
 #### `--incremental_install_verbosity=<var>number</var>`
 
@@ -2191,7 +2194,7 @@ restart.
 
 Example:
 
-<pre>
+```
     % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.4.jar \
     --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
     build --nobuild &lt;targets&gt;
@@ -2206,7 +2209,7 @@ Example:
     --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
     dump --skylark_memory=$HOME/prof.gz
     % pprof -flame $HOME/prof.gz
-</pre>
+```
 
 ### `analyze-profile`
 
@@ -2231,11 +2234,11 @@ _does not_ expand flags from `--config`.
 
 As an example:
 
-<pre>
+```
   % bazel canonicalize-flags -- --config=any_name --test_tag_filters="-lint"
   --config=any_name
   --test_tag_filters=-lint
-</pre>
+```
 
 ### Startup options
 
@@ -2271,10 +2274,10 @@ workspace directory by varying the output base.
 
 For example:
 
-<pre>
+```
  OUTPUT_BASE=/var/tmp/google/_bazel_johndoe/custom_output_base
 % bazel --output_base ${OUTPUT_BASE}1 build //foo  &amp;  bazel --output_base ${OUTPUT_BASE}2 build //bar
-</pre>
+```
 
 In this command, the two Bazel commands run concurrently (because of
 the shell `&amp;` operator), each using a different Bazel
@@ -2315,9 +2318,9 @@ Specifies the Java virtual machine in which _Bazel itself_ runs. The value must 
 the directory containing a JDK or JRE. It should not be a label.
 This option should appear before any Bazel command, for example:
 
-<pre>
+```
   % bazel --server_javabase=/usr/local/buildtools/java/jdk11 build //foo
-</pre>
+```
 
 This flag does _not_ affect the JVMs used by Bazel subprocesses such as applications, tests,
 tools, and so on. Use build options [--javabase](#javabase) or
@@ -2333,9 +2336,9 @@ build flag [--host_javabase](#host-javabase) (sometimes referred to as the
 Specifies a startup option to be passed to the Java virtual machine in which _Bazel itself_
 runs. This can be used to set the stack size, for example:
 
-<pre>
+```
   % bazel --host_jvm_args="-Xss256K" build //foo
-</pre>
+```
 
 This option can be used multiple times with individual arguments. Note that
 setting this flag should rarely be needed. You can also pass a space-separated list of strings,

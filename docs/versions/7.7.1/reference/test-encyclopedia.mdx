@@ -450,12 +450,7 @@ The initial environment block shall be composed as follows:
   </tr>
   <tr>
     <td><code>XML_OUTPUT_FILE</code></td>
-    <td>
-      Location to which test actions should write a test result XML output file.
-      Otherwise, Bazel generates a default XML output file wrapping the test log
-      as part of the test action. The XML schema is based on the
-      <a href="https://windyroad.com.au/dl/Open%20Source/JUnit.xsd"
-        class="external">JUnit test result schema</a>.</td>
+    <td>Location to which test actions should write a test result XML output file. Otherwise, Bazel generates a default XML output file wrapping the test log as part of the test action. The XML schema is based on the <a href="https://windyroad.com.au/dl/Open%20Source/JUnit.xsd" class="external">JUnit test result schema</a>.</td>
     <td>optional</td>
   </tr>
   <tr>
@@ -719,9 +714,9 @@ Some tags in the test rules have a special meaning. See also the
       <td><code>test_suite</code> convention; suite of large tests</td>
     </tr>
     <tr>
-      <td><code>manual *</code></td>
+      <td><code>manual &ast;</code></td>
       <td>don't include test target in wildcard target patterns like
-        <code>:...</code>, <code>:*</code>, or <code>:all</code></td>
+        <code>:...</code>, <code>:&ast;</code>, or <code>:all</code></td>
     </tr>
     <tr>
       <td><code>medium</code></td>
@@ -742,7 +737,7 @@ Note: bazel `query` does not respect the manual tag.
 
 ## Runfiles
 
-In the following, assume there is a *_binary() rule labeled
+In the following, assume there is a &ast;_binary() rule labeled
 `//foo/bar:unittest`, with a run-time dependency on the rule labeled
 `//deps/server:server`.
 
@@ -755,8 +750,8 @@ the `runfiles_dir`.
 #### Dependencies
 
 The runfiles directory is declared as a compile-time dependency of the
-`*_binary()` rule. The runfiles directory itself depends on the set of BUILD
-files that affect the `*_binary()` rule or any of its compile-time or run-time
+`&ast;_binary()` rule. The runfiles directory itself depends on the set of BUILD
+files that affect the `&ast;_binary()` rule or any of its compile-time or run-time
 dependencies. Modifying source files does not affect the structure of the
 runfiles directory, and thus does not trigger any rebuilding.
 
@@ -764,8 +759,8 @@ runfiles directory, and thus does not trigger any rebuilding.
 
 The runfiles directory contains the following:
 
-*   **Symlinks to run-time dependencies**: each OutputFile and CommandRule that
-    is a run-time dependency of the `*_binary()` rule is represented by one
+* **Symlinks to run-time dependencies**: each OutputFile and CommandRule that
+    is a run-time dependency of the `&ast;_binary()` rule is represented by one
     symlink in the runfiles directory. The name of the symlink is
     `$(WORKSPACE)/package_name/rule_name`. For example, the symlink for server
     would be named `$(WORKSPACE)/deps/server/server`, and the full path would be
@@ -773,8 +768,8 @@ The runfiles directory contains the following:
     The destination of the symlink is the OutputFileName() of the OutputFile or
     CommandRule, expressed as an absolute path. Thus, the destination of the
     symlink might be `$(WORKSPACE)/linux-dbg/deps/server/42/server`.
-*   **Symlinks to sub-runfiles**: for every `*_binary()` Z that is a run-time
-    dependency of `*_binary()` C, there is a second link in the runfiles
+* **Symlinks to sub-runfiles**: for every `&ast;_binary()` Z that is a run-time
+    dependency of `&ast;_binary()` C, there is a second link in the runfiles
     directory of C to the runfiles of Z. The name of the symlink is
     `$(WORKSPACE)/package_name/rule_name.runfiles`. The target of the symlink is
     the runfiles directory. For example, all subprograms share a common runfiles
