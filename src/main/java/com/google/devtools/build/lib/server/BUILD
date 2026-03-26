@@ -22,46 +22,95 @@ java_library(
 )
 
 java_library(
-    name = "server",
-    srcs = [
-        "CommandManager.java",
-        "CommandServer.java",
-        "GrpcCommandServer.java",
-        "GrpcCommandServerImpl.java",
-        "IdleTaskManager.java",
-        "ServerWatcherRunnable.java",
-    ],
+    name = "command_manager",
+    srcs = ["CommandManager.java"],
     deps = [
         ":idle_task",
+        ":idle_task_manager",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/protobuf:command_server_java_proto",
+        "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "server_watcher_runnable",
+    srcs = ["ServerWatcherRunnable.java"],
+    deps = [
+        ":command_manager",
+        ":grpc_command_server",
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/platform:system_memory_pressure_monitor",
+        "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//third_party:flogger",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "idle_task_manager",
+    srcs = ["IdleTaskManager.java"],
+    deps = [
+        ":idle_task",
+        "//third_party:flogger",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "grpc_command_server_impl",
+    srcs = ["GrpcCommandServerImpl.java"],
+    deps = [
+        ":grpc_command_server",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/protobuf:command_server_java_grpc",
+        "//src/main/protobuf:command_server_java_proto",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:netty",
+        "//third_party/grpc-java:grpc-jar",
+        "@com_google_protobuf//:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "grpc_command_server",
+    srcs = ["GrpcCommandServer.java"],
+)
+
+java_library(
+    name = "command_server",
+    srcs = ["CommandServer.java"],
+    deps = [
+        ":command_manager",
+        ":grpc_command_server",
         ":pid_file_watcher",
+        ":server_watcher_runnable",
         ":shutdown_hooks",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
-        "//src/main/java/com/google/devtools/build/lib/platform:system_memory_pressure_monitor",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_result",
         "//src/main/java/com/google/devtools/build/lib/runtime:command_dispatcher",
         "//src/main/java/com/google/devtools/build/lib/runtime:safe_request_logging",
-        "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:interrupted_failure_details",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/com/google/devtools/common/options:invocation_policy",
-        "//src/main/protobuf:command_server_java_grpc",
         "//src/main/protobuf:command_server_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party:netty",
-        "//third_party/grpc-java:grpc-jar",
         "@com_google_protobuf//:protobuf_java",
     ],
 )
