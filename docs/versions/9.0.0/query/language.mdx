@@ -365,7 +365,7 @@ of the result nodes against other nodes.) For more details, see the
 ### Variables {#variables}
 
 ```none
-expr ::= let <var>name</var> = <var>expr</var>{{ '<sub>' }}1{{ '</sub>' }} in <var>expr</var>{{ '<sub>' }}2{{ '</sub>' }}
+expr ::= let <var>name</var> = <var>expr</var><sub>1</sub> in <var>expr</var><sub>2</sub>
        | <var>$name</var>
 ```
 
@@ -610,7 +610,7 @@ the same package as a target in the argument set.
 
 ```
 expr ::= some(<var>expr</var>)
-       | some(<var>expr</var>, <var>count{{ '</var> '}})
+       | some(<var>expr</var>, <var>count</var>)
 ```
 
 The `some(<var>x</var>, <var>k</var>)` operator
@@ -1366,7 +1366,9 @@ in any case, it might not exist if a build has not yet been performed.)
 
 ### Print the set of packages {#print-package-set}
 
-```--output package```
+```
+--output package
+```
 
 This option prints the name of all packages to which
 some target in the result set belongs. The names are printed in
@@ -1384,7 +1386,9 @@ out in order to build a given set of targets.
 
 ### Display a graph of the result {#display-result-graph}
 
-```--output graph```
+```
+--output graph
+```
 
 This option causes the query result to be printed as a directed
 graph in the popular AT&amp;T GraphViz format. Typically the
@@ -1430,7 +1434,9 @@ unless `--output=graph` is being used.
 
 ### XML {#xml}
 
-```--output xml```
+```
+--output xml
+```
 
 This option causes the resulting targets to be printed in an XML
 form. The output starts with an XML header such as this
