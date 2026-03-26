@@ -440,7 +440,7 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
 
   @Override
   public String describe() {
-    return String.format("Expanding %s into actions.", getInputTreeArtifacts());
+    return String.format("Expanding %s into actions", getInputTreeArtifacts());
   }
 
   /**
