@@ -158,7 +158,7 @@ Options that appear before the command and are parsed by the client:
     [`bazel_monitoring`](#effect_tag_BAZEL_MONITORING), [`execution`](#effect_tag_EXECUTION)
 
 `--failure_detail_out=<path>` default: see description
-:   If set, specifies a location to write a failure\_detail protobuf message if the server experiences a failure and cannot report it via gRPC, as normal. Otherwise, the location will be ${OUTPUT\_BASE}/failure\_detail.rawproto.
+:   If set, specifies a location to write a failure\_detail protobuf message if the server experiences a failure and cannot report it via gRPC, as normal. Otherwise, the location will be \$\{OUTPUT\_BASE\}/failure\_detail.rawproto.
 
     Tags:
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS), [`loses_incremental_state`](#effect_tag_LOSES_INCREMENTAL_STATE)
@@ -206,7 +206,7 @@ Options that appear before the command and are parsed by the client:
     [`eagerness_to_exit`](#effect_tag_EAGERNESS_TO_EXIT), [`loses_incremental_state`](#effect_tag_LOSES_INCREMENTAL_STATE)
 
 `--output_base=<path>` default: see description
-:   If set, specifies the output location to which all build output will be written. Otherwise, the location will be ${OUTPUT\_ROOT}/\_blaze\_${USER}/${MD5\_OF\_WORKSPACE\_ROOT}. Note: If you specify a different option from one to the next Bazel invocation for this value, you'll likely start up a new, additional Bazel server. Bazel starts exactly one server per specified output base. Typically there is one output base per workspace - however, with this option you may have multiple output bases per workspace and thereby run multiple builds for the same client on the same machine concurrently. See 'bazel help shutdown' on how to shutdown a Bazel server.
+:   If set, specifies the output location to which all build output will be written. Otherwise, the location will be \$\{OUTPUT\_ROOT\}/\_blaze\_\$\{USER\}/\$\{MD5\_OF\_WORKSPACE\_ROOT\}. Note: If you specify a different option from one to the next Bazel invocation for this value, you'll likely start up a new, additional Bazel server. Bazel starts exactly one server per specified output base. Typically there is one output base per workspace - however, with this option you may have multiple output bases per workspace and thereby run multiple builds for the same client on the same machine concurrently. See 'bazel help shutdown' on how to shutdown a Bazel server.
 
     Tags:
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS), [`loses_incremental_state`](#effect_tag_LOSES_INCREMENTAL_STATE)
@@ -341,7 +341,7 @@ Options that appear before the command and are parsed by the client:
     [`bazel_internal_configuration`](#effect_tag_BAZEL_INTERNAL_CONFIGURATION)
 
 `--repo_contents_cache=<a path>` default: see description
-:   Specifies the location of the repo contents cache, which contains fetched repo directories shareable across workspaces. An empty string as argument requests the repo contents cache to be disabled, otherwise the default of '<--repository\_cache>/contents' is used. Note that this means setting '--repository\_cache=' would by default disable the repo contents cache as well, unless '--repo\_contents\_cache=<some\_path>' is also set.
+:   Specifies the location of the repo contents cache, which contains fetched repo directories shareable across workspaces. An empty string as argument requests the repo contents cache to be disabled, otherwise the default of '&lt;--repository\_cache&gt;/contents' is used. Note that this means setting '--repository\_cache=' would by default disable the repo contents cache as well, unless '--repo\_contents\_cache=&lt;some\_path&gt;' is also set.
 
     Tags:
     [`bazel_internal_configuration`](#effect_tag_BAZEL_INTERNAL_CONFIGURATION)
@@ -360,13 +360,13 @@ Options that appear before the command and are parsed by the client:
     [`bazel_internal_configuration`](#effect_tag_BAZEL_INTERNAL_CONFIGURATION)
 
 `--repository_cache=<a path>` default: see description
-:   Specifies the cache location of the downloaded values obtained during the fetching of external repositories. An empty string as argument requests the cache to be disabled, otherwise the default of '<--output\_user\_root>/cache/repos/v1' is used
+:   Specifies the cache location of the downloaded values obtained during the fetching of external repositories. An empty string as argument requests the cache to be disabled, otherwise the default of '&lt;--output\_user\_root&gt;/cache/repos/v1' is used
 
     Tags:
     [`bazel_internal_configuration`](#effect_tag_BAZEL_INTERNAL_CONFIGURATION)
 
 `--[no]repository_disable_download` default: "false"
-:   If set, downloading using ctx.download{,\_and\_extract} is not allowed during repository fetching. Note that network access is not completely disabled; ctx.execute could still run an arbitrary executable that accesses the Internet.
+:   If set, downloading using ctx.download\{,\_and\_extract} is not allowed during repository fetching. Note that network access is not completely disabled; ctx.execute could still run an arbitrary executable that accesses the Internet.
 
     Tags:
     [`bazel_internal_configuration`](#effect_tag_BAZEL_INTERNAL_CONFIGURATION)
@@ -414,7 +414,7 @@ Options that let the user configure the intended output, affecting its value, as
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
 
 `--remote_download_symlink_template=<a string>` default: ""
-:   Instead of downloading remote build outputs to the local machine, create symbolic links. The target of the symbolic links can be specified in the form of a template string. This template string may contain {hash} and {size\_bytes} that expand to the hash of the object and the size in bytes, respectively. These symbolic links may, for example, point to a FUSE file system that loads objects from the CAS on demand.
+:   Instead of downloading remote build outputs to the local machine, create symbolic links. The target of the symbolic links can be specified in the form of a template string. This template string may contain \{hash} and \{size\_bytes} that expand to the hash of the object and the size in bytes, respectively. These symbolic links may, for example, point to a FUSE file system that loads objects from the CAS on demand.
 
     Tags:
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -801,7 +801,7 @@ Options relating to Bzlmod output and semantics:
     [`loading_and_analysis`](#effect_tag_LOADING_AND_ANALYSIS)
 
 `--override_module=<an equals-separated mapping of module name to path>` multiple uses are accumulated
-:   Override a module with a local path in the form of <module name>=<path>. If the given path is an absolute path, it will be used as it is. If the given path is a relative path, it is relative to the current working directory. If the given path starts with '%workspace%, it is relative to the workspace root, which is the output of `bazel info workspace`. If the given path is empty, then remove any previous overrides.
+:   Override a module with a local path in the form of &lt;module name&gt;=&lt;path&gt;. If the given path is an absolute path, it will be used as it is. If the given path is a relative path, it is relative to the current working directory. If the given path starts with '%workspace%, it is relative to the workspace root, which is the output of `bazel info workspace`. If the given path is empty, then remove any previous overrides.
 
 `--registry=<a string>` multiple uses are accumulated
 :   Specifies the registries to use to locate Bazel module dependencies. The order is important: modules will be looked up in earlier registries first, and only fall back to later registries when they're missing from the earlier ones.
@@ -817,8 +817,8 @@ Options relating to Bzlmod output and semantics:
 
 Options that trigger optimizations of the build time:
 
-`--gc_thrashing_limits=<comma separated pairs of <period>:<count>>` default: "1s:2,20s:3,1m:5"
-:   Limits which, if reached, cause GcThrashingDetector to crash Bazel with an OOM. Each limit is specified as <period>:<count> where period is a duration and count is a positive integer. If more than --gc\_thrashing\_threshold percent of tenured space (old gen heap) remains occupied after <count> consecutive full GCs within <period>, an OOM is triggered. Multiple limits can be specified separated by commas.
+`--gc_thrashing_limits=<comma separated pairs of &lt;period&gt;:&lt;count&gt;&gt;` default: "1s:2,20s:3,1m:5"
+:   Limits which, if reached, cause GcThrashingDetector to crash Bazel with an OOM. Each limit is specified as &lt;period&gt;:&lt;count&gt; where period is a duration and count is a positive integer. If more than --gc\_thrashing\_threshold percent of tenured space (old gen heap) remains occupied after &lt;count&gt; consecutive full GCs within &lt;period&gt;, an OOM is triggered. Multiple limits can be specified separated by commas.
 
     Tags:
     [`host_machine_resource_optimizations`](#effect_tag_HOST_MACHINE_RESOURCE_OPTIMIZATIONS)
@@ -904,7 +904,7 @@ Options that affect the verbosity, format or location of logging:
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
 
 `--bes_keywords=<comma-separated list of options>` multiple uses are accumulated
-:   Specifies a list of notification keywords to be added the default set of keywords published to BES ("command\_name=<command\_name> ", "protocol\_name=BEP"). Defaults to none.
+:   Specifies a list of notification keywords to be added the default set of keywords published to BES ("command\_name=&lt;command\_name&gt; ", "protocol\_name=BEP"). Defaults to none.
 
     Tags:
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -1156,7 +1156,7 @@ Options that affect the verbosity, format or location of logging:
     [`bazel_monitoring`](#effect_tag_BAZEL_MONITORING)
 
 `--[no]heap_dump_on_oom` default: "false"
-:   Whether to manually output a heap dump if an OOM is thrown (including manual OOMs due to reaching --gc\_thrashing\_limits). The dump will be written to <output\_base>/<invocation\_id>.heapdump.hprof. This option effectively replaces -XX:+HeapDumpOnOutOfMemoryError, which has no effect for manual OOMs.
+:   Whether to manually output a heap dump if an OOM is thrown (including manual OOMs due to reaching --gc\_thrashing\_limits). The dump will be written to &lt;output\_base&gt;/&lt;invocation\_id&gt;.heapdump.hprof. This option effectively replaces -XX:+HeapDumpOnOutOfMemoryError, which has no effect for manual OOMs.
 
     Tags:
     [`bazel_monitoring`](#effect_tag_BAZEL_MONITORING)
@@ -1346,7 +1346,7 @@ Remote caching and execution options:
     Default to 'minimal'.
 
 `--remote_bytestream_uri_prefix=<a string>` default: see description
-:   The hostname and instance name to be used in bytestream:// URIs that are written into build event streams. This option can be set when builds are performed using a proxy, which causes the values of --remote\_executor and --remote\_instance\_name to no longer correspond to the canonical name of the remote execution service. When not set, it will default to "${hostname}/${instance\_name}".
+:   The hostname and instance name to be used in bytestream:// URIs that are written into build event streams. This option can be set when builds are performed using a proxy, which causes the values of --remote\_executor and --remote\_instance\_name to no longer correspond to the canonical name of the remote execution service. When not set, it will default to "\$\{hostname\}/\$\{instance\_name\}".
 
 `--remote_cache=<a string>` default: see description
 :   A URI of a caching endpoint. The supported schemas are http, https, grpc, grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If no schema is provided Bazel will default to grpcs. Specify grpc://, http:// or unix: schema to disable TLS. See https://bazel.build/remote/caching
@@ -1443,7 +1443,7 @@ Miscellaneous options, not otherwise categorized.:
 :   Use terminal controls to colorize output.
 
 `--config=<a string>` multiple uses are accumulated
-:   Selects additional config sections from the rc files; for every <command>, it also pulls in the options from <command>:<config> if such a section exists; if this section doesn't exist in any .rc file, Blaze fails with an error. The config sections and flag combinations they are equivalent to are located in the tools/\*.blazerc config files.
+:   Selects additional config sections from the rc files; for every &lt;command&gt;, it also pulls in the options from &lt;command&gt;:&lt;config&gt; if such a section exists; if this section doesn't exist in any .rc file, Blaze fails with an error. The config sections and flag combinations they are equivalent to are located in the tools/\*.blazerc config files.
 
 `--credential_helper=<Path to a credential helper. It may be absolute, relative to the PATH environment variable, or %workspace%-relative. The path be optionally prefixed by a scope followed by an '='. The scope is a domain name, optionally with a single leading '*' wildcard component. A helper applies to URIs matching its scope, with more specific scopes preferred. If a helper has no scope, it applies to every URI.>` multiple uses are accumulated
 :   Configures a credential helper conforming to the <a href="https://github.com/EngFlow/credential-helper-spec">Credential Helper Specification</a> to use for retrieving authorization credentials for repository fetching, remote caching and execution, and the build event service.
@@ -1519,7 +1519,7 @@ Miscellaneous options, not otherwise categorized.:
     [`loading_and_analysis`](#effect_tag_LOADING_AND_ANALYSIS), [`incompatible_change`](#metadata_tag_INCOMPATIBLE_CHANGE)
 
 `--inject_repository=<an equals-separated mapping of repository name to path>` multiple uses are accumulated
-:   Adds a new repository with a local path in the form of <repository name>=<path>. This only takes effect with --enable\_bzlmod and is equivalent to adding a corresponding `local\_repository` to the root module's MODULE.bazel file via `use\_repo\_rule`. If the given path is an absolute path, it will be used as it is. If the given path is a relative path, it is relative to the current working directory. If the given path starts with '%workspace%', it is relative to the workspace root, which is the output of `bazel info workspace`. If the given path is empty, then remove any previous injections.
+:   Adds a new repository with a local path in the form of &lt;repository name&gt;=&lt;path&gt;. This only takes effect with --enable\_bzlmod and is equivalent to adding a corresponding `local\_repository` to the root module's MODULE.bazel file via `use\_repo\_rule`. If the given path is an absolute path, it will be used as it is. If the given path is a relative path, it is relative to the current working directory. If the given path starts with '%workspace%', it is relative to the workspace root, which is the output of `bazel info workspace`. If the given path is empty, then remove any previous injections.
 
 `--invocation_id=<a UUID>` default: ""
 :   Unique identifier, in UUID format, for the command being run. If explicitly specified uniqueness must be ensured by the caller. The UUID is printed to stderr, the BEP and remote execution protocol.
@@ -1528,7 +1528,7 @@ Miscellaneous options, not otherwise categorized.:
     [`bazel_monitoring`](#effect_tag_BAZEL_MONITORING), [`bazel_internal_configuration`](#effect_tag_BAZEL_INTERNAL_CONFIGURATION)
 
 `--override_repository=<an equals-separated mapping of repository name to path>` multiple uses are accumulated
-:   Override a repository with a local path in the form of <repository name>=<path>. If the given path is an absolute path, it will be used as it is. If the given path is a relative path, it is relative to the current working directory. If the given path starts with '%workspace%, it is relative to the workspace root, which is the output of `bazel info workspace`. If the given path is empty, then remove any previous overrides.
+:   Override a repository with a local path in the form of &lt;repository name&gt;=&lt;path&gt;. If the given path is an absolute path, it will be used as it is. If the given path is a relative path, it is relative to the current working directory. If the given path starts with '%workspace%, it is relative to the workspace root, which is the output of `bazel info workspace`. If the given path is empty, then remove any previous overrides.
 
 `--[no]progress_in_terminal_title` default: "false"
 :   Show the command progress in the terminal title. Useful to see what bazel is doing when having multiple terminal tabs.
@@ -1931,7 +1931,7 @@ Options that configure the toolchain used for action execution:
     [`loading_and_analysis`](#effect_tag_LOADING_AND_ANALYSIS)
 
 `--[no]experimental_include_xcode_execution_requirements` default: "false"
-:   If set, add a "requires-xcode:{version}" execution requirement to every Xcode action. If the Xcode version has a hyphenated label, also add a "requires-xcode-label:{version\_label}" execution requirement.
+:   If set, add a "requires-xcode:\{version}" execution requirement to every Xcode action. If the Xcode version has a hyphenated label, also add a "requires-xcode-label:\{version\_label}" execution requirement.
 
     Tags:
     [`loses_incremental_state`](#effect_tag_LOSES_INCREMENTAL_STATE), [`loading_and_analysis`](#effect_tag_LOADING_AND_ANALYSIS), [`execution`](#effect_tag_EXECUTION), [`experimental`](#metadata_tag_EXPERIMENTAL)
@@ -2165,7 +2165,7 @@ Options that let the user configure the intended output, affecting its value, as
 `--action_env=<a 'name=value' assignment with an optional value part>` multiple uses are accumulated
 :   Specifies the set of environment variables available to actions with target configuration. Variables can be either specified by <code>name</code>, in which case
     the value will be taken from the invocation environment, or by the <code>name=value</code> pair which sets the value independent of the invocation environment. This option can be used multiple times; for options given for the same variable, the latest wins, options for different variables accumulate.
-    <br>
+    <br/>
     Note that unless <code>--incompatible\_repo\_env\_ignores\_action\_env</code> is true, all <code>name=value</code> pairs will be available to repository rules.
 
     Tags:
@@ -2412,7 +2412,7 @@ Options that let the user configure the intended output, affecting its value, as
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
 
 `--features=<a string>` multiple uses are accumulated
-:   The given features will be enabled or disabled by default for targets built in the target configuration. Specifying -<feature> will disable the feature. Negative features always override positive ones. See also --host\_features
+:   The given features will be enabled or disabled by default for targets built in the target configuration. Specifying -&lt;feature&gt; will disable the feature. Negative features always override positive ones. See also --host\_features
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -2460,7 +2460,7 @@ Options that let the user configure the intended output, affecting its value, as
     [`action_command_lines`](#effect_tag_ACTION_COMMAND_LINES), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
 
 `--host_features=<a string>` multiple uses are accumulated
-:   The given features will be enabled or disabled by default for targets built in the exec configuration. Specifying -<feature> will disable the feature. Negative features always override positive ones.
+:   The given features will be enabled or disabled by default for targets built in the exec configuration. Specifying -&lt;feature&gt; will disable the feature. Negative features always override positive ones.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -2646,7 +2646,7 @@ Options that let the user configure the intended output, affecting its value, as
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
 
 `--stripopt=<a string>` multiple uses are accumulated
-:   Additional options to pass to strip when generating a '<name>.stripped' binary.
+:   Additional options to pass to strip when generating a '&lt;name&gt;.stripped' binary.
 
     Tags:
     [`action_command_lines`](#effect_tag_ACTION_COMMAND_LINES), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -2882,7 +2882,7 @@ Options that govern the behavior of the test environment or test runner:
     [`loading_and_analysis`](#effect_tag_LOADING_AND_ANALYSIS), [`experimental`](#metadata_tag_EXPERIMENTAL)
 
 `--default_test_resources=<a resource name followed by equal and 1 float or 4 float, e.g memory=10,30,60,100>` multiple uses are accumulated
-:   Override the default resources amount for tests. The expected format is <resource>=<value>. If a single positive number is specified as <value> it will override the default resources for all test sizes. If 4 comma-separated numbers are specified, they will override the resource amount for respectively the small, medium, large, enormous test sizes. Values can also be HOST\_RAM/HOST\_CPU, optionally followed by [-|\*]<float> (eg. memory=HOST\_RAM\*.1,HOST\_RAM\*.2,HOST\_RAM\*.3,HOST\_RAM\*.4). The default test resources specified by this flag are overridden by explicit resources specified in tags.
+:   Override the default resources amount for tests. The expected format is &lt;resource&gt;=&lt;value&gt;. If a single positive number is specified as &lt;value&gt; it will override the default resources for all test sizes. If 4 comma-separated numbers are specified, they will override the resource amount for respectively the small, medium, large, enormous test sizes. Values can also be HOST\_RAM/HOST\_CPU, optionally followed by [-|\*]&lt;float&gt; (eg. memory=HOST\_RAM\*.1,HOST\_RAM\*.2,HOST\_RAM\*.3,HOST\_RAM\*.4). The default test resources specified by this flag are overridden by explicit resources specified in tags.
 
 `--[no]experimental_android_use_parallel_dex2oat` default: "false"
 :   Use dex2oat in parallel to possibly speed up android\_test.
@@ -2999,7 +2999,7 @@ Options that affect the verbosity, format or location of logging:
 Options specifying or altering a generic input to a Bazel command that does not fall into other categories.:
 
 `--flag_alias=<a 'name=value' flag alias>` multiple uses are accumulated
-:   Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form "<key>=<value>" as an argument.
+:   Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form "&lt;key&gt;=&lt;value&gt;" as an argument.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS)
@@ -3305,7 +3305,7 @@ Options that control build execution:
     Tags:
     [`host_machine_resource_optimizations`](#effect_tag_HOST_MACHINE_RESOURCE_OPTIMIZATIONS), [`execution`](#effect_tag_EXECUTION)
 
-`--experimental_sandbox_async_tree_delete_idle_threads=<an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]<float>) eg. "auto", "HOST_CPUS*.5">` default: "4"
+`--experimental_sandbox_async_tree_delete_idle_threads=<an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]&lt;float&gt;) eg. "auto", "HOST_CPUS*.5">` default: "4"
 :   If 0, delete sandbox trees as soon as an action completes (causing completion of the action to be delayed). If greater than zero, execute the deletion of such threes on an asynchronous thread pool that has size 1 when the build is running and grows to the size specified by this flag when the server is idle.
 
     Tags:
@@ -3317,13 +3317,13 @@ Options that control build execution:
     Tags:
     [`execution`](#effect_tag_EXECUTION)
 
-`--experimental_sandbox_limits=<a named double, 'name=value', where value is an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]<float>) eg. "auto", "HOST_CPUS*.5">` multiple uses are accumulated
+`--experimental_sandbox_limits=<a named double, 'name=value', where value is an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]&lt;float&gt;) eg. "auto", "HOST_CPUS*.5">` multiple uses are accumulated
 :   If > 0, each Linux sandbox will be limited to the given amount for the specified resource. Requires --incompatible\_use\_new\_cgroup\_implementation and overrides --experimental\_sandbox\_memory\_limit\_mb. Requires cgroups v1 or v2 and permissions for the users to the cgroups dir.
 
     Tags:
     [`execution`](#effect_tag_EXECUTION)
 
-`--experimental_sandbox_memory_limit_mb=<an integer number of MBs, or "HOST_RAM", optionally followed by [-|*]<float>.>` default: "0"
+`--experimental_sandbox_memory_limit_mb=<an integer number of MBs, or "HOST_RAM", optionally followed by [-|*]&lt;float&gt;.>` default: "0"
 :   If > 0, each Linux sandbox will be limited to the given amount of memory (in MB). Requires cgroups v1 or v2 and permissions for the users to the cgroups dir.
 
     Tags:
@@ -3341,7 +3341,7 @@ Options that control build execution:
     Tags:
     [`execution`](#effect_tag_EXECUTION)
 
-`--experimental_total_worker_memory_limit_mb=<an integer number of MBs, or "HOST_RAM", optionally followed by [-|*]<float>.>` default: "0"
+`--experimental_total_worker_memory_limit_mb=<an integer number of MBs, or "HOST_RAM", optionally followed by [-|*]&lt;float&gt;.>` default: "0"
 :   If this limit is greater than zero idle workers might be killed if the total memory usage of all workers exceed the limit.
 
     Tags:
@@ -3383,7 +3383,7 @@ Options that control build execution:
     Tags:
     [`execution`](#effect_tag_EXECUTION)
 
-`--experimental_worker_memory_limit_mb=<an integer number of MBs, or "HOST_RAM", optionally followed by [-|*]<float>.>` default: "0"
+`--experimental_worker_memory_limit_mb=<an integer number of MBs, or "HOST_RAM", optionally followed by [-|*]&lt;float&gt;.>` default: "0"
 :   If this limit is greater than zero, workers might be killed if the memory usage of the worker exceeds the limit. If not used together with dynamic execution and `--experimental\_dynamic\_ignore\_local\_signals=9`, this may crash your build.
 
     Tags:
@@ -3420,7 +3420,7 @@ Options that control build execution:
     [`execution`](#effect_tag_EXECUTION)
 
 `--genrule_strategy=<comma-separated list of options>` default: ""
-:   Specify how to execute genrules. This flag will be phased out. Instead, use --spawn\_strategy=<value> to control all actions or --strategy=Genrule=<value> to control genrules only.
+:   Specify how to execute genrules. This flag will be phased out. Instead, use --spawn\_strategy=&lt;value&gt; to control all actions or --strategy=Genrule=&lt;value&gt; to control genrules only.
 
     Tags:
     [`execution`](#effect_tag_EXECUTION)
@@ -3443,8 +3443,8 @@ Options that control build execution:
     Tags:
     [`execution`](#effect_tag_EXECUTION), [`host_machine_resource_optimizations`](#effect_tag_HOST_MACHINE_RESOURCE_OPTIMIZATIONS)
 
-`--jobs=<an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]<float>) eg. "auto", "HOST_CPUS*.5">` [`-j`] default: "auto"
-:   The number of concurrent jobs to run. Takes an integer, or a keyword ("auto", "HOST\_CPUS", "HOST\_RAM"), optionally followed by an operation ([-|\*]<float>) eg. "auto", "HOST\_CPUS\*.5". Values must be between 1 and 5000. Values above 2500 may cause memory issues. "auto" calculates a reasonable default based on host resources.
+`--jobs=<an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]&lt;float&gt;) eg. "auto", "HOST_CPUS*.5">` [`-j`] default: "auto"
+:   The number of concurrent jobs to run. Takes an integer, or a keyword ("auto", "HOST\_CPUS", "HOST\_RAM"), optionally followed by an operation ([-|\*]&lt;float&gt;) eg. "auto", "HOST\_CPUS\*.5". Values must be between 1 and 5000. Values above 2500 may cause memory issues. "auto" calculates a reasonable default based on host resources.
 
     Tags:
     [`host_machine_resource_optimizations`](#effect_tag_HOST_MACHINE_RESOURCE_OPTIMIZATIONS), [`execution`](#effect_tag_EXECUTION)
@@ -3455,8 +3455,8 @@ Options that control build execution:
     Tags:
     [`eagerness_to_exit`](#effect_tag_EAGERNESS_TO_EXIT)
 
-`--loading_phase_threads=<an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]<float>) eg. "auto", "HOST_CPUS*.5">` default: "auto"
-:   Number of parallel threads to use for the loading/analysis phase.Takes an integer, or a keyword ("auto", "HOST\_CPUS", "HOST\_RAM"), optionally followed by an operation ([-|\*]<float>) eg. "auto", "HOST\_CPUS\*.5". "auto" sets a reasonable default based on host resources. Must be at least 1.
+`--loading_phase_threads=<an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]&lt;float&gt;) eg. "auto", "HOST_CPUS*.5">` default: "auto"
+:   Number of parallel threads to use for the loading/analysis phase.Takes an integer, or a keyword ("auto", "HOST\_CPUS", "HOST\_RAM"), optionally followed by an operation ([-|\*]&lt;float&gt;) eg. "auto", "HOST\_CPUS\*.5". "auto" sets a reasonable default based on host resources. Must be at least 1.
 
     Tags:
     [`bazel_internal_configuration`](#effect_tag_BAZEL_INTERNAL_CONFIGURATION)
@@ -3515,14 +3515,14 @@ Options that control build execution:
     Tags:
     [`execution`](#effect_tag_EXECUTION), [`host_machine_resource_optimizations`](#effect_tag_HOST_MACHINE_RESOURCE_OPTIMIZATIONS)
 
-`--worker_max_instances=<[name=]value, where value is an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]<float>) eg. "auto", "HOST_CPUS*.5">` multiple uses are accumulated
-:   How many instances of each kind of persistent worker may be launched if you use the 'worker' strategy. May be specified as [name=value] to give a different value per mnemonic. The limit is based on worker keys, which are differentiated based on mnemonic, but also on startup flags and environment, so there can in some cases be more workers per mnemonic than this flag specifies. Takes an integer, or a keyword ("auto", "HOST\_CPUS", "HOST\_RAM"), optionally followed by an operation ([-|\*]<float>) eg. "auto", "HOST\_CPUS\*.5". 'auto' calculates a reasonable default based on machine capacity. "=value" sets a default for unspecified mnemonics.
+`--worker_max_instances=<[name=]value, where value is an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]&lt;float&gt;) eg. "auto", "HOST_CPUS*.5">` multiple uses are accumulated
+:   How many instances of each kind of persistent worker may be launched if you use the 'worker' strategy. May be specified as [name=value] to give a different value per mnemonic. The limit is based on worker keys, which are differentiated based on mnemonic, but also on startup flags and environment, so there can in some cases be more workers per mnemonic than this flag specifies. Takes an integer, or a keyword ("auto", "HOST\_CPUS", "HOST\_RAM"), optionally followed by an operation ([-|\*]&lt;float&gt;) eg. "auto", "HOST\_CPUS\*.5". 'auto' calculates a reasonable default based on machine capacity. "=value" sets a default for unspecified mnemonics.
 
     Tags:
     [`execution`](#effect_tag_EXECUTION), [`host_machine_resource_optimizations`](#effect_tag_HOST_MACHINE_RESOURCE_OPTIMIZATIONS)
 
-`--worker_max_multiplex_instances=<[name=]value, where value is an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]<float>) eg. "auto", "HOST_CPUS*.5">` multiple uses are accumulated
-:   How many WorkRequests a multiplex worker process may receive in parallel if you use the 'worker' strategy with --worker\_multiplex. May be specified as [name=value] to give a different value per mnemonic. The limit is based on worker keys, which are differentiated based on mnemonic, but also on startup flags and environment, so there can in some cases be more workers per mnemonic than this flag specifies. Takes an integer, or a keyword ("auto", "HOST\_CPUS", "HOST\_RAM"), optionally followed by an operation ([-|\*]<float>) eg. "auto", "HOST\_CPUS\*.5". 'auto' calculates a reasonable default based on machine capacity. "=value" sets a default for unspecified mnemonics.
+`--worker_max_multiplex_instances=<[name=]value, where value is an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]&lt;float&gt;) eg. "auto", "HOST_CPUS*.5">` multiple uses are accumulated
+:   How many WorkRequests a multiplex worker process may receive in parallel if you use the 'worker' strategy with --worker\_multiplex. May be specified as [name=value] to give a different value per mnemonic. The limit is based on worker keys, which are differentiated based on mnemonic, but also on startup flags and environment, so there can in some cases be more workers per mnemonic than this flag specifies. Takes an integer, or a keyword ("auto", "HOST\_CPUS", "HOST\_RAM"), optionally followed by an operation ([-|\*]&lt;float&gt;) eg. "auto", "HOST\_CPUS\*.5". 'auto' calculates a reasonable default based on machine capacity. "=value" sets a default for unspecified mnemonics.
 
     Tags:
     [`execution`](#effect_tag_EXECUTION), [`host_machine_resource_optimizations`](#effect_tag_HOST_MACHINE_RESOURCE_OPTIMIZATIONS)
@@ -3583,7 +3583,7 @@ Options that control the output of the command:
 Options that let the user configure the intended output, affecting its value, as opposed to its existence:
 
 `--aspects=<comma-separated list of options>` multiple uses are accumulated
-:   Comma-separated list of aspects to be applied to top-level targets. In the list, if aspect some\_aspect specifies required aspect providers via required\_aspect\_providers, some\_aspect will run after every aspect that was mentioned before it in the aspects list whose advertised providers satisfy some\_aspect required aspect providers. Moreover, some\_aspect will run after all its required aspects specified by requires attribute. some\_aspect will then have access to the values of those aspects' providers. <bzl-file-label>%<aspect\_name>, for example '//tools:my\_def.bzl%my\_aspect', where 'my\_aspect' is a top-level value from a file tools/my\_def.bzl
+:   Comma-separated list of aspects to be applied to top-level targets. In the list, if aspect some\_aspect specifies required aspect providers via required\_aspect\_providers, some\_aspect will run after every aspect that was mentioned before it in the aspects list whose advertised providers satisfy some\_aspect required aspect providers. Moreover, some\_aspect will run after all its required aspects specified by requires attribute. some\_aspect will then have access to the values of those aspects' providers. &lt;bzl-file-label&gt;%&lt;aspect\_name&gt;, for example '//tools:my\_def.bzl%my\_aspect', where 'my\_aspect' is a top-level value from a file tools/my\_def.bzl
 
 `--bep_maximum_open_remote_upload_files=<an integer>` default: "-1"
 :   Maximum number of open files allowed during BEP artifact upload.
@@ -3621,7 +3621,7 @@ Options that let the user configure the intended output, affecting its value, as
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
 
 `--remote_download_symlink_template=<a string>` default: ""
-:   Instead of downloading remote build outputs to the local machine, create symbolic links. The target of the symbolic links can be specified in the form of a template string. This template string may contain {hash} and {size\_bytes} that expand to the hash of the object and the size in bytes, respectively. These symbolic links may, for example, point to a FUSE file system that loads objects from the CAS on demand.
+:   Instead of downloading remote build outputs to the local machine, create symbolic links. The target of the symbolic links can be specified in the form of a template string. This template string may contain \{hash} and \{size\_bytes} that expand to the hash of the object and the size in bytes, respectively. These symbolic links may, for example, point to a FUSE file system that loads objects from the CAS on demand.
 
     Tags:
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -3725,8 +3725,8 @@ Options that govern the behavior of the test environment or test runner:
     Tags:
     [`execution`](#effect_tag_EXECUTION)
 
-`--local_test_jobs=<an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]<float>) eg. "auto", "HOST_CPUS*.5">` default: "auto"
-:   The max number of local test jobs to run concurrently. Takes an integer, or a keyword ("auto", "HOST\_CPUS", "HOST\_RAM"), optionally followed by an operation ([-|\*]<float>) eg. "auto", "HOST\_CPUS\*.5". 0 means local resources will limit the number of local test jobs to run concurrently instead. Setting this greater than the value for --jobs is ineffectual.
+`--local_test_jobs=<an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]&lt;float&gt;) eg. "auto", "HOST_CPUS*.5">` default: "auto"
+:   The max number of local test jobs to run concurrently. Takes an integer, or a keyword ("auto", "HOST\_CPUS", "HOST\_RAM"), optionally followed by an operation ([-|\*]&lt;float&gt;) eg. "auto", "HOST\_CPUS\*.5". 0 means local resources will limit the number of local test jobs to run concurrently instead. Setting this greater than the value for --jobs is ineffectual.
 
     Tags:
     [`execution`](#effect_tag_EXECUTION)
@@ -3775,26 +3775,26 @@ Options that trigger optimizations of the build time:
     Tags:
     [`host_machine_resource_optimizations`](#effect_tag_HOST_MACHINE_RESOURCE_OPTIMIZATIONS)
 
-`--local_cpu_resources=<an integer, or "HOST_CPUS", optionally followed by [-|*]<float>.>` default: "HOST\_CPUS"
-:   Explicitly set the total number of local CPU cores available to Bazel to spend on build actions executed locally. Takes an integer, or "HOST\_CPUS", optionally followed by [-|\*]<float> (eg. HOST\_CPUS\*.5 to use half the available CPU cores). By default, ("HOST\_CPUS"), Bazel will query system configuration to estimate the number of CPU cores available.
+`--local_cpu_resources=<an integer, or "HOST_CPUS", optionally followed by [-|*]&lt;float&gt;.>` default: "HOST\_CPUS"
+:   Explicitly set the total number of local CPU cores available to Bazel to spend on build actions executed locally. Takes an integer, or "HOST\_CPUS", optionally followed by [-|\*]&lt;float&gt; (eg. HOST\_CPUS\*.5 to use half the available CPU cores). By default, ("HOST\_CPUS"), Bazel will query system configuration to estimate the number of CPU cores available.
 
     Tags:
     [`host_machine_resource_optimizations`](#effect_tag_HOST_MACHINE_RESOURCE_OPTIMIZATIONS)
 
 `--local_extra_resources=<a named float, 'name=value'>` multiple uses are accumulated
-:   Set the number of extra resources available to Bazel. Takes in a string-float pair. Can be used multiple times to specify multiple types of extra resources. Bazel will limit concurrently running actions based on the available extra resources and the extra resources required. Tests can declare the amount of extra resources they need by using a tag of the "resources:<resoucename>:<amount>" format. Available CPU, RAM and resources cannot be set with this flag.
+:   Set the number of extra resources available to Bazel. Takes in a string-float pair. Can be used multiple times to specify multiple types of extra resources. Bazel will limit concurrently running actions based on the available extra resources and the extra resources required. Tests can declare the amount of extra resources they need by using a tag of the "resources:&lt;resoucename&gt;:&lt;amount&gt;" format. Available CPU, RAM and resources cannot be set with this flag.
 
     Tags:
     [`host_machine_resource_optimizations`](#effect_tag_HOST_MACHINE_RESOURCE_OPTIMIZATIONS)
 
-`--local_ram_resources=<an integer number of MBs, or "HOST_RAM", optionally followed by [-|*]<float>.>` default: "HOST\_RAM\*.67"
-:   Explicitly set the total amount of local host RAM (in MB) available to Bazel to spend on build actions executed locally. Takes an integer, or "HOST\_RAM", optionally followed by [-|\*]<float> (eg. HOST\_RAM\*.5 to use half the available RAM). By default, ("HOST\_RAM\*.67"), Bazel will query system configuration to estimate the amount of RAM available and will use 67% of it.
+`--local_ram_resources=&lt;an integer number of MBs, or "HOST_RAM", optionally followed by [-|*]&lt;float&gt;.&gt;` default: "HOST\_RAM\*.67"
+:   Explicitly set the total amount of local host RAM (in MB) available to Bazel to spend on build actions executed locally. Takes an integer, or "HOST\_RAM", optionally followed by [-|\*]&lt;float&gt; (eg. HOST\_RAM\*.5 to use half the available RAM). By default, ("HOST\_RAM\*.67"), Bazel will query system configuration to estimate the amount of RAM available and will use 67% of it.
 
     Tags:
     [`host_machine_resource_optimizations`](#effect_tag_HOST_MACHINE_RESOURCE_OPTIMIZATIONS)
 
-`--local_resources=<a named double, 'name=value', where value is an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]<float>) eg. "auto", "HOST_CPUS*.5">` multiple uses are accumulated
-:   Set the number of resources available to Bazel. Takes in an assignment to a float or HOST\_RAM/HOST\_CPUS, optionally followed by [-|\*]<float> (eg. memory=HOST\_RAM\*.5 to use half the available RAM). Can be used multiple times to specify multiple types of resources. Bazel will limit concurrently running actions based on the available resources and the resources required. Tests can declare the amount of resources they need by using a tag of the "resources:<resource name>:<amount>" format. Overrides resources specified by --local\_{cpu|ram|extra}\_resources.
+`--local_resources=<a named double, 'name=value', where value is an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]&lt;float&gt;) eg. "auto", "HOST_CPUS*.5">` multiple uses are accumulated
+:   Set the number of resources available to Bazel. Takes in an assignment to a float or HOST\_RAM/HOST\_CPUS, optionally followed by [-|\*]&lt;float&gt; (eg. memory=HOST\_RAM\*.5 to use half the available RAM). Can be used multiple times to specify multiple types of resources. Bazel will limit concurrently running actions based on the available resources and the resources required. Tests can declare the amount of resources they need by using a tag of the "resources:&lt;resource name&gt;:&lt;amount&gt;" format. Overrides resources specified by --local\_{cpu|ram|extra}\_resources.
 
     Tags:
     [`host_machine_resource_optimizations`](#effect_tag_HOST_MACHINE_RESOURCE_OPTIMIZATIONS)
@@ -3991,7 +3991,7 @@ Options that affect the verbosity, format or location of logging:
 Options specifying or altering a generic input to a Bazel command that does not fall into other categories.:
 
 `--aspects_parameters=<a 'name=value' assignment>` multiple uses are accumulated
-:   Specifies the values of the command-line aspects parameters. Each parameter value is specified via <param\_name>=<param\_value>, for example 'my\_param=my\_val' where 'my\_param' is a parameter of some aspect in --aspects list or required by an aspect in the list. This option can be used multiple times. However, it is not allowed to assign values to the same parameter more than once.
+:   Specifies the values of the command-line aspects parameters. Each parameter value is specified via &lt;param\_name&gt;=&lt;param\_value&gt;, for example 'my\_param=my\_val' where 'my\_param' is a parameter of some aspect in --aspects list or required by an aspect in the list. This option can be used multiple times. However, it is not allowed to assign values to the same parameter more than once.
 
     Tags:
     [`loading_and_analysis`](#effect_tag_LOADING_AND_ANALYSIS)
@@ -4104,7 +4104,7 @@ Remote caching and execution options:
     Default to 'minimal'.
 
 `--remote_bytestream_uri_prefix=<a string>` default: see description
-:   The hostname and instance name to be used in bytestream:// URIs that are written into build event streams. This option can be set when builds are performed using a proxy, which causes the values of --remote\_executor and --remote\_instance\_name to no longer correspond to the canonical name of the remote execution service. When not set, it will default to "${hostname}/${instance\_name}".
+:   The hostname and instance name to be used in bytestream:// URIs that are written into build event streams. This option can be set when builds are performed using a proxy, which causes the values of --remote\_executor and --remote\_instance\_name to no longer correspond to the canonical name of the remote execution service. When not set, it will default to "\$\{hostname\}/\$\{instance\_name\}".
 
 `--remote_cache=<a string>` default: see description
 :   A URI of a caching endpoint. The supported schemas are http, https, grpc, grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If no schema is provided Bazel will default to grpcs. Specify grpc://, http:// or unix: schema to disable TLS. See https://bazel.build/remote/caching
@@ -4430,7 +4430,7 @@ Options that configure the toolchain used for action execution:
     [`loading_and_analysis`](#effect_tag_LOADING_AND_ANALYSIS)
 
 `--[no]experimental_include_xcode_execution_requirements` default: "false"
-:   If set, add a "requires-xcode:{version}" execution requirement to every Xcode action. If the Xcode version has a hyphenated label, also add a "requires-xcode-label:{version\_label}" execution requirement.
+:   If set, add a "requires-xcode:\{version}" execution requirement to every Xcode action. If the Xcode version has a hyphenated label, also add a "requires-xcode-label:\{version\_label}" execution requirement.
 
     Tags:
     [`loses_incremental_state`](#effect_tag_LOSES_INCREMENTAL_STATE), [`loading_and_analysis`](#effect_tag_LOADING_AND_ANALYSIS), [`execution`](#effect_tag_EXECUTION), [`experimental`](#metadata_tag_EXPERIMENTAL)
@@ -4664,7 +4664,7 @@ Options that let the user configure the intended output, affecting its value, as
 `--action_env=<a 'name=value' assignment with an optional value part>` multiple uses are accumulated
 :   Specifies the set of environment variables available to actions with target configuration. Variables can be either specified by <code>name</code>, in which case
     the value will be taken from the invocation environment, or by the <code>name=value</code> pair which sets the value independent of the invocation environment. This option can be used multiple times; for options given for the same variable, the latest wins, options for different variables accumulate.
-    <br>
+    <br/>
     Note that unless <code>--incompatible\_repo\_env\_ignores\_action\_env</code> is true, all <code>name=value</code> pairs will be available to repository rules.
 
     Tags:
@@ -4911,7 +4911,7 @@ Options that let the user configure the intended output, affecting its value, as
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
 
 `--features=<a string>` multiple uses are accumulated
-:   The given features will be enabled or disabled by default for targets built in the target configuration. Specifying -<feature> will disable the feature. Negative features always override positive ones. See also --host\_features
+:   The given features will be enabled or disabled by default for targets built in the target configuration. Specifying -&lt;feature&gt; will disable the feature. Negative features always override positive ones. See also --host\_features
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -4959,7 +4959,7 @@ Options that let the user configure the intended output, affecting its value, as
     [`action_command_lines`](#effect_tag_ACTION_COMMAND_LINES), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
 
 `--host_features=<a string>` multiple uses are accumulated
-:   The given features will be enabled or disabled by default for targets built in the exec configuration. Specifying -<feature> will disable the feature. Negative features always override positive ones.
+:   The given features will be enabled or disabled by default for targets built in the exec configuration. Specifying -&lt;feature&gt; will disable the feature. Negative features always override positive ones.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -5145,7 +5145,7 @@ Options that let the user configure the intended output, affecting its value, as
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
 
 `--stripopt=<a string>` multiple uses are accumulated
-:   Additional options to pass to strip when generating a '<name>.stripped' binary.
+:   Additional options to pass to strip when generating a '&lt;name&gt;.stripped' binary.
 
     Tags:
     [`action_command_lines`](#effect_tag_ACTION_COMMAND_LINES), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -5381,7 +5381,7 @@ Options that govern the behavior of the test environment or test runner:
     [`loading_and_analysis`](#effect_tag_LOADING_AND_ANALYSIS), [`experimental`](#metadata_tag_EXPERIMENTAL)
 
 `--default_test_resources=<a resource name followed by equal and 1 float or 4 float, e.g memory=10,30,60,100>` multiple uses are accumulated
-:   Override the default resources amount for tests. The expected format is <resource>=<value>. If a single positive number is specified as <value> it will override the default resources for all test sizes. If 4 comma-separated numbers are specified, they will override the resource amount for respectively the small, medium, large, enormous test sizes. Values can also be HOST\_RAM/HOST\_CPU, optionally followed by [-|\*]<float> (eg. memory=HOST\_RAM\*.1,HOST\_RAM\*.2,HOST\_RAM\*.3,HOST\_RAM\*.4). The default test resources specified by this flag are overridden by explicit resources specified in tags.
+:   Override the default resources amount for tests. The expected format is &lt;resource&gt;=&lt;value&gt;. If a single positive number is specified as &lt;value&gt; it will override the default resources for all test sizes. If 4 comma-separated numbers are specified, they will override the resource amount for respectively the small, medium, large, enormous test sizes. Values can also be HOST\_RAM/HOST\_CPU, optionally followed by [-|\*]&lt;float&gt; (eg. memory=HOST\_RAM\*.1,HOST\_RAM\*.2,HOST\_RAM\*.3,HOST\_RAM\*.4). The default test resources specified by this flag are overridden by explicit resources specified in tags.
 
 `--[no]experimental_android_use_parallel_dex2oat` default: "false"
 :   Use dex2oat in parallel to possibly speed up android\_test.
@@ -5498,7 +5498,7 @@ Options that affect the verbosity, format or location of logging:
 Options specifying or altering a generic input to a Bazel command that does not fall into other categories.:
 
 `--flag_alias=<a 'name=value' flag alias>` multiple uses are accumulated
-:   Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form "<key>=<value>" as an argument.
+:   Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form "&lt;key&gt;=&lt;value&gt;" as an argument.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS)
@@ -6190,7 +6190,7 @@ Options that configure the toolchain used for action execution:
     [`loading_and_analysis`](#effect_tag_LOADING_AND_ANALYSIS)
 
 `--[no]experimental_include_xcode_execution_requirements` default: "false"
-:   If set, add a "requires-xcode:{version}" execution requirement to every Xcode action. If the Xcode version has a hyphenated label, also add a "requires-xcode-label:{version\_label}" execution requirement.
+:   If set, add a "requires-xcode:\{version}" execution requirement to every Xcode action. If the Xcode version has a hyphenated label, also add a "requires-xcode-label:\{version\_label}" execution requirement.
 
     Tags:
     [`loses_incremental_state`](#effect_tag_LOSES_INCREMENTAL_STATE), [`loading_and_analysis`](#effect_tag_LOADING_AND_ANALYSIS), [`execution`](#effect_tag_EXECUTION), [`experimental`](#metadata_tag_EXPERIMENTAL)
@@ -6424,7 +6424,7 @@ Options that let the user configure the intended output, affecting its value, as
 `--action_env=<a 'name=value' assignment with an optional value part>` multiple uses are accumulated
 :   Specifies the set of environment variables available to actions with target configuration. Variables can be either specified by <code>name</code>, in which case
     the value will be taken from the invocation environment, or by the <code>name=value</code> pair which sets the value independent of the invocation environment. This option can be used multiple times; for options given for the same variable, the latest wins, options for different variables accumulate.
-    <br>
+    <br/>
     Note that unless <code>--incompatible\_repo\_env\_ignores\_action\_env</code> is true, all <code>name=value</code> pairs will be available to repository rules.
 
     Tags:
@@ -6671,7 +6671,7 @@ Options that let the user configure the intended output, affecting its value, as
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
 
 `--features=<a string>` multiple uses are accumulated
-:   The given features will be enabled or disabled by default for targets built in the target configuration. Specifying -<feature> will disable the feature. Negative features always override positive ones. See also --host\_features
+:   The given features will be enabled or disabled by default for targets built in the target configuration. Specifying -&lt;feature&gt; will disable the feature. Negative features always override positive ones. See also --host\_features
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -6719,7 +6719,7 @@ Options that let the user configure the intended output, affecting its value, as
     [`action_command_lines`](#effect_tag_ACTION_COMMAND_LINES), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
 
 `--host_features=<a string>` multiple uses are accumulated
-:   The given features will be enabled or disabled by default for targets built in the exec configuration. Specifying -<feature> will disable the feature. Negative features always override positive ones.
+:   The given features will be enabled or disabled by default for targets built in the exec configuration. Specifying -&lt;feature&gt; will disable the feature. Negative features always override positive ones.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -6905,7 +6905,7 @@ Options that let the user configure the intended output, affecting its value, as
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
 
 `--stripopt=<a string>` multiple uses are accumulated
-:   Additional options to pass to strip when generating a '<name>.stripped' binary.
+:   Additional options to pass to strip when generating a '&lt;name&gt;.stripped' binary.
 
     Tags:
     [`action_command_lines`](#effect_tag_ACTION_COMMAND_LINES), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -7141,7 +7141,7 @@ Options that govern the behavior of the test environment or test runner:
     [`loading_and_analysis`](#effect_tag_LOADING_AND_ANALYSIS), [`experimental`](#metadata_tag_EXPERIMENTAL)
 
 `--default_test_resources=<a resource name followed by equal and 1 float or 4 float, e.g memory=10,30,60,100>` multiple uses are accumulated
-:   Override the default resources amount for tests. The expected format is <resource>=<value>. If a single positive number is specified as <value> it will override the default resources for all test sizes. If 4 comma-separated numbers are specified, they will override the resource amount for respectively the small, medium, large, enormous test sizes. Values can also be HOST\_RAM/HOST\_CPU, optionally followed by [-|\*]<float> (eg. memory=HOST\_RAM\*.1,HOST\_RAM\*.2,HOST\_RAM\*.3,HOST\_RAM\*.4). The default test resources specified by this flag are overridden by explicit resources specified in tags.
+:   Override the default resources amount for tests. The expected format is &lt;resource&gt;=&lt;value&gt;. If a single positive number is specified as &lt;value&gt; it will override the default resources for all test sizes. If 4 comma-separated numbers are specified, they will override the resource amount for respectively the small, medium, large, enormous test sizes. Values can also be HOST\_RAM/HOST\_CPU, optionally followed by [-|\*]&lt;float&gt; (eg. memory=HOST\_RAM\*.1,HOST\_RAM\*.2,HOST\_RAM\*.3,HOST\_RAM\*.4). The default test resources specified by this flag are overridden by explicit resources specified in tags.
 
 `--[no]experimental_android_use_parallel_dex2oat` default: "false"
 :   Use dex2oat in parallel to possibly speed up android\_test.
@@ -7258,7 +7258,7 @@ Options that affect the verbosity, format or location of logging:
 Options specifying or altering a generic input to a Bazel command that does not fall into other categories.:
 
 `--flag_alias=<a 'name=value' flag alias>` multiple uses are accumulated
-:   Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form "<key>=<value>" as an argument.
+:   Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form "&lt;key&gt;=&lt;value&gt;" as an argument.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS)
@@ -7571,8 +7571,8 @@ Options that control build execution:
     Tags:
     [`eagerness_to_exit`](#effect_tag_EAGERNESS_TO_EXIT)
 
-`--loading_phase_threads=<an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]<float>) eg. "auto", "HOST_CPUS*.5">` default: "auto"
-:   Number of parallel threads to use for the loading/analysis phase.Takes an integer, or a keyword ("auto", "HOST\_CPUS", "HOST\_RAM"), optionally followed by an operation ([-|\*]<float>) eg. "auto", "HOST\_CPUS\*.5". "auto" sets a reasonable default based on host resources. Must be at least 1.
+`--loading_phase_threads=<an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]&lt;float&gt;) eg. "auto", "HOST_CPUS*.5">` default: "auto"
+:   Number of parallel threads to use for the loading/analysis phase.Takes an integer, or a keyword ("auto", "HOST\_CPUS", "HOST\_RAM"), optionally followed by an operation ([-|\*]&lt;float&gt;) eg. "auto", "HOST\_CPUS\*.5". "auto" sets a reasonable default based on host resources. Must be at least 1.
 
     Tags:
     [`bazel_internal_configuration`](#effect_tag_BAZEL_INTERNAL_CONFIGURATION)
@@ -7612,7 +7612,7 @@ Options relating to Bzlmod output and semantics:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS)
 
 `--repo=<a string>` multiple uses are accumulated
-:   Only fetches the specified repository, which can be either {@apparent\_repo\_name} or {@@canonical\_repo\_name}. Only works when --enable\_bzlmod is on.
+:   Only fetches the specified repository, which can be either \{@apparent\_repo\_name} or \{@@canonical\_repo\_name}. Only works when --enable\_bzlmod is on.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS)
@@ -7779,7 +7779,7 @@ Options that configure the toolchain used for action execution:
     [`loading_and_analysis`](#effect_tag_LOADING_AND_ANALYSIS)
 
 `--[no]experimental_include_xcode_execution_requirements` default: "false"
-:   If set, add a "requires-xcode:{version}" execution requirement to every Xcode action. If the Xcode version has a hyphenated label, also add a "requires-xcode-label:{version\_label}" execution requirement.
+:   If set, add a "requires-xcode:\{version}" execution requirement to every Xcode action. If the Xcode version has a hyphenated label, also add a "requires-xcode-label:\{version\_label}" execution requirement.
 
     Tags:
     [`loses_incremental_state`](#effect_tag_LOSES_INCREMENTAL_STATE), [`loading_and_analysis`](#effect_tag_LOADING_AND_ANALYSIS), [`execution`](#effect_tag_EXECUTION), [`experimental`](#metadata_tag_EXPERIMENTAL)
@@ -8013,7 +8013,7 @@ Options that let the user configure the intended output, affecting its value, as
 `--action_env=<a 'name=value' assignment with an optional value part>` multiple uses are accumulated
 :   Specifies the set of environment variables available to actions with target configuration. Variables can be either specified by <code>name</code>, in which case
     the value will be taken from the invocation environment, or by the <code>name=value</code> pair which sets the value independent of the invocation environment. This option can be used multiple times; for options given for the same variable, the latest wins, options for different variables accumulate.
-    <br>
+    <br/>
     Note that unless <code>--incompatible\_repo\_env\_ignores\_action\_env</code> is true, all <code>name=value</code> pairs will be available to repository rules.
 
     Tags:
@@ -8260,7 +8260,7 @@ Options that let the user configure the intended output, affecting its value, as
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
 
 `--features=<a string>` multiple uses are accumulated
-:   The given features will be enabled or disabled by default for targets built in the target configuration. Specifying -<feature> will disable the feature. Negative features always override positive ones. See also --host\_features
+:   The given features will be enabled or disabled by default for targets built in the target configuration. Specifying -&lt;feature&gt; will disable the feature. Negative features always override positive ones. See also --host\_features
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -8308,7 +8308,7 @@ Options that let the user configure the intended output, affecting its value, as
     [`action_command_lines`](#effect_tag_ACTION_COMMAND_LINES), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
 
 `--host_features=<a string>` multiple uses are accumulated
-:   The given features will be enabled or disabled by default for targets built in the exec configuration. Specifying -<feature> will disable the feature. Negative features always override positive ones.
+:   The given features will be enabled or disabled by default for targets built in the exec configuration. Specifying -&lt;feature&gt; will disable the feature. Negative features always override positive ones.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -8494,7 +8494,7 @@ Options that let the user configure the intended output, affecting its value, as
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
 
 `--stripopt=<a string>` multiple uses are accumulated
-:   Additional options to pass to strip when generating a '<name>.stripped' binary.
+:   Additional options to pass to strip when generating a '&lt;name&gt;.stripped' binary.
 
     Tags:
     [`action_command_lines`](#effect_tag_ACTION_COMMAND_LINES), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -8730,7 +8730,7 @@ Options that govern the behavior of the test environment or test runner:
     [`loading_and_analysis`](#effect_tag_LOADING_AND_ANALYSIS), [`experimental`](#metadata_tag_EXPERIMENTAL)
 
 `--default_test_resources=<a resource name followed by equal and 1 float or 4 float, e.g memory=10,30,60,100>` multiple uses are accumulated
-:   Override the default resources amount for tests. The expected format is <resource>=<value>. If a single positive number is specified as <value> it will override the default resources for all test sizes. If 4 comma-separated numbers are specified, they will override the resource amount for respectively the small, medium, large, enormous test sizes. Values can also be HOST\_RAM/HOST\_CPU, optionally followed by [-|\*]<float> (eg. memory=HOST\_RAM\*.1,HOST\_RAM\*.2,HOST\_RAM\*.3,HOST\_RAM\*.4). The default test resources specified by this flag are overridden by explicit resources specified in tags.
+:   Override the default resources amount for tests. The expected format is &lt;resource&gt;=&lt;value&gt;. If a single positive number is specified as &lt;value&gt; it will override the default resources for all test sizes. If 4 comma-separated numbers are specified, they will override the resource amount for respectively the small, medium, large, enormous test sizes. Values can also be HOST\_RAM/HOST\_CPU, optionally followed by [-|\*]&lt;float&gt; (eg. memory=HOST\_RAM\*.1,HOST\_RAM\*.2,HOST\_RAM\*.3,HOST\_RAM\*.4). The default test resources specified by this flag are overridden by explicit resources specified in tags.
 
 `--[no]experimental_android_use_parallel_dex2oat` default: "false"
 :   Use dex2oat in parallel to possibly speed up android\_test.
@@ -8847,7 +8847,7 @@ Options that affect the verbosity, format or location of logging:
 Options specifying or altering a generic input to a Bazel command that does not fall into other categories.:
 
 `--flag_alias=<a 'name=value' flag alias>` multiple uses are accumulated
-:   Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form "<key>=<value>" as an argument.
+:   Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form "&lt;key&gt;=&lt;value&gt;" as an argument.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS)
@@ -9240,8 +9240,8 @@ Options that control build execution:
     Tags:
     [`execution`](#effect_tag_EXECUTION), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS), [`loading_and_analysis`](#effect_tag_LOADING_AND_ANALYSIS), [`incompatible_change`](#metadata_tag_INCOMPATIBLE_CHANGE)
 
-`--loading_phase_threads=<an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]<float>) eg. "auto", "HOST_CPUS*.5">` default: "auto"
-:   Number of parallel threads to use for the loading/analysis phase.Takes an integer, or a keyword ("auto", "HOST\_CPUS", "HOST\_RAM"), optionally followed by an operation ([-|\*]<float>) eg. "auto", "HOST\_CPUS\*.5". "auto" sets a reasonable default based on host resources. Must be at least 1.
+`--loading_phase_threads=<an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]&lt;float&gt;) eg. "auto", "HOST_CPUS*.5">` default: "auto"
+:   Number of parallel threads to use for the loading/analysis phase.Takes an integer, or a keyword ("auto", "HOST\_CPUS", "HOST\_RAM"), optionally followed by an operation ([-|\*]&lt;float&gt;) eg. "auto", "HOST\_CPUS\*.5". "auto" sets a reasonable default based on host resources. Must be at least 1.
 
     Tags:
     [`bazel_internal_configuration`](#effect_tag_BAZEL_INTERNAL_CONFIGURATION)
@@ -9296,7 +9296,7 @@ Options that let the user configure the intended output, affecting its value, as
 `--action_env=<a 'name=value' assignment with an optional value part>` multiple uses are accumulated
 :   Specifies the set of environment variables available to actions with target configuration. Variables can be either specified by <code>name</code>, in which case
     the value will be taken from the invocation environment, or by the <code>name=value</code> pair which sets the value independent of the invocation environment. This option can be used multiple times; for options given for the same variable, the latest wins, options for different variables accumulate.
-    <br>
+    <br/>
     Note that unless <code>--incompatible\_repo\_env\_ignores\_action\_env</code> is true, all <code>name=value</code> pairs will be available to repository rules.
 
     Tags:
@@ -9375,7 +9375,7 @@ Options that let the user configure the intended output, affecting its value, as
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS), [`experimental`](#metadata_tag_EXPERIMENTAL)
 
 `--features=<a string>` multiple uses are accumulated
-:   The given features will be enabled or disabled by default for targets built in the target configuration. Specifying -<feature> will disable the feature. Negative features always override positive ones. See also --host\_features
+:   The given features will be enabled or disabled by default for targets built in the target configuration. Specifying -&lt;feature&gt; will disable the feature. Negative features always override positive ones. See also --host\_features
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -9399,7 +9399,7 @@ Options that let the user configure the intended output, affecting its value, as
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
 
 `--host_features=<a string>` multiple uses are accumulated
-:   The given features will be enabled or disabled by default for targets built in the exec configuration. Specifying -<feature> will disable the feature. Negative features always override positive ones.
+:   The given features will be enabled or disabled by default for targets built in the exec configuration. Specifying -&lt;feature&gt; will disable the feature. Negative features always override positive ones.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -9526,7 +9526,7 @@ Options that govern the behavior of the test environment or test runner:
 
 Options relating to the output and semantics of the `mod` subcommand:
 
-`--base_module=<"<root>" for the root module; <module>@<version> for a specific version of a module; <module> for all versions of a module; @<name> for a repo with the given apparent name; or @@<name> for a repo with the given canonical name>` default: "<root>"
+`--base_module=<"<root>" for the root module; <module>@<version> for a specific version of a module; <module> for all versions of a module; @<name> for a repo with the given apparent name; or @@<name> for a repo with the given canonical name>` default: `"<root>"`
 :   Specify a module relative to which the specified target repos will be interpreted.
 
     Tags:
@@ -9568,8 +9568,8 @@ Options relating to the output and semantics of the `mod` subcommand:
     Tags:
     [`terminal_output`](#effect_tag_TERMINAL_OUTPUT)
 
-`--from=<a comma-separated list of <module>s>` default: "<root>"
-:   The module(s) starting from which the dependency graph query will be displayed. Check each query’s description for the exact semantics. Defaults to <root>.
+`--from=<a comma-separated list of <module>s>` default: `"<root>"`
+:   The module(s) starting from which the dependency graph query will be displayed. Check each query’s description for the exact semantics. Defaults to `<root>`.
 
     Tags:
     [`terminal_output`](#effect_tag_TERMINAL_OUTPUT)
@@ -9601,7 +9601,7 @@ Options relating to the output and semantics of the `mod` subcommand:
 Options specifying or altering a generic input to a Bazel command that does not fall into other categories.:
 
 `--flag_alias=<a 'name=value' flag alias>` multiple uses are accumulated
-:   Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form "<key>=<value>" as an argument.
+:   Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form "&lt;key&gt;=&lt;value&gt;" as an argument.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS)
@@ -9672,8 +9672,8 @@ Options that control build execution:
     Tags:
     [`eagerness_to_exit`](#effect_tag_EAGERNESS_TO_EXIT)
 
-`--loading_phase_threads=<an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]<float>) eg. "auto", "HOST_CPUS*.5">` default: "auto"
-:   Number of parallel threads to use for the loading/analysis phase.Takes an integer, or a keyword ("auto", "HOST\_CPUS", "HOST\_RAM"), optionally followed by an operation ([-|\*]<float>) eg. "auto", "HOST\_CPUS\*.5". "auto" sets a reasonable default based on host resources. Must be at least 1.
+`--loading_phase_threads=<an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]&lt;float&gt;) eg. "auto", "HOST_CPUS*.5">` default: "auto"
+:   Number of parallel threads to use for the loading/analysis phase.Takes an integer, or a keyword ("auto", "HOST\_CPUS", "HOST\_RAM"), optionally followed by an operation ([-|\*]&lt;float&gt;) eg. "auto", "HOST\_CPUS\*.5". "auto" sets a reasonable default based on host resources. Must be at least 1.
 
     Tags:
     [`bazel_internal_configuration`](#effect_tag_BAZEL_INTERNAL_CONFIGURATION)
@@ -9728,7 +9728,7 @@ Options that let the user configure the intended output, affecting its value, as
 `--action_env=<a 'name=value' assignment with an optional value part>` multiple uses are accumulated
 :   Specifies the set of environment variables available to actions with target configuration. Variables can be either specified by <code>name</code>, in which case
     the value will be taken from the invocation environment, or by the <code>name=value</code> pair which sets the value independent of the invocation environment. This option can be used multiple times; for options given for the same variable, the latest wins, options for different variables accumulate.
-    <br>
+    <br/>
     Note that unless <code>--incompatible\_repo\_env\_ignores\_action\_env</code> is true, all <code>name=value</code> pairs will be available to repository rules.
 
     Tags:
@@ -9807,7 +9807,7 @@ Options that let the user configure the intended output, affecting its value, as
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS), [`experimental`](#metadata_tag_EXPERIMENTAL)
 
 `--features=<a string>` multiple uses are accumulated
-:   The given features will be enabled or disabled by default for targets built in the target configuration. Specifying -<feature> will disable the feature. Negative features always override positive ones. See also --host\_features
+:   The given features will be enabled or disabled by default for targets built in the target configuration. Specifying -&lt;feature&gt; will disable the feature. Negative features always override positive ones. See also --host\_features
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -9831,7 +9831,7 @@ Options that let the user configure the intended output, affecting its value, as
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
 
 `--host_features=<a string>` multiple uses are accumulated
-:   The given features will be enabled or disabled by default for targets built in the exec configuration. Specifying -<feature> will disable the feature. Negative features always override positive ones.
+:   The given features will be enabled or disabled by default for targets built in the exec configuration. Specifying -&lt;feature&gt; will disable the feature. Negative features always override positive ones.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -10184,7 +10184,7 @@ Options that affect the verbosity, format or location of logging:
 Options specifying or altering a generic input to a Bazel command that does not fall into other categories.:
 
 `--flag_alias=<a 'name=value' flag alias>` multiple uses are accumulated
-:   Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form "<key>=<value>" as an argument.
+:   Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form "&lt;key&gt;=&lt;value&gt;" as an argument.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS)
@@ -10302,8 +10302,8 @@ Options that control build execution:
     Tags:
     [`eagerness_to_exit`](#effect_tag_EAGERNESS_TO_EXIT)
 
-`--loading_phase_threads=<an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]<float>) eg. "auto", "HOST_CPUS*.5">` default: "auto"
-:   Number of parallel threads to use for the loading/analysis phase.Takes an integer, or a keyword ("auto", "HOST\_CPUS", "HOST\_RAM"), optionally followed by an operation ([-|\*]<float>) eg. "auto", "HOST\_CPUS\*.5". "auto" sets a reasonable default based on host resources. Must be at least 1.
+`--loading_phase_threads=<an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]&lt;float&gt;) eg. "auto", "HOST_CPUS*.5">` default: "auto"
+:   Number of parallel threads to use for the loading/analysis phase.Takes an integer, or a keyword ("auto", "HOST\_CPUS", "HOST\_RAM"), optionally followed by an operation ([-|\*]&lt;float&gt;) eg. "auto", "HOST\_CPUS\*.5". "auto" sets a reasonable default based on host resources. Must be at least 1.
 
     Tags:
     [`bazel_internal_configuration`](#effect_tag_BAZEL_INTERNAL_CONFIGURATION)
@@ -10364,7 +10364,7 @@ Options that let the user configure the intended output, affecting its value, as
 `--action_env=<a 'name=value' assignment with an optional value part>` multiple uses are accumulated
 :   Specifies the set of environment variables available to actions with target configuration. Variables can be either specified by <code>name</code>, in which case
     the value will be taken from the invocation environment, or by the <code>name=value</code> pair which sets the value independent of the invocation environment. This option can be used multiple times; for options given for the same variable, the latest wins, options for different variables accumulate.
-    <br>
+    <br/>
     Note that unless <code>--incompatible\_repo\_env\_ignores\_action\_env</code> is true, all <code>name=value</code> pairs will be available to repository rules.
 
     Tags:
@@ -10443,7 +10443,7 @@ Options that let the user configure the intended output, affecting its value, as
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS), [`experimental`](#metadata_tag_EXPERIMENTAL)
 
 `--features=<a string>` multiple uses are accumulated
-:   The given features will be enabled or disabled by default for targets built in the target configuration. Specifying -<feature> will disable the feature. Negative features always override positive ones. See also --host\_features
+:   The given features will be enabled or disabled by default for targets built in the target configuration. Specifying -&lt;feature&gt; will disable the feature. Negative features always override positive ones. See also --host\_features
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -10467,7 +10467,7 @@ Options that let the user configure the intended output, affecting its value, as
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
 
 `--host_features=<a string>` multiple uses are accumulated
-:   The given features will be enabled or disabled by default for targets built in the exec configuration. Specifying -<feature> will disable the feature. Negative features always override positive ones.
+:   The given features will be enabled or disabled by default for targets built in the exec configuration. Specifying -&lt;feature&gt; will disable the feature. Negative features always override positive ones.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -10603,7 +10603,7 @@ Options that affect the verbosity, format or location of logging:
 Options specifying or altering a generic input to a Bazel command that does not fall into other categories.:
 
 `--flag_alias=<a 'name=value' flag alias>` multiple uses are accumulated
-:   Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form "<key>=<value>" as an argument.
+:   Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form "&lt;key&gt;=&lt;value&gt;" as an argument.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS)
@@ -10667,8 +10667,8 @@ Options that control build execution:
     Tags:
     [`eagerness_to_exit`](#effect_tag_EAGERNESS_TO_EXIT)
 
-`--loading_phase_threads=<an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]<float>) eg. "auto", "HOST_CPUS*.5">` default: "auto"
-:   Number of parallel threads to use for the loading/analysis phase.Takes an integer, or a keyword ("auto", "HOST\_CPUS", "HOST\_RAM"), optionally followed by an operation ([-|\*]<float>) eg. "auto", "HOST\_CPUS\*.5". "auto" sets a reasonable default based on host resources. Must be at least 1.
+`--loading_phase_threads=<an integer, or a keyword ("auto", "HOST_CPUS", "HOST_RAM"), optionally followed by an operation ([-|*]&lt;float&gt;) eg. "auto", "HOST_CPUS*.5">` default: "auto"
+:   Number of parallel threads to use for the loading/analysis phase.Takes an integer, or a keyword ("auto", "HOST\_CPUS", "HOST\_RAM"), optionally followed by an operation ([-|\*]&lt;float&gt;) eg. "auto", "HOST\_CPUS\*.5". "auto" sets a reasonable default based on host resources. Must be at least 1.
 
     Tags:
     [`bazel_internal_configuration`](#effect_tag_BAZEL_INTERNAL_CONFIGURATION)
@@ -10855,7 +10855,7 @@ Options that configure the toolchain used for action execution:
     [`loading_and_analysis`](#effect_tag_LOADING_AND_ANALYSIS)
 
 `--[no]experimental_include_xcode_execution_requirements` default: "false"
-:   If set, add a "requires-xcode:{version}" execution requirement to every Xcode action. If the Xcode version has a hyphenated label, also add a "requires-xcode-label:{version\_label}" execution requirement.
+:   If set, add a "requires-xcode:\{version}" execution requirement to every Xcode action. If the Xcode version has a hyphenated label, also add a "requires-xcode-label:\{version\_label}" execution requirement.
 
     Tags:
     [`loses_incremental_state`](#effect_tag_LOSES_INCREMENTAL_STATE), [`loading_and_analysis`](#effect_tag_LOADING_AND_ANALYSIS), [`execution`](#effect_tag_EXECUTION), [`experimental`](#metadata_tag_EXPERIMENTAL)
@@ -11089,7 +11089,7 @@ Options that let the user configure the intended output, affecting its value, as
 `--action_env=<a 'name=value' assignment with an optional value part>` multiple uses are accumulated
 :   Specifies the set of environment variables available to actions with target configuration. Variables can be either specified by <code>name</code>, in which case
     the value will be taken from the invocation environment, or by the <code>name=value</code> pair which sets the value independent of the invocation environment. This option can be used multiple times; for options given for the same variable, the latest wins, options for different variables accumulate.
-    <br>
+    <br/>
     Note that unless <code>--incompatible\_repo\_env\_ignores\_action\_env</code> is true, all <code>name=value</code> pairs will be available to repository rules.
 
     Tags:
@@ -11336,7 +11336,7 @@ Options that let the user configure the intended output, affecting its value, as
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
 
 `--features=<a string>` multiple uses are accumulated
-:   The given features will be enabled or disabled by default for targets built in the target configuration. Specifying -<feature> will disable the feature. Negative features always override positive ones. See also --host\_features
+:   The given features will be enabled or disabled by default for targets built in the target configuration. Specifying -&lt;feature&gt; will disable the feature. Negative features always override positive ones. See also --host\_features
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -11384,7 +11384,7 @@ Options that let the user configure the intended output, affecting its value, as
     [`action_command_lines`](#effect_tag_ACTION_COMMAND_LINES), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
 
 `--host_features=<a string>` multiple uses are accumulated
-:   The given features will be enabled or disabled by default for targets built in the exec configuration. Specifying -<feature> will disable the feature. Negative features always override positive ones.
+:   The given features will be enabled or disabled by default for targets built in the exec configuration. Specifying -&lt;feature&gt; will disable the feature. Negative features always override positive ones.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -11570,7 +11570,7 @@ Options that let the user configure the intended output, affecting its value, as
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
 
 `--stripopt=<a string>` multiple uses are accumulated
-:   Additional options to pass to strip when generating a '<name>.stripped' binary.
+:   Additional options to pass to strip when generating a '&lt;name&gt;.stripped' binary.
 
     Tags:
     [`action_command_lines`](#effect_tag_ACTION_COMMAND_LINES), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -11806,7 +11806,7 @@ Options that govern the behavior of the test environment or test runner:
     [`loading_and_analysis`](#effect_tag_LOADING_AND_ANALYSIS), [`experimental`](#metadata_tag_EXPERIMENTAL)
 
 `--default_test_resources=<a resource name followed by equal and 1 float or 4 float, e.g memory=10,30,60,100>` multiple uses are accumulated
-:   Override the default resources amount for tests. The expected format is <resource>=<value>. If a single positive number is specified as <value> it will override the default resources for all test sizes. If 4 comma-separated numbers are specified, they will override the resource amount for respectively the small, medium, large, enormous test sizes. Values can also be HOST\_RAM/HOST\_CPU, optionally followed by [-|\*]<float> (eg. memory=HOST\_RAM\*.1,HOST\_RAM\*.2,HOST\_RAM\*.3,HOST\_RAM\*.4). The default test resources specified by this flag are overridden by explicit resources specified in tags.
+:   Override the default resources amount for tests. The expected format is &lt;resource&gt;=&lt;value&gt;. If a single positive number is specified as &lt;value&gt; it will override the default resources for all test sizes. If 4 comma-separated numbers are specified, they will override the resource amount for respectively the small, medium, large, enormous test sizes. Values can also be HOST\_RAM/HOST\_CPU, optionally followed by [-|\*]&lt;float&gt; (eg. memory=HOST\_RAM\*.1,HOST\_RAM\*.2,HOST\_RAM\*.3,HOST\_RAM\*.4). The default test resources specified by this flag are overridden by explicit resources specified in tags.
 
 `--[no]experimental_android_use_parallel_dex2oat` default: "false"
 :   Use dex2oat in parallel to possibly speed up android\_test.
@@ -11923,7 +11923,7 @@ Options that affect the verbosity, format or location of logging:
 Options specifying or altering a generic input to a Bazel command that does not fall into other categories.:
 
 `--flag_alias=<a 'name=value' flag alias>` multiple uses are accumulated
-:   Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form "<key>=<value>" as an argument.
+:   Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form "&lt;key&gt;=&lt;value&gt;" as an argument.
 
     Tags:
     [`changes_inputs`](#effect_tag_CHANGES_INPUTS)

@@ -24,6 +24,7 @@ FILES = [
     "test_status",
     "worker_protocol",
     "execution_graph",
+    "execution_graph_writer",
     "file_invalidation_data",
 ]
 
@@ -446,4 +447,9 @@ filegroup(
         ":stardoc_output_java_proto_srcs",
         ":xcode_java_proto_srcs",
     ],
+)
+
+exports_files(
+    ["execution_statistics.proto"],
+    visibility = ["//src/test:__subpackages__"],
 )

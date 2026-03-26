@@ -25,13 +25,12 @@ import com.google.devtools.build.lib.platform.SystemMemoryPressureMonitor;
 import com.google.devtools.build.lib.platform.SystemMemoryPressureMonitor.Level;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.OS;
-import io.grpc.Server;
 import java.io.IOException;
 import java.time.Duration;
 
 /**
- * Runnable that checks to see if a {@link Server} server has been idle for too long and shuts down
- * the server if so.
+ * Runnable that checks to see if a {@link GrpcCommandServer} has been idle for too long and shuts
+ * down the server if so.
  */
 class ServerWatcherRunnable implements Runnable {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -40,7 +39,7 @@ class ServerWatcherRunnable implements Runnable {
   private static final long FREE_MEMORY_KB_ABSOLUTE_THRESHOLD = 1L << 20;
   private static final double FREE_MEMORY_PERCENTAGE_THRESHOLD = 0.05;
 
-  private final Server server;
+  private final GrpcCommandServer server;
   private final long maxIdleSeconds;
   private final CommandManager commandManager;
   private final LowMemoryChecker lowMemoryChecker;
@@ -134,7 +133,7 @@ class ServerWatcherRunnable implements Runnable {
   }
 
   ServerWatcherRunnable(
-      Server server,
+      GrpcCommandServer server,
       long maxIdleSeconds,
       boolean shutdownOnLowSysMem,
       CommandManager commandManager) {
@@ -148,7 +147,7 @@ class ServerWatcherRunnable implements Runnable {
 
   @VisibleForTesting
   ServerWatcherRunnable(
-      Server server,
+      GrpcCommandServer server,
       long maxIdleSeconds,
       boolean shutdownOnLowSysMem,
       CommandManager commandManager,

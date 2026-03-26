@@ -36,6 +36,7 @@
 #include "src/main/cpp/workspace_layout.h"
 #include "googlemock/include/gmock/gmock.h"
 #include "googletest/include/gtest/gtest.h"
+#include "absl/strings/str_cat.h"
 
 namespace blaze {
 using ::testing::AllOf;
@@ -968,6 +969,50 @@ TEST_F(BlazercImportTest, TryImportVersionInvalidConditionSemanticVersion) {
       "Invalid import declaration in config file.*Could not parse version "
       "'no_version' as a valid semantic version",
       "");
+}
+
+TEST_F(BlazercImportTest, ImportDepthExceeded) {
+  // Create a chain of rc files, each importing the next one.
+  const int import_depth = 5;
+  for (int i = 0; i < import_depth; ++i) {
+    const std::string imported_rc_path =
+        blaze_util::JoinPath(workspace_, absl::StrCat("import_", i, ".rc"));
+    std::string contents;
+    if (i < import_depth - 1) {
+      const std::string next_imported_rc_path = blaze_util::JoinPath(
+          workspace_, absl::StrCat("import_", i + 1, ".rc"));
+      contents = absl::StrCat("import ", next_imported_rc_path);
+    } else {
+      contents = "startup --max_idle_secs=123";
+    }
+    ASSERT_TRUE(blaze_util::WriteFile(contents, imported_rc_path, 0755));
+  }
+
+  const std::string base_rc_path =
+      blaze_util::JoinPath(workspace_, "import_0.rc");
+
+  // Test with a limit that is too small.
+  RcFile::ParseError error;
+  std::string error_text;
+  std::unique_ptr<RcFile> rc_file =
+      RcFile::Parse(base_rc_path, workspace_layout_.get(), workspace_,
+                    /*build_label=*/"", /*sem_ver=*/std::nullopt, &error,
+                    &error_text, /*max_import_depth=*/2,
+                    RcFile::ReadFileDefault, RcFile::CanonicalizePathDefault);
+
+  EXPECT_EQ(error, RcFile::ParseError::IMPORT_DEPTH_EXCEEDED);
+  EXPECT_THAT(error_text, HasSubstr("Maximum import depth exceeded"));
+  EXPECT_EQ(rc_file, nullptr);
+
+  // Test with a limit that is large enough.
+  rc_file =
+      RcFile::Parse(base_rc_path, workspace_layout_.get(), workspace_,
+                    /*build_label=*/"", /*sem_ver=*/std::nullopt, &error,
+                    &error_text, /*max_import_depth=*/10,
+                    RcFile::ReadFileDefault, RcFile::CanonicalizePathDefault);
+
+  EXPECT_EQ(error, RcFile::ParseError::NONE);
+  EXPECT_NE(rc_file, nullptr);
 }
 
 #if defined(_WIN32)

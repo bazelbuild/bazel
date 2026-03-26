@@ -113,7 +113,7 @@ public final class Program {
     }
 
     if (file.getOptions().staticTypeChecking()) {
-      TypeChecker.checkFile(file);
+      TypeChecker.checkFile(file, env);
       if (!file.ok()) {
         throw new SyntaxError.Exception(file.errors());
       }
@@ -168,7 +168,7 @@ public final class Program {
     }
 
     if (options.staticTypeChecking()) {
-      StarlarkType exprType = TypeChecker.inferTypeOf(expr);
+      StarlarkType exprType = TypeChecker.inferTypeOf(expr, module);
       TypeTagger.tagExprFunction(body, exprType);
     }
 

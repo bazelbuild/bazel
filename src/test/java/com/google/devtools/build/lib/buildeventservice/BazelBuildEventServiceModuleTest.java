@@ -830,7 +830,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
             .setDescription(BugReport.constructOomExitMessage("Please build fewer targets."))
             .build();
     assertThat(buildEvents)
-        .ignoringFields(BuildEvent.LAST_MESSAGE_FIELD_NUMBER)
+        .ignoringFields(BuildEvent.LAST_MESSAGE_FIELD_NUMBER, BuildEvent.CHILDREN_FIELD_NUMBER)
         .containsAtLeast(
             BuildEvent.newBuilder()
                 .setId(

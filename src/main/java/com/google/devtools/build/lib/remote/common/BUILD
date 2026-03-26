@@ -12,6 +12,15 @@ filegroup(
 )
 
 java_library(
+    name = "action_key",
+    srcs = ["ActionKey.java"],
+    deps = [
+        "//third_party:guava",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)
+
+java_library(
     name = "bulk_transfer_exception",
     srcs = ["BulkTransferException.java"],
     deps = [
@@ -48,16 +57,17 @@ java_library(
     srcs = glob(
         ["*.java"],
         exclude = [
+            "ActionKey.java",
             "BulkTransferException.java",
             "CacheNotFoundException.java",
             "LostInputsEvent.java",
         ],
     ),
     deps = [
+        ":action_key",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//src/main/java/com/google/devtools/build/lib/exec:spawn_input_expander",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",

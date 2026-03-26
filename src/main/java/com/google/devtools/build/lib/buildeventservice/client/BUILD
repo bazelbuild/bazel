@@ -20,7 +20,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/grpc-java:grpc-jar",
-        "@com_google_protobuf//:protobuf_java",
     ],
 )
 

@@ -138,14 +138,6 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
   }
 
   @Option(
-      name = "experimental_remote_analysis_cache",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help = "The URL for the remote analysis caching backend.")
-  public String remoteAnalysisCache;
-
-  @Option(
       name = "experimental_remote_analysis_cache_max_batch_size",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
@@ -169,19 +161,6 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
       converter = DurationConverter.class,
       help = "Deadline to use for remote analysis cache operations.")
   public Duration deadline;
-
-  // TODO: b/443947033 - add a way to disable retries
-  @Option(
-      name = "experimental_remote_analysis_unreachable_cache_retry_interval",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      defaultValue = "250ms",
-      converter = DurationConverter.class,
-      help =
-          "How long to wait before retrying a cache get request that failed due to an UNREACHABLE"
-              + " channel. This is a workaround for the client library reporting 'ready' "
-              + "prematurely.")
-  public Duration unreachableCacheRetryInterval;
 
   @Option(
       name = "experimental_analysis_cache_service",
@@ -228,10 +207,6 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
   // 2. Read Proxy: If --experimental_analysis_cache_service is set but
   //    --experimental_remote_analysis_cache is NOT set, downloads are proxied through the
   //    AnalysisCacheService. --experimental_remote_analysis_cache_mode must be DOWNLOAD.
-  //
-  // 3. Legacy Direct: Otherwise, connections are made directly to storage (specified by
-  //    --experimental_remote_analysis_cache) and AnalysisCacheService (specified by
-  //    --experimental_analysis_cache_service, if provided).
 
   @Option(
       name = "experimental_remote_analysis_write_proxy",
@@ -284,4 +259,14 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
               + " If enabled, Blaze will discard values after the analysis phase is"
               + " complete to provide Skycache writers with more headroom.")
   public boolean skycacheMinimizeMemory;
+
+  @Option(
+      name = "experimental_analysis_cache_bail_on_missing_fingerprint",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If true, bails out from remote analysis cache retrieval if a single fingerprint is"
+              + " missing.")
+  public boolean analysisCacheBailOnMissingFingerprint;
 }

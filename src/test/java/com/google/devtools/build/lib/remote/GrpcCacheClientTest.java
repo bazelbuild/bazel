@@ -60,7 +60,7 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
@@ -70,8 +70,8 @@ import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
+import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
@@ -292,7 +292,8 @@ public class GrpcCacheClientTest {
             newClient(options),
             /* diskCacheClient= */ null,
             /* symlinkTemplate= */ null,
-            DIGEST_UTIL);
+            DIGEST_UTIL,
+            /* chunkingEnabled= */ false);
     PathFragment execPath = PathFragment.create("my/exec/path");
     var virtualActionInput =
         new VirtualActionInput() {
@@ -576,7 +577,11 @@ public class GrpcCacheClientTest {
     GrpcCacheClient client = newClient(remoteOptions);
     CombinedCache combinedCache =
         new CombinedCache(
-            client, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, DIGEST_UTIL);
+            client,
+            /* diskCacheClient= */ null,
+            /* symlinkTemplate= */ null,
+            DIGEST_UTIL,
+            /* chunkingEnabled= */ false);
 
     Digest fooDigest = DIGEST_UTIL.computeAsUtf8("foo-contents");
     Digest barDigest = DIGEST_UTIL.computeAsUtf8("bar-contents");
@@ -602,7 +607,11 @@ public class GrpcCacheClientTest {
     GrpcCacheClient client = newClient(remoteOptions);
     CombinedCache combinedCache =
         new CombinedCache(
-            client, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, DIGEST_UTIL);
+            client,
+            /* diskCacheClient= */ null,
+            /* symlinkTemplate= */ null,
+            DIGEST_UTIL,
+            /* chunkingEnabled= */ false);
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -672,7 +681,11 @@ public class GrpcCacheClientTest {
     GrpcCacheClient client = newClient(remoteOptions);
     CombinedCache combinedCache =
         new CombinedCache(
-            client, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, DIGEST_UTIL);
+            client,
+            /* diskCacheClient= */ null,
+            /* symlinkTemplate= */ null,
+            DIGEST_UTIL,
+            /* chunkingEnabled= */ false);
 
     final Digest barDigest =
         fakeFileCache.createScratchInputDirectory(
@@ -717,7 +730,11 @@ public class GrpcCacheClientTest {
     GrpcCacheClient client = newClient(remoteOptions);
     CombinedCache combinedCache =
         new CombinedCache(
-            client, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, DIGEST_UTIL);
+            client,
+            /* diskCacheClient= */ null,
+            /* symlinkTemplate= */ null,
+            DIGEST_UTIL,
+            /* chunkingEnabled= */ false);
 
     final Digest wobbleDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar/test/wobble"), "xyz");
@@ -882,7 +899,11 @@ public class GrpcCacheClientTest {
     GrpcCacheClient client = newClient(remoteOptions);
     CombinedCache combinedCache =
         new CombinedCache(
-            client, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, DIGEST_UTIL);
+            client,
+            /* diskCacheClient= */ null,
+            /* symlinkTemplate= */ null,
+            DIGEST_UTIL,
+            /* chunkingEnabled= */ false);
     var unused =
         combinedCache.downloadActionResult(
             context,
@@ -897,7 +918,11 @@ public class GrpcCacheClientTest {
     GrpcCacheClient client = newClient(remoteOptions);
     CombinedCache combinedCache =
         new CombinedCache(
-            client, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, DIGEST_UTIL);
+            client,
+            /* diskCacheClient= */ null,
+            /* symlinkTemplate= */ null,
+            DIGEST_UTIL,
+            /* chunkingEnabled= */ false);
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -975,7 +1000,11 @@ public class GrpcCacheClientTest {
     GrpcCacheClient client = newClient(remoteOptions);
     CombinedCache combinedCache =
         new CombinedCache(
-            client, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, DIGEST_UTIL);
+            client,
+            /* diskCacheClient= */ null,
+            /* symlinkTemplate= */ null,
+            DIGEST_UTIL,
+            /* chunkingEnabled= */ false);
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -1042,7 +1071,11 @@ public class GrpcCacheClientTest {
     GrpcCacheClient client = newClient(remoteOptions);
     CombinedCache combinedCache =
         new CombinedCache(
-            client, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, DIGEST_UTIL);
+            client,
+            /* diskCacheClient= */ null,
+            /* symlinkTemplate= */ null,
+            DIGEST_UTIL,
+            /* chunkingEnabled= */ false);
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");

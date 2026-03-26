@@ -76,13 +76,19 @@ public interface FingerprintValueStore {
   /**
    * Retrieves the serialized bytes associated with {@code fingerprint}.
    *
-   * <p>If the given fingerprint does not exist in the store, the returned future fails with a
-   * {@link MissingFingerprintValueException}.
-   *
-   * <p>The caller should deduplicate {@code get} calls to avoid multiple fetches of the same
-   * fingerprint.
+   * @param fallback whether to search fallback silos if the primary one misses.
+   * @return a future eventually containing the serialized bytes. If the fingerprint is missing, the
+   *     future may contain null or a failed future, depending on the implementation.
    */
-  ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) throws IOException;
+  default ListenableFuture<byte[]> get(KeyBytesProvider fingerprint, boolean fallback)
+      throws IOException {
+    throw new UnsupportedOperationException();
+  }
+
+  /** Retrieves the serialized bytes associated with {@code fingerprint}, searching fallbacks. */
+  default ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) throws IOException {
+    return get(fingerprint, /* fallback= */ true);
+  }
 
   /**
    * {@link FingerprintValueStore#get} was called with a fingerprint that does not exist in the
@@ -128,7 +134,7 @@ public interface FingerprintValueStore {
     }
 
     @Override
-    public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) {
+    public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint, boolean fallback) {
       byte[] serializedBytes = fingerprintToContents.get(fingerprint);
       if (serializedBytes == null) {
         return useNullForMissingValues

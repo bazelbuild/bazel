@@ -2,7 +2,6 @@
 title: 'Starlark Language'
 ---
 
-<!-- [TOC] -->
 
 This page is an overview of [Starlark](https://github.com/bazelbuild/starlark),
 formerly known as Skylark, the language used in Bazel. For a complete list of
@@ -89,7 +88,7 @@ Global variables defined in `bzl` files cannot be changed outside of the
 `bzl` file that defined them. Just like the above example using `bzl` files,
 values returned by rules are immutable.
 
-## Differences between BUILD and .bzl files
+## Differences between BUILD and .bzl files {#differences-between-build-and-bzl-files}
 
 `BUILD` files register targets via making calls to rules. `.bzl` files provide
 definitions for constants, rules, macros, and functions.

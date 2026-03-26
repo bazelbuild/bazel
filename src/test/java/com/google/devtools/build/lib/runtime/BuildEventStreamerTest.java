@@ -1871,6 +1871,56 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
     assertThat(transport.getEvents()).contains(replaceable);
   }
 
+  private static final class OrderedTestBuildEvent extends GenericBuildEvent
+      implements BuildEventWithOrderConstraint {
+    private final Collection<BuildEventId> postedAfter;
+
+    OrderedTestBuildEvent(BuildEventId id, Collection<BuildEventId> postedAfter) {
+      super(id, ImmutableSet.of());
+      this.postedAfter = postedAfter;
+    }
+
+    @Override
+    public Collection<BuildEventId> postedAfter() {
+      return postedAfter;
+    }
+  }
+
+  @Test
+  public void testAbortHasUnblockedChildren() {
+    BuildEventId abortedEventId = testId("aborted_event");
+    BuildEventId bufferedEvent1Id = testId("buffered_event_1");
+    BuildEventId bufferedEvent2Id = testId("buffered_event_2");
+    BuildEventId bufferedEvent3Id = testId("buffered_event_3");
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            BuildEventIdUtil.buildStartedId(),
+            ImmutableSet.of(
+                abortedEventId,
+                bufferedEvent2Id, // We announce one of the three events.
+                ProgressEvent.INITIAL_PROGRESS_UPDATE,
+                BuildEventIdUtil.buildFinished()));
+
+    streamer.buildEvent(startEvent);
+    ImmutableSet<BuildEventId> postedAfter = ImmutableSet.of(abortedEventId);
+    streamer.buildEvent(new OrderedTestBuildEvent(bufferedEvent1Id, postedAfter));
+    streamer.buildEvent(new OrderedTestBuildEvent(bufferedEvent2Id, postedAfter));
+    streamer.buildEvent(new OrderedTestBuildEvent(bufferedEvent3Id, postedAfter));
+    streamer.close();
+
+    // The children have all been posted.
+    BuildEventStreamProtos.BuildEvent event1 = getBepEvent(bufferedEvent1Id);
+    assertThat(event1).isNotNull();
+    assertThat(event1.hasAborted()).isFalse();
+    assertThat(getBepEvent(bufferedEvent2Id)).isNotNull();
+    assertThat(getBepEvent(bufferedEvent3Id)).isNotNull();
+    // The aborted blocking event has two of the buffered events as children, but not the third one
+    // that had already been announced.
+    BuildEventStreamProtos.BuildEvent aborted = getBepEvent(abortedEventId);
+    assertThat(aborted.hasAborted()).isTrue();
+    assertThat(aborted.getChildrenList()).containsExactly(bufferedEvent1Id, bufferedEvent3Id);
+  }
+
   @Nullable
   private BuildEventStreamProtos.BuildEvent getBepEvent(BuildEventId buildEventId) {
     return transport.getEventProtos().stream()

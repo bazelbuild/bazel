@@ -21,7 +21,7 @@ should make a project more readable, less error-prone, and faster to build.
 This page uses the requirement levels described in
 [this RFC](https://www.ietf.org/rfc/rfc2119.txt).
 
-## Running builds and tests
+## Running builds and tests {#running-builds-tests}
 
 A project should always be able to run `bazel build //...` and
 `bazel test //...` successfully on its stable branch. Targets that are necessary
@@ -32,14 +32,14 @@ tagging allows targets to be filtered at a more fine-grained level than the
 "manual" tag and allows someone inspecting the `BUILD` file to understand what
 a target's restrictions are.
 
-## Third-party dependencies
+## Third-party dependencies {#third-party-dependencies}
 
 You may declare third-party dependencies:
 
 *   Either declare them as remote repositories in the `WORKSPACE` file.
 *   Or put them in a directory called `third_party/` under your workspace directory.
 
-## Depending on binaries
+## Depending on binaries {#binaries}
 
 Everything should be built from source whenever possible. Generally this means
 that, instead of depending on a library `some-library.so`, you'd create a
@@ -51,7 +51,7 @@ was built with incompatible flags or a different architecture. There are also
 some features like coverage, static analysis, or dynamic analysis that only
 work on the source.
 
-## Versioning
+## Versioning {#versioning}
 
 Prefer building all code from head whenever possible. When versions must be
 used, avoid including the version in the target name (for example, `//guava`,
@@ -62,10 +62,10 @@ you could end up with a library that tries to depend on two different versions.
 If you created a misleading alias to point both targets to one `guava` library,
 then the `BUILD` files are misleading.
 
-## Using the `.bazelrc` file
+## Using the `.bazelrc` file {#bazelrc-file}
 
 For project-specific options, use the configuration file your
-`{{ '<var>' }}workspace{{ '</var>' }}/.bazelrc` (see [bazelrc format](/versions/7.6.1/run/bazelrc)).
+`<var>workspace</var>/.bazelrc` (see [bazelrc format](/versions/7.6.1/run/bazelrc)).
 
 If you want to support per-user options for your project that you **do not**
 want to check into source control, include the line:
@@ -73,10 +73,10 @@ want to check into source control, include the line:
 ```
 try-import %workspace%/user.bazelrc
 ```
-(or any other file name) in your `{{ '<var>' }}workspace{{ '</var>' }}/.bazelrc`
+(or any other file name) in your `<var>workspace</var>/.bazelrc`
 and add `user.bazelrc` to your `.gitignore`.
 
-## Packages
+## Packages {#packages}
 
 Every directory that contains buildable files should be a package. If a `BUILD`
 file refers to files in subdirectories (such as, `srcs = ["a/b/C.java"]`) it's

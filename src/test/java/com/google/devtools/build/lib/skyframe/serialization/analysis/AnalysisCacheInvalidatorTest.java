@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.LongVersionClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.SnapshotClientId;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.IntVersion;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -86,7 +87,10 @@ public final class AnalysisCacheInvalidatorTest {
 
     // Simulate a cache hit by returning a non-empty response.
     when(mockAnalysisCacheClient.lookup(ByteString.copyFrom(fingerprint.toBytes())))
-        .thenReturn(immediateFuture(ByteString.copyFromUtf8("some_value")));
+        .thenReturn(
+            immediateFuture(
+                new RemoteAnalysisCacheClient.LookupResult(
+                    ByteString.copyFromUtf8("some_value"), MissReason.MISS_REASON_UNSPECIFIED)));
 
     AnalysisCacheInvalidator invalidator =
         new AnalysisCacheInvalidator(
@@ -114,7 +118,10 @@ public final class AnalysisCacheInvalidatorTest {
 
     // Simulate a cache miss by returning an empty response.
     when(mockAnalysisCacheClient.lookup(ByteString.copyFrom(fingerprint.toBytes())))
-        .thenReturn(immediateFuture(ByteString.EMPTY));
+        .thenReturn(
+            immediateFuture(
+                new RemoteAnalysisCacheClient.LookupResult(
+                    ByteString.EMPTY, MissReason.MISS_REASON_UNSPECIFIED)));
 
     AnalysisCacheInvalidator invalidator =
         new AnalysisCacheInvalidator(
@@ -147,9 +154,15 @@ public final class AnalysisCacheInvalidatorTest {
 
     // Simulate a cache hit _and_ miss for looking up multiple keys.
     when(mockAnalysisCacheClient.lookup(ByteString.copyFrom(hitFingerprint.toBytes())))
-        .thenReturn(immediateFuture(ByteString.copyFromUtf8("some_value")));
+        .thenReturn(
+            immediateFuture(
+                new RemoteAnalysisCacheClient.LookupResult(
+                    ByteString.copyFromUtf8("some_value"), MissReason.MISS_REASON_UNSPECIFIED)));
     when(mockAnalysisCacheClient.lookup(ByteString.copyFrom(missFingerprint.toBytes())))
-        .thenReturn(immediateFuture(ByteString.EMPTY));
+        .thenReturn(
+            immediateFuture(
+                new RemoteAnalysisCacheClient.LookupResult(
+                    ByteString.EMPTY, MissReason.MISS_REASON_UNSPECIFIED)));
 
     AnalysisCacheInvalidator invalidator =
         new AnalysisCacheInvalidator(
@@ -255,7 +268,10 @@ public final class AnalysisCacheInvalidatorTest {
         FingerprintValueService.computeFingerprint(
             fingerprintService, objectCodecs, key, frontierNodeVersion);
     when(mockAnalysisCacheClient.lookup(ByteString.copyFrom(packedFingerprint.toBytes())))
-        .thenReturn(immediateFuture(ByteString.EMPTY));
+        .thenReturn(
+            immediateFuture(
+                new RemoteAnalysisCacheClient.LookupResult(
+                    ByteString.EMPTY, MissReason.MISS_REASON_UNSPECIFIED)));
 
     AnalysisCacheInvalidator invalidator =
         new AnalysisCacheInvalidator(

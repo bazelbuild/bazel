@@ -615,6 +615,12 @@ public class StandaloneTestStrategy extends TestStrategy {
               .build();
       finalizeTest(standaloneTestResult, failedAttempts);
     }
+
+    @Override
+    public TestRunnerSpawn getFlakyRetryRunner(List<SpawnResult> previousAttemptResults)
+        throws ExecException, InterruptedException {
+      return createTestRunnerSpawn(testAction, actionExecutionContext);
+    }
   }
 
   private static TestExecException createTestExecException(

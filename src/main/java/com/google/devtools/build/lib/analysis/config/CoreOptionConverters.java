@@ -29,7 +29,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -51,7 +51,6 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkInt;
-import net.starlark.java.eval.StarlarkValue;
 
 /**
  * {@link Converter}s for {@link com.google.devtools.common.options.Option}s that aren't
@@ -87,17 +86,18 @@ public class CoreOptionConverters {
 
   /**
    * A converter for comma-separated strings to sets of strings. This uses {@link
-   * CommaSeparatedOptionListConverter} but returns a set of the converted strings.
+   * CommaSeparatedOptionListConverter} but returns a sorted set of the converted strings.
    */
-  private static class StringSetConverter extends Converter.Contextless<ImmutableSet<String>> {
+  private static class StringSetConverter
+      extends Converter.Contextless<ImmutableSortedSet<String>> {
 
     private static final CommaSeparatedOptionListConverter COMMA_SEPARATED_OPTION_LIST_CONVERTER =
         new CommaSeparatedOptionListConverter();
 
     @Override
-    public ImmutableSet<String> convert(String input) throws OptionsParsingException {
+    public ImmutableSortedSet<String> convert(String input) throws OptionsParsingException {
       ImmutableList<String> result = COMMA_SEPARATED_OPTION_LIST_CONVERTER.convert(input);
-      return ImmutableSet.copyOf(result);
+      return ImmutableSortedSet.copyOf(result);
     }
 
     @Override
@@ -308,7 +308,7 @@ public class CoreOptionConverters {
   }
 
   /** Values for the --strict_*_deps option */
-  public enum StrictDepsMode implements StarlarkValue {
+  public enum StrictDepsMode {
     /** Silently allow referencing transitive dependencies. */
     OFF,
     /** Warn about transitive dependencies being used directly. */

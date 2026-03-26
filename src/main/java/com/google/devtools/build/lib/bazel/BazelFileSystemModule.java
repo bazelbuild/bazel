@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Strings;
-import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.BlazeService;
@@ -31,7 +30,6 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestFunctionConverter;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.bazel.BazelHashFunctions;
 import com.google.devtools.build.lib.windows.WindowsFileSystem;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -88,29 +86,14 @@ public class BazelFileSystemModule extends BlazeModule {
       }
     }
 
-    FileSystem fs;
-    if (OS.getCurrent() == OS.WINDOWS) {
-      if (!JniLoader.isJniAvailable()) {
-        Throwable e = checkNotNull(JniLoader.getJniLoadError());
-        throw new AbruptExitException(
-            DetailedExitCode.of(
-                FailureDetail.newBuilder()
-                    .setMessage(Strings.nullToEmpty(e.getMessage()))
-                    .setFilesystem(
-                        Filesystem.newBuilder().setCode(Code.FILESYSTEM_JNI_NOT_AVAILABLE))
-                    .build()),
-            e);
-      }
-      fs = new WindowsFileSystem(digestHashFunction, options.enableWindowsSymlinks);
-    } else {
-      if (JniLoader.isJniAvailable()) {
-        fs =
-            new UnixFileSystem(
-                digestHashFunction, options.unixDigestHashAttributeName, nativePosixFilesService);
-      } else {
-        fs = new JavaIoFileSystem(digestHashFunction);
-      }
-    }
+    FileSystem fs =
+        switch (OS.getCurrent()) {
+          case WINDOWS -> new WindowsFileSystem(digestHashFunction, options.enableWindowsSymlinks);
+          default ->
+              new UnixFileSystem(
+                  digestHashFunction, options.unixDigestHashAttributeName, nativePosixFilesService);
+        };
+
     return ModuleFileSystem.create(fs);
   }
 }

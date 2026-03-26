@@ -806,46 +806,70 @@ public class RemoteExecutionServiceTest {
     // little memory as possible since they are kept in memory during the whole remote execution.
     // Memory usage isn't expected to differ by seed, so only check for one of them.
     if (seed == 1) {
-      var merkleTree =
-          service
-              .buildRemoteAction(spawn, context, MerkleTreeComputer.BlobPolicy.KEEP)
-              .getMerkleTree();
-      assertThat(merkleTree).isInstanceOf(MerkleTree.Uploadable.class);
-      // These are roots that are already retained while a remote action is being executed or are
-      // effectively global singletons.
-      var otherInput = ActionsTestUtil.createArtifact(artifactRoot, "some/other/input/file.txt");
-      fakeFileCache.createScratchInput(otherInput, "some other content");
-      var otherSpawn = new SpawnBuilder().withInput(otherInput).withOutput("foo").build();
-      var someOtherMerkleTree =
-          service.buildRemoteAction(otherSpawn, newSpawnExecutionContext(otherSpawn));
-
       // JOL tracks objects by their native address, so run GC to minimize noise from moved objects.
       System.gc();
-      var alreadyRetainedObjects =
-          GraphLayout.parseInstance(spawn, fakeFileCache, digestUtil, someOtherMerkleTree);
-      // This covers objects internal to JOL itself as well as metadata lazily attached to classes
-      // related to MerkleTree. Note that this has to be computed in a separate parseInstance call
-      // since the first call on someOtherMerkleTree may thus not have captured the metadata
-      // attached to the Class objects it references (e.g. cached field lists).
-      var jolInternalObjects =
-          GraphLayout.parseInstance(alreadyRetainedObjects, someOtherMerkleTree);
-      var merkleTreeTransitiveRetention = GraphLayout.parseInstance(merkleTree);
-
-      var merkleTreeOnlyRetention =
-          merkleTreeTransitiveRetention
-              .subtract(alreadyRetainedObjects)
-              .subtract(jolInternalObjects);
-      // Output the objects that are transitively retained by merkleTreeTransitiveRetention but
-      // neither by alreadyRetainedObjects nor jolInternalObjects for manual inspection.
+      // Keep building a Merkle tree and compute its retained size relative to all previous trees
+      // until the size stabilizes. The goal is to compute the size of the objects that are uniquely
+      // retained by the tree, as this is the effective overhead at runtime when building many trees
+      // in parallel. This is more delicate than it seems:
+      // 1. This has to be done in a loop since objects retain their respective Class and JOL's use
+      //    of reflection mutates the various caches in the Class objects in non-deterministic ways.
+      // 2. Subtracting previous trees is only correct under the assumption that the objects shared
+      //    with such trees would also be retained elsewhere (e.g. Artifact objects). If MerkleTree
+      //    ever uses techniques such as interning or weak caches, this strategy would have to be
+      //    revisited.
+      GraphLayout merkleTreeUniqueRetention;
+      var previousRoots = new ArrayList<>();
+      long stableRetainedSize = -1;
+      while (true) {
+        var merkleTree =
+            service
+                .buildRemoteAction(spawn, context, MerkleTreeComputer.BlobPolicy.KEEP)
+                .getMerkleTree();
+        assertThat(merkleTree).isInstanceOf(MerkleTree.Uploadable.class);
+        merkleTreeUniqueRetention =
+            GraphLayout.parseInstance(merkleTree)
+                .subtract(GraphLayout.parseInstance(previousRoots));
+        if (merkleTreeUniqueRetention.totalSize() == stableRetainedSize) {
+          break;
+        }
+        stableRetainedSize = merkleTreeUniqueRetention.totalSize();
+        previousRoots.add(merkleTree);
+      }
       var footprintOut =
           Paths.get(System.getenv("TEST_UNDECLARED_OUTPUTS_DIR"), "merkle_tree_footprint.txt");
-      Files.writeString(footprintOut, merkleTreeOnlyRetention.toFootprint());
+      Files.writeString(footprintOut, merkleTreeUniqueRetention.toFootprint());
+      // Detailed footprint:
+      //     COUNT       AVG       SUM   DESCRIPTION
+      //        18       181      3264   [B
+      //         9        32       288   b.b.r.e.v2.Digest
+      //         2       112       224   [Ljava.lang.Object;
+      //         9        16       144   c.g.p.ByteString$LiteralByteString
+      //         1        40        40   c.g.c.c.ImmutableSortedMap
+      //         2        16        32   c.g.c.c.RegularImmutableList
+      //         1        32        32   c.g.d.b.l.r.m.MerkleTree$RootOnly$BlobsUploaded
+      //         1        24        24   c.g.c.c.RegularImmutableSortedSet
+      //         1        16        16   c.g.d.b.l.r.m.MerkleTree$Uploadable
+      //        44                4064   (total)
+      //
+      // Ignoring objects with constant count, the footprint is made up of:
+      // * the two Object arrays backing the ImmutableSortedMap that tracks a map from digest-like
+      //   object to their backing blob. Assuming that most of these objects are naturally retained
+      //   elsehwere, as is the case for regular files (which are represented as their
+      //   FileArtifactValue mapping to their Artifact), this representation is already optimal at
+      //   8 bytes per blob.
+      // * the Digest objects for non-regular file blobs, in particular Directory protos. These
+      //   could be represented more efficiently by storing their raw hash bytes and the size in a
+      //   a flat byte array, but savings aren't expected to be significant.
+      // * most importantly, the serialized Directory protos, which contain inlined Digest protos
+      //   as well as filenames for all files. This is where the largest gains can be made by
+      //   introducing a custom representation that is serialized on demand when actually uploading
+      //   to the remote. Such a representation could consist of a flat Object array containing
+      //   FileArtifactValues (to replace Digest protos), Artifacts (to retrieve the
+      //   basename for file nodes), and Integers (referencing intermediate segments of Artifact
+      //   exec paths for most directory nodes).
       // TODO: Get this number down.
-      // TODO: Assert the size exactly after switching to an ImmutableSortedMap rather than an
-      //       ImmutableMap - proto messages don't have deterministic hash codes, which makes the
-      //       exact size vary slightly between runs.
-      assertThat(merkleTreeOnlyRetention.totalSize()).isAtLeast(8400);
-      assertThat(merkleTreeOnlyRetention.totalSize()).isAtMost(9500);
+      assertThat(stableRetainedSize).isEqualTo(4064);
     }
   }
 

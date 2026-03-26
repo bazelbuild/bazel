@@ -412,6 +412,23 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op. Will be removed soon.")
     public boolean skipTtvs;
+
+    @Option(
+        name = "experimental_remote_analysis_cache",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public String remoteAnalysisCache;
+
+    @Option(
+        name = "experimental_remote_analysis_unreachable_cache_retry_interval",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "No-op")
+    public String unreachableCacheRetryInterval;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */

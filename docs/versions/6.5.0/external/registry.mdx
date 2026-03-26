@@ -47,7 +47,7 @@ An index registry must follow the format below:
             with the following fields:
             *   `url`: The URL of the source archive
             *   `integrity`: The [Subresource
-                Integrity](https://w3c.github.io/webappsec-subresource-integrity/#integrity-metadata-description){: .external}
+                Integrity](https://w3c.github.io/webappsec-subresource-integrity/#integrity-metadata-description)
                 checksum of the archive
             *   `strip_prefix`: A directory prefix to strip when extracting the
                 source archive
@@ -76,17 +76,17 @@ An index registry must follow the format below:
     *   `patches/`: An optional directory containing patch files, only used when
         `source.json` has "archive" type
 
-## Bazel Central Registry
+## Bazel Central Registry {#bazel-central-registry}
 
-The Bazel Central Registry (BCR) at <https://bcr.bazel.build/> is an index
+The Bazel Central Registry (BCR) at https://bcr.bazel.build/ is an index
 registry with contents backed by the GitHub repo
-[`bazelbuild/bazel-central-registry`](https://github.com/bazelbuild/bazel-central-registry){: .external}.
+[`bazelbuild/bazel-central-registry`](https://github.com/bazelbuild/bazel-central-registry).
 You can browse its contents using the web frontend at
-<https://registry.bazel.build/>.
+https://registry.bazel.build/.
 
 The Bazel community maintains the BCR, and contributors are welcome to submit
 pull requests. See the [BCR contribution
-guidelines](https://github.com/bazelbuild/bazel-central-registry/blob/main/docs/README.md){: .external}.
+guidelines](https://github.com/bazelbuild/bazel-central-registry/blob/main/docs/README.md).
 
 In addition to following the format of a normal index registry, the BCR requires
 a `presubmit.yml` file for each module version

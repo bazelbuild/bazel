@@ -130,9 +130,9 @@ public final class DiskCacheGarbageCollector {
     public String displayString() {
       double elapsedSeconds = elapsedTime.toSecondsPart() + elapsedTime.toMillisPart() / 1000.0;
       int filesPerSecond = (int) Math.round((double) deletedEntries / elapsedSeconds);
-      int mbPerSecond = (int) Math.round((deletedBytes / (1024.0 * 1024.0)) / elapsedSeconds);
+      int bytesPerSecond = (int) Math.round((double) deletedBytes / elapsedSeconds);
 
-      return "Deleted %d of %d files, reclaimed %s of %s in %.2f seconds (%d files/s, %d MB/s)%s"
+      return "Deleted %d of %d files, reclaimed %s of %s in %.2f seconds (%d files/s, %s/s)%s"
           .formatted(
               deletedEntries(),
               totalEntries(),
@@ -140,7 +140,7 @@ public final class DiskCacheGarbageCollector {
               bytesCountToDisplayString(totalBytes()),
               elapsedSeconds,
               filesPerSecond,
-              mbPerSecond,
+              bytesCountToDisplayString(bytesPerSecond),
               concurrentUpdate() ? " (concurrent update detected)" : "");
     }
   }

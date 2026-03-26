@@ -17,8 +17,8 @@ information about Bazel's release model.
 | LTS release | Support stage | Latest version | End of support |
 | ----------- | ------------- | -------------- | -------------- |
 | Bazel 10 | Rolling| [Check rolling release page](/release/rolling) | N/A |
-| Bazel 9 | Active| [9.0.0](https://github.com/bazelbuild/bazel/releases/tag/9.0.0) | Dec 2028 |
-| Bazel 8 | Maintenance| [8.5.1](https://github.com/bazelbuild/bazel/releases/tag/8.5.1) | Dec 2027 |
+| Bazel 9 | Active| [9.0.1](https://github.com/bazelbuild/bazel/releases/tag/9.0.1) | Dec 2028 |
+| Bazel 8 | Maintenance| [8.6.0](https://github.com/bazelbuild/bazel/releases/tag/8.6.0) | Dec 2027 |
 | Bazel 7 | Maintenance| [7.7.1](https://github.com/bazelbuild/bazel/releases/tag/7.7.1) | Dec 2026 |
 | Bazel 6 | Deprecated | [6.6.0](https://github.com/bazelbuild/bazel/releases/tag/6.6.0) | Dec 2025 |
 | Bazel 5 | Deprecated | [5.4.1](https://github.com/bazelbuild/bazel/releases/tag/5.4.1) | Jan 2025 |
@@ -26,10 +26,6 @@ information about Bazel's release model.
 
 All Bazel LTS releases can be found on the [release
 page](https://github.com/bazelbuild/bazel/releases){: .external} on GitHub.
-
-Note: Bazel version older than Bazel 5 are no longer supported, Bazel users are
-recommended to upgrade to the latest LTS release or use rolling releases if you
-want to keep up with the latest changes at HEAD.
 
 ## Release versioning {:#bazel-versioning}
 

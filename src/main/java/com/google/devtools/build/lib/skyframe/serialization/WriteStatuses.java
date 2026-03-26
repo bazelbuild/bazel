@@ -383,6 +383,14 @@ public class WriteStatuses {
     }
 
     public void failWith(Throwable cause) {
+      if (cause instanceof CancellationException) {
+        checkState(
+            cancel(/* mayInterruptIfRunning= */ false),
+            "attempted to failWith(%s) already set %s",
+            cause,
+            this);
+        return;
+      }
       checkState(setException(cause), "attempted to failWith(%s) already set %s", cause, this);
     }
 

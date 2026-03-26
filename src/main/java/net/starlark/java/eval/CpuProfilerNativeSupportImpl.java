@@ -23,9 +23,6 @@ public final class CpuProfilerNativeSupportImpl implements CpuProfilerNativeSupp
   }
 
   @Override
-  public native boolean supported();
-
-  @Override
   public native FileDescriptor createPipe();
 
   @Override

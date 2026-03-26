@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.BuildView.BuildConfigurationsCreat
 import com.google.devtools.build.lib.analysis.BuildView.ExecutionSetup;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.test.CoverageArtifactsKnownEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
@@ -40,7 +39,6 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
@@ -53,8 +51,6 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.RegexFilter;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -89,28 +85,6 @@ public final class AnalysisAndExecutionPhaseRunner {
           InvalidConfigurationException,
           TestExecException,
           RepositoryMappingResolutionException {
-
-    // Compute the heuristic instrumentation filter if needed.
-    if (request.needsInstrumentationFilter()) {
-      try (SilentCloseable c = Profiler.instance().profile("Compute instrumentation filter")) {
-        String instrumentationFilter =
-            InstrumentationFilterSupport.computeInstrumentationFilter(
-                env.getReporter(),
-                // TODO(ulfjack): Expensive. Make this part of the TargetPatternPhaseValue or write
-                // a new SkyFunction to compute it?
-                loadingResult.getTestsToRun(env.getReporter(), env.getPackageManager()));
-        try {
-          // We're modifying the buildOptions in place, which is not ideal, but we also don't want
-          // to pay the price for making a copy. Maybe reconsider later if this turns out to be a
-          // problem (and the performance loss may not be a big deal).
-          buildOptions.get(CoreOptions.class).instrumentationFilter =
-              new RegexFilter.RegexFilterConverter().convert(instrumentationFilter);
-        } catch (OptionsParsingException e) {
-          throw new InvalidConfigurationException(Code.HEURISTIC_INSTRUMENTATION_FILTER_INVALID, e);
-        }
-      }
-    }
-
     // Exit if there are any pending exceptions from modules.
     env.throwPendingException();
 

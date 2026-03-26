@@ -31,6 +31,7 @@
 #include <unistd.h>
 #include <utime.h>
 
+#include <iterator>
 // Linting disabled for this line because for google code we could use
 // absl::Mutex but we cannot yet because Bazel doesn't depend on absl.
 #include <mutex>  // NOLINT
@@ -38,7 +39,6 @@
 #include <vector>
 
 #include "src/main/cpp/util/logging.h"
-#include "src/main/cpp/util/port.h"
 #include "src/main/native/latin1_jni_path.h"
 
 #define RESTARTABLE(_cmd, _result)                 \
@@ -256,7 +256,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_readlink(
   }
   char target[PATH_MAX + 1];
   ssize_t len;
-  RESTARTABLE(readlink(path_chars, target, arraysize(target) - 1), len);
+  RESTARTABLE(readlink(path_chars, target, std::size(target) - 1), len);
   if (len == -1) {
     POST_EXCEPTION_FROM_ERRNO(env, errno, path_chars);
     return nullptr;
@@ -976,7 +976,7 @@ static jbyteArray getxattr_common(JNIEnv *env,
   jbyteArray result = nullptr;
   bool attr_not_found = false;
   ssize_t size;
-  RESTARTABLE(getxattr(path_chars, name_chars, value, arraysize(value),
+  RESTARTABLE(getxattr(path_chars, name_chars, value, std::size(value),
                        &attr_not_found),
               size);
   if (size == -1) {

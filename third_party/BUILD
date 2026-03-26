@@ -78,6 +78,16 @@ java_library(
     ],
 )
 
+exports_files(
+    [
+        # keep sorted
+        "asm/asm-9.9-sources.jar",
+        "asm/asm-analysis-9.9-sources.jar",
+        "asm/asm-commons-9.9-sources.jar",
+        "asm/asm-tree-9.9-sources.jar",
+    ],
+)
+
 distrib_java_import(
     name = "asm",
     enable_distributions = ["debian"],

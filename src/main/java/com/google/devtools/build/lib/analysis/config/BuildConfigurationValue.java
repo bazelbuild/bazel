@@ -745,12 +745,6 @@ public class BuildConfigurationValue
     return isExecConfiguration();
   }
 
-  @Override
-  public boolean isToolConfigurationForStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
-    return isToolConfiguration();
-  }
-
   public boolean checkVisibility() {
     return options.checkVisibility;
   }

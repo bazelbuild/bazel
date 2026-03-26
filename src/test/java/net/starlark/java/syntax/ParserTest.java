@@ -1466,15 +1466,37 @@ public final class ParserTest {
     setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
     // basic examples
     assertThat(parseTypeExpression("int")).isInstanceOf(Identifier.class);
-    assertThat(parseTypeExpression("tuple[]")).isInstanceOf(TypeApplication.class);
     assertThat(parseTypeExpression("list[str]")).isInstanceOf(TypeApplication.class);
     assertThat(parseTypeExpression("dict[str, int]")).isInstanceOf(TypeApplication.class);
+    // type applications must have at least one argument
+    assertThat(assertThrows(SyntaxError.Exception.class, () -> parseTypeExpression("tuple[]")))
+        .hasMessageThat()
+        .contains("syntax error at ']': expected a type argument");
     // type expressions can use list literals
     assertThat(parseTypeExpression("Callable[[int, str], int]"))
         .isInstanceOf(TypeApplication.class);
-    // type expressions can use dict literals
+    // type expressions can use dict literals with string keys and type expression values
     assertThat(parseTypeExpression("TypedDict[{'a': int, 'b': bool}]"))
         .isInstanceOf(TypeApplication.class);
+    // (non-string keys, or non-type-expression values, are a parse-time error)
+    assertThat(
+            assertThrows(
+                SyntaxError.Exception.class, () -> parseTypeExpression("TypedDict[{x: y}]")))
+        .hasMessageThat()
+        .contains("syntax error at 'x': expected string literal");
+    assertThat(
+            assertThrows(
+                SyntaxError.Exception.class, () -> parseTypeExpression("TypedDict[{'x': foo()}]")))
+        .hasMessageThat()
+        .contains("syntax error at '(': expected ,");
+    // type expressions can use empty tuple literals
+    assertThat(parseTypeExpression("tuple[()]")).isInstanceOf(TypeApplication.class);
+    // ...but not non-empty tuples
+    assertThat(
+            assertThrows(
+                SyntaxError.Exception.class, () -> parseTypeExpression("tuple[(int, str)]")))
+        .hasMessageThat()
+        .contains("syntax error at 'int': expected )");
     // type expressions can use string literals
     assertThat(parseTypeExpression("Literal['abc']")).isInstanceOf(TypeApplication.class);
     // composition
@@ -1520,7 +1542,7 @@ public final class ParserTest {
   public void testDefWithTypeAnnotations() throws Exception {
     setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
     parseStatement("def f(a: int): pass");
-    parseStatement("def f(a: tuple[]): pass");
+    parseStatement("def f(a: tuple[()]): pass");
     parseStatement("def f(a: list[str]): pass");
     parseStatement("def f(a: dict[str, int]): pass");
 

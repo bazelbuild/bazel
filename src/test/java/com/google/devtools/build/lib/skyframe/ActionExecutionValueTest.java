@@ -102,11 +102,17 @@ public final class ActionExecutionValueTest {
         .addEqualityGroup(ImmutableMap.of(tree1, tree1Value2))
         // outputSymlinks
         .addEqualityGroup(
-            createWithFilesetOutput(FilesetOutputTree.create(ImmutableList.of(symlink1))))
+            createWithFilesetOutput(
+                FilesetOutputTree.create(
+                    ImmutableList.of(symlink1), /* treeArtifacts= */ ImmutableMap.of())))
         .addEqualityGroup(
-            createWithFilesetOutput(FilesetOutputTree.create(ImmutableList.of(symlink2))))
+            createWithFilesetOutput(
+                FilesetOutputTree.create(
+                    ImmutableList.of(symlink2), /* treeArtifacts= */ ImmutableMap.of())))
         .addEqualityGroup(
-            createWithFilesetOutput(FilesetOutputTree.create(ImmutableList.of(symlink1, symlink2))))
+            createWithFilesetOutput(
+                FilesetOutputTree.create(
+                    ImmutableList.of(symlink1, symlink2), /* treeArtifacts= */ ImmutableMap.of())))
         // discoveredModules
         .addEqualityGroup(
             createWithDiscoveredModules(
@@ -141,7 +147,8 @@ public final class ActionExecutionValueTest {
                 FilesetOutputTree.create(
                     ImmutableList.of(
                         new FilesetOutputSymlink(
-                            PathFragment.create("name"), output("target"), VALUE_1_REMOTE)))),
+                            PathFragment.create("name"), output("target"), VALUE_1_REMOTE)),
+                    /* treeArtifacts= */ ImmutableMap.of())),
             // Module discovering
             createWithDiscoveredModules(
                 NestedSetBuilder.create(Order.STABLE_ORDER, output("module"))),

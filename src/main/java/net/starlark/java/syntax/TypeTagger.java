@@ -19,10 +19,12 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.spelling.SpellChecker;
@@ -152,12 +154,35 @@ public final class TypeTagger extends NodeVisitor {
       case ELLIPSIS -> {
         return TypeConstructor.Arg.ELLIPSIS;
       }
+      case LIST_EXPR -> {
+        ListExpression listExpr = (ListExpression) expr;
+        if (listExpr.isTuple() && listExpr.getElements().isEmpty()) {
+          return TypeConstructor.Arg.EMPTY_TUPLE;
+        }
+      }
+      case DICT_EXPR -> {
+        DictExpression dictExpr = (DictExpression) expr;
+        LinkedHashMap<String, StarlarkType> types = new LinkedHashMap<>();
+        for (DictExpression.Entry entry : dictExpr.getEntries()) {
+          if (entry.getKey() instanceof StringLiteral str) {
+            String key = str.getValue();
+            @Nullable var previous = types.put(key, extractType(entry.getValue()));
+            if (previous != null) {
+              errorf(str, "dictionary expression has duplicate key: %s", str);
+            }
+          } else {
+            errorf(entry.getKey(), "expected a string literal but got '%s'", entry.getKey());
+          }
+        }
+        return new TypeConstructor.Arg.TypeDict(ImmutableMap.copyOf(types));
+      }
       default -> {
-        // TODO(ilist@): full evaluation: lists and dicts
-        errorf(expr, "unexpected expression '%s'", expr);
-        return Types.ANY;
+        // fall through
       }
     }
+    // TODO(ilist@): full evaluation: lists and dicts
+    errorf(expr, "unexpected expression '%s'", expr);
+    return Types.ANY;
   }
 
   private StarlarkType extractType(Expression expr) {

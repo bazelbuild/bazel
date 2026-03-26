@@ -2,7 +2,6 @@
 title: 'Extension Overview'
 ---
 
-<!-- [TOC] -->
 
 This page describes how to extend the BUILD language using macros
 and rules.
@@ -18,7 +17,7 @@ Before learning the more advanced concepts, first:
 * Learn how you can [share variables](/versions/8.3.1/build/share-variables)
   between two `BUILD` files.
 
-## Macros and rules
+## Macros and rules {#macros-and-rules}
 
 A macro is a function that instantiates rules. Macros come in two flavors:
 [symbolic macros](/versions/8.3.1/extending/macros) (new in Bazel 8) and [legacy
@@ -43,7 +42,7 @@ complex, it is often a good idea to make it a rule. Support for a new language
 is typically done with a rule. Rules are for advanced users, and most users will
 never have to write one; they will only load and call existing rules.
 
-## Evaluation model
+## Evaluation model {#evaluation-model}
 
 A build consists of three phases.
 

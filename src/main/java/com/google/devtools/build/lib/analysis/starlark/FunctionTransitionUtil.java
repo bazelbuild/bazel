@@ -27,6 +27,7 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -60,6 +61,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkSet;
 
 /**
  * Utility class for common work done across {@link StarlarkAttributeTransitionProvider} and {@link
@@ -347,6 +349,9 @@ public final class FunctionTransitionUtil {
         .buildOrThrow();
   }
 
+  private static final List<String> TRUE_STRINGS = ImmutableList.of("true", "1");
+  private static final List<String> FALSE_STRINGS = ImmutableList.of("false", "0");
+
   /** Set the Starlark flag value to the value of its alias. */
   private static Map<Label, Object> applyStarlarkFlagsAliases(
       ImmutableMap<String, Label> flagsAliases, Map<Label, Object> rawTransitionOutput)
@@ -362,23 +367,42 @@ public final class FunctionTransitionUtil {
           Label.createUnvalidated(
               LabelConstants.COMMAND_LINE_OPTION_PACKAGE_IDENTIFIER, flagAlias.getKey());
       Label starlarkFlag = flagAlias.getValue();
-
-      if (rawTransitionOutput.containsKey(starlarkFlag)
-          && rawTransitionOutput.containsKey(nativeFlag)) {
-        if (!rawTransitionOutput.get(starlarkFlag).equals(rawTransitionOutput.get(nativeFlag))) {
+      Optional<Object> starlarkValue =
+          rawTransitionOutput.containsKey(starlarkFlag)
+              ? Optional.of(rawTransitionOutput.get(starlarkFlag))
+              : Optional.empty();
+      Optional<Object> nativeValue =
+          rawTransitionOutput.containsKey(nativeFlag)
+              ? Optional.of(rawTransitionOutput.get(nativeFlag))
+              : Optional.empty();
+      if (starlarkValue.isPresent() && nativeValue.isPresent()) {
+        boolean mismatch = false;
+        if (starlarkValue.get() instanceof Boolean boolValue) {
+          // Supports migrating Tristate native flags to boolean Starlark flags. The former appear
+          // as strings. But if those strings are "false", "true", etc. those are valid booleans.
+          if (boolValue && !TRUE_STRINGS.contains(nativeValue.get().toString().toLowerCase())) {
+            mismatch = true;
+          } else if (!boolValue
+              && !FALSE_STRINGS.contains(nativeValue.get().toString().toLowerCase())) {
+            mismatch = true;
+          }
+        } else if (!starlarkValue.get().equals(nativeValue.get())) {
+          mismatch = true;
+        }
+        if (mismatch) {
           throw new ValidationException(
               String.format(
                   "Starlark flag '%s' and its alias '%s' have different values: '%s' and '%s'",
-                  starlarkFlag,
-                  nativeFlag,
-                  rawTransitionOutput.get(starlarkFlag),
-                  rawTransitionOutput.get(nativeFlag)));
+                  starlarkFlag, nativeFlag, starlarkValue.get(), nativeValue.get()));
         }
       }
-
-      if (rawTransitionOutput.containsKey(nativeFlag)) {
+      if (nativeValue.isPresent()) {
         // Add the starlark flag to the result, using the value of the alias.
-        result.put(starlarkFlag, rawTransitionOutput.get(nativeFlag));
+        result.put(
+            starlarkFlag,
+            starlarkValue.isPresent() && starlarkValue.get() instanceof Boolean
+                ? Boolean.parseBoolean(nativeValue.get().toString())
+                : nativeValue.get());
         // Remove the entry of the alias.
         result.remove(nativeFlag);
       }
@@ -638,11 +662,26 @@ public final class FunctionTransitionUtil {
                 optionKey, Starlark.type(optionValue));
           }
         } else if (oldValue instanceof Set) {
-          // If this is a set-typed build setting, for backwards compatibility, if the provided
-          // value is a List, we need to convert it to a Set.
-          if (optionValue instanceof List<?>) {
-            optionValue = ImmutableSet.copyOf((List<?>) optionValue);
-          } else if (!(optionValue instanceof Set)) {
+          // If this is a set-typed build setting, we need to ensure the value is a sorted
+          // set for consistency and to match rule expectations.
+          if (optionValue instanceof List<?> list) {
+            try {
+              optionValue =
+                  ImmutableSortedSet.copyOf(
+                      list.stream()
+                          // Cast each element to avoid unchecked exception.
+                          .map(Comparable.class::cast)
+                          .collect(toImmutableList()));
+            } catch (ClassCastException e) {
+              // If sorting fails (e.g. mixed types), convert to an unsorted ImmutableSet.
+              // This allows the subsequent type validation to handle the invalid values
+              // and produce a user-friendly error message.
+              optionValue = ImmutableSet.copyOf(list);
+            }
+          } else if (optionValue instanceof Set<?> set) {
+            // If the value is already a set, just convert it to a sorted set.
+            optionValue = StarlarkSet.immutableCopyOf(ImmutableSortedSet.copyOf(set));
+          } else {
             throw ValidationException.format(
                 "Invalid value type for option '%s': want set, got %s",
                 optionKey, Starlark.type(optionValue));

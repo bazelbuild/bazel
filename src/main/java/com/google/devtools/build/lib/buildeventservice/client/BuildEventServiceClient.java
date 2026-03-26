@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.auto.value.AutoBuilder;
-import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import java.time.Instant;
@@ -118,7 +117,8 @@ public interface BuildEventServiceClient {
      *
      * @param payload the {@link BuildEventStreamProtos.BuildEvent} in wire format
      */
-    record BazelEvent(Instant eventTime, long sequenceNumber, ByteString payload)
+    @SuppressWarnings("ArrayRecordComponent")
+    record BazelEvent(Instant eventTime, long sequenceNumber, byte[] payload)
         implements StreamEvent {}
 
     /** An event signalling the end of the stream. */

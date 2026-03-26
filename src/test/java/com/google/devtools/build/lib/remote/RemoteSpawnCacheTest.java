@@ -75,10 +75,10 @@ import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.CombinedCache.CachedActionResult;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
+import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -460,7 +460,11 @@ public class RemoteSpawnCacheTest {
       combinedCache =
           spy(
               new CombinedCache(
-                  remoteCacheClient, diskCacheClient, /* symlinkTemplate= */ null, digestUtil));
+                  remoteCacheClient,
+                  diskCacheClient,
+                  /* symlinkTemplate= */ null,
+                  digestUtil,
+                  /* chunkingEnabled= */ false));
 
       var remoteSpawnCache = remoteSpawnCacheWithOptions(remoteOptions);
       for (String requirement :
@@ -501,7 +505,8 @@ public class RemoteSpawnCacheTest {
                 remoteCacheClient,
                 /* diskCacheClient= */ null,
                 /* symlinkTemplate= */ null,
-                digestUtil));
+                digestUtil,
+                /* chunkingEnabled= */ false));
     RemoteSpawnCache remoteSpawnCache = remoteSpawnCacheWithOptions(remoteCacheOptions);
     for (String requirement :
         ImmutableList.of(
@@ -545,7 +550,11 @@ public class RemoteSpawnCacheTest {
     combinedCache =
         spy(
             new CombinedCache(
-                remoteCacheClient, diskCacheClient, /* symlinkTemplate= */ null, digestUtil));
+                remoteCacheClient,
+                diskCacheClient,
+                /* symlinkTemplate= */ null,
+                digestUtil,
+                /* chunkingEnabled= */ false));
 
     for (String requirement :
         ImmutableList.of(ExecutionRequirements.NO_CACHE, ExecutionRequirements.LOCAL)) {

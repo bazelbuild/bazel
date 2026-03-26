@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static net.starlark.java.syntax.TestUtils.assertContainsError;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.BooleanSubject;
 import java.util.ArrayList;
 import javax.annotation.Nullable;
@@ -35,7 +36,8 @@ public class TypeTaggerTest {
   private FileOptions.Builder options =
       FileOptions.builder().allowTypeSyntax(true).resolveTypeSyntax(true);
 
-  private Module module = TestUtils.Module.withUniversalTypes();
+  private Module module =
+      TestUtils.Module.withUniversalTypesAnd("struct", Types.STRUCT_CONSTRUCTOR);
 
   /** Extracts an expression string to a type in an empty environment. */
   private StarlarkType extractType(String type) throws Exception {
@@ -177,6 +179,7 @@ public class TypeTaggerTest {
     assertExtractTypeFails("list[int, bool]", "list[] accepts exactly 1 argument but got 2");
     assertExtractTypeFails("list[[int]]", "unexpected expression '[int]'");
     assertExtractTypeFails("list[int, ...]", "in application to list, got '...', expected a type");
+    assertExtractTypeFails("list[()]", "in application to list, got '()', expected a type");
   }
 
   @Test
@@ -192,16 +195,14 @@ public class TypeTaggerTest {
 
   @Test
   public void extractType_tuple() throws Exception {
-    // TODO: #27370 - we may want to distinguish `tuple` from `tuple[]`, and have the former as a
-    // convenience alias for `tuple[Any, ...]`.
-    assertThat(extractType("tuple")).isEqualTo(Types.tuple());
-    assertThat(extractType("tuple[]")).isEqualTo(Types.tuple()); // the empty tuple type
+    assertThat(extractType("tuple[()]")).isEqualTo(Types.EMPTY_TUPLE);
     assertThat(extractType("tuple[int]")).isEqualTo(Types.tuple(Types.INT));
     assertThat(extractType("tuple[int, str, bool]"))
         .isEqualTo(Types.tuple(Types.INT, Types.STR, Types.BOOL));
     assertThat(extractType("tuple[tuple[int, str], bool]"))
         .isEqualTo(Types.tuple(Types.tuple(Types.INT, Types.STR), Types.BOOL));
     assertThat(extractType("tuple[int, ...]")).isEqualTo(Types.homogeneousTuple(Types.INT));
+    assertThat(extractType("tuple")).isEqualTo(Types.homogeneousTuple(Types.ANY));
 
     assertExtractTypeFails(
         "tuple[...]",
@@ -211,6 +212,24 @@ public class TypeTaggerTest {
         "tuple[int, str, ...]",
         "in application to tuple, '...' can only appear as the second of exactly 2 arguments, where"
             + " the first argument is a type");
+    assertExtractTypeFails(
+        "tuple[(), int]",
+        "in application to tuple, '()' can only appear if it is the only argument");
+  }
+
+  @Test
+  public void extractType_struct() throws Exception {
+    assertThat(extractType("struct[{}]")).isEqualTo(Types.struct(ImmutableMap.of()));
+    assertThat(extractType("struct[{'foo': int, 'bar': list[str]}]"))
+        .isEqualTo(Types.struct(ImmutableMap.of("foo", Types.INT, "bar", Types.list(Types.STR))));
+
+    assertExtractTypeFails("struct", "struct[] accepts exactly 1 argument but got 0");
+    assertExtractTypeFails(
+        "struct[{'a': int}, {'b': str}]", "struct[] accepts exactly 1 argument but got 2");
+    assertExtractTypeFails("struct[int]", "in application to struct, got 'int', expected a dict");
+    // Just like for eval-time dict literals, keys must be unique.
+    assertExtractTypeFails(
+        "struct[{'foo': int, 'foo': bool}]", "dictionary expression has duplicate key: \"foo\"");
   }
 
   @Test

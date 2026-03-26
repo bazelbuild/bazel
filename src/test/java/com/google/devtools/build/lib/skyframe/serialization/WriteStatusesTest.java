@@ -113,6 +113,27 @@ public final class WriteStatusesTest {
   }
 
   @Test
+  public void settableWriteStatus_failWith_cancellationException() throws Exception {
+    var status = new SettableWriteStatus();
+
+    assertThat(status.isDone()).isFalse();
+    var setOnRun = new SetOnRun();
+    status.addListener(setOnRun, directExecutor());
+    assertThat(setOnRun.isSet).isFalse();
+
+    status.failWith(new CancellationException());
+
+    assertThat(setOnRun.isSet).isTrue();
+    assertThat(status.isDone()).isTrue();
+    assertThat(status.isCancelled()).isTrue();
+
+    assertThrows(CancellationException.class, status::get);
+    assertThrows(CancellationException.class, () -> status.get(0, SECONDS));
+
+    assertListenerExecutesImmediately(status);
+  }
+
+  @Test
   public void settableWriteStatus_completeWith_successfulFuture() throws Exception {
     var status = new SettableWriteStatus();
 

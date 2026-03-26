@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -135,6 +136,24 @@ public abstract class PersistentMap<K, V> extends ForwardingConcurrentMap<K, V> 
       maybeFlushJournal();
     }
     return previous;
+  }
+
+  @ThreadSafe
+  @Override
+  public V computeIfAbsent(K key, Function<? super K, ? extends V> mappingFunction) {
+    boolean[] added = new boolean[1];
+    V value =
+        delegate.computeIfAbsent(
+            key,
+            k -> {
+              added[0] = true;
+              return mappingFunction.apply(k);
+            });
+    if (added[0]) {
+      journal.add(key);
+      maybeFlushJournal();
+    }
+    return value;
   }
 
   /**

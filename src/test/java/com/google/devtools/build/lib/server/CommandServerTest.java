@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.GrpcServer;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
-import com.google.devtools.build.lib.server.GrpcServerImpl.BlockingStreamObserver;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
@@ -49,11 +48,9 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.BytesValue;
 import com.google.protobuf.Int32Value;
 import com.google.protobuf.StringValue;
-import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
-import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -63,8 +60,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -72,44 +67,59 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Unit tests for the gRPC server. */
+/** Unit tests for {@link CommandServer}. */
 @RunWith(JUnit4.class)
-public final class GrpcServerTest {
+public final class CommandServerTest {
 
   private static final int SERVER_PID = 42;
   private static final String REQUEST_COOKIE = "request-cookie";
+  private static final String RESPONSE_COOKIE = "response-cookie";
 
   private final FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
-  private Server server;
-  private ManagedChannel channel;
 
-  private void createServer(CommandDispatcher dispatcher) throws Exception {
+  record ServerAndStub(CommandServer server, CommandServerStub stub) {}
+
+  private ServerAndStub createServerAndStub(CommandDispatcher dispatcher) throws Exception {
     Path serverDirectory = fileSystem.getPath("/bazel_server_directory");
     serverDirectory.createDirectoryAndParents();
 
-    GrpcServerImpl serverImpl =
-        new GrpcServerImpl(
+    String name = InProcessServerBuilder.generateName();
+
+    GrpcCommandServer grpcCommandServer =
+        new GrpcCommandServerImpl() {
+          @Override
+          protected Server bind(int port) throws IOException {
+            return InProcessServerBuilder.forName(name)
+                .directExecutor()
+                .addService(this)
+                .build()
+                .start();
+          }
+        };
+
+    CommandServer server =
+        new CommandServer(
+            grpcCommandServer,
             dispatcher,
             ShutdownHooks.createUnregistered(),
             new PidFileWatcher(fileSystem.getPath("/thread-not-running-dont-need"), SERVER_PID),
             new JavaClock(),
-            /* port= */ -1,
+            /* port= */ 0,
             REQUEST_COOKIE,
-            "response-cookie",
+            RESPONSE_COOKIE,
             serverDirectory,
             SERVER_PID,
             /* maxIdleSeconds= */ 1000,
             /* shutdownOnLowSysMem= */ false,
             /* doIdleServerTasks= */ true,
             "slow interrupt message suffix");
-    String uniqueName = InProcessServerBuilder.generateName();
-    server =
-        InProcessServerBuilder.forName(uniqueName)
-            .directExecutor()
-            .addService(serverImpl)
-            .build()
-            .start();
-    channel = InProcessChannelBuilder.forName(uniqueName).directExecutor().build();
+
+    server.serve();
+
+    CommandServerStub stub =
+        CommandServerGrpc.newStub(InProcessChannelBuilder.forName(name).directExecutor().build());
+
+    return new ServerAndStub(server, stub);
   }
 
   private static RunRequest createRequest(String... args) {
@@ -154,10 +164,12 @@ public final class GrpcServerTest {
             return BlazeCommandResult.success();
           }
         };
-    createServer(dispatcher);
+
+    ServerAndStub serverAndStub = createServerAndStub(dispatcher);
+    CommandServer server = serverAndStub.server();
+    CommandServerStub stub = serverAndStub.stub();
 
     CountDownLatch done = new CountDownLatch(1);
-    CommandServerStub stub = CommandServerGrpc.newStub(channel);
     List<RunResponse> responses = new ArrayList<>();
     stub.run(
         createRequest("Foo").toBuilder().addCommandExtensions(commandExtension).build(),
@@ -202,22 +214,28 @@ public final class GrpcServerTest {
             idleTaskResultsSupplier,
             cmdExts,
             cmdExtOut) -> {
-          // Send the first extension.
-          cmdExtOut.report(commandExtension1);
-          afterFirstExtensionLatch.countDown();
-          // Send the second extension.
-          beforeSecondExtensionLatch.await(WAIT_TIMEOUT_SECONDS, SECONDS);
-          cmdExtOut.report(commandExtension2);
-          afterSecondExtensionLatch.countDown();
-          // Send the third extension.
-          beforeThirdExtensionLatch.await(WAIT_TIMEOUT_SECONDS, SECONDS);
-          cmdExtOut.report(commandExtension3);
-          afterThirdExtensionLatch.countDown();
+          try {
+            // Send the first extension.
+            cmdExtOut.report(commandExtension1);
+            afterFirstExtensionLatch.countDown();
+            // Send the second extension.
+            beforeSecondExtensionLatch.await(WAIT_TIMEOUT_SECONDS, SECONDS);
+            cmdExtOut.report(commandExtension2);
+            afterSecondExtensionLatch.countDown();
+            // Send the third extension.
+            beforeThirdExtensionLatch.await(WAIT_TIMEOUT_SECONDS, SECONDS);
+            cmdExtOut.report(commandExtension3);
+            afterThirdExtensionLatch.countDown();
+          } catch (IOException e) {
+            throw new IllegalStateException(e);
+          }
           // Finish the fake command.
           return BlazeCommandResult.success();
         };
-    createServer(dispatcher);
-    CommandServerStub stub = CommandServerGrpc.newStub(channel);
+
+    ServerAndStub serverAndStub = createServerAndStub(dispatcher);
+    CommandServer server = serverAndStub.server();
+    CommandServerStub stub = serverAndStub.stub();
 
     // Act: Start the streaming RPC.
     List<RunResponse> responses = new ArrayList<>();
@@ -275,9 +293,11 @@ public final class GrpcServerTest {
                     .build());
           }
         };
-    createServer(dispatcher);
 
-    CommandServerStub stub = CommandServerGrpc.newStub(channel);
+    ServerAndStub serverAndStub = createServerAndStub(dispatcher);
+    CommandServer server = serverAndStub.server();
+    CommandServerStub stub = serverAndStub.stub();
+
     stub.run(
         createRequest("Foo"),
         new StreamObserver<RunResponse>() {
@@ -331,10 +351,12 @@ public final class GrpcServerTest {
                     Any.pack(BytesValue.of(ByteString.copyFromUtf8("bar")))));
           }
         };
-    createServer(dispatcher);
+
+    ServerAndStub serverAndStub = createServerAndStub(dispatcher);
+    CommandServer server = serverAndStub.server();
+    CommandServerStub stub = serverAndStub.stub();
 
     CountDownLatch done = new CountDownLatch(1);
-    CommandServerStub stub = CommandServerGrpc.newStub(channel);
     List<RunResponse> responses = new ArrayList<>();
     stub.run(createRequest("Foo"), createResponseObserver(responses, done));
     done.await();
@@ -388,9 +410,11 @@ public final class GrpcServerTest {
 
   private void runBadCommandTest(RunRequest.Builder runRequestBuilder, FailureDetail failureDetail)
       throws Exception {
-    createServer(throwingDispatcher());
+    ServerAndStub serverAndStub = createServerAndStub(throwingDispatcher());
+    CommandServer server = serverAndStub.server();
+    CommandServerStub stub = serverAndStub.stub();
+
     CountDownLatch done = new CountDownLatch(1);
-    CommandServerStub stub = CommandServerGrpc.newStub(channel);
     List<RunResponse> responses = new ArrayList<>();
 
     stub.run(
@@ -409,9 +433,11 @@ public final class GrpcServerTest {
 
   @Test
   public void unparseableInvocationPolicy() throws Exception {
-    createServer(throwingDispatcher());
+    ServerAndStub serverAndStub = createServerAndStub(throwingDispatcher());
+    CommandServer server = serverAndStub.server();
+    CommandServerStub stub = serverAndStub.stub();
+
     CountDownLatch done = new CountDownLatch(1);
-    CommandServerStub stub = CommandServerGrpc.newStub(channel);
     List<RunResponse> responses = new ArrayList<>();
 
     stub.run(
@@ -476,9 +502,11 @@ public final class GrpcServerTest {
             }
           }
         };
-    createServer(dispatcher);
 
-    CommandServerStub stub = CommandServerGrpc.newStub(channel);
+    ServerAndStub serverAndStub = createServerAndStub(dispatcher);
+    CommandServer server = serverAndStub.server();
+    CommandServerStub stub = serverAndStub.stub();
+
     List<RunResponse> responses = new ArrayList<>();
     stub.run(
         createRequest("Foo"),
@@ -530,13 +558,16 @@ public final class GrpcServerTest {
             throw new IllegalStateException();
           }
         };
-    createServer(dispatcher);
+
+    ServerAndStub serverAndStub = createServerAndStub(dispatcher);
+    CommandServer server = serverAndStub.server();
+    CommandServerStub stub = serverAndStub.stub();
 
     AtomicReference<String> commandId = new AtomicReference<>();
     CountDownLatch gotCommandId = new CountDownLatch(1);
     AtomicReference<RunResponse> secondResponse = new AtomicReference<>();
     CountDownLatch gotSecondResponse = new CountDownLatch(1);
-    CommandServerStub stub = CommandServerGrpc.newStub(channel);
+
     stub.run(
         createRequest("Foo"),
         new StreamObserver<RunResponse>() {
@@ -630,13 +661,15 @@ public final class GrpcServerTest {
             }
           }
         };
-    createServer(dispatcher);
+
+    ServerAndStub serverAndStub = createServerAndStub(dispatcher);
+    CommandServer server = serverAndStub.server();
+    CommandServerStub stub = serverAndStub.stub();
 
     CountDownLatch gotFoo = new CountDownLatch(1);
     AtomicReference<RunResponse> lastFooResponse = new AtomicReference<>();
     AtomicReference<RunResponse> lastBarResponse = new AtomicReference<>();
 
-    CommandServerStub stub = CommandServerGrpc.newStub(channel);
     stub.run(
         createPreemptibleRequest(firstCommandArg),
         new StreamObserver<RunResponse>() {
@@ -728,13 +761,15 @@ public final class GrpcServerTest {
             }
           }
         };
-    createServer(dispatcher);
+
+    ServerAndStub serverAndStub = createServerAndStub(dispatcher);
+    CommandServer server = serverAndStub.server();
+    CommandServerStub stub = serverAndStub.stub();
 
     CountDownLatch gotFoo = new CountDownLatch(1);
     AtomicReference<RunResponse> lastFooResponse = new AtomicReference<>();
     AtomicReference<RunResponse> lastBarResponse = new AtomicReference<>();
 
-    CommandServerStub stub = CommandServerGrpc.newStub(channel);
     stub.run(
         createPreemptibleRequest(firstCommandArg),
         new StreamObserver<RunResponse>() {
@@ -825,12 +860,14 @@ public final class GrpcServerTest {
             return BlazeCommandResult.success();
           }
         };
-    createServer(dispatcher);
+
+    ServerAndStub serverAndStub = createServerAndStub(dispatcher);
+    CommandServer server = serverAndStub.server();
+    CommandServerStub stub = serverAndStub.stub();
 
     AtomicReference<RunResponse> lastFooResponse = new AtomicReference<>();
     AtomicReference<RunResponse> lastBarResponse = new AtomicReference<>();
 
-    CommandServerStub stub = CommandServerGrpc.newStub(channel);
     stub.run(
         createRequest(firstCommandArg),
         new StreamObserver<RunResponse>() {
@@ -877,279 +914,6 @@ public final class GrpcServerTest {
   }
 
   @Test
-  public void testFlowControl() throws Exception {
-    // This test attempts to verify that FlowControl successfully blocks after some number of onNext
-    // calls (however long it takes to fill up gRPCs internal buffers). In order to trigger this
-    // behavior, we intentionally block the client after a few successful calls, then wait a bit,
-    // and then check that the server has stopped prematurely. Unfortunately, we cannot
-    // deterministically verify that the onNext call is blocking. A faulty implementation of
-    // FlowControl could pass this test if the sleep is too short. However, a correct implementation
-    // should never fail this test.
-    // This test could start failing if gRPCs internal buffer size is increased. If it fails after
-    // an upgrade of gRPC, you might want to check that.
-    CountDownLatch serverDone = new CountDownLatch(1);
-    CountDownLatch clientBlocks = new CountDownLatch(1);
-    CountDownLatch clientUnblocks = new CountDownLatch(1);
-    CountDownLatch clientDone = new CountDownLatch(1);
-    AtomicInteger sentCount = new AtomicInteger();
-    AtomicInteger receiveCount = new AtomicInteger();
-    CommandServerGrpc.CommandServerImplBase serverImpl =
-        new CommandServerGrpc.CommandServerImplBase() {
-          @Override
-          public void run(RunRequest request, StreamObserver<RunResponse> observer) {
-            ServerCallStreamObserver<RunResponse> serverCallStreamObserver =
-                (ServerCallStreamObserver<RunResponse>) observer;
-            BlockingStreamObserver<RunResponse> blockingStreamObserver =
-                new BlockingStreamObserver<>(serverCallStreamObserver);
-            Thread t =
-                new Thread(
-                    () -> {
-                      RunResponse response =
-                          RunResponse.newBuilder()
-                              .setStandardOutput(ByteString.copyFrom(new byte[1024]))
-                              .build();
-                      for (int i = 0; i < 100; i++) {
-                        blockingStreamObserver.onNext(response);
-                        sentCount.incrementAndGet();
-                      }
-                      blockingStreamObserver.onCompleted();
-                      serverDone.countDown();
-                    });
-            t.start();
-          }
-        };
-
-    String uniqueName = InProcessServerBuilder.generateName();
-    // Do not use .directExecutor here, as it makes both client and server run in the same thread.
-    server =
-        InProcessServerBuilder.forName(uniqueName)
-            .addService(serverImpl)
-            .executor(Executors.newFixedThreadPool(4))
-            .build()
-            .start();
-    channel =
-        InProcessChannelBuilder.forName(uniqueName)
-            .executor(Executors.newFixedThreadPool(4))
-            .build();
-
-    CommandServerStub stub = CommandServerGrpc.newStub(channel);
-    stub.run(
-        RunRequest.getDefaultInstance(),
-        new StreamObserver<RunResponse>() {
-          @Override
-          public void onNext(RunResponse value) {
-            if (sentCount.get() >= 3) {
-              clientBlocks.countDown();
-              try {
-                clientUnblocks.await();
-              } catch (InterruptedException e) {
-                throw new IllegalStateException(e);
-              }
-            }
-            receiveCount.incrementAndGet();
-          }
-
-          @Override
-          public void onError(Throwable t) {
-            throw new IllegalStateException(t);
-          }
-
-          @Override
-          public void onCompleted() {
-            clientDone.countDown();
-          }
-        });
-    clientBlocks.await();
-    // Wait a bit for the server to (hopefully) block. If the server does not block, then this may
-    // be flaky.
-    Thread.sleep(10);
-    assertThat(sentCount.get()).isLessThan(5);
-    clientUnblocks.countDown();
-    serverDone.await();
-    clientDone.await();
-    server.shutdown();
-    server.awaitTermination();
-  }
-
-  @Test
-  public void testFlowControlClientCancel() throws Exception {
-    // This test attempts to verify that FlowControl unblocks if the client prematurely closes the
-    // connection. In that case, FlowControl should observe the onCancel event and interrupt the
-    // calling thread. I have observed this test failing with an intentionally introduced bug in
-    // FlowControl.
-    CountDownLatch serverDone = new CountDownLatch(1);
-    CountDownLatch clientDone = new CountDownLatch(1);
-    AtomicInteger sentCount = new AtomicInteger();
-    AtomicInteger receiveCount = new AtomicInteger();
-    CommandServerGrpc.CommandServerImplBase serverImpl =
-        new CommandServerGrpc.CommandServerImplBase() {
-          @Override
-          public void run(RunRequest request, StreamObserver<RunResponse> observer) {
-            ServerCallStreamObserver<RunResponse> serverCallStreamObserver =
-                (ServerCallStreamObserver<RunResponse>) observer;
-            BlockingStreamObserver<RunResponse> blockingStreamObserver =
-                new BlockingStreamObserver<>(serverCallStreamObserver);
-            Thread t =
-                new Thread(
-                    () -> {
-                      RunResponse response =
-                          RunResponse.newBuilder()
-                              .setStandardOutput(ByteString.copyFrom(new byte[1024]))
-                              .build();
-                      for (int i = 0; i < 100; i++) {
-                        blockingStreamObserver.onNext(response);
-                        sentCount.incrementAndGet();
-                      }
-                      // FlowControl should have interrupted the current thread after learning of
-                      // the server
-                      // cancel.
-                      assertThat(Thread.currentThread().isInterrupted()).isTrue();
-                      blockingStreamObserver.onCompleted();
-                      serverDone.countDown();
-                    });
-            t.start();
-          }
-        };
-
-    String uniqueName = InProcessServerBuilder.generateName();
-    // Do not use .directExecutor here, as it makes both client and server run in the same thread.
-    server =
-        InProcessServerBuilder.forName(uniqueName)
-            .addService(serverImpl)
-            .executor(Executors.newFixedThreadPool(4))
-            .build()
-            .start();
-    channel =
-        InProcessChannelBuilder.forName(uniqueName)
-            .executor(Executors.newFixedThreadPool(4))
-            .build();
-
-    CommandServerStub stub = CommandServerGrpc.newStub(channel);
-    stub.run(
-        RunRequest.getDefaultInstance(),
-        new StreamObserver<RunResponse>() {
-          @Override
-          public void onNext(RunResponse value) {
-            if (receiveCount.get() > 3) {
-              channel.shutdownNow();
-            }
-            receiveCount.incrementAndGet();
-          }
-
-          @Override
-          public void onError(Throwable t) {
-            clientDone.countDown();
-          }
-
-          @Override
-          public void onCompleted() {
-            clientDone.countDown();
-          }
-        });
-    serverDone.await();
-    clientDone.await();
-    server.shutdown();
-    server.awaitTermination();
-  }
-
-  @Test
-  public void testInterruptFlowControl() throws Exception {
-    // This test attempts to verify that FlowControl does not hang if the current thread is
-    // interrupted. The initial implementation of FlowControl (which was never submitted) would go
-    // into an infinite loop holding the lock on FlowControl. This would prevent any other thread
-    // from obtaining the lock on FlowControl, and hang the entire process. I have confirmed that
-    // this test fails with the original faulty implementation of FlowControl.
-    CountDownLatch serverDone = new CountDownLatch(1);
-    CountDownLatch clientDone = new CountDownLatch(1);
-    AtomicInteger sentCount = new AtomicInteger();
-    AtomicInteger receiveCount = new AtomicInteger();
-    CommandServerGrpc.CommandServerImplBase serverImpl =
-        new CommandServerGrpc.CommandServerImplBase() {
-          @Override
-          public void run(RunRequest request, StreamObserver<RunResponse> observer) {
-            ServerCallStreamObserver<RunResponse> serverCallStreamObserver =
-                (ServerCallStreamObserver<RunResponse>) observer;
-            BlockingStreamObserver<RunResponse> blockingStreamObserver =
-                new BlockingStreamObserver<>(serverCallStreamObserver);
-            Thread t =
-                new Thread(
-                    () -> {
-                      RunResponse response =
-                          RunResponse.newBuilder()
-                              .setStandardOutput(ByteString.copyFrom(new byte[1024]))
-                              .build();
-                      // We want to trigger isReady() -> false, and we use sentCount to control
-                      // whether to
-                      // sleep on the client side. Therefore, we only set sentCount after isReady()
-                      // changes.
-                      int sent = 0;
-                      while (serverCallStreamObserver.isReady()) {
-                        blockingStreamObserver.onNext(response);
-                        sent++;
-                      }
-                      sentCount.set(sent);
-                      // If the current thread is interrupted, the subsequent onNext calls should
-                      // not
-                      // hang, but complete eventually (they may block on flow control).
-                      Thread.currentThread().interrupt();
-                      for (int i = 0; i < 10; i++) {
-                        blockingStreamObserver.onNext(response);
-                        sentCount.incrementAndGet();
-                      }
-                      blockingStreamObserver.onCompleted();
-                      serverDone.countDown();
-                    });
-            t.start();
-          }
-        };
-
-    String uniqueName = InProcessServerBuilder.generateName();
-    // Do not use .directExecutor here, as it makes both client and server run in the same thread.
-    server =
-        InProcessServerBuilder.forName(uniqueName)
-            .addService(serverImpl)
-            .executor(Executors.newFixedThreadPool(4))
-            .build()
-            .start();
-    channel =
-        InProcessChannelBuilder.forName(uniqueName)
-            .executor(Executors.newFixedThreadPool(4))
-            .build();
-
-    CommandServerStub stub = CommandServerGrpc.newStub(channel);
-    stub.run(
-        RunRequest.getDefaultInstance(),
-        new StreamObserver<RunResponse>() {
-          @Override
-          public void onNext(RunResponse value) {
-            if (sentCount.get() == 0) {
-              try {
-                Thread.sleep(1);
-              } catch (InterruptedException e) {
-                throw new IllegalStateException(e);
-              }
-            }
-            receiveCount.incrementAndGet();
-          }
-
-          @Override
-          public void onError(Throwable t) {
-            throw new IllegalStateException(t);
-          }
-
-          @Override
-          public void onCompleted() {
-            clientDone.countDown();
-          }
-        });
-    serverDone.await();
-    clientDone.await();
-    assertThat(sentCount.get()).isEqualTo(receiveCount.get());
-    server.shutdown();
-    server.awaitTermination();
-  }
-
-  @Test
   public void testIdleTasks() throws Exception {
     CountDownLatch idleTaskRunning = new CountDownLatch(1);
     AtomicReference<ImmutableList<IdleTask.Result>> idleTaskResults = new AtomicReference<>();
@@ -1189,8 +953,9 @@ public final class GrpcServerTest {
           throw new IllegalStateException("Unexpected command");
         };
 
-    createServer(dispatcher);
-    CommandServerStub stub = CommandServerGrpc.newStub(channel);
+    ServerAndStub serverAndStub = createServerAndStub(dispatcher);
+    CommandServer server = serverAndStub.server();
+    CommandServerStub stub = serverAndStub.stub();
 
     List<RunResponse> firstCmdResponses = new ArrayList<>();
     CountDownLatch firstCmdDone = new CountDownLatch(1);

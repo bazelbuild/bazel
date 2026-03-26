@@ -31,7 +31,7 @@ public interface RemoteAnalysisCacheReaderDepsProvider {
    * Returns the string distinguisher to invalidate SkyValues, in addition to the corresponding
    * SkyKey.
    */
-  FrontierNodeVersion getSkyValueVersion() throws SerializationException;
+  FrontierNodeVersion getSkyValueVersion() throws InterruptedException;
 
   /**
    * Returns the {@link ObjectCodecs} supplier for remote analysis caching.
@@ -52,4 +52,7 @@ public interface RemoteAnalysisCacheReaderDepsProvider {
   void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key);
 
   void recordSerializationException(SerializationException e, SkyKey key);
+
+  /** Returns true if bailing out on the first missing fingerprint is enabled. */
+  boolean shouldBailOutOnMissingFingerprint();
 }

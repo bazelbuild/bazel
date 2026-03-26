@@ -200,8 +200,14 @@ public final class FingerprintValueService implements KeyValueWriter {
 
   /** Delegates to {@link FingerprintValueStore#get}. */
   public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) throws IOException {
+    return get(fingerprint, /* fallback= */ true);
+  }
+
+  /** Delegates to {@link FingerprintValueStore#get}. */
+  public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint, boolean fallback)
+      throws IOException {
     Instant before = Instant.now();
-    ListenableFuture<byte[]> result = store.get(fingerprint);
+    ListenableFuture<byte[]> result = store.get(fingerprint, fallback);
     if (jsonLogWriter != null) {
       result =
           Futures.transform(
@@ -282,5 +288,15 @@ public final class FingerprintValueService implements KeyValueWriter {
   @VisibleForTesting
   public FingerprintValueStore getStoreForTesting() {
     return store;
+  }
+
+  @VisibleForTesting
+  public PackedFingerprint getCachedFingerprintForTesting(Object object) {
+    return (PackedFingerprint) cache.getSerializationCache().getIfPresent(object);
+  }
+
+  @VisibleForTesting
+  public void cacheCleanUpForTesting() {
+    cache.cleanUpForTesting();
   }
 }

@@ -27,7 +27,7 @@ import net.starlark.java.syntax.Types;
     category = "core",
     doc = "The type of floating-point numbers in Starlark.")
 public final class StarlarkFloat implements StarlarkValue, Comparable<StarlarkFloat> {
-  public static TypeConstructor getBaseTypeConstructor() {
+  public static TypeConstructor getAssociatedTypeConstructor() {
     return Types.FLOAT_CONSTRUCTOR;
   }
 

@@ -2,7 +2,7 @@
 title: 'C++ Toolchain Configuration'
 ---
 
-## Overview
+## Overview {#overview}
 
 To invoke the compiler with the right options, Bazel needs some knowledge about
 the compiler internals, such as include directories and important flags.
@@ -58,7 +58,7 @@ The artifacts to be shipped to the sandbox are declared in the `cc_toolchain`
 target. For example, with the `cc_toolchain.linker_files` attribute you can
 specify the linker binary and toolchain libraries to ship into the sandbox.
 
-## Toolchain selection
+## Toolchain selection {#toolchain-selection}
 
 The toolchain selection logic operates as follows:
 
@@ -92,7 +92,7 @@ fully fledged C++ features in Bazel without modifying the
 Bazel binary. C++ rules support multiple unique actions documented in detail
 [in the Bazel source code](https://source.bazel.build/bazel/+/4f547a7ea86df80e4c76145ffdbb0c8b75ba3afa:tools/build_defs/cc/action_names.bzl).
 
-## Features
+## Features {#features}
 
 A feature is an entity that requires command-line flags, actions,
 constraints on the execution environment, or dependency alterations. A feature
@@ -120,7 +120,7 @@ A feature is enabled in one of the following ways:
 Features can have interdependencies, depend on command line flags, `BUILD` file
 settings, and other variables.
 
-### Feature relationships
+### Feature relationships {#feature-relationships}
 
 Dependencies are typically managed directly with Bazel, which simply enforces
 the requirements and manages conflicts intrinsic to the nature of the features
@@ -129,72 +129,31 @@ constraints for use directly within the Starlark rule that govern feature
 support and expansion. These are:
 
 <table>
-  <col width="300">
-  <col width="600">
+  <col width="300" />
+  <col width="600" />
   <tr>
-   <td><strong>Constraint</strong>
-   </td>
-   <td><strong>Description</strong>
-   </td>
+   <td><strong>Constraint</strong></td>
+   <td><strong>Description</strong></td>
   </tr>
   <tr>
-   <td><pre>requires = [
-   feature_set (features = [
-       'feature-name-1',
-       'feature-name-2'
-   ]),
-]</pre>
-   </td>
-   <td>Feature-level. The feature is supported only if the specified required
-       features are enabled. For example, when a feature is only supported in
-       certain build modes (<code>opt</code>, <code>dbg</code>, or
-       <code>fastbuild</code>). If `requires` contains multiple `feature_set`s
-       the feature is supported if any of the `feature_set`s is satisfied
-       (when all specified features are enabled).
-   </td>
+   <td><pre>requires = [ feature_set (features = [ 'feature-name-1', 'feature-name-2' ]), ]</pre></td>
+   <td>Feature-level. The feature is supported only if the specified required features are enabled. For example, when a feature is only supported in certain build modes (<code>opt</code>, <code>dbg</code>, or <code>fastbuild</code>). If `requires` contains multiple `feature_set`s the feature is supported if any of the `feature_set`s is satisfied (when all specified features are enabled).</td>
   </tr>
   <tr>
-   <td><pre>implies = ['feature']</pre>
-   </td>
-   <td><p>Feature-level. This feature implies the specified feature(s).
-       Enabling a feature also implicitly enables all features implied by it
-       (that is, it functions recursively).</p>
-       <p>Also provides the ability to factor common subsets of functionality out of
-       a set of features, such as the common parts of sanitizers. Implied
-       features cannot be disabled.</p>
-   </td>
+   <td><pre>implies = ['feature']</pre></td>
+   <td><p>Feature-level. This feature implies the specified feature(s). Enabling a feature also implicitly enables all features implied by it (that is, it functions recursively).</p><p>Also provides the ability to factor common subsets of functionality out of a set of features, such as the common parts of sanitizers. Implied features cannot be disabled.</p></td>
   </tr>
   <tr>
-   <td><pre>provides = ['feature']</pre>
-   </td>
-   <td><p>Feature-level. Indicates that this feature is one of several mutually
-       exclusive alternate features. For example, all of the sanitizers could
-       specify <code>provides = ["sanitizer"]</code>.</p>
-       <p>This improves error handling by listing the alternatives if the user asks
-       for two or more mutually exclusive features at once.</p>
-   </td>
+   <td><pre>provides = ['feature']</pre></td>
+   <td><p>Feature-level. Indicates that this feature is one of several mutually exclusive alternate features. For example, all of the sanitizers could specify <code>provides = ["sanitizer"]</code>.</p><p>This improves error handling by listing the alternatives if the user asks for two or more mutually exclusive features at once.</p></td>
   </tr>
   <tr>
-   <td><pre>with_features = [
-  with_feature_set(
-    features = ['feature-1'],
-    not_features = ['feature-2'],
-  ),
-]</pre>
-   </td>
-   <td>Flag set-level. A feature can specify multiple flag sets with multiple.
-     When <code>with_features</code> is specified, the flag set will only expand
-     to the build command if there is at least one <code>with_feature_set</code>
-     for which all of the features in the specified <code>features</code> set
-     are enabled, and all the features specified in <code>not_features</code>
-     set are disabled.
-     If <code>with_features</code> is not specified, the flag set will be
-     applied unconditionally for every action specified.
-   </td>
+   <td><pre>with_features = [ with_feature_set( features = ['feature-1'], not_features = ['feature-2'], ), ]</pre></td>
+   <td>Flag set-level. A feature can specify multiple flag sets with multiple. When <code>with_features</code> is specified, the flag set will only expand to the build command if there is at least one <code>with_feature_set</code> for which all of the features in the specified <code>features</code> set are enabled, and all the features specified in <code>not_features</code> set are disabled. If <code>with_features</code> is not specified, the flag set will be applied unconditionally for every action specified.</td>
   </tr>
 </table>
 
-## Actions
+## Actions {#actions}
 
 Actions provide the flexibility to modify the circumstances under
 which an action executes without assuming how the action will be run. An
@@ -215,149 +174,113 @@ that implements an action (such as `CppCompileAction`). In particular, the
 "assembler actions" and "compiler actions" in the table below are
 `CppCompileAction`, while the link actions are `CppLinkAction`.
 
-### Assembler actions
+### Assembler actions {#assembler-actions}
 
 <table>
-  <col width="300">
-  <col width="600">
+  <col width="300" />
+  <col width="600" />
   <tr>
-   <td><strong>Action</strong>
-   </td>
-   <td><strong>Description</strong>
-   </td>
+   <td><strong>Action</strong></td>
+   <td><strong>Description</strong></td>
   </tr>
   <tr>
-   <td><code>preprocess-assemble</code>
-   </td>
-   <td>Assemble with preprocessing. Typically for <code>.S</code> files.
-   </td>
+   <td><code>preprocess-assemble</code></td>
+   <td>Assemble with preprocessing. Typically for <code>.S</code> files.</td>
   </tr>
   <tr>
-   <td><code>assemble</code>
-   </td>
-   <td>Assemble without preprocessing. Typically for <code>.s</code> files.
-   </td>
+   <td><code>assemble</code></td>
+   <td>Assemble without preprocessing. Typically for <code>.s</code> files.</td>
   </tr>
 </table>
 
-### Compiler actions
+### Compiler actions {#compiler-actions}
 
 <table>
-  <col width="300">
-  <col width="600">
+  <col width="300" />
+  <col width="600" />
   <tr>
-   <td><strong>Action</strong>
-   </td>
-   <td><strong>Description</strong>
-   </td>
+   <td><strong>Action</strong></td>
+   <td><strong>Description</strong></td>
   </tr>
   <tr>
-   <td><code>cc-flags-make-variable</code>
-   </td>
-   <td>Propagates <code>CC_FLAGS</code> to genrules.
-   </td>
+   <td><code>cc-flags-make-variable</code></td>
+   <td>Propagates <code>CC_FLAGS</code> to genrules.</td>
   </tr>
   <tr>
-   <td><code>c-compile</code>
-   </td>
-   <td>Compile as C.
-   </td>
+   <td><code>c-compile</code></td>
+   <td>Compile as C.</td>
   </tr>
   <tr>
-   <td><code>c++-compile</code>
-   </td>
-   <td>Compile as C++.
-   </td>
+   <td><code>c++-compile</code></td>
+   <td>Compile as C++.</td>
   </tr>
   <tr>
-   <td><code>c++-header-parsing</code>
-   </td>
-   <td>Run the compiler's parser on a header file to ensure that the header is
-     self-contained, as it will otherwise produce compilation errors. Applies
-     only to toolchains that support modules.
-   </td>
+   <td><code>c++-header-parsing</code></td>
+   <td>Run the compiler's parser on a header file to ensure that the header is self-contained, as it will otherwise produce compilation errors. Applies only to toolchains that support modules.</td>
   </tr>
 </table>
 
-### Link actions
+### Link actions {#link-actions}
 
 <table>
-  <col width="300">
-  <col width="600">
+  <col width="300" />
+  <col width="600" />
   <tr>
-   <td><strong>Action</strong>
-   </td>
-   <td><strong>Description</strong>
-   </td>
+   <td><strong>Action</strong></td>
+   <td><strong>Description</strong></td>
   </tr>
   <tr>
-   <td><code>c++-link-dynamic-library</code>
-   </td>
-   <td>Link a shared library containing all of its dependencies.
-   </td>
+   <td><code>c++-link-dynamic-library</code></td>
+   <td>Link a shared library containing all of its dependencies.</td>
   </tr>
   <tr>
-   <td><code>c++-link-nodeps-dynamic-library</code>
-   </td>
-   <td>Link a shared library only containing <code>cc_library</code> sources.
-   </td>
+   <td><code>c++-link-nodeps-dynamic-library</code></td>
+   <td>Link a shared library only containing <code>cc_library</code> sources.</td>
   </tr>
   <tr>
-   <td><code>c++-link-executable</code>
-   </td>
-   <td>Link a final ready-to-run library.
-   </td>
+   <td><code>c++-link-executable</code></td>
+   <td>Link a final ready-to-run library.</td>
   </tr>
 </table>
 
-### AR actions
+### AR actions {#ar-actions}
 
 AR actions assemble object files into archive libraries (`.a` files) via `ar`
 and encode some semantics into the name.
 
 <table>
-  <col width="300">
-  <col width="600">
+  <col width="300" />
+  <col width="600" />
   <tr>
-   <td><strong>Action</strong>
-   </td>
-   <td><strong>Description</strong>
-   </td>
+   <td><strong>Action</strong></td>
+   <td><strong>Description</strong></td>
   </tr>
   <tr>
-   <td><code>c++-link-static-library</code>
-   </td>
-   <td>Create a static library (archive).
-   </td>
+   <td><code>c++-link-static-library</code></td>
+   <td>Create a static library (archive).</td>
   </tr>
 </table>
 
-### LTO actions
+### LTO actions {#lto-actions}
 
 <table>
-  <col width="300">
-  <col width="600">
+  <col width="300" />
+  <col width="600" />
   <tr>
-   <td><strong>Action</strong>
-   </td>
-   <td><strong>Description</strong>
-   </td>
+   <td><strong>Action</strong></td>
+   <td><strong>Description</strong></td>
   </tr>
   <tr>
-   <td><code>lto-backend</code>
-   </td>
-   <td>ThinLTO action compiling bitcodes into native objects.
-   </td>
+   <td><code>lto-backend</code></td>
+   <td>ThinLTO action compiling bitcodes into native objects.</td>
   </tr>
   <tr>
-   <td><code>lto-index</code>
-   </td>
-   <td>ThinLTO action generating global index.
-   </td>
+   <td><code>lto-index</code></td>
+   <td>ThinLTO action generating global index.</td>
   </tr>
 </table>
 
-## Using action_config
+## Using action_config {#using-action-config}
 
 The `action_config` is a Starlark struct that describes a Bazel
 action by specifying the tool (binary) to invoke during the action and sets of
@@ -367,43 +290,27 @@ execution.
 The `action_config()` constructor has the following parameters:
 
 <table>
-  <col width="300">
-  <col width="600">
+  <col width="300" />
+  <col width="600" />
   <tr>
-   <td><strong>Attribute</strong>
-   </td>
-   <td><strong>Description</strong>
-   </td>
+   <td><strong>Attribute</strong></td>
+   <td><strong>Description</strong></td>
   </tr>
   <tr>
-   <td><code>action_name</code>
-   </td>
-    <td>The Bazel action to which this action corresponds.
-        Bazel uses this attribute to discover per-action tool and execution
-        requirements.
-   </td>
+   <td><code>action_name</code></td>
+    <td>The Bazel action to which this action corresponds. Bazel uses this attribute to discover per-action tool and execution requirements.</td>
   </tr>
   <tr>
-   <td><code>tools</code>
-   </td>
-   <td>The executable to invoke. The tool applied to the action will be the
-       first tool in the list with a feature set that matches the feature
-       configuration. Default value must be provided.
-   </td>
+   <td><code>tools</code></td>
+   <td>The executable to invoke. The tool applied to the action will be the first tool in the list with a feature set that matches the feature configuration. Default value must be provided.</td>
   </tr>
   <tr>
-   <td><code>flag_sets</code>
-   </td>
-   <td>A list of flags that applies to a group of actions. Same as for a
-       feature.
-   </td>
+   <td><code>flag_sets</code></td>
+   <td>A list of flags that applies to a group of actions. Same as for a feature.</td>
   </tr>
   <tr>
-   <td><code>env_sets</code>
-   </td>
-   <td>A list of environment constraints that applies to a group of actions.
-       Same as for a feature.
-   </td>
+   <td><code>env_sets</code></td>
+   <td>A list of environment constraints that applies to a group of actions. Same as for a feature.</td>
   </tr>
 </table>
 
@@ -423,32 +330,25 @@ within the same toolchain. This prevents ambiguity in tool paths
 and enforces the intention behind `action_config` - that an action's properties
 are clearly described in a single place in the toolchain.
 
-### Using tool constructor
+### Using tool constructor {#using-tool-constructor}
 
 An`action_config` can specify a set of tools via its `tools` parameter.
 The `tool()` constructor takes in the following parameters:
 
 <table>
-  <col width="300">
-  <col width="600">
+  <col width="300" />
+  <col width="600" />
   <tr>
-   <td><strong>Field</strong>
-   </td>
-   <td><strong>Description</strong>
-   </td>
+   <td><strong>Field</strong></td>
+   <td><strong>Description</strong></td>
   </tr>
   <tr>
-   <td><code>path</code>
-   </td>
-   <td>Path to the tool in question (relative to the current location).
-   </td>
+   <td><code>path</code></td>
+   <td>Path to the tool in question (relative to the current location).</td>
   </tr>
   <tr>
-   <td><code>with_features</code>
-   </td>
-   <td>A list of feature sets out of which at least one must be satisfied
-       for this tool to apply.
-   </td>
+   <td><code>with_features</code></td>
+   <td>A list of feature sets out of which at least one must be satisfied for this tool to apply.</td>
   </tr>
 </table>
 
@@ -460,7 +360,7 @@ with a `with_feature` set matching the feature configuration is found
 for more information). You should end your tool lists with a default
 tool that corresponds to an empty feature configuration.
 
-### Example usage
+### Example usage {#example-usage}
 
 Features and actions can be used together to implement Bazel actions
 with diverse cross-platform semantics. For example, debug symbol generation on
@@ -552,7 +452,7 @@ follows:
         ),
     ]
 
-### Flag groups
+### Flag groups {#flag-groups}
 
 `CcToolchainConfigInfo` allows you to bundle flags into groups that serve a
 specific purpose. You can specify a flag within using pre-defined variables
@@ -598,7 +498,7 @@ A variable can repeat multiple times. For example:
 
 expands to:
 
-    -iprefix=<inc0> -isystem=<inc0> -iprefix=<inc1> -isystem=<inc1>
+    -iprefix=&lt;inc0&gt; -isystem=&lt;inc0&gt; -iprefix=&lt;inc1&gt; -isystem=&lt;inc1&gt;
 
 Variables can correspond to structures accessible using dot-notation. For
 example:
@@ -621,7 +521,7 @@ example:
         ],
     )
 
-### Conditional expansion
+### Conditional expansion {#conditional-expansion}
 
 Flag groups support conditional expansion based on the presence of a particular
 variable or its field using the `expand_if_available`, `expand_if_not_available`,
@@ -653,12 +553,12 @@ Note: The `--whole_archive` and `--no_whole_archive` options are added to
 the build command only when a currently iterated library has an
 `is_whole_archive` field.
 
-## CcToolchainConfigInfo reference
+## CcToolchainConfigInfo reference {#cctoolchainconfiginfo-reference}
 
 This section provides a reference of build variables, features, and other
 information required to successfully configure C++ rules.
 
-### CcToolchainConfigInfo build variables
+### CcToolchainConfigInfo build variables {#cctoolchainconfiginfo-build-variables}
 
 The following is a reference of `CcToolchainConfigInfo` build variables.
 
@@ -666,425 +566,267 @@ Note: The **Action** column indicates the relevant action type, if applicable.
 
 <table>
   <tr>
-   <td><strong>Variable</strong>
-   </td>
-   <td><strong>Action</strong>
-   </td>
-   <td><strong>Description</strong>
-   </td>
+   <td><strong>Variable</strong></td>
+   <td><strong>Action</strong></td>
+   <td><strong>Description</strong></td>
   </tr>
   <tr>
-   <td><strong><code>source_file</code></strong>
-   </td>
+   <td><strong><code>source_file</code></strong></td>
    <td>compile</td>
-   <td>Source file to compile.
-   </td>
+   <td>Source file to compile.</td>
   </tr>
   <tr>
-   <td><strong><code>input_file</code></strong>
-   </td>
+   <td><strong><code>input_file</code></strong></td>
    <td>strip</td>
-   <td>Artifact to strip.
-   </td>
+   <td>Artifact to strip.</td>
   </tr>
   <tr>
-   <td><strong><code>output_file</code></strong>
-   </td>
+   <td><strong><code>output_file</code></strong></td>
    <td>compile</td>
-   <td>Compilation output.
-   </td>
+   <td>Compilation output.</td>
   </tr>
   <tr>
-   <td><strong><code>output_assembly_file</code></strong>
-   </td>
+   <td><strong><code>output_assembly_file</code></strong></td>
    <td>compile</td>
-   <td>Emitted assembly file. Applies only when the
-       <code>compile</code> action emits assembly text, typically when using the
-       <code>--save_temps</code> flag. The contents are the same as for
-       <code>output_file</code>.
-   </td>
+   <td>Emitted assembly file. Applies only when the <code>compile</code> action emits assembly text, typically when using the <code>--save_temps</code> flag. The contents are the same as for <code>output_file</code>.</td>
   </tr>
   <tr>
-   <td><strong><code>output_preprocess_file</code></strong>
-   </td>
+   <td><strong><code>output_preprocess_file</code></strong></td>
    <td>compile</td>
-   <td>Preprocessed output. Applies only to compile
-       actions that only preprocess the source files, typically when using the
-     <code>--save_temps</code> flag. The contents are the same as for
-     <code>output_file</code>.
-   </td>
+   <td>Preprocessed output. Applies only to compile actions that only preprocess the source files, typically when using the <code>--save_temps</code> flag. The contents are the same as for <code>output_file</code>.</td>
   </tr>
   <tr>
-   <td><strong><code>includes</code></strong>
-   </td>
+   <td><strong><code>includes</code></strong></td>
    <td>compile</td>
-   <td>Sequence of files the compiler must
-       unconditionally include in the compiled source.
-   </td>
+   <td>Sequence of files the compiler must unconditionally include in the compiled source.</td>
   </tr>
   <tr>
-   <td><strong><code>include_paths</code></strong>
-   </td>
+   <td><strong><code>include_paths</code></strong></td>
    <td>compile</td>
-   <td>Sequence directories in which the compiler
-       searches for headers included using <code>#include&lt;foo.h&gt;</code>
-       and <code>#include "foo.h"</code>.
-   </td>
+   <td>Sequence directories in which the compiler searches for headers included using <code>#include&lt;foo.h&gt;</code> and <code>#include "foo.h"</code>.</td>
   </tr>
   <tr>
-   <td><strong><code>quote_include_paths</code></strong>
-   </td>
+   <td><strong><code>quote_include_paths</code></strong></td>
    <td>compile</td>
-   <td>Sequence of <code>-iquote</code> includes -
-       directories in which the compiler searches for headers included using
-       <code>#include "foo.h"</code>.
-   </td>
+   <td>Sequence of <code>-iquote</code> includes - directories in which the compiler searches for headers included using <code>#include "foo.h"</code>.</td>
   </tr>
   <tr>
-   <td><strong><code>system_include_paths</code></strong>
-   </td>
+   <td><strong><code>system_include_paths</code></strong></td>
    <td>compile</td>
-   <td>Sequence of <code>-isystem</code> includes -
-       directories in which the compiler searches for headers included using
-       <code>#include &lt;foo.h&gt;</code>.
-   </td>
+   <td>Sequence of <code>-isystem</code> includes - directories in which the compiler searches for headers included using <code>#include &lt;foo.h&gt;</code>.</td>
   </tr>
   <tr>
-   <td><strong><code>dependency_file</code></strong>
-   </td>
+   <td><strong><code>dependency_file</code></strong></td>
    <td>compile</td>
-   <td>The <code>.d</code> dependency file generated by the compiler.
-   </td>
+   <td>The <code>.d</code> dependency file generated by the compiler.</td>
   </tr>
   <tr>
-   <td><strong><code>preprocessor_defines</code></strong>
-   </td>
+   <td><strong><code>preprocessor_defines</code></strong></td>
    <td>compile</td>
-   <td>Sequence of <code>defines</code>, such as <code>--DDEBUG</code>.
-   </td>
+   <td>Sequence of <code>defines</code>, such as <code>--DDEBUG</code>.</td>
   </tr>
   <tr>
-   <td><strong><code>pic</code></strong>
-   </td>
+   <td><strong><code>pic</code></strong></td>
    <td>compile</td>
-   <td>Compiles the output as position-independent code.
-   </td>
+   <td>Compiles the output as position-independent code.</td>
   </tr>
   <tr>
-   <td><strong><code>gcov_gcno_file</code></strong>
-   </td>
+   <td><strong><code>gcov_gcno_file</code></strong></td>
    <td>compile</td>
-   <td>The <code>gcov</code> coverage file.
-   </td>
+   <td>The <code>gcov</code> coverage file.</td>
   </tr>
   <tr>
-   <td><strong><code>per_object_debug_info_file</code></strong>
-   </td>
+   <td><strong><code>per_object_debug_info_file</code></strong></td>
    <td>compile</td>
-   <td>The per-object debug info (<code>.dwp</code>) file.
-   </td>
+   <td>The per-object debug info (<code>.dwp</code>) file.</td>
   </tr>
   <tr>
-   <td><strong><code>stripotps</code></strong>
-   </td>
+   <td><strong><code>stripotps</code></strong></td>
    <td>strip</td>
-   <td>Sequence of <code>stripopts</code>.
-   </td>
+   <td>Sequence of <code>stripopts</code>.</td>
   </tr>
   <tr>
-   <td><strong><code>legacy_compile_flags</code></strong>
-   </td>
+   <td><strong><code>legacy_compile_flags</code></strong></td>
    <td>compile</td>
-   <td>Sequence of flags from legacy
-       <code>CROSSTOOL</code> fields such as <code>compiler_flag</code>,
-       <code>optional_compiler_flag</code>, <code>cxx_flag</code>, and
-       <code>optional_cxx_flag</code>.
-   </td>
+   <td>Sequence of flags from legacy <code>CROSSTOOL</code> fields such as <code>compiler_flag</code>, <code>optional_compiler_flag</code>, <code>cxx_flag</code>, and <code>optional_cxx_flag</code>.</td>
   </tr>
   <tr>
-   <td><strong><code>user_compile_flags</code></strong>
-   </td>
+   <td><strong><code>user_compile_flags</code></strong></td>
    <td>compile</td>
-   <td>Sequence of flags from either the
-       <code>copt</code> rule attribute or the <code>--copt</code>,
-       <code>--cxxopt</code>, and <code>--conlyopt</code> flags.
-   </td>
+   <td>Sequence of flags from either the <code>copt</code> rule attribute or the <code>--copt</code>, <code>--cxxopt</code>, and <code>--conlyopt</code> flags.</td>
   </tr>
   <tr>
-   <td><strong><code>unfiltered_compile_flags</code></strong>
-   </td>
+   <td><strong><code>unfiltered_compile_flags</code></strong></td>
    <td>compile</td>
-   <td>Sequence of flags from the
-     <code>unfiltered_cxx_flag</code> legacy <code>CROSSTOOL</code> field or the
-       <code>unfiltered_compile_flags</code> feature. These are not filtered by
-       the <code>nocopts</code> rule attribute.
-   </td>
+   <td>Sequence of flags from the <code>unfiltered_cxx_flag</code> legacy <code>CROSSTOOL</code> field or the <code>unfiltered_compile_flags</code> feature. These are not filtered by the <code>nocopts</code> rule attribute.</td>
   </tr>
   <tr>
-   <td><strong><code>sysroot</code></strong>
-   </td>
+   <td><strong><code>sysroot</code></strong></td>
    <td></td>
-   <td>The <code>sysroot</code>.
-   </td>
+   <td>The <code>sysroot</code>.</td>
   </tr>
   <tr>
-   <td><strong><code>runtime_library_search_directories</code></strong>
-   </td>
+   <td><strong><code>runtime_library_search_directories</code></strong></td>
    <td>link</td>
-   <td>Entries in the linker runtime search path (usually
-       set with the <code>-rpath</code> flag).
-   </td>
+   <td>Entries in the linker runtime search path (usually set with the <code>-rpath</code> flag).</td>
   </tr>
   <tr>
-   <td><strong><code>library_search_directories</code></strong>
-   </td>
+   <td><strong><code>library_search_directories</code></strong></td>
    <td>link</td>
-   <td>Entries in the linker search path (usually set with
-       the <code>-L</code> flag).
-   </td>
+   <td>Entries in the linker search path (usually set with the <code>-L</code> flag).</td>
   </tr>
   <tr>
-   <td><strong><code>libraries_to_link</code></strong>
-   </td>
+   <td><strong><code>libraries_to_link</code></strong></td>
    <td>link</td>
-   <td>Flags providing files to link as inputs in the linker invocation.
-   </td>
+   <td>Flags providing files to link as inputs in the linker invocation.</td>
   </tr>
   <tr>
-   <td><strong><code>def_file_path</code></strong>
-   </td>
+   <td><strong><code>def_file_path</code></strong></td>
    <td>link</td>
-   <td>Location of def file used on Windows with MSVC.
-   </td>
+   <td>Location of def file used on Windows with MSVC.</td>
   </tr>
   <tr>
-   <td><strong><code>linker_param_file</code></strong>
-   </td>
+   <td><strong><code>linker_param_file</code></strong></td>
    <td>link</td>
-   <td>Location of linker param file created by bazel to
-       overcome command line length limit.
-   </td>
+   <td>Location of linker param file created by bazel to overcome command line length limit.</td>
   </tr>
   <tr>
-   <td><strong><code>output_execpath</code></strong>
-   </td>
+   <td><strong><code>output_execpath</code></strong></td>
    <td>link</td>
-   <td>Execpath of the output of the linker.
-   </td>
+   <td>Execpath of the output of the linker.</td>
   </tr>
   <tr>
-   <td><strong><code>generate_interface_library</code></strong>
-   </td>
+   <td><strong><code>generate_interface_library</code></strong></td>
    <td>link</td>
-   <td><code>"yes"</code> or <code>"no"</code> depending on whether interface library should
-       be generated.
-   </td>
+   <td><code>"yes"</code> or <code>"no"</code> depending on whether interface library should be generated.</td>
   </tr>
   <tr>
-   <td><strong><code>interface_library_builder_path</code></strong>
-   </td>
+   <td><strong><code>interface_library_builder_path</code></strong></td>
    <td>link</td>
-   <td>Path to the interface library builder tool.
-   </td>
+   <td>Path to the interface library builder tool.</td>
   </tr>
   <tr>
-   <td><strong><code>interface_library_input_path</code></strong>
-   </td>
+   <td><strong><code>interface_library_input_path</code></strong></td>
    <td>link</td>
-   <td>Input for the interface library <code>ifso</code> builder tool.
-   </td>
+   <td>Input for the interface library <code>ifso</code> builder tool.</td>
   </tr>
   <tr>
-   <td><strong><code>interface_library_output_path</code></strong>
-   </td>
+   <td><strong><code>interface_library_output_path</code></strong></td>
    <td>link</td>
-   <td>Path where to generate interface library using the <code>ifso</code> builder tool.
-   </td>
+   <td>Path where to generate interface library using the <code>ifso</code> builder tool.</td>
   </tr>
   <tr>
-   <td><strong><code>legacy_link_flags</code></strong>
-   </td>
+   <td><strong><code>legacy_link_flags</code></strong></td>
    <td>link</td>
-   <td>Linker flags coming from the legacy <code>CROSSTOOL</code> fields.
-   </td>
+   <td>Linker flags coming from the legacy <code>CROSSTOOL</code> fields.</td>
   </tr>
   <tr>
-   <td><strong><code>user_link_flags</code></strong>
-   </td>
+   <td><strong><code>user_link_flags</code></strong></td>
    <td>link</td>
-   <td>Linker flags coming from the <code>--linkopt</code>
-       or <code>linkopts</code> attribute.
-   </td>
+   <td>Linker flags coming from the <code>--linkopt</code> or <code>linkopts</code> attribute.</td>
   </tr>
   <tr>
-   <td><strong><code>linkstamp_paths</code></strong>
-   </td>
+   <td><strong><code>linkstamp_paths</code></strong></td>
    <td>link</td>
-   <td>A build variable giving linkstamp paths.
-   </td>
+   <td>A build variable giving linkstamp paths.</td>
   </tr>
   <tr>
-   <td><strong><code>force_pic</code></strong>
-   </td>
+   <td><strong><code>force_pic</code></strong></td>
    <td>link</td>
-   <td>Presence of this variable indicates that PIC/PIE code should
-     be generated (Bazel option `--force_pic` was passed).
-   </td>
+   <td>Presence of this variable indicates that PIC/PIE code should be generated (Bazel option `--force_pic` was passed).</td>
   </tr>
   <tr>
-   <td><strong><code>strip_debug_symbols</code></strong>
-   </td>
+   <td><strong><code>strip_debug_symbols</code></strong></td>
    <td>link</td>
-   <td>Presence of this variable indicates that the debug
-       symbols should be stripped.
-   </td>
+   <td>Presence of this variable indicates that the debug symbols should be stripped.</td>
   </tr>
   <tr>
-   <td><strong><code>is_cc_test</code></strong>
-   </td>
+   <td><strong><code>is_cc_test</code></strong></td>
    <td>link</td>
-   <td>Truthy when current action is a <code>cc_test</code>
-       linking action, false otherwise.
-   </td>
+   <td>Truthy when current action is a <code>cc_test</code> linking action, false otherwise.</td>
   </tr>
   <tr>
-   <td><strong><code>is_using_fission</code></strong>
-   </td>
+   <td><strong><code>is_using_fission</code></strong></td>
    <td>compile, link</td>
-   <td>Presence of this variable indicates that fission (per-object debug info)
-     is activated. Debug info will be in <code>.dwo</code> files instead
-       of <code>.o</code> files and the compiler and linker need to know this.
-   </td>
+   <td>Presence of this variable indicates that fission (per-object debug info) is activated. Debug info will be in <code>.dwo</code> files instead of <code>.o</code> files and the compiler and linker need to know this.</td>
   </tr>
   <tr>
-   <td><strong><code>fdo_instrument_path</code></strong>
-   </td>
+   <td><strong><code>fdo_instrument_path</code></strong></td>
    <td>compile, link</td>
-   <td> Path to the directory that stores FDO instrumentation profile.
-   </td>
+   <td>Path to the directory that stores FDO instrumentation profile.</td>
   </tr>
   <tr>
-   <td><strong><code>fdo_profile_path</code></strong>
-   </td>
+   <td><strong><code>fdo_profile_path</code></strong></td>
    <td>compile</td>
-   <td> Path to FDO profile.
-   </td>
+   <td>Path to FDO profile.</td>
   </tr>
   <tr>
-   <td><strong><code>fdo_prefetch_hints_path</code></strong>
-   </td>
+   <td><strong><code>fdo_prefetch_hints_path</code></strong></td>
    <td>compile</td>
-   <td> Path to the cache prefetch profile.
-   </td>
+   <td>Path to the cache prefetch profile.</td>
   </tr>
   <tr>
-   <td><strong><code>csfdo_instrument_path</code></strong>
-   </td>
+   <td><strong><code>csfdo_instrument_path</code></strong></td>
    <td>compile, link</td>
-   <td> Path to the directory that stores context sensitive FDO
-        instrumentation profile.
-   </td>
+   <td>Path to the directory that stores context sensitive FDO instrumentation profile.</td>
   </tr>
 </table>
 
-### Well-known features
+### Well-known features {#wellknown-features}
 
 The following is a reference of features and their activation
 conditions.
 
 <table>
-  <col width="300">
-  <col width="600">
+  <col width="300" />
+  <col width="600" />
   <tr>
-   <td><strong>Feature</strong>
-   </td>
-   <td><strong>Documentation</strong>
-   </td>
+   <td><strong>Feature</strong></td>
+   <td><strong>Documentation</strong></td>
   </tr>
   <tr>
-   <td><strong><code>opt | dbg | fastbuild</code></strong>
-   </td>
-   <td>Enabled by default based on compilation mode.
-   </td>
+   <td><strong><code>opt | dbg | fastbuild</code></strong></td>
+   <td>Enabled by default based on compilation mode.</td>
   </tr>
   <tr>
-   <td><strong><code>static_linking_mode | dynamic_linking_mode</code></strong>
-   </td>
-   <td>Enabled by default based on linking mode.
-   </td>
+   <td><strong><code>static_linking_mode | dynamic_linking_mode</code></strong></td>
+   <td>Enabled by default based on linking mode.</td>
   </tr>
   <tr>
-   <td><strong><code>per_object_debug_info</code></strong>
-   </td>
-    <td>Enabled if the <code>supports_fission</code> feature is specified and
-        enabled and the current compilation mode is specified in the
-        <code>--fission</code> flag.
-   </td>
+   <td><strong><code>per_object_debug_info</code></strong></td>
+    <td>Enabled if the <code>supports_fission</code> feature is specified and enabled and the current compilation mode is specified in the <code>--fission</code> flag.</td>
   </tr>
   <tr>
-   <td><strong><code>supports_start_end_lib</code></strong>
-   </td>
-   <td>If enabled (and the option <code>--start_end_lib</code> is set), Bazel
-     will not link against static libraries but instead use the
-     <code>--start-lib/--end-lib</code> linker options to link against objects
-     directly. This speeds up the build since Bazel doesn't have to build
-     static libraries.
-   </td>
+   <td><strong><code>supports_start_end_lib</code></strong></td>
+   <td>If enabled (and the option <code>--start_end_lib</code> is set), Bazel will not link against static libraries but instead use the <code>--start-lib/--end-lib</code> linker options to link against objects directly. This speeds up the build since Bazel doesn't have to build static libraries.</td>
   </tr>
   <tr>
-   <td><strong><code>supports_interface_shared_libraries</code></strong>
-   </td>
-   <td>If enabled (and the option <code>--interface_shared_objects</code> is
-     set), Bazel will link targets that have <code>linkstatic</code> set to
-     False (<code>cc_test</code>s by default) against interface shared
-     libraries. This makes incremental relinking faster.
-   </td>
+   <td><strong><code>supports_interface_shared_libraries</code></strong></td>
+   <td>If enabled (and the option <code>--interface_shared_objects</code> is set), Bazel will link targets that have <code>linkstatic</code> set to False (<code>cc_test</code>s by default) against interface shared libraries. This makes incremental relinking faster.</td>
   </tr>
   <tr>
-   <td><strong><code>supports_dynamic_linker</code></strong>
-   </td>
-   <td>If enabled, C++ rules will know the toolchain can produce shared
-     libraries.
-   </td>
+   <td><strong><code>supports_dynamic_linker</code></strong></td>
+   <td>If enabled, C++ rules will know the toolchain can produce shared libraries.</td>
   </tr>
   <tr>
-   <td><strong><code>static_link_cpp_runtimes</code></strong>
-   </td>
-   <td>If enabled, Bazel will link the C++ runtime statically in static linking
-     mode and dynamically in dynamic linking mode. Artifacts
-     specified in the <code>cc_toolchain.static_runtime_lib</code> or
-     <code>cc_toolchain.dynamic_runtime_lib</code> attribute (depending on the
-     linking mode) will be added to the linking actions.
-   </td>
+   <td><strong><code>static_link_cpp_runtimes</code></strong></td>
+   <td>If enabled, Bazel will link the C++ runtime statically in static linking mode and dynamically in dynamic linking mode. Artifacts specified in the <code>cc_toolchain.static_runtime_lib</code> or <code>cc_toolchain.dynamic_runtime_lib</code> attribute (depending on the linking mode) will be added to the linking actions.</td>
   </tr>
   <tr>
-   <td><strong><code>supports_pic</code></strong>
-   </td>
-   <td>If enabled, toolchain will know to use PIC objects for dynamic libraries.
-     The `pic` variable is present whenever PIC compilation is needed. If not enabled
-     by default, and `--force_pic` is passed, Bazel will request `supports_pic` and
-     validate that the feature is enabled. If the feature is missing, or couldn't
-      be enabled, `--force_pic` cannot be used.
-   </td>
+   <td><strong><code>supports_pic</code></strong></td>
+   <td>If enabled, toolchain will know to use PIC objects for dynamic libraries. The `pic` variable is present whenever PIC compilation is needed. If not enabled by default, and `--force_pic` is passed, Bazel will request `supports_pic` and validate that the feature is enabled. If the feature is missing, or couldn't be enabled, `--force_pic` cannot be used.</td>
   </tr>
   <tr>
-    <td>
-      <strong><code>static_linking_mode | dynamic_linking_mode</code></strong>
-    </td>
+    <td><strong><code>static_linking_mode | dynamic_linking_mode</code></strong></td>
     <td>Enabled by default based on linking mode.</td>
   </tr>
   <tr>
-     <td><strong><code>no_legacy_features</code></strong>
-     </td>
-     <td>
-       Prevents Bazel from adding legacy features to
-       the C++ configuration when present. See the complete list of
-       features below.
-     </td>
+     <td><strong><code>no_legacy_features</code></strong></td>
+     <td>Prevents Bazel from adding legacy features to the C++ configuration when present. See the complete list of features below.</td>
     </tr>
 </table>
 
-#### Legacy features patching logic
+#### Legacy features patching logic {#legacy-features-patching-logic}
 
 <p>
   Bazel applies the following changes to the toolchain's features for backwards

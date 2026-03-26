@@ -59,6 +59,8 @@ output_paths = [
     ('*openjdk_*/file/*.zip', lambda x: 'jdk.zip'),
     ('*src/minimal_jdk.tar.gz', lambda x: 'jdk.tar.gz'),
     ('*src/minimal_jdk.zip', lambda x: 'jdk.zip'),
+    ('*src/allmodules_jdk.tar.gz', lambda x: 'jdk.tar.gz'),
+    ('*src/allmodules_jdk.zip', lambda x: 'jdk.zip'),
     ('*.bzl.tools', lambda x: x[:-6]),
     ('*', lambda x: re.sub(r'^.*bazel-out/[^/]*/bin/', '', x, count=1)),
 ]

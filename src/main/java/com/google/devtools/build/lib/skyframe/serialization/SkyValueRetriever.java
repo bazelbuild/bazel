@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.StateEvictedException;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
 import com.google.devtools.build.lib.skyframe.serialization.proto.DataType;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
@@ -189,21 +190,12 @@ public final class SkyValueRetriever {
     RESTART;
   }
 
-  /** The reason why a Skycache lookup rjkySesulted in a miss. */
-  public enum CacheMissReason {
-    UNKNOWN, // We don't know why
-    SKYVALUE_MISS, // The fingerprint value store doesn't contain the requested SkyValue
-    REFERENCED_OBJECT_MISS, // An object the requested SkyValue references is missing
-    NOT_ATTEMPTED, // Skycache lookups are not possible due to the state Bazel is in
-  }
-
   /**
    * There was no associated data in the cache for the requested key.
    *
    * <p>A typical client falls back on local computation upon seeing this.
    */
-  public record NoCachedData(CacheMissReason reason)
-      implements SerializationState, RetrievalResult {}
+  public record NoCachedData(MissReason reason) implements SerializationState, RetrievalResult {}
 
   /** The value was successfully retrieved. */
   public record RetrievedValue(SkyValue value) implements SerializationState, RetrievalResult {}
@@ -252,11 +244,11 @@ public final class SkyValueRetriever {
                 serializationState = new WaitingForFutureValueBytes(futureValueBytes);
                 responseFuture = futureValueBytes;
               } else {
-                ListenableFuture<ByteString> futureResponseBytes =
+                ListenableFuture<RemoteAnalysisCacheClient.LookupResult> futureResponse =
                     analysisCacheClient.lookup(ByteString.copyFrom(cacheKey.toBytes()));
 
-                serializationState = new WaitingForCacheServiceResponse(futureResponseBytes);
-                responseFuture = futureResponseBytes;
+                serializationState = new WaitingForCacheServiceResponse(futureResponse);
+                responseFuture = futureResponse;
               }
               switch (futuresShim.dependOnFuture(responseFuture)) {
                 case DONE:
@@ -280,7 +272,7 @@ public final class SkyValueRetriever {
               if (valueBytes == null || valueBytes.length == 0) {
                 // Serialized representations are never empty in this protocol. Some implementations
                 // (not linked with Bazel) use empty bytes to indicate missing data
-                serializationState = new NoCachedData(CacheMissReason.SKYVALUE_MISS);
+                serializationState = new NoCachedData(MissReason.MISS_REASON_SKYVALUE_MISS);
                 break;
               }
               var codedIn = CodedInputStream.newInstance(valueBytes);
@@ -318,20 +310,21 @@ public final class SkyValueRetriever {
               serializationState = new ProcessValueCodedInput(codedIn);
               break;
             }
-          case WaitingForCacheServiceResponse(ListenableFuture<ByteString> futureBytes):
+          case WaitingForCacheServiceResponse(
+              ListenableFuture<RemoteAnalysisCacheClient.LookupResult> futureResult):
             {
-              ByteString responseBytes;
+              RemoteAnalysisCacheClient.LookupResult result;
               try {
-                responseBytes = getDone(futureBytes);
+                result = getDone(futureResult);
               } catch (ExecutionException e) {
                 throw new SerializationException("getting cache response for " + key, e);
               }
-              if (responseBytes.isEmpty()) {
-                serializationState = new NoCachedData(CacheMissReason.SKYVALUE_MISS);
+              if (result.value().isEmpty()) {
+                serializationState = new NoCachedData(result.missReason());
                 break;
               }
 
-              serializationState = new ProcessValueByteString(responseBytes);
+              serializationState = new ProcessValueByteString(result.value());
               break;
             }
           case ProcessValueBytes valueBytes:
@@ -361,10 +354,10 @@ public final class SkyValueRetriever {
             try {
               serializationState = new WaitingForLookupContinuation(getDone(futureContinuation));
             } catch (ExecutionException e) {
-              CacheMissReason reason =
+              MissReason reason =
                   e.getCause() instanceof SerializationException se
                       ? se.getReason()
-                      : CacheMissReason.UNKNOWN;
+                      : MissReason.MISS_REASON_UNSPECIFIED;
               throw new SerializationException(
                   "waiting for all owned shared values for " + key, e, reason);
             }
@@ -410,7 +403,7 @@ public final class SkyValueRetriever {
       //
       // TODO: b/438142239 - ideally, CancellationException would be handled by Skyframe. However,
       // it is only thrown by this method and NO_CACHED_DATA is a safe fallback.
-      var result = new NoCachedData(CacheMissReason.UNKNOWN);
+      var result = new NoCachedData(MissReason.MISS_REASON_UNSPECIFIED);
       serializationState = result;
       return result;
     } finally {
@@ -427,7 +420,8 @@ public final class SkyValueRetriever {
       implements SerializationState {}
 
   @VisibleForTesting
-  record WaitingForCacheServiceResponse(ListenableFuture<ByteString> cacheResponseBytes)
+  record WaitingForCacheServiceResponse(
+      ListenableFuture<RemoteAnalysisCacheClient.LookupResult> lookupResult)
       implements SerializationState {}
 
   private static sealed interface ProcessValueBytes extends SerializationState

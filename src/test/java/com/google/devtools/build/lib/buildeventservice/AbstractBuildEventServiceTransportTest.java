@@ -71,7 +71,6 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.Any;
-import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import io.netty.util.AbstractReferenceCounted;
@@ -215,17 +214,17 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
                 COMMAND_CONTEXT,
                 timestamp,
                 1,
-                started.asStreamProto(buildEventContext).toByteString()),
+                started.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.bazelEvent(
                 COMMAND_CONTEXT,
                 timestamp,
                 2,
-                progress.asStreamProto(buildEventContext).toByteString()),
+                progress.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.bazelEvent(
                 COMMAND_CONTEXT,
                 timestamp,
                 3,
-                lastEvent.asStreamProto(buildEventContext).toByteString()),
+                lastEvent.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 4))
         .inOrder();
   }
@@ -250,17 +249,17 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
                 COMMAND_CONTEXT,
                 timestamp,
                 1,
-                started.asStreamProto(buildEventContext).toByteString()),
+                started.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.bazelEvent(
                 COMMAND_CONTEXT,
                 timestamp,
                 2,
-                progress.asStreamProto(buildEventContext).toByteString()),
+                progress.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.bazelEvent(
                 COMMAND_CONTEXT,
                 timestamp,
                 3,
-                success.asStreamProto(buildEventContext).toByteString()),
+                success.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 4))
         .inOrder();
   }
@@ -336,17 +335,17 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
                 COMMAND_CONTEXT,
                 timestamp,
                 1,
-                started.asStreamProto(buildEventContext).toByteString()),
+                started.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.bazelEvent(
                 COMMAND_CONTEXT,
                 timestamp,
                 2,
-                progress.asStreamProto(buildEventContext).toByteString()),
+                progress.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.bazelEvent(
                 COMMAND_CONTEXT,
                 timestamp,
                 3,
-                success.asStreamProto(buildEventContext).toByteString()),
+                success.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 4),
             // Verify retry on streamFinished message
             BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 4))
@@ -405,7 +404,7 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     clock.advanceMillis(1000L);
     Instant timestamp = clock.now();
 
-    ByteString expectedPayload = progress.asStreamProto(buildEventContext).toByteString();
+    byte[] expectedPayload = progress.asStreamProto(buildEventContext).toByteArray();
     fakeBesServer.setStreamEventPredicateAndResponseStatus(
         (req) ->
             Objects.equals(
@@ -435,7 +434,7 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
                 COMMAND_CONTEXT,
                 timestamp,
                 1,
-                started.asStreamProto(buildEventContext).toByteString()));
+                started.asStreamProto(buildEventContext).toByteArray()));
 
     assertThat(
             fakeBesServer.getStreamEvents(
@@ -469,12 +468,12 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
                 COMMAND_CONTEXT,
                 timestamp,
                 1,
-                started.asStreamProto(buildEventContext).toByteString()),
+                started.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.bazelEvent(
                 COMMAND_CONTEXT,
                 timestamp,
                 2,
-                success.asStreamProto(buildEventContext).toByteString()),
+                success.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 3));
 
     assertThat(
@@ -485,22 +484,22 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
                 COMMAND_CONTEXT,
                 timestamp,
                 1,
-                started.asStreamProto(buildEventContext).toByteString()),
+                started.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.bazelEvent(
                 COMMAND_CONTEXT,
                 timestamp,
                 1,
-                started.asStreamProto(buildEventContext).toByteString()),
+                started.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.bazelEvent(
                 COMMAND_CONTEXT,
                 timestamp,
                 2,
-                success.asStreamProto(buildEventContext).toByteString()),
+                success.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.bazelEvent(
                 COMMAND_CONTEXT,
                 timestamp,
                 2,
-                success.asStreamProto(buildEventContext).toByteString()),
+                success.asStreamProto(buildEventContext).toByteArray()),
             BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 3),
             BuildEventServiceProtoUtil.streamFinished(COMMAND_CONTEXT, timestamp, 3));
   }
@@ -581,7 +580,7 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
                 COMMAND_CONTEXT,
                 timestamp,
                 1,
-                started.asStreamProto(buildEventContext).toByteString()));
+                started.asStreamProto(buildEventContext).toByteArray()));
 
     assertThat(
             fakeBesServer.getSuccessfulStreamEvents(

@@ -148,6 +148,35 @@ function java_compilation() {
   done
 }
 
+# Build the JNI library.
+function build_jni() {
+  local -r output_dir=$1
+
+  log "Building JNI library..."
+
+  local output
+  if [[ $PLATFORM == "windows" ]]; then
+    output="${output_dir}/classes/main/native/windows/windows_jni.dll"
+  elif [[ $PLATFORM == "darwin" ]]; then
+    output="${output_dir}/classes/main/native/libunix_jni.dylib"
+  else
+    output="${output_dir}/classes/main/native/libunix_jni.so"
+  fi
+
+  local -r tmp_output="${NEW_TMPDIR}/jni/$(basename "${output}")"
+  mkdir -p "$(dirname "$tmp_output")"
+  mkdir -p "$(dirname "$output")"
+
+  if [[ $PLATFORM == "windows" ]]; then
+    scripts/bootstrap/build_windows_jni.sh "$tmp_output"
+  else
+    scripts/bootstrap/build_unix_jni.sh "$JAVA_HOME" "$PLATFORM" "$tmp_output"
+  fi
+
+  cp "$tmp_output" "$output"
+  chmod 0555 "$output"
+}
+
 # Create the deploy JAR
 function create_deploy_jar() {
   local name=$1
@@ -315,6 +344,8 @@ EOF
   # Set up @maven properly
   cp derived/maven/BUILD.vendor derived/maven/BUILD
 
+  build_jni ${OUTPUT_DIR}
+
   create_deploy_jar "libblaze" "com.google.devtools.build.lib.bazel.Bazel" \
       ${OUTPUT_DIR}
 fi
@@ -322,40 +353,6 @@ fi
 log "Creating Bazel install base..."
 ARCHIVE_DIR=${OUTPUT_DIR}/archive
 mkdir -p ${ARCHIVE_DIR}
-
-function build_jni() {
-  local -r output_dir=$1
-
-  if [ "${PLATFORM}" = "windows" ]; then
-    # We need JNI on Windows because some filesystem operations are not (and
-    # cannot be) implemented in native Java.
-    log "Building Windows JNI library..."
-
-    local -r jni_lib_name="windows_jni.dll"
-    local -r output="${output_dir}/${jni_lib_name}"
-    local -r tmp_output="${NEW_TMPDIR}/jni/${jni_lib_name}"
-    mkdir -p "$(dirname "$tmp_output")"
-    mkdir -p "$(dirname "$output")"
-
-    # Keep this in sync with the `srcs` of //src/main/native/windows:windows_jni
-    local -r srcs="src/main/native/common.cc $(find src/main/native/windows -name '*.cc' -o -name '*.h')"
-    [ -n "$srcs" ] || fail "Could not find sources for Windows JNI library"
-
-    # do not quote $srcs because we need to expand it to multiple args
-    src/main/native/windows/build_windows_jni.sh "$tmp_output" ${srcs}
-
-    cp "$tmp_output" "$output"
-    chmod 0555 "$output"
-
-    JNI_FLAGS="-Djava.library.path=${output_dir}"
-  else
-    # We don't need JNI on other platforms. The Java NIO file system fallback is
-    # sufficient.
-    true
-  fi
-}
-
-build_jni "${ARCHIVE_DIR}"
 
 cp $OUTPUT_DIR/libblaze.jar ${ARCHIVE_DIR}
 
@@ -395,7 +392,7 @@ function run_bazel_jar() {
       -XX:HeapDumpPath=${OUTPUT_DIR} \
       -Djava.util.logging.config.file=${OUTPUT_DIR}/javalog.properties \
       --add-opens java.base/java.lang=ALL-UNNAMED \
-      ${JNI_FLAGS} \
+      --add-exports java.base/jdk.internal.misc=ALL-UNNAMED \
       -jar ${ARCHIVE_DIR}/libblaze.jar \
       --batch \
       --install_base=${ARCHIVE_DIR} \

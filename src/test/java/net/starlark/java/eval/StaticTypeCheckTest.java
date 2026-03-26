@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static net.starlark.java.syntax.TestUtils.assertContainsError;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -58,6 +59,7 @@ public final class StaticTypeCheckTest {
   private Module module = Module.create();
 
   private Program compile(String... lines) throws SyntaxError.Exception {
+    Preconditions.checkArgument(lines.length > 0);
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
     return Program.compileFile(file, module);
@@ -95,7 +97,7 @@ public final class StaticTypeCheckTest {
         "operator '+' cannot be applied to types 'int' and 'str'",
         """
         n = 123 + 'abc'
-        _unused : bool  # ensure file uses type syntax
+        _unused: bool  # ensure file uses type syntax
         """);
   }
 
@@ -104,7 +106,7 @@ public final class StaticTypeCheckTest {
     assertInvalid(
         "name 'unknown' is not defined",
         """
-        x : unknown
+        x: unknown
         """);
   }
 
@@ -113,24 +115,24 @@ public final class StaticTypeCheckTest {
     assertInvalid(
         "universal symbol 'len' cannot be used as a type",
         """
-        x : len
+        x: len
         """);
   }
 
   @Test
   public void noneAsType() {
-    assertValid("x : None = None");
+    assertValid("x: None = None");
 
     assertInvalid(
         "cannot assign type 'int' to 'x' of type 'None'",
         """
-        x : None = 123
+        x: None = 123
         """);
   }
 
   @Test
   public void starlarkBuiltinAsType() {
-    assertValid("x : list[int] = [123]");
+    assertValid("x: list[int] = [123]");
 
     assertInvalid(
         "cannot assign type 'list[str]' to 'x' of type 'list[int]'",
@@ -142,7 +144,7 @@ public final class StaticTypeCheckTest {
   @StarlarkBuiltin(name = "BadBodyTypeBuiltin")
   public static final class BadBodyTypeBuiltin implements StarlarkValue {
     @SuppressWarnings("DoNotCallSuggester")
-    public static TypeConstructor getBaseTypeConstructor() {
+    public static TypeConstructor getAssociatedTypeConstructor() {
       throw new RuntimeException("fail");
     }
   }
@@ -150,14 +152,14 @@ public final class StaticTypeCheckTest {
   @StarlarkBuiltin(name = "BadSignatureTypeBuiltin")
   public static final class BadSignatureTypeBuiltin implements StarlarkValue {
     @SuppressWarnings("DoNotCallSuggester")
-    public TypeConstructor getBaseTypeConstructor() { // missing `static`
+    public TypeConstructor getAssociatedTypeConstructor() { // missing `static`
       throw new RuntimeException("fail");
     }
   }
 
   @StarlarkBuiltin(name = "MissingStaticMethodTypeBuiltin")
   public static final class MissingStaticMethodTypeBuiltin implements StarlarkValue {
-    // no getBaseTypeConstructor()
+    // no getAssociatedTypeConstructor()
   }
 
   public static final class DummyLibrary {
@@ -178,7 +180,7 @@ public final class StaticTypeCheckTest {
   }
 
   @Test
-  public void starlarkBuiltinWithBadBaseTypeConstructor() {
+  public void starlarkBuiltinWithBadAssociatedTypeConstructor() {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     Starlark.addMethods(env, new DummyLibrary());
     module = Module.withPredeclared(StarlarkSemantics.DEFAULT, env.buildOrThrow());
@@ -186,12 +188,13 @@ public final class StaticTypeCheckTest {
     var ex = assertThrows(IllegalArgumentException.class, () -> compile("x: BadSignature = None"));
     assertThat(ex)
         .hasMessageThat()
-        .containsMatch(".*BadSignatureTypeBuiltin#getBaseTypeConstructor has an invalid signature");
+        .containsMatch(
+            ".*BadSignatureTypeBuiltin#getAssociatedTypeConstructor has an invalid signature");
 
     ex = assertThrows(IllegalArgumentException.class, () -> compile("x: BadBody = None"));
     assertThat(ex)
         .hasMessageThat()
-        .containsMatch("Error invoking .*BadBodyTypeBuiltin#getBaseTypeConstructor");
+        .containsMatch("Error invoking .*BadBodyTypeBuiltin#getAssociatedTypeConstructor");
 
     ex =
         assertThrows(
@@ -199,5 +202,66 @@ public final class StaticTypeCheckTest {
     assertThat(ex)
         .hasMessageThat()
         .containsMatch("invalid type constructor proxy: .*MissingStaticMethodTypeBuiltin");
+  }
+
+  @Test
+  public void listMethods() {
+    assertValid(
+        """
+        x: list[int]
+        x.pop(0)
+        """);
+
+    assertInvalid(
+        "in call to 'x.pop()', parameter 'i' got value of type 'str', want 'int'",
+        """
+        x: list[int]
+        x.pop("abc")
+        """);
+
+    assertInvalid(
+        "'x' of type 'list[int]' does not have field 'does_not_exist'",
+        """
+        x: list[int]
+        x.does_not_exist
+        """);
+  }
+
+  @Test
+  public void dictMethods() {
+    assertValid(
+        """
+        d: dict[str, int]
+        v = d.get("a", 0)
+        d.setdefault("b", 2)
+        """);
+  }
+
+  @Test
+  public void setMethods() {
+    assertValid(
+        """
+        s: set[int]
+        s.add(3)
+        """);
+  }
+
+  @Test
+  public void strMethods() {
+    // Note that StringModule is special-cased to take the receiver string object as a separate
+    // parameter to the Java method, yet it doesn't appear in the signature for type-checking
+    // purposes.
+    assertValid(
+        """
+        s: str
+        s.startswith("abc")
+        """);
+
+    assertInvalid(
+        "'s.startswith()' missing 1 required argument: sub",
+        """
+        s: str
+        s.startswith()
+        """);
   }
 }

@@ -18,8 +18,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.analysis.config.transitions.BaselineOptionsValue;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.analysis.test.TestTrimmingLogic;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -31,6 +33,14 @@ import javax.annotation.Nullable;
 
 /** A builder for {@link BaselineOptionsValue} instances. */
 public final class BaselineOptionsFunction implements SkyFunction {
+
+  // Don't use these directly. Instead, use the BuildOptions obtained from this function, which
+  // applies the appropriate trimming and transition logic to reduce Skyframe invalidation.
+  // Unsharable because of complications in deserializing BuildOptions on startup due to caching.
+  public static final Precomputed<BuildOptions> BASELINE_CONFIGURATION =
+      Precomputed.createUnshareable("baseline_configuration");
+  public static final Precomputed<BuildOptions> BASELINE_EXEC_CONFIGURATION =
+      Precomputed.createUnshareable("baseline_exec_configuration");
 
   private final Version minimalVersionToInject;
 
@@ -49,10 +59,10 @@ public final class BaselineOptionsFunction implements SkyFunction {
     BuildOptions rawBaselineOptions;
     if (key.afterExecTransition()) {
       // Use the precomputed baseline exec
-      rawBaselineOptions = PrecomputedValue.BASELINE_EXEC_CONFIGURATION.get(env);
+      rawBaselineOptions = BASELINE_EXEC_CONFIGURATION.get(env);
     } else {
       // Use the standard baseline
-      rawBaselineOptions = PrecomputedValue.BASELINE_CONFIGURATION.get(env);
+      rawBaselineOptions = BASELINE_CONFIGURATION.get(env);
     }
 
     // Some test infrastructure only creates mock or partial top-level BuildOptions such that
@@ -60,6 +70,10 @@ public final class BaselineOptionsFunction implements SkyFunction {
     // In that case, is not worth doing any special processing of the baseline.
     if (rawBaselineOptions.hasNoConfig()) {
       return BaselineOptionsValue.create(rawBaselineOptions);
+    }
+
+    if (key.trimTestOptions()) {
+      rawBaselineOptions = TestTrimmingLogic.trim(rawBaselineOptions);
     }
 
     // First, make sure platform_mappings applied to the top-level baseline option.
@@ -97,10 +111,20 @@ public final class BaselineOptionsFunction implements SkyFunction {
   @Nullable
   private static BuildOptions mapBuildOptions(Environment env, BuildOptions rawBaselineOptions)
       throws InterruptedException, BaselineOptionsFunctionException {
-    BuildConfigurationKeyValue.Key bckvk =
-        BuildConfigurationKeyValue.Key.create(rawBaselineOptions);
+    // Baseline options have no need to contain scope info. Set all scopes to the default type so
+    // that BuildConfigurationKeyFunction doesn't attempt to apply scopes, which would lead to a
+    // cycle as this requires knowing the baseline options.
+    var builder = rawBaselineOptions.toBuilder();
+    rawBaselineOptions
+        .getStarlarkOptions()
+        .forEach(
+            (key, value) -> {
+              builder.addScopeType(key, new Scope.ScopeType(Scope.ScopeType.DEFAULT));
+              builder.removeOnLeaveScopeValue(key);
+            });
+    var bckvk = BuildConfigurationKeyValue.Key.create(builder.build());
     try {
-      BuildConfigurationKeyValue buildConfigurationKeyValue =
+      var buildConfigurationKeyValue =
           (BuildConfigurationKeyValue)
               env.getValueOrThrow(
                   bckvk,

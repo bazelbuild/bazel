@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel;
 
+import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCacheHitEvent;
 import com.google.devtools.build.lib.events.Event;
@@ -23,21 +24,19 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.Pair;
 import java.net.URI;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** Module reporting about cache hits in external repositories in case of failures */
 public final class CacheHitReportingModule extends BlazeModule {
   private Reporter reporter;
-  private Map<String, Set<Pair<String, URI>>> cacheHitsByContext;
+  private ConcurrentHashMap<String, Set<Pair<String, URI>>> cacheHitsByContext;
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
     env.getEventBus().register(this);
     this.reporter = env.getReporter();
-    this.cacheHitsByContext = new HashMap<>();
+    this.cacheHitsByContext = new ConcurrentHashMap<>();
   }
 
   @Override
@@ -47,9 +46,10 @@ public final class CacheHitReportingModule extends BlazeModule {
   }
 
   @Subscribe
-  public synchronized void cacheHit(DownloadCacheHitEvent event) {
+  @AllowConcurrentEvents
+  public void cacheHit(DownloadCacheHitEvent event) {
     cacheHitsByContext
-        .computeIfAbsent(event.context(), k -> new HashSet<>())
+        .computeIfAbsent(event.context(), k -> ConcurrentHashMap.newKeySet())
         .add(Pair.of(event.fileHash(), event.uri()));
   }
 

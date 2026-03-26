@@ -21,8 +21,8 @@
 #include <utility>
 #include <vector>
 
-#include "src/main/cpp/sem_ver.h"
 #include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/sem_ver.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/strings.h"
@@ -63,13 +63,14 @@ const LazyRE2 kBazelVersionCmpOp = {R"((<=?|>=?|==|!=|~)(\S+))"};
     const std::string& filename, const WorkspaceLayout* workspace_layout,
     const std::string& workspace, const std::string& build_label,
     const std::optional<SemVer>& sem_ver, ParseError* error,
-    std::string* error_text, ReadFileFn read_file,
+    std::string* error_text, int max_import_depth, ReadFileFn read_file,
     CanonicalizePathFn canonicalize_path) {
   auto rcfile = absl::WrapUnique(new RcFile());
   std::vector<std::string> initial_import_stack = {filename};
   *error = rcfile->ParseFile(filename, workspace, *workspace_layout,
                              build_label, sem_ver, read_file, canonicalize_path,
-                             initial_import_stack, error_text);
+                             initial_import_stack, error_text, max_import_depth,
+                             /*current_depth=*/0);
   return (*error == ParseError::NONE) ? std::move(rcfile) : nullptr;
 }
 
@@ -78,7 +79,8 @@ const LazyRE2 kBazelVersionCmpOp = {R"((<=?|>=?|==|!=|~)(\S+))"};
     const std::string& workspace, ParseError* error, std::string* error_text,
     ReadFileFn read_file, CanonicalizePathFn canonicalize_path) {
   return Parse(filename, workspace_layout, workspace, /*build_label=*/"",
-               /*sem_ver=*/std::nullopt, error, error_text, read_file,
+               /*sem_ver=*/std::nullopt, error, error_text,
+               /*max_import_depth=*/MaxImportDepth, read_file,
                canonicalize_path);
 }
 
@@ -90,16 +92,19 @@ std::unique_ptr<RcFile> RcFile::Create(
   return rc_file;
 }
 
-RcFile::ParseError RcFile::ParseFile(const std::string& filename,
-                                     const std::string& workspace,
-                                     const WorkspaceLayout& workspace_layout,
-                                     const std::string& build_label,
-                                     const std::optional<SemVer>& sem_ver,
-                                     ReadFileFn read_file,
-                                     CanonicalizePathFn canonicalize_path,
-                                     std::vector<std::string>& import_stack,
-                                     std::string* error_text) {
+RcFile::ParseError RcFile::ParseFile(
+    const std::string& filename, const std::string& workspace,
+    const WorkspaceLayout& workspace_layout, const std::string& build_label,
+    const std::optional<SemVer>& sem_ver, ReadFileFn read_file,
+    CanonicalizePathFn canonicalize_path,
+    std::vector<std::string>& import_stack, std::string* error_text,
+    int max_import_depth, int current_depth) {
   BAZEL_LOG(INFO) << "Parsing the RcFile " << filename;
+  if (current_depth > max_import_depth) {
+    *error_text = absl::StrFormat(
+        "Maximum import depth exceeded parsing config file '%s'", filename);
+    return ParseError::IMPORT_DEPTH_EXCEEDED;
+  }
   std::string contents;
   if (std::string error_msg; !read_file(filename, &contents, &error_msg)) {
     *error_text = absl::StrFormat(
@@ -233,7 +238,7 @@ RcFile::ParseError RcFile::ParseFile(const std::string& filename,
     if (ParseError parse_error =
             ParseFile(import_filename, workspace, workspace_layout, build_label,
                       sem_ver, read_file, canonicalize_path, import_stack,
-                      error_text);
+                      error_text, max_import_depth, current_depth + 1);
         parse_error != ParseError::NONE) {
       if (parse_error == ParseError::UNREADABLE_FILE &&
           (command == kCommandTryImport ||
@@ -263,7 +268,9 @@ RcFile::ParseError RcFile::ParseFile(
     std::vector<std::string>& import_stack, std::string* error_text) {
   return ParseFile(filename, workspace, workspace_layout, /*build_label=*/"",
                    /*sem_ver=*/std::nullopt, read_file, canonicalize_path,
-                   import_stack, error_text);
+                   import_stack, error_text,
+                   /*max_import_depth=*/RcFile::MaxImportDepth,
+                   /*current_depth=*/0);
 }
 
 bool RcFile::ReadFileDefault(const std::string& filename, std::string* contents,
