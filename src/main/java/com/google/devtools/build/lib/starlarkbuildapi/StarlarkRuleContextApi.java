@@ -672,7 +672,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
           already a <code>Label</code>, it is returned unchanged.<p>The result of this function is \
           the same <code>Label</code> value as would be produced by passing the given string to a \
           label-valued attribute of the rule and accessing the corresponding \
-          <a href='../builtins/Target.html#label><code>label</code></a> field.
+          <a href='../builtins/Target.html#label'><code>label</code></a> field.
           <p><i>Usage note:</i> The difference between this function and \
           <a href='../builtins/Label.html#Label'>Label()</a></code> is \
           that <code>Label()</code> uses the context of the package of the <code>.bzl</code> file \
