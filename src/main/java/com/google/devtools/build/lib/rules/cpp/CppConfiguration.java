@@ -176,37 +176,7 @@ public final class CppConfiguration extends Fragment
       linkoptsBuilder.add("-Wl,--eh-frame-hdr");
     }
 
-    PathFragment fdoPath = null;
-    Label fdoProfileLabel = null;
-    if (cppOptions.getFdoOptimize() != null) {
-      if (cppOptions.getFdoOptimize().startsWith("//")) {
-        try {
-          fdoProfileLabel = Label.parseCanonical(cppOptions.getFdoOptimize());
-        } catch (LabelSyntaxException e) {
-          throw new InvalidConfigurationException(e);
-        }
-      } else {
-        if (!cppOptions.getEnableFdoProfileAbsolutePath()) {
-          throw new InvalidConfigurationException(
-              "Please use --fdo_profile instead of an absolute path set with --fdo_optimize. Using"
-                  + " absolute paths may be temporary reenabled with"
-                  + " --enable_fdo_profile_absolute_path");
-        }
-        fdoPath = PathFragment.create(cppOptions.getFdoOptimize());
-        if (!fdoPath.isAbsolute()) {
-          throw new InvalidConfigurationException(
-              "Path of '"
-                  + fdoPath.getPathString()
-                  + "' in --fdo_optimize has to be either an absolute path or a label.");
-        }
-        try {
-          // We don't check for file existence, but at least the filename should be well-formed.
-          FileSystemUtils.checkBaseName(fdoPath.getBaseName());
-        } catch (IllegalArgumentException e) {
-          throw new InvalidConfigurationException(e);
-        }
-      }
-    }
+    FdoPathData fdoPathData = FdoPathData.get(cppOptions);
 
     PathFragment csFdoAbsolutePath = null;
     if (cppOptions.getCsFdoAbsolutePathForBuild() != null) {
@@ -276,8 +246,8 @@ public final class CppConfiguration extends Fragment
       }
     }
 
-    this.fdoPath = fdoPath == null ? null : fdoPath.getPathString();
-    this.fdoOptimizeLabel = fdoProfileLabel;
+    this.fdoPath = fdoPathData.fdoPath() == null ? null : fdoPathData.fdoPath().getPathString();
+    this.fdoOptimizeLabel = fdoPathData.fdoProfileLabel();
     this.csFdoAbsolutePath = csFdoAbsolutePath == null ? null : csFdoAbsolutePath.getPathString();
     this.propellerOptimizeAbsoluteCCProfile =
         propellerOptimizeAbsoluteCCProfile == null
@@ -302,6 +272,45 @@ public final class CppConfiguration extends Fragment
     this.compilationMode = compilationMode;
     this.collectCodeCoverage = commonOptions.getCollectCodeCoverage();
     this.appleGenerateDsym = cppOptions.getAppleGenerateDsym();
+  }
+
+  private record FdoPathData(PathFragment fdoPath, Label fdoProfileLabel) {
+    private static FdoPathData get(CppOptions cppOptions) throws InvalidConfigurationException {
+      PathFragment fdoPath = null;
+      Label fdoProfileLabel = null;
+
+      if (cppOptions.getFdoOptimize() != null) {
+        try {
+          fdoProfileLabel = Label.parseCanonical(cppOptions.getFdoOptimize());
+          return new FdoPathData(fdoPath, fdoProfileLabel);
+        } catch (LabelSyntaxException ignored) {
+          // This isn't a Label, so just continue trying other flags.
+        }
+
+        if (!cppOptions.getEnableFdoProfileAbsolutePath()) {
+          throw new InvalidConfigurationException(
+              "Please use --fdo_profile instead of an absolute path set with --fdo_optimize. Using"
+                  + " absolute paths may be temporary reenabled with"
+                  + " --enable_fdo_profile_absolute_path");
+        }
+
+        // Try to process the flag value as a path.
+        fdoPath = PathFragment.create(cppOptions.getFdoOptimize());
+        if (!fdoPath.isAbsolute()) {
+          throw new InvalidConfigurationException(
+              "Path of '"
+                  + fdoPath.getPathString()
+                  + "' in --fdo_optimize has to be either an absolute path or a label.");
+        }
+        try {
+          // We don't check for file existence, but at least the filename should be well-formed.
+          FileSystemUtils.checkBaseName(fdoPath.getBaseName());
+        } catch (IllegalArgumentException e) {
+          throw new InvalidConfigurationException(e);
+        }
+      }
+      return new FdoPathData(fdoPath, fdoProfileLabel);
+    }
   }
 
   @Nullable
