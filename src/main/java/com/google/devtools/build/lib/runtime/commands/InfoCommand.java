@@ -319,7 +319,9 @@ public class InfoCommand implements BlazeCommand {
       return optionsParsingResult;
     }
 
-    OptionsParser oldParser = (OptionsParser) optionsParsingResult;
+    if (!(optionsParsingResult instanceof OptionsParser oldParser)) {
+      return optionsParsingResult;
+    }
     OptionsParser newParser =
         oldParser.toBuilder().withConversionContext(mainRepoMapping).build();
     // Replay all explicitly-set options (not from expansion or implicit deps) in priority order.
@@ -332,7 +334,7 @@ public class InfoCommand implements BlazeCommand {
           newParser.parse(
               option.getPriority().getPriorityCategory(),
               option.getSource(),
-              ImmutableList.of(option.getCommandLineForm()));
+              ImmutableList.of(option.getCanonicalForm()));
         } catch (OptionsParsingException e) {
           throw new AbruptExitException(
               DetailedExitCode.of(
