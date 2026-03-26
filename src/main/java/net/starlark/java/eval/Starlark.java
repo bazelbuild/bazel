@@ -1223,6 +1223,7 @@ public final class Starlark {
     StarlarkFunction toplevel =
         new StarlarkFunction(
             rfn,
+            prog.getTypeTable(),
             module,
             globalIndex,
             /* defaultValues= */ Tuple.empty(),
@@ -1277,6 +1278,7 @@ public final class Starlark {
     int[] globalIndex = module.getIndicesOfGlobals(rfn.getGlobals()); // see execFileProgram
     return new StarlarkFunction(
         rfn,
+        prog.getTypeTable(),
         module,
         globalIndex,
         /* defaultValues= */ Tuple.empty(),

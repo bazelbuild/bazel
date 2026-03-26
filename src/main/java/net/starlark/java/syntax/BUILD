@@ -69,6 +69,7 @@ java_library(
         "TypeChecker.java",
         "TypeConstructor.java",
         "TypeContext.java",
+        "TypeTable.java",
         "TypeTagger.java",
         "Types.java",
         "UnaryOperatorExpression.java",

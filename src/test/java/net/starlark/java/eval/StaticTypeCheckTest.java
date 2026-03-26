@@ -83,7 +83,7 @@ public final class StaticTypeCheckTest {
     ParserInput input = ParserInput.fromLines(expr);
     Expression expression = Expression.parse(input, options.build());
     Program program = Program.compileExpr(expression, module, options.build());
-    return program.getResolvedFunction().getFunctionType();
+    return program.getTypeTable().getType(program.getResolvedFunction());
   }
 
   @Test

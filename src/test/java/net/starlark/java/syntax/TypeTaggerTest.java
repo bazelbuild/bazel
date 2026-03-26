@@ -42,8 +42,8 @@ public class TypeTaggerTest {
   /** Extracts an expression string to a type in an empty environment. */
   private StarlarkType extractType(String type) throws Exception {
     Expression expr = Expression.parseTypeExpression(ParserInput.fromLines(type), options.build());
-    Resolver.resolveExpr(expr, module, options.build());
-    return TypeTagger.extractType(expr, module);
+    Resolver.Function function = Resolver.resolveExpr(expr, module, options.build());
+    return TypeTagger.extractType(expr, function, module);
   }
 
   /**
@@ -55,33 +55,63 @@ public class TypeTaggerTest {
     assertThat(e).hasMessageThat().isEqualTo(expectedMessage);
   }
 
+  private record Result(StarlarkFile file, TypeTable typeTable) {
+    /** Returns the type of an identifier. */
+    @Nullable
+    private StarlarkType getType(Identifier id) {
+      assertThat(id.getBinding()).isNotNull();
+      return typeTable().getType(id.getBinding());
+    }
+
+    @Nullable
+    private Types.CallableType getType(Resolver.Function function) {
+      return typeTable().getType(function);
+    }
+
+    /** Returns the type of a {@code def}'s resolved function. */
+    @Nullable
+    private Types.CallableType getType(DefStatement def) {
+      assertThat(def.getResolvedFunction()).isNotNull();
+      return getType(def.getResolvedFunction());
+    }
+
+    /** Returns the type of a {@code lambda}'s resolved function. */
+    @Nullable
+    private Types.CallableType getType(LambdaExpression lambda) {
+      assertThat(lambda.getResolvedFunction()).isNotNull();
+      return getType(lambda.getResolvedFunction());
+    }
+  }
+
   /**
    * Parses a series of strings as a file, then resolves and type-tags it.
    *
    * <p>Asserts that parsing and symbol resolution succeeded, but type-tagging may fail.
    */
-  private StarlarkFile tagFilePossiblyFailing(String... lines) throws Exception {
+  private Result tagFilePossiblyFailing(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
     assertThat(file.errors()).isEmpty();
     Resolver.resolveFile(file, module);
     assertThat(file.errors()).isEmpty();
-    TypeTagger.tagFile(file, module);
-    return file;
+    TypeTable typeTable = TypeTagger.tagFile(file, module);
+    return new Result(file, typeTable);
   }
 
   /** As in {@link #tagFilePossiblyFailing} but asserts that even type tagging succeeded. */
-  private StarlarkFile tagFile(String... lines) throws Exception {
-    StarlarkFile file = tagFilePossiblyFailing(lines);
-    assertThat(file.errors()).isEmpty();
-    return file;
+  private Result tagFile(String... lines) throws Exception {
+    Result result = tagFilePossiblyFailing(lines);
+    assertThat(result.typeTable().errors()).isEmpty();
+    return result;
   }
 
   /** Asserts that type tagging fails with at least the specified error. */
   private void assertInvalid(String expectedError, String... lines) throws Exception {
-    StarlarkFile file = tagFilePossiblyFailing(lines);
-    assertWithMessage("type tagging succeeded unexpectedly").that(file.ok()).isFalse();
-    assertContainsError(file.errors(), expectedError);
+    Result result = tagFilePossiblyFailing(lines);
+    assertWithMessage("type tagging succeeded unexpectedly")
+        .that(result.typeTable().ok())
+        .isFalse();
+    assertContainsError(result.typeTable().errors(), expectedError);
   }
 
   /** Returns the first statement of a parsed file. */
@@ -116,36 +146,15 @@ public class TypeTaggerTest {
     return functions.get(0);
   }
 
-  /** Returns the type of an identifier. */
-  @Nullable
-  private StarlarkType getType(Identifier id) throws Exception {
-    assertThat(id.getBinding()).isNotNull();
-    return id.getBinding().getType();
-  }
-
-  /** Returns the type of a {@code def}'s resolved function. */
-  @Nullable
-  private Types.CallableType getType(DefStatement def) throws Exception {
-    assertThat(def.getResolvedFunction()).isNotNull();
-    return def.getResolvedFunction().getFunctionType();
-  }
-
-  /** Returns the type of a {@code lambda}'s resolved function. */
-  @Nullable
-  private Types.CallableType getType(LambdaExpression lambda) throws Exception {
-    assertThat(lambda.getResolvedFunction()).isNotNull();
-    return lambda.getResolvedFunction().getFunctionType();
-  }
-
   private BooleanSubject assertTopLevelUsesTypeSyntax(String... lines) throws Exception {
-    StarlarkFile file = tagFile(lines);
-    return assertThat(file.getResolvedFunction().usesTypeSyntax());
+    Result result = tagFile(lines);
+    return assertThat(result.typeTable().usesTypeSyntax(result.file().getResolvedFunction()));
   }
 
   private BooleanSubject assertDefFunctionUsesTypeSyntax(String name, String... lines)
       throws Exception {
-    StarlarkFile file = tagFile(lines);
-    return assertThat(getDefFunction(file, name).usesTypeSyntax());
+    Result result = tagFile(lines);
+    return assertThat(result.typeTable().usesTypeSyntax(getDefFunction(result.file(), name)));
   }
 
   @Test
@@ -296,17 +305,18 @@ public class TypeTaggerTest {
   public void annotationMustBeAtFirstOccurence_localVar() throws Exception {
     // Also avoid assertInvalid() in this test case so we have some coverage of the declaration
     // location reporting, which is spread over two events.
-    StarlarkFile file =
+    TypeTable typeTable =
         tagFilePossiblyFailing(
-            """
-            def f():
-                x : int
-                x : str
-            """);
-    assertThat(file.ok()).isFalse();
+                """
+                def f():
+                    x : int
+                    x : str
+                """)
+            .typeTable();
+    assertThat(typeTable.ok()).isFalse();
     assertContainsError(
-        file.errors(), "3:5: type annotation on 'x' may only appear at its declaration");
-    assertContainsError(file.errors(), "2:5: 'x' previously declared here");
+        typeTable.errors(), "3:5: type annotation on 'x' may only appear at its declaration");
+    assertContainsError(typeTable.errors(), "2:5: 'x' previously declared here");
   }
 
   @Test
@@ -350,13 +360,13 @@ public class TypeTaggerTest {
 
   @Test
   public void tagFile_setsFunctionType_basic() throws Exception {
-    StarlarkFile file =
+    Result result =
         tagFile(
             """
             def f(a : int, b = 1, *c : bool, d : str = "abc", e, **f : int) -> bool:
                 pass
             """);
-    Types.CallableType type = getType(getFirstStatement(DefStatement.class, file));
+    Types.CallableType type = result.getType(getFirstStatement(DefStatement.class, result.file()));
 
     assertThat(type).isNotNull();
     assertThat(type.getParameterNames()).containsExactly("a", "b", "d", "e").inOrder();
@@ -373,13 +383,13 @@ public class TypeTaggerTest {
 
   @Test
   public void tagFile_setsFunctionType_omittedDetailsHandledCorrectly() throws Exception {
-    StarlarkFile file =
+    Result result =
         tagFile(
             """
             def f(*a, **b):
                 pass
             """);
-    Types.CallableType type = getType(getFirstStatement(DefStatement.class, file));
+    Types.CallableType type = result.getType(getFirstStatement(DefStatement.class, result.file()));
 
     assertThat(type).isNotNull();
     assertThat(type.getParameterNames()).isEmpty();
@@ -388,13 +398,13 @@ public class TypeTaggerTest {
     assertThat(type.getKwargsType()).isEqualTo(Types.ANY);
     assertThat(type.getReturnType()).isEqualTo(Types.ANY);
 
-    file =
+    result =
         tagFile(
             """
             def f():
                 pass
             """);
-    type = getType(getFirstStatement(DefStatement.class, file));
+    type = result.getType(getFirstStatement(DefStatement.class, result.file()));
 
     assertThat(type).isNotNull();
     assertThat(type.getVarargsType()).isNull();
@@ -404,16 +414,16 @@ public class TypeTaggerTest {
 
   @Test
   public void tagFile_reachesInnerFunctions() throws Exception {
-    StarlarkFile file =
+    Result result =
         tagFile(
             """
             def f():
                 def g(a : int):
                     pass
             """);
-    var outer = getFirstStatement(DefStatement.class, file);
+    var outer = getFirstStatement(DefStatement.class, result.file());
     var inner = getFirstStatement(DefStatement.class, outer);
-    Types.CallableType type = getType(inner);
+    Types.CallableType type = result.getType(inner);
 
     assertThat(type).isNotNull();
     assertThat(type.getParameterNames()).containsExactly("a");
@@ -422,26 +432,26 @@ public class TypeTaggerTest {
 
   @Test
   public void tagFile_setsFunctionType_onLambdas() throws Exception {
-    StarlarkFile file =
+    Result result =
         tagFile(
             """
             lambda x: 123
             """);
-    var stmt = getFirstStatement(ExpressionStatement.class, file);
-    Types.CallableType type = getType((LambdaExpression) stmt.getExpression());
+    var stmt = getFirstStatement(ExpressionStatement.class, result.file());
+    Types.CallableType type = result.getType((LambdaExpression) stmt.getExpression());
 
     assertThat(type).isNotNull();
     assertThat(type.getParameterNames()).containsExactly("x");
     assertThat(type.getParameterTypes()).containsExactly(Types.ANY);
     assertThat(type.getReturnType()).isEqualTo(Types.ANY);
 
-    file =
+    result =
         tagFile(
             """
             lambda x: lambda y: 123
             """);
-    stmt = getFirstStatement(ExpressionStatement.class, file);
-    type = getType((LambdaExpression) ((LambdaExpression) stmt.getExpression()).getBody());
+    stmt = getFirstStatement(ExpressionStatement.class, result.file());
+    type = result.getType((LambdaExpression) ((LambdaExpression) stmt.getExpression()).getBody());
 
     assertThat(type).isNotNull();
   }
@@ -451,34 +461,34 @@ public class TypeTaggerTest {
   // on-the-fly by Starlark#eval.)
   @Test
   public void tagFile_doesNotSetTypeOnStarlarkFileFunction() throws Exception {
-    StarlarkFile file = tagFile("pass");
-    Types.CallableType type = file.getResolvedFunction().getFunctionType();
+    Result result = tagFile("pass");
+    Types.CallableType type = result.getType(result.file().getResolvedFunction());
 
     assertThat(type).isNull();
   }
 
   @Test
   public void tagFile_setsBindingType_nullByDefault() throws Exception {
-    StarlarkFile file =
+    Result result =
         tagFile(
             """
             x = 1
             """);
-    var stmt = getFirstStatement(AssignmentStatement.class, file);
-    StarlarkType type = getType((Identifier) stmt.getLHS());
+    var stmt = getFirstStatement(AssignmentStatement.class, result.file());
+    StarlarkType type = result.getType((Identifier) stmt.getLHS());
 
     assertThat(type).isNull();
   }
 
   @Test
   public void tagFile_setsBindingType_var() throws Exception {
-    StarlarkFile file =
+    Result result =
         tagFile(
             """
             x : int
             """);
-    var stmt = getFirstStatement(VarStatement.class, file);
-    StarlarkType type = getType(stmt.getIdentifier());
+    var stmt = getFirstStatement(VarStatement.class, result.file());
+    StarlarkType type = result.getType(stmt.getIdentifier());
 
     assertThat(type).isEqualTo(Types.INT);
   }
@@ -487,28 +497,28 @@ public class TypeTaggerTest {
   public void tagFile_setsBindingType_assignment() throws Exception {
     options.allowToplevelRebinding(true);
 
-    StarlarkFile file =
+    Result result =
         tagFile(
             """
             x : int = 5
             x = 6  # not clobbered by annotation-less reassignment
             """);
-    var stmt = getFirstStatement(AssignmentStatement.class, file);
-    StarlarkType type = getType(((Identifier) stmt.getLHS()));
+    var stmt = getFirstStatement(AssignmentStatement.class, result.file());
+    StarlarkType type = result.getType(((Identifier) stmt.getLHS()));
 
     assertThat(type).isEqualTo(Types.INT);
   }
 
   @Test
   public void tagFile_setsBindingType_functionIdentifier() throws Exception {
-    StarlarkFile file =
+    Result result =
         tagFile(
             """
             def f(x : int):
                 pass
             """);
-    var stmt = getFirstStatement(DefStatement.class, file);
-    StarlarkType type = getType(stmt.getIdentifier());
+    var stmt = getFirstStatement(DefStatement.class, result.file());
+    StarlarkType type = result.getType(stmt.getIdentifier());
 
     assertThat(type).isInstanceOf(Types.CallableType.class);
     assertThat(((Types.CallableType) type).getParameterTypeByPos(0)).isEqualTo(Types.INT);
@@ -516,16 +526,16 @@ public class TypeTaggerTest {
 
   @Test
   public void tagFile_setsBindingType_functionParams() throws Exception {
-    StarlarkFile file =
+    Result result =
         tagFile(
             """
             def f(a : int, b = 1, *c : bool, d : str = "abc", e, **f : int) -> bool:
                 pass
             """);
-    var stmt = getFirstStatement(DefStatement.class, file);
+    var stmt = getFirstStatement(DefStatement.class, result.file());
     ArrayList<StarlarkType> bindingTypes = new ArrayList<>();
     for (var param : stmt.getParameters()) {
-      bindingTypes.add(getType(param.getIdentifier()));
+      bindingTypes.add(result.getType(param.getIdentifier()));
     }
 
     assertThat(bindingTypes)
@@ -535,16 +545,16 @@ public class TypeTaggerTest {
 
   @Test
   public void tagFile_setsBindingType_lambdaParams() throws Exception {
-    StarlarkFile file =
+    Result result =
         tagFile(
             """
             lambda x, y: 123
             """);
-    var stmt = getFirstStatement(ExpressionStatement.class, file);
+    var stmt = getFirstStatement(ExpressionStatement.class, result.file());
     var lambda = (LambdaExpression) stmt.getExpression();
     ArrayList<StarlarkType> bindingTypes = new ArrayList<>();
     for (var param : lambda.getParameters()) {
-      bindingTypes.add(getType(param.getIdentifier()));
+      bindingTypes.add(result.getType(param.getIdentifier()));
     }
 
     assertThat(bindingTypes).containsExactly(Types.ANY, Types.ANY).inOrder();
@@ -552,14 +562,14 @@ public class TypeTaggerTest {
 
   @Test
   public void tagFile_setsBindingType_insideFunctions() throws Exception {
-    StarlarkFile file =
+    Result result =
         tagFile(
             """
             def f():
                 x : int
             """);
-    var stmt = getFirstStatement(DefStatement.class, file);
-    StarlarkType type = getType(getFirstStatement(VarStatement.class, stmt).getIdentifier());
+    var stmt = getFirstStatement(DefStatement.class, result.file());
+    StarlarkType type = result.getType(getFirstStatement(VarStatement.class, stmt).getIdentifier());
 
     assertThat(type).isEqualTo(Types.INT);
   }

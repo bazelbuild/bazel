@@ -20,7 +20,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -36,16 +35,16 @@ import net.starlark.java.spelling.SpellChecker;
  * appearing within them, as determined by the type tagger.
  *
  * <p>In addition, this visitor modifies the function type on the {@link Resolver.Function} objects
- * of {@link LambdaExpression}s in the AST (originally populated by the {@link TypeTagger}) to have
- * a more precise return type, if possible; and populates the types on the {@link Resolver.Binding}
- * objects of untyped variables with the inferred types of their values in their first assignments
- * in typed code.
+ * of {@link LambdaExpression}s in the {@link TypeTable} (originally populated by the {@link
+ * TypeTagger}) to have a more precise return type, if possible; and populates the types of the
+ * {@link Resolver.Binding} objects of untyped variables with the inferred types of their values in
+ * their first assignments in typed code.
  *
  * <p>Type annotations are not traversed by this visitor.
  */
 public final class TypeChecker extends NodeVisitor {
 
-  private final List<SyntaxError> errors;
+  private final TypeTable typeTable;
   private final TypeContext typeContext;
 
   // Empty if we were invoked via inferTypeOf() to type-check an expression (since inside
@@ -61,7 +60,7 @@ public final class TypeChecker extends NodeVisitor {
   // Formats and reports an error at the specified location.
   @FormatMethod
   private void errorf(Location loc, String format, Object... args) {
-    errors.add(new SyntaxError(loc, String.format(format, args)));
+    typeTable.errors.add(new SyntaxError(loc, String.format(format, args)));
   }
 
   private void binaryOperatorError(
@@ -95,8 +94,8 @@ public final class TypeChecker extends NodeVisitor {
     return n == 1 ? "" : "s";
   }
 
-  private TypeChecker(List<SyntaxError> errors, TypeContext typeContext) {
-    this.errors = errors;
+  private TypeChecker(TypeTable typeTable, TypeContext typeContext) {
+    this.typeTable = typeTable;
     this.typeContext = typeContext;
   }
 
@@ -111,8 +110,8 @@ public final class TypeChecker extends NodeVisitor {
   // code.
   private StarlarkType getType(Identifier id) {
     Resolver.Binding binding = id.getBinding();
-    Preconditions.checkNotNull(binding);
-    StarlarkType type = binding.getType();
+    checkNotNull(binding);
+    StarlarkType type = typeTable.getType(binding);
     return type != null ? type : Types.ANY;
   }
 
@@ -164,23 +163,26 @@ public final class TypeChecker extends NodeVisitor {
       case LAMBDA -> {
         var lambda = (LambdaExpression) expr;
         StarlarkType inferedReturnType = infer(lambda.getBody());
-        Types.CallableType originalType = lambda.getResolvedFunction().getFunctionType();
+        Types.CallableType originalType =
+            checkNotNull(
+                typeTable.getType(lambda.getResolvedFunction()),
+                "type tagger should have set type for lambda expr '%s'",
+                lambda);
         if (!originalType.getReturnType().equals(inferedReturnType)) {
           // Update the lambda function type with a more precise return type.
-          lambda
-              .getResolvedFunction()
-              .setFunctionType(
-                  Types.callable(
-                      originalType.getParameterNames(),
-                      originalType.getParameterTypes(),
-                      originalType.getNumPositionalOnlyParameters(),
-                      originalType.getNumPositionalParameters(),
-                      originalType.getMandatoryParameters(),
-                      originalType.getVarargsType(),
-                      originalType.getKwargsType(),
-                      inferedReturnType));
+          typeTable.setType(
+              lambda.getResolvedFunction(),
+              Types.callable(
+                  originalType.getParameterNames(),
+                  originalType.getParameterTypes(),
+                  originalType.getNumPositionalOnlyParameters(),
+                  originalType.getNumPositionalParameters(),
+                  originalType.getMandatoryParameters(),
+                  originalType.getVarargsType(),
+                  originalType.getKwargsType(),
+                  inferedReturnType));
         }
-        return lambda.getResolvedFunction().getFunctionType();
+        return typeTable.getType(lambda.getResolvedFunction());
       }
       case LIST_EXPR -> {
         var list = (ListExpression) expr;
@@ -995,18 +997,17 @@ public final class TypeChecker extends NodeVisitor {
   /**
    * Returns the inferred type of an expression.
    *
-   * <p>The expression must have already been resolved and type-tagged, i.e. identifiers must have
-   * their bindings set and these bindings must contain type information.
+   * <p>The expression must have already been resolved and successfully type-tagged, i.e.
+   * identifiers must have their bindings set and these bindings must contain type information.
    *
-   * @throws SyntaxError.Exception if a static type error is present in the expression
+   * @throws SyntaxError.Exception if a static type error is present in the expression.
    */
-  static StarlarkType inferTypeOf(Expression expr, TypeContext typeContext)
+  static StarlarkType inferTypeOf(Expression expr, TypeTable typeTable, TypeContext typeContext)
       throws SyntaxError.Exception {
-    List<SyntaxError> errors = new ArrayList<>();
-    TypeChecker tc = new TypeChecker(errors, typeContext);
+    TypeChecker tc = new TypeChecker(typeTable, typeContext);
     StarlarkType result = tc.infer(expr);
-    if (!errors.isEmpty()) {
-      throw new SyntaxError.Exception(tc.errors);
+    if (!typeTable.ok()) {
+      throw new SyntaxError.Exception(typeTable.errors());
     }
     return result;
   }
@@ -1041,9 +1042,9 @@ public final class TypeChecker extends NodeVisitor {
       }
     }
 
-    if (lhs instanceof Identifier id && id.getBinding().getType() == null) {
+    if (lhs instanceof Identifier id && typeTable.getType(id.getBinding()) == null) {
       // If a variable has not been typed, infer its type from the rhs of the first assignment.
-      id.getBinding().setType(rhsType);
+      typeTable.setInferredType(id.getBinding(), rhsType);
     }
   }
 
@@ -1236,8 +1237,12 @@ public final class TypeChecker extends NodeVisitor {
   public void visit(DefStatement def) {
     Resolver.Function function = def.getResolvedFunction();
     functionStack.push(function);
-    if (function.usesTypeSyntax()) {
-      Types.CallableType callableType = checkNotNull(function.getFunctionType());
+    if (typeTable.usesTypeSyntax(function)) {
+      Types.CallableType callableType =
+          checkNotNull(
+              typeTable.getType(function),
+              "type tagger should have set type for def statement '%s'",
+              def);
       int numOrdinaryParams = callableType.getParameterTypes().size();
       for (int i = 0; i < numOrdinaryParams; i++) {
         Parameter param = def.getParameters().get(i);
@@ -1310,8 +1315,10 @@ public final class TypeChecker extends NodeVisitor {
     StarlarkType returnType = ret.getResult() == null ? Types.NONE : infer(ret.getResult());
     checkState(!functionStack.isEmpty());
     Resolver.Function function = functionStack.peek();
-    Types.CallableType callableType = function.getFunctionType();
-    if (!StarlarkType.assignableFrom(callableType.getReturnType(), returnType)) {
+    // May be null if function is the toplevel
+    @Nullable Types.CallableType callableType = typeTable.getType(function);
+    if (callableType != null
+        && !StarlarkType.assignableFrom(callableType.getReturnType(), returnType)) {
       errorf(
           ret.getResult().getStartLocation(),
           "%s() declares return type '%s' but may return '%s'",
@@ -1373,7 +1380,7 @@ public final class TypeChecker extends NodeVisitor {
    * via {@link #inferTypeOf}. If false, the current node must not be type-checked.
    */
   private boolean usesTypeSyntax() {
-    return functionStack.isEmpty() || functionStack.peek().usesTypeSyntax();
+    return functionStack.isEmpty() || typeTable.usesTypeSyntax(functionStack.peek());
   }
 
   /**
@@ -1381,10 +1388,10 @@ public final class TypeChecker extends NodeVisitor {
    *
    * <p>The file must have already been passed through the {@link TypeTagger} without error
    *
-   * <p>Any type checking errors are appended to the file's errors list.
+   * <p>Any type checking errors are appended to the type table's errors list.
    */
-  public static void checkFile(StarlarkFile file, TypeContext typeContext) {
-    TypeChecker checker = new TypeChecker(file.errors, typeContext);
+  public static void checkFile(StarlarkFile file, TypeTable typeTable, TypeContext typeContext) {
+    TypeChecker checker = new TypeChecker(typeTable, typeContext);
     checker.visit(file);
   }
 }

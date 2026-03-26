@@ -54,20 +54,34 @@ public final class TypeCheckerTest {
   }
 
   /**
-   * Parses, resolve, and type-resolves a file, without typechecking it.
+   * Throws {@link AssertionError} if a type table has errors, with an exception message that
+   * includes {@code what} and the errors.
+   */
+  private void assertNoErrors(String what, TypeTable typeTable) {
+    if (!typeTable.ok()) {
+      throw new AssertionError(
+          String.format(
+              "Unexpected errors: %s:\n%s", what, Joiner.on("\n").join(typeTable.errors())));
+    }
+  }
+
+  private record PreparedFile(StarlarkFile file, TypeTable typeTable) {}
+
+  /**
+   * Parses, resolves, and type-tags a file, without typechecking it.
    *
    * <p>Returns a file without errors or else asserts failure.
    */
-  private StarlarkFile prepareFile(String... lines) throws Exception {
+  private PreparedFile prepareFile(String... lines) throws Exception {
     Preconditions.checkArgument(lines.length > 0);
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
     assertNoErrors("parsing", file);
     Resolver.resolveFile(file, module);
     assertNoErrors("resolving", file);
-    TypeTagger.tagFile(file, module);
-    assertNoErrors("type-resolving", file);
-    return file;
+    TypeTable typeTable = TypeTagger.tagFile(file, module);
+    assertNoErrors("type-tagging", typeTable);
+    return new PreparedFile(file, typeTable);
   }
 
   /**
@@ -76,24 +90,28 @@ public final class TypeCheckerTest {
    * <p>Asserts that steps before typechecking succeeded, but the typechecking itself may fail. The
    * resulting errors are available in the returned {@code StarlarkFile}.
    */
-  private StarlarkFile typecheckFilePossiblyFailing(String... lines) throws Exception {
-    StarlarkFile file = prepareFile(lines);
-    TypeChecker.checkFile(file, module);
-    return file;
+  private PreparedFile typecheckFilePossiblyFailing(String... lines) throws Exception {
+    PreparedFile preparedFile = prepareFile(lines);
+    TypeChecker.checkFile(preparedFile.file(), preparedFile.typeTable(), module);
+    return preparedFile;
   }
 
   /** As in {@link #typecheckFilePossiblyFailing} but asserts that even type checking succeeded. */
   private StarlarkFile assertValid(String... lines) throws Exception {
-    StarlarkFile file = typecheckFilePossiblyFailing(lines);
-    assertThat(file.errors()).isEmpty();
-    return file;
+    PreparedFile preparedFile = typecheckFilePossiblyFailing(lines);
+    assertThat(preparedFile.file().errors()).isEmpty();
+    assertThat(preparedFile.typeTable().errors()).isEmpty();
+    return preparedFile.file();
   }
 
   /** Asserts that type checking fails with at least the specified error. */
   private void assertInvalid(String expectedError, String... lines) throws Exception {
-    StarlarkFile file = typecheckFilePossiblyFailing(lines);
-    assertWithMessage("type checking suceeded unexpectedly").that(file.ok()).isFalse();
-    assertContainsError(file.errors(), expectedError);
+    PreparedFile preparedFile = typecheckFilePossiblyFailing(lines);
+    assertThat(preparedFile.file().errors()).isEmpty();
+    assertWithMessage("type checking suceeded unexpectedly")
+        .that(preparedFile.typeTable().ok())
+        .isFalse();
+    assertContainsError(preparedFile.typeTable().errors(), expectedError);
   }
 
   /**
@@ -101,9 +119,10 @@ public final class TypeCheckerTest {
    * identifiers appearing within the expression.
    */
   private StarlarkType inferTypeGivenDecls(String expr, String... decls) throws Exception {
-    StarlarkFile file = prepareFile(ObjectArrays.concat(decls, expr));
-    var resolvedExpr = ((ExpressionStatement) file.getStatements().getLast()).getExpression();
-    return TypeChecker.inferTypeOf(resolvedExpr, module);
+    PreparedFile preparedFile = prepareFile(ObjectArrays.concat(decls, expr));
+    var resolvedExpr =
+        ((ExpressionStatement) preparedFile.file().getStatements().getLast()).getExpression();
+    return TypeChecker.inferTypeOf(resolvedExpr, preparedFile.typeTable(), module);
   }
 
   /**
@@ -123,12 +142,13 @@ public final class TypeCheckerTest {
    */
   private void assertTypeAfterTypecheck(String expr, StarlarkType expected, String... decls)
       throws Exception {
-    StarlarkFile file = prepareFile(ObjectArrays.concat(decls, expr));
-    TypeChecker.checkFile(file, module);
-    assertThat(file.errors()).isEmpty();
-    var resolvedExpr = ((ExpressionStatement) file.getStatements().getLast()).getExpression();
+    PreparedFile preparedFile = prepareFile(ObjectArrays.concat(decls, expr));
+    TypeChecker.checkFile(preparedFile.file(), preparedFile.typeTable(), module);
+    assertThat(preparedFile.file().errors()).isEmpty();
+    var resolvedExpr =
+        ((ExpressionStatement) preparedFile.file().getStatements().getLast()).getExpression();
     assertWithMessage("type of %s", expr)
-        .that(TypeChecker.inferTypeOf(resolvedExpr, module))
+        .that(TypeChecker.inferTypeOf(resolvedExpr, preparedFile.typeTable(), module))
         .isEqualTo(expected);
   }
 
