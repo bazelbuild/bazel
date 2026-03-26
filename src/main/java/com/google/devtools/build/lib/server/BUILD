@@ -82,6 +82,25 @@ java_library(
 )
 
 java_library(
+    name = "grpc_command_server_service",
+    srcs = ["GrpcCommandServerService.java"],
+    deps = [
+        ":grpc_command_server",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
+    ],
+)
+
+java_library(
+    name = "grpc_command_server_service_impl",
+    srcs = ["GrpcCommandServerServiceImpl.java"],
+    deps = [
+        ":grpc_command_server",
+        ":grpc_command_server_impl",
+        ":grpc_command_server_service",
+    ],
+)
+
+java_library(
     name = "command_server",
     srcs = ["CommandServer.java"],
     deps = [

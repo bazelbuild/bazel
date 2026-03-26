@@ -257,6 +257,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler:profiler_impl",
         "//src/main/java/com/google/devtools/build/lib/profiler:system_network_stats_service_impl",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
+        "//src/main/java/com/google/devtools/build/lib/server:grpc_command_server_service_impl",
         "//src/main/java/com/google/devtools/build/lib/skyframe:fs_events_native_deps_service_impl",
         "//src/main/java/com/google/devtools/build/lib/starlarkprofiler:cpu_profiler_service_impl",
         "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",

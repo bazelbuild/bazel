@@ -85,7 +85,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
 import com.google.devtools.build.lib.server.FailureDetails.JniLinking;
 import com.google.devtools.build.lib.server.GcAndInternerShrinkingIdleTask;
-import com.google.devtools.build.lib.server.GrpcCommandServerImpl;
+import com.google.devtools.build.lib.server.GrpcCommandServerService;
 import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.server.InstallBaseGarbageCollectorIdleTask;
 import com.google.devtools.build.lib.server.PidFileWatcher;
@@ -1252,12 +1252,15 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       ShutdownHooks shutdownHooks = ShutdownHooks.createAndRegister();
       shutdownHooks.cleanupPidFile(pidFile, pidFileWatcher);
 
+      GrpcCommandServerService grpcCommandServerService =
+          Preconditions.checkNotNull(runtime.getBlazeService(GrpcCommandServerService.class));
+
       BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime, serverPid);
       BlazeServerStartupOptions startupOptions =
           runtime.startupOptionsProvider.getOptions(BlazeServerStartupOptions.class);
       CommandServer commandServer =
           CommandServer.create(
-              new GrpcCommandServerImpl(),
+              grpcCommandServerService.getGrpcCommandServer(),
               dispatcher,
               shutdownHooks,
               pidFileWatcher,
