@@ -126,14 +126,14 @@ A file that defines rules, [macros](#macro), and constants written in
 [Starlark](#starlark). These can then be imported into [`BUILD`
 files](#build-file) using the `load()` function.
 
-### Build Event Protocol
+### Build Event Protocol {#build-event-protocol}
 
 The set of protocol buffer messages used to communicate information about build
 and test results, build progress, build configuration, and much more.
 
 **See also:** [Build Event Protocol](/remote/bep)
 
-### Build flag
+### Build flag {#build-flag}
 
 A flag passed to Bazel to control Bazel itself and build actions. Flags are
 either [startup flags](#startup-flags) or [command flags](#command-flags).
@@ -203,7 +203,7 @@ flags](#starlark-flags).
 
 **See also:** [Configurations](/extending/rules#configurations)
 
-### Configuration fragment
+### Configuration fragment {#configuration-fragment}
 
 Fragments are parts of the native [configuration](#configuration). Configuration
 fragments give rules access to language-specific parts of
@@ -330,7 +330,7 @@ and resource usage. Dependency checking and caching aim to produce correct
 results for this type of build. An incremental build is the opposite of a clean
 build.
 
-### Install base
+### Install base {#install-base}
 
 The location where Bazel unpacks required tools that are delivered as part of
 the binary.
@@ -598,7 +598,7 @@ On Linux, it's not significant, but on macOS it can make sandboxing unusable.
 
 [Skyframe](/reference/skyframe) is the core parallel, functional, and incremental evaluation framework of Bazel.
 
-### Spawn strategy
+### Spawn strategy {#spawn-strategy}
 
 Also known as the [execution strategy](/docs/user-manual#execution-strategy), this
 denotes the way Bazel attempts to execute build actions. The chosen strategy
@@ -637,7 +637,7 @@ known as Skylark.
 
 **See also:** [Starlark language documentation](/rules/language)
 
-### Starlark flags
+### Starlark flags {#starlark-flags}
 
 Rules can define [custom flags](/extending/config#user-defined-build-settings),
 known as Starlark flags because they are implemented using [Starlark
@@ -646,7 +646,7 @@ level than individual BUILD files.
 
 **See also**: [Configurations](/extending/config)
 
-### Starlark rules
+### Starlark rules {#starlark-rules}
 
 Custom rules written in [Starlark](#starlark) that extend Bazel with new build
 capabilities.
