@@ -27,6 +27,10 @@ import com.google.devtools.build.lib.server.CommandProtos.PingResponse;
 import com.google.devtools.build.lib.server.CommandProtos.RunRequest;
 import com.google.devtools.build.lib.server.CommandProtos.RunResponse;
 import com.google.devtools.build.lib.util.OS;
+import com.google.protobuf.ExtensionRegistry;
+import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.Message;
+import com.google.protobuf.Parser;
 import io.grpc.Context;
 import io.grpc.Server;
 import io.grpc.StatusRuntimeException;
@@ -67,17 +71,20 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
    * maintains the interrupt flag if it is already set.
    */
   @VisibleForTesting
-  static class BlockingStreamObserver<T> implements GrpcCommandServer.Responder<T> {
+  static class BlockingStreamObserver<T extends Message> implements GrpcCommandServer.Responder {
     private final ServerCallStreamObserver<T> observer;
+    private final Parser<T> parser;
 
-    BlockingStreamObserver(StreamObserver<T> observer) {
-      this((ServerCallStreamObserver<T>) observer);
+    BlockingStreamObserver(StreamObserver<T> observer, T responseType) {
+      this((ServerCallStreamObserver<T>) observer, responseType);
     }
 
-    BlockingStreamObserver(ServerCallStreamObserver<T> observer) {
+    @SuppressWarnings("unchecked") // safe by contract of Message.getParserForType()
+    BlockingStreamObserver(ServerCallStreamObserver<T> observer, T responseType) {
       this.observer = observer;
       this.observer.setOnReadyHandler(this::notifyWaiters);
       this.observer.setOnCancelHandler(this::notifyWaiters);
+      this.parser = (Parser<T>) responseType.getParserForType();
     }
 
     private synchronized void notifyWaiters() {
@@ -88,7 +95,7 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
     }
 
     @Override
-    public synchronized void onNext(T response) throws IOException {
+    public synchronized void onNext(byte[] response) throws IOException {
       boolean interrupted = false;
       while (!observer.isReady() && !observer.isCancelled()) {
         try {
@@ -104,7 +111,10 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
       try {
         // According to the documentation, if onNext is called in a canceled stream, it will be
         // silently ignored.
-        observer.onNext(response);
+        observer.onNext(parser.parseFrom(response, ExtensionRegistry.getEmptyRegistry()));
+      } catch (InvalidProtocolBufferException e) {
+        // Programming error: the SC proto must remain backwards-compatible with the LC proto.
+        throw new IllegalStateException(e);
       } catch (StatusRuntimeException e) {
         throw new IOException(e.getMessage(), e);
       } finally {
@@ -222,23 +232,26 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
   public void run(RunRequest request, StreamObserver<RunResponse> streamObserver) {
     checkNotNull(callback, "run() called before serve()");
     BlockingStreamObserver<RunResponse> blockingObserver =
-        new BlockingStreamObserver<>(streamObserver);
-    callbackExecutorPool.execute(() -> callback.run(request, blockingObserver));
+        new BlockingStreamObserver<>(streamObserver, RunResponse.getDefaultInstance());
+    byte[] serializedRequest = request.toByteArray();
+    callbackExecutorPool.execute(() -> callback.run(serializedRequest, blockingObserver));
   }
 
   @Override
   public void ping(PingRequest pingRequest, StreamObserver<PingResponse> streamObserver) {
     checkNotNull(callback, "ping() called before serve()");
     BlockingStreamObserver<PingResponse> blockingObserver =
-        new BlockingStreamObserver<>(streamObserver);
-    callbackExecutorPool.execute(() -> callback.ping(pingRequest, blockingObserver));
+        new BlockingStreamObserver<>(streamObserver, PingResponse.getDefaultInstance());
+    byte[] serializedRequest = pingRequest.toByteArray();
+    callbackExecutorPool.execute(() -> callback.ping(serializedRequest, blockingObserver));
   }
 
   @Override
   public void cancel(CancelRequest cancelRequest, StreamObserver<CancelResponse> streamObserver) {
     checkNotNull(callback, "cancel() called before serve()");
     BlockingStreamObserver<CancelResponse> blockingObserver =
-        new BlockingStreamObserver<>(streamObserver);
-    callbackExecutorPool.execute(() -> callback.cancel(cancelRequest, blockingObserver));
+        new BlockingStreamObserver<>(streamObserver, CancelResponse.getDefaultInstance());
+    byte[] serializedRequest = cancelRequest.toByteArray();
+    callbackExecutorPool.execute(() -> callback.cancel(serializedRequest, blockingObserver));
   }
 }

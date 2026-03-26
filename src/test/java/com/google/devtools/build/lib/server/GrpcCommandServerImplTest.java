@@ -60,7 +60,8 @@ public final class GrpcCommandServerImplTest {
             ServerCallStreamObserver<RunResponse> serverCallStreamObserver =
                 (ServerCallStreamObserver<RunResponse>) observer;
             GrpcCommandServerImpl.BlockingStreamObserver<RunResponse> blockingStreamObserver =
-                new GrpcCommandServerImpl.BlockingStreamObserver<>(serverCallStreamObserver);
+                new GrpcCommandServerImpl.BlockingStreamObserver<>(
+                    serverCallStreamObserver, RunResponse.getDefaultInstance());
             Thread t =
                 new Thread(
                     () -> {
@@ -70,7 +71,7 @@ public final class GrpcCommandServerImplTest {
                                 .setStandardOutput(ByteString.copyFrom(new byte[1024]))
                                 .build();
                         for (int i = 0; i < 100; i++) {
-                          blockingStreamObserver.onNext(response);
+                          blockingStreamObserver.onNext(response.toByteArray());
                           sentCount.incrementAndGet();
                         }
                         blockingStreamObserver.onCompleted();
@@ -152,7 +153,8 @@ public final class GrpcCommandServerImplTest {
             ServerCallStreamObserver<RunResponse> serverCallStreamObserver =
                 (ServerCallStreamObserver<RunResponse>) observer;
             GrpcCommandServerImpl.BlockingStreamObserver<RunResponse> blockingStreamObserver =
-                new GrpcCommandServerImpl.BlockingStreamObserver<>(serverCallStreamObserver);
+                new GrpcCommandServerImpl.BlockingStreamObserver<>(
+                    serverCallStreamObserver, RunResponse.getDefaultInstance());
             Thread t =
                 new Thread(
                     () -> {
@@ -162,7 +164,7 @@ public final class GrpcCommandServerImplTest {
                                 .setStandardOutput(ByteString.copyFrom(new byte[1024]))
                                 .build();
                         for (int i = 0; i < 100; i++) {
-                          blockingStreamObserver.onNext(response);
+                          blockingStreamObserver.onNext(response.toByteArray());
                           sentCount.incrementAndGet();
                         }
                         // FlowControl should have interrupted the current thread after learning of
@@ -239,7 +241,8 @@ public final class GrpcCommandServerImplTest {
             ServerCallStreamObserver<RunResponse> serverCallStreamObserver =
                 (ServerCallStreamObserver<RunResponse>) observer;
             BlockingStreamObserver<RunResponse> blockingStreamObserver =
-                new BlockingStreamObserver<>(serverCallStreamObserver);
+                new BlockingStreamObserver<>(
+                    serverCallStreamObserver, RunResponse.getDefaultInstance());
             Thread t =
                 new Thread(
                     () -> {
@@ -254,7 +257,7 @@ public final class GrpcCommandServerImplTest {
                         // isReady() changes.
                         int sent = 0;
                         while (serverCallStreamObserver.isReady()) {
-                          blockingStreamObserver.onNext(response);
+                          blockingStreamObserver.onNext(response.toByteArray());
                           sent++;
                         }
                         sentCount.set(sent);
@@ -262,7 +265,7 @@ public final class GrpcCommandServerImplTest {
                         // not hang, but complete eventually (they may block on flow control).
                         Thread.currentThread().interrupt();
                         for (int i = 0; i < 10; i++) {
-                          blockingStreamObserver.onNext(response);
+                          blockingStreamObserver.onNext(response.toByteArray());
                           sentCount.incrementAndGet();
                         }
                         blockingStreamObserver.onCompleted();

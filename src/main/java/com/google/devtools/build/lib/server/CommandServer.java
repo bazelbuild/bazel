@@ -56,6 +56,8 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.ExtensionRegistry;
+import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Inet4Address;
@@ -127,12 +129,10 @@ public class CommandServer implements GrpcCommandServer.Callback {
     private final ByteString commandIdBytes;
     private final ByteString responseCookieBytes;
 
-    private final GrpcCommandServer.Responder<RunResponse> responder;
+    private final GrpcCommandServer.Responder responder;
 
     RpcCommandExtensionReporter(
-        String commandId,
-        String responseCookie,
-        GrpcCommandServer.Responder<RunResponse> responder) {
+        String commandId, String responseCookie, GrpcCommandServer.Responder responder) {
       this.commandIdBytes = ByteString.copyFromUtf8(commandId);
       this.responseCookieBytes = ByteString.copyFromUtf8(responseCookie);
       this.responder = responder;
@@ -146,7 +146,8 @@ public class CommandServer implements GrpcCommandServer.Callback {
               .setCommandIdBytes(commandIdBytes)
               .setStandardOutput(ByteString.EMPTY)
               .addCommandExtensions(commandExtension)
-              .build());
+              .build()
+              .toByteArray());
     }
   }
 
@@ -171,13 +172,13 @@ public class CommandServer implements GrpcCommandServer.Callback {
     private final ByteString responseCookieBytes;
 
     private final StreamType type;
-    private final GrpcCommandServer.Responder<RunResponse> responder;
+    private final GrpcCommandServer.Responder responder;
 
     RpcOutputStream(
         String commandId,
         String responseCookie,
         StreamType type,
-        GrpcCommandServer.Responder<RunResponse> responder) {
+        GrpcCommandServer.Responder responder) {
       this.commandIdBytes = ByteString.copyFromUtf8(commandId);
       this.responseCookieBytes = ByteString.copyFromUtf8(responseCookie);
       this.type = type;
@@ -200,7 +201,7 @@ public class CommandServer implements GrpcCommandServer.Callback {
 
         try {
           // This can block waiting for the client to read the available data.
-          responder.onNext(response.build());
+          responder.onNext(response.build().toByteArray());
         } catch (IOException e) {
           // I am not sure whether there are any circumstances under which this call could throw an
           // exception, but I'd rather it be logged than that we crash silently. The documentation
@@ -420,7 +421,14 @@ public class CommandServer implements GrpcCommandServer.Callback {
   }
 
   @Override
-  public void run(RunRequest request, GrpcCommandServer.Responder<RunResponse> responder) {
+  public void run(byte[] serializedRequest, GrpcCommandServer.Responder responder) {
+    RunRequest request;
+    try {
+      request = RunRequest.parseFrom(serializedRequest, ExtensionRegistry.getEmptyRegistry());
+    } catch (InvalidProtocolBufferException e) {
+      // Programming error: the SC proto must remain backwards-compatible with the LC proto.
+      throw new IllegalStateException(e);
+    }
     boolean badCookie = !isValidRequestCookie(request.getCookie());
     if (badCookie || request.getClientDescription().isEmpty()) {
       try {
@@ -435,7 +443,8 @@ public class CommandServer implements GrpcCommandServer.Callback {
                 .setFinished(true)
                 .setExitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR.getNumericExitCode())
                 .setFailureDetail(failureDetail)
-                .build());
+                .build()
+                .toByteArray());
         responder.onCompleted();
       } catch (IOException e) {
         logger.atInfo().withCause(e).log("Error while sending RunResponse");
@@ -470,7 +479,11 @@ public class CommandServer implements GrpcCommandServer.Callback {
       try {
         // Send the client the command id as soon as we know it.
         responder.onNext(
-            RunResponse.newBuilder().setCookie(responseCookie).setCommandId(commandId).build());
+            RunResponse.newBuilder()
+                .setCookie(responseCookie)
+                .setCommandId(commandId)
+                .build()
+                .toByteArray());
       } catch (IOException e) {
         logger.atInfo().withCause(e).log("Error while sending initial RunResponse");
       }
@@ -542,7 +555,8 @@ public class CommandServer implements GrpcCommandServer.Callback {
     }
 
     try {
-      responder.onNext(response.addAllCommandExtensions(result.getResponseExtensions()).build());
+      responder.onNext(
+          response.addAllCommandExtensions(result.getResponseExtensions()).build().toByteArray());
       responder.onCompleted();
 
     } catch (IOException e) {
@@ -554,14 +568,21 @@ public class CommandServer implements GrpcCommandServer.Callback {
   }
 
   @Override
-  public void ping(PingRequest request, GrpcCommandServer.Responder<PingResponse> responder) {
+  public void ping(byte[] serializedRequest, GrpcCommandServer.Responder responder) {
     logger.atInfo().log("Got PingRequest");
+    PingRequest request;
+    try {
+      request = PingRequest.parseFrom(serializedRequest, ExtensionRegistry.getEmptyRegistry());
+    } catch (InvalidProtocolBufferException e) {
+      // Programming error: the SC proto must remain backwards-compatible with the LC proto.
+      throw new IllegalStateException(e);
+    }
     try (RunningCommand command = commandManager.createCommand()) {
       PingResponse.Builder response = PingResponse.newBuilder();
       if (isValidRequestCookie(request.getCookie())) {
         response.setCookie(responseCookie);
       }
-      responder.onNext(response.build());
+      responder.onNext(response.build().toByteArray());
       responder.onCompleted();
     } catch (IOException e) {
       // There is no one to report the failure to.
@@ -570,12 +591,20 @@ public class CommandServer implements GrpcCommandServer.Callback {
   }
 
   @Override
-  public void cancel(CancelRequest request, GrpcCommandServer.Responder<CancelResponse> responder) {
+  public void cancel(byte[] serializedRequest, GrpcCommandServer.Responder responder) {
+    CancelRequest request;
+    try {
+      request = CancelRequest.parseFrom(serializedRequest, ExtensionRegistry.getEmptyRegistry());
+    } catch (InvalidProtocolBufferException e) {
+      // Programming error: the SC proto must remain backwards-compatible with the LC proto.
+      throw new IllegalStateException(e);
+    }
     logger.atInfo().log("Got CancelRequest for command id %s", request.getCommandId());
     try {
       if (isValidRequestCookie(request.getCookie())) {
         commandManager.doCancel(request);
-        responder.onNext(CancelResponse.newBuilder().setCookie(responseCookie).build());
+        responder.onNext(
+            CancelResponse.newBuilder().setCookie(responseCookie).build().toByteArray());
       }
       responder.onCompleted();
     } catch (IOException e) {

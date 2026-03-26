@@ -13,27 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.server;
 
-import com.google.devtools.build.lib.server.CommandProtos.CancelRequest;
-import com.google.devtools.build.lib.server.CommandProtos.CancelResponse;
-import com.google.devtools.build.lib.server.CommandProtos.PingRequest;
-import com.google.devtools.build.lib.server.CommandProtos.PingResponse;
-import com.google.devtools.build.lib.server.CommandProtos.RunRequest;
-import com.google.devtools.build.lib.server.CommandProtos.RunResponse;
 import java.io.IOException;
 import java.net.SocketAddress;
 
 /** The gRPC command server interface. */
 public interface GrpcCommandServer {
   /** The interface for responding to an RPC. */
-  public interface Responder<T> {
+  public interface Responder {
     /**
      * Sends a response.
      *
      * <p>May be called multiple times for a streaming RPC.
      *
+     * @param response the response to send in wire format
      * @throws IOException if an I/O error occurs
      */
-    void onNext(T value) throws IOException;
+    void onNext(byte[] response) throws IOException;
 
     /**
      * Signals that the response is complete.
@@ -50,26 +45,29 @@ public interface GrpcCommandServer {
     /**
      * Handles a Run RPC.
      *
-     * @param request the request to handle
-     * @param responder the responder to send responses to
+     * @param request a serialized {@link com.google.devtools.build.lib.server.RunRequest}
+     * @param responder a responder accepting serialized {@link
+     *     com.google.devtools.build.lib.server.RunResponse}
      */
-    void run(RunRequest request, Responder<RunResponse> responder);
+    void run(byte[] request, Responder responder);
 
     /**
      * Handles a Cancel RPC.
      *
-     * @param request the request to handle
-     * @param responder the responder to send responses to
+     * @param request a serialized {@link com.google.devtools.build.lib.server.CancelRequest}
+     * @param responder a responder accepting serialized {@link
+     *     com.google.devtools.build.lib.server.CancelResponse}
      */
-    void cancel(CancelRequest request, Responder<CancelResponse> responder);
+    void cancel(byte[] request, Responder responder);
 
     /**
      * Handles a Ping RPC.
      *
-     * @param request the request to handle
-     * @param responder the responder to send responses to
+     * @param request a serialized {@link com.google.devtools.build.lib.server.PingRequest}
+     * @param responder a responder accepting serialized {@link
+     *     com.google.devtools.build.lib.server.PingResponse}
      */
-    void ping(PingRequest request, Responder<PingResponse> responder);
+    void ping(byte[] request, Responder responder);
   }
 
   /**
