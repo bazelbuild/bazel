@@ -2,8 +2,7 @@
 title: 'Bazel Glossary'
 ---
 
-### Action
-
+### Action {#action}
 A command to run during the build, for example, a call to a compiler that takes
 [artifacts](#artifact) as inputs and produces other artifacts as outputs.
 Includes metadata like the command line arguments, action key, environment
@@ -11,15 +10,13 @@ variables, and declared input/output artifacts.
 
 **See also:** [Rules documentation](/versions/8.5.1/extending/rules#actions)
 
-### Action cache
-
+### Action cache {#action-cache}
 An on-disk cache that stores a mapping of executed [actions](#action) to the
 outputs they created. The cache key is known as the [action key](#action-key). A
 core component for Bazel's incrementality model. The cache is stored in the
 output base directory and thus survives Bazel server restarts.
 
-### Action graph
-
+### Action graph {#action-graph}
 An in-memory graph of [actions](#action) and the [artifacts](#artifact) that
 these actions read and generate. The graph might include artifacts that exist as
 source files (for example, in the file system) as well as generated
@@ -27,29 +24,25 @@ intermediate/final artifacts that are not mentioned in `BUILD` files. Produced
 during the [analysis phase](#analysis-phase) and used during the [execution
 phase](#execution-phase).
 
-### Action graph query (aquery)
-
+### Action graph query (aquery) {#action-graph-query}
 A [query](#query-concept) tool that can query over build [actions](#action).
 This provides the ability to analyze how [build rules](#rule) translate into the
 actual work builds do.
 
-### Action key
-
+### Action key {#action-key}
 The cache key of an [action](#action). Computed based on action metadata, which
 might include the command to be executed in the action, compiler flags, library
 locations, or system headers, depending on the action. Enables Bazel to cache or
 invalidate individual actions deterministically.
 
-### Analysis phase
-
+### Analysis phase {#analysis-phase}
 The second phase of a build. Processes the [target graph](#target-graph)
 specified in [`BUILD` files](#build-file) to produce an in-memory [action
 graph](#action-graph) that determines the order of actions to run during the
 [execution phase](#execution-phase). This is the phase in which rule
 implementations are evaluated.
 
-### Artifact
-
+### Artifact {#artifact}
 A source file or a generated file. Can also be a directory of files, known as
 [tree artifacts](#tree-artifact).
 
@@ -59,8 +52,7 @@ at most one action.
 An artifact that corresponds to a [file target](#target) can be addressed by a
 label.
 
-### Aspect
-
+### Aspect {#aspect}
 A mechanism for rules to create additional [actions](#action) in their
 dependencies. For example, if target A depends on B, one can apply an aspect on
 A that traverses *up* a dependency edge to B, and runs additional actions in B
@@ -71,8 +63,7 @@ metadata for IDEs, and create actions for linting.
 
 **See also:** [Aspects documentation](/versions/8.5.1/extending/aspects)
 
-### Aspect-on-aspect
-
+### Aspect-on-aspect {#aspect-on-aspect}
 A composition mechanism whereby aspects can be applied to the results
 of other aspects. For example, an aspect that generates information for use by
 IDEs can be applied on top of an aspect that generates `.java` files from a
@@ -83,15 +74,13 @@ For an aspect `A` to apply on top of aspect `B`, the [providers](#provider) that
 must match what `A` declares it wants in its [`required_aspect_providers`](/versions/8.5.1/rules/lib/globals#aspect.required_aspect_providers)
 attribute.
 
-### Attribute
-
+### Attribute {#attribute}
 A parameter to a [rule](#rule), used to express per-target build information.
 Examples include `srcs`, `deps`, and `copts`, which respectively declare a
 target's source files, dependencies, and custom compiler options. The particular
 attributes available for a given target depend on its rule type.
 
-### .bazelrc
-
+### .bazelrc {#bazelrc}
 Bazel’s configuration file used to change the default values for [startup
 flags](#startup-flags) and [command flags](#command-flags), and to define common
 groups of options that can then be set together on the Bazel command line using
@@ -99,13 +88,11 @@ a `--config` flag. Bazel can combine settings from multiple bazelrc files
 (systemwide, per-workspace, per-user, or from a custom location), and a
 `bazelrc` file may also import settings from other `bazelrc` files.
 
-### Blaze
-
+### Blaze {#blaze}
 The Google-internal version of Bazel. Google’s main build system for its
 mono-repository.
 
-### BUILD File
-
+### BUILD File {#build-file}
 A `BUILD` file is the main configuration file that tells Bazel what software
 outputs to build, what their dependencies are, and how to build them. Bazel
 takes a `BUILD` file as input and uses the file to create a graph of dependencies
@@ -115,13 +102,11 @@ containing a `BUILD` file as a [package](#package), and can contain
 [targets](#target) created by [rules](#rule). The file can also be named
 `BUILD.bazel`.
 
-### BUILD.bazel File
-
+### BUILD.bazel File {#build-bazel-file}
 See [`BUILD` File](#build-file). Takes precedence over a `BUILD` file in the same
 directory.
 
-### .bzl File
-
+### .bzl File {#bzl-file}
 A file that defines rules, [macros](#macro), and constants written in
 [Starlark](#starlark). These can then be imported into [`BUILD`
 files](#build-file) using the `load()` function.
@@ -130,30 +115,26 @@ files](#build-file) using the `load()` function.
 
 {/* TODO: ### Build flag */}
 
-### Build graph
-
+### Build graph {#build-graph}
 The dependency graph that Bazel constructs and traverses to perform a build.
 Includes nodes like [targets](#target), [configured
 targets](#configured-target), [actions](#action), and [artifacts](#artifact). A
 build is considered complete when all [artifacts](#artifact) on which a set of
 requested targets depend are verified as up-to-date.
 
-### Build setting
-
+### Build setting {#build-setting}
 A Starlark-defined piece of [configuration](#configuration).
 [Transitions](#transition) can set build settings to change a subgraph's
 configuration. If exposed to the user as a [command-line flag](#command-flags),
 also known as a build flag.
 
-### Clean build
-
+### Clean build {#clean-build}
 A build that doesn't use the results of earlier builds. This is generally slower
 than an [incremental build](#incremental-build) but commonly considered to be
 more [correct](#correctness). Bazel guarantees both clean and incremental builds
 are always correct.
 
-### Client-server model
-
+### Client-server model {#client-server-model}
 The `bazel` command-line client automatically starts a background server on the
 local machine to execute Bazel [commands](#command). The server persists across
 commands but automatically stops after a period of inactivity (or explicitly via
@@ -161,13 +142,11 @@ bazel shutdown). Splitting Bazel into a server and client helps amortize JVM
 startup time and supports faster [incremental builds](#incremental-build)
 because the [action graph](#action-graph) remains in memory across commands.
 
-### Command
-
+### Command {#command}
 Used on the command line to invoke different Bazel functions, like `bazel
 build`, `bazel test`, `bazel run`, and `bazel query`.
 
-### Command flags
-
+### Command flags {#command-flags}
 A set of flags specific to a [command](#command). Command flags are specified
 *after* the command (`bazel build <command flags>`). Flags can be applicable to
 one or more commands. For example, `--configure` is a flag exclusively for the
@@ -176,8 +155,7 @@ one or more commands. For example, `--configure` is a flag exclusively for the
 purposes, so changes in flag values can cause Bazel to invalidate in-memory
 graphs and restart the [analysis phase](#analysis-phase).
 
-### Configuration
-
+### Configuration {#configuration}
 Information outside of [rule](#rule) definitions that impacts how rules generate
 [actions](#action). Every build has at least one configuration specifying the
 target platform, action environment variables, and command-line [build
@@ -188,16 +166,14 @@ configurations, such as for host tools or cross-compilation.
 
 {/* TODO: ### Configuration fragment */}
 
-### Configuration trimming
-
+### Configuration trimming {#config-trimming}
 The process of only including the pieces of [configuration](#configuration) a
 target actually needs. For example, if you build Java binary `//:j` with C++
 dependency `//:c`, it's wasteful to include the value of `--javacopt` in the
 configuration of `//:c` because changing `--javacopt` unnecessarily breaks C++
 build cacheability.
 
-### Configured query (cquery)
-
+### Configured query (cquery) {#configured-query}
 A [query](#query-concept) tool that queries over [configured
 targets](#configured-target) (after the [analysis phase](#analysis-phase)
 completes). This means `select()` and [build flags](#command-flags) (such as
@@ -205,24 +181,21 @@ completes). This means `select()` and [build flags](#command-flags) (such as
 
 **See also:** [cquery documentation](/versions/8.5.1/query/cquery)
 
-### Configured target
-
+### Configured target {#configured-target}
 The result of evaluating a [target](#target) with a
 [configuration](#configuration). The [analysis phase](#analysis-phase) produces
 this by combining the build's options with the targets that need to be built.
 For example, if `//:foo` builds for two different architectures in the same
 build, it has two configured targets: `<//:foo, x86>` and `<//:foo, arm>`.
 
-### Correctness
-
+### Correctness {#correctness}
 A build is correct when its output faithfully reflects the state of its
 transitive inputs. To achieve correct builds, Bazel strives to be
 [hermetic](#hermeticity), reproducible, and making [build
 analysis](#analysis-phase) and [action execution](#execution-phase)
 deterministic.
 
-### Dependency
-
+### Dependency {#dependency}
 A directed edge between two [targets](#target). A target `//:foo` has a *target
 dependency* on target `//:bar` if `//:foo`'s attribute values contain a
 reference to `//:bar`. `//:foo` has an *action dependency* on `//:bar` if an
@@ -232,8 +205,7 @@ action in `//:bar`.
 In certain contexts, it could also refer to an _external dependency_; see
 [modules](#module).
 
-### Depset
-
+### Depset {#depset}
 A data structure for collecting data on transitive dependencies. Optimized so
 that merging depsets is time and space efficient, because it’s common to have
 very large depsets (hundreds of thousands of files). Implemented to
@@ -245,18 +217,15 @@ implementation.
 
 **See also:** [Depset documentation](/versions/8.5.1/extending/depsets)
 
-### Disk cache
-
+### Disk cache {#disk-cache}
 A local on-disk blob store for the remote caching feature. Can be used in
 conjunction with an actual remote blob store.
 
-### Distdir
-
+### Distdir {#distdir}
 A read-only directory containing files that Bazel would otherwise fetch from the
 internet using repository rules. Enables builds to run fully offline.
 
-### Dynamic execution
-
+### Dynamic execution {#dynamic-execution}
 An execution strategy that selects between local and remote execution based on
 various heuristics, and uses the execution results of the faster successful
 method. Certain [actions](#action) are executed faster locally (for example,
@@ -264,16 +233,14 @@ linking) and others are faster remotely (for example, highly parallelizable
 compilation). A dynamic execution strategy can provide the best possible
 incremental and clean build times.
 
-### Execution phase
-
+### Execution phase {#execution-phase}
 The third phase of a build. Executes the [actions](#action) in the [action
 graph](#action-graph) created during the [analysis phase](#analysis-phase).
 These actions invoke executables (compilers, scripts) to read and write
 [artifacts](#artifact). *Spawn strategies* control how these actions are
 executed: locally, remotely, dynamically, sandboxed, docker, and so on.
 
-### Execution root
-
+### Execution root {#execution-root}
 A directory in the [workspace](#workspace)’s [output base](#output-base)
 directory where local [actions](#action) are executed in
 non-[sandboxed](#sandboxing) builds. The directory contents are mostly symlinks
@@ -284,12 +251,10 @@ by creating a *symlink forest* of the directories that represent the transitive
 closure of packages on which a build depends. Accessible with `bazel info
 execution_root` on the command line.
 
-### File
-
+### File {#file}
 See [Artifact](#artifact).
 
-### Hermeticity
-
+### Hermeticity {#hermeticity}
 A build is hermetic if there are no external influences on its build and test
 operations, which helps to make sure that results are deterministic and
 [correct](#correctness). For example, hermetic builds typically disallow network
@@ -297,8 +262,7 @@ access to actions, restrict access to declared inputs, use fixed timestamps and
 timezones, restrict access to environment variables, and use fixed seeds for
 random number generators
 
-### Incremental build
-
+### Incremental build {#incremental-build}
 An incremental build reuses the results of earlier builds to reduce build time
 and resource usage. Dependency checking and caching aim to produce correct
 results for this type of build. An incremental build is the opposite of a clean
@@ -306,8 +270,7 @@ build.
 
 {/* TODO: ### Install base */}
 
-### Label
-
+### Label {#label}
 An identifier for a [target](#target). Generally has the form
 `@repo//path/to/package:target`, where `repo` is the (apparent) name of the
 [repository](#repository) containing the target, `path/to/package` is the path
@@ -318,16 +281,14 @@ syntax may be omitted.
 
 **See also**: [Labels](/versions/8.5.1/concepts/labels)
 
-### Loading phase
-
+### Loading phase {#loading-phase}
 The first phase of a build where Bazel executes [`BUILD` files](#build-file) to
 create [packages](#package). [Macros](#macro) and certain functions like
 `glob()` are evaluated in this phase. Interleaved with the second phase of the
 build, the [analysis phase](#analysis-phase), to build up a [target
 graph](#target-graph).
 
-### Legacy macro
-
+### Legacy macro {#legacy-macro}
 A flavor of [macro](#macro) which is declared as an ordinary
 [Starlark](#starlark) function, and which runs as a side effect of executing a
 `BUILD` file.
@@ -341,8 +302,7 @@ Contrast with [symbolic macros](#symbolic-macro).
 
 **See also:** [Legacy macro documentation](/versions/8.5.1/extending/legacy-macros)
 
-### Macro
-
+### Macro {#macro}
 A mechanism to compose multiple [rule](#rule) target declarations together under
 a single [Starlark](#starlark) callable. Enables reusing common rule declaration
 patterns across `BUILD` files. Expanded to the underlying rule target
@@ -351,16 +311,14 @@ declarations during the [loading phase](#loading-phase).
 Comes in two flavors: [symbolic macros](#symbolic-macro) (since Bazel 8) and
 [legacy macros](#legacy-macro).
 
-### Mnemonic
-
+### Mnemonic {#mnemonic}
 A short, human-readable string selected by a rule author to quickly understand
 what an [action](#action) in the rule is doing. Mnemonics can be used as
 identifiers for *spawn strategy* selections. Some examples of action mnemonics
 are `Javac` from Java rules, `CppCompile` from C++ rules, and
 `AndroidManifestMerger` from Android rules.
 
-### Module
-
+### Module {#module}
 A Bazel project that can have multiple versions, each of which can have
 dependencies on other modules. This is analogous to familiar concepts in other
 dependency management systems, such as a Maven _artifact_, an npm _package_, a
@@ -376,8 +334,7 @@ Module metadata is hosted in Bazel registries.
 
 **See also:** [Bazel modules](/versions/8.5.1/external/module)
 
-### Module Extension
-
+### Module Extension {#module-extension}
 A piece of logic that can be run to generate [repos](#repository) by reading
 inputs from across the [module](#module) dependency graph and invoking [repo
 rules](#repository-rule). Module extensions have capabilities similar to repo
@@ -385,21 +342,18 @@ rules, allowing them to access the internet, perform file I/O, and so on.
 
 **See also:** [Module extensions](/versions/8.5.1/external/extension)
 
-### Native rules
-
+### Native rules {#native-rules}
 [Rules](#rule) that are built into Bazel and implemented in Java. Such rules
 appear in [`.bzl` files](#bzl-file) as functions in the native module (for
 example, `native.cc_library` or `native.java_library`). User-defined rules
 (non-native) are created using [Starlark](#starlark).
 
-### Output base
-
+### Output base {#output-base}
 A [workspace](#workspace)-specific directory to store Bazel output files. Used
 to separate outputs from the *workspace*'s source tree (the [main
 repo](#repository)). Located in the [output user root](#output-user-root).
 
-### Output groups
-
+### Output groups {#output-groups}
 A group of files that is expected to be built when Bazel finishes building a
 target. [Rules](#rule) put their usual outputs in the "default output group"
 (e.g the `.jar` file of a `java_library`, `.a` and `.so` for `cc_library`
@@ -409,34 +363,29 @@ Rules can define more named output groups that can be explicitly specified in
 [`BUILD` files](#build-file) (`filegroup` rule) or the command line
 (`--output_groups` flag).
 
-### Output user root
-
+### Output user root {#output-user-root}
 A user-specific directory to store Bazel's outputs. The directory name is
 derived from the user's system username. Prevents output file collisions if
 multiple users are building the same project on the system at the same time.
 Contains subdirectories corresponding to build outputs of individual workspaces,
 also known as [output bases](#output-base).
 
-### Package
-
+### Package {#package}
 The set of [targets](#target) defined by a [`BUILD` file](#build-file). A
 package's name is the `BUILD` file's path relative to the [repo](#repository)
 root. A package can contain subpackages, or subdirectories containing `BUILD`
 files, thus forming a package hierarchy.
 
-### Package group
-
+### Package group {#package-group}
 A [target](#target) representing a set of packages. Often used in `visibility`
 attribute values.
 
-### Platform
-
+### Platform {#platform}
 A "machine type" involved in a build. This includes the machine Bazel runs on
 (the "host" platform), the machines build tools execute on ("exec" platforms),
 and the machines targets are built for ("target platforms").
 
-### Provider
-
+### Provider {#provider}
 A schema describing a unit of information to pass between
 [rule targets](#rule-target) along dependency relationships. Typically this
 contains information like compiler options, transitive source or output files,
@@ -450,15 +399,13 @@ referred to as a "provider instance", although sometimes this is conflated with
 
 **See also:** [Provider documentation](/versions/8.5.1/extending/rules#providers)
 
-### Query (concept)
-
+### Query (concept) {#query-concept}
 The process of analyzing a [build graph](#build-graph) to understand
 [target](#target) properties and dependency structures. Bazel supports three
 query variants: [query](#query-command), [cquery](#configured-query), and
 [aquery](#action-graph-query).
 
-### query (command)
-
+### query (command) {#query-command}
 A [query](#query-concept) tool that operates over the build's post-[loading
 phase](#loading-phase) [target graph](#target-graph). This is relatively fast,
 but can't analyze the effects of `select()`, [build flags](#command-flags),
@@ -466,8 +413,7 @@ but can't analyze the effects of `select()`, [build flags](#command-flags),
 
 **See also:** [Query how-to](/versions/8.5.1/query/guide), [Query reference](/versions/8.5.1/query/language)
 
-### Repository
-
+### Repository {#repository}
 A directory tree with a boundary marker file at its root, containing source
 files that can be used in a Bazel build. Often shortened to just **repo**.
 
@@ -488,8 +434,7 @@ Each repo has a unique, constant *canonical* name, and potentially different
 
 **See also**: [External dependencies overview](/versions/8.5.1/external/overview)
 
-### Repository cache
-
+### Repository cache {#repo-cache}
 A shared content-addressable cache of files downloaded by Bazel for builds,
 shareable across [workspaces](#workspace). Enables offline builds after the
 initial download. Commonly used to cache files downloaded through [repository
@@ -497,8 +442,7 @@ rules](#repository-rule) like `http_archive` and repository rule APIs like
 `repository_ctx.download`. Files are cached only if their SHA-256 checksums are
 specified for the download.
 
-### Repository rule
-
+### Repository rule {#repository-rule}
 A schema for repository definitions that tells Bazel how to materialize (or
 "fetch") a [repository](#repository). Often shortened to just **repo rule**.
 Repo rules are invoked by Bazel internally to define repos backed by
@@ -509,15 +453,13 @@ internet.
 
 **See also:** [Repo rule documentation](/versions/8.5.1/extending/repo)
 
-### Reproducibility
-
+### Reproducibility {#reproducibility}
 The property of a build or test that a set of inputs to the build or test will
 always produce the same set of outputs every time, regardless of time, method,
 or environment. Note that this does not necessarily imply that the outputs are
 [correct](#correctness) or the desired outputs.
 
-### Rule
-
+### Rule {#rule}
 A schema for defining [rule targets](#rule-target) in a `BUILD` file, such as
 `cc_library`. From the perspective of a `BUILD` file author, a rule consists of
 a set of [attributes](#attributes) and black box logic. The logic tells the
@@ -539,13 +481,11 @@ be avoided for Bazel.
 
 **See also:** [Rules documentation](/versions/8.5.1/extending/rules)
 
-### Rule target
-
+### Rule target {#rule-target}
 A [target](#target) that is an instance of a rule. Contrasts with file targets
 and package groups. Not to be confused with [rule](#rule).
 
-### Runfiles
-
+### Runfiles {#runfiles}
 The runtime dependencies of an executable [target](#target). Most commonly, the
 executable is the executable output of a test rule, and the runfiles are runtime
 data dependencies of the test. Before the invocation of the executable (during
@@ -554,8 +494,7 @@ according to their source directory structure.
 
 **See also:** [Runfiles documentation](/versions/8.5.1/extending/rules#runfiles)
 
-### Sandboxing
-
+### Sandboxing {#sandboxing}
 A technique to isolate a running [action](#action) inside a restricted and
 temporary [execution root](#execution-root), helping to ensure that it doesn’t
 read undeclared inputs or write undeclared outputs. Sandboxing greatly improves
@@ -563,22 +502,19 @@ read undeclared inputs or write undeclared outputs. Sandboxing greatly improves
 support from the operating system. The performance cost depends on the platform.
 On Linux, it's not significant, but on macOS it can make sandboxing unusable.
 
-### Skyframe
-
+### Skyframe {#skyframe}
 [Skyframe](/versions/8.5.1/reference/skyframe) is the core parallel, functional, and incremental evaluation framework of Bazel.
 
 {/* TODO: ### Spawn strategy */}
 
-### Stamping
-
+### Stamping {#stamping}
 A feature to embed additional information into Bazel-built
 [artifacts](#artifact). For example, this can be used for source control, build
 time and other workspace or environment-related information for release builds.
 Enable through the `--workspace_status_command` flag and [rules](/versions/8.5.1/extending/rules) that
 support the stamp attribute.
 
-### Starlark
-
+### Starlark {#starlark}
 The extension language for writing [rules](/versions/8.5.1/extending/rules) and [macros](#macro). A
 restricted subset of Python (syntactically and grammatically) aimed for the
 purpose of configuration, and for better performance. Uses the [`.bzl`
@@ -592,16 +528,14 @@ known as Skylark.
 
 {/* TODO: ### Starlark rule sandwich */}
 
-### Startup flags
-
+### Startup flags {#startup-flags}
 The set of flags specified between `bazel` and the [command](#query-command),
 for example, bazel `--host_jvm_debug` build. These flags modify the
 [configuration](#configuration) of the Bazel server, so any modification to
 startup flags causes a server restart. Startup flags are not specific to any
 command.
 
-### Symbolic macro
-
+### Symbolic macro {#symbolic-macro}
 A flavor of [macro](#macro) which is declared with a [rule](#rule)-like
 [attribute](#attribute) schema, allows hiding internal declared
 [targets](#target) from their own package, and enforces a predictable naming
@@ -610,8 +544,7 @@ problems seen in large [legacy macro](#legacy-macro) codebases.
 
 **See also:** [Symbolic macro documentation](/versions/8.5.1/extending/macros)
 
-### Target
-
+### Target {#target}
 An object that is defined in a [`BUILD` file](#build-file) and identified by a
 [label](#label). Targets represent the buildable units of a workspace from
 the perspective of the end user.
@@ -632,38 +565,33 @@ Targets are discovered during the [loading phase](#loading-phase). During the
 configurations](#configuration) to form [configured
 targets](#configured-target).
 
-### Target graph
-
+### Target graph {#target-graph}
 An in-memory graph of [targets](#target) and their dependencies. Produced during
 the [loading phase](#loading-phase) and used as an input to the [analysis
 phase](#analysis-phase).
 
-### Target pattern
-
+### Target pattern {#target-pattern}
 A way to specify a group of [targets](#target) on the command line. Commonly
 used patterns are `:all` (all rule targets), `:*` (all rule + file targets),
 `...` (current [package](#package) and all subpackages recursively). Can be used
 in combination, for example, `//...:*` means all rule and file targets in all
 packages recursively from the root of the [workspace](#workspace).
 
-### Tests
-
+### Tests {#tests}
 Rule [targets](#target) instantiated from test rules, and therefore contains a
 test executable. A return code of zero from the completion of the executable
 indicates test success. The exact contract between Bazel and tests (such as test
 environment variables, test result collection methods) is specified in the [Test
 Encyclopedia](/versions/8.5.1/reference/test-encyclopedia).
 
-### Toolchain
-
+### Toolchain {#toolchain}
 A set of tools to build outputs for a language. Typically, a toolchain includes
 compilers, linkers, interpreters or/and linters. A toolchain can also vary by
 platform, that is, a Unix compiler toolchain's components may differ for the
 Windows variant, even though the toolchain is for the same language. Selecting
 the right toolchain for the platform is known as toolchain resolution.
 
-### Top-level target
-
+### Top-level target {#top-level-target}
 A build [target](#target) is top-level if it’s requested on the Bazel command
 line. For example, if `//:foo` depends on `//:bar`, and `bazel build //:foo` is
 called, then for this build, `//:foo` is top-level, and `//:bar` isn’t
@@ -674,8 +602,7 @@ flags](#command-flags) set on the Bazel command line (or via
 targets, but might be modified by a [transition](#transition) for non-top-level
 targets.
 
-### Transition
-
+### Transition {#transition}
 A mapping of [configuration](#configuration) state from one value to another.
 Enables [targets](#target) in the [build graph](#build-graph) to have different
 configurations, even if they were instantiated from the same [rule](#rule). A
@@ -686,14 +613,12 @@ compiled for ARM and x86 using split transitions in a single build.
 
 **See also:** [User-defined transitions](/versions/8.5.1/extending/config#user-defined-transitions)
 
-### Tree artifact
-
+### Tree artifact {#tree-artifact}
 An [artifact](#artifact) that represents a collection of files. Since these
 files are not themselves artifacts, an [action](#action) operating on them must
 instead register the tree artifact as its input or output.
 
-### Visibility
-
+### Visibility {#visibility}
 One of two mechanisms for preventing unwanted dependencies in the build system:
 *target visibility* for controlling whether a [target](#target) can be depended
 upon by other targets; and *load visibility* for controlling whether a `BUILD`
@@ -702,8 +627,7 @@ or `.bzl` file may load a given `.bzl` file. Without context, usually
 
 **See also:** [Visibility documentation](/versions/8.5.1/concepts/visibility)
 
-### Workspace
-
+### Workspace {#workspace}
 The environment shared by all Bazel commands run from the same [main
 repository](#repository).
 
