@@ -627,10 +627,68 @@ public final class CcToolchainTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testZipperInclusionDependsOnFdoOptimization() throws Exception {
-    reporter.removeHandler(failFastHandler);
+  public void testZipperInclusionDependsOnFdoOptimization_notSet() throws Exception {
+    setUpFdoZipper();
+
+    useConfiguration();
+    assertThat(getPrerequisites(getConfiguredTarget("//a:b"), ":zipper")).isEmpty();
+  }
+
+  @Test
+  public void testZipperInclusionDependsOnFdoOptimization_viaFdoOptimize_packageLabel() throws Exception {
+    setUpFdoZipper();
+
+    useConfiguration("-c", "opt", "--fdo_optimize=//fdo:fdo");
+    assertThat(getPrerequisites(getConfiguredTarget("//a:b"), ":zipper")).isNotEmpty();
+  }
+
+  @Test
+  public void testZipperInclusionDependsOnFdoOptimization_viaFdoOptimize_packageFile() throws Exception {
+    setUpFdoZipper();
+
+    useConfiguration("-c", "opt", "--fdo_optimize=//fdo:my_profile.afdo");
+    assertThat(getPrerequisites(getConfiguredTarget("//a:b"), ":zipper")).isNotEmpty();
+  }
+
+  // Regression test for #29002.
+  @Test
+  public void testZipperInclusionDependsOnFdoOptimization_viaFdoOptimize_repoLabel() throws Exception {
+    if (!analysisMock.isThisBazel()) {
+      // Separate repos only work in bazel.
+      return;
+    }
+
+    // Set up a repo with the profile data.
+    scratch.appendFile(
+            "MODULE.bazel",
+            """
+            bazel_dep(name = "fdo")
+            local_path_override(module_name = "fdo", path = "/fdo")
+            """);
+
+    scratch.file("/fdo/MODULE.bazel", "module(name = 'fdo')");
+    setUpFdoZipper("a", "/fdo");
+    invalidatePackages();
+
+    useConfiguration("-c", "opt", "--fdo_optimize=@@fdo+//:fdo");
+    assertThat(getPrerequisites(getConfiguredTarget("//a:b"), ":zipper")).isNotEmpty();
+  }
+
+  @Test
+  public void testZipperInclusionDependsOnFdoOptimization_viaFdoProfile() throws Exception {
+    setUpFdoZipper();
+
+    useConfiguration("-c", "opt", "--fdo_profile=//fdo:fdo");
+    assertThat(getPrerequisites(getConfiguredTarget("//a:b"), ":zipper")).isNotEmpty();
+  }
+
+  private void setUpFdoZipper() throws IOException {
+    setUpFdoZipper("a", "fdo");
+  }
+
+  private void setUpFdoZipper(String pkgDir, String fdoDir) throws IOException {
     scratch.file(
-        "a/BUILD",
+        pkgDir + "/BUILD",
         """
         load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
         load(":cc_toolchain_config.bzl", "cc_toolchain_config")
@@ -655,9 +713,11 @@ public final class CcToolchainTest extends BuildViewTestCase {
 
         cc_toolchain_config(name = "toolchain_config")
         """);
-    scratch.file("fdo/my_profile.afdo", "");
+    scratch.file(pkgDir + "/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
+
+    scratch.file(fdoDir + "/my_profile.afdo", "");
     scratch.file(
-        "fdo/BUILD",
+        fdoDir + "/BUILD",
         """
         load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         exports_files(["my_profile.afdo"])
@@ -667,16 +727,6 @@ public final class CcToolchainTest extends BuildViewTestCase {
             profile = ":my_profile.profdata",
         )
         """);
-    scratch.file("a/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
-
-    useConfiguration();
-    assertThat(getPrerequisites(getConfiguredTarget("//a:b"), ":zipper")).isEmpty();
-
-    useConfiguration("-c", "opt", "--fdo_optimize=//fdo:my_profile.afdo");
-    assertThat(getPrerequisites(getConfiguredTarget("//a:b"), ":zipper")).isNotEmpty();
-
-    useConfiguration("-c", "opt", "--fdo_profile=//fdo:fdo");
-    assertThat(getPrerequisites(getConfiguredTarget("//a:b"), ":zipper")).isNotEmpty();
   }
 
   private void loadCcToolchainConfigLib() throws IOException {
