@@ -234,7 +234,6 @@ java_binary(
     main_class = "com.google.devtools.build.lib.bazel.Bazel",
     runtime_deps = [
         ":main",
-        "//src/main/java/com/google/devtools/build/lib/server",
         "//src/main/java/com/google/devtools/build/lib/util:simple_log_handler",  # See startup_options.cc
         "//src/main/java/com/google/devtools/build/lib/util:single_line_formatter",  # See startup_options.cc
     ],
