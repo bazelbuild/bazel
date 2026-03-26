@@ -874,6 +874,7 @@ sh_test(
         "//src/test/shell/bazel/testdata:git-repos",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    shard_count = 2,
     exec_compatible_with = ["//:highcpu_machine"],
 )
 

@@ -42,11 +42,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-if is_windows; then
-  # Enable symlink runfiles tree to make bazel run work
-  add_to_bazelrc "build --enable_runfiles"
-fi
-
 # Global test setup.
 #
 # Unpacks the test Git repositories in the test temporary directory.
@@ -132,26 +127,19 @@ git_repository(
     $shallow_since
 )
 EOF
-  add_rules_shell "MODULE.bazel"
   mkdir -p planets
   cat > planets/BUILD <<EOF
-load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
-
-sh_binary(
+genrule(
     name = "planet-info",
-    srcs = ["planet_info.sh"],
-    data = ["@pluto//:pluto"],
+    srcs = ["@pluto//:pluto"],
+    outs = ["planet-info.txt"],
+    cmd = "cp \$< \$@",
 )
 EOF
 
-  cat > planets/planet_info.sh <<EOF
-#!/bin/sh
-cat ../+git_repository+pluto/info
-EOF
-  chmod +x planets/planet_info.sh
-
-  bazel run //planets:planet-info >& $TEST_log \
+  bazel build //planets:planet-info >& $TEST_log \
     || echo "Expected build/run to succeed"
+  cat bazel-bin/planets/planet-info.txt > $TEST_log
   expect_log "Pluto is a dwarf planet"
 
   git_repos_count=$(find $(bazel info output_base)/external/+git_repository+pluto -type d -name .git | wc -l)
@@ -273,27 +261,20 @@ filegroup(
 )
 EOF
   fi
-  add_rules_shell "MODULE.bazel"
 
   mkdir -p planets
   cat > planets/BUILD <<EOF
-load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
-
-sh_binary(
+genrule(
     name = "planet-info",
-    srcs = ["planet_info.sh"],
-    data = ["@pluto//:pluto"],
+    srcs = ["@pluto//:pluto"],
+    outs = ["planet-info.txt"],
+    cmd = "cp \$< \$@",
 )
 EOF
 
-  cat > planets/planet_info.sh <<EOF
-#!/bin/sh
-cat ../+new_git_repository+pluto/info
-EOF
-  chmod +x planets/planet_info.sh
-
-  bazel run //planets:planet-info >& $TEST_log \
+  bazel build //planets:planet-info >& $TEST_log \
       || echo "Expected build/run to succeed"
+  cat bazel-bin/planets/planet-info.txt > $TEST_log
   if [ "$1" == "0-initial" ]; then
       expect_log "Pluto is a planet"
   else
@@ -341,7 +322,6 @@ new_git_repository(
     build_file = "//:outer_planets.BUILD",
 )
 EOF
-  add_rules_shell "MODULE.bazel"
 
   cat > BUILD <<EOF
 exports_files(['outer_planets.BUILD'])
@@ -362,27 +342,20 @@ EOF
 
   mkdir -p planets
   cat > planets/BUILD <<EOF
-load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
-
-sh_binary(
+genrule(
     name = "planet-info",
-    srcs = ["planet_info.sh"],
-    data = [
+    srcs = [
         "@outer_planets//:neptune",
         "@outer_planets//:pluto",
     ],
+    outs = ["planet-info.txt"],
+    cmd = "cat \$(SRCS) > \$@",
 )
 EOF
 
-  cat > planets/planet_info.sh <<EOF
-#!/bin/sh
-cat ../+new_git_repository+outer_planets/neptune/info
-cat ../+new_git_repository+outer_planets/pluto/info
-EOF
-  chmod +x planets/planet_info.sh
-
-  bazel run //planets:planet-info >& $TEST_log \
+  bazel build //planets:planet-info >& $TEST_log \
     || echo "Expected build/run to succeed"
+  cat bazel-bin/planets/planet-info.txt > $TEST_log
   expect_log "Neptune is a planet"
   expect_log "Pluto is a planet"
 }
@@ -401,7 +374,6 @@ new_git_repository(
     build_file = "//:outer_planets.BUILD",
 )
 EOF
-  add_rules_shell "MODULE.bazel"
 
   cat > BUILD <<EOF
 exports_files(['outer_planets.BUILD'])
@@ -422,27 +394,20 @@ EOF
 
   mkdir -p planets
   cat > planets/BUILD <<EOF
-load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
-
-sh_binary(
+genrule(
     name = "planet-info",
-    srcs = ["planet_info.sh"],
-    data = [
+    srcs = [
         "@outer_planets//:neptune",
         "@outer_planets//:pluto",
     ],
+    outs = ["planet-info.txt"],
+    cmd = "cat \$(SRCS) > \$@",
 )
 EOF
 
-  cat > planets/planet_info.sh <<EOF
-#!/bin/sh
-cat ../+new_git_repository+outer_planets/neptune/info
-cat ../+new_git_repository+outer_planets/pluto/info
-EOF
-  chmod +x planets/planet_info.sh
-
-  bazel run //planets:planet-info >& $TEST_log \
+  bazel build //planets:planet-info >& $TEST_log \
     || echo "Expected build/run to succeed"
+  cat bazel-bin/planets/planet-info.txt > $TEST_log
   expect_log "Neptune is a planet"
   expect_log "Pluto is a planet"
 }
@@ -594,7 +559,6 @@ EOF
 #     planet_info.sh
 #     BUILD
 function setup_error_test() {
-  add_rules_shell "MODULE.bazel"
   mkdir -p planets
   cat > planets/planet_info.sh <<EOF
 #!/bin/sh
@@ -602,12 +566,11 @@ cat external/+git_repository+pluto/info
 EOF
 
   cat > planets/BUILD <<EOF
-load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
-
-sh_binary(
+genrule(
     name = "planet-info",
-    srcs = ["planet_info.sh"],
-    data = ["@pluto//:pluto"],
+    srcs = ["@pluto//:pluto"],
+    outs = ["planet-info.txt"],
+    cmd = "cp \$< \$@",
 )
 EOF
 }
