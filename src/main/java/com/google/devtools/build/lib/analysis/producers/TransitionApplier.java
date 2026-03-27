@@ -117,7 +117,9 @@ final class TransitionApplier
         transitionCache.getAllStarlarkBuildSettings(
             transition,
             fromConfiguration.getOptions().get(CoreOptions.class).getCommandLineFlagAliases());
-    if (starlarkBuildSettings.isEmpty()) {
+    if (transition.getName().equals("exec")) {
+      // TODO: fill out this code for cl/859390339 (to support --foo=--exec_foo flag scoping).
+    } else if (starlarkBuildSettings.isEmpty()) {
       // Quick escape if transition doesn't use any Starlark build settings.
       buildSettingsDetailsValue = StarlarkBuildSettingsDetailsValue.EMPTY;
       return applyStarlarkTransition(tasks);
@@ -154,6 +156,10 @@ final class TransitionApplier
               fromConfiguration.getOptions(), transition, buildSettingsDetailsValue, eventHandler);
     } catch (TransitionException e) {
       sink.acceptTransitionError(e);
+      return runAfter;
+    } catch (InterruptedException e) {
+      // Workaround for https://github.com/bazelbuild/bazel/issues/29132. Is there some way for
+      // Skfyrame to handle this automaticaly without needing special checking here?
       return runAfter;
     }
 
