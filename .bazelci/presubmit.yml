@@ -3,6 +3,7 @@
 tasks:
   rockylinux8:
     shell_commands:
+      - echo "496476944"
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
     build_flags:
