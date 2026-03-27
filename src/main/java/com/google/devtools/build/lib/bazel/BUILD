@@ -154,7 +154,6 @@ java_library(
     name = "bazel_filesystem_module",
     srcs = ["BazelFileSystemModule.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_server_startup_options",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
