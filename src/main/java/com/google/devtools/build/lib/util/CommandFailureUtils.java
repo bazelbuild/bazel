@@ -193,17 +193,29 @@ public class CommandFailureUtils {
     return shortCommandName + " failed: " + output;
   }
 
+  /**
+   * Describes a command failure using the command's own arguments, or the given {@code arguments} if
+   * non-null (e.g. with param files expanded).
+   */
   public static String describeCommandFailure(
-      boolean verboseFailures, @Nullable String cwd, DescribableExecutionUnit command) {
+      boolean verboseFailures,
+      @Nullable String cwd,
+      DescribableExecutionUnit command,
+      @Nullable Collection<String> arguments) {
     return describeCommandFailure(
         verboseFailures,
         command.getMnemonic(),
-        command.getArguments(),
+        arguments != null ? arguments : command.getArguments(),
         command.getEnvironment(),
         cwd,
         command.getConfigurationChecksum(),
         command.getTargetDescription(),
         command.getExecutionPlatformLabel(),
         /* spawnRunner= */ null);
+  }
+
+  public static String describeCommandFailure(
+      boolean verboseFailures, @Nullable String cwd, DescribableExecutionUnit command) {
+    return describeCommandFailure(verboseFailures, cwd, command, /* arguments= */ null);
   }
 }
