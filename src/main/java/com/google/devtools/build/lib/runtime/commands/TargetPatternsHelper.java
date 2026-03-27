@@ -19,19 +19,34 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
+import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
+import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.query.output.QueryOptions;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.runtime.ProjectFileSupport;
 import com.google.devtools.build.lib.runtime.events.InputFileEvent;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Predicate;
 
 /** Provides support for reading target patterns from a file or the command-line. */
@@ -42,20 +57,76 @@ public final class TargetPatternsHelper {
   private TargetPatternsHelper() {}
 
   /**
-   * Reads a list of target patterns, either from the command-line residue or by reading newline
-   * delimited target patterns from the --target_pattern_file flag. If --target_pattern_file is
-   * specified and options contain a residue, or if the file cannot be read, throws {@link
+   * Reads a list of target patterns, either from the command-line residue, by reading newline
+   * delimited target patterns from the --target_pattern_file flag, or from
+   * --target_query/--target_query_file. Command-line target patterns may be combined with
+   * --target_query or --target_query_file, in which case query results come first followed by
+   * command-line patterns. Other conflicting combinations throw {@link
    * TargetPatternsHelperException}.
+   *
+   * @return A list of target patterns.
    */
   public static List<String> readFrom(CommandEnvironment env, OptionsParsingResult options)
       throws TargetPatternsHelperException {
     List<String> targets = options.getResidue();
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    if (!targets.isEmpty() && !buildRequestOptions.targetPatternFile.isEmpty()) {
+
+    boolean hasQuery = !buildRequestOptions.query.isEmpty();
+    boolean hasQueryFile = !buildRequestOptions.queryFile.isEmpty();
+    boolean hasTargetPatternFile = !buildRequestOptions.targetPatternFile.isEmpty();
+
+    if (hasQuery && hasQueryFile) {
+      throw new TargetPatternsHelperException(
+          "--target_query and --target_query_file cannot both be specified",
+          TargetPatterns.Code.TARGET_PATTERN_FILE_WITH_COMMAND_LINE_PATTERN);
+    }
+    if (hasTargetPatternFile && (hasQuery || hasQueryFile)) {
+      throw new TargetPatternsHelperException(
+          "--target_pattern_file cannot be combined with --target_query or --target_query_file",
+          TargetPatterns.Code.TARGET_PATTERN_FILE_WITH_COMMAND_LINE_PATTERN);
+    }
+    if (hasTargetPatternFile && !targets.isEmpty()) {
       throw new TargetPatternsHelperException(
           "Command-line target pattern and --target_pattern_file cannot both be specified",
           TargetPatterns.Code.TARGET_PATTERN_FILE_WITH_COMMAND_LINE_PATTERN);
-    } else if (!buildRequestOptions.targetPatternFile.isEmpty()) {
+    }
+
+    if (hasQuery || hasQueryFile) {
+      List<String> queryTargets;
+      if (hasQuery) {
+        try {
+          queryTargets = executeQuery(env, buildRequestOptions.query, options);
+        } catch (QueryException | InterruptedException | IOException e) {
+          throw new TargetPatternsHelperException(
+              "Error executing query: " + e.getMessage(),
+              TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
+        }
+      } else {
+        Path queryFilePath = env.getWorkingDirectory().getRelative(buildRequestOptions.queryFile);
+        try {
+          env.getEventBus()
+              .post(
+                  InputFileEvent.create(
+                      /* type= */ "query_file", queryFilePath.getFileSize()));
+          String queryExpression = FileSystemUtils.readContent(queryFilePath, ISO_8859_1).trim();
+          queryTargets = executeQuery(env, queryExpression, options);
+        } catch (IOException e) {
+          throw new TargetPatternsHelperException(
+              "I/O error reading from " + queryFilePath.getPathString() + ": " + e.getMessage(),
+              TargetPatterns.Code.TARGET_PATTERN_FILE_READ_FAILURE);
+        } catch (QueryException | InterruptedException e) {
+          throw new TargetPatternsHelperException(
+              "Error executing query from file: " + e.getMessage(),
+              TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
+        }
+      }
+      if (targets.isEmpty()) {
+        return queryTargets;
+      }
+      return ImmutableList.<String>builder().addAll(queryTargets).addAll(targets).build();
+    }
+
+    if (!buildRequestOptions.targetPatternFile.isEmpty()) {
       // Works for absolute or relative file.
       Path residuePath =
           env.getWorkingDirectory().getRelative(buildRequestOptions.targetPatternFile);
@@ -98,6 +169,70 @@ public final class TargetPatternsHelper {
           .setMessage(getMessage())
           .setTargetPatterns(TargetPatterns.newBuilder().setCode(detailedCode))
           .build();
+    }
+  }
+
+  /** Executes a query and returns the resulting target patterns. */
+  private static List<String> executeQuery(
+      CommandEnvironment env, String queryExpression, OptionsParsingResult options)
+      throws QueryException, InterruptedException, IOException, TargetPatternsHelperException {
+    try {
+      var threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
+      var repoMapping =
+          env.getSkyframeExecutor()
+              .getMainRepoMapping(false, threadsOption.threads, env.getReporter());
+      var mainRepoTargetParser =
+          new TargetPattern.Parser(env.getRelativeWorkingDirectory(), RepositoryName.MAIN, repoMapping);
+
+      var starlarkSemantics =
+          options.getOptions(BuildLanguageOptions.class).toStarlarkSemantics();
+      // Query-specific options, like --tool_deps, are not available in the 'build' command,
+      // so we use default options. This only affects the label printing.
+      var labelPrinter =
+          new QueryOptions().getLabelPrinter(starlarkSemantics, mainRepoTargetParser.getRepoMapping());
+
+      var queryEnv =
+          QueryEnvironmentBasedCommand.newQueryEnvironment(
+              env,
+              /* keepGoing=*/ false,
+              /* orderedResults= */ false,
+              UniverseScope.EMPTY,
+              threadsOption.threads,
+              Set.of(),
+              // Graphless query is sufficient since we only need target labels, not the
+              // dependency graph structure or ordering
+              /* useGraphlessQuery= */ true,
+              mainRepoTargetParser,
+              labelPrinter);
+
+      var expr = QueryExpression.parse(queryExpression, queryEnv);
+      Set<String> targetPatterns = new LinkedHashSet<>();
+      var callback =
+          new ThreadSafeOutputFormatterCallback<Target>() {
+            @Override
+            public void processOutput(Iterable<Target> partialResult) {
+              for (Target target : partialResult) {
+                targetPatterns.add(target.getLabel().getUnambiguousCanonicalForm());
+              }
+            }
+          };
+
+      var result = queryEnv.evaluateQuery(expr, callback);
+      if (!result.getSuccess()) {
+        throw new TargetPatternsHelperException("Query evaluation failed",
+            TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
+      }
+
+      return ImmutableList.copyOf(targetPatterns);
+    } catch (InterruptedException e) {
+      throw new TargetPatternsHelperException("Query interrupted",
+          TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
+    } catch (RepositoryMappingResolutionException e) {
+      throw new TargetPatternsHelperException(e.getMessage(),
+          TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
+    } catch (QuerySyntaxException e) {
+      throw new TargetPatternsHelperException("Query syntax error: " + e.getMessage(),
+          TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
     }
   }
 }
