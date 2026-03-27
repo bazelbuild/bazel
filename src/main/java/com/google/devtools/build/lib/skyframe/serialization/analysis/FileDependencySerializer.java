@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.StringKey;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SparseAggregateWriteStatusBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FileDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FileDataInfoOrFuture;
@@ -84,10 +85,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
+import java.util.Collection;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -807,13 +805,13 @@ final class FileDependencySerializer {
    * #computeNodeBytes} defines the wire format of nodes.
    */
   class NodeDependencyHandler implements Callable<NodeDataInfo> {
-    private final TreeSet<String> fileKeys = new TreeSet<>();
-    private final TreeSet<String> listingKeys = new TreeSet<>();
-    private final TreeMap<PackedFingerprint, NodeInvalidationDataInfo> nodeDependencies =
-        new TreeMap<>();
+    private final ArrayList<String> fileKeys = new ArrayList<>();
+    private final ArrayList<String> listingKeys = new ArrayList<>();
+    private final ArrayList<NodeInvalidationDataInfo> nodeDependencies = new ArrayList<>();
     @Nullable private FileDataInfoOrFuture sourceFileOrFuture;
 
-    private final ArrayList<WriteStatus> writeStatuses = new ArrayList<>();
+    private final SparseAggregateWriteStatusBuilder writeStatusBuilder =
+        new SparseAggregateWriteStatusBuilder();
 
     private final ArrayList<FutureFileDataInfo> futureFileDataInfo = new ArrayList<>();
     private final ArrayList<FutureListingDataInfo> futureListingDataInfo = new ArrayList<>();
@@ -838,7 +836,7 @@ final class FileDependencySerializer {
         }
         // There are multiple ways that result could become unary here, even if `node` always has at
         // least 2 children. The following may reduce child count.
-        // 1. TreeSet deduplication.
+        // 1. Deduplication.
         // 2. Constant references.
         // 3. NestedFileOpNodes with the same fingerprints.
         if (nodeDependencies.size() == 1) {
@@ -846,11 +844,18 @@ final class FileDependencySerializer {
           //
           // TODO: b/364831651 - consider additional special casing for unary file or listing
           // dependencies.
-          return nodeDependencies.values().iterator().next();
+          return nodeDependencies.get(0);
         }
       }
 
-      byte[] nodeBytes = computeNodeBytes(nodeDependencies, fileKeys, listingKeys, sourceFileKey);
+      // We need to sort these entries so that serialization is deterministic
+      var sortedFileKeys = fileKeys.stream().sorted().toList();
+      var sortedListingKeys = listingKeys.stream().sorted().toList();
+      var sortedNodeDependencies =
+          nodeDependencies.stream().map(NodeInvalidationDataInfo::cacheKey).sorted().toList();
+      byte[] nodeBytes =
+          computeNodeBytes(
+              sortedNodeDependencies, sortedFileKeys, sortedListingKeys, sourceFileKey);
       byte[] maybeCompressedBytes = nodeBytes;
       if (nodeBytes.length >= COMPRESSION_NUM_BYTES_THRESHOLD) {
         maybeCompressedBytes = compressBytes(nodeBytes);
@@ -878,8 +883,8 @@ final class FileDependencySerializer {
           },
           directExecutor());
 
-      writeStatuses.add(writer.put(key, maybeCompressedBytes));
-      return new NodeInvalidationDataInfo(key, sparselyAggregateWriteStatuses(writeStatuses));
+      writeStatusBuilder.add(writeStatus);
+      return new NodeInvalidationDataInfo(key, writeStatusBuilder.build());
     }
 
     private void addFileKey(FileKey fileKey) {
@@ -899,7 +904,7 @@ final class FileDependencySerializer {
           break;
         case FileInvalidationDataInfo fileInfo:
           fileKeys.add(fileInfo.cacheKey());
-          writeStatuses.add(fileInfo.writeStatus());
+          writeStatusBuilder.add(fileInfo.writeStatus());
           break;
       }
     }
@@ -921,7 +926,7 @@ final class FileDependencySerializer {
           break;
         case ListingInvalidationDataInfo listingInfo:
           listingKeys.add(listingInfo.cacheKey());
-          writeStatuses.add(listingInfo.writeStatus());
+          writeStatusBuilder.add(listingInfo.writeStatus());
           break;
       }
     }
@@ -942,8 +947,8 @@ final class FileDependencySerializer {
         case CONSTANT_NODE:
           break;
         case NodeInvalidationDataInfo nodeInfo:
-          nodeDependencies.put(nodeInfo.cacheKey(), nodeInfo);
-          writeStatuses.add(nodeInfo.writeStatus());
+          nodeDependencies.add(nodeInfo);
+          writeStatusBuilder.add(nodeInfo.writeStatus());
           break;
       }
     }
@@ -992,7 +997,7 @@ final class FileDependencySerializer {
       }) {
         case CONSTANT_FILE -> null;
         case FileInvalidationDataInfo fileInfo -> {
-          writeStatuses.add(fileInfo.writeStatus());
+          writeStatusBuilder.add(fileInfo.writeStatus());
           yield fileInfo.cacheKey();
         }
       };
@@ -1022,18 +1027,18 @@ final class FileDependencySerializer {
    */
   @VisibleForTesting
   static byte[] computeNodeBytes(
-      Map<PackedFingerprint, NodeInvalidationDataInfo> nodeDependencies,
-      Set<String> fileKeys,
-      Set<String> listingKeys,
+      Collection<PackedFingerprint> nodeDependencyFingerprints,
+      Collection<String> fileKeys,
+      Collection<String> listingKeys,
       @Nullable String sourceFileKey) {
     try {
       var bytesOut = new ByteArrayOutputStream();
       var codedOut = CodedOutputStream.newInstance(bytesOut);
-      codedOut.writeInt32NoTag(nodeDependencies.size());
+      codedOut.writeInt32NoTag(nodeDependencyFingerprints.size());
       codedOut.writeInt32NoTag(fileKeys.size());
       codedOut.writeInt32NoTag(listingKeys.size());
       codedOut.writeBoolNoTag(sourceFileKey != null);
-      for (PackedFingerprint fp : nodeDependencies.keySet()) {
+      for (PackedFingerprint fp : nodeDependencyFingerprints) {
         fp.writeTo(codedOut);
       }
       for (String key : fileKeys) {

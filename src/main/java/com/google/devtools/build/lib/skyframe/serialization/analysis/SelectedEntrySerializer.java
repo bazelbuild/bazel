@@ -29,6 +29,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.proto.DataTyp
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -72,6 +73,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
@@ -246,8 +248,17 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
             profileCollector,
             serializationStats);
 
+    // A topological sort prevents the antipattern where one serializes a high level node, walks
+    // its whole transitive closure, then serializes lower level nodes, thus revisiting the
+    // transitive closure again.
+    //
+    // This doesn't help a lot when one only serializes a frontier or a small active set (since
+    // the majority of the Skyframe graph is not serialized), but does help when serializing a
+    // lot of nodes.
+    ImmutableList<SkyKey> sortedSelection = sortTopologically(selection, graph);
+
     List<ListenableFuture<?>> submissions = new ArrayList<>(selection.size());
-    for (SkyKey selectedKey : selection) {
+    for (SkyKey selectedKey : sortedSelection) {
       // We acquire the semaphore here and not in serializer.accept() so as not to starve the thread
       // pool
       writeStatuses.semaphore.acquire();
@@ -706,5 +717,40 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
   private static boolean isExecutionValue(SkyKey key) {
     // TODO: b/439060530: consider whether this is correct for ActionTemplateExpansionValue keys.
     return !(key instanceof ActionLookupKey);
+  }
+
+  /** Sorts {@code selection} topologically based on the edges in {@code graph}. */
+  private static ImmutableList<SkyKey> sortTopologically(
+      ImmutableSet<SkyKey> selection, InMemoryGraph graph) {
+    ArrayList<SkyKey> result = new ArrayList<>(selection.size());
+    Set<SkyKey> visited = Sets.newHashSetWithExpectedSize(selection.size());
+    for (SkyKey key : selection) {
+      if (visited.add(key)) {
+        dfs(key, selection, graph, visited, result);
+      }
+    }
+    return ImmutableList.copyOf(result);
+  }
+
+  private static void dfs(
+      SkyKey key,
+      ImmutableSet<SkyKey> selection,
+      InMemoryGraph graph,
+      Set<SkyKey> visited,
+      List<SkyKey> result) {
+    InMemoryNodeEntry entry = graph.getIfPresent(key);
+    if (entry == null) {
+      return;
+    }
+
+    for (SkyKey dep : entry.getDirectDeps()) {
+      // This is suboptimal when "selection" is non-contiguous, but makes it possible to avoid
+      // visiting the whole Skyframe graph when serializing just a frontier
+      if (selection.contains(dep) && visited.add(dep)) {
+        dfs(dep, selection, graph, visited, result);
+      }
+    }
+
+    result.add(key);
   }
 }

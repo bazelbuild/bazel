@@ -323,12 +323,12 @@ public class WriteStatuses {
    *
    * <p>This builder is thread safe, but {@link #build} should only be called once.
    */
-  static final class SparseAggregateWriteStatusBuilder {
+  public static final class SparseAggregateWriteStatusBuilder {
     private final SparseAggregateWriteStatus aggregate = new SparseAggregateWriteStatus();
     private final AtomicBoolean preincrementCleared = new AtomicBoolean(false);
 
     @CanIgnoreReturnValue
-    SparseAggregateWriteStatusBuilder add(ListenableFuture<Void> status) {
+    public SparseAggregateWriteStatusBuilder add(ListenableFuture<Void> status) {
       if (status.isDone()) {
         try {
           var unusedNull = Futures.getDone(status);
@@ -358,14 +358,15 @@ public class WriteStatuses {
     }
 
     @CanIgnoreReturnValue
-    SparseAggregateWriteStatusBuilder addAll(Iterable<? extends ListenableFuture<Void>> statuses) {
+    public SparseAggregateWriteStatusBuilder addAll(
+        Iterable<? extends ListenableFuture<Void>> statuses) {
       for (ListenableFuture<Void> status : statuses) {
         add(status);
       }
       return this;
     }
 
-    SparseAggregateWriteStatus build() {
+    public SparseAggregateWriteStatus build() {
       checkState(!preincrementCleared.getAndSet(true), "build must only be called once");
       aggregate.clearPreincrement();
       return aggregate;
