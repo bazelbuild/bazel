@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
@@ -73,6 +74,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
   private final SandboxOptions sandboxOptions;
   private final boolean verboseFailures;
+  private final boolean expandParamFiles;
   private final ImmutableSet<Path> inaccessiblePaths;
   protected final BinTools binTools;
   private final Path execRoot;
@@ -82,8 +84,9 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
   public AbstractSandboxSpawnRunner(CommandEnvironment cmdEnv) {
     this.sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
-    this.verboseFailures =
-        cmdEnv.getOptions().getOptions(ExecutionOptions.class).getVerboseFailures();
+    ExecutionOptions executionOptions = cmdEnv.getOptions().getOptions(ExecutionOptions.class);
+    this.verboseFailures = executionOptions.getVerboseFailures();
+    this.expandParamFiles = executionOptions.getExpandParamFiles();
     this.inaccessiblePaths =
         sandboxOptions.getInaccessiblePaths(cmdEnv.getRuntime().getFileSystem());
     this.binTools = cmdEnv.getBlazeWorkspace().getBinTools();
@@ -190,7 +193,12 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
           true, sandbox.getSandboxExecRoot().getPathString(), sandbox);
     } else {
       return CommandFailureUtils.describeCommandFailure(
-              verboseFailures, sandbox.getSandboxExecRoot().getPathString(), originalSpawn)
+              verboseFailures,
+              sandbox.getSandboxExecRoot().getPathString(),
+              originalSpawn,
+              expandParamFiles
+                  ? AbstractSpawnStrategy.expandParamFiles(originalSpawn)
+                  : null)
           + SANDBOX_DEBUG_SUGGESTION;
     }
   }

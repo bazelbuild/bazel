@@ -456,6 +456,84 @@ function test_subcommand_notdefault {
   expect_not_log "dragons"
 }
 
+function test_expand_param_files_with_subcommands {
+  local pkg="pkg_param_expand"
+  mkdir -p "$pkg"
+  cat > "$pkg/rule.bzl" <<'EOF'
+def _impl(ctx):
+  out = ctx.outputs.out
+  args = ctx.actions.args()
+  args.add("--flag_from_param_file")
+  args.add("--another_flag_from_param_file")
+  args.use_param_file("@%s", use_always = True)
+  ctx.actions.run_shell(
+    outputs = [out],
+    arguments = [out.path, args],
+    command = 'touch "$1"',
+  )
+
+param_rule = rule(
+  implementation = _impl,
+  attrs = {},
+  outputs = {"out": "%{name}.out"},
+)
+EOF
+  cat > "$pkg/BUILD" <<'EOF'
+load(":rule.bzl", "param_rule")
+
+param_rule(name = "param_test1")
+param_rule(name = "param_test2")
+EOF
+
+  bazel build -s "//$pkg:param_test1" 2>$TEST_log \
+    || fail "bazel build failed"
+  expect_log "@.*\.params"
+  expect_not_log "flag_from_param_file"
+
+  bazel build -s --expand_param_files "//$pkg:param_test2" 2>$TEST_log \
+    || fail "bazel build failed"
+  expect_log "flag_from_param_file"
+  expect_log "another_flag_from_param_file"
+}
+
+function test_expand_param_files_with_verbose_failures {
+  local pkg="pkg_param_verbose"
+  mkdir -p "$pkg"
+  cat > "$pkg/rule.bzl" <<'EOF'
+def _impl(ctx):
+  args = ctx.actions.args()
+  args.add("--flag_from_param_file")
+  args.add("--another_flag_from_param_file")
+  args.use_param_file("@%s", use_always = True)
+  ctx.actions.run(
+    outputs = [ctx.outputs.out],
+    executable = "/bin/false",
+    arguments = [args],
+  )
+
+param_rule = rule(
+  implementation = _impl,
+  attrs = {},
+  outputs = {"out": "%{name}.out"},
+)
+EOF
+  cat > "$pkg/BUILD" <<'EOF'
+load(":rule.bzl", "param_rule")
+
+param_rule(name = "param_test")
+EOF
+
+  bazel build --verbose_failures "//$pkg:param_test" \
+    2>$TEST_log && fail "expected build failure" || true
+  expect_log "@.*\.params"
+  expect_not_log "flag_from_param_file"
+
+  bazel build --verbose_failures --expand_param_files "//$pkg:param_test" \
+    2>$TEST_log && fail "expected build failure" || true
+  expect_log "flag_from_param_file"
+  expect_log "another_flag_from_param_file"
+}
+
 function test_loading_progress {
   bazel clean || fail "${PRODUCT_NAME} clean failed"
   bazel test pkg:true 2>$TEST_log \
