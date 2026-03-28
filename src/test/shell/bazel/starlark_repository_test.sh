@@ -3741,8 +3741,8 @@ function test_local_module_file_patch_with_copy() {
 
 function test_http_file_root_build_alias() {
   create_new_workspace
-  local file="${TEST_TMPDIR}/data.txt"
-  printf "hello world" > "$file"
+  local file="${TEST_TMPDIR}/AvailablePortFinder.java"
+  printf "final class AvailablePortFinder {}\n" > "$file"
   if is_windows; then
     file_url="file:///$(cygpath -m "$file")"
   else
@@ -3754,18 +3754,24 @@ http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_
 http_file(
     name = "data_repo",
     url = "${file_url}",
-    sha256 = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+    downloaded_file_path = "AvailablePortFinder.java",
+    sha256 = "59959c069902364aa88ced5552ac70009435bca7f689419f0e5f2375c541cb01",
 )
 MODULE
 
   cat > BUILD <<BUILD_FILE
 filegroup(
-    name = "it",
+    name = "by_root_alias",
     srcs = ["@data_repo//:file"],
+)
+
+filegroup(
+    name = "by_downloaded_name",
+    srcs = ["@data_repo//:AvailablePortFinder.java"],
 )
 BUILD_FILE
 
-  bazel build //:it >& $TEST_log || fail "Expected build to succeed"
+  bazel build //:by_root_alias //:by_downloaded_name >& $TEST_log || fail "Expected build to succeed"
 }
 
 run_suite "local repository tests"
