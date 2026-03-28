@@ -242,6 +242,17 @@ alias(
     name = "file",
     actual = "//file:file",
 )
+{downloaded_file_alias}
+"""
+
+_HTTP_FILE_ROOT_NAME_ALIAS = """
+
+# Expose the downloaded file's basename at the repository root so labels like
+# @repo//:<downloaded filename> resolve to the downloaded file.
+alias(
+    name = {target_name},
+    actual = "//file:file",
+)
 """
 
 def _http_file_impl(ctx):
@@ -256,6 +267,7 @@ def _http_file_impl(ctx):
         ctx.path("file/BUILD.bazel"),
     ]
     downloaded_file_path = ctx.attr.downloaded_file_path
+    downloaded_file_name = downloaded_file_path.split("/")[-1]
     download_path = ctx.path("file/" + downloaded_file_path)
     if download_path in forbidden_files or not str(download_path).startswith(str(repo_root)):
         fail("'%s' cannot be used as downloaded_file_path in http_file" % ctx.attr.downloaded_file_path)
@@ -269,8 +281,15 @@ def _http_file_impl(ctx):
         auth = get_auth(ctx, source_urls),
         integrity = ctx.attr.integrity,
     )
+    downloaded_file_alias = ""
+    if downloaded_file_name != "file":
+        downloaded_file_alias = _HTTP_FILE_ROOT_NAME_ALIAS.format(
+            target_name = repr(downloaded_file_name),
+        )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
-    ctx.file("BUILD.bazel", _HTTP_FILE_ROOT_BUILD)
+    ctx.file("BUILD.bazel", _HTTP_FILE_ROOT_BUILD.format(
+        downloaded_file_alias = downloaded_file_alias,
+    ))
     ctx.file("file/BUILD", _HTTP_FILE_BUILD.format(path = repr(downloaded_file_path)))
 
     return _update_integrity_attr(ctx, _http_file_attrs, download_info)
