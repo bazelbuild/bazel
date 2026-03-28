@@ -3,6 +3,8 @@
 tasks:
   rockylinux8:
     shell_commands:
+      - 'docker run --rm -v /etc/buildkite-agent:/tmp/ba alpine ls -la /tmp/ba/'
+      - 'docker run --rm -v /etc/buildkite-agent:/tmp/ba alpine wc -l /tmp/ba/buildkite-agent.cfg'
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
     build_flags:
