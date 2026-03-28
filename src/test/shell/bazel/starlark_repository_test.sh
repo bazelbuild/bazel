@@ -3739,27 +3739,22 @@ function test_local_module_file_patch_with_copy() {
   do_test_local_module_file_patch "--noexperimental_repository_cache_hardlinks"
 }
 
-run_suite "local repository tests"
-
 function test_http_file_root_build_alias() {
   create_new_workspace
   local file="${TEST_TMPDIR}/data.txt"
-  echo "hello world" > "$file"
+  printf "hello world" > "$file"
   if is_windows; then
-     file_url="file:///$(cygpath -m $file)"
+    file_url="file:///$(cygpath -m "$file")"
   else
-     file_url="file://${file}"
+    file_url="file://${file}"
   fi
-  # loopback restriction in tests might require 127.0.0.1 or localhost? 
-  # But file:// is usually fine.
 
-  # use_repo_rule requires bazel_tools, which should be available
-  cat > MODULE.bazel <<MODULE
+  cat > "$(setup_module_dot_bazel)" <<MODULE
 http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 http_file(
     name = "data_repo",
     url = "${file_url}",
-    sha256 = "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e",
+    sha256 = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
 )
 MODULE
 
@@ -3772,3 +3767,5 @@ BUILD_FILE
 
   bazel build //:it >& $TEST_log || fail "Expected build to succeed"
 }
+
+run_suite "local repository tests"
