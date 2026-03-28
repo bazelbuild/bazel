@@ -57,15 +57,6 @@ landing_page:
       - label: Why Bazel?
         path: /about/why
         classname: button bazel-button-dark
-    - heading: Roadmap
-      path: ''
-      image_path: /images/essential_start.svg
-      description: >
-        Read our new public roadmap to see what is coming down the pipeline.
-      buttons:
-      - label: See the roadmap
-        path: /about/roadmap
-        classname: button bazel-button-dark
     - heading: FAQ
       path: ''
       image_path: /images/why_faq.svg
