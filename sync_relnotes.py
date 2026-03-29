@@ -85,17 +85,17 @@ def run_rulebook():
         raw_data = f.read()
 
     # Split and remove the first empty element
-    commits = raw_data.split('COMMIT_DELIMITER')[1:]
+    commits = raw_data.split('COMMIT_DELIMITER\n')[1:]
     actionable_commits = []
 
     for commit_block in commits:
-        lines = commit_block.strip().split('')
+        lines = commit_block.strip().split('\n')
         if len(lines) < 3:
             continue
 
         commit_hash = lines[0].strip()
         commit_subject = lines[1].strip()
-        body = ''.join(lines[2:])
+        body = '\n'.join(lines[2:])
 
         # RULE 1: Filter out noise and extract intent
         # Handles RELNOTES, RELNOTES:, and RELNOTES[INC]:
@@ -119,7 +119,7 @@ def run_rulebook():
                 ['git', '-C', 'bazel_src', 'show', '--name-only', '--format=', commit_hash],
                 text=True
             ).strip()
-            changed_files = [f for f in changed_files_out.split('') if f]
+            changed_files = [f for f in changed_files_out.split('\n') if f]
         except subprocess.CalledProcessError:
             print(f"⚠️ Could not fetch file list for {commit_hash}")
             continue
@@ -144,7 +144,7 @@ def run_rulebook():
                     shell=True, text=True, stderr=subprocess.DEVNULL
                 )
                 
-                for line in search_out.strip().split(''):
+                for line in search_out.strip().split('\n'):
                     if not line: continue
                     
                     # gh search output is usually "repository:path:content" or "path: content"
@@ -174,11 +174,9 @@ def run_rulebook():
             print("⚠️ No direct documentation match found for this code change. Skipping AI rewrite.")
 
     if actionable_commits:
-        print("
-🎉 Documentation rewrite complete for all actionable commits.")
+        print("🎉 Documentation rewrite complete for all actionable commits.")
     else:
-        print("
-😴 No actionable documentation updates found in this run.")
+        print("😴 No actionable documentation updates found in this run.")
 
 if __name__ == "__main__":
     run_rulebook()
