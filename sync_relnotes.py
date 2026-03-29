@@ -85,13 +85,11 @@ def run_rulebook():
         raw_data = f.read()
 
     # Split and remove the first empty element
-    commits = raw_data.split('COMMIT_DELIMITER
-')[1:]
+    commits = raw_data.split('COMMIT_DELIMITER')[1:]
     actionable_commits = []
 
     for commit_block in commits:
-        lines = commit_block.strip().split('
-')
+        lines = commit_block.strip().split('')
         if len(lines) < 3:
             continue
 
@@ -123,8 +121,7 @@ def run_rulebook():
                 ['git', '-C', 'bazel_src', 'show', '--name-only', '--format=', commit_hash],
                 text=True
             ).strip()
-            changed_files = [f for f in changed_files_out.split('
-') if f]
+            changed_files = [f for f in changed_files_out.split('') if f]
         except subprocess.CalledProcessError:
             print(f"⚠️ Could not fetch file list for {commit_hash}")
             continue
@@ -149,8 +146,7 @@ def run_rulebook():
                     shell=True, text=True, stderr=subprocess.DEVNULL
                 )
                 
-                for line in search_out.strip().split('
-'):
+                for line in search_out.strip().split(''):
                     if not line: continue
                     
                     # gh search output is usually "repository:path:content" or "path: content"
