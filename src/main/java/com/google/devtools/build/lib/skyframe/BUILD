@@ -281,6 +281,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:options_diff",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:run_under",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:scope",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:starlark_exec_transition_loader",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:starlark_transition_cache",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:configuration_transition",
@@ -1259,7 +1260,6 @@ java_library(
         ":project_files_lookup_value",
         ":project_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:project_resolution_exception",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:scope",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
@@ -1276,12 +1276,12 @@ java_library(
     srcs = ["BuildOptionsScopeValue.java"],
     deps = [
         ":sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:scope",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
     ],
 )
 
