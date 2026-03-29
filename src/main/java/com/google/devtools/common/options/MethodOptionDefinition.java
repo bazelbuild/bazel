@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -60,7 +61,8 @@ public class MethodOptionDefinition extends OptionDefinition {
    *
    * <p>This is intended to be used by the generated implementation classes.
    */
-  public static MethodOptionDefinition get(Class<?> implClass, String methodName) {
+  public static MethodOptionDefinition get(
+      Class<? extends OptionsBase> implClass, String methodName) {
     try {
       Class<?> fieldsClass = implClass.getSuperclass();
       Method method = fieldsClass.getDeclaredMethod(methodName);
@@ -76,10 +78,13 @@ public class MethodOptionDefinition extends OptionDefinition {
 
   private final Method method;
   private final Field field;
+  private final Class<? extends OptionsBase> implClass;
 
-  private MethodOptionDefinition(Method method, Option optionAnnotation, Class<?> implClass) {
+  private MethodOptionDefinition(
+      Method method, Option optionAnnotation, Class<? extends OptionsBase> implClass) {
     super(optionAnnotation);
     this.method = method;
+    this.implClass = implClass;
     try {
       String methodName = method.getName();
       Verify.verify(methodName.startsWith("get")); // Enforced by the annotation processor
@@ -94,15 +99,12 @@ public class MethodOptionDefinition extends OptionDefinition {
 
   @Override
   public <C extends OptionsBase> Class<? extends C> getDeclaringClass(Class<C> baseClass) {
-    Class<?> declaringClass = method.getDeclaringClass();
-    if (!baseClass.isAssignableFrom(declaringClass)) {
-      throw new IllegalStateException(
-          String.format(
-              "Declaring class %s is not assignable from requested base class %s",
-              declaringClass, baseClass));
-    }
+    // The implementation class is not technically the "declaring" class, but it's the one that is
+    // referenced everywhere, so this is what needs to be returned. In particular, that's the one
+    // that needs to be passed to getOptions().
+    Preconditions.checkArgument(baseClass.isAssignableFrom(implClass));
     @SuppressWarnings("unchecked") // This should be safe based on the previous check.
-    Class<? extends C> castClass = (Class<? extends C>) declaringClass;
+    Class<? extends C> castClass = (Class<? extends C>) implClass;
     return castClass;
   }
 

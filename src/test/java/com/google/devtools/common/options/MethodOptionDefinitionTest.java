@@ -1,4 +1,4 @@
-// Copyright 2024 The Bazel Authors. All rights reserved.
+// Copyright 2026 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -23,7 +22,6 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link MethodOptionDefinition}. */
 @RunWith(JUnit4.class)
 public class MethodOptionDefinitionTest {
-
   /** Dummy options class for testing method-based options. */
   @OptionsClass
   public abstract static class MethodOptionsTestFields extends OptionsBase {
@@ -60,5 +58,15 @@ public class MethodOptionDefinitionTest {
     fooDefinition.setValue(options, 456);
     assertThat(options.getFoo()).isEqualTo(456);
     assertThat(fooDefinition.getRawValue(options)).isEqualTo(456);
+  }
+
+  @Test
+  public void getDeclaringClass_returnsImplementation() throws Exception {
+    MethodOptionDefinition definition =
+        MethodOptionDefinition.get(MethodOptionsTest.class, "getFoo");
+
+    // The important part is that the return value of getDeclaringClass() can be passed to
+    // getOptions(), but it's nice to not have this test depend on OptionsParser.
+    assertThat(definition.getDeclaringClass(OptionsBase.class)).isEqualTo(MethodOptionsTest.class);
   }
 }
