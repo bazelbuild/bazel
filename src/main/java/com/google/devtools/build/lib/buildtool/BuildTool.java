@@ -107,7 +107,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.SerializationDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptionsFields.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisJsonLogWriter;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisMetadataWriter;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -1112,7 +1112,7 @@ public class BuildTool {
     if (skycacheMetadataParams == null
         || !env.getOptions()
             .getOptions(RemoteAnalysisCachingOptions.class)
-            .analysisCacheEnableMetadataQueries) {
+            .getAnalysisCacheEnableMetadataQueries()) {
       return;
     }
     try (SilentCloseable c = Profiler.instance().profile("skycache.metadata.upload")) {

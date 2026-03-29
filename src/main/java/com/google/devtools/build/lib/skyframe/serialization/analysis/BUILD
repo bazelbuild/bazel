@@ -224,7 +224,7 @@ java_library(
 
 java_library(
     name = "options",
-    srcs = ["RemoteAnalysisCachingOptions.java"],
+    srcs = ["RemoteAnalysisCachingOptionsFields.java"],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",

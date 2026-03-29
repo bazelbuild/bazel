@@ -64,7 +64,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataParams;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.LongVersionClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheManager.AnalysisDeps;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptionsFields.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -100,7 +100,7 @@ public final class RemoteAnalysisCacheFactory {
     var options = env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
     if (options == null
         || !env.getCommand().buildPhase().executes()
-        || options.mode == RemoteAnalysisCacheMode.OFF) {
+        || options.getMode() == RemoteAnalysisCacheMode.OFF) {
       RemoteAnalysisCacheDeps disabledDeps = RemoteAnalysisCacheDeps.createDisabled();
       return new AnalysisDeps(
           RemoteAnalysisCacheManager.createDisabled(), disabledDeps, disabledDeps);
@@ -109,7 +109,7 @@ public final class RemoteAnalysisCacheFactory {
     // Set up active directory matcher
 
     Optional<PathFragmentPrefixTrie> maybeActiveDirectoriesMatcherFromFlags =
-        finalizeActiveDirectoriesMatcher(env, maybeActiveDirectoriesMatcher, options.mode);
+        finalizeActiveDirectoriesMatcher(env, maybeActiveDirectoriesMatcher, options.getMode());
     Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher =
         maybeActiveDirectoriesMatcherFromFlags.map(v -> pi -> v.includes(pi.getPackageFragment()));
 
@@ -130,7 +130,7 @@ public final class RemoteAnalysisCacheFactory {
             topLevelOptions.checksum(),
             blazeInstallMD5,
             workspaceInfoFromDiff.getEvaluatingVersion(),
-            nullToEmpty(options.analysisCacheKeyDistinguisherForTesting),
+            nullToEmpty(options.getAnalysisCacheKeyDistinguisherForTesting()),
             env.getUseFakeStampData(),
             workspaceInfoFromDiff.getSnapshot());
     env.getRemoteAnalysisCachingEventListener().recordSkyValueVersion(frontierNodeVersion);
@@ -152,7 +152,7 @@ public final class RemoteAnalysisCacheFactory {
 
     SkycacheMetadataParams skycacheMetadataParams = servicesSupplier.getSkycacheMetadataParams();
     boolean areMetadataQueriesEnabled =
-        skycacheMetadataParams != null && options.analysisCacheEnableMetadataQueries;
+        skycacheMetadataParams != null && options.getAnalysisCacheEnableMetadataQueries();
 
     if (areMetadataQueriesEnabled) {
       skycacheMetadataParams.init(
@@ -175,15 +175,15 @@ public final class RemoteAnalysisCacheFactory {
     var deps =
         new RemoteAnalysisCacheDeps(
             env.getReporter(),
-            options.mode,
-            options.analysisCacheBailOnMissingFingerprint,
+            options.getMode(),
+            options.getAnalysisCacheBailOnMissingFingerprint(),
             servicesSupplier,
             env.getRemoteAnalysisCachingEventListener(),
             jsonLogWriter,
             objectCodecs,
             frontierNodeVersion,
             activeDirectoriesMatcher,
-            options.serializedFrontierProfile);
+            options.getSerializedFrontierProfile());
 
     ListenableFuture<AnalysisCacheInvalidator> analysisCacheInvalidator =
         createAnalysisCacheInvalidator(
@@ -196,7 +196,7 @@ public final class RemoteAnalysisCacheFactory {
 
     var manager =
         new RemoteAnalysisCacheManager(
-            options.mode,
+            options.getMode(),
             areMetadataQueriesEnabled,
             env.getReporter(),
             skycacheMetadataParams,
@@ -204,11 +204,11 @@ public final class RemoteAnalysisCacheFactory {
             analysisCacheInvalidator,
             topLevelTargets,
             activeDirectoriesMatcher,
-            options.skycacheMinimizeMemory);
+            options.getSkycacheMinimizeMemory());
 
     // Bail out if needed
 
-    return switch (options.mode) {
+    return switch (options.getMode()) {
       case RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY, RemoteAnalysisCacheMode.UPLOAD ->
           new AnalysisDeps(manager, deps, deps);
       case RemoteAnalysisCacheMode.DOWNLOAD -> {
@@ -217,7 +217,7 @@ public final class RemoteAnalysisCacheFactory {
           analysisCacheClient = deps.getAnalysisCacheClient();
         }
         if (analysisCacheClient == null) {
-          if (Strings.isNullOrEmpty(options.analysisCacheService)) {
+          if (Strings.isNullOrEmpty(options.getAnalysisCacheService())) {
             env.getReporter()
                 .handle(
                     Event.warn(
@@ -239,7 +239,7 @@ public final class RemoteAnalysisCacheFactory {
         yield new AnalysisDeps(manager, deps, deps);
       }
       default ->
-          throw new IllegalStateException("Unknown RemoteAnalysisCacheMode: " + options.mode);
+          throw new IllegalStateException("Unknown RemoteAnalysisCacheMode: " + options.getMode());
     };
   }
 
@@ -345,11 +345,11 @@ public final class RemoteAnalysisCacheFactory {
 
   private static HashCode computeBlazeInstallMD5(
       CommandEnvironment env, RemoteAnalysisCachingOptions options) throws AbruptExitException {
-    if (options.serverChecksumOverride == null) {
+    if (options.getServerChecksumOverride() == null) {
       return requireNonNull(env.getDirectories().getInstallMD5());
     }
 
-    if (options.mode != RemoteAnalysisCacheMode.DOWNLOAD) {
+    if (options.getMode() != RemoteAnalysisCacheMode.DOWNLOAD) {
       throw new AbruptExitException(
           DetailedExitCode.of(
               FailureDetail.newBuilder()
@@ -368,15 +368,15 @@ public final class RemoteAnalysisCacheFactory {
                         + " this binary. This may cause crashes or even silent incorrectness."
                         + " You've been warned! (check the documentation of the command line "
                         + " flag for more details)",
-                    options.serverChecksumOverride, env.getDirectories().getInstallMD5())));
+                    options.getServerChecksumOverride(), env.getDirectories().getInstallMD5())));
 
-    return options.serverChecksumOverride;
+    return options.getServerChecksumOverride();
   }
 
   @Nullable
   private static RemoteAnalysisJsonLogWriter createJsonLogWriterMaybe(
       CommandEnvironment env, RemoteAnalysisCachingOptions options) throws AbruptExitException {
-    if (options.jsonLog == null) {
+    if (options.getJsonLog() == null) {
       return null;
     }
     try {
@@ -385,7 +385,7 @@ public final class RemoteAnalysisCacheFactory {
               .getInstrumentationOutputFactory()
               .createInstrumentationOutput(
                   "remote_cache_jsonlog",
-                  PathFragment.create(options.jsonLog),
+                  PathFragment.create(options.getJsonLog()),
                   DestinationRelativeTo.WORKING_DIRECTORY_OR_HOME,
                   env,
                   env.getReporter(),
@@ -397,7 +397,8 @@ public final class RemoteAnalysisCacheFactory {
                   new OutputStreamWriter(
                       new BufferedOutputStream(jsonLog.createOutputStream(), 262144), ISO_8859_1)));
       env.getReporter()
-          .handle(Event.info(String.format("Writing Skycache JSON log to '%s'", options.jsonLog)));
+          .handle(
+              Event.info(String.format("Writing Skycache JSON log to '%s'", options.getJsonLog())));
       return result;
     } catch (IOException e) {
       throw new AbruptExitException(
@@ -406,7 +407,7 @@ public final class RemoteAnalysisCacheFactory {
                   .setMessage(
                       String.format(
                           "Cannot open remote analysis JSON log file '%s': %s",
-                          options.jsonLog, e.getMessage()))
+                          options.getJsonLog(), e.getMessage()))
                   .setRemoteAnalysisCaching(
                       RemoteAnalysisCaching.newBuilder()
                           .setCode(RemoteAnalysisCaching.Code.CANNOT_OPEN_LOG_FILE))
