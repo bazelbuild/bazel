@@ -1,6 +1,7 @@
 import re
 import subprocess
 import os
+import time
 import google.generativeai as genai
 
 def setup_gemini():
@@ -9,7 +10,7 @@ def setup_gemini():
         print("Error: GEMINI_API_KEY environment variable not set.")
         return None
     genai.configure(api_key=api_key)
-    # Note: Ensure 'gemini-2.5-flash' is the correct model name for your tier
+    # Using 'gemini-1.5-flash' as '2.5' is not a standard release name yet
     return genai.GenerativeModel('gemini-2.5-flash')
 
 def rewrite_docs_with_gemini(model, commit_subject, relnote_text, target_docs):
@@ -22,10 +23,15 @@ def rewrite_docs_with_gemini(model, commit_subject, relnote_text, target_docs):
             print(f"⚠️ Warning: File {full_path} not found locally. Skipping AI rewrite.")
             continue
 
-        print(f"🤖 Asking Gemini to update: {doc_path}")
+        print(f"🤖 AI Analyzing & Updating: {doc_path}...")
 
         with open(full_path, 'r', encoding='utf-8') as f:
             original_content = f.read()
+
+        # Added safety for very large files
+        if len(original_content) > 100000:
+            print(f"⚠️ File {doc_path} is too large for AI processing (>100k chars). Skipping.")
+            continue
 
         prompt = f"""
         You are an expert technical writer for the Bazel build system documentation.
@@ -49,7 +55,16 @@ def rewrite_docs_with_gemini(model, commit_subject, relnote_text, target_docs):
         """
 
         try:
-            response = model.generate_content(prompt, generation_config={"temperature": 0.1})
+            # Avoid hitting API rate limits
+            time.sleep(2)
+
+            response = model.generate_content(
+                prompt,
+                generation_config={
+                    "temperature": 0.2,
+                    "max_output_tokens": 8192
+                }
+            )
             new_content = response.text.strip()
 
             # Strip markdown code blocks if Gemini accidentally added them
@@ -109,7 +124,6 @@ def run_rulebook():
 
         # RULE 2: Extract Code Keywords
         try:
-            # -C ensures we look at the checked-out bazel source
             changed_files_out = subprocess.check_output(
                 ['git', '-C', 'bazel_src', 'show', '--name-only', '--format=', commit_hash],
                 text=True
@@ -122,7 +136,6 @@ def run_rulebook():
         keywords = set()
         for f in changed_files:
             if f.endswith(('.java', '.cc', '.bzl')):
-                # Get the class name or filename
                 filename = f.split('/')[-1].split('.')[0]
                 if len(filename) > 3:
                     keywords.add(filename)
@@ -130,7 +143,7 @@ def run_rulebook():
         target_docs = set()
 
         # RULE 3: Local Repository Search
-        # 3A. Primary Search: Match Code Keywords to Docs
+        # 3A. Primary Search
         for kw in list(keywords)[:5]:
             try:
                 grep_out = subprocess.check_output(
@@ -138,12 +151,13 @@ def run_rulebook():
                     text=True, stderr=subprocess.DEVNULL
                 )
                 for file_path in grep_out.strip().split('\n'):
-                    if file_path and any(x in file_path for x in ['site/en/', 'docs/', 'site/content/en/']):
-                        target_docs.add(file_path.strip())
+                    file_path = file_path.strip()
+                    if any(x in file_path for x in ['site/en/', 'site/content/en/', 'docs/']):
+                        target_docs.add(file_path)
             except subprocess.CalledProcessError:
                 pass
 
-        # 3B. Fallback Search: Match Commit Subject to Docs
+        # 3B. Fallback Search
         if not target_docs:
             clean_subject = commit_subject.replace('`', '').replace("'", "")
             subject_words = clean_subject.split()[:3]
@@ -155,14 +169,14 @@ def run_rulebook():
                         text=True, stderr=subprocess.DEVNULL
                     )
                     for file_path in grep_out.strip().split('\n'):
-                        if file_path and any(x in file_path for x in ['site/en/', 'docs/', 'site/content/en/']):
-                            target_docs.add(file_path.strip())
+                        file_path = file_path.strip()
+                        if any(x in file_path for x in ['site/en/', 'site/content/en/', 'docs/']):
+                            target_docs.add(file_path)
                 except subprocess.CalledProcessError:
                     pass
 
         if target_docs:
             print(f"📄 Found matching docs: {target_docs}")
-            # RULE 4: Execute Gemini Rewrite
             rewrite_docs_with_gemini(model, commit_subject, note, target_docs)
 
             actionable_commits.append({
