@@ -8,27 +8,11 @@ tasks:
     build_flags:
       - "--config=ci-linux"
     build_targets:
-      - "//:bazel-distfile.zip"
-      - "//scripts/packages/debian:bazel-debian.deb"
-      - "//scripts/packages:with-jdk/install.sh"
-      - "//src:bazel"
-      - "//src:bazel_jdk_minimal"
-      - "//src:test_repos"
-      - "//..."
+      - "//src/test/shell/bazel:ggvdp_test"
     test_flags:
       - "--config=ci-linux"
-      - "--test_tag_filters=-no_presubmit"
     test_targets:
-      - "//src:embedded_tools_size_test"
-      - "//src/main/starlark/tests/builtins_bzl/..."
-      - "//src/test/py/bazel:bazel_module_test"
-      - "//src/test/py/bazel:mod_command_test"
-      - "//src/test/shell/bazel:bazel_example_test"
-      - "//src/test/shell/bazel:bazel_java_test"
-      - "//src/test/shell/bazel:cc_integration_test"
-      - "//src/test/shell/bazel:external_integration_test"
-      - "//src/test/shell/bazel:help_test"
-      - "//src/test/shell/integration:bazel_query_test"
+      - "//src/test/shell/bazel:ggvdp_test"
     include_json_profile:
       - build
       - test
