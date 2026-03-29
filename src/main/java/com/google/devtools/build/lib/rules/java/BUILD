@@ -23,7 +23,7 @@ java_library(
         "JavaConfiguration.java",
         "JavaHeaderCompileAction.java",
         "JavaHelper.java",
-        "JavaOptions.java",
+        "JavaOptionsFields.java",
         "JavaOutput.java",
         "JavaPackageConfigurationProvider.java",
         "JavaPluginInfo.java",

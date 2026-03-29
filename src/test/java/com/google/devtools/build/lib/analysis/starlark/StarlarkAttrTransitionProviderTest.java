@@ -2030,10 +2030,10 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
                 ImmutableList.of("//command_line_option:copt=[set_by_test_target]")));
     // Sanity check: the exec-configured value is indeed unique vs. both the target-transitioned
     // value and the top-level config.
-    assertThat(test.getConfigurationKey().getOptions().get(CppOptions.class).coptList)
-        .isNotEqualTo(dep.getConfigurationKey().getOptions().get(CppOptions.class).coptList);
-    assertThat(getTargetConfiguration().getOptions().get(CppOptions.class).coptList)
-        .isNotEqualTo(dep.getConfigurationKey().getOptions().get(CppOptions.class).coptList);
+    assertThat(test.getConfigurationKey().getOptions().get(CppOptions.class).getCoptList())
+        .isNotEqualTo(dep.getConfigurationKey().getOptions().get(CppOptions.class).getCoptList());
+    assertThat(getTargetConfiguration().getOptions().get(CppOptions.class).getCoptList())
+        .isNotEqualTo(dep.getConfigurationKey().getOptions().get(CppOptions.class).getCoptList());
     assertThat(getMnemonic(dep)).endsWith("-exec");
   }
 
