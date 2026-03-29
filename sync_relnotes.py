@@ -10,7 +10,7 @@ def setup_gemini():
         print("Error: GEMINI_API_KEY environment variable not set.")
         return None
     genai.configure(api_key=api_key)
-    # Using 'gemini-1.5-flash' as '2.5' is not a standard release name yet
+    # Using the standard gemini-1.5-flash for reliability and speed
     return genai.GenerativeModel('gemini-2.5-flash')
 
 def rewrite_docs_with_gemini(model, commit_subject, relnote_text, target_docs):
@@ -28,9 +28,9 @@ def rewrite_docs_with_gemini(model, commit_subject, relnote_text, target_docs):
         with open(full_path, 'r', encoding='utf-8') as f:
             original_content = f.read()
 
-        # Added safety for very large files
+        # Added safety for very large files to prevent crashing or incomplete rewrites
         if len(original_content) > 100000:
-            print(f"⚠️ File {doc_path} is too large for AI processing (>100k chars). Skipping.")
+            print(f"⚠️ File {doc_path} is too large for AI processing. Skipping.")
             continue
 
         prompt = f"""
@@ -55,13 +55,13 @@ def rewrite_docs_with_gemini(model, commit_subject, relnote_text, target_docs):
         """
 
         try:
-            # Avoid hitting API rate limits
+            # Add a small pause between files to ensure high quality and avoid rate limits
             time.sleep(2)
 
             response = model.generate_content(
                 prompt,
                 generation_config={
-                    "temperature": 0.2,
+                    "temperature": 0.1,
                     "max_output_tokens": 8192
                 }
             )
@@ -142,34 +142,49 @@ def run_rulebook():
 
         target_docs = set()
 
-        # RULE 3: Local Repository Search
-        # 3A. Primary Search
+        # RULE 3: Local Repository Search (Highly Accurate for DevSite & Mintlify)
+        # 3A. Primary Search: Match Code Keywords to Docs
         for kw in list(keywords)[:5]:
             try:
+                # Small pause to give the system time to map accurately
+                time.sleep(0.5)
                 grep_out = subprocess.check_output(
                     ['git', '-C', 'bazel_src', 'grep', '-l', '-i', kw, '--', '*.md', '*.mdx'],
                     text=True, stderr=subprocess.DEVNULL
                 )
                 for file_path in grep_out.strip().split('\n'):
                     file_path = file_path.strip()
+                    if not file_path: continue
+
+                    # IGNORE historical version folders and archives
+                    if any(v in file_path for v in ['/versions/', '/archive/', '/v7/', '/v8/']):
+                        continue
+
+                    # CATCH BOTH: DevSite (.md in site/) AND Mintlify (.mdx in docs/)
                     if any(x in file_path for x in ['site/en/', 'site/content/en/', 'docs/']):
                         target_docs.add(file_path)
             except subprocess.CalledProcessError:
                 pass
 
-        # 3B. Fallback Search
+        # 3B. Fallback Search: Match Commit Subject to Docs
         if not target_docs:
             clean_subject = commit_subject.replace('`', '').replace("'", "")
             subject_words = clean_subject.split()[:3]
             if len(subject_words) >= 2:
                 search_phrase = ' '.join(subject_words)
                 try:
+                    time.sleep(0.5)
                     grep_out = subprocess.check_output(
                         ['git', '-C', 'bazel_src', 'grep', '-l', '-i', search_phrase, '--', '*.md', '*.mdx'],
                         text=True, stderr=subprocess.DEVNULL
                     )
                     for file_path in grep_out.strip().split('\n'):
                         file_path = file_path.strip()
+                        if not file_path: continue
+
+                        if any(v in file_path for v in ['/versions/', '/archive/', '/v7/', '/v8/']):
+                            continue
+
                         if any(x in file_path for x in ['site/en/', 'site/content/en/', 'docs/']):
                             target_docs.add(file_path)
                 except subprocess.CalledProcessError:
@@ -177,6 +192,7 @@ def run_rulebook():
 
         if target_docs:
             print(f"📄 Found matching docs: {target_docs}")
+            # RULE 4: Execute Gemini Rewrite
             rewrite_docs_with_gemini(model, commit_subject, note, target_docs)
 
             actionable_commits.append({
@@ -186,7 +202,7 @@ def run_rulebook():
                 "docs": sorted(list(target_docs))
             })
         else:
-            print("⚠️ No documentation match found. Skipping AI rewrite.")
+            print("⚠️ No documentation match found for this code change. Skipping AI rewrite.")
 
     if actionable_commits:
         print("\n🎉 Documentation rewrite complete for all actionable commits.")
