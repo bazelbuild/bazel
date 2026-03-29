@@ -516,6 +516,9 @@ public final class OptionProcessor extends AbstractProcessor {
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
     for (Element annotatedElement : roundEnv.getElementsAnnotatedWith(Option.class)) {
+      if (annotatedElement.getKind() != ElementKind.FIELD) {
+        continue;
+      }
       try {
         // Only fields are annotated with Option, this should already be checked by the
         // @Target(ElementType.FIELD) annotation.
