@@ -12,7 +12,7 @@ def setup_gemini():
         return None
     genai.configure(api_key=api_key)
     # Using 1.5-flash for discovery and 1.5-pro for writing
-    return genai.GenerativeModel('gemini-2.5-flash'), genai.GenerativeModel('gemini-1.5-pro')
+    return genai.GenerativeModel('gemini-2.5-flash'), genai.GenerativeModel('gemini-2.5-pro')
 
 def get_all_doc_paths():
     """Gets a list of all current .md and .mdx files in the repo."""
