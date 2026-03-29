@@ -110,8 +110,7 @@ def run_rulebook():
         if clean_note in ['none', 'none.', 'n/a', 'na', 'no'] or "<reason>' here" in note:
             continue
 
-        print(f"
-✅ Processing: {commit_hash[:7]} - {commit_subject}")
+        print(f"✅ Processing: {commit_hash[:7]} - {commit_subject}")
 
         # RULE 2: Extract Code Keywords
         try:
