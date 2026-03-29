@@ -6,10 +6,9 @@ import google.generativeai as genai
 def setup_gemini():
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
-        print("❌ Error: GEMINI_API_KEY environment variable not set.")
+        print("Error: GEMINI_API_KEY environment variable not set.")
         return None
     genai.configure(api_key=api_key)
-    # Using the standard gemini-1.5-flash model as it's perfectly suited for this task
     return genai.GenerativeModel('gemini-2.5-flash')
 
 def rewrite_docs_with_gemini(model, commit_subject, relnote_text, target_docs):
