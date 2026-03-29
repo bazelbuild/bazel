@@ -18,6 +18,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -86,5 +87,37 @@ public class RemoteOptionsTest {
     parser.parse("--remote_grpc_log=test.log", "--remote_grpc_log=");
     RemoteOptions options = parser.getOptions(RemoteOptions.class);
     assertThat(options.remoteGrpcLog).isNull();
+  }
+
+  @Test
+  public void diskCache_flagWithoutValue_usesDefaultLocationMarker() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse("--disk_cache");
+    RemoteOptions options = parser.getOptions(RemoteOptions.class);
+    assertThat(options.diskCache).isEqualTo(PathFragment.EMPTY_FRAGMENT);
+  }
+
+  @Test
+  public void diskCache_noDiskCache_disables() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse("--disk_cache", "--nodisk_cache");
+    RemoteOptions options = parser.getOptions(RemoteOptions.class);
+    assertThat(options.diskCache).isNull();
+  }
+
+  @Test
+  public void diskCache_explicitPath() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse("--disk_cache=custom/cache/dir");
+    RemoteOptions options = parser.getOptions(RemoteOptions.class);
+    assertThat(options.diskCache).isEqualTo(PathFragment.create("custom/cache/dir"));
+  }
+
+  @Test
+  public void diskCache_emptyValue_disables() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse("--disk_cache=");
+    RemoteOptions options = parser.getOptions(RemoteOptions.class);
+    assertThat(options.diskCache).isNull();
   }
 }

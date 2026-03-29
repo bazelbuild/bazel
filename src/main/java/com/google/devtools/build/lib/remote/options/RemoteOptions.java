@@ -18,8 +18,10 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.remote.Scrubber;
 import com.google.devtools.build.lib.util.OptionsUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
+import com.google.devtools.common.options.BooleanStyleOption;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.AssignmentConverter;
@@ -36,6 +38,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import javax.annotation.Nullable;
 
 /** Options for remote execution and distributed caching for Bazel only. */
 public final class RemoteOptions extends CommonRemoteOptions {
@@ -365,15 +368,54 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + " the unit is omitted, the value is interpreted as seconds.")
   public Duration remoteRetryMaxDelay;
 
+  /** Default disk cache subdirectory under outputUserRoot/cache. */
+  private static final String DEFAULT_DISK_CACHE_LOCATION = "cache/disk";
+
+  /**
+   * Accepts a filesystem path, or boolean-like values selecting the default location ({@code
+   * --disk_cache}, {@code --disk_cache=true}, etc.) or disabling the cache ({@code --nodisk_cache},
+   * {@code --disk_cache=false}, etc.).
+   *
+   * <p>{@link PathFragment#EMPTY_FRAGMENT} means use the default directory under the output user
+   * root; callers should use {@link #getDiskCachePath} to resolve this to a concrete path. {@code
+   * null} means the disk cache is disabled.
+   */
+  public static final class DiskCacheConverter extends Converter.Contextless<PathFragment>
+      implements BooleanStyleOption {
+
+    private static final BooleanConverter BOOLEAN_CONVERTER = new BooleanConverter();
+
+    @Override
+    @Nullable
+    public PathFragment convert(String input) {
+      if (input.isEmpty() || input.equals("null")) {
+        return null;
+      }
+      try {
+        return BOOLEAN_CONVERTER.convert(input) ? PathFragment.EMPTY_FRAGMENT : null;
+      } catch (OptionsParsingException e) {
+        return new OptionsUtils.PathFragmentConverter().convert(input);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a path, or a boolean to use the default disk cache location";
+    }
+  }
+
   @Option(
       name = "disk_cache",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      converter = OptionsUtils.PathFragmentConverter.class,
+      converter = DiskCacheConverter.class,
       help =
           "A path to a directory where Bazel can read and write actions and action outputs. "
-              + "If the directory does not exist, it will be created.")
+              + "If the directory does not exist, it will be created. "
+              + "Use --disk_cache with no value (or --disk_cache=true) to use a default location "
+              + "under the output user root (<outputUserRoot>/cache/disk). Use --nodisk_cache or "
+              + "--disk_cache=false to disable.")
   public PathFragment diskCache;
 
   @Option(
@@ -799,8 +841,29 @@ public final class RemoteOptions extends CommonRemoteOptions {
   /** Returns {@code true} if remote cache or disk cache is enabled. */
   public boolean isRemoteCacheEnabled() {
     return !Strings.isNullOrEmpty(remoteCache)
-        || !(diskCache == null || diskCache.isEmpty())
+        || isDiskCacheEnabled()
         || isRemoteExecutionEnabled();
+  }
+
+  /** Returns {@code true} if disk cache is enabled. */
+  public boolean isDiskCacheEnabled() {
+    return diskCache != null;
+  }
+
+  /**
+   * Returns the resolved disk cache path, or {@code null} if the disk cache is disabled.
+   *
+   * <p>When the user passes {@code --disk_cache} without an explicit path, the default location
+   * under the given {@code outputUserRoot} is used.
+   */
+  @Nullable
+  public PathFragment getDiskCachePath(Path outputUserRoot) {
+    if (diskCache == null) {
+      return null;
+    }
+    return diskCache.isEmpty()
+        ? outputUserRoot.getRelative(DEFAULT_DISK_CACHE_LOCATION).asFragment()
+        : diskCache;
   }
 
   /** Returns {@code true} if remote execution is enabled. */

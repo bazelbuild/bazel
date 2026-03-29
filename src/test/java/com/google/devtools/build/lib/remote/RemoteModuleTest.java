@@ -70,6 +70,8 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
@@ -622,6 +624,48 @@ public final class RemoteModuleTest {
     remoteModule.beforeCommand(env);
     env.throwPendingException();
     return env;
+  }
+
+  @Test
+  public void diskCache_defaultLocation_resolvesToOutputUserRoot() throws Exception {
+    remoteOptions.diskCache = PathFragment.EMPTY_FRAGMENT;
+
+    var env = beforeCommand();
+
+    // The disk cache should be resolved to <outputUserRoot>/cache/disk.
+    Path outputUserRoot = env.getDirectories().getServerDirectories().getOutputUserRoot();
+    PathFragment resolved = remoteOptions.getDiskCachePath(outputUserRoot);
+    assertThat(resolved).isNotNull();
+    assertThat(resolved.getPathString())
+        .isEqualTo(outputUserRoot.getRelative("cache/disk").getPathString());
+    assertThat(resolved.isAbsolute()).isTrue();
+  }
+
+  @Test
+  public void diskCache_defaultLocation_withGarbageCollection() throws Exception {
+    remoteOptions.diskCache = PathFragment.EMPTY_FRAGMENT;
+    remoteOptions.diskCacheGcIdleDelay = Duration.ofMinutes(2);
+    remoteOptions.diskCacheGcMaxSize = 1234567890L;
+
+    var env = beforeCommand();
+
+    Path outputUserRoot = env.getDirectories().getServerDirectories().getOutputUserRoot();
+    Path expectedPath = outputUserRoot.getRelative("cache/disk");
+    assertThat(env.getIdleTasks()).hasSize(1);
+    assertThat(env.getIdleTasks().get(0)).isInstanceOf(DiskCacheGarbageCollectorIdleTask.class);
+    var idleTask = (DiskCacheGarbageCollectorIdleTask) env.getIdleTasks().get(0);
+    assertThat(idleTask.getGarbageCollector().getRoot().getPathString())
+        .isEqualTo(expectedPath.getPathString());
+  }
+
+  @Test
+  public void diskCacheUnset_disablesDiskCache() throws Exception {
+    remoteOptions.diskCache = null;
+
+    var env = beforeCommand();
+
+    assertThat(remoteOptions.diskCache).isNull();
+    assertThat(env.getIdleTasks()).isEmpty();
   }
 
   private void assertCircuitBreakerInstance() {

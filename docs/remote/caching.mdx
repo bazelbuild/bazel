@@ -298,6 +298,11 @@ Enable the disk cache as follows:
 build --disk_cache=<var>path/to/build/cache</var>
 ```
 
+You can also run `build --disk_cache` with no value to use a default location
+under your [output user root](/reference/user-manual#output-user-root)
+(`<outputUserRoot>/cache/disk`), alongside the repository cache. Use
+`build --nodisk_cache` to disable the disk cache explicitly.
+
 You can pass a user-specific path to the `--disk_cache` flag using the `~` alias
 (Bazel will substitute the current user's home directory). This comes in handy
 when enabling the disk cache for all developers of a project via the project's
