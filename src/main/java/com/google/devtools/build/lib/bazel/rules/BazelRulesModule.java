@@ -1096,6 +1096,14 @@ public final class BazelRulesModule extends BlazeModule {
         converter = LabelConverter.class,
         help = "No-op.")
     public Label protoToolchainForJ2Objc;
+
+    @Option(
+        name = "incompatible_dont_enable_host_nonhost_crosstool_features",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean dontEnableHostNonhost;
   }
 
   @Override

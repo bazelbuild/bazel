@@ -222,14 +222,6 @@ public final class CcCommon {
       allFeatures.addAll(OBJC_ACTIONS);
     }
 
-    if (!cppConfiguration.dontEnableHostNonhost()) {
-      if (toolchain.isToolConfiguration()) {
-        allFeatures.add("host");
-      } else {
-        allFeatures.add("nonhost");
-      }
-    }
-
     allFeatures.addAll(getCoverageFeatures(cppConfiguration));
 
     if (!allUnsupportedFeatures.contains(CppRuleClasses.FDO_INSTRUMENT)) {
