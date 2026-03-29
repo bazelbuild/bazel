@@ -95,8 +95,7 @@ def run_rulebook():
 
         commit_hash = lines[0].strip()
         commit_subject = lines[1].strip()
-        body = '
-'.join(lines[2:])
+        body = ''.join(lines[2:])
 
         # RULE 1: Filter out noise and extract intent
         # Handles RELNOTES, RELNOTES:, and RELNOTES[INC]:
