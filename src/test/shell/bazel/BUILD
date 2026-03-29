@@ -1460,3 +1460,9 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
 )
+
+sh_test(
+    name = "ggvdp_test",
+    size = "small",
+    srcs = ["ggvdp_test.sh"],
+)
