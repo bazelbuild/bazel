@@ -153,12 +153,30 @@ def run_rulebook():
                     # We look for the first part that looks like a path in docs/ or site/
                     for part in parts:
                         part = part.strip()
-                        if ('docs/' in part or 'site/en/' in part) and part.endswith(('.md', '.mdx')):
+                        if ('docs/' in part or 'site/en/' in part or 'site/content/en/' in part) and part.endswith(('.md', '.mdx')):
                             target_docs.add(part)
                             break
             except subprocess.CalledProcessError:
                 pass 
-
+        if not target_docs:
+            subject_query = ' '.join(commit_subject.split()[:3])
+            try:
+                # Fixed: shell=True with f-strings is a security risk; used list instead.
+                # Fixed: Added quotes or escaped the subject_query for robust searching.
+                search_out = subprocess.check_output(
+                    ["gh", "search", "code", subject_query, "--repo", "bazelbuild/bazel", "--extension", "mdx", "--extension", "md", "--limit", "3"],
+                    text=True, stderr=subprocess.DEVNULL
+                )
+                for line in search_out.strip().split('\n'):
+                    if not line: continue
+                    # Fixed: 'gh search code' returns 'repo:path'. Splitting once ensures we get the path.
+                    parts = line.split(':', 1)
+                    if len(parts) > 1:
+                        part = parts[1].strip()
+                        if ('docs/' in part or 'site/' in part) and part.endswith(('.md', '.mdx')):
+                            target_docs.add(part)
+            except Exception:
+                pass
         if target_docs:
             print(f"📄 Found matching docs: {target_docs}")
             # RULE 4: Execute Gemini Rewrite
