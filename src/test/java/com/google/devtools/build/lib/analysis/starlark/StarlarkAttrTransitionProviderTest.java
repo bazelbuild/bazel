@@ -1758,7 +1758,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         .isEqualTo(StarlarkInt.of(100));
 
     // Assert native option set via command line.
-    assertThat(getCoreOptions(dep).compilationMode.toString()).isEqualTo("opt");
+    assertThat(getCoreOptions(dep).getCompilationMode().toString()).isEqualTo("opt");
 
     // Assert that transitionDirectoryNameFragment is only affected by options
     // set via transitions. Not by native or starlark options set via command line,

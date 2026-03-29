@@ -103,7 +103,7 @@ final class TransitionApplier
           this.label);
     }
     if (readsStampSetting.get()
-        && fromConfiguration.getOptions().get(CoreOptions.class).stampBinaries) {
+        && fromConfiguration.getOptions().get(CoreOptions.class).getStampBinaries()) {
       // Request the STAMP_SETTING_MARKER dep. It's a precomputed value so should already be done,
       // but return a reference to the next step anyway as a state machine best practice.
       tasks.lookUp(PrecomputedValue.STAMP_SETTING_MARKER.getKey(), val -> {});
@@ -116,7 +116,7 @@ final class TransitionApplier
     ImmutableSet<Label> starlarkBuildSettings =
         transitionCache.getAllStarlarkBuildSettings(
             transition,
-            fromConfiguration.getOptions().get(CoreOptions.class).getCommandLineFlagAliases());
+            fromConfiguration.getOptions().get(CoreOptions.class).getCommandLineFlagAliasesMap());
     if (transition.getName().equals("exec")) {
       // TODO: fill out this code for cl/859390339 (to support --foo=--exec_foo flag scoping).
     } else if (starlarkBuildSettings.isEmpty()) {

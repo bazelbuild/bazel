@@ -638,7 +638,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           // Collect MODULE.bazel flag_alias(name = "foo", starlark_flag = "//bar") entries, so when
           // builds set "--foo=1", that maps to "--//bar=1". Inject this as an implicit
           // "--flag_alias=foo=//bar" flag. This is because select()s and configuration transitions
-          // really on that flag (CoreOptions.commandLineFlagAliases) to properly handle aliases.
+          // really on that flag (CoreOptions.getCommandLineFlagAliases()) to properly handle
+          // aliases.
           optionsParser.parse(
               PriorityCategory.RC_FILE,
               "module resolution",

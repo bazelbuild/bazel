@@ -199,7 +199,8 @@ public final class TestActionBuilder {
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     ArtifactRoot root = ruleContext.getTestLogsDirectory();
     ActionOwner actionOwner =
-        getTestActionOwner(config.getOptions().get(CoreOptions.class).useTargetPlatformForTests);
+        getTestActionOwner(
+            config.getOptions().get(CoreOptions.class).getUseTargetPlatformForTests());
     boolean isExecutedOnWindows =
         getOsFromConstraintsOrHost(actionOwner.getExecutionPlatform()) == OS.WINDOWS;
 

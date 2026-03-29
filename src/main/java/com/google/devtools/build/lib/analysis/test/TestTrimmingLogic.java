@@ -51,7 +51,8 @@ public final class TestTrimmingLogic {
             // configuration for non-test targets, all other information is directly obtained
             // from the options in RunCommand.
             CoreOptions coreOptions = builder.getFragmentOptions(CoreOptions.class);
-            coreOptions.runUnder = RunUnder.trimForNonTestConfiguration(coreOptions.runUnder);
+            coreOptions.setRunUnder(
+                RunUnder.trimForNonTestConfiguration(coreOptions.getRunUnder()));
             return builder.build();
           });
 

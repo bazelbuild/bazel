@@ -111,7 +111,8 @@ public final class BuildConfigurationFunction implements SkyFunction {
 
     PlatformValue platformValue =
         (PlatformValue)
-            env.getValue(PlatformValue.key(platformLabel, coreOptions.getCommandLineFlagAliases()));
+            env.getValue(
+                PlatformValue.key(platformLabel, coreOptions.getCommandLineFlagAliasesMap()));
     if (platformValue == null) {
       return null;
     }
@@ -153,7 +154,7 @@ public final class BuildConfigurationFunction implements SkyFunction {
           (BaselineOptionsValue)
               env.getValueOrThrow(
                   BaselineOptionsValue.key(
-                      coreOptions.isExec,
+                      coreOptions.getIsExec(),
                       !targetOptions.contains(TestConfiguration.TestOptions.class),
                       newPlatform),
                   StarlarkExecTransitionLoadingException.class);

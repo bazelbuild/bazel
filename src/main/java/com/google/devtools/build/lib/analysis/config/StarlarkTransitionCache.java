@@ -150,7 +150,7 @@ public final class StarlarkTransitionCache {
     }
 
     ImmutableMap<String, Label> flagsAliases =
-        fromOptions.get(CoreOptions.class).getCommandLineFlagAliases();
+        fromOptions.get(CoreOptions.class).getCommandLineFlagAliasesMap();
 
     // All code below here only executes on a cache miss and thus should rely only on values that
     // are part of the above cache key or constants that exist throughout the lifetime of the

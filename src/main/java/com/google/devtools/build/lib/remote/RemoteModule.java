@@ -317,7 +317,7 @@ public final class RemoteModule extends BlazeModule {
     }
     var coreOptions = env.getOptions().getOptions(CoreOptions.class);
     var outputPermissions =
-        coreOptions != null && coreOptions.experimentalWritableOutputs
+        coreOptions != null && coreOptions.getExperimentalWritableOutputs()
             ? OutputPermissions.WRITABLE
             : OutputPermissions.READONLY;
     return new RemoteActionInputFetcher(

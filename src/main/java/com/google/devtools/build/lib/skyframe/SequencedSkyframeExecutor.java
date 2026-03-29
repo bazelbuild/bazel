@@ -729,7 +729,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   private static boolean isExecConfig(@Nullable BuildConfigurationKey bck) {
-    return bck != null && bck.getOptions().get(CoreOptions.class).isExec;
+    return bck != null && bck.getOptions().get(CoreOptions.class).getIsExec();
   }
 
   /**

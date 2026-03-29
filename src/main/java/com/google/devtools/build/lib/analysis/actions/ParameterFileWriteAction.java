@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptionsFields;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -89,7 +89,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
         makeExecutable,
         AbstractFileWriteAction.MNEMONIC,
         /* executionInfo= */ ImmutableMap.of(),
-        CoreOptions.OutputPathsMode.OFF);
+        CoreOptionsFields.OutputPathsMode.OFF);
   }
 
   /**
@@ -116,7 +116,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
       boolean makeExecutable,
       String mnemonic,
       ImmutableMap<String, String> executionInfo,
-      CoreOptions.OutputPathsMode outputPathsMode) {
+      CoreOptionsFields.OutputPathsMode outputPathsMode) {
     super(owner, inputs, output);
     this.commandLine = commandLine;
     this.type = type;
@@ -126,7 +126,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     // action.
     this.usePathStripping =
         PathMappers.getEffectiveOutputPathsMode(outputPathsMode, getMnemonic(), executionInfo)
-            == CoreOptions.OutputPathsMode.STRIP;
+            == CoreOptionsFields.OutputPathsMode.STRIP;
   }
 
   @Override
@@ -146,8 +146,10 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
         : ImmutableMap.of();
   }
 
-  private CoreOptions.OutputPathsMode getOutputPathsMode() {
-    return usePathStripping ? CoreOptions.OutputPathsMode.STRIP : CoreOptions.OutputPathsMode.OFF;
+  private CoreOptionsFields.OutputPathsMode getOutputPathsMode() {
+    return usePathStripping
+        ? CoreOptionsFields.OutputPathsMode.STRIP
+        : CoreOptionsFields.OutputPathsMode.OFF;
   }
 
   @VisibleForTesting

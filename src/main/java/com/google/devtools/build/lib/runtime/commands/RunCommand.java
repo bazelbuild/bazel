@@ -262,7 +262,7 @@ public class RunCommand implements BlazeCommand {
           env, "Must specify a target to run", Code.NO_TARGET_SPECIFIED);
     }
     String targetString = targetAndArgs.get(0);
-    RunUnder runUnder = options.getOptions(CoreOptions.class).runUnder;
+    RunUnder runUnder = options.getOptions(CoreOptions.class).getRunUnder();
 
     BuiltTargets builtTargets;
     try {
@@ -776,7 +776,7 @@ public class RunCommand implements BlazeCommand {
     // ensureRunfilesBuilt does build the runfiles, but an extra consistency check won't hurt.
     Preconditions.checkState(
         settings.getRunfilesSymlinksCreated()
-            == options.getOptions(CoreOptions.class).buildRunfileLinks);
+            == options.getOptions(CoreOptions.class).getBuildRunfileLinks());
 
     Path execRoot = env.getExecRoot();
     Path runfilesDir = settings.getRunfilesDir();
@@ -882,7 +882,7 @@ public class RunCommand implements BlazeCommand {
                 : env.getWorkingDirectory(),
             /* isTestTarget= */ false);
 
-    RunUnder runUnder = env.getOptions().getOptions(CoreOptions.class).runUnder;
+    RunUnder runUnder = env.getOptions().getOptions(CoreOptions.class).getRunUnder();
     // Insert the command prefix specified by the "--run_under=<command-prefix>" option
     // at the start of the command line.
     if (runUnder != null) {

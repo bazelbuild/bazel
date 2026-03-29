@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
-import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnumConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionsFields.IncludeConfigFragmentsEnum;
+import com.google.devtools.build.lib.analysis.config.CoreOptionsFields.IncludeConfigFragmentsEnumConverter;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;

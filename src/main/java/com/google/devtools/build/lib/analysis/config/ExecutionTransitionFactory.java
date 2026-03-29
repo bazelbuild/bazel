@@ -221,20 +221,20 @@ public class ExecutionTransitionFactory
       // The conditional use of a Builder above may have replaced result and underlying options
       // with a clone so must refresh it.
       CoreOptions coreOptions = result.get(CoreOptions.class);
-      coreOptions.commandLineFlagAliases =
-          options.underlying().get(CoreOptions.class).commandLineFlagAliases;
+      coreOptions.setCommandLineFlagAliases(
+          options.underlying().get(CoreOptions.class).getCommandLineFlagAliases());
       // TODO(blaze-configurability-team): These updates probably requires a bit too much knowledge
       //   of exactly how the immutable state and mutable state of BuildOptions is interacting.
       //   Might be good to have an option to wipeout that state rather than cloning so much.
-      coreOptions.platformSuffix = "exec";
-      coreOptions.executionInfoModifier =
-          options.underlying().get(CoreOptions.class).executionInfoModifier;
-      coreOptions.overridePlatformCpuName =
-          options.underlying().get(CoreOptions.class).overridePlatformCpuName;
-      coreOptions.disabledSelectOptions =
-          options.underlying().get(CoreOptions.class).disabledSelectOptions;
-      coreOptions.incompatibleTargetCpuFromPlatform =
-          options.underlying().get(CoreOptions.class).incompatibleTargetCpuFromPlatform;
+      coreOptions.setPlatformSuffix("exec");
+      coreOptions.setExecutionInfoModifier(
+          options.underlying().get(CoreOptions.class).getExecutionInfoModifier());
+      coreOptions.setOverridePlatformCpuName(
+          options.underlying().get(CoreOptions.class).getOverridePlatformCpuName());
+      coreOptions.setDisabledSelectOptions(
+          options.underlying().get(CoreOptions.class).getDisabledSelectOptions());
+      coreOptions.setIncompatibleTargetCpuFromPlatform(
+          options.underlying().get(CoreOptions.class).getIncompatibleTargetCpuFromPlatform());
       return result;
     }
   }

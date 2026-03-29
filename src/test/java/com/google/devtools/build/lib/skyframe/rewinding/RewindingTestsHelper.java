@@ -3235,7 +3235,7 @@ public class RewindingTestsHelper {
   }
 
   final boolean buildRunfileManifests() {
-    return testCase.getRuntimeWrapper().getOptions(CoreOptions.class).buildRunfileManifests;
+    return testCase.getRuntimeWrapper().getOptions(CoreOptions.class).getBuildRunfileManifests();
   }
 
   final Map<Label, TargetCompleteEvent> recordTargetCompleteEvents() {

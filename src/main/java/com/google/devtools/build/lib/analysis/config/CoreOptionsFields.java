@@ -35,6 +35,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.TriState;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -60,7 +61,8 @@ import java.util.TreeSet;
  * for semantically identical option values. The simplest way to ensure that is to return the input
  * string.
  */
-public class CoreOptions extends FragmentOptions implements Cloneable {
+@OptionsClass
+public abstract class CoreOptionsFields extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "incompatible_filegroup_runfiles_for_data",
@@ -71,7 +73,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help =
           "If true, runfiles of targets listed in the srcs attribute are available to targets"
               + " that consume the filegroup as a data dependency.")
-  public boolean filegroupRunfilesForData;
+  public abstract boolean getFilegroupRunfilesForData();
 
   @Option(
       name = "scl_config",
@@ -82,7 +84,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help =
           "Name of the scl config defined in PROJECT.scl. Note that this feature is still under"
               + " development b/324119879.")
-  public String sclConfig;
+  public abstract String getSclConfig();
 
   @Option(
       name = "incompatible_merge_genfiles_directory",
@@ -91,7 +93,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "If true, the genfiles directory is folded into the bin directory.")
-  public boolean mergeGenfilesDirectory;
+  public abstract boolean getMergeGenfilesDirectory();
 
   @Option(
       name = "experimental_exec_config",
@@ -105,7 +107,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           semantics instead of Bazel's internal exec transition logic. Else uses Bazel's
           internal logic.
           """)
-  public String starlarkExecConfig;
+  public abstract String getStarlarkExecConfig();
 
   @Option(
       name = "incompatible_disable_select_on",
@@ -115,7 +117,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.NON_CONFIGURABLE},
       help = "List of flags for which the use in `select()` is disabled.")
-  public ImmutableList<String> disabledSelectOptions;
+  public abstract ImmutableList<String> getDisabledSelectOptions();
 
   @Option(
       name = "experimental_propagate_custom_flag",
@@ -131,7 +133,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           key. e.g. if `--define=a=b` should be propagated, set
           `--experimental_propagate_custom_flag=a`
           """)
-  public List<String> customFlagsToPropagate;
+  public abstract List<String> getCustomFlagsToPropagate();
 
   @Option(
       name = "experimental_exclude_defines_from_exec_config",
@@ -144,7 +146,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           If true, don't propagate `--define`s to the exec transition at default; only propagate
           defines specified by `--experimental_propagate_custom_flag`.
           """)
-  public boolean excludeDefinesFromExecConfig;
+  public abstract boolean getExcludeDefinesFromExecConfig();
 
   @Option(
       name = "incompatible_exclude_starlark_flags_from_exec_config",
@@ -156,7 +158,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help =
           "If true, don't propagate starlark flags to the exec transition at default; only"
               + " propagate starlark flags specified in `--experimental_propagate_custom_flag`.")
-  public boolean excludeStarlarkFlagsFromExecConfig;
+  public abstract boolean getExcludeStarlarkFlagsFromExecConfig();
 
   @Option(
       name = "experimental_platform_in_output_dir",
@@ -176,7 +178,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
              shortname based off the current platform Label.
           4. Finally, a hash of the platform option is used as a last resort.
           """)
-  public TriState platformInOutputDir;
+  public abstract TriState getPlatformInOutputDir();
 
   @Option(
       name = "experimental_use_platforms_in_output_dir_legacy_heuristic",
@@ -190,7 +192,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           that the heuristic has known deficiencies and it is suggested to migrate to
           relying on just `--experimental_override_name_platform_in_output_dir`.
           """)
-  public boolean usePlatformsInOutputDirLegacyHeuristic;
+  public abstract boolean getUsePlatformsInOutputDirLegacyHeuristic();
 
   @Option(
       name = "experimental_override_platform_cpu_name",
@@ -210,7 +212,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           `--experimental_platform_in_output_dir`, `--incompatible_target_cpu_from_platform` or
           `--incompatible_bep_cpu_from_platform` is true. Has highest naming priority.
           """)
-  public List<Map.Entry<Label, String>> overridePlatformCpuName;
+  public abstract List<Map.Entry<Label, String>> getOverridePlatformCpuName();
 
   @Option(
       name = "incompatible_limit_platforms_in_output_dir_to",
@@ -224,7 +226,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " configurations. Takes a comma-separated list of platform labels. If set,"
               + " --experimental_platform_in_output_dir is only enabled for platforms in this list."
               + " Otherwise, --experimental_platform_in_output_dir applies to all platforms.")
-  public List<Label> limitOutputDirToPlatforms;
+  public abstract List<Label> getLimitOutputDirToPlatforms();
 
   @Option(
       name = "incompatible_target_cpu_from_platform",
@@ -237,7 +239,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           If specified, the value of the cpu constraint (`@platforms//cpu:cpu`) of
           the target platform is used to set the `$(TARGET_CPU)` make variable.
           """)
-  public boolean incompatibleTargetCpuFromPlatform;
+  public abstract boolean getIncompatibleTargetCpuFromPlatform();
 
   @Option(
       name = "incompatible_bep_cpu_from_platform",
@@ -247,9 +249,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If specified, the value of the cpu constraint (@platforms//cpu:cpu) of"
-              + " the target platform is used to set the Configuration.cpu and"
+              + " the target platform is used to set the Configuration.getCpu() and"
               + " Configuration.platform_name fields in the BEP.")
-  public boolean incompatibleBepCpuFromPlatform;
+  public abstract boolean getIncompatibleBepCpuFromPlatform();
 
   @Option(
       name = "define",
@@ -263,7 +265,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           Each `--define` option specifies an assignment for a build variable.
           In case of multiple values for a variable, the last one wins.
           """)
-  public List<Map.Entry<String, String>> commandLineBuildVariables;
+  public abstract List<Map.Entry<String, String>> getCommandLineBuildVariables();
 
   // TODO: blaze-configurability-team - Remove this when --cpu is fully deprecated.
   @Option(
@@ -273,7 +275,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Allowed values for the `--cpu` flag.")
-  public ImmutableList<String> allowedCpuValues;
+  public abstract ImmutableList<String> getAllowedCpuValues();
 
   @Option(
       name = "cpu",
@@ -288,7 +290,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           mappings to allow for backwards compatibility. Do not use this flag, instead use
           `--platforms` with an appropriate platform definition.
           """)
-  public String cpu;
+  public abstract String getCpu();
 
   @Option(
       name = "min_param_file_size",
@@ -300,7 +302,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
         OptionEffectTag.ACTION_COMMAND_LINES
       },
       help = "Minimum command line length before creating a parameter file.")
-  public int minParamFileSize;
+  public abstract int getMinParamFileSize();
 
   @Option(
       name = "experimental_extended_sanity_checks",
@@ -311,7 +313,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help =
           "Enables internal validation checks to make sure that configured target "
               + "implementations only access things they should. Causes a performance hit.")
-  public boolean extendedSanityChecks;
+  public abstract boolean getExtendedSanityChecks();
 
   // This option is only used during execution. However, it is a required input to the analysis
   // phase, as otherwise flipping this flag would not invalidate already-executed actions.
@@ -322,7 +324,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "If true, the file permissions of action outputs are set to `0755` instead of `0555`")
-  public boolean experimentalWritableOutputs;
+  public abstract boolean getExperimentalWritableOutputs();
 
   @Option(
       name = "stamp",
@@ -330,7 +332,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Stamp binaries with the date, username, hostname, workspace information, etc.")
-  public boolean stampBinaries;
+  public abstract boolean getStampBinaries();
 
   // This default value is always overwritten in the case of "bazel coverage" by
   // a value returned by InstrumentationFilterSupport.computeInstrumentationFilter.
@@ -347,7 +349,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           with '-' are excluded instead. Note that only non-test rules are
           instrumented unless `--instrument_test_targets` is enabled.
           """)
-  public RegexFilter instrumentationFilter;
+  public abstract RegexFilter getInstrumentationFilter();
 
   @Option(
       name = "instrument_test_targets",
@@ -360,7 +362,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           When set, test rules included by `--instrumentation_filter` are instrumented.
           Otherwise, test rules are always excluded from coverage instrumentation.
           """)
-  public boolean instrumentTestTargets;
+  public abstract boolean getInstrumentTestTargets();
 
   @Option(
       name = "host_cpu",
@@ -369,7 +371,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
       help = "The host CPU.")
-  public String hostCpu;
+  public abstract String getHostCpu();
 
   @Option(
       name = "compilation_mode",
@@ -379,7 +381,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.ACTION_COMMAND_LINES},
       help = "Specify the mode the binary will be built in. Values: `fastbuild`, `dbg`, `opt`.")
-  public CompilationMode compilationMode;
+  public abstract CompilationMode getCompilationMode();
 
   @Option(
       name = "host_compilation_mode",
@@ -392,7 +394,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           Specify the mode the tools used during the build will be built in. Values:
           `fastbuild`, `dbg`, `opt`.
           """)
-  public CompilationMode hostCompilationMode;
+  public abstract CompilationMode getHostCompilationMode();
 
   @Option(
       name = "incompatible_auto_exec_groups",
@@ -408,7 +410,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
           [GH-17134]: https://github.com/bazelbuild/bazel/issues/17134
           """)
-  public boolean useAutoExecGroups;
+  public abstract boolean getUseAutoExecGroups();
 
   /* At the moment, EXPLICIT_IN_OUTPUT_PATH is not being set here because platform_suffix
    * is being used as a configuration distinguisher for the exec transition. */
@@ -422,7 +424,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
         OptionEffectTag.LOADING_AND_ANALYSIS
       },
       help = "Specifies a suffix to be added to the configuration directory.")
-  public String platformSuffix;
+  public abstract String getPlatformSuffix();
 
   // TODO(bazel-team): The set of available variables from the client environment for actions
   // is computed independently in CommandEnvironment to inject a more restricted client
@@ -447,7 +449,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           Note that unless `--incompatible_repo_env_ignores_action_env` is true, all `name=value`
           pairs will be available to repository rules.
           """)
-  public List<Converters.EnvVar> actionEnvironment;
+  public abstract List<Converters.EnvVar> getActionEnvironment();
 
   @Option(
       name = "host_action_env",
@@ -466,7 +468,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           be used multiple times; for options given for the same variable, the latest
           wins, options for different variables accumulate.
           """)
-  public List<Converters.EnvVar> hostActionEnvironment;
+  public abstract List<Converters.EnvVar> getHostActionEnvironment();
 
   @Option(
       name = "collect_code_coverage",
@@ -480,7 +482,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           match `--instrumentation_filter` will be affected. Usually this option should
           not be specified directly - `bazel coverage` command should be used instead.
           """)
-  public boolean collectCodeCoverage;
+  public abstract boolean getCollectCodeCoverage();
 
   @Option(
       name = "experimental_collect_code_coverage_for_generated_files",
@@ -491,7 +493,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help =
           "If specified, Bazel will also generate collect coverage information for generated"
               + " files.")
-  public boolean collectCodeCoverageForGeneratedFiles;
+  public abstract boolean getCollectCodeCoverageForGeneratedFiles();
 
   @Option(
       name = "build_runfile_manifests",
@@ -501,7 +503,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help =
           "If true, write runfiles manifests for all targets. If false, omit them. Local tests will"
               + " fail to run when false.")
-  public boolean buildRunfileManifests;
+  public abstract boolean getBuildRunfileManifests();
 
   @Option(
       name = "build_runfile_links",
@@ -511,7 +513,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help =
           "If true, build runfiles symlink forests for all targets.  "
               + "If false, write them only when required by a local action, test or run command.")
-  public boolean buildRunfileLinks;
+  public abstract boolean getBuildRunfileLinks();
 
   @Option(
       name = "incompatible_always_include_files_in_data",
@@ -526,7 +528,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
           [runfiles features to avoid]: https://bazel.build/extending/rules#runfiles_features_to_avoid
           """)
-  public boolean alwaysIncludeFilesToBuildInData;
+  public abstract boolean getAlwaysIncludeFilesToBuildInData();
 
   @Option(
       name = "incompatible_compact_repo_mapping_manifest",
@@ -540,7 +542,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           only once instead of once for each repo generated by the extension that
           contributes runfiles.
           """)
-  public boolean compactRepoMapping;
+  public abstract boolean getCompactRepoMapping();
 
   @Option(
       name = "run_under",
@@ -561,7 +563,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           - `//package:target`
           - `//package:target --options`
           """)
-  public RunUnder runUnder;
+  public abstract RunUnder getRunUnder();
 
   @Option(
       name = "check_visibility",
@@ -570,7 +572,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.NON_CONFIGURABLE},
       help = "If disabled, visibility errors in target dependencies are demoted to warnings.")
-  public boolean checkVisibility;
+  public abstract boolean getCheckVisibility();
 
   @Option(
       name = "experimental_enforce_transitive_visibility",
@@ -581,7 +583,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help =
           "If true, enable package()s to set the transitive_visibility attribute to restrict which"
               + " packages may depend on them.")
-  public boolean enforceTransitiveVisibility;
+  public abstract boolean getEnforceTransitiveVisibility();
 
   @Option(
       name = "verbose_visibility_errors",
@@ -590,7 +592,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.NON_CONFIGURABLE},
       help = "If enabled, visibility errors include additional diagnostic information.")
-  public boolean verboseVisibilityErrors;
+  public abstract boolean getVerboseVisibilityErrors();
 
   @Option(
       name = "incompatible_check_testonly_for_output_files",
@@ -602,7 +604,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           "If enabled, check testonly for prerequisite targets that are output files by"
               + " looking up the testonly of the generating rule. This matches visibility"
               + " checking.")
-  public boolean checkTestonlyForOutputFiles;
+  public abstract boolean getCheckTestonlyForOutputFiles();
 
   // Moved from viewOptions to here because license information is very expensive to serialize.
   // Having it here allows us to skip computation of transitive license information completely
@@ -613,7 +615,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       help = "Deprecated in favor of `--config=check_licenses`.")
-  public boolean checkLicenses;
+  public abstract boolean getCheckLicenses();
 
   @Option(
       name = "enforce_constraints",
@@ -624,7 +626,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           "Checks the environments each target is compatible with and reports errors if any "
               + "target has dependencies that don't support the same environments",
       oldName = "experimental_enforce_constraints")
-  public boolean enforceConstraints;
+  public abstract boolean getEnforceConstraints();
 
   @Option(
       name = "experimental_action_listener",
@@ -639,7 +641,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           Deprecated in favor of aspects. Use `action_listener` to attach an `extra_action` to
           existing build actions.
           """)
-  public List<Label> actionListeners;
+  public abstract List<Label> getActionListeners();
 
   @Option(
       name = "is exec configuration",
@@ -648,7 +650,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       metadataTags = {OptionMetadataTag.INTERNAL},
       help = "Shows whether these options are set for an execution configuration.")
-  public boolean isExec;
+  public abstract boolean getIsExec();
 
   @Option(
       name = "allow_analysis_failures",
@@ -662,7 +664,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           of an instance of `AnalysisFailureInfo` containing the error description, instead
           of resulting in a build failure.
           """)
-  public boolean allowAnalysisFailures;
+  public abstract boolean getAllowAnalysisFailures();
 
   @Option(
       name = "evaluating for analysis test",
@@ -676,7 +678,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           of an analysis test. This, for example, imposes the restriction described by
           `--analysis_testing_deps_limit`.
           """)
-  public boolean evaluatingForAnalysisTest;
+  public abstract boolean getEvaluatingForAnalysisTest();
 
   @Option(
       name = "analysis_testing_deps_limit",
@@ -689,7 +691,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           a `for_analysis_testing` configuration transition.
           Exceeding this limit will result in a rule error.
           """)
-  public int analysisTestingDepsLimit;
+  public abstract int getAnalysisTestingDepsLimit();
 
   @Option(
       name = "features",
@@ -703,7 +705,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           Specifying `-{feature}` will disable the feature. Negative features always override positive ones.
           See also `--host_features`.
           """)
-  public List<String> defaultFeatures;
+  public abstract List<String> getDefaultFeatures();
 
   @Option(
       name = "host_features",
@@ -716,7 +718,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           The given features will be enabled or disabled by default for targets built in the exec configuration.
           Specifying `-{feature}` will disable the feature. Negative features always override positive ones.
           """)
-  public List<String> hostFeatures;
+  public abstract List<String> getHostFeatures();
 
   @Option(
       name = "target_environment",
@@ -735,7 +737,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
           [`environment` rule]: https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/analysis/constraints/EnvironmentRule.java
           """)
-  public List<Label> targetEnvironments;
+  public abstract List<Label> getTargetEnvironments();
 
   @Option(
       name = "allow_unresolved_symlinks",
@@ -754,7 +756,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
           Unresolved symlinks inside tree artifacts are not currently supported.
           """)
-  public boolean allowUnresolvedSymlinks;
+  public abstract boolean getAllowUnresolvedSymlinks();
 
   @Option(
       name = "experimental_allow_map_directory",
@@ -770,7 +772,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " creation of actions based on the files in a directory through a user defined"
               + " Starlark function and a <code>template_ctx</code> that supports basic action"
               + " generation APIs.")
-  public boolean allowMapDirectory;
+  public abstract boolean getAllowMapDirectory();
 
   /** Values for --experimental_output_paths. */
   public enum OutputPathsMode {
@@ -812,7 +814,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
           [GH-6526]: https://github.com/bazelbuild/bazel/issues/6526
           """)
-  public OutputPathsMode outputPathsMode;
+  public abstract OutputPathsMode getOutputPathsMode();
 
   @Option(
       name = "enable_runfiles",
@@ -821,7 +823,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Enable runfiles symlink tree; By default, it's off on Windows, on on other platforms.")
-  public TriState enableRunfiles;
+  public abstract TriState getEnableRunfiles();
 
   @Option(
       name = "modify_execution_info",
@@ -849,7 +851,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           - `Genrule=+requires-x` adds `requires-x` to the execution info for all Genrule actions.
           - `(?!Genrule).*=-requires-x` removes `requires-x` from the execution info for all non-Genrule actions.
           """)
-  public List<ExecutionInfoModifier> executionInfoModifier;
+  public abstract List<ExecutionInfoModifier> getExecutionInfoModifier();
 
   @Option(
       name = "incompatible_modify_execution_info_additive",
@@ -866,7 +868,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           When enabled, passing multiple `--modify_execution_info` flags is additive.
           When disabled, only the last flag is taken into account.
           """)
-  public boolean additiveModifyExecutionInfo;
+  public abstract boolean getAdditiveModifyExecutionInfo();
 
   @Option(
       name = "incompatible_bazel_test_exec_run_under",
@@ -884,7 +886,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           doesn't affect `bazel run`, which always builds `--run_under=//foo` in the
           target configuration.
           """)
-  public boolean bazelTestExecRunUnder;
+  public abstract boolean getBazelTestExecRunUnder();
 
   @Option(
       name = "include_config_fragments_provider",
@@ -908,7 +910,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           Be careful using this feature: it adds memory to every configured target in the
           build.
           """)
-  public IncludeConfigFragmentsEnum includeRequiredConfigFragmentsProvider;
+  public abstract IncludeConfigFragmentsEnum getIncludeRequiredConfigFragmentsProvider();
 
   @Option(
       name = "experimental_remotable_source_manifests",
@@ -918,7 +920,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
       help = "Whether to make source manifest actions remotable")
-  public boolean remotableSourceManifestActions;
+  public abstract boolean getRemotableSourceManifestActions();
 
   @Option(
       name = "flag_alias",
@@ -933,7 +935,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form
           `{key}={value}` as an argument.
           """)
-  public List<Map.Entry<String, Label>> commandLineFlagAliases;
+  public abstract List<Map.Entry<String, Label>> getCommandLineFlagAliases();
 
   @Option(
       name = "archived_tree_artifact_mnemonics_filter",
@@ -945,7 +947,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           "Regex filter for mnemonics of actions for which we should create archived tree"
               + " artifacts. This option is a no-op for actions which do not generate tree"
               + " artifacts.")
-  public RegexFilter archivedArtifactsMnemonicsFilter;
+  public abstract RegexFilter getArchivedArtifactsMnemonicsFilter();
 
   @Option(
       name = "experimental_debug_selects_always_succeed",
@@ -958,7 +960,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           When set, `select` functions with no matching clause will return an empty value, instead
           of failing. This is to help use `cquery` diagnose failures in `select`.
           """)
-  public boolean debugSelectsAlwaysSucceed;
+  public abstract boolean getDebugSelectsAlwaysSucceed();
 
   @Option(
       name = "experimental_throttle_action_cache_check",
@@ -968,7 +970,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.EXECUTION},
       help = "Whether to throttle the check whether an action is cached.")
-  public boolean throttleActionCacheCheck;
+  public abstract boolean getThrottleActionCacheCheck();
 
   // This cannot be in TestOptions since the default test toolchain needs to be enabled
   // conditionally based on its value and test trimming would drop it when evaluating the toolchain
@@ -983,7 +985,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       help = "If true, use the target platform for running tests rather than the test exec group.")
-  public boolean useTargetPlatformForTests;
+  public abstract boolean getUseTargetPlatformForTests();
 
   @Option(
       name = "exec_aspects",
@@ -996,23 +998,24 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           "Comma-separated list of aspects to be applied to exec-configured targets, regardless of"
               + " whether or not they are top-level targets. This is an experimental feature and"
               + " is subject to change.")
-  public List<String> execAspects;
+  public abstract List<String> getExecAspects();
 
-  public Optional<String> getPlatformCpuNameOverride(Label platform) {
+  public final Optional<String> getPlatformCpuNameOverride(Label platform) {
     // As highest priority, use the last entry that matches in name override option.
     return Streams.findLast(
-        overridePlatformCpuName.stream()
+        getOverridePlatformCpuName().stream()
             .filter(e -> e.getKey().equals(platform))
             .map(Map.Entry::getValue));
   }
 
-  public boolean usePlatformInOutputDir(Label platform) {
-    if (isExec) {
-      return platformInOutputDir == TriState.YES || platformInOutputDir == TriState.AUTO;
+  public final boolean usePlatformInOutputDir(Label platform) {
+    if (getIsExec()) {
+      return getPlatformInOutputDir() == TriState.YES || getPlatformInOutputDir() == TriState.AUTO;
     }
 
-    if (platformInOutputDir == TriState.YES) {
-      return limitOutputDirToPlatforms.isEmpty() || limitOutputDirToPlatforms.contains(platform);
+    if (getPlatformInOutputDir() == TriState.YES) {
+      return getLimitOutputDirToPlatforms().isEmpty()
+          || getLimitOutputDirToPlatforms().contains(platform);
     }
 
     return false;
@@ -1021,8 +1024,8 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   private static final LoadingCache<List<Map.Entry<String, Label>>, ImmutableMap<String, Label>>
       ALIAS_MAP_CACHE = Caffeine.newBuilder().weakKeys().build(ImmutableMap::copyOf);
 
-  public ImmutableMap<String, Label> getCommandLineFlagAliases() {
-    return ALIAS_MAP_CACHE.get(commandLineFlagAliases);
+  public final ImmutableMap<String, Label> getCommandLineFlagAliasesMap() {
+    return ALIAS_MAP_CACHE.get(getCommandLineFlagAliases());
   }
 
   /** Ways configured targets may provide the {@link Fragment}s they require. */
@@ -1047,8 +1050,8 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   }
 
   /// Normalizes --define flags, preserving the last one to appear in the event of conflicts.
-  public ImmutableMap<String, String> getNormalizedCommandLineBuildVariables() {
-    return sortEntries(normalizeEntries(commandLineBuildVariables)).stream()
+  public final ImmutableMap<String, String> getNormalizedCommandLineBuildVariables() {
+    return sortEntries(normalizeEntries(getCommandLineBuildVariables())).stream()
         .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
@@ -1098,17 +1101,18 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   }
 
   @Override
-  public CoreOptions getNormalized() {
+  public final CoreOptions getNormalized() {
     CoreOptions result = (CoreOptions) clone();
-    result.allowedCpuValues = dedupAndSort(allowedCpuValues);
-    result.commandLineBuildVariables = sortEntries(normalizeEntries(commandLineBuildVariables));
+    result.setAllowedCpuValues(dedupAndSort(getAllowedCpuValues()));
+    result.setCommandLineBuildVariables(
+        sortEntries(normalizeEntries(getCommandLineBuildVariables())));
 
     // Normalize features.
-    result.defaultFeatures = getNormalizedFeatures(defaultFeatures);
+    result.setDefaultFeatures(getNormalizedFeatures(getDefaultFeatures()));
 
-    result.actionEnvironment = normalizeEnvVars(actionEnvironment);
-    result.hostActionEnvironment = normalizeEnvVars(hostActionEnvironment);
-    result.commandLineFlagAliases = sortEntries(normalizeEntries(commandLineFlagAliases));
+    result.setActionEnvironment(normalizeEnvVars(getActionEnvironment()));
+    result.setHostActionEnvironment(normalizeEnvVars(getHostActionEnvironment()));
+    result.setCommandLineFlagAliases(sortEntries(normalizeEntries(getCommandLineFlagAliases())));
 
     return result;
   }

@@ -225,7 +225,7 @@ java_library(
 
 java_library(
     name = "core_options",
-    srcs = ["CoreOptions.java"],
+    srcs = ["CoreOptionsFields.java"],
     deps = [
         ":auto_cpu_converter",
         ":compilation_mode",

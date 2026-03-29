@@ -153,13 +153,14 @@ public class BuildConfigurationValue
     // directly instead of using reportInvalidOptions.
     // TODO: blaze-configurability-team - Remove this when --cpu is fully deprecated.
     CoreOptions coreOptions = getOptions().get(CoreOptions.class);
-    if (!coreOptions.allowedCpuValues.isEmpty()) {
-      if (!coreOptions.allowedCpuValues.contains(coreOptions.cpu)) {
+    if (!coreOptions.getAllowedCpuValues().isEmpty()) {
+      if (!coreOptions.getAllowedCpuValues().contains(coreOptions.getCpu())) {
         reporter.handle(
             Event.error(
                 String.format(
                     "Invalid --cpu value \"%s\": allowed values are %s.",
-                    coreOptions.cpu, Joiner.on(", ").join(coreOptions.allowedCpuValues))));
+                    coreOptions.getCpu(),
+                    Joiner.on(", ").join(coreOptions.getAllowedCpuValues()))));
       }
     }
 
@@ -320,17 +321,17 @@ public class BuildConfigurationValue
     globalMakeEnv =
         ImmutableMap.of(
             "TARGET_CPU",
-            options.incompatibleTargetCpuFromPlatform ? platformCpu : options.cpu,
+            options.getIncompatibleTargetCpuFromPlatform() ? platformCpu : options.getCpu(),
             "COMPILATION_MODE",
-            options.compilationMode.toString(),
+            options.getCompilationMode().toString(),
             "BINDIR",
             getBinDirectory(RepositoryName.MAIN).getExecPathString(),
             "GENDIR",
             getGenfilesDirectory(RepositoryName.MAIN).getExecPathString());
 
     this.reservedActionMnemonics = reservedActionMnemonics;
-    this.commandLineLimits = new CommandLineLimits(options.minParamFileSize);
-    this.defaultFeatures = FeatureSet.parse(options.defaultFeatures);
+    this.commandLineLimits = new CommandLineLimits(options.getMinParamFileSize());
+    this.defaultFeatures = FeatureSet.parse(options.getDefaultFeatures());
   }
 
   @Override
@@ -491,7 +492,7 @@ public class BuildConfigurationValue
 
   /** Returns whether to use automatic exec groups. */
   public boolean useAutoExecGroups() {
-    return options.useAutoExecGroups;
+    return options.getUseAutoExecGroups();
   }
 
   /**
@@ -569,7 +570,7 @@ public class BuildConfigurationValue
    * identify targets to be instrumented in the coverage mode.
    */
   public RegexFilter getInstrumentationFilter() {
-    return options.instrumentationFilter;
+    return options.getInstrumentationFilter();
   }
 
   /**
@@ -578,12 +579,12 @@ public class BuildConfigurationValue
    * instrumentation.
    */
   public boolean shouldInstrumentTestTargets() {
-    return options.instrumentTestTargets;
+    return options.getInstrumentTestTargets();
   }
 
   /** Returns a boolean of whether to collect code coverage for generated files or not. */
   public boolean shouldCollectCodeCoverageForGeneratedFiles() {
-    return options.collectCodeCoverageForGeneratedFiles;
+    return options.getCollectCodeCoverageForGeneratedFiles();
   }
 
   /**
@@ -659,7 +660,7 @@ public class BuildConfigurationValue
 
   /** Returns true if non-functional build stamps are enabled. */
   public boolean stampBinaries() {
-    return options.stampBinaries;
+    return options.getStampBinaries();
   }
 
   @Override
@@ -670,24 +671,24 @@ public class BuildConfigurationValue
 
   /** Returns true if extended sanity checks should be enabled. */
   public boolean extendedSanityChecks() {
-    return options.extendedSanityChecks;
+    return options.getExtendedSanityChecks();
   }
 
   /** Returns true if we are building runfiles manifests for this configuration. */
   public boolean buildRunfileManifests() {
-    return options.buildRunfileManifests;
+    return options.getBuildRunfileManifests();
   }
 
   /** Returns true if we are building runfile links for this configuration. */
   public boolean buildRunfileLinks() {
-    return options.buildRunfileManifests && options.buildRunfileLinks;
+    return options.getBuildRunfileManifests() && options.getBuildRunfileLinks();
   }
 
   /**
    * Returns true if Runfiles should merge in FilesToBuild from deps when collecting data runfiles.
    */
   public boolean alwaysIncludeFilesToBuildInData() {
-    return options.alwaysIncludeFilesToBuildInData;
+    return options.getAlwaysIncludeFilesToBuildInData();
   }
 
   /**
@@ -717,7 +718,7 @@ public class BuildConfigurationValue
 
   @Override
   public boolean isCodeCoverageEnabled() {
-    return options.collectCodeCoverage;
+    return options.getCollectCodeCoverage();
   }
 
   @Override
@@ -727,17 +728,17 @@ public class BuildConfigurationValue
 
   @Nullable
   public RunUnder getRunUnder() {
-    return options.runUnder;
+    return options.getRunUnder();
   }
 
   /** Should the {@code --run_under} be configured in the exec configuration? */
   public boolean runUnderExecConfigForTests() {
-    return options.bazelTestExecRunUnder;
+    return options.getBazelTestExecRunUnder();
   }
 
   /** Returns true if this is an execution configuration. */
   public boolean isExecConfiguration() {
-    return options.isExec;
+    return options.getIsExec();
   }
 
   @Override
@@ -746,56 +747,56 @@ public class BuildConfigurationValue
   }
 
   public boolean checkVisibility() {
-    return options.checkVisibility;
+    return options.getCheckVisibility();
   }
 
   public boolean enforceTransitiveVisibility() {
-    return options.enforceTransitiveVisibility;
+    return options.getEnforceTransitiveVisibility();
   }
 
   public boolean verboseVisibilityErrors() {
-    return options.verboseVisibilityErrors;
+    return options.getVerboseVisibilityErrors();
   }
 
   public boolean checkTestonlyForOutputFiles() {
-    return options.checkTestonlyForOutputFiles;
+    return options.getCheckTestonlyForOutputFiles();
   }
 
   public boolean checkLicenses() {
-    return options.checkLicenses;
+    return options.getCheckLicenses();
   }
 
   public boolean enforceConstraints() {
-    return options.enforceConstraints;
+    return options.getEnforceConstraints();
   }
 
   public boolean allowAnalysisFailures() {
-    return options.allowAnalysisFailures;
+    return options.getAllowAnalysisFailures();
   }
 
   public boolean evaluatingForAnalysisTest() {
-    return options.evaluatingForAnalysisTest;
+    return options.getEvaluatingForAnalysisTest();
   }
 
   public int analysisTestingDepsLimit() {
-    return options.analysisTestingDepsLimit;
+    return options.getAnalysisTestingDepsLimit();
   }
 
   public List<Label> getActionListeners() {
-    return options.actionListeners;
+    return options.getActionListeners();
   }
 
   public boolean allowUnresolvedSymlinks() {
-    return options.allowUnresolvedSymlinks;
+    return options.getAllowUnresolvedSymlinks();
   }
 
   public boolean allowMapDirectory() {
-    return options.allowMapDirectory;
+    return options.getAllowMapDirectory();
   }
 
   /** Returns compilation mode. */
   public CompilationMode getCompilationMode() {
-    return options.compilationMode;
+    return options.getCompilationMode();
   }
 
   @Override
@@ -832,12 +833,12 @@ public class BuildConfigurationValue
   }
 
   public String getCpu() {
-    return options.cpu;
+    return options.getCpu();
   }
 
   @VisibleForTesting
   public String getHostCpu() {
-    return options.hostCpu;
+    return options.getHostCpu();
   }
 
   /**
@@ -854,8 +855,8 @@ public class BuildConfigurationValue
   @VisibleForTesting
   public static RunfileSymlinksMode getRunfileSymlinksMode(CoreOptions options) {
     // TODO(buchgr): Revisit naming and functionality of this flag. See #9248 for details.
-    if (options.enableRunfiles == TriState.YES
-        || (options.enableRunfiles == TriState.AUTO && OS.getCurrent() != OS.WINDOWS)) {
+    if (options.getEnableRunfiles() == TriState.YES
+        || (options.getEnableRunfiles() == TriState.AUTO && OS.getCurrent() != OS.WINDOWS)) {
       return RunfileSymlinksMode.CREATE;
     }
     return RunfileSymlinksMode.SKIP;
@@ -880,7 +881,7 @@ public class BuildConfigurationValue
   }
 
   public boolean remotableSourceManifestActions() {
-    return options.remotableSourceManifestActions;
+    return options.getRemotableSourceManifestActions();
   }
 
   /**
@@ -890,7 +891,7 @@ public class BuildConfigurationValue
   public ImmutableMap<String, String> modifiedExecutionInfo(
       ImmutableMap<String, String> executionInfo, String mnemonic) {
     if (!ExecutionInfoModifier.matches(
-        options.executionInfoModifier, options.additiveModifyExecutionInfo, mnemonic)) {
+        options.getExecutionInfoModifier(), options.getAdditiveModifyExecutionInfo(), mnemonic)) {
       return executionInfo;
     }
     Map<String, String> mutableCopy = new HashMap<>(executionInfo);
@@ -901,8 +902,8 @@ public class BuildConfigurationValue
   /** Applies {@code executionInfoModifiers} to the given {@code executionInfo}. */
   public void modifyExecutionInfo(Map<String, String> executionInfo, String mnemonic) {
     ExecutionInfoModifier.apply(
-        options.executionInfoModifier,
-        options.additiveModifyExecutionInfo,
+        options.getExecutionInfoModifier(),
+        options.getAdditiveModifyExecutionInfo(),
         mnemonic,
         executionInfo);
   }
@@ -923,7 +924,7 @@ public class BuildConfigurationValue
    * must be compatible with. An empty value implies no restrictions.
    */
   public List<Label> getTargetEnvironments() {
-    return options.targetEnvironments;
+    return options.getTargetEnvironments();
   }
 
   @Nullable
@@ -953,7 +954,7 @@ public class BuildConfigurationValue
 
   private BuildConfigurationEvent createBuildEvent() {
     String cpu = getCpu();
-    if (options.incompatibleBepCpuFromPlatform) {
+    if (options.getIncompatibleBepCpuFromPlatform()) {
       cpu = platformCpu;
     }
     BuildEventId eventId = getEventId();

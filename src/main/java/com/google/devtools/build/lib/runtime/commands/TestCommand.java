@@ -158,7 +158,7 @@ public class TestCommand implements BlazeCommand {
             .setTargets(targets)
             .setStartTimeMillis(env.getCommandStartTime())
             .setRunTests(true);
-    if (options.getOptions(CoreOptions.class).collectCodeCoverage
+    if (options.getOptions(CoreOptions.class).getCollectCodeCoverage()
         && !options.containsExplicitOption(
             InstrumentationFilterSupport.INSTRUMENTATION_FILTER_FLAG)) {
       builder.setNeedsInstrumentationFilter(true);

@@ -92,7 +92,7 @@ public class SkymeldModule extends BlazeModule {
     // TODO(b/245873370) --check_licenses is going away.
     if (effectiveValue
         && env.getOptions().getOptions(CoreOptions.class) != null
-        && env.getOptions().getOptions(CoreOptions.class).checkLicenses) {
+        && env.getOptions().getOptions(CoreOptions.class).getCheckLicenses()) {
       logger.atInfo().log(
           "--experimental_merged_skyframe_analysis_execution is incompatible with"
               + " --check_licenses and its value will be ignored.");

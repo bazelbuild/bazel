@@ -500,8 +500,10 @@ public class BuildTool {
         // problem (and the performance loss may not be a big deal). Notably, one must not call
         // .checksum() before mutating the BuildOptions instance, lest the checksum and the option
         // values get out of sync.
-        buildOptions.get(CoreOptions.class).instrumentationFilter =
-            new RegexFilter.RegexFilterConverter().convert(instrumentationFilter);
+        buildOptions
+            .get(CoreOptions.class)
+            .setInstrumentationFilter(
+                new RegexFilter.RegexFilterConverter().convert(instrumentationFilter));
       } catch (OptionsParsingException e) {
         throw new InvalidConfigurationException(Code.HEURISTIC_INSTRUMENTATION_FILTER_INVALID, e);
       }

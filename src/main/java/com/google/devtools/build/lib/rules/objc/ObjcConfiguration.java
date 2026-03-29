@@ -61,7 +61,8 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi 
 
     this.iosSimulatorDevice = objcOptions.iosSimulatorDevice;
     this.iosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.iosSimulatorVersion);
-    this.compilationMode = Preconditions.checkNotNull(options.compilationMode, "compilationMode");
+    this.compilationMode =
+        Preconditions.checkNotNull(options.getCompilationMode(), "compilationMode");
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
     this.disallowSdkFrameworksAttributes = objcOptions.incompatibleDisallowSdkFrameworksAttributes;
     this.alwayslinkByDefault = objcOptions.incompatibleObjcAlwayslinkByDefault;

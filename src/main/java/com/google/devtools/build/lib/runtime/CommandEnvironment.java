@@ -349,7 +349,7 @@ public class CommandEnvironment {
     if (command.buildPhase().loads() || command.name().equals("info")) {
       // Compute the set of environment variables that are allowlisted on the commandline
       // for inheritance.
-      for (var envVar : options.getOptions(CoreOptions.class).actionEnvironment) {
+      for (var envVar : options.getOptions(CoreOptions.class).getActionEnvironment()) {
         switch (envVar) {
           case Converters.EnvVar.Set(String name, String value) -> {
             visibleActionEnv.remove(name);

@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.runtime.commands;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.ANALYZES;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
+import com.google.devtools.build.lib.analysis.config.CoreOptionsFields.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.CqueryProcessor;

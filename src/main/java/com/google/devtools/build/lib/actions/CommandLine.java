@@ -18,7 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptionsFields;
 import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;
 
@@ -100,7 +100,7 @@ public abstract class CommandLine {
   public abstract void addToFingerprint(
       ActionKeyContext actionKeyContext,
       @Nullable InputMetadataProvider inputMetadataProvider,
-      CoreOptions.OutputPathsMode effectiveOutputPathsMode,
+      CoreOptionsFields.OutputPathsMode effectiveOutputPathsMode,
       Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException;
 

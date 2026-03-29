@@ -307,7 +307,7 @@ public final class Project {
    *     active or some targets have project files and others don't, this method checks there's a
    *     sound way to set the desired config and throws an {@link InvalidConfigurationException} if
    *     not.
-   * @param sclConfig the {@link CoreOptions.sclConfig} to apply
+   * @param sclConfig the {@link CoreOptions.getSclConfig()} to apply
    * @param allOptionNames the names of every native option the parser recognizes, in {@code "name"}
    *     form. Not all entries are {@link BuildOptions}.
    * @param userOptions options that were set by users (vs. global bazelrcs), in name=value form

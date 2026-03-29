@@ -168,7 +168,7 @@ public final class CppConfiguration extends Fragment
     CppOptions cppOptions = options.get(CppOptions.class);
 
     CoreOptions commonOptions = options.get(CoreOptions.class);
-    CompilationMode compilationMode = commonOptions.compilationMode;
+    CompilationMode compilationMode = commonOptions.getCompilationMode();
 
     ImmutableList.Builder<String> linkoptsBuilder = ImmutableList.builder();
     linkoptsBuilder.addAll(cppOptions.linkoptList);
@@ -300,7 +300,7 @@ public final class CppConfiguration extends Fragment
             || (cppOptions.stripBinaries == StripMode.SOMETIMES
                 && compilationMode == CompilationMode.FASTBUILD);
     this.compilationMode = compilationMode;
-    this.collectCodeCoverage = commonOptions.collectCodeCoverage;
+    this.collectCodeCoverage = commonOptions.getCollectCodeCoverage();
     this.appleGenerateDsym = cppOptions.appleGenerateDsym;
   }
 

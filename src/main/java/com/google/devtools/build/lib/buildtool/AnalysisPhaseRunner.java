@@ -226,7 +226,7 @@ public final class AnalysisPhaseRunner {
       }
     }
 
-    if (!Strings.isNullOrEmpty(buildOptions.get(CoreOptions.class).sclConfig)
+    if (!Strings.isNullOrEmpty(buildOptions.get(CoreOptions.class).getSclConfig())
         || request.getBuildOptions().getEnforceProjectConfigs()) {
       featureFlags.add(SCL_CONFIG);
     }
@@ -299,7 +299,7 @@ public final class AnalysisPhaseRunner {
           Project.applySclConfig(
               buildOptions,
               activeProjects,
-              buildOptions.get(CoreOptions.class).sclConfig,
+              buildOptions.get(CoreOptions.class).getSclConfig(),
               allOptionNames,
               userOptions,
               env.getConfigFlagDefinitions(),

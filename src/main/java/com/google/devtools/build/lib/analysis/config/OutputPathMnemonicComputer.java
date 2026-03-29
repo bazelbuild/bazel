@@ -179,7 +179,7 @@ public final class OutputPathMnemonicComputer {
 
     if (buildOptions.hasNoConfig()) {
       // Historically, the noconfig output path mnemonic had the compilation mode.
-      return coreOptions.compilationMode + "-noconfig"; // See NoConfigTransition.
+      return coreOptions.getCompilationMode() + "-noconfig"; // See NoConfigTransition.
     }
 
     PlatformOptions platformOptions = buildOptions.get(PlatformOptions.class);
@@ -188,11 +188,11 @@ public final class OutputPathMnemonicComputer {
 
     handlePlatformCpuDescriptor(ctx, coreOptions, platformOptions);
 
-    ctx.checkedAddToMnemonic(coreOptions.compilationMode.toString(), "Compilation mode");
+    ctx.checkedAddToMnemonic(coreOptions.getCompilationMode().toString(), "Compilation mode");
     ctx.markAsExplicitInOutputPathFor("compilation_mode");
 
-    if (!Strings.isNullOrEmpty(coreOptions.platformSuffix)) {
-      ctx.checkedAddToMnemonic(coreOptions.platformSuffix, "Platform suffix");
+    if (!Strings.isNullOrEmpty(coreOptions.getPlatformSuffix())) {
+      ctx.checkedAddToMnemonic(coreOptions.getPlatformSuffix(), "Platform suffix");
     }
     ctx.markAsExplicitInOutputPathFor("platform_suffix");
 
@@ -231,7 +231,7 @@ public final class OutputPathMnemonicComputer {
       throws InvalidMnemonicException {
     if (platformOptions == null
         || !coreOptions.usePlatformInOutputDir(platformOptions.computeTargetPlatform())) {
-      ctx.checkedAddToMnemonic(coreOptions.cpu, "CPU/Platform descriptor");
+      ctx.checkedAddToMnemonic(coreOptions.getCpu(), "CPU/Platform descriptor");
       ctx.markAsExplicitInOutputPathFor("cpu");
       return;
     }
@@ -256,14 +256,14 @@ public final class OutputPathMnemonicComputer {
 
     // Handle legacy heuristic if enabled.
     // Note that it is known this heuristic is not necessarily complete.
-    if (options.usePlatformsInOutputDirLegacyHeuristic) {
+    if (options.getUsePlatformsInOutputDirLegacyHeuristic()) {
       // Only use non-default platforms.
 
       if (!PlatformOptions.platformIsDefault(platform)) {
         return platform.getName();
       }
       // Fall back to using the CPU.
-      return options.cpu;
+      return options.getCpu();
     }
     // As a last resort use hashCode of the unambiguous form of the label.
     return String.format("platform-%X", platform.getUnambiguousCanonicalForm().hashCode());

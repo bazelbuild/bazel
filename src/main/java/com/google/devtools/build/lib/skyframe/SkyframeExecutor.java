@@ -3059,7 +3059,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // ImmutableMap does not support null values, so use a LinkedHashMap instead.
     LinkedHashMap<String, String> actionEnvironment = new LinkedHashMap<>();
     if (opt != null) {
-      for (var envVar : opt.actionEnvironment) {
+      for (var envVar : opt.getActionEnvironment()) {
         switch (envVar) {
           case Converters.EnvVar.Set(String name, String value) ->
               actionEnvironment.put(name, value);
