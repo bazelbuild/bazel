@@ -2,6 +2,7 @@ import re
 import subprocess
 import os
 import time
+import json
 import google.generativeai as genai
 
 def setup_gemini():
@@ -10,204 +11,157 @@ def setup_gemini():
         print("Error: GEMINI_API_KEY environment variable not set.")
         return None
     genai.configure(api_key=api_key)
-    # Using the standard gemini-1.5-flash for reliability and speed
-    return genai.GenerativeModel('gemini-2.5-flash')
+    # Using 1.5-flash for discovery and 1.5-pro for writing
+    return genai.GenerativeModel('gemini-2.5-flash'), genai.GenerativeModel('gemini-1.5-pro')
+
+def get_all_doc_paths():
+    """Gets a list of all current .md and .mdx files in the repo."""
+    try:
+        # Get all files tracked by git in bazel_src
+        out = subprocess.check_output(['git', '-C', 'bazel_src', 'ls-files', 'site/en/**/*.md', 'docs/**/*.mdx'], text=True)
+        paths = [p for p in out.split('\n') if p and '/versions/' not in p and '/archive/' not in p]
+        return paths
+    except Exception as e:
+        print(f"Error getting file list: {e}")
+        return []
+
+def find_best_docs_with_gemini(model, commit_subject, relnote, all_paths):
+    """Asks Gemini to pick exactly 1 .md and 1 .mdx file from the list."""
+    paths_str = "\n".join(all_paths)
+
+    prompt = f"""
+    You are an expert Bazel engineer. A new commit was merged with this release note:
+    Subject: {commit_subject}
+    Release Note: {relnote}
+
+    Below is a list of all documentation files in the Bazel repository.
+    Your job is to find the MOST appropriate file to document this change.
+
+    CRITICAL RULES:
+    1. You must select EXACTLY ONE DevSite file (starts with 'site/en/' and ends with '.md').
+    2. You must select EXACTLY ONE Mintlify file (starts with 'docs/' and ends with '.mdx').
+    3. The two files should cover the same topic.
+    4. Return ONLY a JSON array containing the two exact file paths. Do not include markdown formatting.
+    5. If no file is a good fit, return an empty array [].
+
+    --- AVAILABLE FILES ---
+    {paths_str}
+    """
+
+    try:
+        time.sleep(1) # Prevent rate limits
+        response = model.generate_content(prompt, generation_config={"temperature": 0.0})
+        # Clean potential markdown code blocks from response
+        raw_json = response.text.strip().replace('```json', '').replace('```', '').strip()
+        selected_paths = json.loads(raw_json)
+        return set(selected_paths)
+    except Exception as e:
+        print(f"  ⚠️ Gemini could not determine the best file: {e}")
+        return set()
 
 def rewrite_docs_with_gemini(model, commit_subject, relnote_text, target_docs):
-    """Uses Gemini API to actually rewrite the documentation files in place."""
+    """Uses Gemini Pro to carefully insert 3-4 lines into the chosen files."""
     for doc_path in target_docs:
-        # Construct the absolute path based on the local bazel_src clone
         full_path = os.path.join('bazel_src', doc_path)
 
         if not os.path.exists(full_path):
-            print(f"⚠️ Warning: File {full_path} not found locally. Skipping AI rewrite.")
             continue
 
-        print(f"🤖 AI Analyzing & Updating: {doc_path}...")
+        print(f"  🤖 AI Updating: {doc_path}...")
 
         with open(full_path, 'r', encoding='utf-8') as f:
             original_content = f.read()
 
-        # Added safety for very large files to prevent crashing or incomplete rewrites
         if len(original_content) > 100000:
-            print(f"⚠️ File {doc_path} is too large for AI processing. Skipping.")
+            print(f"  ⚠️ File {doc_path} is too large. Skipping.")
             continue
 
         prompt = f"""
-        You are an expert technical writer for the Bazel build system documentation.
+        You are an expert technical writer updating Bazel documentation.
 
-        A new PR/Commit was just merged:
-        Subject: {commit_subject}
-        Release Note (Developer Intent): {relnote_text}
+        Commit Subject: {commit_subject}
+        Release Note: {relnote_text}
 
-        I need you to update the existing documentation file to reflect this change.
-        Do NOT just append the release note to the bottom. Integrate the information naturally and logically into the most appropriate section of the file.
+        Please update the following documentation file to include this new information.
 
         CRITICAL RULES:
-        1. Keep the exact same formatting, tone, and existing headers.
-        2. If this is an MDX file, escape bare braces (`{{{{` -> `\\{{{{` and `}}}}` -> `\\}}}}`).
-        3. Convert raw links `<https://...>` to standard `[text](url)` markdown.
-        4. Replace HTML comments with JSX comments `{{{{/* */}}}}`.
-        5. Return ONLY the raw, updated markdown/mdx content. Do not wrap your response in markdown code blocks.
+        1. Keep the exact same formatting and headers.
+        2. BE BRIEF. Add a MAXIMUM of 3 to 4 sentences.
+        3. Integrate the note naturally into the most relevant section.
+        4. If this is an MDX file, escape bare braces ({{{{ -> \\{{{{).
+        5. Return the ENTIRE updated file content. Do not wrap in markdown code blocks.
 
-        --- EXISTING DOCUMENTATION CONTENT ---
+        --- EXISTING DOCUMENTATION CONTENT ({doc_path}) ---
         {original_content}
         """
 
         try:
-            # Add a small pause between files to ensure high quality and avoid rate limits
-            time.sleep(2)
-
-            response = model.generate_content(
-                prompt,
-                generation_config={
-                    "temperature": 0.1,
-                    "max_output_tokens": 8192
-                }
-            )
+            time.sleep(3) # Ensure the Pro model has time to process
+            response = model.generate_content(prompt, generation_config={"temperature": 0.1, "max_output_tokens": 8192})
             new_content = response.text.strip()
-
-            # Strip markdown code blocks if Gemini accidentally added them
+            
+            # Remove AI-generated code blocks if present
             new_content = re.sub(r'^```(markdown|mdx)?\s*', '', new_content, flags=re.IGNORECASE)
             new_content = re.sub(r'```\s*$', '', new_content).strip()
 
-            # Write the updated content back to the file
             with open(full_path, 'w', encoding='utf-8') as f:
                 f.write(new_content)
 
-            print(f"✅ Gemini successfully updated {doc_path}")
+            print(f"  ✅ Gemini successfully updated {doc_path}")
         except Exception as e:
-            print(f"❌ Gemini AI Error for {doc_path}: {e}")
+            print(f"  ❌ Gemini AI Error for {doc_path}: {e}")
 
 def run_rulebook():
-    # Setup AI Model
-    model = setup_gemini()
-    if not model:
-        return
+    models = setup_gemini()
+    if not models: return
+    flash_model, pro_model = models
 
-    # Ensure we are looking for the file in the current working directory
     log_path = 'weekly_notes.txt'
-    if not os.path.exists(log_path):
-        print(f"❌ {log_path} not found. Skipping discovery.")
-        return
+    if not os.path.exists(log_path): return
 
-    # Use utf-8 to handle special characters in commit logs
     with open(log_path, 'r', encoding='utf-8') as f:
         raw_data = f.read()
 
-    # Split and remove the first empty element
     commits = raw_data.split('COMMIT_DELIMITER\n')[1:]
     actionable_commits = []
 
+    all_doc_paths = get_all_doc_paths()
+    print(f"📚 Loaded {len(all_doc_paths)} documentation files for AI analysis.")
+
     for commit_block in commits:
         lines = commit_block.strip().split('\n')
-        if len(lines) < 3:
-            continue
+        if len(lines) < 3: continue
 
         commit_hash = lines[0].strip()
         commit_subject = lines[1].strip()
         body = '\n'.join(lines[2:])
 
-        # RULE 1: Filter out noise and extract intent
         match = re.search(r'RELNOTES(?:\[.*?\])?[:\s]+(.*)', body, re.IGNORECASE)
-        if not match:
-            continue
+        if not match: continue
 
         note = match.group(1).strip()
         clean_note = re.sub(r'[*`]', '', note).lower().strip()
 
-        # Skip boilerplate or "None" notes
         if clean_note in ['none', 'none.', 'n/a', 'na', 'no'] or "<reason>' here" in note:
             continue
 
         print(f"\n✅ Processing: {commit_hash[:7]} - {commit_subject}")
 
-        # RULE 2: Extract Code Keywords
-        try:
-            changed_files_out = subprocess.check_output(
-                ['git', '-C', 'bazel_src', 'show', '--name-only', '--format=', commit_hash],
-                text=True
-            ).strip()
-            changed_files = [f for f in changed_files_out.split('\n') if f]
-        except subprocess.CalledProcessError:
-            print(f"⚠️ Could not fetch file list for {commit_hash}")
-            continue
+        # PHASE 1: Find target files
+        target_docs = find_best_docs_with_gemini(flash_model, commit_subject, note, all_doc_paths)
 
-        keywords = set()
-        for f in changed_files:
-            if f.endswith(('.java', '.cc', '.bzl')):
-                filename = f.split('/')[-1].split('.')[0]
-                if len(filename) > 3:
-                    keywords.add(filename)
-
-        target_docs = set()
-
-        # RULE 3: Local Repository Search (Highly Accurate for DevSite & Mintlify)
-        # 3A. Primary Search: Match Code Keywords to Docs
-        for kw in list(keywords)[:5]:
-            try:
-                # Small pause to give the system time to map accurately
-                time.sleep(0.5)
-                grep_out = subprocess.check_output(
-                    ['git', '-C', 'bazel_src', 'grep', '-l', '-i', kw, '--', '*.md', '*.mdx'],
-                    text=True, stderr=subprocess.DEVNULL
-                )
-                for file_path in grep_out.strip().split('\n'):
-                    file_path = file_path.strip()
-                    if not file_path: continue
-
-                    # IGNORE historical version folders and archives
-                    if any(v in file_path for v in ['/versions/', '/archive/', '/v7/', '/v8/']):
-                        continue
-
-                    # CATCH BOTH: DevSite (.md in site/) AND Mintlify (.mdx in docs/)
-                    if any(x in file_path for x in ['site/en/', 'site/content/en/', 'docs/']):
-                        target_docs.add(file_path)
-            except subprocess.CalledProcessError:
-                pass
-
-        # 3B. Fallback Search: Match Commit Subject to Docs
-        if not target_docs:
-            clean_subject = commit_subject.replace('`', '').replace("'", "")
-            subject_words = clean_subject.split()[:3]
-            if len(subject_words) >= 2:
-                search_phrase = ' '.join(subject_words)
-                try:
-                    time.sleep(0.5)
-                    grep_out = subprocess.check_output(
-                        ['git', '-C', 'bazel_src', 'grep', '-l', '-i', search_phrase, '--', '*.md', '*.mdx'],
-                        text=True, stderr=subprocess.DEVNULL
-                    )
-                    for file_path in grep_out.strip().split('\n'):
-                        file_path = file_path.strip()
-                        if not file_path: continue
-
-                        if any(v in file_path for v in ['/versions/', '/archive/', '/v7/', '/v8/']):
-                            continue
-
-                        if any(x in file_path for x in ['site/en/', 'site/content/en/', 'docs/']):
-                            target_docs.add(file_path)
-                except subprocess.CalledProcessError:
-                    pass
-
-        if target_docs:
-            print(f"📄 Found matching docs: {target_docs}")
-            # RULE 4: Execute Gemini Rewrite
-            rewrite_docs_with_gemini(model, commit_subject, note, target_docs)
-
-            actionable_commits.append({
-                "hash": commit_hash,
-                "subject": commit_subject,
-                "relnotes": note,
-                "docs": sorted(list(target_docs))
-            })
+        if target_docs and len(target_docs) >= 1:
+            print(f"  🎯 AI selected exact files: {target_docs}")
+            # PHASE 2: Rewrite
+            rewrite_docs_with_gemini(pro_model, commit_subject, note, target_docs)
+            actionable_commits.append({"hash": commit_hash})
         else:
-            print("⚠️ No documentation match found for this code change. Skipping AI rewrite.")
+            print("  ⚠️ AI could not confidently select a pair. Skipping.")
 
     if actionable_commits:
-        print("\n🎉 Documentation rewrite complete for all actionable commits.")
+        print("\n🎉 Documentation rewrite complete.")
     else:
-        print("\n😴 No actionable documentation updates found in this run.")
+        print("\n😴 No actionable documentation updates found.")
 
 if __name__ == "__main__":
     run_rulebook()
