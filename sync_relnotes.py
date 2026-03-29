@@ -10,7 +10,7 @@ def setup_gemini():
         return None
     genai.configure(api_key=api_key)
     # Note: Ensure 'gemini-2.5-flash' is the correct model name for your tier
-    return genai.GenerativeModel('gemini-1.5-flash')
+    return genai.GenerativeModel('gemini-2.5-flash')
 
 def rewrite_docs_with_gemini(model, commit_subject, relnote_text, target_docs):
     """Uses Gemini API to actually rewrite the documentation files in place."""
