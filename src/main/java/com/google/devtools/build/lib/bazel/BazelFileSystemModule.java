@@ -68,7 +68,7 @@ public class BazelFileSystemModule extends BlazeModule {
       throws AbruptExitException {
     BlazeServerStartupOptions options =
         checkNotNull(startupOptions.getOptions(BlazeServerStartupOptions.class));
-    DigestHashFunction digestHashFunction = options.digestHashFunction;
+    DigestHashFunction digestHashFunction = options.getDigestHashFunction();
     if (digestHashFunction == null) {
       String value = System.getProperty("bazel.DigestFunction", "SHA256");
       try {
@@ -88,10 +88,13 @@ public class BazelFileSystemModule extends BlazeModule {
 
     FileSystem fs =
         switch (OS.getCurrent()) {
-          case WINDOWS -> new WindowsFileSystem(digestHashFunction, options.enableWindowsSymlinks);
+          case WINDOWS ->
+              new WindowsFileSystem(digestHashFunction, options.getEnableWindowsSymlinks());
           default ->
               new UnixFileSystem(
-                  digestHashFunction, options.unixDigestHashAttributeName, nativePosixFilesService);
+                  digestHashFunction,
+                  options.getUnixDigestHashAttributeName(),
+                  nativePosixFilesService);
         };
 
     return ModuleFileSystem.create(fs);

@@ -194,7 +194,7 @@ public final class RemoteModule extends BlazeModule {
   @Override
   public void globalInit(
       OptionsParsingResult startupOptions, Iterable<BlazeService> blazeServices) {
-    outputBase = startupOptions.getOptions(BlazeServerStartupOptions.class).outputBase;
+    outputBase = startupOptions.getOptions(BlazeServerStartupOptions.class).getOutputBase();
     useRemoteRepoContentsCache =
         startupOptions.getOptions(RemoteStartupOptions.class).useRemoteRepoContentsCache;
   }
@@ -519,7 +519,7 @@ public final class RemoteModule extends BlazeModule {
 
     int jobs = 0;
     if (buildRequestOptions != null) {
-      jobs = buildRequestOptions.jobs;
+      jobs = buildRequestOptions.getJobs();
     }
 
     ThreadFactory threadFactory =
@@ -609,7 +609,7 @@ public final class RemoteModule extends BlazeModule {
       outputService =
           new RemoteOutputService(
               env.getDirectories(),
-              buildRequestOptions != null && buildRequestOptions.rewindLostInputs);
+              buildRequestOptions != null && buildRequestOptions.getRewindLostInputs());
     }
 
     if ((enableHttpCache || enableDiskCache) && !enableGrpcCache) {

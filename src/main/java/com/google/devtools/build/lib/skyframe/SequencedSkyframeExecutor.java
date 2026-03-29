@@ -349,7 +349,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   private static boolean rewindingEnabled(OptionsProvider options) {
     var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    return buildRequestOptions != null && buildRequestOptions.rewindLostInputs;
+    return buildRequestOptions != null && buildRequestOptions.getRewindLostInputs();
   }
 
   /**

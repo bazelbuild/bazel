@@ -53,7 +53,7 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptions.ConvenienceSymlinksMode;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptionsFields.ConvenienceSymlinksMode;
 import com.google.devtools.build.lib.buildtool.buildevent.ConvenienceSymlinksIdentifiedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
@@ -297,7 +297,7 @@ public class ExecutionTool {
     }
 
     ActionCache actionCache = null;
-    if (buildRequestOptions.useActionCache) {
+    if (buildRequestOptions.getUseActionCache()) {
       try (SilentCloseable c = Profiler.instance().profile("load/reset action cache")) {
         actionCache = getOrLoadActionCache();
         actionCache.resetStatistics();
@@ -321,7 +321,7 @@ public class ExecutionTool {
         modifiedOutputFiles,
         env.getBlazeWorkspace().getLastExecutionTimeRange(),
         outputChecker,
-        buildRequestOptions.fsvcThreads);
+        buildRequestOptions.getFsvcThreads());
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
       skyframeExecutor.configureActionExecutor(
           skyframeBuilder.getFileCache(),
@@ -343,7 +343,10 @@ public class ExecutionTool {
     env.getEventBus()
         .register(
             new ExecutionProgressReceiverSetup(
-                skyframeExecutor, env, executionTimer, buildRequestOptions.progressReportInterval));
+                skyframeExecutor,
+                env,
+                executionTimer,
+                buildRequestOptions.getProgressReportInterval()));
     for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
       try (SilentCloseable c =
           Profiler.instance().profile(executorLifecycleListener + ".executionPhaseStarting")) {
@@ -396,7 +399,7 @@ public class ExecutionTool {
 
     BuildRequestOptions options = request.getBuildOptions();
     ActionCache actionCache = null;
-    if (options.useActionCache) {
+    if (options.getUseActionCache()) {
       actionCache = getOrLoadActionCache();
       actionCache.resetStatistics();
     }
@@ -421,7 +424,7 @@ public class ExecutionTool {
     // Conditionally record dependency-checker log:
     ExplanationHandler explanationHandler =
         installExplanationHandler(
-            request.getBuildOptions().explanationPath, request.getOptionsDescription());
+            request.getBuildOptions().getExplanationPath(), request.getOptionsDescription());
 
     announceEnteringDirIfEmacs();
 
@@ -518,7 +521,7 @@ public class ExecutionTool {
               buildId,
               env.getWorkspaceName(),
               env.getReporter(),
-              request.getBuildOptions().finalizeActions);
+              request.getBuildOptions().getFinalizeActions());
       informedOutputServiceToStartTheBuild = true;
     }
     if (!request.getPackageOptions().checkOutputFiles) {
@@ -729,12 +732,12 @@ public class ExecutionTool {
         Profiler.instance().profile("ExecutionTool.handleConvenienceSymlinks")) {
       OutputDirectoryLinksUtils.SymlinkCreationResult convenienceSymlinks =
           OutputDirectoryLinksUtils.EMPTY_SYMLINK_CREATION_RESULT;
-      if (request.getBuildOptions().experimentalConvenienceSymlinks
+      if (request.getBuildOptions().getExperimentalConvenienceSymlinks()
           != ConvenienceSymlinksMode.IGNORE) {
         convenienceSymlinks =
             createConvenienceSymlinks(request.getBuildOptions(), targetsToBuild, configuration);
       }
-      if (request.getBuildOptions().experimentalConvenienceSymlinksBepEvent) {
+      if (request.getBuildOptions().getExperimentalConvenienceSymlinksBepEvent()) {
         env.getEventBus()
             .post(
                 new ConvenienceSymlinksIdentifiedEvent(
@@ -958,7 +961,7 @@ public class ExecutionTool {
             executionFilter,
             outputService.getProxyMetadataFactory(),
             ActionCacheChecker.CacheConfig.builder()
-                .setEnabled(options.useActionCache)
+                .setEnabled(options.getUseActionCache())
                 .setStoreOutputMetadata(
                     outputService.shouldStoreRemoteOutputMetadataInActionCache())
                 .build()),

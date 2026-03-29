@@ -29,6 +29,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.RegexPatternOption;
 import java.util.List;
@@ -41,7 +42,8 @@ import javax.annotation.Nullable;
  * <p>See also {@code ExecutionOptions}; from the user's point of view, there's no qualitative
  * difference between these two sets of options.
  */
-public class BuildRequestOptions extends OptionsBase {
+@OptionsClass
+public abstract class BuildRequestOptionsFields extends OptionsBase {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final int JOBS_TOO_HIGH_WARNING = 2500;
   @VisibleForTesting public static final int MAX_JOBS = 5000;
@@ -64,7 +66,7 @@ public class BuildRequestOptions extends OptionsBase {
               + JOBS_TOO_HIGH_WARNING
               + " may cause memory issues. \"auto\" calculates a reasonable default based on"
               + " host resources.")
-  public int jobs;
+  public abstract int getJobs();
 
   @Option(
       name = "experimental_async_execution",
@@ -77,7 +79,7 @@ public class BuildRequestOptions extends OptionsBase {
           If set to true, Bazel is allowed to run action in a virtual thread. The number of
           actions in flight is still capped with `--jobs`.
           """)
-  public boolean useAsyncExecution;
+  public abstract boolean getUseAsyncExecution();
 
   @Option(
       name = "experimental_async_execution_max_concurrent_actions",
@@ -89,7 +91,7 @@ public class BuildRequestOptions extends OptionsBase {
           The number of maximum concurrent actions to run with async execution. If the value is
           less than `--jobs`, it is clamped to `--jobs`.
           """)
-  public int asyncExecutionMaxConcurrentActions;
+  public abstract int getAsyncExecutionMaxConcurrentActions();
 
   @Option(
       name = "progress_report_interval",
@@ -104,7 +106,7 @@ public class BuildRequestOptions extends OptionsBase {
           seconds, then 30 seconds and after that progress is reported once every minute.
           When `--curses` is enabled, progress is reported every second.
           """)
-  public int progressReportInterval;
+  public abstract int getProgressReportInterval();
 
   @Option(
       name = "explain",
@@ -115,7 +117,7 @@ public class BuildRequestOptions extends OptionsBase {
       help =
           "Causes the build system to explain each executed step of the "
               + "build. The explanation is written to the specified log file.")
-  public PathFragment explanationPath;
+  public abstract PathFragment getExplanationPath();
 
   @Option(
       name = "output_filter",
@@ -127,7 +129,7 @@ public class BuildRequestOptions extends OptionsBase {
           "Only shows warnings and action outputs for rules with a name matching the provided "
               + "regular expression.")
   @Nullable
-  public RegexPatternOption outputFilter;
+  public abstract RegexPatternOption getOutputFilter();
 
   @Option(
       name = "analyze",
@@ -141,7 +143,7 @@ public class BuildRequestOptions extends OptionsBase {
           target pattern parsing and returning zero if that completed successfully; this
           mode is useful for testing.
           """)
-  public boolean performAnalysisPhase;
+  public abstract boolean getPerformAnalysisPhase();
 
   @Option(
       name = "build",
@@ -155,7 +157,7 @@ public class BuildRequestOptions extends OptionsBase {
           actions, returning zero if the package loading and analysis phases completed
           successfully; this mode is useful for testing those phases.
           """)
-  public boolean performExecutionPhase;
+  public abstract boolean getPerformExecutionPhase();
 
   @Option(
       name = "output_groups",
@@ -174,7 +176,7 @@ public class BuildRequestOptions extends OptionsBase {
           while `--output_groups=foo,bar` overrides the default set such that only foo and
           bar are built.
           """)
-  public List<String> outputGroups;
+  public abstract List<String> getOutputGroups();
 
   @Option(
       name = "run_validations",
@@ -188,7 +190,7 @@ public class BuildRequestOptions extends OptionsBase {
 
           [Validation Actions]: https://bazel.build/extending/rules#validation_actions
           """)
-  public boolean runValidationActions;
+  public abstract boolean getRunValidationActions();
 
   @Option(
       name = "experimental_use_validation_aspect",
@@ -196,7 +198,7 @@ public class BuildRequestOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Whether to run validation actions using aspect (for parallelism with tests).")
-  public boolean useValidationAspect;
+  public abstract boolean getUseValidationAspect();
 
   @Option(
       name = "show_result",
@@ -217,7 +219,7 @@ public class BuildRequestOptions extends OptionsBase {
           If nothing was built for a target its results may be omitted to keep the output
           under the threshold.
           """)
-  public int maxResultTargets;
+  public abstract int getMaxResultTargets();
 
   @Option(
       name = "hide_aspect_results",
@@ -231,7 +233,7 @@ public class BuildRequestOptions extends OptionsBase {
           Useful for keeping aspects added by wrappers which are typically not interesting
           to end users out of console output.
           """)
-  public List<String> hideAspectResults;
+  public abstract List<String> getHideAspectResults();
 
   @Option(
       name = "symlink_prefix",
@@ -247,7 +249,7 @@ public class BuildRequestOptions extends OptionsBase {
           soon; use `--experimental_convenience_symlinks=ignore` instead.
           """)
   @Nullable
-  public String symlinkPrefix;
+  public abstract String getSymlinkPrefix();
 
   @Option(
       name = "experimental_convenience_symlinks",
@@ -271,7 +273,7 @@ public class BuildRequestOptions extends OptionsBase {
           symlinks will be left alone.
           """)
   @Nullable
-  public ConvenienceSymlinksMode experimentalConvenienceSymlinks;
+  public abstract ConvenienceSymlinksMode getExperimentalConvenienceSymlinks();
 
   @Option(
       name = "experimental_convenience_symlinks_bep_event",
@@ -286,7 +288,7 @@ public class BuildRequestOptions extends OptionsBase {
           listing all of the convenience symlinks created in your workspace. If false, then
           the `convenienceSymlinksIdentified` entry in the BEP will be empty.
           """)
-  public boolean experimentalConvenienceSymlinksBepEvent;
+  public abstract boolean getExperimentalConvenienceSymlinksBepEvent();
 
   @Option(
       name = "output_tree_tracking",
@@ -299,7 +301,7 @@ public class BuildRequestOptions extends OptionsBase {
               + "tree have been modified externally (not by the build system). "
               + "This should improve incremental build speed when an appropriate output service "
               + "is enabled.")
-  public boolean finalizeActions;
+  public abstract boolean getFinalizeActions();
 
   @Option(
       name = "directory_creation_cache",
@@ -310,7 +312,7 @@ public class BuildRequestOptions extends OptionsBase {
       help =
           "Describes the cache used to store known regular directories as they're created. Parent"
               + " directories of output files are created on-demand during action execution.")
-  public CaffeineSpec directoryCreationCacheSpec;
+  public abstract CaffeineSpec getDirectoryCreationCacheSpec();
 
   @Option(
       name = "aspects",
@@ -333,7 +335,7 @@ public class BuildRequestOptions extends OptionsBase {
           `{bzl-file-label}%{aspect_name}`, for example `//tools:my_def.bzl%my_aspect`, where
           `my_aspect` is a top-level value from a file `tools/my_def.bzl`.
           """)
-  public List<String> aspects;
+  public abstract List<String> getAspects();
 
   @Option(
       name = "aspects_parameters",
@@ -350,12 +352,12 @@ public class BuildRequestOptions extends OptionsBase {
           aspect in the list. This option can be used multiple times. However, it is not
           allowed to assign values to the same parameter more than once.
           """)
-  public List<Map.Entry<String, String>> aspectsParameters;
+  public abstract List<Map.Entry<String, String>> getAspectsParameters();
 
-  public BuildRequestOptions() throws OptionsParsingException {}
+  public BuildRequestOptionsFields() {}
 
   public String getSymlinkPrefix(String productName) {
-    return symlinkPrefix == null ? productName + "-" : symlinkPrefix;
+    return getSymlinkPrefix() == null ? productName + "-" : getSymlinkPrefix();
   }
 
   @Option(
@@ -367,7 +369,7 @@ public class BuildRequestOptions extends OptionsBase {
         OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
       },
       help = "Whether to use the action cache")
-  public boolean useActionCache;
+  public abstract boolean getUseActionCache();
 
   @Option(
       name = "rewind_lost_inputs",
@@ -375,7 +377,7 @@ public class BuildRequestOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
       help = "Whether to use action rewinding to recover from lost inputs.")
-  public boolean rewindLostInputs;
+  public abstract boolean getRewindLostInputs();
 
   @Option(
       name = "incompatible_skip_genfiles_symlink",
@@ -390,7 +392,7 @@ public class BuildRequestOptions extends OptionsBase {
 
           [GH-8651]: https://github.com/bazelbuild/bazel/issues/8651
           """)
-  public boolean incompatibleSkipGenfilesSymlink;
+  public abstract boolean getIncompatibleSkipGenfilesSymlink();
 
   @Option(
       name = "target_pattern_file",
@@ -400,7 +402,7 @@ public class BuildRequestOptions extends OptionsBase {
       help =
           "If set, build will read patterns from the file named here, rather than on the command "
               + "line. It is an error to specify a file here as well as command-line patterns.")
-  public String targetPatternFile;
+  public abstract String getTargetPatternFile();
 
   /**
    * Do not use directly. Instead use {@link
@@ -413,7 +415,7 @@ public class BuildRequestOptions extends OptionsBase {
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
       help = "If this flag is set, the analysis and execution phases of Skyframe are merged.")
-  public boolean mergedSkyframeAnalysisExecutionDoNotUseDirectly;
+  public abstract boolean getMergedSkyframeAnalysisExecutionDoNotUseDirectly();
 
   @Option(
       name = "experimental_skymeld_analysis_overlap_percentage",
@@ -429,7 +431,7 @@ public class BuildRequestOptions extends OptionsBase {
               + " them to launch. When the value is 0%, we'd wait for all analysis to finish before"
               + " executing (no overlap). When it's 100%, the phases are free to overlap as much as"
               + " they can.")
-  public int skymeldAnalysisOverlapPercentage;
+  public abstract int getSkymeldAnalysisOverlapPercentage();
 
   /** Converter for filesystem value checker threads. */
   public static class ThreadConverter extends ResourceConverter.IntegerConverter {
@@ -446,7 +448,7 @@ public class BuildRequestOptions extends OptionsBase {
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.EXECUTION},
       help = "The number of threads that are used by the `FileSystemValueChecker`.")
-  public int fsvcThreads;
+  public abstract int getFsvcThreads();
 
   @Option(
       name = "experimental_skyframe_memory_dump",
@@ -463,7 +465,7 @@ public class BuildRequestOptions extends OptionsBase {
           - `noprecomputed` (ignore precomputed values).
           - `noworkspacestatus` (ignore objects related to the workspace status machinery).
           """)
-  public String skyframeMemoryDump;
+  public abstract String getSkyframeMemoryDump();
 
   @Option(
       name = "enforce_project_configs",
@@ -474,10 +476,11 @@ public class BuildRequestOptions extends OptionsBase {
       // TODO: b/341931019 - link to user documentation when available.
       help =
           "If true, interactive builds may only pass the --scl_config build flag; they may not use"
-              + " any other build flags. --scl_config must be set to an officially suported project"
-              + " configuration. Supported configurations are defined in the target's PROJECT.scl,"
-              + " which can be found by walking up the target's packagge path. See b/324126745.")
-  public boolean enforceProjectConfigs;
+              + " any other build flags. --scl_config must be set to an officially supported"
+              + " project configuration. Supported configurations are defined in the target's"
+              + " PROJECT.scl, which can be found by walking up the target's packagge path. See"
+              + " b/324126745.")
+  public abstract boolean getEnforceProjectConfigs();
 
   @Option(
       name = "experimental_skyframe_error_handling_refactor",
@@ -486,9 +489,9 @@ public class BuildRequestOptions extends OptionsBase {
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.NO_OP},
       help =
-          "Used solely for the safe rollout of simplifying Skyframe error handling. This will be"
+          "Used solely for the safe rollout of simplifying Skyframe error handling. This will be "
               + "removed once the rollout is complete (expected timeframe: 1 release)")
-  public boolean skyframeErrorHandlingRefactor;
+  public abstract boolean getSkyframeErrorHandlingRefactor();
 
   @Option(
       name = "experimental_aquery_dump_after_build_format",
@@ -505,7 +508,7 @@ public class BuildRequestOptions extends OptionsBase {
           `proto|streamed_proto|textproto|jsonproto`. Using this will disable Skymeld.
           """)
   @Nullable
-  public String aqueryDumpAfterBuildFormat;
+  public abstract String getAqueryDumpAfterBuildFormat();
 
   @Option(
       name = "experimental_aquery_dump_after_build_output_file",
@@ -524,7 +527,7 @@ public class BuildRequestOptions extends OptionsBase {
           Bazel's output base, unless it's an absolute path. Using this will disable Skymeld.
           """)
   @Nullable
-  public PathFragment aqueryDumpAfterBuildOutputFile;
+  public abstract PathFragment getAqueryDumpAfterBuildOutputFile();
 
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and

@@ -401,7 +401,7 @@ public class BuildRequest implements OptionsProvider {
     List<String> warnings = new ArrayList<>();
 
     int localTestJobs = getExecutionOptions().localTestJobs;
-    int jobs = getBuildOptions().jobs;
+    int jobs = getBuildOptions().getJobs();
     if (localTestJobs > jobs) {
       warnings.add(
           String.format(
@@ -420,11 +420,13 @@ public class BuildRequest implements OptionsProvider {
         getOptions(ExecutionOptions.class).testStrategy.equals("exclusive"),
         getOptions(BuildEventProtocolOptions.class).expandFilesets,
         OutputGroupInfo.determineOutputGroups(
-            buildOptions.outputGroups, validationMode(), /* shouldRunTests= */ shouldRunTests()));
+            buildOptions.getOutputGroups(),
+            validationMode(),
+            /* shouldRunTests= */ shouldRunTests()));
   }
 
   public ImmutableList<String> getAspects() {
-    List<String> aspects = getBuildOptions().aspects;
+    List<String> aspects = getBuildOptions().getAspects();
     ImmutableList.Builder<String> result = ImmutableList.<String>builder().addAll(aspects);
     if (!aspects.contains(AspectCollection.VALIDATION_ASPECT_NAME) && useValidationAspect()) {
       result.add(AspectCollection.VALIDATION_ASPECT_NAME);
@@ -434,7 +436,8 @@ public class BuildRequest implements OptionsProvider {
 
   @Nullable
   public ImmutableMap<String, String> getAspectsParameters() throws ViewCreationFailedException {
-    List<Map.Entry<String, String>> aspectsParametersList = getBuildOptions().aspectsParameters;
+    List<Map.Entry<String, String>> aspectsParametersList =
+        getBuildOptions().getAspectsParameters();
     try {
       return aspectsParametersList.stream()
           .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -457,10 +460,10 @@ public class BuildRequest implements OptionsProvider {
 
   private OutputGroupInfo.ValidationMode validationMode() {
     BuildRequestOptions buildOptions = getBuildOptions();
-    if (!buildOptions.runValidationActions) {
+    if (!buildOptions.getRunValidationActions()) {
       return OutputGroupInfo.ValidationMode.OFF;
     }
-    return buildOptions.useValidationAspect
+    return buildOptions.getUseValidationAspect()
         ? OutputGroupInfo.ValidationMode.ASPECT
         : OutputGroupInfo.ValidationMode.OUTPUT_GROUP;
   }

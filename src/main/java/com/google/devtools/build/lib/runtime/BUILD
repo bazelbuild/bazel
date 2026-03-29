@@ -13,7 +13,7 @@ filegroup(
 
 java_library(
     name = "blaze_server_startup_options",
-    srcs = ["BlazeServerStartupOptions.java"],
+    srcs = ["BlazeServerStartupOptionsFields.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",

@@ -1969,7 +1969,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       EvaluationContext evaluationContext =
           newEvaluationContextBuilder()
               .setKeepGoing(options.getOptions(KeepGoingOption.class).keepGoing)
-              .setParallelism(options.getOptions(BuildRequestOptions.class).jobs)
+              .setParallelism(options.getOptions(BuildRequestOptions.class).getJobs())
               .setEventHandler(reporter)
               .setExecutionPhase()
               .build();
@@ -2037,7 +2037,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       return evaluate(
           testKeys,
           /* keepGoing= */ options.getOptions(KeepGoingOption.class).keepGoing,
-          /* numThreads= */ options.getOptions(BuildRequestOptions.class).jobs,
+          /* numThreads= */ options.getOptions(BuildRequestOptions.class).getJobs(),
           reporter);
     } finally {
       // Also releases thread locks.
@@ -3744,7 +3744,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
     }
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    int fsvcThreads = buildRequestOptions == null ? 200 : buildRequestOptions.fsvcThreads;
+    int fsvcThreads = buildRequestOptions == null ? 200 : buildRequestOptions.getFsvcThreads();
     try (SilentCloseable c =
         Profiler.instance().profile("handleDiffsWithCompleteDiffInformation")) {
       handleDiffsWithCompleteDiffInformation(tsgm, modifiedFilesByPathEntry, fsvcThreads);

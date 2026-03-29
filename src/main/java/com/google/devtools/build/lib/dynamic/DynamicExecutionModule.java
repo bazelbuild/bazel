@@ -78,7 +78,7 @@ public class DynamicExecutionModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment env) {
     var buildRequestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
-    if (buildRequestOptions != null && buildRequestOptions.useAsyncExecution) {
+    if (buildRequestOptions != null && buildRequestOptions.getUseAsyncExecution()) {
       executorService =
           Executors.newThreadPerTaskExecutor(
               Thread.ofVirtual().name("dynamic-execution-thread-", 0).factory());
@@ -153,7 +153,7 @@ public class DynamicExecutionModule extends BlazeModule {
         registryBuilder,
         options,
         execOptions.getLocalResources().get(ResourceSet.CPU).intValue(),
-        env.getOptions().getOptions(BuildRequestOptions.class).jobs);
+        env.getOptions().getOptions(BuildRequestOptions.class).getJobs());
   }
 
   // CommandEnvironment is difficult to access in tests, so use this method for testing.

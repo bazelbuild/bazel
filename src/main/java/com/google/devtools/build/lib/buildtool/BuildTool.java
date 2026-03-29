@@ -539,7 +539,7 @@ public class BuildTool {
       // TODO(twerth): Extract embedded tool setup from execution tool and move object creation to
       // execution phase.
       executionTool = new ExecutionTool(env, request);
-      if (request.getBuildOptions().performAnalysisPhase) {
+      if (request.getBuildOptions().getPerformAnalysisPhase()) {
         if (!analysisResult.getExclusiveTests().isEmpty()
             && executionTool.getTestActionContext().forceExclusiveTestsInParallel()) {
           String testStrategy = request.getOptions(ExecutionOptions.class).testStrategy;
@@ -589,12 +589,12 @@ public class BuildTool {
         // Only run this post-build step for builds with SequencedSkyframeExecutor. Enabling the
         // aquery dump format feature will disable Skymeld, so it only runs in the non-Skymeld path.
         if ((env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor)
-            && request.getBuildOptions().aqueryDumpAfterBuildFormat != null) {
+            && request.getBuildOptions().getAqueryDumpAfterBuildFormat() != null) {
           try (SilentCloseable c = Profiler.instance().profile("postExecutionDumpSkyframe")) {
             dumpSkyframeStateAfterBuild(
                 request.getOptions(BuildEventProtocolOptions.class),
-                request.getBuildOptions().aqueryDumpAfterBuildFormat,
-                request.getBuildOptions().aqueryDumpAfterBuildOutputFile);
+                request.getBuildOptions().getAqueryDumpAfterBuildFormat(),
+                request.getBuildOptions().getAqueryDumpAfterBuildOutputFile());
           } catch (CommandLineExpansionException | IOException | TemplateExpansionException e) {
             throw new PostExecutionDumpException(e);
           } catch (InvalidAqueryOutputFormatException e) {
@@ -942,12 +942,12 @@ public class BuildTool {
       }
 
       if (env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor
-          && request.getBuildOptions().skyframeMemoryDump != null) {
+          && request.getBuildOptions().getSkyframeMemoryDump() != null) {
         try (SilentCloseable c = Profiler.instance().profile("BuildTool.dumpSkyframeMemory")) {
           dumpSkyframeMemory(
               result,
               request.getOptions(BuildEventProtocolOptions.class),
-              request.getBuildOptions().skyframeMemoryDump);
+              request.getBuildOptions().getSkyframeMemoryDump());
         }
       }
     } catch (BuildFailedException e) {
@@ -1161,7 +1161,7 @@ public class BuildTool {
 
   /** Initializes the output filter to the value given with {@code --output_filter}. */
   private void initializeOutputFilter(BuildRequest request) {
-    RegexPatternOption outputFilterOption = request.getBuildOptions().outputFilter;
+    RegexPatternOption outputFilterOption = request.getBuildOptions().getOutputFilter();
     if (outputFilterOption != null) {
       getReporter()
           .setOutputFilter(
@@ -1170,7 +1170,7 @@ public class BuildTool {
   }
 
   private static boolean needsExecutionPhase(BuildRequestOptions options) {
-    return options.performAnalysisPhase && options.performExecutionPhase;
+    return options.getPerformAnalysisPhase() && options.getPerformExecutionPhase();
   }
 
   /**

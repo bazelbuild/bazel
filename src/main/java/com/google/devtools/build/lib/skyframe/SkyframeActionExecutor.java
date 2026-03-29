@@ -342,8 +342,8 @@ public final class SkyframeActionExecutor {
     // Don't cache possibly stale data from the last build.
     this.options = options;
     // Cache some option values for performance, since we consult them on every action.
-    this.finalizeActions = buildRequestOptions.finalizeActions;
-    this.rewindingEnabled = buildRequestOptions.rewindLostInputs;
+    this.finalizeActions = buildRequestOptions.getFinalizeActions();
+    this.rewindingEnabled = buildRequestOptions.getRewindLostInputs();
     this.invocationRetriesEnabled =
         options.getOptions(ExecutionOptions.class).remoteRetryOnTransientCacheError > 0;
     this.outputService = checkNotNull(outputService);
@@ -357,17 +357,17 @@ public final class SkyframeActionExecutor {
     this.freeDiscoveredInputsAfterExecution =
         !keepStateAfterBuild && options.getOptions(CoreOptions.class).actionListeners.isEmpty();
 
-    boolean useAsyncExecution = buildRequestOptions.useAsyncExecution;
+    boolean useAsyncExecution = buildRequestOptions.getUseAsyncExecution();
 
     this.cacheHitSemaphore =
         (!useAsyncExecution && options.getOptions(CoreOptions.class).throttleActionCacheCheck)
             ? new Semaphore(Runtime.getRuntime().availableProcessors())
             : null;
 
-    var minActiveAction = buildRequestOptions.jobs;
+    var minActiveAction = buildRequestOptions.getJobs();
     var maxActiveAction =
         useAsyncExecution
-            ? min(MAX_JOBS, buildRequestOptions.asyncExecutionMaxConcurrentActions)
+            ? min(MAX_JOBS, buildRequestOptions.getAsyncExecutionMaxConcurrentActions())
             : minActiveAction;
     this.actionConcurrencyMeter =
         new ActionConcurrencyMeter(minActiveAction, max(minActiveAction, maxActiveAction));
@@ -757,7 +757,9 @@ public final class SkyframeActionExecutor {
         Profiler.instance().profile(ProfilerTask.ACTION_CHECK, action.describe())) {
       outputChecker = outputService.getOutputChecker();
       handler =
-          options.getOptions(BuildRequestOptions.class).explanationPath != null ? reporter : null;
+          options.getOptions(BuildRequestOptions.class).getExplanationPath() != null
+              ? reporter
+              : null;
       token =
           actionCacheChecker.getTokenIfNeedToExecute(
               action,

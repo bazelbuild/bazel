@@ -112,7 +112,7 @@ public final class AnalysisPhaseRunner {
     env.throwPendingException();
 
     AnalysisResult analysisResult = null;
-    if (request.getBuildOptions().performAnalysisPhase) {
+    if (request.getBuildOptions().getPerformAnalysisPhase()) {
       Profiler.instance().markPhase(ProfilePhase.ANALYZE);
 
       try (SilentCloseable c = Profiler.instance().profile("runAnalysisPhase")) {
@@ -227,7 +227,7 @@ public final class AnalysisPhaseRunner {
     }
 
     if (!Strings.isNullOrEmpty(buildOptions.get(CoreOptions.class).sclConfig)
-        || request.getBuildOptions().enforceProjectConfigs) {
+        || request.getBuildOptions().getEnforceProjectConfigs()) {
       featureFlags.add(SCL_CONFIG);
     }
 
@@ -303,7 +303,7 @@ public final class AnalysisPhaseRunner {
               allOptionNames,
               userOptions,
               env.getConfigFlagDefinitions(),
-              request.getBuildOptions().enforceProjectConfigs,
+              request.getBuildOptions().getEnforceProjectConfigs(),
               env.getReporter(),
               env.getSkyframeExecutor());
       resultBuilder.buildOptions(options);

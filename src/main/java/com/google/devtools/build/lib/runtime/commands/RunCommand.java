@@ -300,7 +300,7 @@ public class RunCommand implements BlazeCommand {
         env.getRuntime()
             .getStartupOptionsProvider()
             .getOptions(BlazeServerStartupOptions.class)
-            .batch;
+            .getBatch();
     TreeMap<String, String> finalRunEnv = new TreeMap<>(runCommandLine.getEnvironment());
     if (batchMode) {
       // In --batch, prioritize original client env-var values over those added by the c++ launcher.
@@ -873,7 +873,6 @@ public class RunCommand implements BlazeCommand {
             env.getRelativeWorkingDirectory(),
             requestOptions.getSymlinkPrefix(env.getRuntime().getProductName()),
             builtTargets.convenienceSymlinks);
-
     RunCommandLine.Builder runCommandLine =
         new RunCommandLine.Builder(
             runEnvironment,

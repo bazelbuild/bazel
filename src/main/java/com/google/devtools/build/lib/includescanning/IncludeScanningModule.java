@@ -366,7 +366,7 @@ public class IncludeScanningModule extends BlazeModule {
 
   private static boolean useAsyncExecution(CommandEnvironment env) {
     var buildRequestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
-    return buildRequestOptions != null && buildRequestOptions.useAsyncExecution;
+    return buildRequestOptions != null && buildRequestOptions.getUseAsyncExecution();
   }
 
   private static boolean shouldShuffle(CommandEnvironment env) {

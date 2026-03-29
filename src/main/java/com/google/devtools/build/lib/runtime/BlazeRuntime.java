@@ -1125,7 +1125,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               delayedJniLinkingError,
               /* abruptShutdownHandler= */ null);
       startupOptions = runtime.startupOptionsProvider.getOptions(BlazeServerStartupOptions.class);
-      policy = InvocationPolicyParser.parsePolicy(startupOptions.invocationPolicy);
+      policy = InvocationPolicyParser.parsePolicy(startupOptions.getInvocationPolicy());
     } catch (OptionsParsingException e) {
       OutErr.SYSTEM_OUT_ERR.printErrLn(e.getMessage());
       return ExitCode.COMMAND_LINE_ERROR.getNumericExitCode();
@@ -1153,7 +1153,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               commandLineOptions.getOtherArgs(),
               OutErr.SYSTEM_OUT_ERR,
               LockingMode.ERROR_OUT,
-              startupOptions.quiet ? UiVerbosity.QUIET : UiVerbosity.NORMAL,
+              startupOptions.getQuiet() ? UiVerbosity.QUIET : UiVerbosity.NORMAL,
               "batch client",
               runtime.clock.currentTimeMillis(),
               Optional.of(startupOptionsFromCommandLine.build()),
@@ -1265,12 +1265,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               shutdownHooks,
               pidFileWatcher,
               runtime.clock,
-              startupOptions.commandPort,
+              startupOptions.getCommandPort(),
               runtime.getServerDirectory(),
               serverPid,
-              startupOptions.maxIdleSeconds,
-              startupOptions.shutdownOnLowSysMem,
-              startupOptions.idleServerTasks,
+              startupOptions.getMaxIdleSeconds(),
+              startupOptions.getShutdownOnLowSysMem(),
+              startupOptions.getIdleServerTasks(),
               getSlowInterruptMessageSuffix(blazeModules));
       commandServerRef.set(commandServer);
 
@@ -1323,7 +1323,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         OptionsParser.builder().optionsClasses(optionClasses).allowResidue(false).build();
     parser.parse(PriorityCategory.COMMAND_LINE, null, args);
     Map<String, String> optionSources =
-        parser.getOptions(BlazeServerStartupOptions.class).optionSources;
+        parser.getOptions(BlazeServerStartupOptions.class).getOptionSources();
     Function<OptionDefinition, String> sourceFunction =
         option ->
             !optionSources.containsKey(option.getOptionName())
@@ -1364,7 +1364,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
     // Set up the failure detail path first, so that it can communicate problems with other flags
     // and module initialization.
-    PathFragment failureDetailOut = startupOptions.failureDetailOut;
+    PathFragment failureDetailOut = startupOptions.getFailureDetailOut();
     if (failureDetailOut == null || !failureDetailOut.isAbsolute()) { // (includes "" default case)
       throw new IllegalArgumentException(
           "Bad --failure_detail_out option specified: '" + failureDetailOut + "'");
@@ -1379,13 +1379,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       module.globalInit(options, blazeServices);
     }
 
-    String productName = startupOptions.productName.toLowerCase(Locale.US);
+    String productName = startupOptions.getProductName().toLowerCase(Locale.US);
 
-    PathFragment workspaceDirectory = startupOptions.workspaceDirectory;
+    PathFragment workspaceDirectory = startupOptions.getWorkspaceDirectory();
 
-    PathFragment outputUserRoot = startupOptions.outputUserRoot;
-    PathFragment installBase = startupOptions.installBase;
-    PathFragment outputBase = startupOptions.outputBase;
+    PathFragment outputUserRoot = startupOptions.getOutputUserRoot();
+    PathFragment installBase = startupOptions.getInstallBase();
+    PathFragment outputBase = startupOptions.getOutputBase();
     PathFragment execRootBase = outputBase.getRelative(ServerDirectories.EXECROOT);
 
     // Emit a helpful error message (now that we have the install base path handy) if we detected a
@@ -1446,7 +1446,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     FileSystem fs = MoreObjects.firstNonNull(maybeFsForBuildArtifacts, nativeFs);
 
     FileSystemLock installBaseLock = null;
-    if (startupOptions.lockInstallBase) {
+    if (startupOptions.getLockInstallBase()) {
       // Acquire a shared lock on the install base to prevent it from being garbage collected by
       // another server while this server is running. Note that the client must already hold a
       // shared lock on the install base at this time (which it will release once it successfully
@@ -1476,7 +1476,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       }
     }
     if (currentHandlerValue == null) {
-      if (startupOptions.fatalEventBusExceptions) {
+      if (startupOptions.getFatalEventBusExceptions()) {
         currentHandlerValue = (exception, context) -> BugReport.handleCrash(exception);
       } else {
         currentHandlerValue =
@@ -1526,7 +1526,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       workspaceDirectoryPath = nativeFs.getPath(workspaceDirectory);
     }
 
-
     ServerDirectories serverDirectories =
         new ServerDirectories(
             installBasePath,
@@ -1534,7 +1533,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             outputUserRootPath,
             execRootBasePath,
             virtualSourceRoot.orElse(null),
-            startupOptions.installMD5);
+            startupOptions.getInstallMD5());
     Clock clock = BlazeClock.instance();
     BlazeRuntime.Builder runtimeBuilder =
         new BlazeRuntime.Builder()

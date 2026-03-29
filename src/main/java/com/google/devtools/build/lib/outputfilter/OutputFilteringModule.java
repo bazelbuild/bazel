@@ -78,8 +78,8 @@ public final class OutputFilteringModule extends BlazeModule {
   public void buildStarting(BuildStartingEvent event) {
     BuildRequestOptions requestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
     Pattern outputFilter =
-        (requestOptions != null) && (requestOptions.outputFilter != null)
-            ? requestOptions.outputFilter.regexPattern()
+        (requestOptions != null) && (requestOptions.getOutputFilter() != null)
+            ? requestOptions.getOutputFilter().regexPattern()
             : null;
     if (outputFilter != null) {
       // Coarse-grained initialization of the output filter. This only has an

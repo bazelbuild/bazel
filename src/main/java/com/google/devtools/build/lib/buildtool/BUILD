@@ -13,7 +13,7 @@ filegroup(
 
 java_library(
     name = "build_request_options",
-    srcs = ["BuildRequestOptions.java"],
+    srcs = ["BuildRequestOptionsFields.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
@@ -130,7 +130,7 @@ java_library(
     srcs = glob(
         ["*.java"],
         exclude = [
-            "BuildRequestOptions.java",
+            "BuildRequestOptionsFields.java",
             "BuildRequest.java",
             "BuildResult.java",
             "CommandPrecompleteEvent.java",
@@ -260,7 +260,6 @@ java_library(
         "//src/main/protobuf:action_cache_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
-        "//third_party:error_prone_annotations",
         "//third_party:flogger",
         "//third_party:gson",
         "//third_party:guava",

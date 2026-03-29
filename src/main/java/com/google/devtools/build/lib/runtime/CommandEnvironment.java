@@ -876,7 +876,7 @@ public class CommandEnvironment {
     var keepStateAfterBuildOption = options.getOptions(KeepStateAfterBuildOption.class);
     var analysisOptions = options.getOptions(AnalysisOptions.class);
     skyframeExecutor.decideKeepIncrementalState(
-        runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).batch,
+        runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).getBatch(),
         keepStateAfterBuildOption.keepStateAfterBuild,
         commonOptions.trackIncrementalState,
         commonOptions.heuristicallyDropNodes,
@@ -1021,7 +1021,7 @@ public class CommandEnvironment {
       if (outputDirectoryHelper == null) {
         var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
         outputDirectoryHelper =
-            new ActionOutputDirectoryHelper(buildRequestOptions.directoryCreationCacheSpec);
+            new ActionOutputDirectoryHelper(buildRequestOptions.getDirectoryCreationCacheSpec());
       }
       return outputDirectoryHelper;
     }

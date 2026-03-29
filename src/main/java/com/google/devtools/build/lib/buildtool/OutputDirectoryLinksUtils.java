@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.SymlinkDefinition;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.ConvenienceSymlink;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.ConvenienceSymlink.Action;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptions.ConvenienceSymlinksMode;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptionsFields.ConvenienceSymlinksMode;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -101,7 +101,7 @@ public final class OutputDirectoryLinksUtils {
     Path execRoot = directories.getExecRoot(workspaceName);
     Path outputPath = directories.getOutputPath(workspaceName);
     String symlinkPrefix = buildRequestOptions.getSymlinkPrefix(productName);
-    ConvenienceSymlinksMode mode = buildRequestOptions.experimentalConvenienceSymlinks;
+    ConvenienceSymlinksMode mode = buildRequestOptions.getExperimentalConvenienceSymlinks();
     if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
       return EMPTY_SYMLINK_CREATION_RESULT;
     }
@@ -320,7 +320,7 @@ public final class OutputDirectoryLinksUtils {
                 RepositoryName repositoryName,
                 Path outputPath,
                 Path execRoot) {
-              if (buildRequestOptions.incompatibleSkipGenfilesSymlink) {
+              if (buildRequestOptions.getIncompatibleSkipGenfilesSymlink()) {
                 return ImmutableSet.of();
               }
               return super.getLinkPaths(

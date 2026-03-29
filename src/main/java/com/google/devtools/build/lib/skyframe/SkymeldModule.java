@@ -41,7 +41,7 @@ public class SkymeldModule extends BlazeModule {
     // --nobuild means no execution will be carried out, hence it doesn't make sense to interleave
     // analysis and execution in that case and --experimental_merged_skyframe_analysis_execution
     // should be ignored.
-    if (effectiveValue && !buildRequestOptions.performExecutionPhase) {
+    if (effectiveValue && !buildRequestOptions.getPerformExecutionPhase()) {
       // Aquery and Cquery implicitly set --nobuild, so there's no need to have a warning here: it
       // makes no different from the users' perspective.
       if (!(commandName.equals("aquery") || commandName.equals("cquery"))) {
@@ -52,7 +52,7 @@ public class SkymeldModule extends BlazeModule {
       effectiveValue = false;
     }
     // TODO(b/245922903): Make --explain compatible with Skymeld.
-    if (effectiveValue && buildRequestOptions.explanationPath != null) {
+    if (effectiveValue && buildRequestOptions.getExplanationPath() != null) {
       logger.atInfo().log(
           "--experimental_merged_skyframe_analysis_execution is incompatible with --explain"
               + " and will be ignored.");
@@ -81,8 +81,8 @@ public class SkymeldModule extends BlazeModule {
     }
 
     if (effectiveValue
-        && (buildRequestOptions.aqueryDumpAfterBuildFormat != null
-            || buildRequestOptions.aqueryDumpAfterBuildOutputFile != null)) {
+        && (buildRequestOptions.getAqueryDumpAfterBuildFormat() != null
+            || buildRequestOptions.getAqueryDumpAfterBuildOutputFile() != null)) {
       logger.atInfo().log(
           "--experimental_merged_skyframe_analysis_execution is incompatible with"
               + " generating an aquery dump after builds and its value will be ignored.");
@@ -104,6 +104,6 @@ public class SkymeldModule extends BlazeModule {
 
   static boolean getPlainValueFromFlag(BuildRequestOptions buildRequestOptions) {
     return buildRequestOptions != null
-        && buildRequestOptions.mergedSkyframeAnalysisExecutionDoNotUseDirectly;
+        && buildRequestOptions.getMergedSkyframeAnalysisExecutionDoNotUseDirectly();
   }
 }

@@ -89,7 +89,7 @@ public final class AnalysisAndExecutionPhaseRunner {
     env.throwPendingException();
 
     AnalysisAndExecutionResult analysisAndExecutionResult = null;
-    if (request.getBuildOptions().performAnalysisPhase) {
+    if (request.getBuildOptions().getPerformAnalysisPhase()) {
       Profiler.instance().markPhase(ProfilePhase.ANALYZE_AND_EXECUTE);
 
       try (SilentCloseable c = Profiler.instance().profile("runAnalysisAndExecutionPhase");
@@ -198,7 +198,7 @@ public final class AnalysisAndExecutionPhaseRunner {
             env.getEventBus(),
             env.getRuntime().getBugReporter(),
             /* includeExecutionPhase= */ true,
-            request.getBuildOptions().skymeldAnalysisOverlapPercentage,
+            request.getBuildOptions().getSkymeldAnalysisOverlapPercentage(),
             env.getLocalResourceManager(),
             env.getBuildResultListener(),
             executionSetupCallback,
