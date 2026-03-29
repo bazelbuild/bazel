@@ -1,5 +1,7 @@
 # [Bazel](https://bazel.build)
 
+[![gitcgr](https://gitcgr.com/badge/bazelbuild/bazel.svg)](https://gitcgr.com/bazelbuild/bazel)
+
 *{Fast, Correct} - Choose two*
 
 Build and test software of any size, quickly and reliably.
