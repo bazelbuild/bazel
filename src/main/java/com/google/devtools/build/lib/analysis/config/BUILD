@@ -40,7 +40,6 @@ java_library(
 java_library(
     name = "build_configuration",
     srcs = [
-        "BuildConfigurationInfo.java",
         "BuildConfigurationValue.java",
         "OutputDirectories.java",
         "OutputPathMnemonicComputer.java",
@@ -48,6 +47,7 @@ java_library(
         "TopLevelConfigRequestedEvent.java",
     ],
     deps = [
+        ":build_configuration_info",
         ":build_option_details",
         ":build_options",
         ":compilation_mode",
@@ -535,5 +535,16 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "build_configuration_info",
+    srcs = ["BuildConfigurationInfo.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:build_configuration_event",
+        "//src/main/java/com/google/devtools/build/lib/actions:commandline_limits",
+        "//third_party:auto_value",
+        "//third_party:jsr305",
     ],
 )
