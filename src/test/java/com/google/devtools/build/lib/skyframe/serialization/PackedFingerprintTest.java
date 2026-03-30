@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint.offsetZeros;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
@@ -35,50 +34,6 @@ public final class PackedFingerprintTest {
 
       PackedFingerprint fingerprint = PackedFingerprint.fromBytes(bytes);
       assertThat(fingerprint.toBytes()).isEqualTo(bytes);
-    }
-  }
-
-  @Test
-  public void zeroOffsetConversion_correctBytes() {
-    for (int i = 0; i < 10_000; i++) {
-      byte[] bytes = randomFingerprintBytes();
-
-      PackedFingerprint fingerprint = PackedFingerprint.fromBytesOffsetZeros(bytes);
-      byte[] outBytes = fingerprint.toBytes();
-      assertThat(bytes).hasLength(outBytes.length);
-      for (int j = 0; j < bytes.length; j++) {
-        byte nextByte = bytes[j];
-        assertThat(outBytes[j]).isEqualTo(nextByte == 0 ? 1 : nextByte);
-      }
-    }
-  }
-
-  @Test
-  public void offsetZeros_identity() {
-    long input = HexFormat.fromHexDigitsToLong("0102030405060708");
-    assertThat(offsetZeros(input)).isEqualTo(input);
-  }
-
-  @Test
-  public void offsetZeros_convertsAllZeros() {
-    assertThat(offsetZeros(0)).isEqualTo(0x0101_0101_0101_0101L);
-  }
-
-  @Test
-  public void offsetZeros_preservesOnesWithCarry() {
-    // This exercises the case of where the MSB becomes 1 in case (1b).
-    assertThat(offsetZeros(0x0101_0101_0101_0100L)).isEqualTo(0x0101_0101_0101_0101L);
-  }
-
-  @Test
-  public void offsetZeros_randomLongs() {
-    for (int i = 0; i < 10_000; i++) {
-      long next = rng.nextLong();
-      long out = offsetZeros(next);
-      for (int j = 0; j < 8; j++) {
-        byte nextByte = kthByte(next, j);
-        assertThat(kthByte(out, j)).isEqualTo(nextByte == 0 ? 1 : nextByte);
-      }
     }
   }
 
@@ -122,10 +77,6 @@ public final class PackedFingerprintTest {
     byte[] bytes = new byte[PackedFingerprint.BYTES];
     rng.nextBytes(bytes);
     return bytes;
-  }
-
-  private static byte kthByte(long n, int k) {
-    return (byte) ((n >>> (8 * k)) & (byte) 0xFF);
   }
 
   private static byte[] parseHex(String hex) {
