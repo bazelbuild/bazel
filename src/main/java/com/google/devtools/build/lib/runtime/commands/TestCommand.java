@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.TestingCompleteEvent;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.ExecutionOptions.TestOutputFormat;
+import com.google.devtools.build.lib.exec.ExecutionOptionsFields.TestOutputFormat;
 import com.google.devtools.build.lib.runtime.AggregatingTestListener;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
@@ -81,9 +81,9 @@ public class TestCommand implements BlazeCommand {
 
   @Override
   public void editOptions(OptionsParser optionsParser) {
-    TestOutputFormat testOutput = optionsParser.getOptions(ExecutionOptions.class).testOutput;
+    TestOutputFormat testOutput = optionsParser.getOptions(ExecutionOptions.class).getTestOutput();
     try {
-      if (testOutput == ExecutionOptions.TestOutputFormat.STREAMED) {
+      if (testOutput == TestOutputFormat.STREAMED) {
         optionsParser.parse(
             PriorityCategory.SOFTWARE_REQUIREMENT,
             "streamed output requires locally run tests, without sharding",
@@ -96,8 +96,8 @@ public class TestCommand implements BlazeCommand {
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
-    TestOutputFormat testOutput = options.getOptions(ExecutionOptions.class).testOutput;
-    if (testOutput == ExecutionOptions.TestOutputFormat.STREAMED) {
+    TestOutputFormat testOutput = options.getOptions(ExecutionOptions.class).getTestOutput();
+    if (testOutput == TestOutputFormat.STREAMED) {
       env.getReporter()
           .handle(
               Event.warn(

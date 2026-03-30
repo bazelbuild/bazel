@@ -340,7 +340,7 @@ public class RunCommand implements BlazeCommand {
     }
 
     ExecutionOptions executionOptions = options.getOptions(ExecutionOptions.class);
-    ActionExecutionContext.ShowSubcommands showSubcommands = executionOptions.showSubcommands;
+    ActionExecutionContext.ShowSubcommands showSubcommands = executionOptions.getShowSubcommands();
 
     String commandDescription;
     if (showSubcommands != ActionExecutionContext.ShowSubcommands.FALSE) {

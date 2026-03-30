@@ -517,7 +517,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
         boolean newStatsSummary =
             options.getOptions(ExecutionOptions.class) != null
-                && options.getOptions(ExecutionOptions.class).statsSummary;
+                && options.getOptions(ExecutionOptions.class).getStatsSummary();
         UiEventHandler handler =
             createEventHandler(outErr, eventHandlerOptions, quiet, env, newStatsSummary);
         env.setUiEventHandler(handler);
@@ -778,7 +778,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       if (newResult.getExitCode().equals(ExitCode.REMOTE_CACHE_EVICTED)) {
         var executionOptions =
             Preconditions.checkNotNull(options.getOptions(ExecutionOptions.class));
-        if (attemptedCommandIds.size() < executionOptions.remoteRetryOnTransientCacheError) {
+        if (attemptedCommandIds.size() < executionOptions.getRemoteRetryOnTransientCacheError()) {
           throw new RemoteCacheTransientErrorException(env.getBuildRequestId(), env.getCommandId());
         }
       }

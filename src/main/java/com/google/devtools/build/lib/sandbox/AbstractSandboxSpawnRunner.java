@@ -82,7 +82,8 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
   public AbstractSandboxSpawnRunner(CommandEnvironment cmdEnv) {
     this.sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
-    this.verboseFailures = cmdEnv.getOptions().getOptions(ExecutionOptions.class).verboseFailures;
+    this.verboseFailures =
+        cmdEnv.getOptions().getOptions(ExecutionOptions.class).getVerboseFailures();
     this.inaccessiblePaths =
         sandboxOptions.getInaccessiblePaths(cmdEnv.getRuntime().getFileSystem());
     this.binTools = cmdEnv.getBlazeWorkspace().getBinTools();

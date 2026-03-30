@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat;
+import com.google.devtools.build.lib.exec.ExecutionOptionsFields.TestSummaryFormat;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
@@ -576,8 +576,9 @@ public final class TerminalTestResultNotifierTest {
 
   private void printFailedToBuildSummaries(TestSummaryFormat testSummaryFormat)
       throws LabelSyntaxException {
-    ExecutionOptions executionOptions = ExecutionOptions.DEFAULTS;
-    executionOptions.testSummary = testSummaryFormat;
+    ExecutionOptions executionOptions =
+        com.google.devtools.common.options.Options.getDefaults(ExecutionOptions.class);
+    executionOptions.setTestSummary(testSummaryFormat);
     when(optionsParsingResult.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
     TestSummaryOptions testSummaryOptions = new TestSummaryOptions();
     testSummaryOptions.verboseSummary = true;
@@ -610,8 +611,9 @@ public final class TerminalTestResultNotifierTest {
   private void printTestCaseSummary(
       TestSummarySpec testSummarySpec, TestSummaryFormat testSummaryFormat)
       throws LabelSyntaxException {
-    ExecutionOptions executionOptions = ExecutionOptions.DEFAULTS;
-    executionOptions.testSummary = testSummaryFormat;
+    ExecutionOptions executionOptions =
+        com.google.devtools.common.options.Options.getDefaults(ExecutionOptions.class);
+    executionOptions.setTestSummary(testSummaryFormat);
     when(optionsParsingResult.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
     TestSummaryOptions testSummaryOptions = new TestSummaryOptions();
     testSummaryOptions.verboseSummary = true;

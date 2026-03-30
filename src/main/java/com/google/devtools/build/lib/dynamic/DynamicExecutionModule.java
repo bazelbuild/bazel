@@ -90,7 +90,7 @@ public class DynamicExecutionModule extends BlazeModule {
     env.getEventBus().register(this);
     com.google.devtools.build.lib.exec.ExecutionOptions executionOptions =
         env.getOptions().getOptions(com.google.devtools.build.lib.exec.ExecutionOptions.class);
-    verboseFailures = executionOptions != null && executionOptions.verboseFailures;
+    verboseFailures = executionOptions != null && executionOptions.getVerboseFailures();
     DynamicExecutionOptions dynamicOptions =
         env.getOptions().getOptions(DynamicExecutionOptions.class);
     localOptions = env.getOptions().getOptions(LocalExecutionOptions.class);

@@ -345,7 +345,7 @@ public final class SkyframeActionExecutor {
     this.finalizeActions = buildRequestOptions.getFinalizeActions();
     this.rewindingEnabled = buildRequestOptions.getRewindLostInputs();
     this.invocationRetriesEnabled =
-        options.getOptions(ExecutionOptions.class).remoteRetryOnTransientCacheError > 0;
+        options.getOptions(ExecutionOptions.class).getRemoteRetryOnTransientCacheError() > 0;
     this.outputService = checkNotNull(outputService);
     this.outputDirectoryHelper = outputDirectoryHelper;
 

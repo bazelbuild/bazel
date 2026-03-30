@@ -544,7 +544,7 @@ public class BuildTool {
       if (request.getBuildOptions().getPerformAnalysisPhase()) {
         if (!analysisResult.getExclusiveTests().isEmpty()
             && executionTool.getTestActionContext().forceExclusiveTestsInParallel()) {
-          String testStrategy = request.getOptions(ExecutionOptions.class).testStrategy;
+          String testStrategy = request.getOptions(ExecutionOptions.class).getTestStrategy();
           for (ConfiguredTarget test : analysisResult.getExclusiveTests()) {
             getReporter()
                 .handle(
@@ -653,7 +653,7 @@ public class BuildTool {
               new BuildDriverKeyTestContext() {
                 @Override
                 public String getTestStrategy() {
-                  return request.getOptions(ExecutionOptions.class).testStrategy;
+                  return request.getOptions(ExecutionOptions.class).getTestStrategy();
                 }
 
                 @Override
@@ -1158,7 +1158,7 @@ public class BuildTool {
   }
 
   private static boolean shouldStopOnFailure(BuildRequest request) {
-    return !(request.getKeepGoing() && request.getExecutionOptions().testKeepGoing);
+    return !(request.getKeepGoing() && request.getExecutionOptions().getTestKeepGoing());
   }
 
   /** Initializes the output filter to the value given with {@code --output_filter}. */

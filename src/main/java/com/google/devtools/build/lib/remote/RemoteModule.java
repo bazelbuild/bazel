@@ -379,7 +379,7 @@ public final class RemoteModule extends BlazeModule {
     boolean verboseFailures = false;
     ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
     if (executionOptions != null) {
-      verboseFailures = executionOptions.verboseFailures;
+      verboseFailures = executionOptions.getVerboseFailures();
     }
 
     // If --remote_cache is empty but --remote_executor is not, reuse the latter for the former.

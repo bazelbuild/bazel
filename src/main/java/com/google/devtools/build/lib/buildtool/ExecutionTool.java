@@ -203,7 +203,7 @@ public class ExecutionTool {
     // context class, but also the mnemonic of the action.
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     // TODO(jmmv): This should live in some testing-related Blaze module, not here.
-    actionContextRegistryBuilder.restrictTo(TestActionContext.class, options.testStrategy);
+    actionContextRegistryBuilder.restrictTo(TestActionContext.class, options.getTestStrategy());
 
     SpawnStrategyRegistry spawnStrategyRegistry = spawnStrategyRegistryBuilder.build();
     actionContextRegistryBuilder.register(SpawnStrategyRegistry.class, spawnStrategyRegistry);
@@ -979,15 +979,16 @@ public class ExecutionTool {
     resourceMgr.setAvailableResources(
         ResourceSet.create(
             options.getLocalResources(),
-            options.usingLocalTestJobs() ? options.localTestJobs : Integer.MAX_VALUE));
+            options.usingLocalTestJobs() ? options.getLocalTestJobs() : Integer.MAX_VALUE));
 
     resourceMgr.initializeCpuLoadFunctionality(
         MachineLoadProvider.instance(),
-        options.experimentalCpuLoadScheduling,
-        options.experimentalCpuLoadSchedulingWindowSize);
+        options.getExperimentalCpuLoadScheduling(),
+        options.getExperimentalCpuLoadSchedulingWindowSize());
     resourceMgr.scheduleCpuLoadWindowUpdate();
 
-    resourceMgr.setAllowOneActionOnResourceUnavailable(options.allowOneActionOnResourceUnavailable);
+    resourceMgr.setAllowOneActionOnResourceUnavailable(
+        options.getAllowOneActionOnResourceUnavailable());
   }
 
   /**
