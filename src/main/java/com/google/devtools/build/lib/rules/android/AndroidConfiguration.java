@@ -816,17 +816,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public Label optimizingDexer;
 
     @Option(
-        name = "experimental_disable_instrumentation_manifest_merge",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help =
-            "Disables manifest merging when an android_binary has instruments set (i.e. is used "
-                + "for instrumentation testing).")
-    public boolean disableInstrumentationManifestMerging;
-
-    @Option(
         name = "experimental_get_android_java_resources_from_optimized_jar",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -883,7 +872,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean outputLibraryMergedAssets;
   private final Label legacyMainDexListGenerator;
   private final Label optimizingDexer;
-  private final boolean disableInstrumentationManifestMerging;
   private final boolean getJavaResourcesFromOptimizedJar;
   private final boolean disableAndroidFragment;
 
@@ -927,7 +915,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.outputLibraryMergedAssets = options.outputLibraryMergedAssets;
     this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
     this.optimizingDexer = options.optimizingDexer;
-    this.disableInstrumentationManifestMerging = options.disableInstrumentationManifestMerging;
     this.getJavaResourcesFromOptimizedJar = options.getJavaResourcesFromOptimizedJar;
     this.disableAndroidFragment = options.disableAndroidFragment;
 
@@ -1130,10 +1117,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   boolean useRTxtFromMergedResources() {
     return useRTxtFromMergedResources;
-  }
-
-  public boolean disableInstrumentationManifestMerging() {
-    return disableInstrumentationManifestMerging;
   }
 
   @Override
