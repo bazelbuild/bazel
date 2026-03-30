@@ -28,7 +28,9 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -69,7 +71,13 @@ public class AbstractSpawnStrategyTest {
 
   private static class TestedSpawnStrategy extends AbstractSpawnStrategy {
     TestedSpawnStrategy(SpawnRunner spawnRunner) {
-      super(spawnRunner, new ExecutionOptions());
+      super(spawnRunner, createDefaultExecutionOptions());
+    }
+
+    private static ExecutionOptions createDefaultExecutionOptions() {
+      ExecutionOptions options = new ExecutionOptions();
+      options.showSubcommands = ActionExecutionContext.ShowSubcommands.FALSE;
+      return options;
     }
   }
 
@@ -309,6 +317,65 @@ public class AbstractSpawnStrategyTest {
     // Must only be called exactly once.
     verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionContext.class));
     verify(entry).store(eq(result));
+  }
+
+  @Test
+  public void testExpandParamFiles_noParamFiles() throws Exception {
+    Spawn spawn =
+        new SpawnBuilder("/bin/gcc", "-c", "foo.c", "-o", "foo.o").build();
+    ImmutableList<String> result = AbstractSpawnStrategy.expandParamFiles(spawn);
+    assertThat(result).containsExactly("/bin/gcc", "-c", "foo.c", "-o", "foo.o").inOrder();
+  }
+
+  @Test
+  public void testExpandParamFiles_expandsParamFileReference() throws Exception {
+    CommandLines.ParamFileActionInput paramFile =
+        new CommandLines.ParamFileActionInput(
+            PathFragment.create("output/foo-0.params"),
+            ImmutableList.of("-lfoo", "-lbar", "-lbaz"),
+            ParameterFileType.UNQUOTED);
+    Spawn spawn =
+        new SpawnBuilder("/bin/gcc", "@output/foo-0.params", "-o", "foo.o")
+            .withInput(paramFile)
+            .build();
+    ImmutableList<String> result = AbstractSpawnStrategy.expandParamFiles(spawn);
+    assertThat(result)
+        .containsExactly("/bin/gcc", "-lfoo", "-lbar", "-lbaz", "-o", "foo.o")
+        .inOrder();
+  }
+
+  @Test
+  public void testExpandParamFiles_multipleParamFiles() throws Exception {
+    CommandLines.ParamFileActionInput paramFile1 =
+        new CommandLines.ParamFileActionInput(
+            PathFragment.create("output/foo-0.params"),
+            ImmutableList.of("-lfoo", "-lbar"),
+            ParameterFileType.UNQUOTED);
+    CommandLines.ParamFileActionInput paramFile2 =
+        new CommandLines.ParamFileActionInput(
+            PathFragment.create("output/foo-1.params"),
+            ImmutableList.of("src1.o", "src2.o"),
+            ParameterFileType.UNQUOTED);
+    Spawn spawn =
+        new SpawnBuilder("/bin/gcc", "@output/foo-0.params", "@output/foo-1.params", "-o", "foo.o")
+            .withInput(paramFile1)
+            .withInput(paramFile2)
+            .build();
+    ImmutableList<String> result = AbstractSpawnStrategy.expandParamFiles(spawn);
+    assertThat(result)
+        .containsExactly("/bin/gcc", "-lfoo", "-lbar", "src1.o", "src2.o", "-o", "foo.o")
+        .inOrder();
+  }
+
+  @Test
+  public void testExpandParamFiles_unmatchedAtSignNotExpanded() throws Exception {
+    // An argument starting with @ that doesn't match any param file should be left alone.
+    Spawn spawn =
+        new SpawnBuilder("/bin/gcc", "@some/other/file", "-o", "foo.o").build();
+    ImmutableList<String> result = AbstractSpawnStrategy.expandParamFiles(spawn);
+    assertThat(result)
+        .containsExactly("/bin/gcc", "@some/other/file", "-o", "foo.o")
+        .inOrder();
   }
 
   @Test

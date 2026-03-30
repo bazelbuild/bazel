@@ -195,6 +195,18 @@ public class ExecutionOptions extends OptionsBase {
   public ShowSubcommands showSubcommands;
 
   @Option(
+      name = "expand_param_files",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "When displaying subcommands (--subcommands) or printing the command line of a failed"
+              + " action (--verbose_failures), expand the contents of param files. When enabled,"
+              + " param file references like @path/to/param_file are replaced with the actual"
+              + " arguments they contain.")
+  public boolean expandParamFiles;
+
+  @Option(
       name = "check_up_to_date",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
