@@ -117,32 +117,67 @@ public class ExecutionRequirements {
     }
   }
 
-  /** If specified, the timeout of this action in seconds. Must be decimal integer. */
+  /** The execution info key used to specify the timeout of an action. */
+  public static final String TIMEOUT_KEY = "timeout";
+
+  /** If specified, the timeout of this action as a duration. Accepts integer seconds or durations
+   *  with a unit suffix (e.g. {@code 30s}, {@code 5m}, {@code 1h}). */
   public static final ParseableRequirement TIMEOUT =
       ParseableRequirement.create(
-          "timeout:<int>",
+          "timeout:<duration>",
           Pattern.compile("timeout:(.+)"),
           s -> {
             Preconditions.checkNotNull(s);
 
-            int value;
-            try {
-              value = Integer.parseInt(s);
-            } catch (NumberFormatException e) {
-              return "can't be parsed as an integer";
+            long seconds = parseDurationToSeconds(s);
+            if (seconds < 0) {
+              return "can't be parsed as a duration (expected integer seconds or a value with a"
+                  + " unit suffix, e.g. '30s', '5m', '1h')";
             }
-
-            // De-and-reserialize & compare to only allow canonical integer formats.
-            if (!Integer.toString(value).equals(s)) {
-              return "must be in canonical format (e.g. '4' instead of '+04')";
-            }
-
-            if (value < 1) {
+            if (seconds == 0) {
               return "can't be zero or negative";
             }
-
             return null;
           });
+
+  /**
+   * Parses a duration string that is either a plain integer (interpreted as seconds) or an integer
+   * followed by a unit suffix ({@code s}, {@code m}, {@code h}).
+   *
+   * @return the duration in seconds, or {@code -1} if the string cannot be parsed.
+   */
+  public static long parseDurationToSeconds(String s) {
+    Preconditions.checkNotNull(s);
+    // Try plain integer first (backwards compatible: bare integer = seconds).
+    try {
+      long value = Long.parseLong(s);
+      // Only allow canonical format (e.g. '4' instead of '+04').
+      if (Long.toString(value).equals(s)) {
+        return value;
+      }
+    } catch (NumberFormatException ignored) {
+      // Fall through to try duration-unit syntax.
+    }
+    // Try duration with unit suffix.
+    java.util.regex.Matcher m = DURATION_PATTERN.matcher(s);
+    if (!m.matches()) {
+      return -1;
+    }
+    long amount;
+    try {
+      amount = Long.parseLong(m.group(1));
+    } catch (NumberFormatException e) {
+      return -1;
+    }
+    return switch (m.group(2)) {
+      case "s" -> amount;
+      case "m" -> amount * 60;
+      case "h" -> amount * 3600;
+      default -> -1;
+    };
+  }
+
+  private static final Pattern DURATION_PATTERN = Pattern.compile("^([0-9]+)(s|m|h)$");
 
   /** If an action would not successfully run other than on Darwin. */
   public static final String REQUIRES_DARWIN = "requires-darwin";

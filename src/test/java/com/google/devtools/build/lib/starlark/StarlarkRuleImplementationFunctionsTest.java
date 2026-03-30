@@ -461,7 +461,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   @Test
-  public void testCreateSpawnActionEnvAndExecInfo_withTimeout() throws Exception {
+  public void testCreateSpawnActionEnvAndExecInfo_withTimeoutKeyValue() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
     ev.exec(
@@ -480,6 +480,50 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     assertThat(action.getExecutionInfo())
         .containsExactly("timeout", "42");
+  }
+
+  @Test
+  public void testCreateSpawnActionEnvAndExecInfo_withTimeoutTag() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    ev.exec(
+        "ruleContext.actions.run_shell(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  execution_requirements = {",
+        "    'timeout:42': '',",
+        "  },",
+        "  mnemonic = 'DummyMnemonic',",
+        "  command = 'dummy_command',",
+        "  progress_message = 'dummy_message')");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getExecutionInfo())
+        .containsExactly("timeout:42", "");
+  }
+
+  @Test
+  public void testCreateSpawnActionEnvAndExecInfo_withTimeoutDurationUnit() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    ev.exec(
+        "ruleContext.actions.run_shell(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  execution_requirements = {",
+        "    'timeout:5m': '',",
+        "  },",
+        "  mnemonic = 'DummyMnemonic',",
+        "  command = 'dummy_command',",
+        "  progress_message = 'dummy_message')");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getExecutionInfo())
+        .containsExactly("timeout:5m", "");
   }
 
   @Test

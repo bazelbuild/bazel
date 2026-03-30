@@ -237,6 +237,19 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
   }
 
   @Test
+  public void testExecutionInfo_timeoutUnderscoreNotMatched() throws Exception {
+    scratch.file(
+        "tests/BUILD",
+        "load('//test_defs:foo_binary.bzl', 'foo_binary')",
+        "foo_binary(name = 'with-timeout-underscore', srcs=['sh.sh'], tags=['timeout_blah'])");
+
+    Rule rule = (Rule) getTarget("//tests:with-timeout-underscore");
+
+    Map<String, String> execInfo = TargetUtils.getExecutionInfo(rule);
+    assertThat(execInfo).isEmpty();
+  }
+
+  @Test
   public void testExecutionInfo_withLocalTag() throws Exception {
     scratch.file(
         "tests/BUILD",

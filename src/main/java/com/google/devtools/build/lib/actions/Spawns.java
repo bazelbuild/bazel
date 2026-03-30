@@ -166,16 +166,11 @@ public final class Spawns {
     Duration timeout = null;
 
     for (Map.Entry<String, String> entry: spawn.getExecutionInfo().entrySet()) {
-        String value = getTimeoutValueFromExecutionInfoKeyOrValue(spawn,entry);
+        String value = getTimeoutValueFromExecutionInfoKeyOrValue(spawn, entry);
         if (value != null) {
-            if (timeout != null) {
-                throw new UserExecException(
-                    FailureDetail.newBuilder()
-                        .setMessage("multiple timeout values specified")
-                        .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.DUPLICATE_TIMEOUT_TAGS))
-                        .build());
-            }
-            timeout = parseTimeoutValue(value);
+            Duration parsed = parseTimeoutValue(value);
+            // On duplicate timeout values, take the more permissive (larger) one.
+            timeout = (timeout == null) ? parsed : (parsed.compareTo(timeout) > 0 ? parsed : timeout);
         }
     }
 
@@ -207,7 +202,7 @@ private static String getTimeoutValueFromExecutionInfoKeyOrValue(Spawn spawn, Ma
                         String.format(
                             "%s has a '%s' tag, but its value '%s' didn't pass validation: %s",
                             spawn.getTargetLabel(), requirement.userFriendlyName(), e.getTagValue(), e.getMessage()))
-                    .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.INVALID_TIMEOUT_TAG))
+                    .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.TIMEOUT))
                     .build());
         }
     }
@@ -218,16 +213,16 @@ private static String getTimeoutValueFromExecutionInfoKeyOrValue(Spawn spawn, Ma
  * Parses a timeout value from a string and returns it as a {@link Duration}.
  */
 private static Duration parseTimeoutValue(String value) throws ExecException {
-    try {
-        return Duration.ofSeconds(Integer.parseInt(value));
-    } catch (NumberFormatException e) {
+    long seconds = ExecutionRequirements.parseDurationToSeconds(value);
+    if (seconds < 0) {
         throw new UserExecException(
-            e,
             FailureDetail.newBuilder()
-                .setMessage("could not parse timeout")
+                .setMessage(
+                    String.format("could not parse timeout value '%s'", value))
                 .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.INVALID_TIMEOUT))
                 .build());
     }
+    return Duration.ofSeconds(seconds);
 }
 
   /**
