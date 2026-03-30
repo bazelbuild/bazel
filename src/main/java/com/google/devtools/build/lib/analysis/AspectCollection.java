@@ -187,6 +187,14 @@ public final class AspectCollection {
     return this.usedAspects.equals(that.usedAspects);
   }
 
+  public ImmutableList<AspectKey> createAspectKeys(ConfiguredTargetKey baseKey) {
+    Map<AspectDescriptor, AspectKey> descriptorToAspectKey = new HashMap<>();
+    for (AspectCollection.AspectDeps aspectDeps : getUsedAspects()) {
+      buildAspectKey(aspectDeps, descriptorToAspectKey, baseKey);
+    }
+    return ImmutableList.copyOf(descriptorToAspectKey.values());
+  }
+
   /**
    * Represents an aspect with all the aspects it depends on (within an {@link AspectCollection}.
    *

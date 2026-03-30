@@ -17,19 +17,17 @@ package com.google.devtools.build.lib.packages;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Predicate;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -66,21 +64,21 @@ import net.starlark.java.syntax.Location;
 public class EnvironmentGroup implements Target {
   private final EnvironmentLabels environmentLabels;
   private final Location location;
-  private final Package containingPackage;
+  private final Packageoid containingPackageoid;
 
   /**
    * Predicate that matches labels from a different package than the initialized package.
    */
   private static final class DifferentPackage implements Predicate<Label> {
-    private final Package containingPackage;
+    private final Packageoid containingPackageoid;
 
-    private DifferentPackage(Package containingPackage) {
-      this.containingPackage = containingPackage;
+    private DifferentPackage(Packageoid containingPackageoid) {
+      this.containingPackageoid = containingPackageoid;
     }
 
     @Override
     public boolean apply(Label environment) {
-      return !environment.getPackageName().equals(containingPackage.getName());
+      return !environment.getPackageName().equals(containingPackageoid.getMetadata().getName());
     }
   }
 
@@ -96,13 +94,14 @@ public class EnvironmentGroup implements Target {
    */
   EnvironmentGroup(
       Label label,
-      Package pkg,
+      Packageoid packageoid,
       final List<Label> environments,
       List<Label> defaults,
       Location location) {
     this.environmentLabels = new EnvironmentLabels(label, environments, defaults);
     this.location = location;
-    this.containingPackage = pkg;
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): verify that packageoid is top-level.
+    this.containingPackageoid = packageoid;
   }
 
   public EnvironmentLabels getEnvironmentLabels() {
@@ -125,7 +124,8 @@ public class EnvironmentGroup implements Target {
 
     // All environments should belong to the same package as this group.
     for (Label environment :
-        Iterables.filter(environmentLabels.environments, new DifferentPackage(containingPackage))) {
+        Iterables.filter(
+            environmentLabels.environments, new DifferentPackage(containingPackageoid))) {
       events.add(
           Package.error(
               location,
@@ -174,7 +174,7 @@ public class EnvironmentGroup implements Target {
       }
     }
 
-    Map<Label, NestedSet<Label>> fulfillersMap = new HashMap<>();
+    Map<Label, ImmutableSortedSet<Label>> fulfillersMap = new HashMap<>();
     // Now that we know which environments directly fulfill each other, compute which environments
     // transitively fulfill each other. We could alternatively compute this on-demand, but since
     // we don't expect these chains to be very large we opt toward computing them once at package
@@ -189,27 +189,27 @@ public class EnvironmentGroup implements Target {
   }
 
   /**
-   * Given an environment and set of environments that directly fulfill it, computes a nested
-   * set of environments that <i>transitively</i> fulfill it, places it into transitiveFulfillers,
-   * and returns that set.
+   * Given an environment and set of environments that directly fulfill it, computes a nested set of
+   * environments that <i>transitively</i> fulfill it, places it into transitiveFulfillers, and
+   * returns that set.
    */
-  private static NestedSet<Label> setTransitiveFulfillers(Label env,
-      Multimap<Label, Label> directFulfillers, Map<Label, NestedSet<Label>> transitiveFulfillers) {
+  private static ImmutableSortedSet<Label> setTransitiveFulfillers(
+      Label env,
+      Multimap<Label, Label> directFulfillers,
+      Map<Label, ImmutableSortedSet<Label>> transitiveFulfillers) {
     if (transitiveFulfillers.containsKey(env)) {
       return transitiveFulfillers.get(env);
     } else if (!directFulfillers.containsKey(env)) {
       // Nobody fulfills this environment.
-      NestedSet<Label> emptySet = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-      transitiveFulfillers.put(env, emptySet);
-      return emptySet;
+      transitiveFulfillers.put(env, ImmutableSortedSet.of());
+      return ImmutableSortedSet.of();
     } else {
-      NestedSetBuilder<Label> set = NestedSetBuilder.stableOrder();
+      HashSet<Label> set = new HashSet<>();
       for (Label fulfillingEnv : directFulfillers.get(env)) {
         set.add(fulfillingEnv);
-        set.addTransitive(
-            setTransitiveFulfillers(fulfillingEnv, directFulfillers, transitiveFulfillers));
+        set.addAll(setTransitiveFulfillers(fulfillingEnv, directFulfillers, transitiveFulfillers));
       }
-      NestedSet<Label> builtSet = set.build();
+      ImmutableSortedSet<Label> builtSet = ImmutableSortedSet.copyOf(set);
       transitiveFulfillers.put(env, builtSet);
       return builtSet;
     }
@@ -262,8 +262,18 @@ public class EnvironmentGroup implements Target {
   }
 
   @Override
-  public Package getPackage() {
-    return containingPackage;
+  public Packageoid getPackageoid() {
+    return containingPackageoid;
+  }
+
+  @Override
+  public Package.Metadata getPackageMetadata() {
+    return containingPackageoid.getMetadata();
+  }
+
+  @Override
+  public Package.Declarations getPackageDeclarations() {
+    return containingPackageoid.getDeclarations();
   }
 
   @Override
@@ -289,11 +299,6 @@ public class EnvironmentGroup implements Target {
   @Override
   public String toString() {
     return targetKind() + " " + getLabel();
-  }
-
-  @Override
-  public Set<License.DistributionType> getDistributions() {
-    return Collections.emptySet();
   }
 
   @Override

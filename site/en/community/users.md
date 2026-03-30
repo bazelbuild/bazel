@@ -52,6 +52,13 @@ ASML is an innovation leader in the semiconductor industry. We provide chipmaker
 with everything they need – hardware, software and services – to mass produce
 patterns on silicon through lithography.
 
+### [Augment Code](https://augmentcode.com){: .external}
+
+Augment Code is the first Developer AI for teams.
+Every Augment feature is context aware. Every suggestion, completion, and
+interaction reflects the components, APIs, and coding patterns in your
+codebase to help your teams build better software.
+
 ### [Beeswax](https://www.beeswax.com/){: .external}
 
 > Beeswax is a New York based startup that provides real time bidding as
@@ -627,16 +634,16 @@ system.
 An elegant, formally-specified config generation language for JSON.
 (Bazel is a supported build system.)
 
-### [Kubernetes](https://github.com/kubernetes/kubernetes){: .external}
-
-<img src="https://raw.githubusercontent.com/kubernetes/kubernetes/master/logo/logo.png" width="80" align="right">
-Kubernetes is an open source system for managing containerized applications
-across multiple hosts, providing basic mechanisms for deployment, maintenance,
-and scaling of applications.
-
 ### [Kythe](https://github.com/google/kythe){: .external}
 
 An ecosystem for building tools that work with code.
+
+### [ls-lint](https://github.com/loeffel-io/ls-lint){: .external}
+
+<img src="https://raw.githubusercontent.com/loeffel-io/ls-lint/master/assets/logo/ls-lint.png" width="75" align="right">
+
+An extremely fast directory and filename linter - Bring some structure to your
+project file system.
 
 ### [Nomulus](https://github.com/google/nomulus){: .external}
 

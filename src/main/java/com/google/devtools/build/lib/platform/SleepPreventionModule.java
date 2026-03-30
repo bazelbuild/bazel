@@ -14,53 +14,31 @@
 
 package com.google.devtools.build.lib.platform;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.jni.JniLoader;
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 
 /** Prevents the computer from going to sleep while a Bazel command is running. */
 public final class SleepPreventionModule extends BlazeModule {
+  private PlatformNativeDepsService service;
 
-  /** Methods for dealing with sleep prevention on local hardware. */
-  @VisibleForTesting
-  public static final class SleepPrevention {
-
-    static {
-      JniLoader.loadJni();
-    }
-
-    private SleepPrevention() {}
-
-    /**
-     * Push a request to disable automatic sleep for hardware. Useful for making sure computers
-     * don't go to sleep during long builds. Must be matched with a {@link #popDisableSleep} call.
-     *
-     * @return 0 on success, -1 if sleep is not supported.
-     */
-    public static native int pushDisableSleep();
-
-    /**
-     * Pop a request to disable automatic sleep for hardware. Useful for making sure computers don't
-     * go to sleep during long builds. Must be matched with a previous {@link #pushDisableSleep}
-     * call.
-     *
-     * @return 0 on success, -1 if sleep is not supported.
-     */
-    public static native int popDisableSleep();
+  @Override
+  public void workspaceInit(
+      BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
+    service = checkNotNull(runtime.getBlazeService(PlatformNativeDepsService.class));
   }
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
-    if (JniLoader.isJniAvailable()) {
-      SleepPrevention.pushDisableSleep();
-    }
+    service.pushDisableSleep();
   }
 
   @Override
   public void afterCommand() {
-    if (JniLoader.isJniAvailable()) {
-      SleepPrevention.popDisableSleep();
-    }
+    service.popDisableSleep();
   }
 }

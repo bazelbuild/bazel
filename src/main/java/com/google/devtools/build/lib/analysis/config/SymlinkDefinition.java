@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Set;
-import java.util.function.Function;
 
 /** Represents a single kind of convenience symlink ({@code bazel-bin}, etc.). */
 public interface SymlinkDefinition {
@@ -43,9 +42,6 @@ public interface SymlinkDefinition {
    *     point to.
    * @param targetConfigs the configurations for which symlinks should be created. If these have
    *     conflicting requirements, multiple candidates are returned.
-   * @param configGetter used to compute derived configurations, if needed. This is used for
-   *     symlinks that link to the output directories of configs that are related to, but not
-   *     included in, {@code targetConfigs}.
    * @param repositoryName the repository name.
    * @param outputPath the output path.
    * @param execRoot the exec root.
@@ -53,7 +49,6 @@ public interface SymlinkDefinition {
   ImmutableSet<Path> getLinkPaths(
       BuildRequestOptions buildRequestOptions,
       Set<BuildConfigurationValue> targetConfigs,
-      Function<BuildOptions, BuildConfigurationValue> configGetter,
       RepositoryName repositoryName,
       Path outputPath,
       Path execRoot);

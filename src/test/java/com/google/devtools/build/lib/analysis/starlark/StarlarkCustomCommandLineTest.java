@@ -14,38 +14,54 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.TruthJUnit.assume;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ArgChunk;
-import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLine.SimpleArgChunk;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkCustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
+import com.google.devtools.build.lib.cmdline.BazelModuleKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
-import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.util.Arrays;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
@@ -59,27 +75,42 @@ import net.starlark.java.syntax.ParserInput;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link StarlarkCustomCommandLine}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class StarlarkCustomCommandLineTest {
-  private static final ArtifactExpander EMPTY_EXPANDER =
-      artifact -> {
-        throw new ArtifactExpander.MissingExpansionException("Missing expansion for " + artifact);
-      };
 
-  private final Scratch scratch = new Scratch();
-  private Path execRoot;
+  @TestParameter private boolean useNestedSet;
+
   private ArtifactRoot derivedRoot;
+  private DerivedArtifact artifact1;
+  private DerivedArtifact artifact2;
+  private DerivedArtifact artifact3;
+  private AbstractAction action;
 
   private final StarlarkCustomCommandLine.Builder builder =
       new StarlarkCustomCommandLine.Builder(StarlarkSemantics.DEFAULT);
 
   @Before
-  public void createArtifactRoot() throws IOException {
-    execRoot = scratch.dir("execroot");
-    derivedRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "bin");
+  public void createArtifacts() throws IOException {
+    Path execRoot = new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/execroot");
+    derivedRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "bin");
+
+    ArtifactRoot derivedRoot2 =
+        ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "bazel-out", "k8-fastbuild", "bin");
+    ArtifactRoot derivedRoot3 =
+        ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "bazel-out", "k8-opt", "bin");
+    artifact1 = (DerivedArtifact) ActionsTestUtil.createArtifact(derivedRoot2, "pkg/artifact1");
+    artifact2 = (DerivedArtifact) ActionsTestUtil.createArtifact(derivedRoot3, "pkg/artifact2");
+    artifact3 = (DerivedArtifact) ActionsTestUtil.createArtifact(derivedRoot3, "artifact3");
+    action =
+        new ActionsTestUtil.MockAction(
+            ImmutableList.of(artifact1, artifact2), ImmutableSet.of(artifact3)) {
+          @Override
+          public ImmutableMap<String, String> getExecutionInfo() {
+            return ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, "");
+          }
+        };
   }
 
   @Test
@@ -89,8 +120,45 @@ public final class StarlarkCustomCommandLineTest {
             .add("one")
             .add("two")
             .add("three")
-            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     verifyCommandLine(commandLine, "one", "two", "three");
+  }
+
+  @Test
+  public void serializationWithFormattedArgumentsWorks() throws Exception {
+    CommandLine original =
+        builder.addFormatted("value", "key=%s").build(false, RepositoryMapping.EMPTY);
+    CommandLine deserialized = RoundTripping.roundTrip(original);
+    verifyCommandLine(deserialized, "key=value");
+  }
+
+  @Test
+  public void addPathMapped() throws Exception {
+    CommandLine commandLine =
+        builder
+            .add(artifact1)
+            .add(artifact2)
+            .add(artifact3)
+            .add(artifact1.getRoot())
+            .add(artifact2.getRoot())
+            .add(artifact3.getRoot())
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    verifyCommandLine(
+        commandLine,
+        "bazel-out/k8-fastbuild/bin/pkg/artifact1",
+        "bazel-out/k8-opt/bin/pkg/artifact2",
+        "bazel-out/k8-opt/bin/artifact3",
+        "bazel-out/k8-fastbuild/bin",
+        "bazel-out/k8-opt/bin",
+        "bazel-out/k8-opt/bin");
+    verifyStrippedCommandLine(
+        commandLine,
+        "bazel-out/cfg/bin/pkg/artifact1",
+        "bazel-out/cfg/bin/pkg/artifact2",
+        "bazel-out/cfg/bin/artifact3",
+        "bazel-out/k8-fastbuild/bin",
+        "bazel-out/k8-opt/bin",
+        "bazel-out/k8-opt/bin");
   }
 
   @Test
@@ -100,8 +168,47 @@ public final class StarlarkCustomCommandLineTest {
             .addFormatted("one", "--arg1=%s")
             .addFormatted("two", "--arg2=%s")
             .addFormatted("three", "--arg3=%s")
-            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
-    verifyCommandLine(commandLine, "--arg1=one", "--arg2=two", "--arg3=three");
+            .addFormatted(artifact1.getRoot(), "--arg1_root=%s")
+            .addFormatted(artifact2.getRoot(), "--arg2_root=%s")
+            .addFormatted(artifact3.getRoot(), "--arg3_root=%s")
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    verifyCommandLine(
+        commandLine,
+        "--arg1=one",
+        "--arg2=two",
+        "--arg3=three",
+        "--arg1_root=bazel-out/k8-fastbuild/bin",
+        "--arg2_root=bazel-out/k8-opt/bin",
+        "--arg3_root=bazel-out/k8-opt/bin");
+  }
+
+  @Test
+  public void addFormattedPathMapped() throws Exception {
+    CommandLine commandLine =
+        builder
+            .addFormatted(artifact1, "--arg1=%s")
+            .addFormatted(artifact2, "--arg2=%s")
+            .addFormatted(artifact3, "--arg3=%s")
+            .addFormatted(artifact1.getRoot(), "--arg1_root=%s")
+            .addFormatted(artifact2.getRoot(), "--arg2_root=%s")
+            .addFormatted(artifact3.getRoot(), "--arg3_root=%s")
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    verifyCommandLine(
+        commandLine,
+        "--arg1=bazel-out/k8-fastbuild/bin/pkg/artifact1",
+        "--arg2=bazel-out/k8-opt/bin/pkg/artifact2",
+        "--arg3=bazel-out/k8-opt/bin/artifact3",
+        "--arg1_root=bazel-out/k8-fastbuild/bin",
+        "--arg2_root=bazel-out/k8-opt/bin",
+        "--arg3_root=bazel-out/k8-opt/bin");
+    verifyStrippedCommandLine(
+        commandLine,
+        "--arg1=bazel-out/cfg/bin/pkg/artifact1",
+        "--arg2=bazel-out/cfg/bin/pkg/artifact2",
+        "--arg3=bazel-out/cfg/bin/artifact3",
+        "--arg1_root=bazel-out/k8-fastbuild/bin",
+        "--arg2_root=bazel-out/k8-opt/bin",
+        "--arg3_root=bazel-out/k8-opt/bin");
   }
 
   @Test
@@ -110,7 +217,7 @@ public final class StarlarkCustomCommandLineTest {
         builder
             .add(vectorArg("one", "two", "three").setArgName("--arg"))
             .add(vectorArg("four").setArgName("--other_arg"))
-            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     verifyCommandLine(commandLine, "--arg", "one", "two", "three", "--other_arg", "four");
   }
 
@@ -120,7 +227,7 @@ public final class StarlarkCustomCommandLineTest {
         builder
             .add(vectorArg("one", "two", "three").setTerminateWith("end1"))
             .add(vectorArg("four").setTerminateWith("end2"))
-            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     verifyCommandLine(commandLine, "one", "two", "three", "end1", "four", "end2");
   }
 
@@ -130,8 +237,31 @@ public final class StarlarkCustomCommandLineTest {
         builder
             .add(vectorArg("one", "two", "three").setFormatEach("--arg=%s"))
             .add(vectorArg("four").setFormatEach("--other_arg=%s"))
-            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     verifyCommandLine(commandLine, "--arg=one", "--arg=two", "--arg=three", "--other_arg=four");
+  }
+
+  @Test
+  public void formatEachPathMapped() throws Exception {
+    CommandLine commandLine =
+        builder
+            .add(vectorArg(artifact1, artifact2, artifact3).setFormatEach("--arg=%s"))
+            .add(vectorArg(artifact1.getRoot(), artifact2.getRoot()).setFormatEach("--arg=%s"))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    verifyCommandLine(
+        commandLine,
+        "--arg=bazel-out/k8-fastbuild/bin/pkg/artifact1",
+        "--arg=bazel-out/k8-opt/bin/pkg/artifact2",
+        "--arg=bazel-out/k8-opt/bin/artifact3",
+        "--arg=bazel-out/k8-fastbuild/bin",
+        "--arg=bazel-out/k8-opt/bin");
+    verifyStrippedCommandLine(
+        commandLine,
+        "--arg=bazel-out/cfg/bin/pkg/artifact1",
+        "--arg=bazel-out/cfg/bin/pkg/artifact2",
+        "--arg=bazel-out/cfg/bin/artifact3",
+        "--arg=bazel-out/k8-fastbuild/bin",
+        "--arg=bazel-out/k8-opt/bin");
   }
 
   @Test
@@ -140,8 +270,51 @@ public final class StarlarkCustomCommandLineTest {
         builder
             .add(vectorArg("one", "two", "three").setBeforeEach("b4"))
             .add(vectorArg("four").setBeforeEach("and"))
-            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     verifyCommandLine(commandLine, "b4", "one", "b4", "two", "b4", "three", "and", "four");
+  }
+
+  @Test
+  public void beforeEachPathMapped() throws Exception {
+    CommandLine commandLine =
+        builder
+            .add(vectorArg(artifact1, artifact2, artifact3).setBeforeEach("b4"))
+            .add(vectorArg(artifact1.getRoot(), artifact2.getRoot()).setBeforeEach("b4"))
+            .add(vectorArg(artifact3).setBeforeEach("and"))
+            .add(vectorArg(artifact3.getRoot()).setBeforeEach("and"))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    verifyCommandLine(
+        commandLine,
+        "b4",
+        "bazel-out/k8-fastbuild/bin/pkg/artifact1",
+        "b4",
+        "bazel-out/k8-opt/bin/pkg/artifact2",
+        "b4",
+        "bazel-out/k8-opt/bin/artifact3",
+        "b4",
+        "bazel-out/k8-fastbuild/bin",
+        "b4",
+        "bazel-out/k8-opt/bin",
+        "and",
+        "bazel-out/k8-opt/bin/artifact3",
+        "and",
+        "bazel-out/k8-opt/bin");
+    verifyStrippedCommandLine(
+        commandLine,
+        "b4",
+        "bazel-out/cfg/bin/pkg/artifact1",
+        "b4",
+        "bazel-out/cfg/bin/pkg/artifact2",
+        "b4",
+        "bazel-out/cfg/bin/artifact3",
+        "b4",
+        "bazel-out/k8-fastbuild/bin",
+        "b4",
+        "bazel-out/k8-opt/bin",
+        "and",
+        "bazel-out/cfg/bin/artifact3",
+        "and",
+        "bazel-out/k8-opt/bin");
   }
 
   @Test
@@ -150,8 +323,31 @@ public final class StarlarkCustomCommandLineTest {
         builder
             .add(vectorArg("one", "two", "three").setJoinWith("..."))
             .add(vectorArg("four").setJoinWith("n/a"))
-            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     verifyCommandLine(commandLine, "one...two...three", "four");
+  }
+
+  @Test
+  public void joinWithPathMapped() throws Exception {
+    CommandLine commandLine =
+        builder
+            .add(vectorArg(artifact1, artifact2, artifact3).setJoinWith("..."))
+            .add(vectorArg(artifact1.getRoot(), artifact2.getRoot()).setJoinWith("..."))
+            .add(vectorArg(artifact3).setJoinWith("..."))
+            .add(vectorArg(artifact3.getRoot()).setJoinWith("..."))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    verifyCommandLine(
+        commandLine,
+        "bazel-out/k8-fastbuild/bin/pkg/artifact1...bazel-out/k8-opt/bin/pkg/artifact2...bazel-out/k8-opt/bin/artifact3",
+        "bazel-out/k8-fastbuild/bin...bazel-out/k8-opt/bin",
+        "bazel-out/k8-opt/bin/artifact3",
+        "bazel-out/k8-opt/bin");
+    verifyStrippedCommandLine(
+        commandLine,
+        "bazel-out/cfg/bin/pkg/artifact1...bazel-out/cfg/bin/pkg/artifact2...bazel-out/cfg/bin/artifact3",
+        "bazel-out/k8-fastbuild/bin...bazel-out/k8-opt/bin",
+        "bazel-out/cfg/bin/artifact3",
+        "bazel-out/k8-opt/bin");
   }
 
   @Test
@@ -160,8 +356,38 @@ public final class StarlarkCustomCommandLineTest {
         builder
             .add(vectorArg("one", "two", "three").setJoinWith("...").setFormatJoined("--arg=%s"))
             .add(vectorArg("four").setJoinWith("n/a").setFormatJoined("--other_arg=%s"))
-            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     verifyCommandLine(commandLine, "--arg=one...two...three", "--other_arg=four");
+  }
+
+  @Test
+  public void formatJoinedPathMapped() throws Exception {
+    CommandLine commandLine =
+        builder
+            .add(
+                vectorArg(artifact1, artifact2, artifact3)
+                    .setJoinWith("...")
+                    .setFormatJoined("--arg=%s"))
+            .add(
+                vectorArg(artifact1.getRoot(), artifact2.getRoot())
+                    .setJoinWith("...")
+                    .setFormatJoined("--arg=%s"))
+            .add(vectorArg(artifact3).setJoinWith("...").setFormatJoined("--other_arg=%s"))
+            .add(
+                vectorArg(artifact3.getRoot()).setJoinWith("...").setFormatJoined("--other_arg=%s"))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    verifyCommandLine(
+        commandLine,
+        "--arg=bazel-out/k8-fastbuild/bin/pkg/artifact1...bazel-out/k8-opt/bin/pkg/artifact2...bazel-out/k8-opt/bin/artifact3",
+        "--arg=bazel-out/k8-fastbuild/bin...bazel-out/k8-opt/bin",
+        "--other_arg=bazel-out/k8-opt/bin/artifact3",
+        "--other_arg=bazel-out/k8-opt/bin");
+    verifyStrippedCommandLine(
+        commandLine,
+        "--arg=bazel-out/cfg/bin/pkg/artifact1...bazel-out/cfg/bin/pkg/artifact2...bazel-out/cfg/bin/artifact3",
+        "--arg=bazel-out/k8-fastbuild/bin...bazel-out/k8-opt/bin",
+        "--other_arg=bazel-out/cfg/bin/artifact3",
+        "--other_arg=bazel-out/k8-opt/bin");
   }
 
   @Test
@@ -171,7 +397,7 @@ public final class StarlarkCustomCommandLineTest {
             .add("before")
             .add(vectorArg().omitIfEmpty(true).setJoinWith(",").setFormatJoined("--empty=%s"))
             .add("after")
-            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     verifyCommandLine(commandLine, "before", "after");
   }
 
@@ -182,8 +408,42 @@ public final class StarlarkCustomCommandLineTest {
             .add("before")
             .add(vectorArg().omitIfEmpty(false).setJoinWith(",").setFormatJoined("--empty=%s"))
             .add("after")
-            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     verifyCommandLine(commandLine, "before", "--empty=", "after");
+  }
+
+  @Test
+  public void uniquifyPathMapped() throws Exception {
+    // NestedSet doesn't support mixed types.
+    assume().that(useNestedSet).isFalse();
+
+    CommandLine commandLine =
+        builder
+            .add(
+                vectorArg(
+                        artifact1,
+                        artifact1,
+                        artifact2,
+                        artifact3,
+                        artifact1.getExecPathString(),
+                        artifact1.getExecPathString(),
+                        artifact2.getExecPathString(),
+                        artifact3.getExecPathString())
+                    .uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    verifyCommandLine(
+        commandLine,
+        "bazel-out/k8-fastbuild/bin/pkg/artifact1",
+        "bazel-out/k8-opt/bin/pkg/artifact2",
+        "bazel-out/k8-opt/bin/artifact3");
+    verifyStrippedCommandLine(
+        commandLine,
+        "bazel-out/cfg/bin/pkg/artifact1",
+        "bazel-out/cfg/bin/pkg/artifact2",
+        "bazel-out/cfg/bin/artifact3",
+        "bazel-out/k8-fastbuild/bin/pkg/artifact1",
+        "bazel-out/k8-opt/bin/pkg/artifact2",
+        "bazel-out/k8-opt/bin/artifact3");
   }
 
   @Test
@@ -199,7 +459,7 @@ public final class StarlarkCustomCommandLineTest {
             .add("single_arg")
             .recordArgStart()
             .add(vectorArg("", "line", "four", "has", "no").setTerminateWith("flag"))
-            .build(/* flagPerLine= */ true, RepositoryMapping.ALWAYS_FALLBACK);
+            .build(/* flagPerLine= */ true, RepositoryMapping.EMPTY);
     verifyCommandLine(
         commandLine,
         "--this=is line one",
@@ -209,17 +469,54 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void vectorArgAddToFingerprint_treeArtifactMissingExpansion_fails() {
+  public void flagPerLinePathMapped() throws Exception {
+    // NestedSet doesn't support mixed types.
+    assume().that(useNestedSet).isFalse();
+
+    CommandLine commandLine =
+        builder
+            .recordArgStart()
+            .add(vectorArg(artifact1, artifact2, artifact3).setArgName("--this"))
+            .recordArgStart()
+            .add(vectorArg(artifact3, artifact2, artifact1).setArgName("--and"))
+            .recordArgStart()
+            .add("--line_three")
+            .add("single_arg")
+            .recordArgStart()
+            .add(vectorArg("", artifact1, artifact2, artifact3).setTerminateWith("flag"))
+            .build(/* flagPerLine= */ true, RepositoryMapping.EMPTY);
+    verifyCommandLine(
+        commandLine,
+        "--this=bazel-out/k8-fastbuild/bin/pkg/artifact1 bazel-out/k8-opt/bin/pkg/artifact2"
+            + " bazel-out/k8-opt/bin/artifact3",
+        "--and=bazel-out/k8-opt/bin/artifact3 bazel-out/k8-opt/bin/pkg/artifact2"
+            + " bazel-out/k8-fastbuild/bin/pkg/artifact1",
+        "--line_three=single_arg",
+        "bazel-out/k8-fastbuild/bin/pkg/artifact1 bazel-out/k8-opt/bin/pkg/artifact2"
+            + " bazel-out/k8-opt/bin/artifact3 flag");
+    verifyStrippedCommandLine(
+        commandLine,
+        "--this=bazel-out/cfg/bin/pkg/artifact1 bazel-out/cfg/bin/pkg/artifact2"
+            + " bazel-out/cfg/bin/artifact3",
+        "--and=bazel-out/cfg/bin/artifact3 bazel-out/cfg/bin/pkg/artifact2"
+            + " bazel-out/cfg/bin/pkg/artifact1",
+        "--line_three=single_arg",
+        "bazel-out/cfg/bin/pkg/artifact1 bazel-out/cfg/bin/pkg/artifact2"
+            + " bazel-out/cfg/bin/artifact3 flag");
+  }
+
+  @Test
+  public void vectorArg_treeArtifactMissingExpansion_fails() {
     SpecialArtifact tree = createTreeArtifact("tree");
     CommandLine commandLine =
         builder
             .add(vectorArg(tree).setExpandDirectories(true))
-            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
 
     CommandLineExpansionException e =
         assertThrows(
             CommandLineExpansionException.class,
-            () -> commandLine.arguments(EMPTY_EXPANDER, PathMapper.NOOP));
+            () -> commandLine.arguments(new FakeActionInputFileCache(), PathMapper.NOOP));
     assertThat(e).hasMessageThat().contains("Failed to expand directory <generated file tree>");
   }
 
@@ -229,19 +526,19 @@ public final class StarlarkCustomCommandLineTest {
     CommandLine commandLine =
         builder
             .add(vectorArg(fileset).setExpandDirectories(true))
-            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
     FilesetOutputSymlink symlink1 = createFilesetSymlink("file1");
     FilesetOutputSymlink symlink2 = createFilesetSymlink("file2");
     ActionKeyContext actionKeyContext = new ActionKeyContext();
     Fingerprint fingerprint = new Fingerprint();
-    ArtifactExpander artifactExpander =
-        createArtifactExpander(
-            /* treeExpansions= */ ImmutableMap.of(),
-            ImmutableMap.of(
-                fileset, FilesetOutputTree.create(ImmutableList.of(symlink1, symlink2))));
 
+    FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
+    fakeActionInputFileCache.putFileset(
+        fileset,
+        FilesetOutputTree.create(
+            ImmutableList.of(symlink1, symlink2), /* treeArtifacts= */ ImmutableMap.of()));
     commandLine.addToFingerprint(
-        actionKeyContext, artifactExpander, CoreOptions.OutputPathsMode.OFF, fingerprint);
+        actionKeyContext, fakeActionInputFileCache, CoreOptions.OutputPathsMode.OFF, fingerprint);
 
     assertThat(fingerprint.digestAndReset()).isNotEmpty();
   }
@@ -249,76 +546,85 @@ public final class StarlarkCustomCommandLineTest {
   @Test
   public void vectorArgAddToFingerprint_expandTreeArtifact_includesInDigest() throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "child");
+    // The files won't be read so MISSING_FILE_MARKER will do
+    TreeArtifactValue treeArtifactValue =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+
     CommandLine commandLine =
         builder
             .add(vectorArg(tree).setExpandDirectories(true))
-            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
-    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "child");
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+
     ActionKeyContext actionKeyContext = new ActionKeyContext();
+    FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
+    fakeActionInputFileCache.putTreeArtifact(tree, treeArtifactValue);
+
     Fingerprint fingerprint = new Fingerprint();
-    ArtifactExpander artifactExpander =
-        createArtifactExpander(
-            ImmutableMap.of(tree, ImmutableSortedSet.of(child)),
-            /*filesetExpansions*/ ImmutableMap.of());
-
     commandLine.addToFingerprint(
-        actionKeyContext, artifactExpander, CoreOptions.OutputPathsMode.OFF, fingerprint);
-
+        actionKeyContext, fakeActionInputFileCache, CoreOptions.OutputPathsMode.OFF, fingerprint);
     assertThat(fingerprint.digestAndReset()).isNotEmpty();
   }
 
   @Test
-  public void vectorArgAddToFingerprint_expandFilesetMissingExpansion_fails() {
+  public void vectorArg_expandFilesetMissingExpansion_fails() {
     SpecialArtifact fileset = createFileset("fileset");
     CommandLine commandLine =
         builder
             .add(vectorArg(fileset).setExpandDirectories(true))
-            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
-    ActionKeyContext actionKeyContext = new ActionKeyContext();
-    Fingerprint fingerprint = new Fingerprint();
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
 
-    assertThrows(
-        CommandLineExpansionException.class,
-        () ->
-            commandLine.addToFingerprint(
-                actionKeyContext, EMPTY_EXPANDER, CoreOptions.OutputPathsMode.OFF, fingerprint));
+    CommandLineExpansionException e =
+        assertThrows(
+            CommandLineExpansionException.class,
+            () -> commandLine.arguments(new FakeActionInputFileCache(), PathMapper.NOOP));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Could not expand fileset: File:[[<execution_root>]bin]fileset");
   }
 
   @Test
   public void vectorArgArguments_expandsTreeArtifact() throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
+    // The files won't be read so MISSING_FILE_MARKER will do
+    TreeArtifactValue treeArtifactValue =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .putChild(child2, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+
+    FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
+    fakeActionInputFileCache.putTreeArtifact(tree, treeArtifactValue);
+
     CommandLine commandLine =
         builder
             .add(vectorArg(tree).setExpandDirectories(true))
-            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
-    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
-    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
-    ArtifactExpander artifactExpander =
-        createArtifactExpander(
-            ImmutableMap.of(tree, ImmutableSortedSet.of(child1, child2)),
-            /*filesetExpansions*/ ImmutableMap.of());
-
-    Iterable<String> arguments = commandLine.arguments(artifactExpander, PathMapper.NOOP);
-
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    Iterable<String> arguments = commandLine.arguments(fakeActionInputFileCache, PathMapper.NOOP);
     assertThat(arguments).containsExactly("bin/tree/child1", "bin/tree/child2");
   }
 
   @Test
   public void vectorArgArguments_expandsFileset() throws Exception {
     SpecialArtifact fileset = createFileset("fileset");
+    FilesetOutputSymlink symlink1 = createFilesetSymlink("file1");
+    FilesetOutputSymlink symlink2 = createFilesetSymlink("file2");
+
+    FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
+    fakeActionInputFileCache.putFileset(
+        fileset,
+        FilesetOutputTree.create(
+            ImmutableList.of(symlink1, symlink2), /* treeArtifacts= */ ImmutableMap.of()));
+
     CommandLine commandLine =
         builder
             .add(vectorArg(fileset).setExpandDirectories(true))
-            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
-    FilesetOutputSymlink symlink1 = createFilesetSymlink("file1");
-    FilesetOutputSymlink symlink2 = createFilesetSymlink("file2");
-    ArtifactExpander artifactExpander =
-        createArtifactExpander(
-            /* treeExpansions= */ ImmutableMap.of(),
-            ImmutableMap.of(
-                fileset, FilesetOutputTree.create(ImmutableList.of(symlink1, symlink2))));
-
-    Iterable<String> arguments = commandLine.arguments(artifactExpander, PathMapper.NOOP);
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    Iterable<String> arguments = commandLine.arguments(fakeActionInputFileCache, PathMapper.NOOP);
 
     assertThat(arguments).containsExactly("bin/fileset/file1", "bin/fileset/file2");
   }
@@ -329,11 +635,11 @@ public final class StarlarkCustomCommandLineTest {
     CommandLine commandLine =
         builder
             .add(vectorArg(tree).setExpandDirectories(true))
-            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
 
     assertThrows(
         CommandLineExpansionException.class,
-        () -> commandLine.arguments(EMPTY_EXPANDER, PathMapper.NOOP));
+        () -> commandLine.arguments(new FakeActionInputFileCache(), PathMapper.NOOP));
   }
 
   @Test
@@ -345,6 +651,7 @@ public final class StarlarkCustomCommandLineTest {
             .add(
                 vectorArg(tree)
                     .setExpandDirectories(false)
+                    .setLocation(Location.BUILTIN)
                     .setMapEach(
                         (StarlarkFunction)
                             execStarlark(
@@ -353,12 +660,12 @@ public final class StarlarkCustomCommandLineTest {
                                   expander.expand(x)
                                 map_each
                                 """)))
-            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
 
     CommandLineExpansionException e =
         assertThrows(
             CommandLineExpansionException.class,
-            () -> commandLine.arguments(EMPTY_EXPANDER, PathMapper.NOOP));
+            () -> commandLine.arguments(new FakeActionInputFileCache(), PathMapper.NOOP));
     assertThat(e).hasMessageThat().contains("Failed to expand directory <generated file tree>");
   }
 
@@ -368,25 +675,220 @@ public final class StarlarkCustomCommandLineTest {
     CommandLine commandLine =
         builder
             .add(vectorArg(fileset).setExpandDirectories(true))
-            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
 
     assertThrows(
         CommandLineExpansionException.class,
-        () -> commandLine.arguments(EMPTY_EXPANDER, PathMapper.NOOP));
+        () -> commandLine.arguments(new FakeActionInputFileCache(), PathMapper.NOOP));
   }
 
-  private static VectorArg.Builder vectorArg(Object... elems) {
-    return new VectorArg.Builder(Tuple.of(elems)).setLocation(Location.BUILTIN);
+  @Test
+  public void vectorArgArguments_expandDirectoriesDisabled_manualExpansionReflectedInActionKey()
+      throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
+    // The files won't be read so MISSING_FILE_MARKER will do
+    TreeArtifactValue treeArtifactValueBefore =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .putChild(child2, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+    TreeArtifactValue treeArtifactValueAfter =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+    CommandLine commandLine =
+        builder
+            .add(
+                vectorArg(tree)
+                    .setExpandDirectories(false)
+                    .setLocation(Location.BUILTIN)
+                    .setMapEach(
+                        (StarlarkFunction)
+                            execStarlark(
+                                """
+                                def map_each(x, expander):
+                                  return [f.path for f in expander.expand(x)]
+                                map_each
+                                """)))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+
+    var inputMetadataProviderBefore = new FakeActionInputFileCache();
+    inputMetadataProviderBefore.putTreeArtifact(tree, treeArtifactValueBefore);
+    var argumentsBefore = commandLine.arguments(inputMetadataProviderBefore, PathMapper.NOOP);
+    var fingerprintBefore = new Fingerprint();
+    commandLine.addToFingerprint(
+        new ActionKeyContext(),
+        inputMetadataProviderBefore,
+        CoreOptions.OutputPathsMode.OFF,
+        fingerprintBefore);
+    assertThat(argumentsBefore).containsExactly("bin/tree/child1", "bin/tree/child2");
+
+    var inputMetadataProviderAfter = new FakeActionInputFileCache();
+    inputMetadataProviderAfter.putTreeArtifact(tree, treeArtifactValueAfter);
+    var argumentsAfter = commandLine.arguments(inputMetadataProviderAfter, PathMapper.NOOP);
+    var fingerprintAfter = new Fingerprint();
+    commandLine.addToFingerprint(
+        new ActionKeyContext(),
+        inputMetadataProviderAfter,
+        CoreOptions.OutputPathsMode.OFF,
+        fingerprintAfter);
+    assertThat(argumentsAfter).containsExactly("bin/tree/child1");
+
+    assertThat(fingerprintBefore.hexDigestAndReset())
+        .isNotEqualTo(fingerprintAfter.hexDigestAndReset());
+  }
+
+  @Test
+  public void
+      vectorArgArguments_expandDirectoriesDisabled_noMapEach_expansionDoesNotAffectActionKey()
+          throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
+    // The files won't be read so MISSING_FILE_MARKER will do
+    TreeArtifactValue treeArtifactValueBefore =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .putChild(child2, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+    TreeArtifactValue treeArtifactValueAfter =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+    CommandLine commandLine =
+        builder
+            .add(vectorArg(tree).setExpandDirectories(false).setLocation(Location.BUILTIN))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+
+    var inputMetadataProviderBefore = new FakeActionInputFileCache();
+    inputMetadataProviderBefore.putTreeArtifact(tree, treeArtifactValueBefore);
+    var argumentsBefore = commandLine.arguments(inputMetadataProviderBefore, PathMapper.NOOP);
+    var fingerprintBefore = new Fingerprint();
+    commandLine.addToFingerprint(
+        new ActionKeyContext(),
+        inputMetadataProviderBefore,
+        CoreOptions.OutputPathsMode.OFF,
+        fingerprintBefore);
+    assertThat(argumentsBefore).containsExactly("bin/tree");
+
+    var inputMetadataProviderAfter = new FakeActionInputFileCache();
+    inputMetadataProviderAfter.putTreeArtifact(tree, treeArtifactValueAfter);
+    var argumentsAfter = commandLine.arguments(inputMetadataProviderAfter, PathMapper.NOOP);
+    var fingerprintAfter = new Fingerprint();
+    commandLine.addToFingerprint(
+        new ActionKeyContext(),
+        inputMetadataProviderAfter,
+        CoreOptions.OutputPathsMode.OFF,
+        fingerprintAfter);
+    assertThat(argumentsAfter).containsExactly("bin/tree");
+
+    assertThat(fingerprintBefore.hexDigestAndReset())
+        .isEqualTo(fingerprintAfter.hexDigestAndReset());
+  }
+
+  @Test
+  public void
+      vectorArgArguments_expandDirectoriesDisabled_noManualExpansion_expansionDoesNotAffectActionKey()
+          throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
+    // The files won't be read so MISSING_FILE_MARKER will do
+    TreeArtifactValue treeArtifactValueBefore =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .putChild(child2, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+    TreeArtifactValue treeArtifactValueAfter =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+    CommandLine commandLine =
+        builder
+            .add(
+                vectorArg(tree)
+                    .setExpandDirectories(false)
+                    .setLocation(Location.BUILTIN)
+                    .setMapEach(
+                        (StarlarkFunction)
+                            execStarlark(
+                                """
+                                def map_each(x):
+                                  return x.path
+                                map_each
+                                """)))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+
+    var inputMetadataProviderBefore = new FakeActionInputFileCache();
+    inputMetadataProviderBefore.putTreeArtifact(tree, treeArtifactValueBefore);
+    var argumentsBefore = commandLine.arguments(inputMetadataProviderBefore, PathMapper.NOOP);
+    var fingerprintBefore = new Fingerprint();
+    commandLine.addToFingerprint(
+        new ActionKeyContext(),
+        inputMetadataProviderBefore,
+        CoreOptions.OutputPathsMode.OFF,
+        fingerprintBefore);
+    assertThat(argumentsBefore).containsExactly("bin/tree");
+
+    var inputMetadataProviderAfter = new FakeActionInputFileCache();
+    inputMetadataProviderAfter.putTreeArtifact(tree, treeArtifactValueAfter);
+    var argumentsAfter = commandLine.arguments(inputMetadataProviderAfter, PathMapper.NOOP);
+    var fingerprintAfter = new Fingerprint();
+    commandLine.addToFingerprint(
+        new ActionKeyContext(),
+        inputMetadataProviderAfter,
+        CoreOptions.OutputPathsMode.OFF,
+        fingerprintAfter);
+    assertThat(argumentsAfter).containsExactly("bin/tree");
+
+    assertThat(fingerprintBefore.hexDigestAndReset())
+        .isEqualTo(fingerprintAfter.hexDigestAndReset());
+  }
+
+  private VectorArg.Builder vectorArg(Object... elems) {
+    if (this.useNestedSet) {
+      Class<?> commonType;
+      if (Arrays.stream(elems).allMatch(FileApi.class::isInstance)) {
+        commonType = FileApi.class;
+      } else if (Arrays.stream(elems).allMatch(FileRootApi.class::isInstance)) {
+        commonType = FileRootApi.class;
+      } else if (Arrays.stream(elems).allMatch(String.class::isInstance)) {
+        commonType = String.class;
+      } else {
+        throw new IllegalArgumentException("Unsupported element types");
+      }
+      return new VectorArg.Builder(
+              NestedSetBuilder.wrap(Order.STABLE_ORDER, Arrays.asList(elems)), commonType)
+          .setLocation(Location.BUILTIN);
+    } else {
+      return new VectorArg.Builder(Tuple.of(elems)).setLocation(Location.BUILTIN);
+    }
   }
 
   private static void verifyCommandLine(CommandLine commandLine, String... expected)
       throws CommandLineExpansionException, InterruptedException {
-    ArgChunk chunk = commandLine.expand(EMPTY_EXPANDER, PathMapper.NOOP);
-    assertThat(chunk.arguments()).containsExactlyElementsIn(expected).inOrder();
+    verifyCommandLine(PathMapper.NOOP, commandLine, expected);
+  }
+
+  private static void verifyCommandLine(
+      PathMapper pathMapper, CommandLine commandLine, String... expected)
+      throws CommandLineExpansionException, InterruptedException {
+    ArgChunk chunk = commandLine.expand(new FakeActionInputFileCache(), pathMapper);
+    assertThat(chunk.arguments(pathMapper)).containsExactlyElementsIn(expected).inOrder();
     // Check consistency of the total argument length calculation with SimpleArgChunk, which
     // materializes strings and adds up their lengths.
-    assertThat(chunk.totalArgLength())
-        .isEqualTo(new SimpleArgChunk(chunk.arguments()).totalArgLength());
+    assertThat(chunk.totalArgLength(pathMapper))
+        .isEqualTo(new SimpleArgChunk(chunk.arguments(pathMapper)).totalArgLength(pathMapper));
+  }
+
+  private void verifyStrippedCommandLine(CommandLine commandLine, String... expected)
+      throws CommandLineExpansionException, InterruptedException {
+    verifyCommandLine(
+        PathMappers.create(action, CoreOptions.OutputPathsMode.STRIP, /* isStarlarkAction= */ true),
+        commandLine,
+        expected);
   }
 
   private SpecialArtifact createFileset(String relativePath) {
@@ -394,10 +896,10 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   private FilesetOutputSymlink createFilesetSymlink(String relativePath) {
-    return FilesetOutputSymlink.createForTesting(
+    return new FilesetOutputSymlink(
         PathFragment.create(relativePath),
-        execRoot.asFragment().getRelative("some/target"),
-        execRoot.asFragment());
+        ActionsTestUtil.createArtifact(derivedRoot, "some/target"),
+        FileArtifactValue.createForNormalFile(new byte[] {1}, null, 1));
   }
 
   private SpecialArtifact createTreeArtifact(String relativePath) {
@@ -414,33 +916,6 @@ public final class StarlarkCustomCommandLineTest {
         type);
   }
 
-  private static ArtifactExpander createArtifactExpander(
-      ImmutableMap<SpecialArtifact, ImmutableSortedSet<TreeFileArtifact>> treeExpansions,
-      ImmutableMap<SpecialArtifact, FilesetOutputTree> filesetExpansions) {
-    return new ArtifactExpander() {
-      @Override
-      public ImmutableSortedSet<TreeFileArtifact> expandTreeArtifact(Artifact treeArtifact)
-          throws MissingExpansionException {
-        //noinspection SuspiciousMethodCalls
-        ImmutableSortedSet<TreeFileArtifact> expansion = treeExpansions.get(treeArtifact);
-        if (expansion == null) {
-          throw new MissingExpansionException("Cannot expand " + treeArtifact);
-        }
-        return expansion;
-      }
-
-      @Override
-      public FilesetOutputTree expandFileset(Artifact artifact) throws MissingExpansionException {
-        //noinspection SuspiciousMethodCalls
-        FilesetOutputTree filesetOutput = filesetExpansions.get(artifact);
-        if (filesetOutput == null) {
-          throw new MissingExpansionException("Cannot expand " + artifact);
-        }
-        return filesetOutput;
-      }
-    };
-  }
-
   private static Object execStarlark(String code) throws Exception {
     try (Mutability mutability = Mutability.create("test")) {
       StarlarkThread thread = StarlarkThread.createTransient(mutability, StarlarkSemantics.DEFAULT);
@@ -451,11 +926,14 @@ public final class StarlarkCustomCommandLineTest {
               StarlarkSemantics.DEFAULT,
               ImmutableMap.of(),
               BazelModuleContext.create(
-                  Label.parseCanonicalUnchecked("//test:label"),
-                  RepositoryMapping.ALWAYS_FALLBACK,
+                  BazelModuleKey.createFakeModuleKeyForTesting(
+                      Label.parseCanonicalUnchecked("//test:label")),
+                  RepositoryMapping.EMPTY,
                   "test/label.bzl",
                   /* loads= */ ImmutableList.of(),
-                  /* bzlTransitiveDigest= */ new byte[0])),
+                  /* bzlTransitiveDigest= */ new byte[0],
+                  /* docCommentsMap= */ ImmutableMap.of(),
+                  /* unusedDocCommentLines= */ ImmutableList.of())),
           thread);
     }
   }

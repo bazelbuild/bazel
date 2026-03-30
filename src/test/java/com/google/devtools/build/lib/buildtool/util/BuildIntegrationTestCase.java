@@ -23,6 +23,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.bazel.BazelServices.BAZEL_SERVICES;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -43,7 +44,6 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.InlineFileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -66,7 +66,6 @@ import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
-import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -95,6 +94,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
+import com.google.devtools.build.lib.runtime.BlazeService;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.NoSpawnCacheModule;
@@ -102,6 +102,7 @@ import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.runtime.commands.CleanCommand;
+import com.google.devtools.build.lib.runtime.commands.CoverageCommand;
 import com.google.devtools.build.lib.runtime.commands.CqueryCommand;
 import com.google.devtools.build.lib.runtime.commands.InfoCommand;
 import com.google.devtools.build.lib.runtime.commands.QueryCommand;
@@ -113,12 +114,14 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkymeldModule;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -142,6 +145,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.lib.worker.WorkerModule;
+import com.google.devtools.build.runfiles.Runfiles;
 import com.google.devtools.build.skyframe.NotifyingHelper;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -155,6 +159,7 @@ import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.lang.Thread.UncaughtExceptionHandler;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -181,6 +186,9 @@ import org.junit.Before;
  * <p>All integration tests are at least size medium.
  */
 public abstract class BuildIntegrationTestCase {
+  static {
+    WindowsSubprocessFactory.maybeInstallWindowsSubprocessFactory();
+  }
 
   /** Thrown when an integration test case fails. */
   public static class IntegrationTestExecException extends ExecException {
@@ -238,6 +246,7 @@ public abstract class BuildIntegrationTestCase {
   public final void createFilesAndMocks() throws Exception {
     runPriorToBeforeMethods();
     events.setFailFast(false);
+
     // TODO(mschaller): This will ignore any attempt by Blaze modules to provide a filesystem;
     // consider something better.
     FileSystem nativeFileSystem = createFileSystem();
@@ -255,16 +264,11 @@ public abstract class BuildIntegrationTestCase {
             /* installBase= */ outputBase,
             /* outputBase= */ outputBase,
             /* outputUserRoot= */ outputBase,
-            /* execRootBase= */ getExecRootBase(),
+            /* execRootBase= */ outputBase.getRelative(ServerDirectories.EXECROOT),
             /* virtualSourceRoot= */ getVirtualSourceRoot(),
             // Arbitrary install base hash.
             /* installMD5= */ "83bc4458738962b9b77480bac76164a9");
-    directories =
-        new BlazeDirectories(
-            serverDirectories,
-            workspace,
-            /* defaultSystemJavabase= */ null,
-            TestConstants.PRODUCT_NAME);
+    directories = new BlazeDirectories(serverDirectories, workspace, TestConstants.PRODUCT_NAME);
     binTools = IntegrationMock.get().getIntegrationBinTools(fileSystem, directories);
     mockToolsConfig = new MockToolsConfig(workspace, realFileSystem());
     setupMockTools();
@@ -333,14 +337,11 @@ public abstract class BuildIntegrationTestCase {
     return null;
   }
 
-  protected Path getExecRootBase() {
-    return outputBase.getRelative(ServerDirectories.EXECROOT);
-  }
-
   protected void createRuntimeWrapper() throws Exception {
     if (runtimeWrapper != null) {
       cleanupInterningPools();
     }
+
     runtimeWrapper =
         new BlazeRuntimeWrapper(
             events,
@@ -387,8 +388,12 @@ public abstract class BuildIntegrationTestCase {
   }
 
   protected void runPriorToBeforeMethods() throws Exception {
-    // Allows tests such as SkyframeIntegrationInvalidationTest to execute code before all @Before
-    // methods are being run.
+    // In production, these are essentially the first thing we do when setting up a new
+    // BlazeRuntime. The idea is for them to be run early enough during the server startup.
+    // For tests, we have to do this here in order to mimic this behavior.
+    for (BlazeService service : getBlazeServices()) {
+      service.globalInit(getStartupOptionsProvider());
+    }
   }
 
   @After
@@ -398,6 +403,14 @@ public abstract class BuildIntegrationTestCase {
 
   @After
   public final void cleanUp() throws Exception {
+    try {
+      doCleanup();
+    } finally {
+      getRuntime().getBlazeModules().forEach(BlazeModule::blazeShutdown);
+    }
+  }
+
+  private void doCleanup() throws Exception {
     if (subscriberException.getException() != null) {
       throwIfUnchecked(subscriberException.getException());
       throw new RuntimeException(subscriberException.getException());
@@ -593,10 +606,13 @@ public abstract class BuildIntegrationTestCase {
     return new NoOpConnectivityModule();
   }
 
+  /** Gets the list of Blaze services to be added to the runtime. */
+  protected ImmutableList<BlazeService> getBlazeServices() {
+    return BAZEL_SERVICES;
+  }
+
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
-    OptionsParser startupOptionsParser =
-        OptionsParser.builder().optionsClasses(getStartupOptionClasses()).build();
-    startupOptionsParser.parse(getStartupOptions());
+    OptionsParsingResult startupOptionsProvider = getStartupOptionsProvider();
     BlazeModule connectivityModule = getConnectivityModule();
     checkState(
         connectivityModule instanceof ConnectivityStatusProvider,
@@ -606,12 +622,15 @@ public abstract class BuildIntegrationTestCase {
             .setFileSystem(fileSystem)
             .setProductName(TestConstants.PRODUCT_NAME)
             .setBugReporter(bugReporter)
-            .setStartupOptionsProvider(startupOptionsParser)
+            .setStartupOptionsProvider(startupOptionsProvider)
             .addBlazeModule(new BuildIntegrationTestCommandsModule())
             .addBlazeModule(new OutputFilteringModule())
             .addBlazeModule(connectivityModule)
             .addBlazeModule(new SkymeldModule())
             .addBlazeModule(new CredentialModule());
+    for (BlazeService service : getBlazeServices()) {
+      builder.addBlazeService(service);
+    }
     getSpawnModules().forEach(builder::addBlazeModule);
     builder
         .addBlazeModule(getBuildInfoModule())
@@ -636,6 +655,13 @@ public abstract class BuildIntegrationTestCase {
     builder.addBlazeModule(new MetricsModule());
 
     return builder;
+  }
+
+  private OptionsParsingResult getStartupOptionsProvider() throws Exception {
+    OptionsParser startupOptionsParser =
+        OptionsParser.builder().optionsClasses(getStartupOptionClasses()).build();
+    startupOptionsParser.parse(getStartupOptions());
+    return startupOptionsParser;
   }
 
   protected List<String> getStartupOptions() {
@@ -663,8 +689,23 @@ public abstract class BuildIntegrationTestCase {
     runtimeWrapper.addOptions("--experimental_extended_sanity_checks");
     runtimeWrapper.addOptions(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     runtimeWrapper.addOptions(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
-    // TODO(rosica): Remove this once g3 is migrated.
-    runtimeWrapper.addOptions("--noincompatible_use_specific_tool_files");
+
+    if (AnalysisMock.get().isThisBazel()) {
+      // We have to explicitly override @bazel_tools to the version in the workspace (which is where
+      // we usually set up mocks), instead of the install base, where it is normally looked up from.
+      // This needs to be done for all BuildIntegrationTestCase subclasses, because the setup here
+      // requires that the install base be separate from the workspace (unlike, say,
+      // BuildViewTestCase).
+      runtimeWrapper.addOptions("--override_repository=bazel_tools=embedded_tools");
+    }
+
+    // Integration tests currently pretend that they run on a Linux host platform on all OSes. This
+    // is a gross hack, but while it is in place, we need to manually set the shell path to a valid
+    // one for the actual host OS. macOS shares Linux's shell path, but Windows needs a different
+    // one.
+    if (OS.getCurrent() == OS.WINDOWS) {
+      runtimeWrapper.addOptions("--shell_executable=c:/msys64/usr/bin/bash.exe");
+    }
   }
 
   protected void resetOptions() {
@@ -694,6 +735,7 @@ public abstract class BuildIntegrationTestCase {
       return null;
     }
   }
+
   /**
    * Returns the path to the executable that label "target" identifies.
    *
@@ -703,8 +745,12 @@ public abstract class BuildIntegrationTestCase {
    * @param target the label of the target whose executable location is requested.
    */
   protected Path getExecutableLocation(String target)
-      throws LabelSyntaxException, NoSuchPackageException, NoSuchTargetException,
-          InterruptedException, TransitionException, InvalidConfigurationException {
+      throws LabelSyntaxException,
+          NoSuchPackageException,
+          NoSuchTargetException,
+          InterruptedException,
+          TransitionException,
+          InvalidConfigurationException {
     return getExecutable(getConfiguredTarget(target)).getPath();
   }
 
@@ -770,7 +816,7 @@ public abstract class BuildIntegrationTestCase {
   }
 
   /** Gets all the already computed configured targets. */
-  protected Iterable<ConfiguredTarget> getAllConfiguredTargets() {
+  protected ImmutableList<ConfiguredTarget> getAllConfiguredTargets() {
     return SkyframeExecutorTestUtils.getAllExistingConfiguredTargets(getSkyframeExecutor());
   }
 
@@ -836,17 +882,17 @@ public abstract class BuildIntegrationTestCase {
   }
 
   /** Runs the {@code info} command. */
-  public void info() throws Exception {
+  protected void info() throws Exception {
     events.setOutErr(outErr);
     runtimeWrapper.newCommand(InfoCommand.class);
-    runtimeWrapper.executeNonBuildCommand();
+    runtimeWrapper.executeCustomCommand();
   }
 
   /** Runs the {@code clean} command. */
   public void clean() throws Exception {
     events.setOutErr(outErr);
     runtimeWrapper.newCommand(CleanCommand.class);
-    runtimeWrapper.executeNonBuildCommand();
+    runtimeWrapper.executeCustomCommand();
   }
 
   /** Utility function: parse a string as a label. */
@@ -993,7 +1039,7 @@ public abstract class BuildIntegrationTestCase {
       boolean verboseFailures)
       throws ExecException, InterruptedException {
     Command command =
-        new CommandBuilder()
+        new CommandBuilder(System.getenv())
             .addArgs(argv)
             .setEnv(environment)
             .setWorkingDir(workingDirectory)
@@ -1021,6 +1067,15 @@ public abstract class BuildIntegrationTestCase {
     assertContents(expectedContents, Iterables.getOnlyElement(getArtifacts(target)).getPath());
   }
 
+  protected void assertContentsContainsAtLeast(String expectedContents, String target)
+      throws Exception {
+    String actualContents =
+        new String(
+            FileSystemUtils.readContentAsLatin1(
+                Iterables.getOnlyElement(getArtifacts(target)).getPath()));
+    assertThat(actualContents).contains(expectedContents);
+  }
+
   protected void assertContents(String expectedContents, Path path) throws Exception {
     String actualContents = new String(FileSystemUtils.readContentAsLatin1(path));
     // .indent(0) doesn't change the indentation, but normalizes all OS-specific endings.
@@ -1037,20 +1092,19 @@ public abstract class BuildIntegrationTestCase {
 
   protected String readInlineOutput(Artifact output) throws IOException, InterruptedException {
     FileArtifactValue metadata = getOutputMetadata(output);
-    assertThat(metadata).isInstanceOf(InlineFileArtifactValue.class);
-    return new String(
-        FileSystemUtils.readContentAsLatin1(((InlineFileArtifactValue) metadata).getInputStream()));
+    assertThat(metadata.isInline()).isTrue();
+    return new String(FileSystemUtils.readContentAsLatin1(metadata.getInputStream()));
   }
 
-  protected FileArtifactValue getOutputMetadata(Artifact output)
-      throws IOException, InterruptedException {
-    assertThat(output).isInstanceOf(DerivedArtifact.class);
-    SkyValue actionExecutionValue =
-        getSkyframeExecutor()
-            .getEvaluator()
-            .getExistingValue(((DerivedArtifact) output).getGeneratingActionKey());
-    assertThat(actionExecutionValue).isInstanceOf(ActionExecutionValue.class);
-    return ((ActionExecutionValue) actionExecutionValue).getExistingFileArtifactValue(output);
+  protected FileArtifactValue getOutputMetadata(Artifact output) throws InterruptedException {
+    return getActionExecutionValue(output).getExistingFileArtifactValue(output);
+  }
+
+  protected TreeArtifactValue getTreeArtifactValue(Artifact treeArtifact)
+      throws InterruptedException {
+    return checkNotNull(
+        getActionExecutionValue(treeArtifact).getAllTreeArtifactValues().get(treeArtifact),
+        treeArtifact);
   }
 
   protected FileArtifactValue getSourceArtifactMetadata(Artifact sourceArtifact)
@@ -1060,6 +1114,17 @@ public abstract class BuildIntegrationTestCase {
         getSkyframeExecutor().getEvaluator().getExistingValue(sourceArtifact);
     assertThat(sourceArtifactValue).isInstanceOf(FileArtifactValue.class);
     return (FileArtifactValue) sourceArtifactValue;
+  }
+
+  protected ActionExecutionValue getActionExecutionValue(Artifact output)
+      throws InterruptedException {
+    assertThat(output).isInstanceOf(DerivedArtifact.class);
+    SkyValue actionExecutionValue =
+        getSkyframeExecutor()
+            .getEvaluator()
+            .getExistingValue(((DerivedArtifact) output).getGeneratingActionKey());
+    assertThat(actionExecutionValue).isInstanceOf(ActionExecutionValue.class);
+    return (ActionExecutionValue) actionExecutionValue;
   }
 
   /**
@@ -1274,7 +1339,9 @@ public abstract class BuildIntegrationTestCase {
           new QueryCommand(),
           new CqueryCommand(),
           new InfoCommand(),
-          new TestCommand());
+          new TestCommand(),
+          new CoverageCommand(),
+          new CleanCommand());
     }
   }
 
@@ -1311,5 +1378,28 @@ public abstract class BuildIntegrationTestCase {
 
   protected Set<SkyKey> getAllKeysInGraph() {
     return getSkyframeExecutor().getEvaluator().getValues().keySet();
+  }
+
+  /**
+   * Copies the protolark-provided {@code project} scl definition into the given scratch file path.
+   *
+   * <p>{@code PROJECT.scl} files load this file to define their configuration. This method loads
+   * the actual (non-mocked) file, so tests can effectively match production code.
+   */
+  public void writeProjectSclDefinition(String dest, boolean alsoWriteBuildFile)
+      throws IOException {
+    write(
+        dest,
+        Files.readString(
+            java.nio.file.Path.of(
+                Runfiles.preload()
+                    .withSourceRepository("")
+                    .rlocation(
+                        TestConstants.WORKSPACE_NAME
+                            + "/"
+                            + TestConstants.PROJECT_SCL_DEFINITION_PATH))));
+    if (alsoWriteBuildFile) {
+      write(dest.substring(0, dest.lastIndexOf('/') + 1) + "BUILD");
+    }
   }
 }

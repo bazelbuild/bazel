@@ -45,14 +45,8 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -69,17 +63,16 @@ import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.BlazeOptionHandler;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
+import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -101,10 +94,8 @@ import com.google.errorprone.annotations.ForOverride;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
 
@@ -132,8 +123,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     CPU_K8,
     // Flags from TestConstants.PRODUCT_SPECIFIC_FLAGS.
     PRODUCT_SPECIFIC_FLAGS,
-    // The --nolegacy_external_runfiles flag.
-    NO_LEGACY_EXTERNAL_RUNFILES
   }
 
   /** Helper class to make it easy to enable and disable flags. */
@@ -189,7 +178,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, outputBase),
             rootDirectory,
-            /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
     workspaceStatusActionFactory = new AnalysisTestUtil.DummyWorkspaceStatusActionFactory();
 
@@ -199,7 +187,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     mockToolsConfig = new MockToolsConfig(rootDirectory);
     analysisMock.setupMockToolsRepository(mockToolsConfig);
     analysisMock.setupMockClient(mockToolsConfig);
-    analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
 
     useRuleClassProvider(analysisMock.createRuleClassProvider());
   }
@@ -218,14 +205,13 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
         .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
         .setSyscallCache(delegatingSyscallCache)
-        .setRepositoryHelpersHolder(getRepositoryHelpersHolder())
+        .allowExternalRepositories(allowExternalRepositories())
         .build();
   }
 
   @ForOverride
-  @Nullable
-  protected SkyframeExecutorRepositoryHelpersHolder getRepositoryHelpersHolder() {
-    return null;
+  protected boolean allowExternalRepositories() {
+    return false;
   }
 
   /** Changes the rule class provider to be used for the loading and the analysis phase. */
@@ -236,33 +222,12 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         analysisMock
             .getPackageFactoryBuilderForTesting(directories)
             .setExtraPrecomputeValues(
-                ImmutableList.of(
-                    PrecomputedValue.injected(
-                        ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())),
-                    PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
-                    PrecomputedValue.injected(
-                        ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of()),
-                    PrecomputedValue.injected(
-                        RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, false),
-                    PrecomputedValue.injected(
-                        ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
-                    PrecomputedValue.injected(
-                        RepositoryMappingFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
-                    PrecomputedValue.injected(
-                        RepositoryDelegatorFunction.FORCE_FETCH,
-                        RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
-                    PrecomputedValue.injected(
-                        BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
-                        CheckDirectDepsMode.WARNING),
-                    PrecomputedValue.injected(
-                        YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
-                    PrecomputedValue.injected(
-                        BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
-                        BazelCompatibilityMode.ERROR),
-                    PrecomputedValue.injected(
-                        RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
-                    PrecomputedValue.injected(
-                        BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE)))
+                ImmutableList.<PrecomputedValue.Injected>builder()
+                    .addAll(analysisMock.getPrecomputedValues())
+                    .add(
+                        PrecomputedValue.injected(
+                            ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())))
+                    .build())
             .build(ruleClassProvider, fileSystem);
     useConfiguration();
     skyframeExecutor = createSkyframeExecutor(pkgFactory);
@@ -287,32 +252,11 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
+    skyframeExecutor.injectExtraPrecomputedValues(analysisMock.getPrecomputedValues());
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(
-                RepositoryMappingFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
-            PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.FORCE_FETCH,
-                RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
-            PrecomputedValue.injected(
-                ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())),
-            PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
-            PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of()),
-            PrecomputedValue.injected(RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, false),
-            PrecomputedValue.injected(
-                BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
-                CheckDirectDepsMode.WARNING),
-            PrecomputedValue.injected(
-                YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
-            PrecomputedValue.injected(
-                BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
-                BazelCompatibilityMode.WARNING),
-            PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE)));
+                ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl()))));
   }
 
   /** Resets the SkyframeExecutor, as if a clean had been executed. */
@@ -348,6 +292,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                         LoadingPhaseThreadsOption.class,
                         LoadingOptions.class),
                     ruleClassProvider.getFragmentRegistry().getOptionsClasses()))
+            .skipStarlarkOptionPrefixes()
             .build();
     if (defaultFlags().contains(Flag.PUBLIC_VISIBILITY)) {
       optionsParser.parse("--default_visibility=public");
@@ -358,11 +303,20 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     if (defaultFlags().contains(Flag.PRODUCT_SPECIFIC_FLAGS)) {
       optionsParser.parse(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     }
-    if (defaultFlags().contains(Flag.NO_LEGACY_EXTERNAL_RUNFILES)) {
-      optionsParser.parse("--nolegacy_external_runfiles");
-    }
     optionsParser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     optionsParser.parse(args);
+
+    if (!optionsParser.getSkippedArgs().isEmpty()) {
+      var done =
+          StarlarkOptionsParser.builder()
+              .buildSettingLoader(
+                  new BlazeOptionHandler.SkyframeExecutorTargetLoader(
+                      skyframeExecutor, PathFragment.EMPTY_FRAGMENT, reporter))
+              .nativeOptionsParser(optionsParser)
+              .build()
+              .parse();
+      Preconditions.checkState(done);
+    }
 
     buildOptions =
         BuildOptions.of(ruleClassProvider.getFragmentRegistry().getOptionsClasses(), optionsParser);
@@ -372,8 +326,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     return new FlagBuilder()
         .with(Flag.PUBLIC_VISIBILITY)
         .with(Flag.CPU_K8)
-        .with(Flag.PRODUCT_SPECIFIC_FLAGS)
-        .with(Flag.NO_LEGACY_EXTERNAL_RUNFILES);
+        .with(Flag.PRODUCT_SPECIFIC_FLAGS);
   }
 
   protected Action getGeneratingAction(Artifact artifact) {
@@ -458,7 +411,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             loadingOptions,
             LOADING_PHASE_THREADS,
             keepGoing,
-            /*determineTests=*/ false);
+            /* determineTests= */ false);
 
     analysisResult =
         buildView.update(
@@ -495,24 +448,24 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     return update(
         eventBus,
         config,
-        /*explicitTargetPatterns=*/ ImmutableSet.of(),
+        /* explicitTargetPatterns= */ ImmutableSet.of(),
         aspects,
-        /*aspectsParameters=*/ ImmutableMap.of(),
+        /* aspectsParameters= */ ImmutableMap.of(),
         labels);
   }
 
   protected AnalysisResult update(EventBus eventBus, FlagBuilder config, String... labels)
       throws Exception {
-    return update(eventBus, config, /*aspects=*/ ImmutableList.of(), labels);
+    return update(eventBus, config, /* aspects= */ ImmutableList.of(), labels);
   }
 
   protected AnalysisResult update(FlagBuilder config, String... labels) throws Exception {
-    return update(new EventBus(), config, /*aspects=*/ ImmutableList.of(), labels);
+    return update(new EventBus(), config, /* aspects= */ ImmutableList.of(), labels);
   }
 
   /** Update the BuildView: syncs the package cache; loads and analyzes the given labels. */
   protected AnalysisResult update(String... labels) throws Exception {
-    return update(new EventBus(), defaultFlags(), /*aspects=*/ ImmutableList.of(), labels);
+    return update(new EventBus(), defaultFlags(), /* aspects= */ ImmutableList.of(), labels);
   }
 
   protected AnalysisResult update(ImmutableList<String> aspects, String... labels)
@@ -528,7 +481,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     return update(
         new EventBus(),
         defaultFlags(),
-        /*explicitTargetPatterns=*/ ImmutableSet.of(),
+        /* explicitTargetPatterns= */ ImmutableSet.of(),
         aspects,
         aspectsParameters,
         labels);

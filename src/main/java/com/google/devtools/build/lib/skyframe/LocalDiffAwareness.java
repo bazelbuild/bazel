@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -77,14 +76,18 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
   /** Factory for creating {@link LocalDiffAwareness} instances. */
   public static class Factory implements DiffAwareness.Factory {
     private final ImmutableList<String> excludedNetworkFileSystemsPrefixes;
+    private final FsEventsNativeDepsService fsEventsNativeDepsService;
 
     /**
      * Creates a new factory; the file system watcher may not work on all file systems, particularly
      * for network file systems. The prefix list can be used to exclude known paths that point to
      * network file systems.
      */
-    public Factory(ImmutableList<String> excludedNetworkFileSystemsPrefixes) {
+    public Factory(
+        ImmutableList<String> excludedNetworkFileSystemsPrefixes,
+        FsEventsNativeDepsService fsEventsNativeDepsService) {
       this.excludedNetworkFileSystemsPrefixes = excludedNetworkFileSystemsPrefixes;
+      this.fsEventsNativeDepsService = fsEventsNativeDepsService;
     }
 
     @Override
@@ -109,7 +112,7 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
           Path.of(StringEncoding.internalToPlatform(resolvedPathEntryFragment.getPathString()));
       // On OSX uses FsEvents due to https://bugs.openjdk.java.net/browse/JDK-7133447
       if (OS.getCurrent() == OS.DARWIN) {
-        return new MacOSXFsEventsDiffAwareness(watchRoot);
+        return new MacOSXFsEventsDiffAwareness(watchRoot, ignoredPaths, fsEventsNativeDepsService);
       }
 
       return new WatchServiceDiffAwareness(watchRoot, ignoredPaths);
@@ -213,13 +216,6 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
       }
     }
     return resultBuilder.build();
-  }
-
-  @Override
-  public ModifiedFileSet getDiffFromEvaluatingVersion(OptionsProvider options, FileSystem fs) {
-    // TODO: b/377512263 - not implemented yet for LocalDiffAwareness. Return EVERYTHING_MODIFIED
-    // to invalidate everything until this is implemented.
-    return ModifiedFileSet.EVERYTHING_MODIFIED;
   }
 
   @Override

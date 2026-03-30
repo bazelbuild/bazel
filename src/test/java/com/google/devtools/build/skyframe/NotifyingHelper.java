@@ -22,6 +22,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.errorprone.annotations.ForOverride;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -49,7 +50,7 @@ public class NotifyingHelper {
     };
   }
 
-  final Listener graphListener;
+  final ErrorRecordingDelegatingListener graphListener;
 
   NotifyingHelper(Listener graphListener) {
     this.graphListener = new ErrorRecordingDelegatingListener(graphListener);
@@ -99,6 +100,27 @@ public class NotifyingHelper {
     @Override
     public void remove(SkyKey key) {
       delegate.remove(key);
+    }
+
+    @Override
+    public NodeBatch getBatch(
+        @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
+        throws InterruptedException {
+      for (SkyKey key : keys) {
+        notifyingHelper.graphListener.accept(key, EventType.GET_BATCH, Order.BEFORE, reason);
+      }
+      NodeBatch batch = delegate.getBatch(requestor, reason, keys);
+      var map = new HashMap<SkyKey, NodeEntry>();
+      for (SkyKey key : keys) {
+        if (map.containsKey(key)) {
+          continue;
+        }
+        NodeEntry entry = batch.get(key);
+        if (entry != null) {
+          map.put(key, notifyingHelper.wrapEntry(key, entry));
+        }
+      }
+      return map::get;
     }
 
     @Override
@@ -164,6 +186,7 @@ public class NotifyingHelper {
     ADD_TEMPORARY_DIRECT_DEPS,
     GET_ALL_DIRECT_DEPS_FOR_INCOMPLETE_NODE,
     RESET_FOR_RESTART_FROM_SCRATCH,
+    REMOVE,
   }
 
   /**
@@ -178,18 +201,25 @@ public class NotifyingHelper {
 
   /** Receiver to be informed when an event for a given key occurs. */
   public interface Listener {
+
+    /**
+     * Informs this listener of an event.
+     *
+     * <p>{@link InterruptedException} may be thrown but is translated to an {@link
+     * IllegalStateException} by the test framework. Listeners may use blocking synchronization to
+     * exercise a certain scenario and are encouraged to propagate unexpected interrupts instead of
+     * using {@link com.google.common.util.concurrent.Uninterruptibles} - this way an unexpected
+     * build failure that interrupts and awaits quiescence of skyframe threads leads to a timely
+     * test failure without deadlocking.
+     */
     @ThreadSafe
-    void accept(SkyKey key, EventType type, Order order, @Nullable Object context);
+    void accept(SkyKey key, EventType type, Order order, @Nullable Object context)
+        throws InterruptedException;
 
     Listener NULL_LISTENER = (key, type, order, context) -> {};
   }
 
-  private static class ErrorRecordingDelegatingListener implements Listener {
-    private final Listener delegate;
-
-    private ErrorRecordingDelegatingListener(Listener delegate) {
-      this.delegate = delegate;
-    }
+  record ErrorRecordingDelegatingListener(Listener delegate) implements Listener {
 
     @Override
     public void accept(SkyKey key, EventType type, Order order, @Nullable Object context) {

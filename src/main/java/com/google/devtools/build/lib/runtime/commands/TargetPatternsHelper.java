@@ -15,14 +15,16 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ProjectFileSupport;
+import com.google.devtools.build.lib.runtime.events.InputFileEvent;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -34,6 +36,8 @@ import java.util.function.Predicate;
 
 /** Provides support for reading target patterns from a file or the command-line. */
 public final class TargetPatternsHelper {
+
+  private static final Splitter TARGET_PATTERN_SPLITTER = Splitter.on('#');
 
   private TargetPatternsHelper() {}
 
@@ -47,18 +51,22 @@ public final class TargetPatternsHelper {
       throws TargetPatternsHelperException {
     List<String> targets = options.getResidue();
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    if (!targets.isEmpty() && !buildRequestOptions.targetPatternFile.isEmpty()) {
+    if (!targets.isEmpty() && !buildRequestOptions.getTargetPatternFile().isEmpty()) {
       throw new TargetPatternsHelperException(
           "Command-line target pattern and --target_pattern_file cannot both be specified",
           TargetPatterns.Code.TARGET_PATTERN_FILE_WITH_COMMAND_LINE_PATTERN);
-    } else if (!buildRequestOptions.targetPatternFile.isEmpty()) {
+    } else if (!buildRequestOptions.getTargetPatternFile().isEmpty()) {
       // Works for absolute or relative file.
       Path residuePath =
-          env.getWorkingDirectory().getRelative(buildRequestOptions.targetPatternFile);
+          env.getWorkingDirectory().getRelative(buildRequestOptions.getTargetPatternFile());
       try {
+        env.getEventBus()
+            .post(
+                InputFileEvent.create(
+                    /* type= */ "target_pattern_file", residuePath.getFileSize()));
         targets =
-            FileSystemUtils.readLines(residuePath, UTF_8).stream()
-                .map(s -> s.split("#")[0])
+            FileSystemUtils.readLines(residuePath, ISO_8859_1).stream()
+                .map(s -> TARGET_PATTERN_SPLITTER.splitToList(s).get(0))
                 .map(String::trim)
                 .filter(Predicate.not(String::isEmpty))
                 .collect(toImmutableList());

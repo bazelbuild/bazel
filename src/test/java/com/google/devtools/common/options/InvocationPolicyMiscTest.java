@@ -109,4 +109,48 @@ public class InvocationPolicyMiscTest extends InvocationPolicyEnforcerTestBase {
 
     assertThat(parser.getWarnings()).isEmpty();
   }
+
+  @Test
+  public void testFlagPolicy_oldNameAndNewName_oldNameLast() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_new_and_old_name")
+        .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES)
+        .addFlagValue("new_value");
+    invocationPolicyBuilder
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_old_name")
+        .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES)
+        .addFlagValue("old_value");
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
+
+    assertThat(getTestOptions().testNewAndOldName).isEqualTo("old_value");
+  }
+
+  @Test
+  public void testFlagPolicy_oldNameAndNewName_newNameLast() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_old_name")
+        .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES)
+        .addFlagValue("old_value");
+    invocationPolicyBuilder
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_new_and_old_name")
+        .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES)
+        .addFlagValue("new_value");
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
+
+    assertThat(getTestOptions().testNewAndOldName).isEqualTo("new_value");
+  }
 }

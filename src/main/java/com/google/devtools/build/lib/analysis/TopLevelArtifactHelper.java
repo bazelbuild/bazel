@@ -389,7 +389,7 @@ public final class TopLevelArtifactHelper {
         return null;
       }
       NestedSetBuilder<Artifact> newSetBuilder =
-          new NestedSetBuilder<>(declaredArtifacts.getOrder());
+          NestedSetBuilder.newBuilder(declaredArtifacts.getOrder());
       for (Artifact a : leaves) {
         if (builtArtifacts.contains(a)) {
           newSetBuilder.add(a);

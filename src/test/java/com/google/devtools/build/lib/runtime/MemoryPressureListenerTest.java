@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -27,8 +28,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.bugreport.BugReporter;
-import com.google.devtools.build.lib.clock.BlazeClock;
 import com.sun.management.GarbageCollectionNotificationInfo;
 import com.sun.management.GcInfo;
 import java.lang.management.GarbageCollectorMXBean;
@@ -51,7 +50,6 @@ public final class MemoryPressureListenerTest {
   private static final String TENURED_SPACE_NAME = "CMS Old Gen";
   private final NotificationBean mockBean = mock(NotificationBean.class);
   private final NotificationBean mockUselessBean = mock(NotificationBean.class);
-  private final BugReporter bugReporter = mock(BugReporter.class);
   private final EventBus eventBus = new EventBus();
   private final List<MemoryPressureEvent> events = new ArrayList<>();
 
@@ -95,7 +93,8 @@ public final class MemoryPressureListenerTest {
     MemoryPressureListener underTest =
         MemoryPressureListener.createFromBeans(
             ImmutableList.of(mockUselessBean, mockBean), directExecutor());
-    underTest.setEventBus(eventBus);
+    underTest.initForInvocation(
+        eventBus, mock(GcThrashingDetector.class), mock(GcChurningDetector.class));
     verify(mockBean).addNotificationListener(underTest, null, null);
     verify(mockUselessBean, never()).addNotificationListener(any(), any(), any());
 
@@ -112,6 +111,7 @@ public final class MemoryPressureListenerTest {
                 mockMemoryUsageForNonTenuredSpace,
                 TENURED_SPACE_NAME,
                 mockMemoryUsageForTenuredSpace));
+    when(mockGcInfo.getDuration()).thenReturn(42_000L);
 
     Notification notification =
         new Notification(
@@ -127,6 +127,7 @@ public final class MemoryPressureListenerTest {
                 .setWasManualGc(false)
                 .setTenuredSpaceUsedBytes(42L)
                 .setTenuredSpaceMaxBytes(100L)
+                .setDuration(Duration.ofSeconds(42))
                 .build());
   }
 
@@ -167,7 +168,8 @@ public final class MemoryPressureListenerTest {
   public void manualGc() {
     MemoryPressureListener underTest =
         MemoryPressureListener.createFromBeans(ImmutableList.of(mockBean), directExecutor());
-    underTest.setEventBus(eventBus);
+    underTest.initForInvocation(
+        eventBus, mock(GcThrashingDetector.class), mock(GcChurningDetector.class));
     verify(mockBean).addNotificationListener(underTest, null, null);
 
     GcInfo mockGcInfo = mock(GcInfo.class);
@@ -176,6 +178,7 @@ public final class MemoryPressureListenerTest {
     when(mockMemoryUsageForTenuredSpace.getMax()).thenReturn(100L);
     when(mockGcInfo.getMemoryUsageAfterGc())
         .thenReturn(ImmutableMap.of(TENURED_SPACE_NAME, mockMemoryUsageForTenuredSpace));
+    when(mockGcInfo.getDuration()).thenReturn(42_000L);
 
     Notification notification =
         new Notification(
@@ -191,6 +194,7 @@ public final class MemoryPressureListenerTest {
                 .setWasManualGc(true)
                 .setTenuredSpaceUsedBytes(42L)
                 .setTenuredSpaceMaxBytes(100L)
+                .setDuration(Duration.ofSeconds(42))
                 .build());
   }
 
@@ -198,7 +202,8 @@ public final class MemoryPressureListenerTest {
   public void doesntInvokeHandlerWhenTenuredSpaceMaxSizeIsZero() {
     MemoryPressureListener underTest =
         MemoryPressureListener.createFromBeans(ImmutableList.of(mockBean), directExecutor());
-    underTest.setEventBus(eventBus);
+    underTest.initForInvocation(
+        eventBus, mock(GcThrashingDetector.class), mock(GcChurningDetector.class));
     verify(mockBean).addNotificationListener(underTest, null, null);
 
     GcInfo mockGcInfo = mock(GcInfo.class);
@@ -228,7 +233,8 @@ public final class MemoryPressureListenerTest {
     MemoryPressureListener underTest =
         MemoryPressureListener.createFromBeans(
             ImmutableList.of(mockBean, anotherMockBean), directExecutor());
-    underTest.setEventBus(eventBus);
+    underTest.initForInvocation(
+        eventBus, mock(GcThrashingDetector.class), mock(GcChurningDetector.class));
     verify(mockBean).addNotificationListener(underTest, null, null);
     verify(anotherMockBean).addNotificationListener(underTest, null, null);
 
@@ -246,6 +252,7 @@ public final class MemoryPressureListenerTest {
                 mockMemoryUsageForTenuredSpace,
                 anotherTenuredSpaceName,
                 mockMemoryUsageForAnotherTenuredSpace));
+    when(mockGcInfo.getDuration()).thenReturn(42_000L);
 
     Notification notification =
         new Notification(
@@ -261,24 +268,21 @@ public final class MemoryPressureListenerTest {
                 .setWasManualGc(false)
                 .setTenuredSpaceUsedBytes(2L)
                 .setTenuredSpaceMaxBytes(3L)
+                .setDuration(Duration.ofSeconds(42))
                 .build());
   }
 
   @Test
-  public void gcThrashingDetector_limitMet_handleCrash() {
+  public void directlyInvokesGcThrashingDetectorAndGcChurnDetector() {
     MemoryPressureListener underTest =
         MemoryPressureListener.createFromBeans(
             ImmutableList.of(mockUselessBean, mockBean), directExecutor());
     verify(mockBean).addNotificationListener(underTest, null, null);
     verify(mockUselessBean, never()).addNotificationListener(any(), any(), any());
 
-    underTest.setEventBus(eventBus);
-    underTest.setGcThrashingDetector(
-        new GcThrashingDetector(
-            /* threshold= */ 90,
-            ImmutableList.of(GcThrashingDetector.Limit.of(Duration.ofMinutes(1), 1)),
-            BlazeClock.instance(),
-            bugReporter));
+    GcThrashingDetector mockGcThrashingDetector = mock(GcThrashingDetector.class);
+    GcChurningDetector mockGcChurningDetector = mock(GcChurningDetector.class);
+    underTest.initForInvocation(eventBus, mockGcThrashingDetector, mockGcChurningDetector);
 
     GcInfo mockGcInfo = mock(GcInfo.class);
     String nonTenuredSpaceName = "nope";
@@ -293,14 +297,8 @@ public final class MemoryPressureListenerTest {
                 mockMemoryUsageForNonTenuredSpace,
                 TENURED_SPACE_NAME,
                 mockMemoryUsageForTenuredSpace));
+    when(mockGcInfo.getDuration()).thenReturn(42_000L);
 
-    MemoryPressureEvent event =
-        MemoryPressureEvent.newBuilder()
-            .setWasManualGc(false)
-            .setWasFullGc(true)
-            .setTenuredSpaceUsedBytes(99)
-            .setTenuredSpaceMaxBytes(100)
-            .build();
     Notification notification =
         new Notification(
             GarbageCollectionNotificationInfo.GARBAGE_COLLECTION_NOTIFICATION, "test", 123);
@@ -309,6 +307,29 @@ public final class MemoryPressureListenerTest {
             .toCompositeData(null));
     underTest.handleNotification(notification, null);
 
+    MemoryPressureEvent event =
+        MemoryPressureEvent.newBuilder()
+            .setWasManualGc(false)
+            .setWasFullGc(true)
+            .setTenuredSpaceUsedBytes(99)
+            .setTenuredSpaceMaxBytes(100)
+            .setDuration(Duration.ofSeconds(42))
+            .build();
     assertThat(events).containsExactly(event);
+    verify(mockGcThrashingDetector).handle(eq(event));
+    verify(mockGcChurningDetector).handle(eq(event));
+  }
+
+  @Test
+  public void forwardsTargetParsingComplete() {
+    MemoryPressureListener underTest =
+        MemoryPressureListener.createFromBeans(
+            ImmutableList.of(mockUselessBean, mockBean), directExecutor());
+
+    GcChurningDetector mockGcChurningDetector = mock(GcChurningDetector.class);
+    underTest.initForInvocation(eventBus, mock(GcThrashingDetector.class), mockGcChurningDetector);
+    underTest.targetParsingComplete(42);
+
+    verify(mockGcChurningDetector).targetParsingComplete(eq(42));
   }
 }

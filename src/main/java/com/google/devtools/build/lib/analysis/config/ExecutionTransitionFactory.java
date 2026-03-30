@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
+import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.NoConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
-import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
@@ -50,18 +49,12 @@ import javax.annotation.Nullable;
 public class ExecutionTransitionFactory
     implements TransitionFactory<AttributeTransitionData>, ExecTransitionFactoryApi {
 
-  /**
-   * Returns a new {@link ExecutionTransitionFactory} for the default {@link
-   * com.google.devtools.build.lib.packages.ExecGroup}.
-   */
+  /** Returns a new {@link ExecutionTransitionFactory} for the default {@link DeclaredExecGroup}. */
   public static ExecutionTransitionFactory createFactory() {
     return new ExecutionTransitionFactory(DEFAULT_EXEC_GROUP_NAME);
   }
 
-  /**
-   * Returns a new {@link ExecutionTransitionFactory} for the given {@link
-   * com.google.devtools.build.lib.packages.ExecGroup}.
-   */
+  /** Returns a new {@link ExecutionTransitionFactory} for the given {@link DeclaredExecGroup}. */
   public static ExecutionTransitionFactory createFactory(String execGroup) {
     return new ExecutionTransitionFactory(execGroup);
   }
@@ -228,43 +221,20 @@ public class ExecutionTransitionFactory
       // The conditional use of a Builder above may have replaced result and underlying options
       // with a clone so must refresh it.
       CoreOptions coreOptions = result.get(CoreOptions.class);
+      coreOptions.setCommandLineFlagAliases(
+          options.underlying().get(CoreOptions.class).getCommandLineFlagAliases());
       // TODO(blaze-configurability-team): These updates probably requires a bit too much knowledge
       //   of exactly how the immutable state and mutable state of BuildOptions is interacting.
       //   Might be good to have an option to wipeout that state rather than cloning so much.
-      switch (coreOptions.execConfigurationDistinguisherScheme) {
-        case LEGACY ->
-            coreOptions.platformSuffix =
-                String.format("exec-%X", executionPlatform.getCanonicalForm().hashCode());
-        case FULL_HASH -> {
-          coreOptions.platformSuffix = "";
-          // execOptions creation above made a clone, which will have a fresh hashCode
-          int fullHash = result.hashCode();
-          coreOptions.platformSuffix = String.format("exec-%X", fullHash);
-          // Previous call to hashCode irreparably locked in state so must clone to refresh since
-          // options mutated after that
-          result = result.clone();
-        }
-        case DIFF_TO_AFFECTED -> {
-          // Setting platform_suffix here should not be necessary for correctness but
-          // done for user clarity.
-          coreOptions.platformSuffix = "exec";
-          ImmutableSet<String> diff =
-              FunctionTransitionUtil.getAffectedByStarlarkTransitionViaDiff(
-                  result, options.underlying());
-          FunctionTransitionUtil.updateAffectedByStarlarkTransition(coreOptions, diff);
-          // Previous call to diff irreparably locked in state so must clone to refresh.
-          result = result.clone();
-        }
-        default ->
-            // else if OFF just mark that we are now in an exec transition
-            coreOptions.platformSuffix = "exec";
-      }
-      coreOptions.affectedByStarlarkTransition =
-          options.underlying().get(CoreOptions.class).affectedByStarlarkTransition;
-      coreOptions.executionInfoModifier =
-          options.underlying().get(CoreOptions.class).executionInfoModifier;
-      coreOptions.overrideNamePlatformInOutputDirEntries =
-          options.underlying().get(CoreOptions.class).overrideNamePlatformInOutputDirEntries;
+      coreOptions.setPlatformSuffix("exec");
+      coreOptions.setExecutionInfoModifier(
+          options.underlying().get(CoreOptions.class).getExecutionInfoModifier());
+      coreOptions.setOverridePlatformCpuName(
+          options.underlying().get(CoreOptions.class).getOverridePlatformCpuName());
+      coreOptions.setDisabledSelectOptions(
+          options.underlying().get(CoreOptions.class).getDisabledSelectOptions());
+      coreOptions.setIncompatibleTargetCpuFromPlatform(
+          options.underlying().get(CoreOptions.class).getIncompatibleTargetCpuFromPlatform());
       return result;
     }
   }

@@ -42,6 +42,9 @@ public final class GeneratorConflictTest extends AnalysisTestCase {
     scratch.file(
         "conflict/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         cc_library(
             name = "x",
             srcs = ["foo.cc"],
@@ -69,7 +72,10 @@ public final class GeneratorConflictTest extends AnalysisTestCase {
   // ideal behavior.
   @Test
   public void testIntermediateFilesDontConflictWithSources() throws Exception {
-    scratch.file("conflict/BUILD", "cc_library(name='x', srcs=['foo.cc', '_objs/x/foo.o'])");
+    scratch.file(
+        "conflict/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='x', srcs=['foo.cc', '_objs/x/foo.o'])");
 
     // No conflict, doesn't fail:
     update("//conflict:x");
@@ -86,6 +92,7 @@ public final class GeneratorConflictTest extends AnalysisTestCase {
     scratch.file(
         "conflict/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "x",
             srcs = ["foo.cc"],
@@ -107,8 +114,10 @@ public final class GeneratorConflictTest extends AnalysisTestCase {
   public void testNoConflictForSameBasename() throws Exception {
     // It should be OK to use source files with the same basename
     // (but different directory names) in the same rule.
-    scratch.file("noconflict/BUILD",
-                "cc_library(name='lib', srcs=['foo/baz.cc', 'bar/baz.cc'])");
+    scratch.file(
+        "noconflict/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='lib', srcs=['foo/baz.cc', 'bar/baz.cc'])");
     update("//noconflict:lib");
     assertNoEvents();
   }

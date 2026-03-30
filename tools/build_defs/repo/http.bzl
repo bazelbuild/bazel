@@ -54,6 +54,7 @@ load(
     "download_remote_files",
     "get_auth",
     "patch",
+    "symlink_files",
     "update_attrs",
     "workspace_and_buildfile",
 )
@@ -75,6 +76,50 @@ Authentication is not supported.
 
 URLs are tried in order until one succeeds, so you should list local mirrors first.
 If all downloads fail, the rule will fail."""
+
+# Do not manually edit - this is a semi-auto-generated list based on the values
+# in DecompressorValue.java. You can get an updated list to copy-paste here by
+# running the httpBzlDocumentation test in DecompressorValueTest.java.
+SUPPORTED_ARCHIVE_FORMATS = [
+    "zip",
+    "jar",
+    "war",
+    "aar",
+    "nupkg",
+    "whl",
+    "tar",
+    "tar.gz",
+    "tgz",
+    "gz",
+    "tar.xz",
+    "txz",
+    "xz",
+    "tar.zst",
+    "tzst",
+    "zst",
+    "tar.bz2",
+    "tbz",
+    "bz2",
+    "ar",
+    "deb",
+    "7z",
+]
+
+# Put quotes around the formats for documentation (i.e. `"zip"`)
+QUOTED_ARCHIVE_FORMATS = (
+    [
+        "`\"" + ext + "\"`"
+        for ext in SUPPORTED_ARCHIVE_FORMATS
+    ]
+)
+
+# Combines the list into a readable list of formats to choose from.
+# Eg. '`"zip"`, `"jar"` or `"7z"`'
+READABLE_ARCHIVE_FORMATS = (", ".join(
+                                QUOTED_ARCHIVE_FORMATS[:len(QUOTED_ARCHIVE_FORMATS) - 1],
+                            ) +
+                            " or " +
+                            QUOTED_ARCHIVE_FORMATS[len(QUOTED_ARCHIVE_FORMATS) - 1])
 
 def _get_source_urls(ctx):
     """Returns source urls provided via the url, urls attributes.
@@ -125,8 +170,26 @@ Authorization: Bearer RANDOM-TOKEN
 
 def _update_integrity_attr(ctx, attrs, download_info):
     # We don't need to override the integrity attribute if sha256 is already specified.
-    integrity_override = {} if ctx.attr.sha256 else {"integrity": download_info.integrity}
-    return update_attrs(ctx.attr, attrs.keys(), integrity_override)
+    if ctx.attr.sha256 or ctx.attr.integrity:
+        return ctx.repo_metadata(reproducible = True)
+    integrity_override = {"integrity": download_info.integrity}
+    return ctx.repo_metadata(attrs_for_reproducibility = update_attrs(ctx.attr, attrs.keys(), integrity_override))
+
+def _update_http_archive_integrity_attrs(ctx, attrs, integrity):
+    integrity_override = {}
+
+    # We don't need to override the integrity attribute if sha256 is already specified.
+    # remote_module_file_integrity is for internal use by Bazel only and always
+    # set correctly.
+    if not ctx.attr.sha256 and not ctx.attr.integrity:
+        integrity_override["integrity"] = integrity.archive
+    if ctx.attr.remote_file_integrity != integrity.remote_files:
+        integrity_override["remote_file_integrity"] = integrity.remote_files
+    if ctx.attr.remote_patches != integrity.remote_patches:
+        integrity_override["remote_patches"] = integrity.remote_patches
+    if not integrity_override:
+        return ctx.repo_metadata(reproducible = True)
+    return ctx.repo_metadata(attrs_for_reproducibility = update_attrs(ctx.attr, attrs.keys(), integrity_override))
 
 def _http_archive_impl(ctx):
     """Implementation of the http_archive rule."""
@@ -146,17 +209,26 @@ def _http_archive_impl(ctx):
     )
     workspace_and_buildfile(ctx)
 
-    download_remote_files(ctx)
-    patch(ctx)
+    remote_files_info = download_remote_files(ctx)
+    remote_patches_info = patch(ctx)
+    symlink_files(ctx)
 
-    return _update_integrity_attr(ctx, _http_archive_attrs, download_info)
+    integrity = struct(
+        archive = download_info.integrity,
+        remote_files = {path: info.integrity for path, info in remote_files_info.items()},
+        remote_patches = {url: info.integrity for url, info in remote_patches_info.items()},
+    )
+
+    return _update_http_archive_integrity_attrs(ctx, _http_archive_attrs, integrity)
 
 _HTTP_FILE_BUILD = """\
 package(default_visibility = ["//visibility:public"])
 
+exports_files([{path}])
+
 filegroup(
     name = "file",
-    srcs = ["{}"],
+    srcs = [{path}],
 )
 """
 
@@ -186,11 +258,13 @@ def _http_file_impl(ctx):
         integrity = ctx.attr.integrity,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
-    ctx.file("file/BUILD", _HTTP_FILE_BUILD.format(downloaded_file_path))
+    ctx.file("file/BUILD", _HTTP_FILE_BUILD.format(path = repr(downloaded_file_path)))
 
     return _update_integrity_attr(ctx, _http_file_attrs, download_info)
 
 _HTTP_JAR_BUILD = """\
+load("{java_import_bzl}", "java_import")
+
 package(default_visibility = ["//visibility:public"])
 
 java_import(
@@ -221,6 +295,7 @@ def _http_jar_impl(ctx):
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
     ctx.file("jar/BUILD", _HTTP_JAR_BUILD.format(
+        java_import_bzl = str(Label("@rules_java//java:java_import.bzl")),
         file_name = downloaded_file_name,
     ))
 
@@ -283,13 +358,19 @@ The archive will be unpacked into this directory, after applying `strip_prefix`
 `foo-1.2.3/src/foo.h` will be unpacked to `bar/src/foo.h` if `add_prefix = "bar"`
 and `strip_prefix = "foo-1.2.3"`.""",
     ),
+    "files": attr.string_keyed_label_dict(
+        doc = """A map of relative paths (key) to a file label (value) that overlaid on the repo as
+a symlink. This is useful when you want to add REPO.bazel or BUILD.bazel files atop an existing
+repository. Files are symlinked after remote files are downloaded and patches (`remote_patches`,
+`patches`) are applied. Existing files will be overwritten.
+""",
+    ),
     "type": attr.string(
         doc = """The archive type of the downloaded file.
 
 By default, the archive type is determined from the file extension of the
 URL. If the file has no extension, you can explicitly specify one of the
-following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
-`"tar.xz"`, `"txz"`, `"tar.zst"`, `"tzst"`, `"tar.bz2"`, `"ar"`, or `"deb"`.""",
+following: """ + READABLE_ARCHIVE_FORMATS + ".",
     ),
     "patches": attr.label_list(
         default = [],
@@ -302,18 +383,27 @@ following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
     ),
     "remote_file_urls": attr.string_list_dict(
         default = {},
-        doc =
-            "A map of relative paths (key) to a list of URLs (value) that are to be downloaded " +
-            "and made available as overlaid files on the repo. This is useful when you want " +
-            "to add WORKSPACE or BUILD.bazel files atop an existing repository. The files " +
-            "are downloaded before applying the patches in the `patches` attribute and the list of URLs " +
-            "should all be possible mirrors of the same file. The URLs are tried in order until one succeeds. ",
+        doc = """A map of relative paths (key) to a list of URLs (value) that are to be downloaded
+and made available as overlaid files on the repo. This is useful when you want to add REPO.bazel or
+BUILD.bazel files atop an existing repository. The files are downloaded before `files` are
+symlinked and patches (`remote_patches`, `patches`) are applied. The list of URLs should all be
+possible mirrors of the same file. The URLs are tried in order until one succeeds. Existing files
+will be overwritten.
+""",
     ),
     "remote_file_integrity": attr.string_dict(
         default = {},
         doc =
             "A map of file relative paths (key) to its integrity value (value). These relative paths should map " +
             "to the files (key) in the `remote_file_urls` attribute.",
+    ),
+    "remote_module_file_urls": attr.string_list(
+        default = [],
+        doc = "For internal use only.",
+    ),
+    "remote_module_file_integrity": attr.string(
+        default = "",
+        doc = "For internal use only.",
     ),
     "remote_patches": attr.string_dict(
         default = {},
@@ -334,15 +424,19 @@ following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
               "patch tool instead of the Bazel-native patch implementation.",
     ),
     "patch_args": attr.string_list(
-        default = ["-p0"],
+        default = [],
         doc =
-            "The arguments given to the patch tool. Defaults to -p0, " +
-            "however -p1 will usually be needed for patches generated by " +
+            "The arguments given to the patch tool. Defaults to -p0 (see the `patch_strip` " +
+            "attribute), however -p1 will usually be needed for patches generated by " +
             "git. If multiple -p arguments are specified, the last one will take effect." +
             "If arguments other than -p are specified, Bazel will fall back to use patch " +
             "command line tool instead of the Bazel-native patch implementation. When falling " +
             "back to patch command line tool and patch_tool attribute is not specified, " +
             "`patch` will be used. This only affects patch files in the `patches` attribute.",
+    ),
+    "patch_strip": attr.int(
+        default = 0,
+        doc = "When set to `N`, this is equivalent to inserting `-pN` to the beginning of `patch_args`.",
     ),
     "patch_cmds": attr.string_list(
         default = [],
@@ -372,16 +466,10 @@ following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
             "not both.",
     ),
     "workspace_file": attr.label(
-        doc =
-            "The file to use as the `WORKSPACE` file for this repository. " +
-            "Either `workspace_file` or `workspace_file_content` can be " +
-            "specified, or neither, but not both.",
+        doc = "No-op attribute; do not use.",
     ),
     "workspace_file_content": attr.string(
-        doc =
-            "The content for the WORKSPACE file for this repository. " +
-            "Either `workspace_file` or `workspace_file_content` can be " +
-            "specified, or neither, but not both.",
+        doc = "No-op attribute; do not use.",
     ),
 }
 
@@ -393,9 +481,7 @@ http_archive = repository_rule(
         """Downloads a Bazel repository as a compressed archive file, decompresses it,
 and makes its targets available for binding.
 
-It supports the following file extensions: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`,
-`"tar.gz"`, `"tgz"`, `"tar.xz"`, `"txz"`, `"tar.zst"`, `"tzst"`, `tar.bz2`, `"ar"`,
-or `"deb"`.
+It supports the following file extensions: """ + READABLE_ARCHIVE_FORMATS + """.
 
 Examples:
   Suppose the current repository contains the source code for a chat program,

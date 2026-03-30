@@ -75,7 +75,7 @@ public class ArtifactFactoryTest {
     clientRoot = Root.fromPath(scratch.dir("/client/workspace"));
     clientRoRoot = Root.fromPath(scratch.dir("/client/RO/workspace"));
     alienRoot = Root.fromPath(scratch.dir("/client/workspace"));
-    outRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out-root", "x", "bin");
+    outRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "out-root", "x", "bin");
 
     fooPath = PathFragment.create("foo");
     fooPackage = PackageIdentifier.createInMainRepo(fooPath);

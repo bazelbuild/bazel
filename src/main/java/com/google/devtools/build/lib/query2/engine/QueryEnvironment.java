@@ -240,7 +240,7 @@ public interface QueryEnvironment<T> {
   }
 
   /** Returns all of the targets in <code>target</code>'s package, in some stable order. */
-  Collection<T> getSiblingTargetsInPackage(T target) throws QueryException;
+  Collection<T> getSiblingTargetsInPackage(T target) throws QueryException, InterruptedException;
 
   /**
    * Invokes {@code callback} with the set of target nodes in the graph for the specified target
@@ -570,9 +570,9 @@ public interface QueryEnvironment<T> {
         T originalTarget, LoadGraphVisitor<QueryException, InterruptedException> visitor)
         throws QueryException, InterruptedException;
 
-    T getBuildFileTarget(T originalTarget);
+    T getBuildFileTarget(T originalTarget) throws InterruptedException;
 
-    T getLoadFileTarget(T originalTarget, Label bzlLabel);
+    T getLoadFileTarget(T originalTarget, Label bzlLabel) throws InterruptedException;
 
     @Nullable
     T maybeGetBuildFileTargetForLoadFileTarget(T originalTarget, Label bzlLabel)
@@ -670,6 +670,9 @@ public interface QueryEnvironment<T> {
     /** Returns whether the given target is a rule. */
     boolean isRule(T target);
 
+    /** Returns whether the given rule is executable with 'bazel run'. */
+    boolean isExecutableNonTestRule(T target);
+
     /**
      * Returns whether the given target is a test target. If this returns true, then {@link #isRule}
      * must also return true for the target.
@@ -741,6 +744,7 @@ public interface QueryEnvironment<T> {
           new AttrFunction(),
           new BuildFilesFunction(),
           new DepsFunction(),
+          new ExecutablesFunction(),
           new FilterFunction(),
           new KindFunction(),
           new LabelsFunction(),

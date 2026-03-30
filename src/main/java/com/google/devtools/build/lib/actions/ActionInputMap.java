@@ -14,25 +14,28 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.stream.Collectors.toList;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 
 /**
@@ -46,7 +49,7 @@ import javax.annotation.Nullable;
  *
  * <p>This class is thread-compatible.
  */
-public final class ActionInputMap implements InputMetadataProvider, ActionInputMapSink {
+public final class ActionInputMap implements InputMetadataProvider {
 
   private static final Object PLACEHOLDER = new Object();
 
@@ -125,9 +128,19 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
       }
       return null;
     }
-  }
 
-  private final BugReporter bugReporter;
+    void forEachTreeArtifact(
+        BiConsumer<PathFragment, TreeArtifactValue> consumer, PathFragment execPath) {
+      for (Map.Entry<String, Object> entry : subFolders.entrySet()) {
+        PathFragment childPath = execPath.getRelative(entry.getKey());
+        switch (entry.getValue()) {
+          case TreeArtifactValue val -> consumer.accept(childPath, val);
+          case TrieArtifact next -> next.forEachTreeArtifact(consumer, childPath);
+          default -> throw new AssertionError(entry);
+        }
+      }
+    }
+  }
 
   /** The number of elements contained in this map. */
   private int size;
@@ -141,37 +154,25 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
   /** Flat array of the next pointers that make up the linked list behind each hash bucket. */
   private int[] next;
 
-  /**
-   * The {@link ActionInput} keys stored in this map. For performance reasons, they need to be
-   * stored as {@link Object}s as otherwise, the JVM does not seem to be as good optimizing the
-   * store operations (maybe it does checks on the type being stored?).
-   */
-  private Object[] keys;
+  /** The {@link ActionInput} keys stored in this map. */
+  private ActionInput[] keys;
+
+  /** The exec paths of the keys. */
+  private String[] paths;
 
   /**
-   * Extra storage for the execPathStrings of the values in {@link #keys}. This extra storage is
-   * necessary for speed as otherwise, we'd need to cast to {@link ActionInput}, which is slow.
-   */
-  private Object[] paths;
-
-  /**
-   * The {@link FileArtifactValue} data stored in this map. Same as the other arrays, this is stored
-   * as {@link Object} for performance reasons.
+   * The values stored in this map. Each value is one of {@link FileArtifactValue}, {@link
+   * TreeArtifactValue} or {@link RunfilesArtifactValue}.
    */
   private Object[] values;
 
   private TrieArtifact treeArtifactsRoot = new TrieArtifact();
 
+  private final Map<Artifact, FilesetOutputTree> filesets = Maps.newTreeMap();
+
   private List<RunfilesTree> runfilesTrees = new ArrayList<>();
 
-  @Deprecated
-  @VisibleForTesting
   public ActionInputMap(int sizeHint) {
-    this(BugReporter.defaultInstance(), sizeHint);
-  }
-
-  public ActionInputMap(BugReporter bugReporter, int sizeHint) {
-    this.bugReporter = bugReporter;
     sizeHint = Math.max(1, sizeHint);
     int tableSize = Integer.highestOneBit(sizeHint) << 1;
     size = 0;
@@ -180,8 +181,8 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
     Arrays.fill(table, -1);
 
     next = new int[sizeHint];
-    keys = new Object[sizeHint];
-    paths = new Object[sizeHint];
+    keys = new ActionInput[sizeHint];
+    paths = new String[sizeHint];
     values = new Object[sizeHint];
   }
 
@@ -216,7 +217,24 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
     }
 
     if (input instanceof TreeFileArtifact treeFileArtifact) {
-      int treeIndex = getIndex(treeFileArtifact.getParent().getExecPathString());
+      SpecialArtifact parent = treeFileArtifact.getParent();
+      int treeIndex = getIndex(parent.getExecPathString());
+      // If the parent is a subtree artifact, and the subtree is not found, fallback to check the
+      // top-level tree artifact.
+      // This distinction is necessary to handle two scenarios:
+      // 1. When an action is passed a subtree artifact, the subtree and its TreeArtifactValue are
+      //    stored in the treeArtifactsRoot. In this case, when requesting the metadata for a
+      //    TreeFileArtifact under a subtree, we are able to resolve the correct tree artifact
+      //    directly.
+      // 2. When an action is passed a top-level tree artifact (that itself contains a subtree of
+      //    files), the top-level tree is stored with a flattened TreeArtifactValue containing all
+      //    children under the top-level tree. In this case, when requesting the metadata for a
+      //    TreeFileArtifact under a subtree, we need to need search for the top-level tree artifact
+      //    rather than the file's parent (subtree).
+      // tree artifact or a subdirectory (tree artifact) as its input.
+      if (treeIndex == -1 && parent.isSubTreeArtifact()) {
+        treeIndex = getIndex(parent.getParent().getExecPathString());
+      }
       if (treeIndex != -1) {
         checkArgument(
             values[treeIndex] instanceof TreeArtifactValue,
@@ -238,23 +256,29 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
       return null;
     }
 
-    // Check the trees in case input is a non-Artifact ActionInput pointing to a tree artifact file
-    // (such as the ones resulting from a fileset expansion).
-    FileArtifactValue result = getMetadataFromTreeArtifacts(input.getExecPath());
+    // Check the trees in case input is a non-Artifact ActionInput pointing to a tree artifact file.
+    // This can happen if both a TreeArtifact and a Fileset containing the TreeArtifact are inputs
+    // to the same action.
+    return getMetadataFromTreeArtifacts(input.getExecPath());
+  }
 
-    if (result != null) {
-      bugReporter.sendBugReport(
-          new IllegalArgumentException(
-              String.format(
-                  "Tree artifact file: '%s' referred to as an action input", input.getExecPath())));
-    }
-    return result;
+  @Nullable
+  @Override
+  public FilesetOutputTree getFileset(ActionInput input) {
+    checkArgument(isFileset(input), input);
+
+    return filesets.get(input);
+  }
+
+  @Override
+  public Map<Artifact, FilesetOutputTree> getFilesets() {
+    return Collections.unmodifiableMap(filesets);
   }
 
   @Nullable
   @Override
   public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
-    Preconditions.checkArgument(isRunfilesTree(input));
+    checkArgument(isRunfilesTree(input), input);
 
     int index = getIndex(input.getExecPathString());
     if (index == -1) {
@@ -267,6 +291,14 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
   @Override
   public ImmutableList<RunfilesTree> getRunfilesTrees() {
     return ImmutableList.copyOf(runfilesTrees);
+  }
+
+  /**
+   * For each tree artifact in this input map, invokes the given callback with its exec path and its
+   * metadata.
+   */
+  public void forEachTreeArtifact(BiConsumer<PathFragment, TreeArtifactValue> consumer) {
+    treeArtifactsRoot.forEachTreeArtifact(consumer, PathFragment.EMPTY_FRAGMENT);
   }
 
   /**
@@ -300,10 +332,13 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
     return entry != null ? entry.getValue() : null;
   }
 
-  /**
-   * Returns the {@link TreeArtifactValue} for the given path, or {@code null} if no such tree
-   * artifact exists.
-   */
+  @Nullable
+  @Override
+  public TreeArtifactValue getTreeMetadata(ActionInput input) {
+    checkArgument(isTreeArtifact(input), input);
+    return getTreeMetadata(input.getExecPath());
+  }
+
   @Nullable
   public TreeArtifactValue getTreeMetadata(PathFragment execPath) {
     int index = getIndex(execPath.getPathString());
@@ -314,27 +349,22 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
     return value instanceof TreeArtifactValue treeValue ? treeValue : null;
   }
 
-  /**
-   * Returns the {@link TreeArtifactValue} for the shortest prefix of the given path, possibly the
-   * path itself, that corresponds to a tree artifact; or {@code null} if no such tree artifact
-   * exists.
-   */
   @Nullable
-  public TreeArtifactValue getTreeMetadataForPrefix(PathFragment execPath) {
+  @Override
+  public TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath) {
     return treeArtifactsRoot.findTreeArtifactNodeAtPrefix(execPath);
   }
 
   @Nullable
   @Override
-  public ActionInput getInput(String execPathString) {
-    int index = getIndex(execPathString);
+  public ActionInput getInput(PathFragment execPath) {
+    int index = getIndex(execPath.getPathString());
     if (index != -1) {
-      return (ActionInput) keys[index];
+      return keys[index];
     }
 
     // Search ancestor paths since execPathString may point to a TreeFileArtifact within one of the
     // tree artifacts.
-    PathFragment execPath = PathFragment.create(execPathString);
     TreeArtifactValue tree = treeArtifactsRoot.findTreeArtifactNodeAtPrefix(execPath);
     if (tree == null) {
       return null;
@@ -356,31 +386,46 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
     return size;
   }
 
-  @Override
-  public void put(ActionInput input, FileArtifactValue metadata, @Nullable Artifact depOwner) {
-    putWithNoDepOwner(input, metadata);
-  }
-
-  @Override
-  public void putRunfilesMetadata(
-      Artifact input, RunfilesArtifactValue metadata, @Nullable Artifact depOwner) {
-    checkArgument(isRunfilesTree(input));
+  public void put(ActionInput input, FileArtifactValue metadata) {
+    checkArgument(
+        !isTreeArtifact(input),
+        "Can't add tree artifact: %s using put -- please use putTreeArtifact for that",
+        input);
+    checkArgument(
+        !isRunfilesTree(input),
+        "Can't add runfiles tree: %s using put -- please use putRunfilesMetadata for that",
+        input);
 
     int oldIndex = putIfAbsent(input, metadata);
-    Preconditions.checkState(oldIndex == -1);
+    checkArgument(
+        oldIndex == -1 || !isTreeArtifact(keys[oldIndex]),
+        "Tried to overwrite tree artifact with a file: '%s' with the same exec path",
+        input);
+  }
+
+  public void putFileset(Artifact input, FilesetOutputTree outputTree) {
+    checkArgument(input.isFileset(), input);
+
+    filesets.put(input, outputTree);
+  }
+
+  public void putRunfilesMetadata(Artifact input, RunfilesArtifactValue metadata) {
+    checkArgument(input.isRunfilesTree(), input);
+
+    int oldIndex = putIfAbsent(input, metadata);
+    checkState(oldIndex == -1);
 
     runfilesTrees.add(metadata.getRunfilesTree());
   }
 
-  @Override
-  public void putTreeArtifact(
-      SpecialArtifact tree, TreeArtifactValue treeArtifactValue, @Nullable Artifact depOwner) {
+  public void putTreeArtifact(Artifact tree, TreeArtifactValue treeArtifactValue) {
+    checkArgument(tree.isTreeArtifact(), tree);
     // Use a placeholder value so that we don't have to create a new trie entry if the entry is
     // already in the map.
     int oldIndex = putIfAbsent(tree, PLACEHOLDER);
     if (oldIndex != -1) {
       checkArgument(
-          isATreeArtifact((ActionInput) keys[oldIndex]),
+          isTreeArtifact(keys[oldIndex]),
           "Tried to overwrite file with a tree artifact: '%s' with the same exec path",
           tree);
       return;
@@ -390,22 +435,8 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
     values[size - 1] = treeArtifactValue;
   }
 
-  public void putWithNoDepOwner(ActionInput input, FileArtifactValue metadata) {
-    checkArgument(
-        !isATreeArtifact(input),
-        "Can't add tree artifact: %s using put -- please use putTreeArtifact for that",
-        input);
-    checkArgument(!isRunfilesTree(input));
-
-    int oldIndex = putIfAbsent(input, metadata);
-    checkArgument(
-        oldIndex == -1 || !isATreeArtifact((ActionInput) keys[oldIndex]),
-        "Tried to overwrite tree artifact with a file: '%s' with the same exec path",
-        input);
-  }
-
   private int putIfAbsent(ActionInput input, Object metadata) {
-    Preconditions.checkNotNull(input);
+    checkNotNull(input);
     if (size >= keys.length) {
       resize();
     }
@@ -456,7 +487,6 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
     // there are no duplicate keys.
     if (table.length < size * 2) {
       table = new int[table.length * 2];
-      next = new int[size * 2];
       Arrays.fill(table, -1);
       for (int i = 0; i < size; i++) {
         int index = paths[i].hashCode() & (table.length - 1);
@@ -477,11 +507,15 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
         .toString();
   }
 
-  private static boolean isATreeArtifact(ActionInput input) {
-    return input instanceof SpecialArtifact && ((SpecialArtifact) input).isTreeArtifact();
+  private static boolean isTreeArtifact(ActionInput input) {
+    return input instanceof Artifact artifact && artifact.isTreeArtifact();
   }
 
   private static boolean isRunfilesTree(ActionInput input) {
-    return input instanceof Artifact && ((Artifact) input).isRunfilesTree();
+    return input instanceof Artifact artifact && artifact.isRunfilesTree();
+  }
+
+  private static boolean isFileset(ActionInput input) {
+    return input instanceof Artifact artifact && artifact.isFileset();
   }
 }

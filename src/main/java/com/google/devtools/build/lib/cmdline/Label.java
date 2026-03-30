@@ -182,13 +182,6 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
       if (ABSOLUTE_PACKAGE_NAMES.contains(parts.pkg())) {
         return RepositoryName.MAIN;
       }
-      // The legacy //external package can only be referenced by external repos defined in
-      // WORKSPACE, which never use strict visibility. For the main repo repoContext.currentRepo()
-      // is equal to RepositoryName.MAIN.
-      if (LabelConstants.EXTERNAL_PACKAGE_NAME.getPathString().equals(parts.pkg())
-          && repoContext.repoMapping().ownerRepo() == null) {
-        return RepositoryName.MAIN;
-      }
       return repoContext.currentRepo();
     }
     if (parts.repoIsCanonical()) {
@@ -232,7 +225,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     Parts parts = Parts.parse(raw);
     Label parsed = parseWithPackageContextInternal(parts, packageContext);
     if (repoMappingRecorder != null && parts.repo() != null && !parts.repoIsCanonical()) {
-      repoMappingRecorder.entries.put(
+      repoMappingRecorder.record(
           packageContext.currentRepo(), parts.repo(), parsed.getRepository());
     }
     return parsed;
@@ -252,12 +245,31 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   }
 
   /** Records repo mapping entries used by {@link #parseWithPackageContext}. */
-  public static final class RepoMappingRecorder {
-    /** {@code <fromRepo, apparentRepoName, canonicalRepoName> } */
+  public interface RepoMappingRecorder {
+    void record(RepositoryName fromRepo, String apparentRepoName, RepositoryName canonicalRepoName);
+
+    default void record(Table<RepositoryName, String, RepositoryName> entries) {
+      for (Table.Cell<RepositoryName, String, RepositoryName> cell : entries.cellSet()) {
+        record(cell.getRowKey(), cell.getColumnKey(), cell.getValue());
+      }
+    }
+
+    default void storeInThread(StarlarkThread thread) {
+      thread.setThreadLocal(RepoMappingRecorder.class, this);
+    }
+  }
+
+  /**
+   * A {@link RepoMappingRecorder} backed by a {@link Table} that is used for BUILD and .bzl load
+   * threads.
+   */
+  public static final class SimpleRepoMappingRecorder implements RepoMappingRecorder {
     Table<RepositoryName, String, RepositoryName> entries = HashBasedTable.create();
 
-    public void mergeEntries(Table<RepositoryName, String, RepositoryName> entries) {
-      this.entries.putAll(entries);
+    @Override
+    public void record(
+        RepositoryName fromRepo, String apparentRepoName, RepositoryName canonicalRepoName) {
+      entries.put(fromRepo, apparentRepoName, canonicalRepoName);
     }
 
     public ImmutableTable<RepositoryName, String, RepositoryName> recordedEntries() {
@@ -554,6 +566,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
               + " containing an apparent repo name. Prefer <a"
               + " href=\"#same_package_label\"><code>Label.same_package_label()</code></a>, <a"
               + " href=\"../toplevel/native.html#package_relative_label\"><code>native.package_relative_label()</code></a>,"
+              + " <a href=\"ctx.html#package_relative_label\"><code>ctx.package_relative_label()</code></a>,"
               + " or <a href=\"#Label\"><code>Label()</code></a> instead.<p>Resolves a label that"
               + " is either absolute (starts with <code>//</code>) or relative to the current"
               + " package. If this label is in a remote repository, the argument will be resolved"
@@ -670,11 +683,25 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     return true;
   }
 
+  private String toStringInternal(StarlarkSemantics semantics) {
+    if (getRepository().isMain()
+        && !semantics.getBool(
+            BuildLanguageOptions.INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION)) {
+      // If this label is in the main repo and we're not using unambiguous label stringification,
+      // the result should always be "//foo:bar".
+      return getCanonicalForm();
+    }
+
+    // Otherwise, we use canonical label literal syntax here and prepend an extra '@'.
+    // So the result looks like "@@//foo:bar" for the main repo and "@@foo+//bar:quux" for
+    // other repos.
+    return getUnambiguousCanonicalForm();
+  }
+
   @Override
-  public void repr(Printer printer) {
-    // TODO(wyv): Consider using StarlarkSemantics here too for optional unambiguity.
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("Label(");
-    printer.repr(getCanonicalForm());
+    printer.repr(toStringInternal(semantics), semantics);
     printer.append(")");
   }
 
@@ -689,35 +716,12 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
         // ignore
       }
     }
-    printer.append(getDisplayForm(mainRepoMapping));
+    printer.append(getShorthandDisplayForm(mainRepoMapping));
   }
 
   @Override
   public void str(Printer printer, StarlarkSemantics semantics) {
-    if (getRepository().isMain()
-        && !semantics.getBool(
-            BuildLanguageOptions.INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION)) {
-      // If this label is in the main repo and we're not using unambiguous label stringification,
-      // the result should always be "//foo:bar".
-      printer.append(getCanonicalForm());
-      return;
-    }
-
-    if (semantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
-      // If Bzlmod is enabled, we use canonical label literal syntax here and prepend an extra '@'.
-      // So the result looks like "@@//foo:bar" for the main repo and "@@foo+//bar:quux" for
-      // other repos.
-      printer.append(getUnambiguousCanonicalForm());
-      return;
-    }
-    // If Bzlmod is not enabled, we just use a single '@'.
-    // So the result looks like "@//foo:bar" for the main repo and "@foo//bar:quux" for other repos.
-    printer.append(
-        String.format(
-            "@%s//%s:%s",
-            packageIdentifier.getRepository().getName(),
-            packageIdentifier.getPackageFragment(),
-            name));
+    printer.append(toStringInternal(semantics));
   }
 
   @Override
@@ -785,44 +789,8 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     return Codec.INSTANCE;
   }
 
-  public static DeferredObjectCodec<Label> valueSharingCodec() {
-    return LabelValueSharingCodec.INSTANCE;
-  }
-
-  // TODO: b/359437873 - generate with @AutoCodec.
-  private static class LabelValueSharingCodec extends DeferredObjectCodec<Label> {
-
-    private static final LabelValueSharingCodec INSTANCE = new LabelValueSharingCodec();
-
-    @Override
-    public boolean autoRegister() {
-      return false;
-    }
-
-    @Override
-    public Class<Label> getEncodedClass() {
-      return Label.class;
-    }
-
-    @Override
-    public void serialize(SerializationContext context, Label id, CodedOutputStream codedOut)
-        throws SerializationException, IOException {
-      context.putSharedValue(id, /* distinguisher= */ null, LabelDeferredCodec.INSTANCE, codedOut);
-    }
-
-    @Override
-    public DeferredValue<Label> deserializeDeferred(
-        AsyncDeserializationContext context, CodedInputStream codedIn)
-        throws SerializationException, IOException {
-      SimpleDeferredValue<Label> value = SimpleDeferredValue.create();
-      context.getSharedValue(
-          codedIn,
-          /* distinguisher= */ null,
-          LabelDeferredCodec.INSTANCE,
-          value,
-          SimpleDeferredValue::set);
-      return value;
-    }
+  public static DeferredObjectCodec<Label> deferredCodec() {
+    return LabelDeferredCodec.INSTANCE;
   }
 
   private static class LabelDeferredCodec extends DeferredObjectCodec<Label> {

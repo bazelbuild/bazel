@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildtool;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -41,6 +42,7 @@ import com.google.devtools.build.lib.runtime.QueryRuntimeHelper.QueryRuntimeHelp
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryConsumingOutputHandler;
@@ -67,11 +69,16 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
     actionFilters = buildActionFilters(queryExpression);
   }
 
+  @Override
+  protected AqueryOptions getQueryOptions(CommandEnvironment env) {
+    return env.getOptions().getOptions(AqueryOptions.class);
+  }
+
   /** Outputs the current action graph from Skyframe. */
   public BlazeCommandResult dumpActionGraphFromSkyframe(CommandEnvironment env) {
+    AqueryOptions aqueryOptions = getQueryOptions(env);
     try (QueryRuntimeHelper queryRuntimeHelper =
-        env.getRuntime().getQueryRuntimeHelperFactory().create(env)) {
-      AqueryOptions aqueryOptions = env.getOptions().getOptions(AqueryOptions.class);
+        env.getRuntime().getQueryRuntimeHelperFactory().create(env, aqueryOptions)) {
 
       PrintStream printStream =
           queryRuntimeHelper.getOutputStreamForQueryOutput() == null
@@ -112,7 +119,9 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
       env.getReporter().handle(Event.error(message));
       return getFailureResult(message, Code.TEMPLATE_EXPANSION_FAILURE);
     } catch (IOException e) {
-      String message = "Error while emitting output: " + e.getMessage();
+      String message =
+          "Error while emitting output: "
+              + (e.getMessage() != null ? e.getMessage() : e.getClass().getName());
       env.getReporter().handle(Event.error(message));
       return getFailureResult(message, Code.OUTPUT_FAILURE);
     } catch (QueryRuntimeHelperException e) {
@@ -141,6 +150,7 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
       CommandEnvironment env,
       TopLevelConfigurations topLevelConfigurations,
       ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
+      ImmutableMap<AspectKeyCreator.AspectKey, ConfiguredAspect> topLevelAspects,
       WalkableGraph walkableGraph) {
     ImmutableList<QueryFunction> extraFunctions =
         new ImmutableList.Builder<QueryFunction>()

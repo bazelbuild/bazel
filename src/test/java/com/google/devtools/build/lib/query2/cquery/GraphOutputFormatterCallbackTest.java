@@ -88,7 +88,7 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             ct -> env.getFwdDeps(ImmutableList.of(ct)),
             LabelPrinter.legacy());
     env.evaluateQuery(expression, callback);
-    return ImmutableList.copyOf(output.toString().split(System.lineSeparator()));
+    return ImmutableList.copyOf(output.toString().split("\n"));
   }
 
   /** Convenience method for easily injecting a config hash into an expected output sequence. */

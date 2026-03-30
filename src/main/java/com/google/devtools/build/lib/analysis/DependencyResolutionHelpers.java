@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.devtools.build.lib.analysis.DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY;
+import static com.google.devtools.build.lib.analysis.DependencyKind.TRANSITIVE_VISIBILITY_DEPENDENCY;
 import static com.google.devtools.build.lib.analysis.DependencyKind.VISIBILITY_DEPENDENCY;
 
 import com.google.auto.value.AutoOneOf;
@@ -39,8 +40,8 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
-import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
@@ -106,6 +107,8 @@ public final class DependencyResolutionHelpers {
     if (target instanceof OutputFile) {
       Preconditions.checkNotNull(config);
       addVisibilityDepLabels(target.getVisibilityDependencyLabels(), outgoingLabels);
+      addTransitiveVisibilityDepLabel(
+          target.getPackageDeclarations().getPackageArgs().transitiveVisibility(), outgoingLabels);
       Rule rule = ((OutputFile) target).getGeneratingRule();
       outgoingLabels.put(OUTPUT_FILE_RULE_DEPENDENCY, rule.getLabel());
       if (Iterables.any(aspects, a -> a.getDefinition().applyToFiles())) {
@@ -113,11 +116,18 @@ public final class DependencyResolutionHelpers {
         resolveAttributes(getAspectAttributes(aspects), outgoingLabels, rule, attributeMap, config);
       }
       addToolchainDeps(toolchainContexts, outgoingLabels);
-    } else if (target instanceof InputFile || target instanceof EnvironmentGroup) {
+    } else if (target instanceof InputFile) {
+      addVisibilityDepLabels(target.getVisibilityDependencyLabels(), outgoingLabels);
+      addTransitiveVisibilityDepLabel(
+          target.getPackageDeclarations().getPackageArgs().transitiveVisibility(), outgoingLabels);
+    } else if (target instanceof EnvironmentGroup) {
       addVisibilityDepLabels(target.getVisibilityDependencyLabels(), outgoingLabels);
     } else if (target instanceof Rule rule) {
       fromRule = rule;
       attributeMap = ConfiguredAttributeMapper.of(fromRule, configConditions, config);
+      addTransitiveVisibilityDepLabel(
+          fromRule.getPackageDeclarations().getPackageArgs().transitiveVisibility(),
+          outgoingLabels);
       visitRule(
           node,
           aspects,
@@ -223,7 +233,7 @@ public final class DependencyResolutionHelpers {
     if (!(transitionFactory instanceof ExecutionTransitionFactory)) {
       return ExecutionPlatformResult.ofLabel(
           toolchainContexts
-              .getToolchainContext(ExecGroup.DEFAULT_EXEC_GROUP_NAME)
+              .getToolchainContext(DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME)
               .executionPlatform()
               .label());
     }
@@ -317,14 +327,14 @@ public final class DependencyResolutionHelpers {
           outgoingLabels,
           rule,
           RuleClass.COMPATIBLE_ENVIRONMENT_ATTR,
-          rule.getPackage().getPackageArgs().defaultCompatibleWith());
+          rule.getPackageDeclarations().getPackageArgs().defaultCompatibleWith());
     }
     if (!rule.isAttributeValueExplicitlySpecified(RuleClass.RESTRICTED_ENVIRONMENT_ATTR)) {
       addExplicitDeps(
           outgoingLabels,
           rule,
           RuleClass.RESTRICTED_ENVIRONMENT_ATTR,
-          rule.getPackage().getPackageArgs().defaultRestrictedTo());
+          rule.getPackageDeclarations().getPackageArgs().defaultRestrictedTo());
     }
 
     addToolchainDeps(toolchainContexts, outgoingLabels);
@@ -510,7 +520,8 @@ public final class DependencyResolutionHelpers {
         && !rule.isAttrDefined(attrName, BuildType.NODEP_LABEL_LIST)) {
       return;
     }
-    Attribute attribute = rule.getRuleClassObject().getAttributeByName(attrName);
+    Attribute attribute =
+        rule.getRuleClassObject().getAttributeProvider().getAttributeByName(attrName);
     outgoingLabels.putAll(AttributeDependencyKind.forRule(attribute), labels);
   }
 
@@ -528,7 +539,8 @@ public final class DependencyResolutionHelpers {
     // `ctx.rule.attr` with rule attributes taking precedence then aspects' attributes based on the
     // aspect order in the aspects path (lowest order to highest).
 
-    List<Attribute> ruleAttributes = rule.getRuleClassObject().getAttributes();
+    List<Attribute> ruleAttributes =
+        rule.getRuleClassObject().getAttributeProvider().getAttributes();
     for (Attribute attribute : ruleAttributes) {
         result.add(AttributeDependencyKind.forRule(attribute));
       ruleAndBaseAspectsProcessedAttributes.add(attribute.getName());
@@ -575,5 +587,12 @@ public final class DependencyResolutionHelpers {
   private static void addVisibilityDepLabels(
       Iterable<Label> labels, OrderedSetMultimap<DependencyKind, Label> outgoingLabels) {
     outgoingLabels.putAll(VISIBILITY_DEPENDENCY, labels);
+  }
+
+  private static void addTransitiveVisibilityDepLabel(
+      Label label, OrderedSetMultimap<DependencyKind, Label> outgoingLabels) {
+    if (label != null) {
+      outgoingLabels.put(TRANSITIVE_VISIBILITY_DEPENDENCY, label);
+    }
   }
 }

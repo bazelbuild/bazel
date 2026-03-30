@@ -54,26 +54,6 @@ final class EvalUtils {
     return actualIndex;
   }
 
-  /**
-   * Returns the effective index denoted by a user-supplied integer. First, if the integer is
-   * negative, the length of the sequence is added to it, so an index of -1 represents the last
-   * element of the sequence. Then, the integer is "clamped" into the inclusive interval [0,
-   * length].
-   */
-  static int toIndex(int index, int length) {
-    if (index < 0) {
-      index += length;
-    }
-
-    if (index < 0) {
-      return 0;
-    } else if (index > length) {
-      return length;
-    } else {
-      return index;
-    }
-  }
-
   /** Evaluates an eager binary operation, {@code x op y}. (Excludes AND and OR.) */
   static Object binaryOp(TokenKind op, Object x, Object y, StarlarkThread starlarkThread)
       throws EvalException {
@@ -146,12 +126,14 @@ final class EvalUtils {
         if (x instanceof StarlarkInt && y instanceof StarlarkInt) {
           // int & int
           return StarlarkInt.and((StarlarkInt) x, (StarlarkInt) y);
-        } else if (x instanceof Set && y instanceof Set) {
+        } else if (x instanceof Set<?> xSet && y instanceof Set) {
           // set & set
           if (semantics.getBool(StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET)) {
-            StarlarkSet<?> xSet =
-                x instanceof StarlarkSet ? (StarlarkSet<?>) x : StarlarkSet.checkedCopyOf(mu, x);
-            return xSet.intersection(Tuple.of(y), starlarkThread);
+            StarlarkSet<?> xStarlarkSet =
+                xSet instanceof StarlarkSet
+                    ? (StarlarkSet<?>) xSet
+                    : StarlarkSet.checkedCopyOf(mu, xSet);
+            return xStarlarkSet.intersection(Tuple.of(y), starlarkThread);
           }
         }
         break;
@@ -160,12 +142,14 @@ final class EvalUtils {
         if (x instanceof StarlarkInt && y instanceof StarlarkInt) {
           // int ^ int
           return StarlarkInt.xor((StarlarkInt) x, (StarlarkInt) y);
-        } else if (x instanceof Set && y instanceof Set) {
+        } else if (x instanceof Set<?> xSet && y instanceof Set) {
           // set ^ set
           if (semantics.getBool(StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET)) {
-            StarlarkSet<?> xSet =
-                x instanceof StarlarkSet ? (StarlarkSet<?>) x : StarlarkSet.checkedCopyOf(mu, x);
-            return xSet.symmetricDifference(y, starlarkThread);
+            StarlarkSet<?> xStarlarkSet =
+                xSet instanceof StarlarkSet
+                    ? (StarlarkSet<?>) xSet
+                    : StarlarkSet.checkedCopyOf(mu, xSet);
+            return xStarlarkSet.symmetricDifference(y, starlarkThread);
           }
         }
         break;
@@ -206,12 +190,14 @@ final class EvalUtils {
             double z = xf - ((StarlarkInt) y).toFiniteDouble();
             return StarlarkFloat.of(z);
           }
-        } else if (x instanceof Set && y instanceof Set) {
+        } else if (x instanceof Set<?> xSet && y instanceof Set) {
           // set - set
           if (semantics.getBool(StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET)) {
-            StarlarkSet<?> xSet =
-                x instanceof StarlarkSet ? (StarlarkSet<?>) x : StarlarkSet.checkedCopyOf(mu, x);
-            return xSet.difference(Tuple.of(y), starlarkThread);
+            StarlarkSet<?> xStarlarkSet =
+                xSet instanceof StarlarkSet
+                    ? (StarlarkSet<?>) xSet
+                    : StarlarkSet.checkedCopyOf(mu, xSet);
+            return xStarlarkSet.difference(Tuple.of(y), starlarkThread);
           }
         }
         break;

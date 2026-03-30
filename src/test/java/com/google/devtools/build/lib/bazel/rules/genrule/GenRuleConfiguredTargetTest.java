@@ -397,6 +397,8 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "genrule3/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
         genrule(
             name = "hello_world",
             srcs = ["ignore_me.txt"],
@@ -812,6 +814,6 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     assertThat(getGeneratingAction(out).getTools().toList()).hasSize(1);
     Artifact tool = getGeneratingAction(out).getTools().getSingleton();
     // This is the output dir fragment for the execution transition.
-    assertThat(tool.getExecPathString()).contains("-exec-");
+    assertThat(tool.getExecPathString()).contains("-exec");
   }
 }

@@ -113,6 +113,7 @@ struct CreateJunctionResult {
     kAlreadyExistsButNotJunction = 4,
     kAccessDenied = 5,
     kDisappeared = 6,
+    kNotSupported = 7,
   };
 };
 
@@ -133,7 +134,6 @@ struct ReadSymlinkOrJunctionResult {
     kAccessDenied = 2,
     kDoesNotExist = 3,
     kNotALink = 4,
-    kUnknownLinkType = 5,
   };
 };
 

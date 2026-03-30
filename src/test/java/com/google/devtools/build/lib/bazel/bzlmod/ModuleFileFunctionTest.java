@@ -32,20 +32,18 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.InterimModuleBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
+import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
-import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
+import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
 import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
-import com.google.devtools.build.lib.skyframe.BzlmodRepoRuleFunction;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
@@ -57,11 +55,8 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
-import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -81,13 +76,13 @@ import com.google.devtools.build.skyframe.SkyKey;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.Location;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -121,22 +116,14 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, rootDirectory),
             rootDirectory,
-            /* defaultSystemJavabase= */ null,
             AnalysisMock.get().getProductName());
     ExternalFilesHelper externalFilesHelper =
         ExternalFilesHelper.createForTesting(
             packageLocator,
             ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
             directories);
-    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
-    TestRuleClassProvider.addStandardRules(builder);
-    builder
-        .clearWorkspaceFileSuffixForTesting()
-        .addStarlarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
-    ConfiguredRuleClassProvider ruleClassProvider = builder.build();
+    ConfiguredRuleClassProvider ruleClassProvider = AnalysisMock.get().createRuleClassProvider();
 
-    ImmutableMap<String, RepositoryFunction> repositoryHandlers =
-        ImmutableMap.of(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
     evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
@@ -148,7 +135,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                             new TimestampGranularityMonitor(BlazeClock.instance())),
                         SyscallCache.NO_CACHE,
                         externalFilesHelper))
-                .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(rootDirectory))
+                .put(
+                    SkyFunctions.BAZEL_LOCK_FILE,
+                    new BazelLockFileFunction(rootDirectory, directories.getOutputBase()))
                 .put(
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(
@@ -160,26 +149,18 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     new PackageLookupFunction(
                         new AtomicReference<>(ImmutableSet.of()),
                         CrossRepositoryLabelViolationStrategy.ERROR,
-                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
-                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
+                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
                 .put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.NOOP)
-                .put(
-                    SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
-                    new LocalRepositoryLookupFunction(
-                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
+                .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
-                    new RepositoryDelegatorFunction(
-                        repositoryHandlers,
-                        null,
-                        new AtomicBoolean(true),
+                    new RepositoryFetchFunction(
+                        ImmutableMap::of,
                         ImmutableMap::of,
                         directories,
-                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
-                .put(
-                    BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
-                    new BzlmodRepoRuleFunction(ruleClassProvider, directories))
+                        new LocalRepoContentsCache()))
+                .put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction(directories))
                 .put(
                     SkyFunctions.REGISTRY,
                     new RegistryFunction(registryFactory, directories.getWorkspace()))
@@ -194,23 +175,21 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .buildOrThrow(),
             differencer);
 
-    PrecomputedValue.STARLARK_SEMANTICS.set(
-        differencer,
-        StarlarkSemantics.builder().setBool(BuildLanguageOptions.ENABLE_BZLMOD, true).build());
-    RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
-    RepositoryDelegatorFunction.FORCE_FETCH.set(
-        differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
-    RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
+    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
+    RepoDefinitionFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
+    RepositoryDirectoryValue.FETCH_DISABLED.set(differencer, false);
+    RepositoryDirectoryValue.FORCE_FETCH.set(
+        differencer, RepositoryDirectoryValue.FORCE_FETCH_DISABLED);
+    RepositoryDirectoryValue.VENDOR_DIRECTORY.set(differencer, Optional.empty());
 
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, packageLocator.get());
-    RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
-        differencer, Optional.empty());
     PrecomputedValue.REPO_ENV.set(differencer, ImmutableMap.of());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.INJECTED_REPOSITORIES.set(differencer, ImmutableMap.of());
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
     YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
     BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
+    RegistryFunction.MODULE_MIRRORS.set(differencer, ImmutableMap.of());
   }
 
   @Test
@@ -220,12 +199,16 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "module(",
         "    name='aaa',",
         "    version='0.1',",
-        "    compatibility_level=4,",
+        "    ",
         ")",
         "bazel_dep(name='bbb',version='1.0')",
         "bazel_dep(name='ccc',version='2.0',repo_name='see')",
+        "bazel_dep(name='ddd',version='3.0',repo_name=None)",
+        "bazel_dep(name='ggg',repo_name='gee')",
         "register_toolchains('//my:toolchain', '//my:toolchain2')",
         "register_execution_platforms('//my:platform', '//my:platform2')",
+        "flag_alias(name = 'native_flag1', starlark_flag = '//my:starlark_label1')",
+        "flag_alias(name = 'native_flag2', starlark_flag = '//my:starlark_label2')",
         "single_version_override(module_name='ddd',version='18')",
         "local_path_override(module_name='eee',path='somewhere/else')",
         "multiple_version_override(module_name='fff',versions=['1.0','2.0'])",
@@ -240,37 +223,41 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
       fail(result.getError().toString());
     }
     RootModuleFileValue rootModuleFileValue = result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
-    assertThat(rootModuleFileValue.getModule())
+    assertThat(rootModuleFileValue.module())
         .isEqualTo(
-            InterimModuleBuilder.create("aaa", "0.1", 4)
+            InterimModuleBuilder.create("aaa", "0.1")
                 .setKey(ModuleKey.ROOT)
                 .addExecutionPlatformsToRegister(
                     ImmutableList.of("//my:platform", "//my:platform2"))
                 .addToolchainsToRegister(ImmutableList.of("//my:toolchain", "//my:toolchain2"))
                 .addDep("bbb", createModuleKey("bbb", "1.0"))
                 .addDep("see", createModuleKey("ccc", "2.0"))
+                .addDep("gee", createModuleKey("ggg", ""))
+                .addFlagAlias("native_flag1", "@aaa//my:starlark_label1")
+                .addFlagAlias("native_flag2", "@aaa//my:starlark_label2")
+                .addNodepDep(createModuleKey("ddd", "3.0"))
                 .build());
-    assertThat(rootModuleFileValue.getOverrides())
+    assertThat(rootModuleFileValue.overrides())
         .containsExactly(
             "ddd",
-                SingleVersionOverride.create(
-                    Version.parse("18"), "", ImmutableList.of(), ImmutableList.of(), 0),
-            "eee", LocalPathOverride.create("somewhere/else"),
+            SingleVersionOverride.create(
+                Version.parse("18"), "", ImmutableList.of(), ImmutableList.of(), 0),
+            "eee",
+            new NonRegistryOverride(LocalPathRepoSpecs.create("somewhere/else")),
             "fff",
-                MultipleVersionOverride.create(
-                    ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""),
+            MultipleVersionOverride.create(
+                ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""),
             "ggg",
-                ArchiveOverride.create(
-                    ImmutableList.of("https://hello.com/world.zip"),
-                    ImmutableList.of(),
-                    ImmutableList.of(),
-                    "",
-                    "",
-                    0));
-    assertThat(rootModuleFileValue.getNonRegistryOverrideCanonicalRepoNameLookup())
+            new NonRegistryOverride(
+                new ArchiveRepoSpecBuilder()
+                    .setUrls(ImmutableList.of("https://hello.com/world.zip"))
+                    .build()));
+    assertThat(rootModuleFileValue.nonRegistryOverrideCanonicalRepoToModuleName())
         .containsExactly(
             RepositoryName.create("eee+"), "eee",
             RepositoryName.create("ggg+"), "ggg");
+    assertThat(rootModuleFileValue.nonRegistryOverrideModuleToRepoName())
+        .containsExactly("ggg", "gee");
   }
 
   @Test
@@ -288,14 +275,15 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
       fail(result.getError().toString());
     }
     RootModuleFileValue rootModuleFileValue = result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
-    assertThat(rootModuleFileValue.getModule())
+    assertThat(rootModuleFileValue.module())
         .isEqualTo(
             InterimModuleBuilder.create("", "")
                 .setKey(ModuleKey.ROOT)
                 .addDep("bbb", createModuleKey("bbb", "1.0"))
                 .build());
-    assertThat(rootModuleFileValue.getOverrides()).isEmpty();
-    assertThat(rootModuleFileValue.getNonRegistryOverrideCanonicalRepoNameLookup()).isEmpty();
+    assertThat(rootModuleFileValue.overrides()).isEmpty();
+    assertThat(rootModuleFileValue.nonRegistryOverrideCanonicalRepoToModuleName()).isEmpty();
+    assertThat(rootModuleFileValue.nonRegistryOverrideModuleToRepoName()).isEmpty();
   }
 
   @Test
@@ -319,8 +307,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     setUpWithBuiltinModules(
         ImmutableMap.of(
             "bazel_tools",
-            LocalPathOverride.create(
-                rootDirectory.getRelative("bazel_tools_original").getPathString())));
+            new NonRegistryOverride(
+                LocalPathRepoSpecs.create(
+                    rootDirectory.getRelative("bazel_tools_original").getPathString()))));
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa')",
@@ -332,9 +321,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         evaluator.evaluate(
             ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
     ModuleOverride bazelToolsOverride =
-        result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).getOverrides().get("bazel_tools");
-    assertThat(bazelToolsOverride).isInstanceOf(LocalPathOverride.class);
-    assertThat(bazelToolsOverride).isEqualTo(LocalPathOverride.create("./bazel_tools_new"));
+        result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).overrides().get("bazel_tools");
+    assertThat(bazelToolsOverride)
+        .isEqualTo(new NonRegistryOverride(LocalPathRepoSpecs.create("./bazel_tools_new")));
   }
 
   @Test
@@ -354,7 +343,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     EvaluationResult<RootModuleFileValue> result =
         evaluator.evaluate(
             ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
-    assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).getOverrides()).isEmpty();
+    assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).overrides()).isEmpty();
   }
 
   @Test
@@ -397,13 +386,13 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             .addDep("python-foo", createModuleKey("py-foo", "1.0"))
             .addToolchainsToRegister(ImmutableList.of("//:whatever", "//:python-whatever"))
             .build();
-    assertThat(rootModuleFileValue.getModule()).isEqualTo(expectedModule);
+    assertThat(rootModuleFileValue.module()).isEqualTo(expectedModule);
     // specifically assert the order of deps, which is significant; Map.equals semantics don't test
     // this.
-    assertThat(rootModuleFileValue.getModule().getDeps())
+    assertThat(rootModuleFileValue.module().getDeps())
         .containsExactlyEntriesIn(expectedModule.getDeps())
         .inOrder();
-    assertThat(rootModuleFileValue.getOverrides())
+    assertThat(rootModuleFileValue.overrides())
         .containsExactly(
             "java-foo",
             SingleVersionOverride.create(
@@ -456,6 +445,23 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError().toString()).contains("have a name ending in '.MODULE.bazel'");
+  }
+
+  @Test
+  public void testRootModule_include_bad_startsWithPeriod() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "include('//pkg:dir/.MODULE.bazel')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().toString())
+        .contains("the name of the file to be included must not start with '.'");
   }
 
   @Test
@@ -519,7 +525,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         evaluator.evaluate(
             ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
     assertThat(result.hasError()).isTrue();
-    assertContainsEvent("The repo name 'foo' is already being used");
+    assertContainsEvent("The repo name 'foo' cannot be defined");
+    assertContainsEvent("as it is already defined");
   }
 
   @Test
@@ -549,7 +556,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
-    SkyKey skyKey = ModuleFileValue.key(createModuleKey("bbb", ""), null);
+    SkyKey skyKey = ModuleFileValue.key(createModuleKey("bbb", ""));
     EvaluationResult<ModuleFileValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     assertThat(result.hasError()).isTrue();
@@ -577,14 +584,14 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(
         differencer, ImmutableSet.of(registry1.getUrl(), registry2.getUrl(), registry3.getUrl()));
 
-    SkyKey skyKey = ModuleFileValue.key(createModuleKey("bbb", "1.0"), null);
+    SkyKey skyKey = ModuleFileValue.key(createModuleKey("bbb", "1.0"));
     EvaluationResult<ModuleFileValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
     ModuleFileValue moduleFileValue = result.get(skyKey);
-    assertThat(moduleFileValue.getModule())
+    assertThat(moduleFileValue.module())
         .isEqualTo(
             InterimModuleBuilder.create("bbb", "1.0")
                 .addDep("ccc", createModuleKey("ccc", "2.0"))
@@ -603,14 +610,17 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 "include('//java:MODULE.bazel.segment')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
-    EvaluationResult<RootModuleFileValue> result =
+    EvaluationResult<ModuleFileValue> result =
         evaluator.evaluate(
-            ImmutableList.of(ModuleFileValue.key(createModuleKey("foo", "1.0"), null)),
+            ImmutableList.of(ModuleFileValue.key(createModuleKey("foo", "1.0"))),
             evaluationContext);
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError().toString()).contains("but it can only be used in the root module");
   }
 
+  @Ignore(
+      "b/389163906 - figure out how to convert this class to BuildViewTestCase; the presence of the"
+          + " many builtin modules in the default AnalysisMock makes it very hard")
   @Test
   public void testLocalPathOverride() throws Exception {
     // There is an override for B to use the local path "code_for_b", so we shouldn't even be
@@ -623,7 +633,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         rootDirectory.getRelative("code_for_b/MODULE.bazel").getPathString(),
         "module(name='bbb',version='1.0')",
         "bazel_dep(name='ccc',version='2.0')");
-    scratch.overwriteFile(rootDirectory.getRelative("code_for_b/WORKSPACE").getPathString());
     FakeRegistry registry =
         registryFactory
             .newFakeRegistry("/foo")
@@ -633,15 +642,14 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     // The version is empty here due to the override.
-    SkyKey skyKey =
-        ModuleFileValue.key(createModuleKey("bbb", ""), LocalPathOverride.create("code_for_b"));
+    SkyKey skyKey = ModuleFileValue.key(createModuleKey("bbb", ""));
     EvaluationResult<ModuleFileValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
     ModuleFileValue moduleFileValue = result.get(skyKey);
-    assertThat(moduleFileValue.getModule())
+    assertThat(moduleFileValue.module())
         .isEqualTo(
             InterimModuleBuilder.create("bbb", "1.0")
                 .setKey(createModuleKey("bbb", ""))
@@ -649,6 +657,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .build());
   }
 
+  @Ignore(
+      "b/389163906 - figure out how to convert this class to BuildViewTestCase; the presence of the"
+          + " many builtin modules in the default AnalysisMock makes it very hard")
   @Test
   public void testCommandLineModuleOverrides() throws Exception {
     scratch.overwriteFile(
@@ -662,17 +673,17 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     scratch.overwriteFile(
         rootDirectory.getRelative("ignored_override/MODULE.bazel").getPathString(),
         "module(name='bbb',version='1.0')");
-    scratch.overwriteFile(rootDirectory.getRelative("ignored_override/WORKSPACE").getPathString());
     scratch.overwriteFile(
         rootDirectory.getRelative("used_override/MODULE.bazel").getPathString(),
         "module(name='bbb',version='1.0')",
         "bazel_dep(name='ccc',version='2.0')");
-    scratch.overwriteFile(rootDirectory.getRelative("used_override/WORKSPACE").getPathString());
 
     // ModuleFileFuncion.MODULE_OVERRIDES should be filled from command line options
     // Inject for testing
     Map<String, ModuleOverride> moduleOverride =
-        new LinkedHashMap<>(ImmutableMap.of("bbb", LocalPathOverride.create("used_override")));
+        new LinkedHashMap<>(
+            ImmutableMap.of(
+                "bbb", new NonRegistryOverride(LocalPathRepoSpecs.create("used_override"))));
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.copyOf(moduleOverride));
 
     FakeRegistry registry =
@@ -684,15 +695,14 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     // The version is empty here due to the override.
-    SkyKey skyKey =
-        ModuleFileValue.key(createModuleKey("bbb", ""), LocalPathOverride.create("used_override"));
+    SkyKey skyKey = ModuleFileValue.key(createModuleKey("bbb", ""));
     EvaluationResult<ModuleFileValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
     ModuleFileValue moduleFileValue = result.get(skyKey);
-    assertThat(moduleFileValue.getModule())
+    assertThat(moduleFileValue.module())
         .isEqualTo(
             InterimModuleBuilder.create("bbb", "1.0")
                 .setKey(createModuleKey("bbb", ""))
@@ -716,23 +726,27 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 createModuleKey("bbb", "1.0"),
                 "module(name='bbb',version='1.0',compatibility_level=6)",
                 "bazel_dep(name='ccc',version='3.0')");
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        module(name='aaa',version='0.1')
+        bazel_dep(name = "bbb", version = "1.0")
+        single_version_override(module_name='bbb', registry='%s')
+        """
+            .formatted(registry2.getUrl()));
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry1.getUrl()));
 
     // Override the registry for B to be registry2 (instead of the default registry1).
-    SkyKey skyKey =
-        ModuleFileValue.key(
-            createModuleKey("bbb", "1.0"),
-            SingleVersionOverride.create(
-                Version.EMPTY, registry2.getUrl(), ImmutableList.of(), ImmutableList.of(), 0));
+    SkyKey skyKey = ModuleFileValue.key(createModuleKey("bbb", "1.0"));
     EvaluationResult<ModuleFileValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
     ModuleFileValue moduleFileValue = result.get(skyKey);
-    assertThat(moduleFileValue.getModule())
+    assertThat(moduleFileValue.module())
         .isEqualTo(
-            InterimModuleBuilder.create("bbb", "1.0", 6)
+            InterimModuleBuilder.create("bbb", "1.0")
                 .addDep("ccc", createModuleKey("ccc", "3.0"))
                 .setRegistry(registry2)
                 .build());
@@ -762,14 +776,14 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     ModuleKey myMod = createModuleKey("mymod", "1.0");
-    SkyKey skyKey = ModuleFileValue.key(myMod, null);
+    SkyKey skyKey = ModuleFileValue.key(myMod);
     EvaluationResult<ModuleFileValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       throw result.getError().getException();
     }
     ModuleFileValue moduleFileValue = result.get(skyKey);
-    assertThat(moduleFileValue.getModule())
+    assertThat(moduleFileValue.module())
         .isEqualTo(
             InterimModuleBuilder.create("mymod", "1.0")
                 .addDep("rules_jvm_external", createModuleKey("rules_jvm_external", "2.0"))
@@ -924,7 +938,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
       throw result.getError().getException();
     }
     ModuleFileValue moduleFileValue = result.get(skyKey);
-    assertThat(moduleFileValue.getModule())
+    assertThat(moduleFileValue.module())
         .isEqualTo(
             InterimModuleBuilder.create("", "")
                 .setKey(ModuleKey.ROOT)
@@ -1049,14 +1063,14 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     ModuleKey myMod = createModuleKey("mymod", "1.0");
-    SkyKey skyKey = ModuleFileValue.key(myMod, null);
+    SkyKey skyKey = ModuleFileValue.key(myMod);
     EvaluationResult<ModuleFileValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       throw result.getError().getException();
     }
     ModuleFileValue moduleFileValue = result.get(skyKey);
-    assertThat(moduleFileValue.getModule())
+    assertThat(moduleFileValue.module())
         .isEqualTo(
             InterimModuleBuilder.create("mymod", "1.0")
                 .setRegistry(registry)
@@ -1130,12 +1144,12 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 "use_repo(myext, mymod='some_repo')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
-    SkyKey skyKey = ModuleFileValue.key(createModuleKey("mymod", "1.0"), null);
+    SkyKey skyKey = ModuleFileValue.key(createModuleKey("mymod", "1.0"));
     reporter.removeHandler(failFastHandler); // expect failures
     evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
 
-    assertContainsEvent(
-        "The repo name 'mymod' is already being used as the current module name at");
+    assertContainsEvent("The repo name 'mymod' cannot be defined");
+    assertContainsEvent("as it is already defined as the current module name");
   }
 
   @Test
@@ -1150,7 +1164,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 "use_repo(myext, 'some_repo', again='some_repo')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
-    SkyKey skyKey = ModuleFileValue.key(createModuleKey("mymod", "1.0"), null);
+    SkyKey skyKey = ModuleFileValue.key(createModuleKey("mymod", "1.0"));
     reporter.removeHandler(failFastHandler); // expect failures
     evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
 
@@ -1176,14 +1190,14 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
       throw result.getError().getException();
     }
     ModuleFileValue moduleFileValue = result.get(skyKey);
-    assertThat(moduleFileValue.getModule())
+    assertThat(moduleFileValue.module())
         .isEqualTo(
             InterimModuleBuilder.create("", "")
                 .setKey(ModuleKey.ROOT)
                 .addExtensionUsage(
                     ModuleExtensionUsage.builder()
                         .setExtensionBzlFile("//:MODULE.bazel")
-                        .setExtensionName("//:repo.bzl%repo")
+                        .setExtensionName("//:repo.bzl repo")
                         .setIsolationKey(Optional.empty())
                         .setRepoOverrides(ImmutableMap.of())
                         .addProxy(
@@ -1212,7 +1226,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .addExtensionUsage(
                     ModuleExtensionUsage.builder()
                         .setExtensionBzlFile("//:MODULE.bazel")
-                        .setExtensionName("@bazel_tools//:http.bzl%http_archive")
+                        .setExtensionName("@bazel_tools//:http.bzl http_archive")
                         .setIsolationKey(Optional.empty())
                         .setRepoOverrides(ImmutableMap.of())
                         .addProxy(
@@ -1267,7 +1281,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   public void testModuleFileExecute_syntaxError() throws Exception {
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
-        "module(name='aaa',version='0.1',compatibility_level=4)",
+        "module(name='aaa',version='0.1')",
         "foo()");
 
     reporter.removeHandler(failFastHandler); // expect failures
@@ -1285,6 +1299,21 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
 
     assertContainsEvent("parameter 'compatibility_level' got value of type 'string', want 'int'");
+  }
+
+  @Test
+  public void testModuleFileExecute_compatibilityLevelWarning() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa',version='0.1',compatibility_level=4)",
+        "bazel_dep(name='bbb',version='1.0',max_compatibility_level=5)");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertContainsEvent("The attribute 'compatibility_level' in module() is a no-op");
+    assertContainsEvent("The attribute 'max_compatibility_level' in bazel_dep() is a no-op");
   }
 
   @Test
@@ -1382,9 +1411,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ImmutableMap<String, NonRegistryOverride> builtinModules =
         ImmutableMap.of(
             "bazel_tools",
-            LocalPathOverride.create("/tools"),
-            "local_config_platform",
-            LocalPathOverride.create("/local_config_platform"));
+            new NonRegistryOverride(LocalPathRepoSpecs.create("/tools")),
+            "other_tools",
+            new NonRegistryOverride(LocalPathRepoSpecs.create("/other_tools")));
     setUpWithBuiltinModules(builtinModules);
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
@@ -1398,48 +1427,50 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
       throw result.getError().getException();
     }
     RootModuleFileValue moduleFileValue = result.get(skyKey);
-    assertThat(moduleFileValue.getModule())
+    assertThat(moduleFileValue.module())
         .isEqualTo(
             InterimModuleBuilder.create("", "")
                 .addDep("bazel_tools", createModuleKey("bazel_tools", ""))
-                .addDep("local_config_platform", createModuleKey("local_config_platform", ""))
+                .addDep("other_tools", createModuleKey("other_tools", ""))
                 .addDep("foo", createModuleKey("foo", "1.0"))
                 .build());
-    assertThat(moduleFileValue.getOverrides()).containsExactlyEntriesIn(builtinModules);
+    assertThat(moduleFileValue.overrides()).containsExactlyEntriesIn(builtinModules);
   }
 
+  @Ignore(
+      "b/389163906 - figure out how to convert this class to BuildViewTestCase; the presence of the"
+          + " many builtin modules in the default AnalysisMock makes it very hard")
   @Test
   public void testBuiltinModules_forBuiltinModules() throws Exception {
     ImmutableMap<String, NonRegistryOverride> builtinModules =
         ImmutableMap.of(
             "bazel_tools",
-            LocalPathOverride.create(rootDirectory.getRelative("tools").getPathString()),
-            "local_config_platform",
-            LocalPathOverride.create("/local_config_platform"));
+            new NonRegistryOverride(
+                LocalPathRepoSpecs.create(rootDirectory.getRelative("tools").getPathString())),
+            "other_tools",
+            new NonRegistryOverride(LocalPathRepoSpecs.create("/other_tools")));
     setUpWithBuiltinModules(builtinModules);
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "bazel_dep(name='foo',version='1.0')");
-    scratch.overwriteFile(rootDirectory.getRelative("tools/WORKSPACE").getPathString());
     scratch.overwriteFile(
         rootDirectory.getRelative("tools/MODULE.bazel").getPathString(),
         "module(name='bazel_tools',version='1.0')",
         "bazel_dep(name='foo',version='2.0')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of());
 
-    SkyKey skyKey =
-        ModuleFileValue.key(createModuleKey("bazel_tools", ""), builtinModules.get("bazel_tools"));
+    SkyKey skyKey = ModuleFileValue.key(createModuleKey("bazel_tools", ""));
     EvaluationResult<ModuleFileValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       throw result.getError().getException();
     }
     ModuleFileValue moduleFileValue = result.get(skyKey);
-    assertThat(moduleFileValue.getModule())
+    assertThat(moduleFileValue.module())
         .isEqualTo(
             InterimModuleBuilder.create("bazel_tools", "1.0")
                 .setKey(createModuleKey("bazel_tools", ""))
-                .addDep("local_config_platform", createModuleKey("local_config_platform", ""))
+                .addDep("other_tools", createModuleKey("other_tools", ""))
                 .addDep("foo", createModuleKey("foo", "2.0"))
                 .build());
   }
@@ -1459,7 +1490,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
       fail(result.getError().toString());
     }
     RootModuleFileValue rootModuleFileValue = result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
-    assertThat(rootModuleFileValue.getModule())
+    assertThat(rootModuleFileValue.module())
         .isEqualTo(
             InterimModuleBuilder.create("aaa", "0.1")
                 .setKey(ModuleKey.ROOT)
@@ -1479,7 +1510,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     reporter.removeHandler(failFastHandler); // expect failures
     evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
 
-    assertContainsEvent("The repo name 'bbb' is already being used as the module's own repo name");
+    assertContainsEvent("The repo name 'bbb' cannot be defined");
+    assertContainsEvent("as it is already defined as the module's own repo name");
   }
 
   @Test
@@ -1533,7 +1565,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     PrecomputedValue.STARLARK_SEMANTICS.set(
         differencer,
         StarlarkSemantics.builder()
-            .setBool(BuildLanguageOptions.ENABLE_BZLMOD, true)
             .setBool(BuildLanguageOptions.EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, true)
             .build());
 
@@ -1560,7 +1591,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     PrecomputedValue.STARLARK_SEMANTICS.set(
         differencer,
         StarlarkSemantics.builder()
-            .setBool(BuildLanguageOptions.ENABLE_BZLMOD, true)
             .setBool(BuildLanguageOptions.EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, true)
             .build());
 
@@ -1679,12 +1709,12 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         evaluator.evaluate(
             ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
     assertThat(result.hasError()).isFalse();
-    assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).getModule().getExtensionUsages())
+    assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).module().getExtensionUsages())
         .isEmpty();
   }
 
   @Test
-  public void testInvalidRepoInPatches() throws Exception {
+  public void testInvalidRepoInSingleVersionOverridePatches() throws Exception {
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa')",
@@ -1702,6 +1732,51 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
     assertContainsEvent(
         "Error in single_version_override: invalid label in 'patches': only patches in the main"
+            + " repository can be applied, not from '@unknown_repo'");
+  }
+
+  @Test
+  public void testInvalidRepoInArchiveOverridePatches() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "archive_override(",
+        "    module_name = 'bbb',",
+        "    urls = ['https://example.com'],",
+        "    patches = ['@unknown_repo//:patch.bzl'],",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        "Error in archive_override: invalid label in 'patches': only patches in the main"
+            + " repository can be applied, not from '@unknown_repo'");
+  }
+
+  @Test
+  public void testInvalidRepoInGitOverridePatches() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "git_override(",
+        "    module_name = 'bbb',",
+        "    remote = 'https://example.com',",
+        "    commit = 'abcd1234',",
+        "    patches = ['@unknown_repo//:patch.bzl'],",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        "Error in git_override: invalid label in 'patches': only patches in the main"
             + " repository can be applied, not from '@unknown_repo'");
   }
 
@@ -1764,29 +1839,30 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
              module(name='bbb',version='1.0',bazel_compatibility=[">=7.0.0"])
             +bazel_dep(name='ccc',version='3.0')
             """);
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        single_version_override(
+          module_name="bbb",
+          patches = [
+            "//:patch.diff",
+            "@@other_repo//:patch.diff",
+            "//other/pkg:other_patch.diff",
+          ],
+          patch_strip = 1,
+        )
+        """);
 
-    var moduleFileKey =
-        ModuleFileValue.key(
-            bbb,
-            SingleVersionOverride.create(
-                Version.EMPTY,
-                "",
-                ImmutableList.of(
-                    Label.parseCanonicalUnchecked("//:patch.diff"),
-                    Label.parseCanonicalUnchecked("@other_repo//:patch.diff"),
-                    Label.parseCanonicalUnchecked("//other/pkg:other_patch.diff")),
-                ImmutableList.of(),
-                1));
+    var moduleFileKey = ModuleFileValue.key(bbb);
     EvaluationResult<ModuleFileValue> result =
         evaluator.evaluate(ImmutableList.of(moduleFileKey), evaluationContext);
     if (result.hasError()) {
       throw result.getError().getException();
     }
-    assertThat(result.get(moduleFileKey).getModule().getBazelCompatibility())
-        .isEqualTo(ImmutableList.of(">=7.0.0"));
-    assertThat(result.get(moduleFileKey).getModule().getDeps())
-        .containsExactly(
-            "ccc", InterimModule.DepSpec.fromModuleKey(new ModuleKey("ccc", Version.parse("3.0"))));
+    assertThat(result.get(moduleFileKey).module().getBazelCompatibility())
+        .containsExactly(">=7.0.0");
+    assertThat(result.get(moduleFileKey).module().getDeps())
+        .containsExactly("ccc", new ModuleKey("ccc", Version.parse("3.0")));
 
     FileSystemUtils.writeContentAsLatin1(
         otherPatch,
@@ -1805,11 +1881,51 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     if (result.hasError()) {
       throw result.getError().getException();
     }
-    assertThat(result.get(moduleFileKey).getModule().getBazelCompatibility())
-        .isEqualTo(ImmutableList.of(">=7.0.0"));
-    assertThat(result.get(moduleFileKey).getModule().getDeps())
-        .containsExactly(
-            "ccc", InterimModule.DepSpec.fromModuleKey(new ModuleKey("ccc", Version.parse("2.0"))));
+    assertThat(result.get(moduleFileKey).module().getBazelCompatibility())
+        .containsExactly(">=7.0.0");
+    assertThat(result.get(moduleFileKey).module().getDeps())
+        .containsExactly("ccc", new ModuleKey("ccc", Version.parse("2.0")));
+  }
+
+  @Test
+  public void testSingleVersionOverridePatches_defaultPatchStripForGitPatch() throws Exception {
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+    ModuleKey bbb = createModuleKey("bbb", "1.0");
+    registry.addModule(bbb, "module(name='bbb',version='1.0')");
+
+    scratch.file("BUILD");
+    scratch.file(
+        "patch.diff",
+        """
+        diff --git a/MODULE.bazel b/MODULE.bazel
+        --- a/MODULE.bazel
+        +++ b/MODULE.bazel
+        @@ -1,1 +1,1 @@
+        -module(name='bbb',version='1.0')
+        +module(name='bbb',version='1.0',bazel_compatibility=[">=7.0.0"])
+        """);
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        single_version_override(
+          module_name="bbb",
+          patches = [
+            "//:patch.diff",
+          ],
+        )
+        """);
+
+    var moduleFileKey = ModuleFileValue.key(bbb);
+    EvaluationResult<ModuleFileValue> result =
+        evaluator.evaluate(ImmutableList.of(moduleFileKey), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .isEqualTo(
+            "error applying single_version_override patch /workspace/patch.diff to module file:"
+                + " error at line 2: the patch file contains a/b prefixes, did you forget to set"
+                + " patch_strip = 1?");
   }
 
   @Test
@@ -1829,16 +1945,17 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         rename to MODULE.bazel.bak
         index 3f855b5..949dd15 100644
         """);
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        single_version_override(
+          module_name="bbb",
+          patches = ["//:patch.diff"],
+          patch_strip = 1,
+        )
+        """);
 
-    var moduleFileKey =
-        ModuleFileValue.key(
-            bbb,
-            SingleVersionOverride.create(
-                Version.EMPTY,
-                "",
-                ImmutableList.of(Label.parseCanonicalUnchecked("//:patch.diff")),
-                ImmutableList.of(),
-                1));
+    var moduleFileKey = ModuleFileValue.key(bbb);
     EvaluationResult<ModuleFileValue> result =
         evaluator.evaluate(ImmutableList.of(moduleFileKey), evaluationContext);
     assertThat(result.hasError()).isTrue();
@@ -1872,7 +1989,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         \tFile "/workspace/MODULE.bazel", line 3, column 14, in <toplevel>
         \t\toverride_repo(ext, 'foo')
         Error in override_repo: The repo exported as 'foo' by module extension 'ext' is \
-        overridden with 'foo', but no repo is visible under this name""");
+        overridden with 'foo', but no repo is visible under this name\
+        """);
   }
 
   @Test
@@ -1900,7 +2018,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         \tFile "/workspace/MODULE.bazel", line 6, column 14, in <toplevel>
         \t\toverride_repo(ext, foo = "override2")
         Error in override_repo: The repo exported as 'foo' by module extension 'ext' is already \
-        overridden with 'override1' at /workspace/MODULE.bazel:5:14""");
+        overridden with 'override1' at /workspace/MODULE.bazel:5:14\
+        """);
   }
 
   @Test
@@ -1929,7 +2048,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         \t\toverride_repo(ext, baz = "bar")
         Error in override_repo: The repo 'bar' used as an override for 'baz' in module extension \
         'ext' is itself overridden with 'override' at /workspace/MODULE.bazel:6:14, which is not \
-        supported.""");
+        supported.\
+        """);
   }
 
   @Test
@@ -1959,7 +2079,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         \t\toverride_repo(ext1, baz = "bar")
         Error in override_repo: The repo 'bar' used as an override for 'baz' in module extension \
         'ext1' is itself overridden with 'override' at /workspace/MODULE.bazel:6:14, which is not \
-        supported.""");
+        supported.\
+        """);
   }
 
   @Test
@@ -1987,7 +2108,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         \t\toverride_repo(ext, foo = "my_bar", bar = "my_foo")
         Error in override_repo: The repo 'my_foo' used as an override for 'bar' in module \
         extension 'ext' is itself overridden with 'my_bar' at /workspace/MODULE.bazel:5:14, which \
-        is not supported.""");
+        is not supported.\
+        """);
   }
 
   @Test
@@ -2017,7 +2139,58 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         \t\toverride_repo(ext2, bar = "my_foo")
         Error in override_repo: The repo 'my_foo' used as an override for 'bar' in module \
         extension 'ext2' is itself overridden with 'my_bar' at /workspace/MODULE.bazel:4:14, \
-        which is not supported.""");
+        which is not supported.\
+        """);
+  }
+
+  @Test
+  public void testOverrideRepo_extraKeywordArguments_literal() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        module(name='aaa')
+        ext1 = use_extension('//:defs.bzl', 'ext1')
+        use_repo(ext1, "foo")
+        ext2 = use_extension('//:defs.bzl', 'ext2')
+        use_repo(ext2, "bar.2")
+        override_repo(ext2, **{"foo.2": "foo"})
+        """);
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isFalse();
+
+    var ext2Usage =
+        result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).module().getExtensionUsages().get(1);
+    assertThat(ext2Usage.getRepoOverrides().keySet()).containsExactly("foo.2");
+  }
+
+  @Test
+  public void testOverrideRepo_extraKeywordArguments_nonLiteral() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        module(name='aaa')
+        ext1 = use_extension('//:defs.bzl', 'ext1')
+        use_repo(ext1, "foo")
+        ext2 = use_extension('//:defs.bzl', 'ext2')
+        use_repo(ext2, "bar.2")
+        KWARGS = {"foo.2": "foo"}
+        override_repo(ext2, **KWARGS)
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        """
+        ERROR /workspace/MODULE.bazel:7:21: **kwargs arguments must be a literal dict in \
+        MODULE.bazel files.\
+        """);
   }
 
   @Test

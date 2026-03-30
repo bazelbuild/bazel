@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -58,24 +58,9 @@ java_test(
 EOF
 }
 
-# Test is flaky: b/123476045, https://github.com/bazelbuild/bazel/issues/7288
 function test_java_test_timeout() {
   write_java_timeout_test
-  bazel test javatests/com/google/timeout:TimeoutTests --test_timeout=5 \
-      --noexperimental_split_xml_generation >& "$TEST_log" \
-      && fail "Unexpected success"
-  xml_log=bazel-testlogs/javatests/com/google/timeout/TimeoutTests/test.xml
-  [[ -s $xml_log ]] || fail "$xml_log was not present after test"
-  cat "$xml_log" > "$TEST_log"
-  expect_log "failures='2'"
-  expect_log "<failure message='Test cancelled' type='java.lang.Exception'>java.lang.Exception: Test cancelled"
-  expect_log "<failure message='Test interrupted' type='java.lang.Exception'>java.lang.Exception: Test interrupted"
-}
-
-function test_java_test_timeout_split_xml() {
-  write_java_timeout_test
-  bazel test javatests/com/google/timeout:TimeoutTests --test_timeout=5 \
-      --experimental_split_xml_generation >& "$TEST_log" \
+  bazel test javatests/com/google/timeout:TimeoutTests --test_timeout=5 >& "$TEST_log" \
       && fail "Unexpected success"
   xml_log=bazel-testlogs/javatests/com/google/timeout/TimeoutTests/test.xml
   [[ -s $xml_log ]] || fail "$xml_log was not present after test"
@@ -132,4 +117,3 @@ EOF
     # We're testing a formerly non-hermetic interaction, so disable the sandbox.
     bazel test --spawn_strategy=standalone --test_output=errors :check_runfiles
 }
-

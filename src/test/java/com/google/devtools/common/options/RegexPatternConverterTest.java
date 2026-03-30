@@ -16,18 +16,19 @@ package com.google.devtools.common.options;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.common.options.Converters.RegexPatternConverter;
 import com.google.devtools.common.options.testing.ConverterTester;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** A test for {@link RegexPatternConverter} */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class RegexPatternConverterTest {
   @Test
   public void consistentEqualsAndHashCodeForSamePattern() {
-    new ConverterTester(RegexPatternConverter.class, /*conversionContext=*/ null)
+    new ConverterTester(RegexPatternConverter.class, /* conversionContext= */ null)
         .addEqualityGroup("")
         .addEqualityGroup(".*")
         .addEqualityGroup("[^\\s]+")
@@ -39,7 +40,7 @@ public class RegexPatternConverterTest {
     String regex = "a";
     String semanticallyTheSame = "[a]";
 
-    new ConverterTester(RegexPatternConverter.class, /*conversionContext=*/ null)
+    new ConverterTester(RegexPatternConverter.class, /* conversionContext= */ null)
         .addEqualityGroup(regex)
         .addEqualityGroup(semanticallyTheSame)
         .testConvert();
@@ -60,5 +61,41 @@ public class RegexPatternConverterTest {
     OptionsParsingException e =
         assertThrows(OptionsParsingException.class, () -> new RegexPatternConverter().convert("{"));
     assertThat(e).hasMessageThat().startsWith("Not a valid regular expression:");
+  }
+
+  @Test
+  public void unicodeLiteral() throws OptionsParsingException {
+    // Options passed on the command line are passed to convertes in the internal encoding.
+    var regex = new RegexPatternConverter().convert(StringEncoding.unicodeToInternal("äöüÄÖÜß🌱"));
+    assertThat(regex.regexPattern().matcher("äöüÄÖÜß🌱").matches()).isTrue();
+    assertThat(regex.matcher().test(StringEncoding.unicodeToInternal("äöüÄÖÜß🌱"))).isTrue();
+  }
+
+  @Test
+  public void unicodeLiteral_caseInsensitive() throws OptionsParsingException {
+    // Options passed on the command line are passed to convertes in the internal encoding.
+    var regex =
+        new RegexPatternConverter().convert(StringEncoding.unicodeToInternal("(?ui)äöüÄÖÜß🌱"));
+    assertThat(regex.regexPattern().matcher("ÄÖÜäöüß🌱").matches()).isTrue();
+    assertThat(regex.matcher().test(StringEncoding.unicodeToInternal("ÄÖÜäöüß🌱"))).isTrue();
+  }
+
+  @Test
+  public void unicodeLiteral_suffix() throws OptionsParsingException {
+    // Options passed on the command line are passed to convertes in the internal encoding.
+    var regex =
+        new RegexPatternConverter().convert(StringEncoding.unicodeToInternal(".*äöüÄÖÜß🌱"));
+    assertThat(regex.regexPattern().matcher("äöüäöüÄÖÜß🌱").matches()).isTrue();
+    assertThat(regex.matcher().test(StringEncoding.unicodeToInternal("äöüäöüÄÖÜß🌱"))).isTrue();
+  }
+
+  @Test
+  public void unicodeClass() throws OptionsParsingException {
+    // Options passed on the command line are passed to convertes in the internal encoding.
+    var regex =
+        new RegexPatternConverter()
+            .convert(StringEncoding.unicodeToInternal("\\p{L}{7}\\p{IsEmoji}"));
+    assertThat(regex.regexPattern().matcher("äöüÄÖÜß🌱").matches()).isTrue();
+    assertThat(regex.matcher().test(StringEncoding.unicodeToInternal("äöüÄÖÜß🌱"))).isTrue();
   }
 }

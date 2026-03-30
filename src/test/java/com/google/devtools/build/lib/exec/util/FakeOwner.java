@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -44,7 +44,7 @@ public class FakeOwner implements ActionExecutionMetadata {
   private final String ownerRuleKind;
   @Nullable private final Artifact primaryOutput;
   @Nullable private final PlatformInfo platform;
-  private final ImmutableMap<String, String> execProperties;
+  private final ImmutableMap<String, String> combinedExecProperties;
   private final boolean isBuiltForToolConfiguration;
 
   FakeOwner(
@@ -54,7 +54,7 @@ public class FakeOwner implements ActionExecutionMetadata {
       String ownerRuleKind,
       @Nullable Artifact primaryOutput,
       @Nullable PlatformInfo platform,
-      ImmutableMap<String, String> execProperties,
+      ImmutableMap<String, String> combinedExecProperties,
       boolean isBuiltForToolConfiguration) {
     this.mnemonic = mnemonic;
     this.progressMessage = progressMessage;
@@ -62,7 +62,7 @@ public class FakeOwner implements ActionExecutionMetadata {
     this.ownerRuleKind = checkNotNull(ownerRuleKind);
     this.primaryOutput = primaryOutput;
     this.platform = platform;
-    this.execProperties = execProperties;
+    this.combinedExecProperties = combinedExecProperties;
     this.isBuiltForToolConfiguration = isBuiltForToolConfiguration;
   }
 
@@ -80,7 +80,7 @@ public class FakeOwner implements ActionExecutionMetadata {
   }
 
   public FakeOwner(String mnemonic, String progressMessage, String ownerLabel) {
-    this(mnemonic, progressMessage, checkNotNull(ownerLabel), null);
+    this(mnemonic, progressMessage, checkNotNull(ownerLabel), PlatformInfo.EMPTY_PLATFORM_INFO);
   }
 
   @Override
@@ -95,9 +95,9 @@ public class FakeOwner implements ActionExecutionMetadata {
             BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
             BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
         /* isToolConfiguration= */ isBuiltForToolConfiguration,
-        /* executionPlatform= */ null,
+        /* executionPlatform= */ PlatformInfo.EMPTY_PLATFORM_INFO,
         /* aspectDescriptors= */ ImmutableList.of(),
-        /* execProperties= */ ImmutableMap.of());
+        /* execProperties= */ combinedExecProperties);
   }
 
   @Override
@@ -173,7 +173,7 @@ public class FakeOwner implements ActionExecutionMetadata {
 
   @Override
   public String getKey(
-      ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander) {
+      ActionKeyContext actionKeyContext, @Nullable InputMetadataProvider inputMetadataProvider) {
     return "MockOwner.getKey";
   }
 
@@ -205,7 +205,7 @@ public class FakeOwner implements ActionExecutionMetadata {
 
   @Override
   public ImmutableMap<String, String> getExecProperties() {
-    return execProperties;
+    return ImmutableMap.of();
   }
 
   @Nullable

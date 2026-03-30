@@ -14,21 +14,26 @@
 
 package com.google.devtools.build.lib.starlarkdocextract;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.MacroFunction;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtension;
 import com.google.devtools.build.lib.bazel.bzlmod.TagClass;
-import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule.RepositoryRuleFunction;
+import com.google.devtools.build.lib.bazel.repository.RepoRule;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule.StarlarkRepoRule;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
+import com.google.devtools.build.lib.packages.AspectPropagationEdgesSupplier.FixedListSupplier;
+import com.google.devtools.build.lib.packages.AspectPropagationEdgesSupplier.FunctionSupplier;
 import com.google.devtools.build.lib.packages.MacroClass;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
-import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeType;
@@ -40,42 +45,65 @@ import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.Orig
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderFieldInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RepositoryRuleInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.StarlarkOtherSymbolInfo;
+import com.google.devtools.build.lib.util.StringEncoding;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.Structure;
+import net.starlark.java.syntax.Comment;
+import net.starlark.java.syntax.DocComments;
+import net.starlark.java.syntax.Program;
 
 /** API documentation extractor for a compiled, loaded Starlark module. */
 public final class ModuleInfoExtractor {
   private final Predicate<String> isWantedQualifiedName;
   private final LabelRenderer labelRenderer;
+  private boolean allowUnusedDocComments = false;
 
   @VisibleForTesting
-  public static final ImmutableList<AttributeInfo> IMPLICIT_REPOSITORY_RULE_ATTRIBUTES =
-      ImmutableList.of(
+  public static final ImmutableMap<String, AttributeInfo> IMPLICIT_MACRO_ATTRIBUTES =
+      ImmutableMap.of(
+          "name",
+          AttributeInfo.newBuilder()
+              .setName("name")
+              .setType(AttributeType.NAME)
+              .setMandatory(true)
+              .setDocString(
+                  "A unique name for this macro instance. Normally, this is also the name for the"
+                      + " macro's main or only target. The names of any other targets that this"
+                      + " macro might create will be this name with a string suffix.")
+              .build(),
+          "visibility",
+          AttributeInfo.newBuilder()
+              .setName("visibility")
+              .setType(AttributeType.LABEL_LIST)
+              .setMandatory(false)
+              .setNonconfigurable(true)
+              .setNativelyDefined(true)
+              .setDocString(
+                  "The visibility to be passed to this macro's exported targets. It always"
+                      + " implicitly includes the location where this macro is instantiated, so"
+                      + " this attribute only needs to be explicitly set if you want the macro's"
+                      + " targets to be additionally visible somewhere else.")
+              .build());
+
+  @VisibleForTesting
+  public static final ImmutableMap<String, AttributeInfo> IMPLICIT_REPOSITORY_RULE_ATTRIBUTES =
+      ImmutableMap.of(
+          "name",
           AttributeInfo.newBuilder()
               .setName("name")
               .setType(AttributeType.NAME)
               .setMandatory(true)
               .setDocString("A unique name for this repository.")
-              .build(),
-          AttributeInfo.newBuilder()
-              .setName("repo_mapping")
-              .setType(AttributeType.STRING_DICT)
-              .setDocString(
-                  "In `WORKSPACE` context only: a dictionary from local repository name to global"
-                      + " repository name. This allows controls over workspace dependency"
-                      + " resolution for dependencies of this repository.\n\n"
-                      + "For example, an entry `\"@foo\": \"@bar\"` declares that, for any time"
-                      + " this repository depends on `@foo` (such as a dependency on"
-                      + " `@foo//some:target`, it should actually resolve that dependency within"
-                      + " globally-declared `@bar` (`@bar//some:target`).\n\n"
-                      + "This attribute is _not_ supported in `MODULE.bazel` context (when invoking"
-                      + " a repository rule inside a module extension's implementation function).")
               .build());
 
   /**
@@ -93,12 +121,40 @@ public final class ModuleInfoExtractor {
     this.labelRenderer = labelRenderer;
   }
 
+  /** Allows unused doc comments in modules. */
+  @CanIgnoreReturnValue
+  public ModuleInfoExtractor allowUnusedDocComments() {
+    this.allowUnusedDocComments = true;
+    return this;
+  }
+
   /** Extracts structured documentation for the loadable symbols of a given module. */
-  public ModuleInfo extractFrom(Module module) throws ExtractionException {
+  public ModuleInfo extractFrom(
+      Module module,
+      ImmutableMap<String, DocComments> docCommentsMap,
+      ImmutableList<Comment> unusedDocCommentLines)
+      throws ExtractionException {
+    if (!allowUnusedDocComments && !unusedDocCommentLines.isEmpty()) {
+      throw new ExtractionException(
+          module,
+          String.format(
+              "unexpected or conflicting doc comments on line%s %s; a doc comment must be attached"
+                  + " to the declaration of a global variable",
+              unusedDocCommentLines.size() > 1 ? "s" : "",
+              Joiner.on(", ")
+                  .join(
+                      unusedDocCommentLines.stream()
+                          .map(c -> c.getStartLocation().line())
+                          .iterator())));
+    }
     ModuleInfo.Builder builder = ModuleInfo.newBuilder();
-    Optional.ofNullable(module.getDocumentation()).ifPresent(builder::setModuleDocstring);
+    Optional.ofNullable(module.getDocumentation())
+        .map(StringEncoding::internalToUnicode)
+        .ifPresent(builder::setModuleDocstring);
     Optional.ofNullable(BazelModuleContext.of(module))
-        .map(bazelModuleContext -> labelRenderer.render(bazelModuleContext.label()))
+        .map(
+            bazelModuleContext ->
+                internalToUnicode(labelRenderer.render(bazelModuleContext.label())))
         .ifPresent(builder::setFile);
 
     // We do two traversals over the module's globals: (1) find qualified names (including any
@@ -106,18 +162,33 @@ public final class ModuleInfoExtractor {
     // proto, using the information from traversal 1 for provider names references by rules and
     // attributes.
     ProviderQualifiedNameCollector providerQualifiedNameCollector =
-        new ProviderQualifiedNameCollector();
-    providerQualifiedNameCollector.traverse(module);
+        new ProviderQualifiedNameCollector(module);
+    providerQualifiedNameCollector.traverse();
     DocumentationExtractor documentationExtractor =
         new DocumentationExtractor(
+            module,
+            docCommentsMap,
             builder,
             isWantedQualifiedName,
             ExtractorContext.builder()
                 .labelRenderer(labelRenderer)
                 .providerQualifiedNames(providerQualifiedNameCollector.buildQualifiedNames())
-                .build());
-    documentationExtractor.traverse(module);
+                .build(),
+            allowUnusedDocComments);
+    documentationExtractor.traverse();
     return builder.build();
+  }
+
+  public ModuleInfo extractFrom(Module module, Program program) throws ExtractionException {
+    return extractFrom(module, program.getDocCommentsMap(), program.getUnusedDocCommentLines());
+  }
+
+  public ModuleInfo extractFrom(Module module) throws ExtractionException {
+    BazelModuleContext moduleContext =
+        checkNotNull(
+            BazelModuleContext.of(module), "Module %s does not have a BazelModuleContext", module);
+    return extractFrom(
+        module, moduleContext.getDocCommentsMap(), moduleContext.getUnusedDocCommentLines());
   }
 
   /**
@@ -125,8 +196,8 @@ public final class ModuleInfoExtractor {
    * structs.
    */
   private abstract static class GlobalsVisitor {
-    public void traverse(Module module) throws ExtractionException {
-      for (var entry : module.getGlobals().entrySet()) {
+    void traverse() throws ExtractionException {
+      for (var entry : getModule().getGlobals().entrySet()) {
         String globalSymbol = entry.getKey();
         if (ExtractorContext.isPublicName(globalSymbol)) {
           maybeVisit(globalSymbol, entry.getValue(), /* shouldVisitVerifiedForAncestor= */ false);
@@ -134,12 +205,14 @@ public final class ModuleInfoExtractor {
       }
     }
 
+    abstract Module getModule();
+
     /**
      * Returns whether the visitor should visit (and possibly recurse into) the value with the given
      * qualified name. Note that the visitor will not visit global names and struct fields for which
      * {@link #isPublicName} is false, regardless of {@code shouldVisit}.
      */
-    protected abstract boolean shouldVisit(String qualifiedName);
+    abstract boolean shouldVisit(String qualifiedName);
 
     /**
      * @param qualifiedName the name under which the value may be accessed by a user of the module;
@@ -153,7 +226,7 @@ public final class ModuleInfoExtractor {
         String qualifiedName, Object value, boolean shouldVisitVerifiedForAncestor)
         throws ExtractionException {
       if (shouldVisitVerifiedForAncestor || shouldVisit(qualifiedName)) {
-        if (value instanceof StarlarkExportable && !((StarlarkExportable) value).isExported()) {
+        if (value instanceof StarlarkExportable exportable && !exportable.isExported()) {
           // Unexported StarlarkExportables are not usable and therefore do not need to have docs
           // generated.
           return;
@@ -168,59 +241,63 @@ public final class ModuleInfoExtractor {
           visitFunction(qualifiedName, starlarkFunction);
         } else if (value instanceof StarlarkDefinedAspect starlarkDefinedAspect) {
           visitAspect(qualifiedName, starlarkDefinedAspect);
-        } else if (value instanceof RepositoryRuleFunction repositoryRuleFunction) {
-          visitRepositoryRule(qualifiedName, repositoryRuleFunction);
+        } else if (value instanceof StarlarkRepoRule starlarkRepoRule) {
+          visitRepositoryRule(qualifiedName, starlarkRepoRule.getRepoRule());
         } else if (value instanceof ModuleExtension moduleExtension) {
           visitModuleExtension(qualifiedName, moduleExtension);
-        } else if (value instanceof Structure) {
-          recurseIntoStructure(
-              qualifiedName, (Structure) value, /* shouldVisitVerifiedForAncestor= */ true);
+        } else {
+          maybeVisitOtherSymbol(qualifiedName, value);
+          if (value instanceof Structure structure) {
+            recurseIntoStructure(
+                qualifiedName, structure, /* shouldVisitVerifiedForAncestor= */ true);
+          }
         }
-      } else if (value instanceof Structure) {
-        recurseIntoStructure(
-            qualifiedName, (Structure) value, /* shouldVisitVerifiedForAncestor= */ false);
+      } else if (value instanceof Structure structure) {
+        recurseIntoStructure(qualifiedName, structure, /* shouldVisitVerifiedForAncestor= */ false);
       }
-      // If the value is a constant (string, list etc.), we currently don't have a convention for
-      // associating a doc string with one - so we don't emit documentation for it.
       // TODO(b/276733504): should we recurse into dicts to search for documentable values? Note
       // that dicts (unlike structs!) can have reference cycles, so we would need to track the set
       // of traversed entities.
     }
 
-    protected void visitRule(
+    void visitRule(
         @SuppressWarnings("unused") String qualifiedName,
         @SuppressWarnings("unused") StarlarkRuleFunction value)
         throws ExtractionException {}
 
-    protected void visitMacroFunction(
+    void visitMacroFunction(
         @SuppressWarnings("unused") String qualifiedName,
         @SuppressWarnings("unused") MacroFunction value)
         throws ExtractionException {}
 
-    protected void visitProvider(
+    void visitProvider(
         @SuppressWarnings("unused") String qualifiedName,
         @SuppressWarnings("unused") StarlarkProvider value)
         throws ExtractionException {}
 
-    protected void visitFunction(
+    void visitFunction(
         @SuppressWarnings("unused") String qualifiedName,
         @SuppressWarnings("unused") StarlarkFunction value)
         throws ExtractionException {}
 
-    protected void visitAspect(
+    void visitAspect(
         @SuppressWarnings("unused") String qualifiedName,
         @SuppressWarnings("unused") StarlarkDefinedAspect aspect)
         throws ExtractionException {}
 
-    protected void visitModuleExtension(
+    void visitModuleExtension(
         @SuppressWarnings("unused") String qualifiedName,
         @SuppressWarnings("unused") ModuleExtension moduleExtension)
         throws ExtractionException {}
 
-    protected void visitRepositoryRule(
+    void visitRepositoryRule(
         @SuppressWarnings("unused") String qualifiedName,
-        @SuppressWarnings("unused") RepositoryRuleFunction repositoryRuleFunction)
+        @SuppressWarnings("unused") RepoRule repoRule)
         throws ExtractionException {}
+
+    void maybeVisitOtherSymbol(
+        @SuppressWarnings("unused") String qualifiedName,
+        @SuppressWarnings("unused") Object value) {}
 
     private void recurseIntoStructure(
         String qualifiedName, Structure structure, boolean shouldVisitVerifiedForAncestor)
@@ -237,6 +314,7 @@ public final class ModuleInfoExtractor {
             }
           } catch (EvalException e) {
             throw new ExtractionException(
+                getModule(),
                 String.format(
                     "in struct %s field %s: failed to read value", qualifiedName, fieldName),
                 e);
@@ -251,8 +329,18 @@ public final class ModuleInfoExtractor {
    * providers loadable from this module.
    */
   private static final class ProviderQualifiedNameCollector extends GlobalsVisitor {
+    private final Module module;
     private final LinkedHashMap<StarlarkProvider.Key, String> qualifiedNames =
         new LinkedHashMap<>();
+
+    private ProviderQualifiedNameCollector(Module module) {
+      this.module = module;
+    }
+
+    @Override
+    Module getModule() {
+      return module;
+    }
 
     /**
      * Builds a map from the keys of the Starlark providers which were walked via {@link #traverse}
@@ -261,7 +349,7 @@ public final class ModuleInfoExtractor {
      *
      * <p>If the same provider is accessible under multiple names, the first documentable name wins.
      */
-    public ImmutableMap<StarlarkProvider.Key, String> buildQualifiedNames() {
+    ImmutableMap<StarlarkProvider.Key, String> buildQualifiedNames() {
       return ImmutableMap.copyOf(qualifiedNames);
     }
 
@@ -274,21 +362,24 @@ public final class ModuleInfoExtractor {
      * to vary when we change the isWantedQualifiedName filter.
      */
     @Override
-    protected boolean shouldVisit(String qualifiedName) {
+    boolean shouldVisit(String qualifiedName) {
       return true;
     }
 
     @Override
-    protected void visitProvider(String qualifiedName, StarlarkProvider value) {
+    void visitProvider(String qualifiedName, StarlarkProvider value) {
       qualifiedNames.putIfAbsent(value.getKey(), qualifiedName);
     }
   }
 
   /** A {@link GlobalsVisitor} which extracts documentation for symbols in this module. */
   private static final class DocumentationExtractor extends GlobalsVisitor {
+    private final Module module;
+    private final ImmutableMap<String, DocComments> docCommentsMap;
     private final ModuleInfo.Builder moduleInfoBuilder;
     private final Predicate<String> isWantedQualifiedName;
     private final ExtractorContext context;
+    private final boolean allowUnusedDocComments;
 
     /**
      * @param moduleInfoBuilder builder to which {@link #traverse} adds extracted documentation
@@ -303,60 +394,100 @@ public final class ModuleInfoExtractor {
      *     those providers are accessible to a user of this module
      */
     DocumentationExtractor(
+        Module module,
+        ImmutableMap<String, DocComments> docCommentsMap,
         ModuleInfo.Builder moduleInfoBuilder,
         Predicate<String> isWantedQualifiedName,
-        ExtractorContext context) {
+        ExtractorContext context,
+        boolean allowUnusedDocComments) {
+      this.module = module;
+      this.docCommentsMap = docCommentsMap;
       this.moduleInfoBuilder = moduleInfoBuilder;
       this.isWantedQualifiedName = isWantedQualifiedName;
       this.context = context;
+      this.allowUnusedDocComments = allowUnusedDocComments;
     }
 
     @Override
-    protected boolean shouldVisit(String qualifiedName) {
+    Module getModule() {
+      return module;
+    }
+
+    @Override
+    boolean shouldVisit(String qualifiedName) {
       return isWantedQualifiedName.test(qualifiedName);
     }
 
-    @Override
-    protected void visitFunction(String qualifiedName, StarlarkFunction function)
+    private void checkNoDocComments(String qualifiedName, String what, String expected)
         throws ExtractionException {
+      @Nullable DocComments docComments = docCommentsMap.get(qualifiedName);
+      if (docComments != null && !allowUnusedDocComments) {
+        throw new ExtractionException(
+            module,
+            String.format(
+                "unexpected doc comment for %s on line %s; API documentation for a %s must be"
+                    + " provided in %s",
+                qualifiedName, docComments.getStartLocation().line(), what, expected));
+      }
+    }
+
+    @Override
+    void visitFunction(String qualifiedName, StarlarkFunction function) throws ExtractionException {
+      checkNoDocComments(qualifiedName, "function", "a docstring at the top of the function body");
       moduleInfoBuilder.addFuncInfo(
           StarlarkFunctionInfoExtractor.fromNameAndFunction(
               qualifiedName, function, context.labelRenderer()));
     }
 
     @Override
-    protected void visitRule(String qualifiedName, StarlarkRuleFunction ruleFunction)
+    void visitRule(String qualifiedName, StarlarkRuleFunction ruleFunction)
         throws ExtractionException {
+      checkNoDocComments(qualifiedName, "rule", "the doc argument to rule()");
       moduleInfoBuilder.addRuleInfo(
           RuleInfoExtractor.buildRuleInfo(context, qualifiedName, ruleFunction.getRuleClass()));
     }
 
     @Override
-    protected void visitMacroFunction(String qualifiedName, MacroFunction macroFunction)
+    void visitMacroFunction(String qualifiedName, MacroFunction macroFunction)
         throws ExtractionException {
+      checkNoDocComments(qualifiedName, "macro", "the doc argument to macro()");
       MacroInfo.Builder macroInfoBuilder = MacroInfo.newBuilder();
       // Record the name under which this symbol is made accessible, which may differ from the
       // symbol's exported name
-      macroInfoBuilder.setMacroName(qualifiedName);
+      macroInfoBuilder.setMacroName(internalToUnicode(qualifiedName));
       // ... but record the origin rule key for cross references.
       macroInfoBuilder.setOriginKey(
           OriginKey.newBuilder()
-              .setName(macroFunction.getName())
-              .setFile(context.labelRenderer().render(macroFunction.getExtensionLabel())));
-      macroFunction.getDocumentation().ifPresent(macroInfoBuilder::setDocString);
+              .setName(internalToUnicode(macroFunction.getName()))
+              .setFile(
+                  internalToUnicode(
+                      context.labelRenderer().render(macroFunction.getExtensionLabel()))));
+      macroFunction
+          .getDocumentation()
+          .map(StringEncoding::internalToUnicode)
+          .ifPresent(macroInfoBuilder::setDocString);
 
       MacroClass macroClass = macroFunction.getMacroClass();
-      // inject the name attribute; addDocumentableAttributes skips non-Starlark-defined attributes.
-      macroInfoBuilder.addAttribute(AttributeInfoExtractor.IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO);
+      if (macroClass.isFinalizer()) {
+        macroInfoBuilder.setFinalizer(true);
+      }
+      // For symbolic macros, always extract non-Starlark attributes (to support inherit_attrs).
+      ExtractorContext contextForImplicitMacroAttributes =
+          context.extractNativelyDefinedAttrs()
+              ? context
+              : context.toBuilder().extractNativelyDefinedAttrs(true).build();
       AttributeInfoExtractor.addDocumentableAttributes(
-          context, macroClass.getAttributes().values(), macroInfoBuilder::addAttribute);
+          contextForImplicitMacroAttributes,
+          IMPLICIT_MACRO_ATTRIBUTES,
+          macroClass.getAttributeProvider().getAttributes(),
+          macroInfoBuilder::addAttribute);
 
       moduleInfoBuilder.addMacroInfo(macroInfoBuilder);
     }
 
     @Override
-    protected void visitProvider(String qualifiedName, StarlarkProvider provider)
-        throws ExtractionException {
+    void visitProvider(String qualifiedName, StarlarkProvider provider) throws ExtractionException {
+      checkNoDocComments(qualifiedName, "provider", "the doc argument to provider()");
       ProviderInfo.Builder providerInfoBuilder = ProviderInfo.newBuilder();
       // Record the name under which this symbol is made accessible, which may differ from the
       // symbol's exported name.
@@ -370,20 +501,28 @@ public final class ModuleInfoExtractor {
       // existing Stardoc templates). Note that for backwards compatibility,
       // ProviderNameGroup.provider_name would still need to refer to only the first qualified name
       // under which a given provider is made accessible by the module.
-      providerInfoBuilder.setProviderName(qualifiedName);
+      providerInfoBuilder.setProviderName(internalToUnicode(qualifiedName));
       // Record the origin provider key for cross references.
       providerInfoBuilder.setOriginKey(
           OriginKey.newBuilder()
-              .setName(provider.getName())
-              .setFile(context.labelRenderer().render(provider.getKey().getExtensionLabel())));
-      provider.getDocumentation().ifPresent(providerInfoBuilder::setDocString);
+              .setName(internalToUnicode(provider.getName()))
+              .setFile(
+                  internalToUnicode(
+                      context.labelRenderer().render(provider.getKey().getExtensionLabel()))));
+      provider
+          .getDocumentation()
+          .map(StringEncoding::internalToUnicode)
+          .ifPresent(providerInfoBuilder::setDocString);
       ImmutableMap<String, Optional<String>> schema = provider.getSchema();
       if (schema != null) {
         for (Map.Entry<String, Optional<String>> entry : schema.entrySet()) {
           if (ExtractorContext.isPublicName(entry.getKey())) {
             ProviderFieldInfo.Builder fieldInfoBuilder = ProviderFieldInfo.newBuilder();
-            fieldInfoBuilder.setName(entry.getKey());
-            entry.getValue().ifPresent(fieldInfoBuilder::setDocString);
+            fieldInfoBuilder.setName(internalToUnicode(entry.getKey()));
+            entry
+                .getValue()
+                .map(StringEncoding::internalToUnicode)
+                .ifPresent(fieldInfoBuilder::setDocString);
             providerInfoBuilder.addFieldInfo(fieldInfoBuilder.build());
           }
         }
@@ -401,36 +540,51 @@ public final class ModuleInfoExtractor {
     }
 
     @Override
-    protected void visitAspect(String qualifiedName, StarlarkDefinedAspect aspect)
+    void visitAspect(String qualifiedName, StarlarkDefinedAspect aspect)
         throws ExtractionException {
+      checkNoDocComments(qualifiedName, "aspect", "the doc argument to aspect()");
       AspectInfo.Builder aspectInfoBuilder = AspectInfo.newBuilder();
       // Record the name under which this symbol is made accessible, which may differ from the
       // symbol's exported name
-      aspectInfoBuilder.setAspectName(qualifiedName);
+      aspectInfoBuilder.setAspectName(internalToUnicode(qualifiedName));
       // ... but record the origin aspect key for cross references.
       aspectInfoBuilder.setOriginKey(
           OriginKey.newBuilder()
-              .setName(aspect.getAspectClass().getExportedName())
+              .setName(internalToUnicode(aspect.getAspectClass().getExportedName()))
               .setFile(
-                  context.labelRenderer().render(aspect.getAspectClass().getExtensionLabel())));
-      aspect.getDocumentation().ifPresent(aspectInfoBuilder::setDocString);
-      for (String aspectAttribute : aspect.getAttributeAspects()) {
-        if (ExtractorContext.isPublicName(aspectAttribute)) {
-          aspectInfoBuilder.addAspectAttribute(aspectAttribute);
-        }
+                  internalToUnicode(
+                      context
+                          .labelRenderer()
+                          .render(aspect.getAspectClass().getExtensionLabel()))));
+      aspect
+          .getDocumentation()
+          .map(StringEncoding::internalToUnicode)
+          .ifPresent(aspectInfoBuilder::setDocString);
+      switch (aspect.getAttributeAspects()) {
+        case FixedListSupplier<String> s:
+          for (String aspectAttribute : s.getList()) {
+            if (ExtractorContext.isPublicName(aspectAttribute)) {
+              aspectInfoBuilder.addAspectAttribute(aspectAttribute);
+            }
+          }
+          break;
+        case FunctionSupplier<String> s:
+          // TODO(b/394400334): Make {@code attr_aspects} function avaiable in {@code AspectInfo}.
+          break;
       }
-      aspectInfoBuilder.addAttribute(
-          AttributeInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO); // name comes first
+
       AttributeInfoExtractor.addDocumentableAttributes(
-          context, aspect.getAttributes(), aspectInfoBuilder::addAttribute);
+          context, ImmutableMap.of(), aspect.getAttributes(), aspectInfoBuilder::addAttribute);
       moduleInfoBuilder.addAspectInfo(aspectInfoBuilder);
     }
 
     @Override
-    protected void visitModuleExtension(String qualifiedName, ModuleExtension moduleExtension)
+    void visitModuleExtension(String qualifiedName, ModuleExtension moduleExtension)
         throws ExtractionException {
+      checkNoDocComments(
+          qualifiedName, "module extension", "the doc argument to module_extension()");
       ModuleExtensionInfo.Builder moduleExtensionInfoBuilder = ModuleExtensionInfo.newBuilder();
-      moduleExtensionInfoBuilder.setExtensionName(qualifiedName);
+      moduleExtensionInfoBuilder.setExtensionName(internalToUnicode(qualifiedName));
       moduleExtensionInfoBuilder.setOriginKey(
           OriginKey.newBuilder()
               // TODO(arostovtsev): attempt to retrieve the name under which the module was
@@ -438,42 +592,70 @@ public final class ModuleInfoExtractor {
               // make ModuleExtension a StarlarkExportable (partially reverting cl/513213080).
               // Alternatively, we'd need to search the defining module's globals, similarly to what
               // we do in FunctionUtil#getFunctionOriginKey.
-              .setFile(context.labelRenderer().render(moduleExtension.definingBzlFileLabel())));
-      moduleExtension.doc().ifPresent(moduleExtensionInfoBuilder::setDocString);
+              .setFile(
+                  internalToUnicode(
+                      context.labelRenderer().render(moduleExtension.definingBzlFileLabel()))));
+      moduleExtension
+          .doc()
+          .map(StringEncoding::internalToUnicode)
+          .ifPresent(moduleExtensionInfoBuilder::setDocString);
       for (Map.Entry<String, TagClass> entry : moduleExtension.tagClasses().entrySet()) {
         ModuleExtensionTagClassInfo.Builder tagClassInfoBuilder =
             ModuleExtensionTagClassInfo.newBuilder();
-        tagClassInfoBuilder.setTagName(entry.getKey());
-        entry.getValue().doc().ifPresent(tagClassInfoBuilder::setDocString);
+        tagClassInfoBuilder.setTagName(internalToUnicode(entry.getKey()));
+        entry
+            .getValue()
+            .doc()
+            .map(StringEncoding::internalToUnicode)
+            .ifPresent(tagClassInfoBuilder::setDocString);
         AttributeInfoExtractor.addDocumentableAttributes(
-            context, entry.getValue().attributes(), tagClassInfoBuilder::addAttribute);
+            context,
+            ImmutableMap.of(),
+            entry.getValue().attributes(),
+            tagClassInfoBuilder::addAttribute);
         moduleExtensionInfoBuilder.addTagClass(tagClassInfoBuilder);
       }
       moduleInfoBuilder.addModuleExtensionInfo(moduleExtensionInfoBuilder);
     }
 
     @Override
-    protected void visitRepositoryRule(
-        String qualifiedName, RepositoryRuleFunction repositoryRuleFunction)
+    protected void visitRepositoryRule(String qualifiedName, RepoRule repoRule)
         throws ExtractionException {
+      checkNoDocComments(qualifiedName, "repository rule", "the doc argument to repository_rule()");
       RepositoryRuleInfo.Builder repositoryRuleInfoBuilder = RepositoryRuleInfo.newBuilder();
-      repositoryRuleInfoBuilder.setRuleName(qualifiedName);
-      repositoryRuleFunction.getDocumentation().ifPresent(repositoryRuleInfoBuilder::setDocString);
-      RuleClass ruleClass = repositoryRuleFunction.getRuleClass();
-      repositoryRuleInfoBuilder
-          .setOriginKey(
-              OriginKey.newBuilder()
-                  .setName(ruleClass.getName())
-                  .setFile(
-                      context.labelRenderer().render(repositoryRuleFunction.getExtensionLabel())))
-          .addAllAttribute(IMPLICIT_REPOSITORY_RULE_ATTRIBUTES);
+      repositoryRuleInfoBuilder.setRuleName(internalToUnicode(qualifiedName));
+      repoRule
+          .doc()
+          .map(StringEncoding::internalToUnicode)
+          .ifPresent(repositoryRuleInfoBuilder::setDocString);
+      repositoryRuleInfoBuilder.setOriginKey(
+          OriginKey.newBuilder()
+              .setName(internalToUnicode(repoRule.id().ruleName()))
+              .setFile(
+                  internalToUnicode(context.labelRenderer().render(repoRule.id().bzlFileLabel()))));
       AttributeInfoExtractor.addDocumentableAttributes(
-          context, ruleClass.getAttributes(), repositoryRuleInfoBuilder::addAttribute);
-      if (ruleClass.hasAttr("$environ", Types.STRING_LIST)) {
-        repositoryRuleInfoBuilder.addAllEnviron(
-            Types.STRING_LIST.cast(ruleClass.getAttributeByName("$environ").getDefaultValue(null)));
+          context,
+          IMPLICIT_REPOSITORY_RULE_ATTRIBUTES,
+          repoRule.attributes(),
+          repositoryRuleInfoBuilder::addAttribute);
+      for (String env : repoRule.environ()) {
+        repositoryRuleInfoBuilder.addEnviron(internalToUnicode(env));
       }
       moduleInfoBuilder.addRepositoryRuleInfo(repositoryRuleInfoBuilder);
+    }
+
+    @Override
+    void maybeVisitOtherSymbol(String qualifiedName, Object value) {
+      @Nullable DocComments docComments = docCommentsMap.get(qualifiedName);
+      if (docComments == null) {
+        // Don't emit documentation for symbols without doc comments.
+        return;
+      }
+      moduleInfoBuilder.addStarlarkOtherSymbolInfo(
+          StarlarkOtherSymbolInfo.newBuilder()
+              .setName(internalToUnicode(qualifiedName))
+              .setDoc(internalToUnicode(docComments.getText()))
+              .setTypeName(Starlark.type(value)));
     }
   }
 }

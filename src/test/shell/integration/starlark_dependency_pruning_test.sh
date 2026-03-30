@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -40,14 +40,13 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
+if is_windows; then
+  export LC_ALL=C.utf8
+elif is_linux; then
+  export LC_ALL=C.UTF-8
+else
+  export LC_ALL=en_US.UTF-8
+fi
 
 add_to_bazelrc "build --package_path=%workspace%"
 add_to_bazelrc "build --spawn_strategy=local"
@@ -57,8 +56,10 @@ add_to_bazelrc "build --spawn_strategy=local"
 function set_up() {
   mkdir -p pkg
 
+  add_rules_shell "MODULE.bazel"
   cat > pkg/BUILD << 'EOF'
 load(":build.bzl", "build_rule")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 filegroup(
     name = "all_inputs",
@@ -239,6 +240,37 @@ function test_dependency_pruning_scenario() {
   echo "unused" > pkg/c.input
   bazel build //pkg:output || fail "build failed"
   check_output_content "contentA newContentB"
+  check_unused_content "pkg/c.input"
+}
+
+function test_dependency_pruning_scenario_unicode() {
+  local unicode="äöüÄÖÜß🌱"
+
+  # Initial build.
+  echo "contentD${unicode}" > "pkg/d${unicode}.input"
+  bazel build //pkg:output || fail "build failed"
+  check_output_content "contentA contentB contentC contentD${unicode}"
+  check_unused_content
+
+  # Mark "d" as unused.
+  echo "unused" > "pkg/d${unicode}.input"
+  bazel build //pkg:output || fail "build failed"
+  check_output_content "contentA contentB contentC"
+  check_unused_content "pkg/d${unicode}.input"
+
+  # Change "d" again:
+  # This time it should be used. But given that it was marked "unused"
+  # the build should not trigger: "d" should still be considered unused.
+  echo "newContentD${unicode}" > "pkg/d${unicode}.input"
+  bazel build //pkg:output || fail "build failed"
+  check_output_content "contentA contentB contentC"
+  check_unused_content "pkg/d${unicode}.input"
+
+  # Change c:
+  # The build should be triggered, and the newer version of "d" should be used.
+  echo "unused" > pkg/c.input
+  bazel build //pkg:output || fail "build failed"
+  check_output_content "contentA contentB newContentD${unicode}"
   check_unused_content "pkg/c.input"
 }
 

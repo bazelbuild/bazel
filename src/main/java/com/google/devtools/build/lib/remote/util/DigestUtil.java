@@ -15,28 +15,36 @@ package com.google.devtools.build.lib.remote.util;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Comparator.comparing;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
+import com.google.common.hash.HashFunction;
 import com.google.common.io.BaseEncoding;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.common.ActionKey;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.XattrProvider;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Arrays;
+import java.util.Comparator;
 
 /** Utility methods to work with {@link Digest}. */
 public class DigestUtil {
+  public static final Comparator<Digest> DIGEST_COMPARATOR =
+      comparing(Digest::getHashBytes, ByteString.unsignedLexicographicalComparator())
+          .thenComparing(Digest::getSizeBytes);
+
   private final XattrProvider xattrProvider;
   private final DigestHashFunction hashFn;
   private final DigestFunction.Value digestFunction;
@@ -69,6 +77,18 @@ public class DigestUtil {
   }
 
   /**
+   * Computes a digest for a portion of a byte array. This is useful for uploading an individual
+   * chunk from a larger file.
+   *
+   * @param data the byte array
+   * @param offset the start offset in the array
+   * @param length the number of bytes to hash
+   */
+  public Digest compute(byte[] data, int offset, int length) {
+    return buildDigest(hashFn.getHashFunction().hashBytes(data, offset, length).toString(), length);
+  }
+
+  /**
    * Computes a digest for a file.
    *
    * <p>Prefer calling {@link #compute(Path, FileStatus)} when a recently obtained {@link
@@ -91,10 +111,19 @@ public class DigestUtil {
         DigestUtils.getDigestWithManualFallback(path, xattrProvider, status), status.getSize());
   }
 
-  public Digest compute(VirtualActionInput input) throws IOException {
-    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-    input.writeTo(buffer);
-    return compute(buffer.toByteArray());
+  public static Digest compute(DeterministicWriter input, HashFunction hashFunction)
+      throws IOException {
+    // Stream the input as parameter files, which can be very large, are lazily computed from the
+    // in-memory CommandLine object. This avoids allocating large byte arrays.
+    try (DigestOutputStream digestOutputStream =
+        new DigestOutputStream(hashFunction, OutputStream.nullOutputStream())) {
+      input.writeTo(digestOutputStream);
+      return digestOutputStream.digest();
+    }
+  }
+
+  public Digest compute(DeterministicWriter input) throws IOException {
+    return compute(input, hashFn.getHashFunction());
   }
 
   /**
@@ -124,8 +153,8 @@ public class DigestUtil {
 
   public com.google.devtools.build.lib.exec.Protos.Digest asSpawnLogProto(ActionKey actionKey) {
     return com.google.devtools.build.lib.exec.Protos.Digest.newBuilder()
-        .setHash(actionKey.getDigest().getHash())
-        .setSizeBytes(actionKey.getDigest().getSizeBytes())
+        .setHash(actionKey.digest().getHash())
+        .setSizeBytes(actionKey.digest().getSizeBytes())
         .setHashFunctionName(getDigestFunction().toString())
         .build();
   }
@@ -153,6 +182,12 @@ public class DigestUtil {
 
   public static String toString(Digest digest) {
     return digest.getHash() + "/" + digest.getSizeBytes();
+  }
+
+  public static Digest fromString(String digest) {
+    String[] parts = digest.split("/", /* limit= */ -1);
+    Preconditions.checkArgument(parts.length == 2, "Invalid digest format: %s", digest);
+    return buildDigest(parts[0], Long.parseLong(parts[1]));
   }
 
   public static byte[] toBinaryDigest(Digest digest) {

@@ -17,13 +17,14 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import javax.annotation.Nullable;
 
 /**
  * Creates an {@link OutputStream} backed by a file that isn't actually opened until the first data
  * is written. This is useful to only have as many open file descriptors as necessary at a time to
  * avoid running into system limits.
  */
-public class LazyFileOutputStream extends OutputStream {
+public class LazyFileOutputStream extends OutputStream implements MaybePathBacked {
 
   private final Path path;
   private OutputStream out;
@@ -52,14 +53,16 @@ public class LazyFileOutputStream extends OutputStream {
 
   @Override
   public void flush() throws IOException {
-    ensureOpen();
-    out.flush();
+    if (out != null) {
+      out.flush();
+    }
   }
 
   @Override
   public void close() throws IOException {
-    ensureOpen();
-    out.close();
+    if (out != null) {
+      out.close();
+    }
   }
 
   /**
@@ -77,5 +80,11 @@ public class LazyFileOutputStream extends OutputStream {
     if (out == null) {
       out = path.getOutputStream();
     }
+  }
+
+  @Override
+  @Nullable
+  public Path maybeGetPath() {
+    return path;
   }
 }

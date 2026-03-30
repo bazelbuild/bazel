@@ -608,4 +608,124 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
 
     assertThat(getTestOptions()).isEqualTo(Options.getDefaults(TestOptions.class));
   }
+
+  @Test
+  public void finalValueThrowOnOverride_throwsOnUserOverride() throws Exception {
+    InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
+    invocationPolicy
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_string")
+        .setCustomErrorMessage("See {link to test_string policy} for more details.")
+        .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_THROW_ON_OVERRIDE)
+        .addFlagValue(TEST_STRING_POLICY_VALUE);
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
+    parser.parse("--test_string=" + TEST_STRING_USER_VALUE);
+
+    TestOptions testOptions = getTestOptions();
+    assertThat(testOptions.testString).isEqualTo(TEST_STRING_USER_VALUE);
+
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class,
+            () -> enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder()));
+
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "User set a value for option '--test_string' which is not permitted by the invocation"
+                + " policy. This flag value will always be overridden to [policy value]. See"
+                + " {link to test_string policy} for more details.");
+  }
+
+  @Test
+  public void finalValueThrowOnOverride_successOnNoUserOverride() throws Exception {
+    InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
+    invocationPolicy
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_string")
+        .setCustomErrorMessage("See {link to test_string policy} for more details.")
+        .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_THROW_ON_OVERRIDE)
+        .addFlagValue(TEST_STRING_POLICY_VALUE);
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
+
+    TestOptions testOptions = getTestOptions();
+    assertThat(testOptions.testString).isEqualTo("test string default");
+
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
+
+    // Get the options again after policy enforcement.
+    testOptions = getTestOptions();
+    assertThat(testOptions.testString).isEqualTo(TEST_STRING_POLICY_VALUE);
+    assertThat(
+            parser.asCompleteListOfParsedOptions().stream()
+                .map(ParsedOptionDescription::getCommandLineForm))
+        .containsExactly("--test_string=" + TEST_STRING_POLICY_VALUE)
+        .inOrder();
+  }
+
+  @Test
+  public void finalValueThrowOnOverride_flagWithMultipleValues_throwsOnUserOverride()
+      throws Exception {
+    InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
+    invocationPolicy
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_multiple_string")
+        .setCustomErrorMessage("See {link to test_multiple_string policy} for more details.")
+        .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_THROW_ON_OVERRIDE)
+        .addFlagValue(TEST_STRING_POLICY_VALUE)
+        .addFlagValue(TEST_STRING_POLICY_VALUE_2);
+
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
+    parser.parse(
+        "--test_multiple_string=" + TEST_STRING_USER_VALUE,
+        "--test_multiple_string=" + TEST_STRING_USER_VALUE_2);
+
+    // Options should not be modified by running the parser through OptionsPolicyEnforcer.create().
+    TestOptions testOptions = getTestOptions();
+    assertThat(testOptions.testMultipleString)
+        .containsExactly(TEST_STRING_USER_VALUE, TEST_STRING_USER_VALUE_2)
+        .inOrder();
+
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class,
+            () -> enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder()));
+
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "User set a value for option '--test_multiple_string' which is not permitted by the"
+                + " invocation policy. This flag value will always be overridden to [policy value,"
+                + " policy value 2]. See {link to test_multiple_string policy} for more details.");
+  }
+
+  @Test
+  public void finalValueThrowOnOverride_flagWithMultipleValues_successOnNoUserOverride()
+      throws Exception {
+    InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
+    invocationPolicy
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_multiple_string")
+        .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_THROW_ON_OVERRIDE)
+        .addFlagValue(TEST_STRING_POLICY_VALUE)
+        .addFlagValue(TEST_STRING_POLICY_VALUE_2);
+
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
+
+    // Options should not be modified by running the parser through OptionsPolicyEnforcer.create().
+    TestOptions testOptions = getTestOptions();
+    assertThat(testOptions.testMultipleString).isEmpty();
+
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
+
+    // Get the options again after policy enforcement.
+    testOptions = getTestOptions();
+    assertThat(testOptions.testMultipleString)
+        .containsExactly(TEST_STRING_POLICY_VALUE, TEST_STRING_POLICY_VALUE_2)
+        .inOrder();
+  }
 }

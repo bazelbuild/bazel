@@ -14,34 +14,34 @@
 
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
+import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.LicensesProvider;
-import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.TransitiveVisibilityProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.util.FileType;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 
-/**
- * A ConfiguredTarget for a source FileTarget. (Generated files use a subclass,
- * OutputFileConfiguredTarget.)
- */
+/** A configured target representing a source or derived / generated file. */
 @Immutable
-public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
-    implements FileType.HasFileType, LicensesProvider {
+public abstract sealed class FileConfiguredTarget extends AbstractConfiguredTarget
+    implements FileType.HasFileType permits InputFileConfiguredTarget, OutputFileConfiguredTarget {
 
   private final NestedSet<Artifact> singleFile;
 
-  FileConfiguredTarget(TargetContext targetContext, Artifact artifact) {
-    super(targetContext.getAnalysisEnvironment().getOwner(), targetContext.getVisibility());
+  FileConfiguredTarget(
+      ActionLookupKey lookupKey, NestedSet<PackageGroupContents> visibility, Artifact artifact) {
+    super(lookupKey, visibility);
     this.singleFile = NestedSetBuilder.create(Order.STABLE_ORDER, artifact);
   }
 
@@ -63,6 +63,9 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
   @Nullable
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
     AnalysisUtils.checkProvider(providerClass);
+    if (providerClass.equals(TransitiveVisibilityProvider.class)) {
+      return providerClass.cast(createTransitiveVisibilityProvider());
+    }
     return providerClass.cast(getProviderInternal(providerClass));
   }
 
@@ -82,6 +85,9 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
     if (providerClass == FilesToRunProvider.class) {
       return createFilesToRunProvider();
     }
+    if (providerClass == TransitiveVisibilityProvider.class) {
+      return createTransitiveVisibilityProvider();
+    }
     return null;
   }
 
@@ -94,6 +100,9 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
         singleFile, /* runfilesSupport= */ null, /* executable= */ getArtifact());
   }
 
+  @Nullable
+  protected abstract TransitiveVisibilityProvider createTransitiveVisibilityProvider();
+
   @Override
   @Nullable
   protected final Object rawGetStarlarkProvider(String providerKey) {
@@ -104,9 +113,11 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
   public Dict<String, Object> getProvidersDictForQuery() {
     Dict.Builder<String, Object> dict = Dict.builder();
     tryAddProviderForQuery(dict, VisibilityProvider.class, this);
-    tryAddProviderForQuery(dict, LicensesProvider.class, this);
     tryAddProviderForQuery(dict, FileProvider.class, createFileProvider());
     tryAddProviderForQuery(dict, FilesToRunProvider.class, createFilesToRunProvider());
+    // DefaultInfo is not stored as a provider, but Starlark targets still observe it on
+    // dependencies.
+    tryAddProviderForQuery(dict, DefaultInfo.PROVIDER.getKey(), DefaultInfo.build(this));
     return dict.buildImmutable();
   }
 }

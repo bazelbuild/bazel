@@ -14,10 +14,11 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.OS_TO_CONSTRAINTS;
-import static com.google.devtools.build.lib.analysis.test.ExecutionInfo.DEFAULT_TEST_RUNNER_EXEC_GROUP;
-import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
+import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
+import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -55,6 +56,7 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -67,6 +69,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -109,7 +112,6 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.SymbolGenerator;
-import net.starlark.java.syntax.Identifier;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -140,6 +142,12 @@ public class RuleContext extends TargetContext
      */
     void validate(
         Builder contextBuilder, ConfiguredTargetAndData prerequisite, Attribute attribute);
+
+    /**
+     * Returns whether a package is considered experimental. Packages outside of experimental may
+     * not depend on packages that are experimental.
+     */
+    public abstract boolean packageUnderExperimental(PackageIdentifier packageIdentifier);
   }
 
   public static final String TOOLCHAIN_ATTR_NAME = "$toolchain";
@@ -167,7 +175,10 @@ public class RuleContext extends TargetContext
   @Nullable private final ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
   private final ExecGroupCollection execGroupCollection;
   @Nullable private final RequiredConfigFragmentsProvider requiredConfigFragments;
-  @Nullable private final NestedSet<Package> transitivePackagesForRunfileRepoMappingManifest;
+
+  @Nullable
+  private final NestedSet<Package.Metadata> transitivePackagesForRunfileRepoMappingManifest;
+
   private final List<Expander> makeVariableExpanders = new ArrayList<>();
 
   /** Map of exec group names to ActionOwners. */
@@ -208,7 +219,8 @@ public class RuleContext extends TargetContext
         builder.target.getAssociatedRule(),
         builder.configuration,
         getDirectPrerequisites(builder.prerequisiteMap),
-        builder.visibility);
+        builder.visibility,
+        builder.transitiveVisibilityImposedByThisPackage);
     this.rule = builder.target.getAssociatedRule();
     this.configurationFragmentPolicy = builder.configurationFragmentPolicy;
     this.ruleClassProvider = builder.ruleClassProvider;
@@ -254,7 +266,7 @@ public class RuleContext extends TargetContext
   }
 
   private FeatureSet computeFeatures() {
-    FeatureSet pkg = rule.getPackage().getPackageArgs().features();
+    FeatureSet pkg = rule.getPackageDeclarations().getPackageArgs().features();
     FeatureSet rule =
         attributes().has("features", Types.STRING_LIST)
             ? FeatureSet.parse(attributes().get("features", Types.STRING_LIST))
@@ -310,10 +322,6 @@ public class RuleContext extends TargetContext
 
   public ArtifactRoot getGenfilesDirectory() {
     return getConfiguration().getGenfilesDirectory(getLabel().getRepository());
-  }
-
-  public ArtifactRoot getCoverageMetadataDirectory() {
-    return getConfiguration().getCoverageMetadataDirectory(getLabel().getRepository());
   }
 
   public ArtifactRoot getTestLogsDirectory() {
@@ -373,7 +381,7 @@ public class RuleContext extends TargetContext
 
   /** Returns the workspace name for the rule. */
   public String getWorkspaceName() {
-    return rule.getPackage().getWorkspaceName();
+    return rule.getPackageMetadata().workspaceName();
   }
 
   /** The configuration conditions that trigger this rule's configurable attributes. */
@@ -434,21 +442,15 @@ public class RuleContext extends TargetContext
       testExecProperties = testExecutionPlatform.execProperties();
     } else {
       testExecutionPlatform = null;
-      testExecProperties = getExecGroups().getExecProperties(DEFAULT_TEST_RUNNER_EXEC_GROUP);
+      testExecProperties = getExecGroups().getExecProperties(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME);
     }
 
-    ActionOwner actionOwner =
-        createActionOwner(
-            rule,
-            getAspectDescriptors(),
-            getConfiguration(),
-            testExecProperties,
-            testExecutionPlatform);
-
-    if (actionOwner == null) {
-      actionOwner = getActionOwner();
-    }
-    return actionOwner;
+    return createActionOwner(
+        rule,
+        getAspectDescriptors(),
+        getConfiguration(),
+        testExecProperties,
+        testExecutionPlatform);
   }
 
   @Override
@@ -631,14 +633,14 @@ public class RuleContext extends TargetContext
   /**
    * Returns an artifact beneath the root of either the "bin" or "genfiles" tree, whose path is
    * based on the name of this target and the current configuration, with a script suffix
-   * appropriate for the current host platform. ({@code .cmd} for Windows, otherwise {@code .sh}).
-   * The choice of which tree to use is based on the rule with which this target (which must be an
-   * OutputFile or a Rule) is associated.
+   * appropriate for the execution platform assigned to the default exec group ({@code .cmd} for
+   * Windows, otherwise {@code .sh}). The choice of which tree to use is based on the rule with
+   * which this target (which must be an OutputFile or a Rule) is associated.
    */
-  public Artifact createOutputArtifactScript() {
+  public Artifact createOutputArtifactScriptForAnalysisTest() {
     Target target = getTarget();
 
-    String fileExtension = isExecutedOnWindows() ? ".cmd" : ".sh";
+    String fileExtension = isDefaultExecGroupExecutingOnWindows() ? ".cmd" : ".sh";
 
     PathFragment rootRelativePath =
         getPackageDirectory().getRelative(PathFragment.create(target.getName() + fileExtension));
@@ -664,7 +666,6 @@ public class RuleContext extends TargetContext
     return switch (outputFileKind) {
       case FILE -> getDerivedArtifact(rootRelativePath, root);
       case FILESET -> getAnalysisEnvironment().getFilesetArtifact(rootRelativePath, root);
-      default -> throw new IllegalStateException();
     };
   }
 
@@ -714,17 +715,7 @@ public class RuleContext extends TargetContext
   @Override
   public Artifact.DerivedArtifact getPackageRelativeArtifact(
       PathFragment relative, ArtifactRoot root) {
-    return getPackageRelativeArtifact(relative, root, /* contentBasedPath= */ false);
-  }
-
-  /**
-   * Same as {@link #getPackageRelativeArtifact(PathFragment, ArtifactRoot)} but includes the option
-   * option to use a content-based path for this artifact (see {@link
-   * BuildConfigurationValue#useContentBasedOutputPaths()}).
-   */
-  private Artifact.DerivedArtifact getPackageRelativeArtifact(
-      PathFragment relative, ArtifactRoot root, boolean contentBasedPath) {
-    return getDerivedArtifact(getPackageDirectory().getRelative(relative), root, contentBasedPath);
+    return getDerivedArtifact(getPackageDirectory().getRelative(relative), root);
   }
 
   /**
@@ -732,17 +723,7 @@ public class RuleContext extends TargetContext
    * guaranteeing that it never clashes with artifacts created by rules in other packages.
    */
   public Artifact getPackageRelativeArtifact(String relative, ArtifactRoot root) {
-    return getPackageRelativeArtifact(relative, root, /* contentBasedPath= */ false);
-  }
-
-  /**
-   * Same as {@link #getPackageRelativeArtifact(String, ArtifactRoot)} but includes the option to
-   * use a content-based path for this artifact (see {@link
-   * BuildConfigurationValue#useContentBasedOutputPaths()}).
-   */
-  private Artifact getPackageRelativeArtifact(
-      String relative, ArtifactRoot root, boolean contentBasedPath) {
-    return getPackageRelativeArtifact(PathFragment.create(relative), root, contentBasedPath);
+    return getPackageRelativeArtifact(PathFragment.create(relative), root);
   }
 
   @Override
@@ -762,23 +743,13 @@ public class RuleContext extends TargetContext
   @Override
   public Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root) {
-    return getDerivedArtifact(rootRelativePath, root, /* contentBasedPath= */ false);
-  }
-
-  /**
-   * Same as {@link #getDerivedArtifact(PathFragment, ArtifactRoot)} but includes the option to use
-   * a content-based path for this artifact (see {@link
-   * BuildConfigurationValue#useContentBasedOutputPaths()}).
-   */
-  public Artifact.DerivedArtifact getDerivedArtifact(
-      PathFragment rootRelativePath, ArtifactRoot root, boolean contentBasedPath) {
     Preconditions.checkState(
         rootRelativePath.startsWith(getPackageDirectory()),
         "Output artifact '%s' not under package directory '%s' for target '%s'",
         rootRelativePath,
         getPackageDirectory(),
         getLabel());
-    return getAnalysisEnvironment().getDerivedArtifact(rootRelativePath, root, contentBasedPath);
+    return getAnalysisEnvironment().getDerivedArtifact(rootRelativePath, root);
   }
 
   @Override
@@ -926,15 +897,46 @@ public class RuleContext extends TargetContext
     return getOwningPrerequisitesCollection(attributeName).getExecutablePrerequisite(attributeName);
   }
 
-  public void initConfigurationMakeVariableContext(
-      Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
-    Preconditions.checkState(
-        configurationMakeVariableContext == null,
-        "Attempted to init an already initialized Make var context (did you call"
-            + " initConfigurationMakeVariableContext() after accessing ctx.var?)");
-    configurationMakeVariableContext =
-        new ConfigurationMakeVariableContext(
-            this, rule.getPackage(), getConfiguration(), makeVariableSuppliers);
+  ImmutableList<TemplateVariableInfo> fromAttributes(Iterable<String> attributeNames) {
+    // Get template variable providers from the attributes.
+    ImmutableList<TemplateVariableInfo> fromAttributes =
+        Streams.stream(attributeNames)
+            // Only process this attribute it if is present in the rule.
+            .filter(attrName -> this.attributes().has(attrName))
+            // Get the TemplateVariableInfo providers from this attribute.
+            .flatMap(
+                attrName -> this.getPrerequisites(attrName, TemplateVariableInfo.PROVIDER).stream())
+            .collect(toImmutableList());
+
+    return fromAttributes;
+  }
+
+  ImmutableList<TemplateVariableInfo> fromToolchains() {
+    if (this.getToolchainContexts() == null) {
+      return ImmutableList.of();
+    }
+
+    ImmutableList<TemplateVariableInfo> toolchainProviders =
+        this.getToolchainContexts().contextMap().values().stream()
+            .flatMap(context -> context.templateVariableProviders().stream())
+            .collect(toImmutableList());
+    return toolchainProviders;
+  }
+
+  // TODO(b/37567440): Remove when Starlark callers can be updated to get this from
+  // CcToolchainProvider. We should use CcCommon.CC_TOOLCHAIN_ATTRIBUTE_NAME, but we didn't want to
+  // pollute core with C++ specific constant.
+  protected static final ImmutableList<String> DEFAULT_MAKE_VARIABLE_ATTRIBUTES =
+      ImmutableList.of("toolchains", ":cc_toolchain", "$toolchains", "$cc_toolchain");
+
+  public ImmutableList<TemplateVariableInfo> getDefaultTemplateVariableProviders() {
+    ImmutableList<TemplateVariableInfo> ruleTemplateVariableInfo =
+        new ImmutableList.Builder<TemplateVariableInfo>()
+            .addAll(fromAttributes(DEFAULT_MAKE_VARIABLE_ATTRIBUTES))
+            .addAll(fromToolchains())
+            .build();
+
+    return ruleTemplateVariableInfo;
   }
 
   public Expander getExpander(TemplateContext templateContext) {
@@ -959,13 +961,15 @@ public class RuleContext extends TargetContext
    * Returns a cached context that maps Make variable names (string) to values (string) without any
    * extra {@link MakeVariableSupplier}.
    *
-   * <p>CAUTION: If there's no context, this will initialize the context with no
-   * MakeVariableSuppliers. Call {@link #initConfigurationMakeVariableContext} first if you want to
-   * register suppliers.
+   * <p>CAUTION: If there's no context, this will initialize the context.
    */
   public ConfigurationMakeVariableContext getConfigurationMakeVariableContext() {
     if (configurationMakeVariableContext == null) {
-      initConfigurationMakeVariableContext(ImmutableList.of());
+      configurationMakeVariableContext =
+          new ConfigurationMakeVariableContext(
+              rule.getPackageDeclarations(),
+              getConfiguration(),
+              getDefaultTemplateVariableProviders());
     }
     return configurationMakeVariableContext;
   }
@@ -1062,18 +1066,6 @@ public class RuleContext extends TargetContext
     }
   }
 
-  @Nullable
-  public Label targetPlatform() {
-    if (toolchainContexts == null) {
-      return null;
-    }
-    PlatformInfo targetPlatform = toolchainContexts.getTargetPlatform();
-    if (targetPlatform == null) {
-      return null;
-    }
-    return targetPlatform.label();
-  }
-
   public boolean useAutoExecGroups() {
     return getRule()
         .getRuleClassObject()
@@ -1095,11 +1087,6 @@ public class RuleContext extends TargetContext
     return toolchainContexts == null ? null : toolchainContexts.getToolchainContext(execGroup);
   }
 
-  /** Returns true if the given exec group is an automatic exec group. */
-  public boolean isAutomaticExecGroup(String execGroupName) {
-    return !Identifier.isValid(execGroupName) && !execGroupName.equals(DEFAULT_EXEC_GROUP_NAME);
-  }
-
   @Nullable
   private ResolvedToolchainContext getToolchainContextForToolchainType(Label toolchainType) {
     ResolvedToolchainContext toolchainContext =
@@ -1113,7 +1100,7 @@ public class RuleContext extends TargetContext
     // type in its ResolvedToolchainContext (AEGs are created before toolchain context is resolved).
     String aliasName =
         toolchainContexts.getExecGroupNames().stream()
-            .filter(this::isAutomaticExecGroup)
+            .filter(DeclaredExecGroup::isAutomatic)
             .filter(
                 name -> {
                   ResolvedToolchainContext context = toolchainContexts.getToolchainContext(name);
@@ -1206,13 +1193,13 @@ public class RuleContext extends TargetContext
   }
 
   /**
-   * Returns the set of transitive packages. This is only intended to be used to create the repo
-   * mapping manifest for the runfiles tree. Can be null if transitive packages are not tracked (see
-   * {@link
+   * Returns the set of transitive package metadata. This is only intended to be used to create the
+   * repo mapping manifest for the runfiles tree. Can be null if transitive packages are not tracked
+   * (see {@link
    * com.google.devtools.build.lib.skyframe.SkyframeExecutor#shouldStoreTransitivePackagesInLoadingAndAnalysis}).
    */
   @Nullable
-  public NestedSet<Package> getTransitivePackagesForRunfileRepoMappingManifest() {
+  public NestedSet<Package.Metadata> getTransitivePackagesForRunfileRepoMappingManifest() {
     return transitivePackagesForRunfileRepoMappingManifest;
   }
 
@@ -1220,7 +1207,7 @@ public class RuleContext extends TargetContext
     // User-defined make values may be set either in "--define foo=bar" or in a vardef in the rule's
     // package. Both are equivalent for these purposes, since in both cases setting
     // "--define foo=bar" impacts the rule's output.
-    return rule.getPackage().getMakeEnvironment().containsKey(makeVariable)
+    return rule.getPackageDeclarations().getMakeEnvironment().containsKey(makeVariable)
         || getConfiguration().getCommandLineBuildVariables().containsKey(makeVariable);
   }
 
@@ -1240,6 +1227,15 @@ public class RuleContext extends TargetContext
       return null;
     }
     ResolvedToolchainContext toolchainContext = getToolchainContext(execGroup);
+    return toolchainContext == null ? null : toolchainContext.executionPlatform();
+  }
+
+  @Nullable
+  public PlatformInfo getExecutionPlatformForToolchainType(Label toolchainType) {
+    if (toolchainContexts == null) {
+      return null;
+    }
+    ResolvedToolchainContext toolchainContext = getToolchainContextForToolchainType(toolchainType);
     return toolchainContext == null ? null : toolchainContext.executionPlatform();
   }
 
@@ -1322,16 +1318,6 @@ public class RuleContext extends TargetContext
   @Override
   public Artifact getImplicitOutputArtifact(ImplicitOutputsFunction function)
       throws InterruptedException {
-    return getImplicitOutputArtifact(function, /* contentBasedPath= */ false);
-  }
-
-  /**
-   * Same as {@link #getImplicitOutputArtifact(ImplicitOutputsFunction)} but includes the option to
-   * use a content-based path for this artifact (see {@link
-   * BuildConfigurationValue#useContentBasedOutputPaths()}).
-   */
-  public Artifact getImplicitOutputArtifact(
-      ImplicitOutputsFunction function, boolean contentBasedPath) throws InterruptedException {
     Iterable<String> result;
     try {
       result =
@@ -1341,23 +1327,12 @@ public class RuleContext extends TargetContext
       // It's ok as long as we don't use this method from Starlark.
       throw new IllegalStateException(e);
     }
-    return getImplicitOutputArtifact(Iterables.getOnlyElement(result), contentBasedPath);
+    return getImplicitOutputArtifact(Iterables.getOnlyElement(result));
   }
 
   /** Only use from Starlark. Returns the implicit output artifact for a given output path. */
   public Artifact getImplicitOutputArtifact(String path) {
-    return getImplicitOutputArtifact(path, /* contentBasedPath= */ false);
-  }
-
-  /**
-   * Same as {@link #getImplicitOutputArtifact(String)} but includes the option to use a a
-   * content-based path for this artifact (see {@link
-   * BuildConfigurationValue#useContentBasedOutputPaths()}).
-   */
-  // TODO(bazel-team): Consider removing contentBasedPath stuff, which is unused as of 18 months
-  // after its introduction in cl/252148134.
-  private Artifact getImplicitOutputArtifact(String path, boolean contentBasedPath) {
-    return getPackageRelativeArtifact(path, getBinOrGenfilesDirectory(), contentBasedPath);
+    return getPackageRelativeArtifact(path, getBinOrGenfilesDirectory());
   }
 
   /**
@@ -1409,11 +1384,9 @@ public class RuleContext extends TargetContext
     return attributes().has("testonly", Type.BOOLEAN) && attributes().get("testonly", Type.BOOLEAN);
   }
 
-  /** Returns true if the execution platform is Windows. */
-  public boolean isExecutedOnWindows() {
-    return getExecutionPlatform()
-        .constraints()
-        .hasConstraintValue(OS_TO_CONSTRAINTS.get(OS.WINDOWS));
+  /** Returns true if the execution platform of the default exec group is Windows. */
+  public boolean isDefaultExecGroupExecutingOnWindows() {
+    return getOsFromConstraintsOrHost(getExecutionPlatform()) == OS.WINDOWS;
   }
 
   /**
@@ -1459,9 +1432,15 @@ public class RuleContext extends TargetContext
     private ConfigurationFragmentPolicy configurationFragmentPolicy;
     private ActionLookupKey actionOwnerSymbol;
     private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap;
+    private boolean allowMaterializerRuleRealDeps;
+
+    @Nullable
+    private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> materializerTargets;
+
     private ConfigConditions configConditions;
     private Mutability mutability;
     private NestedSet<PackageGroupContents> visibility;
+    @Nullable private PackageSpecificationProvider transitiveVisibilityImposedByThisPackage;
     private ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
     private ToolchainCollection<AspectBaseTargetResolvedToolchainContext>
         baseTargetToolchainContexts;
@@ -1470,7 +1449,8 @@ public class RuleContext extends TargetContext
 
     private Supplier<IncrementalArtifactConflictFinder> conflictFinder = () -> null;
     @Nullable private RequiredConfigFragmentsProvider requiredConfigFragments;
-    @Nullable private NestedSet<Package> transitivePackagesForRunfileRepoMappingManifest;
+
+    @Nullable private NestedSet<Package.Metadata> transitivePackagesForRunfileRepoMappingManifest;
 
     @VisibleForTesting
     public Builder(
@@ -1545,7 +1525,8 @@ public class RuleContext extends TargetContext
         }
       }
 
-      return execGroupCollectionBuilder.build(toolchainContexts, rawExecProperties);
+      return execGroupCollectionBuilder.build(
+          toolchainContexts, rawExecProperties, getRule().getDisplayFormLabel());
     }
 
     private void checkAttributesNonEmpty(AttributeMap attributes) {
@@ -1573,6 +1554,9 @@ public class RuleContext extends TargetContext
       for (String attributeName : attributes.getAttributeNames()) {
         Attribute attr = attributes.getAttributeDefinition(attributeName);
         if (attr.getType() != BuildType.LABEL_LIST) {
+          // It is not obvious but correct to skip LABEL_LIST_DICT here: since concatenating selects
+          // of dicts of lists does not concatenate the lists but picks the last one for each key,
+          // all possible duplicates have already been ruled out by AggregatingAttributeMapper.
           continue;
         }
 
@@ -1586,6 +1570,12 @@ public class RuleContext extends TargetContext
     @CanIgnoreReturnValue
     public Builder setRuleClassProvider(ConfiguredRuleClassProvider ruleClassProvider) {
       this.ruleClassProvider = ruleClassProvider;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setAllowMaterializerRuleRealDeps(boolean allowMaterializerRuleRealDeps) {
+      this.allowMaterializerRuleRealDeps = allowMaterializerRuleRealDeps;
       return this;
     }
 
@@ -1624,6 +1614,13 @@ public class RuleContext extends TargetContext
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder setMaterializerTargets(
+        @Nullable OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> materializerTargets) {
+      this.materializerTargets = materializerTargets;
+      return this;
+    }
+
     /**
      * Sets the configuration conditions needed to determine which paths to follow for this rule's
      * configurable attributes.
@@ -1631,6 +1628,13 @@ public class RuleContext extends TargetContext
     @CanIgnoreReturnValue
     public Builder setConfigConditions(ConfigConditions configConditions) {
       this.configConditions = Preconditions.checkNotNull(configConditions);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setTransitiveVisibilityImposedByThisPackage(
+        @Nullable PackageSpecificationProvider transitiveVisibility) {
+      this.transitiveVisibilityImposedByThisPackage = transitiveVisibility;
       return this;
     }
 
@@ -1686,7 +1690,7 @@ public class RuleContext extends TargetContext
 
     @CanIgnoreReturnValue
     public Builder setTransitivePackagesForRunfileRepoMappingManifest(
-        @Nullable NestedSet<Package> packages) {
+        @Nullable NestedSet<Package.Metadata> packages) {
       this.transitivePackagesForRunfileRepoMappingManifest = packages;
       return this;
     }
@@ -1746,8 +1750,44 @@ public class RuleContext extends TargetContext
                           configuredTarget, TargetMode.WITH_KIND)));
             }
           }
+
+          // Run materializer attribute validation only when constructing a context for rules and
+          // not for aspects because aspects aren't materializer rules. In particular doing this
+          // would break any aspect that has dependencies when it encounters a materializer rule.
+          if (!forAspect() && !allowMaterializerRuleRealDeps) {
+            // Materializer rules can depend only on dependency resolution rules via "normal" /
+            // non-dormant attributes, and everything else only via dormant attributes, except
+            // for PackageGroupConfiguredTargets and build settings.
+            if (target.getAssociatedRule().getRuleClassObject().isMaterializerRule()
+                && !(attribute.getType() == BuildType.DORMANT_LABEL
+                    || attribute.getType() == BuildType.DORMANT_LABEL_LIST)
+                && !configuredTarget.isForDependencyResolution()
+                && !(configuredTarget.getConfiguredTarget()
+                    instanceof PackageGroupConfiguredTarget)) {
+              attributeError(
+                  attribute.getName(),
+                  String.format(
+                      "materializer rules can depend on only dependency resolution rules via"
+                          + " non-dormant attributes; %s is a non-dormant attribute, and %s is not"
+                          + " a dependency resolution rule",
+                      attribute.getName(), configuredTarget.getTargetLabel()));
+            }
+          }
         }
       }
+
+      if (materializerTargets != null) {
+        for (Map.Entry<DependencyKind, ConfiguredTargetAndData> entry :
+            materializerTargets.entries()) {
+          Attribute attribute = entry.getKey().getAttribute();
+          if (attribute == null) {
+            continue;
+          }
+          ConfiguredTargetAndData materializerTarget = entry.getValue();
+          validateDirectPrerequisite(attribute, materializerTarget);
+        }
+      }
+
       return mapBuilder.build();
     }
 
@@ -1804,6 +1844,12 @@ public class RuleContext extends TargetContext
 
     private void validateDirectPrerequisiteType(
         ConfiguredTargetAndData prerequisite, Attribute attribute) {
+
+      if (prerequisite.isMaterializerRule()) {
+        // Materializer rules pass along other targets, so don't check their providers.
+        return;
+      }
+
       String ruleClass = prerequisite.getRuleClass();
       if (!ruleClass.isEmpty()) {
         validateRuleDependency(prerequisite, attribute);
@@ -2070,7 +2116,7 @@ public class RuleContext extends TargetContext
       // to unconditionally check visibility. See
       // https://github.com/bazelbuild/bazel/issues/12669.
       ConfigSettingVisibilityPolicy configSettingVisibilityPolicy =
-          target.getPackage().getConfigSettingVisibilityPolicy();
+          target.getPackageMetadata().configSettingVisibilityPolicy();
       if (configSettingVisibilityPolicy != ConfigSettingVisibilityPolicy.LEGACY_OFF) {
 
         // Validate config conditions.
@@ -2148,7 +2194,7 @@ public class RuleContext extends TargetContext
       // but we no longer locations for individual attributes.
       // We should record the instantiation call stack in each rule
       // and report the position of its topmost frame here.
-      return rule.wasCreatedByMacro()
+      return rule.isRuleCreatedInMacro()
           ? String.format(
               ". Since this rule was created by the macro '%s', the error might have been "
                   + "caused by the macro implementation",

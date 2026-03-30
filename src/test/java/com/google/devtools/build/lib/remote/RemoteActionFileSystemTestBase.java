@@ -21,8 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -36,18 +34,12 @@ import org.junit.Test;
 public abstract class RemoteActionFileSystemTestBase {
 
   protected abstract FileSystem createActionFileSystem(
-      ActionInputMap inputs, Iterable<Artifact> outputs, InputMetadataProvider fileCache)
-      throws IOException;
-
-  protected FileSystem createActionFileSystem(ActionInputMap inputs, Iterable<Artifact> outputs)
-      throws IOException {
-    return createActionFileSystem(inputs, outputs, StaticInputMetadataProvider.empty());
-  }
+      ActionInputMap inputs, Iterable<Artifact> outputs) throws IOException;
 
   protected FileSystem createActionFileSystem(ActionInputMap inputs) throws IOException {
     return createActionFileSystem(inputs, ImmutableList.of());
   }
-
+    
   protected FileSystem createActionFileSystem() throws IOException {
     return createActionFileSystem(new ActionInputMap(0));
   }

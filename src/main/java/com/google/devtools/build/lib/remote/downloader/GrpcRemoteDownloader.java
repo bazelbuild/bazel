@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.remote.downloader;
 
+
 import build.bazel.remote.asset.v1.FetchBlobRequest;
 import build.bazel.remote.asset.v1.FetchBlobResponse;
 import build.bazel.remote.asset.v1.FetchGrpc;
@@ -28,11 +29,14 @@ import com.google.common.base.Strings;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HashOutputStream;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.FetchId;
+import com.google.devtools.build.lib.buildeventstream.FetchEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.ReferenceCountedChannel;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
+import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -40,20 +44,21 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.util.Timestamps;
+import com.google.rpc.Code;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.StatusRuntimeException;
+import io.grpc.protobuf.StatusProto;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.URISyntaxException;
-import java.net.URL;
+import java.net.URI;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import javax.annotation.Nullable;
 
 /**
  * A Downloader implementation that uses Bazel's Remote Execution APIs to delegate downloads of
@@ -73,7 +78,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   private final DigestFunction.Value digestFunction;
   private final RemoteOptions options;
   private final boolean verboseFailures;
-  @Nullable private final Downloader fallbackDownloader;
+  private final Downloader httpDownloader;
+  private final boolean remoteDownloaderLocalFallback;
 
   private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -103,7 +109,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       DigestFunction.Value digestFunction,
       RemoteOptions options,
       boolean verboseFailures,
-      @Nullable Downloader fallbackDownloader) {
+      Downloader httpDownloader,
+      boolean remoteDownloaderLocalFallback) {
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     this.channel = channel;
@@ -113,7 +120,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     this.digestFunction = digestFunction;
     this.options = options;
     this.verboseFailures = verboseFailures;
-    this.fallbackDownloader = fallbackDownloader;
+    this.httpDownloader = httpDownloader;
+    this.remoteDownloaderLocalFallback = remoteDownloaderLocalFallback;
   }
 
   @Override
@@ -127,7 +135,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
 
   @Override
   public void download(
-      List<URL> urls,
+      List<URI> urls,
       Map<String, List<String>> headers,
       Credentials credentials,
       Optional<Checksum> checksum,
@@ -135,10 +143,32 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       Path destination,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      Optional<String> type)
+      Optional<String> type,
+      String context)
       throws IOException, InterruptedException {
+    // file: URLs can't use the gRPC downloader.
+    if (urls.stream().anyMatch(url -> Objects.equals(url.getScheme(), "file"))) {
+      httpDownloader.download(
+          urls,
+          headers,
+          credentials,
+          checksum,
+          canonicalId,
+          destination,
+          eventHandler,
+          clientEnv,
+          type,
+          context);
+      return;
+    }
     RequestMetadata metadata =
-        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "remote_downloader", null);
+        TracingMetadataUtils.buildMetadata(
+            buildRequestId,
+            commandId,
+            "remote_downloader",
+            /* mnemonic= */ null,
+            /* label= */ context,
+            /* configurationId= */ null);
     RemoteActionExecutionContext remoteActionExecutionContext =
         RemoteActionExecutionContext.create(metadata);
 
@@ -152,6 +182,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
             digestFunction,
             headers,
             credentials);
+    String eventUri = urls.getFirst().toString();
     try {
       FetchBlobResponse response =
           retrier.execute(
@@ -160,19 +191,32 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
                       channel ->
                           fetchBlockingStub(remoteActionExecutionContext, channel)
                               .fetchBlob(request)));
+      if (!response.getUri().isEmpty()) {
+        eventUri = response.getUri();
+      }
+      if (response.getStatus().getCode() == Code.OK_VALUE) {
+        eventHandler.post(new FetchEvent(eventUri, FetchId.Downloader.GRPC, /* success= */ true));
+      } else {
+        throw StatusProto.toStatusRuntimeException(response.getStatus());
+      }
       final Digest blobDigest = response.getBlobDigest();
 
-      retrier.execute(
-          () -> {
-            try (OutputStream out = newOutputStream(destination, checksum)) {
-              Utils.getFromFuture(
-                  cacheClient.downloadBlob(remoteActionExecutionContext, blobDigest, out));
-            }
-            return null;
-          });
+      var unused =
+          retrier.execute(
+              () -> {
+                try (OutputStream out = newOutputStream(destination, checksum)) {
+                  Utils.getFromFuture(
+                      cacheClient.downloadBlob(remoteActionExecutionContext, blobDigest, out));
+                } catch (OutputDigestMismatchException e) {
+                  e.setOutputPath(destination.getPathString());
+                  throw e;
+                }
+                return null;
+              });
 
     } catch (StatusRuntimeException | IOException e) {
-      if (fallbackDownloader == null) {
+      eventHandler.post(new FetchEvent(eventUri, FetchId.Downloader.GRPC, /* success= */ false));
+      if (!remoteDownloaderLocalFallback) {
         if (e instanceof StatusRuntimeException) {
           throw new IOException(e);
         }
@@ -180,7 +224,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       }
       eventHandler.handle(
           Event.warn("Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
-      fallbackDownloader.download(
+      httpDownloader.download(
           urls,
           headers,
           credentials,
@@ -189,7 +233,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
           destination,
           eventHandler,
           clientEnv,
-          type);
+          type,
+          context);
     }
   }
 
@@ -197,7 +242,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   static FetchBlobRequest newFetchBlobRequest(
       String instanceName,
       boolean remoteDownloaderPropagateCredentials,
-      List<URL> urls,
+      List<URI> urls,
       Optional<Checksum> checksum,
       String canonicalId,
       DigestFunction.Value digestFunction,
@@ -216,19 +261,15 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
         continue;
       }
 
-      try {
-        var metadata = credentials.getRequestMetadata(url.toURI());
-        for (var entry : metadata.entrySet()) {
-          for (var value : entry.getValue()) {
-            requestBuilder.addQualifiers(
-                Qualifier.newBuilder()
-                    .setName(QUALIFIER_HTTP_HEADER_URL_PREFIX + i + ":" + entry.getKey())
-                    .setValue(value)
-                    .build());
-          }
+      var metadata = credentials.getRequestMetadata(url);
+      for (var entry : metadata.entrySet()) {
+        for (var value : entry.getValue()) {
+          requestBuilder.addQualifiers(
+              Qualifier.newBuilder()
+                  .setName(QUALIFIER_HTTP_HEADER_URL_PREFIX + i + ":" + entry.getKey())
+                  .setValue(value)
+                  .build());
         }
-      } catch (URISyntaxException e) {
-        throw new IOException(e);
       }
     }
 

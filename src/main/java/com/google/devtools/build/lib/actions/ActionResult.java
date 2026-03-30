@@ -255,19 +255,6 @@ public record ActionResult(ImmutableList<SpawnResult> spawnResults) {
   }
 
   /**
-   * Indicates whether the action had at least one locally executed spawn.
-   *
-   * @return true if at the action had at least one locally executed spawn
-   */
-  public boolean locallyExecuted() {
-    boolean locallyExecuted = false;
-    for (SpawnResult spawnResult : spawnResults()) {
-      locallyExecuted |= !spawnResult.wasRemote();
-    }
-    return locallyExecuted;
-  }
-
-  /**
    * Returns the cumulative command execution CPU time for the {@link Action}.
    *
    * @return the cumulative measurement, or zero in case of execution errors or when the measurement

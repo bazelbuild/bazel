@@ -92,8 +92,7 @@ public abstract class CqueryThreadsafeCallback
     if (!failFast && printStream != null) {
       List<String> resultsToPrint = uniquifyResults ? ImmutableSet.copyOf(result).asList() : result;
       for (String s : resultsToPrint) {
-        // TODO(ulfjack): We should use queryOptions.getLineTerminator() instead.
-        printStream.append(s).append("\n");
+        printStream.append(s).append(options.getLineTerminator());
       }
       printStream.flush();
     }

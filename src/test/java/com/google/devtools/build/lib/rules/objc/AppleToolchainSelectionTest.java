@@ -34,8 +34,11 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
 
   @Test
   public void testToolchainSelectionCcDepDefault() throws Exception {
-    ScratchAttributeWriter
-        .fromLabelString(this, "cc_library", "//b:lib")
+    ScratchAttributeWriter.fromLabelString(
+            this,
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+            "cc_library",
+            "//b:lib")
         .setList("srcs", "b.cc")
         .write();
     addAppleBinaryStarlarkRule(scratch);
@@ -67,7 +70,11 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
         "--apple_platform_type=ios",
         "--ios_multi_cpus=arm64",
         "--platforms=" + MockObjcSupport.IOS_ARM64);
-    ScratchAttributeWriter.fromLabelString(this, "cc_library", "//b:lib")
+    ScratchAttributeWriter.fromLabelString(
+            this,
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+            "cc_library",
+            "//b:lib")
         .setList("srcs", "b.cc")
         .write();
     addAppleBinaryStarlarkRule(scratch);
@@ -100,7 +107,11 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
   @Test
   public void testToolchainSelectionMultiArchIos() throws Exception {
     useConfiguration("--ios_multi_cpus=arm64,arm64e");
-    ScratchAttributeWriter.fromLabelString(this, "cc_library", "//b:lib")
+    ScratchAttributeWriter.fromLabelString(
+            this,
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+            "cc_library",
+            "//b:lib")
         .setList("srcs", "a.cc")
         .write();
     addAppleBinaryStarlarkRule(scratch);
@@ -131,7 +142,11 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
   @Test
   public void testToolchainSelectionMultiArchWatchos() throws Exception {
     useConfiguration("--ios_multi_cpus=arm64,arm64e", "--watchos_cpus=arm64_32");
-    ScratchAttributeWriter.fromLabelString(this, "cc_library", "//b:lib")
+    ScratchAttributeWriter.fromLabelString(
+            this,
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+            "cc_library",
+            "//b:lib")
         .setList("srcs", "a.cc")
         .write();
     addAppleBinaryStarlarkRule(scratch);

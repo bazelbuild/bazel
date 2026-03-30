@@ -14,6 +14,8 @@
 
 package net.starlark.java.eval;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.io.Serializable;
@@ -31,6 +33,10 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.SyntaxUtils;
+import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.Types;
 
 /**
  * A StarlarkList is a mutable finite sequence of values.
@@ -80,6 +86,10 @@ import net.starlark.java.annot.StarlarkMethod;
 public abstract class StarlarkList<E> extends AbstractCollection<E>
     implements Sequence<E>, StarlarkValue, Mutability.Freezable, Comparable<StarlarkList<?>> {
 
+  public static TypeConstructor getAssociatedTypeConstructor() {
+    return Types.LIST_CONSTRUCTOR;
+  }
+
   // It's always possible to overeat in small bites but we'll
   // try to stop someone swallowing the world in one gulp.
   static final int MAX_ALLOC = 1 << 30;
@@ -89,6 +99,18 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
   // Prohibit instantiation outside of package.
   StarlarkList() {}
 
+  @Override
+  public StarlarkType getStarlarkType() {
+    // TODO(ilist@): store the type for non-homogeneous lists
+    // Current implementation traverses the list and computes union of all elements - same as most
+    // of the native calls. This is correct, but could be expensive. Proposed optimization is
+    // to store and update list's type when elements are added to it.
+    return isEmpty()
+        ? Types.list(Types.ANY)
+        : Types.list(
+            Types.union(stream().map(Starlark::getStarlarkType).collect(toImmutableSet())));
+  }
+
   /**
    * Takes ownership of the supplied array of class Object[].class, and returns a new StarlarkList
    * instance that initially wraps the array. The caller must not subsequently modify the array, but
@@ -96,16 +118,13 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
    */
   static <T> StarlarkList<T> wrap(@Nullable Mutability mutability, Object[] elems) {
     if (mutability == null || mutability.isFrozen()) {
-      switch (elems.length) {
-        case 0:
-          return empty();
-        case 1:
-          return new ImmutableSingletonStarlarkList<>(elems[0]);
-        default:
-          return new RegularImmutableStarlarkList<>(elems);
-      }
+      return switch (elems.length) {
+        case 0 -> empty();
+        case 1 -> new ImmutableSingletonStarlarkList<>(elems[0]);
+        default -> new RegularImmutableStarlarkList<>(elems);
+      };
     }
-    return new MutableStarlarkList<>(mutability, elems, elems.length);
+    return new MutableStarlarkList<>(mutability, elems);
   }
 
   @Override
@@ -251,14 +270,14 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
   }
 
   @Override
-  public void repr(Printer printer) {
-    printer.printList(this, "[", ", ", "]");
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    printer.printList(this, "[", ", ", "]", semantics);
   }
 
   // TODO(adonovan): StarlarkValue has 3 String methods yet still we need this fourth. Why?
   @Override
   public String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 
   /** Returns a new StarlarkList containing n consecutive repeats of this tuple. */
@@ -339,7 +358,7 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
           "Removes the first item from the list whose value is x. "
               + "It is an error if there is no such item.",
       parameters = {@Param(name = "x", doc = "The object to remove.")})
-  public void removeElement(Object x) throws EvalException {
+  public void removeElement(E x) throws EvalException {
     int size = size();
     Object[] elems = elems();
     for (int i = 0; i < size; i++) {
@@ -348,16 +367,15 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
         return;
       }
     }
-    throw Starlark.errorf("item %s not found in list", Starlark.repr(x));
+    throw Starlark.errorf("item %s not found in list", Starlark.repr(x, StarlarkSemantics.DEFAULT));
   }
 
   @StarlarkMethod(
       name = "append",
       doc = "Adds an item to the end of the list.",
       parameters = {@Param(name = "item", doc = "Item to add at the end.")})
-  @SuppressWarnings("unchecked")
-  public void append(Object item) throws EvalException {
-    addElement((E) item); // unchecked
+  public void append(E item) throws EvalException {
+    addElement(item);
   }
 
   @StarlarkMethod(name = "clear", doc = "Removes all the elements of the list.")
@@ -367,61 +385,61 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
       name = "insert",
       doc = "Inserts an item at a given position.",
       parameters = {
-        @Param(name = "index", doc = "The index of the given position."),
+        @Param(
+            name = "index",
+            doc =
+                "The index the item will be at after insertion. If the index is out of range, it's"
+                    + " transformed into an effective index in the range from 0 to the list's"
+                    + " previous length, inclusive, in the same manner as for the start index of a"
+                    + " slice operator."),
         @Param(name = "item", doc = "The item.")
       })
-  @SuppressWarnings("unchecked")
-  public void insert(StarlarkInt index, Object item) throws EvalException {
-    addElementAt(EvalUtils.toIndex(index.toInt("index"), size()), (E) item); // unchecked
+  public void insert(StarlarkInt index, E item) throws EvalException {
+    addElementAt(SyntaxUtils.toSliceBound(index.toInt("index"), size()), item); // unchecked
   }
 
   @StarlarkMethod(
       name = "extend",
       doc = "Adds all items to the end of the list.",
       parameters = {@Param(name = "items", doc = "Items to add at the end.")})
-  public void extend(Object items) throws EvalException {
-    @SuppressWarnings("unchecked")
-    Iterable<? extends E> src = (Iterable<? extends E>) Starlark.toIterable(items);
-    addElements(src);
+  public void extend(StarlarkIterable<? extends E> items) throws EvalException {
+    addElements(items);
   }
 
   @StarlarkMethod(
       name = "index",
       doc =
-          "Returns the index in the list of the first item whose value is x. "
-              + "It is an error if there is no such item.",
+          "Returns the index in the list of the first item whose value is x. It is an error if"
+              + " there is no such item. If <code>start</code> and <code>end</code> are given,"
+              + " they restrict the range searched in the same manner as slicing.",
       parameters = {
         @Param(name = "x", doc = "The object to search."),
         @Param(
             name = "start",
-            allowedTypes = {
-              @ParamType(type = StarlarkInt.class),
-              @ParamType(type = NoneType.class), // TODO(adonovan): this is wrong
-            },
-            defaultValue = "None",
-            named = true, // TODO(adonovan): this is wrong
+            allowedTypes = {@ParamType(type = StarlarkInt.class)},
+            defaultValue = "unbound",
             doc = "The start index of the list portion to inspect."),
         @Param(
             name = "end",
-            allowedTypes = {
-              @ParamType(type = StarlarkInt.class),
-              @ParamType(type = NoneType.class), // TODO(adonovan): this is wrong
-            },
-            defaultValue = "None",
-            named = true, // TODO(adonovan): this is wrong
+            allowedTypes = {@ParamType(type = StarlarkInt.class)},
+            defaultValue = "unbound",
             doc = "The end index of the list portion to inspect.")
       })
-  public int index(Object x, Object start, Object end) throws EvalException {
+  public int index(E x, Object start, Object end) throws EvalException {
     int size = size();
     Object[] elems = elems();
-    int i = start == Starlark.NONE ? 0 : EvalUtils.toIndex(Starlark.toInt(start, "start"), size);
-    int j = end == Starlark.NONE ? size : EvalUtils.toIndex(Starlark.toInt(end, "end"), size);
+    int i =
+        start == Starlark.UNBOUND
+            ? 0
+            : SyntaxUtils.toSliceBound(Starlark.toInt(start, "start"), size);
+    int j =
+        end == Starlark.UNBOUND ? size : SyntaxUtils.toSliceBound(Starlark.toInt(end, "end"), size);
     for (; i < j; i++) {
       if (elems[i].equals(x)) {
         return i;
       }
     }
-    throw Starlark.errorf("item %s not found in list", Starlark.repr(x));
+    throw Starlark.errorf("item %s not found in list", Starlark.repr(x, StarlarkSemantics.DEFAULT));
   }
 
   @StarlarkMethod(
@@ -430,22 +448,13 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
           "Removes the item at the given position in the list, and returns it. "
               + "If no <code>index</code> is specified, "
               + "it removes and returns the last item in the list.",
-      parameters = {
-        @Param(
-            name = "i",
-            allowedTypes = {
-              @ParamType(type = StarlarkInt.class),
-              @ParamType(type = NoneType.class), // TODO(adonovan): this is not what Python3 does
-            },
-            defaultValue = "-1",
-            doc = "The index of the item.")
-      })
-  public Object pop(Object i) throws EvalException {
+      parameters = {@Param(name = "i", defaultValue = "-1", doc = "The index of the item.")})
+  public E pop(StarlarkInt arg) throws EvalException {
     int size = size();
-    Object[] elems = elems();
-    int arg = i == Starlark.NONE ? -1 : Starlark.toInt(i, "i");
-    int index = EvalUtils.getSequenceIndex(arg, size);
-    Object result = elems[index];
+    @SuppressWarnings("unchecked") // safe by specification
+    E[] elems = (E[]) elems();
+    int index = EvalUtils.getSequenceIndex(arg.toInt("i"), size);
+    E result = elems[index];
     removeElementAt(index);
     return result;
   }

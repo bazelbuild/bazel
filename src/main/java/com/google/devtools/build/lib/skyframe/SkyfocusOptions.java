@@ -30,21 +30,21 @@ public final class SkyfocusOptions extends OptionsBase {
       effectTags = OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       help =
-          "If true, enable the use of --experimental_working_set to reduce Bazel's memory footprint"
-              + " for incremental builds. This feature is known as Skyfocus.")
+          "If true, enable the use of --experimental_active_directories to reduce Bazel's memory"
+              + " footprint for incremental builds. This feature is known as Skyfocus.")
   public boolean skyfocusEnabled;
 
   @Option(
-      name = "experimental_working_set",
+      name = "experimental_active_directories",
       defaultValue = "",
       effectTags = OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       converter = Converters.CommaSeparatedOptionListConverter.class,
       help =
-          "The working set for Skyfocus. Specify as comma-separated workspace root-relative paths."
-              + " This is a stateful flag. Defining a working set persists it for subsequent"
-              + " invocations, until it is redefined with a new set.")
-  public List<String> workingSet;
+          "Active directories for Skyfocus and remote analysis caching. Specify as comma-separated"
+              + " workspace root-relative paths. This is a stateful flag. Defining one persists it"
+              + " for subsequent invocations, until it is redefined with a new set.")
+  public List<String> activeDirectories;
 
   @Option(
       name = "experimental_skyfocus_dump_keys",
@@ -72,11 +72,12 @@ public final class SkyfocusOptions extends OptionsBase {
     NONE,
 
     /**
-     * Dump the counts and reductions of SkyKeys in the graph, working set, and verification set.
+     * Dump the counts and reductions of SkyKeys in the graph, active directories, and verification
+     * set.
      */
     COUNT,
 
-    /** Dump the string representation of SkyKeys in the working set and verification set. */
+    /** Dump the string representation of SkyKeys in the active directories and verification set. */
     VERBOSE,
   }
 
@@ -88,38 +89,58 @@ public final class SkyfocusOptions extends OptionsBase {
   }
 
   @Option(
-      name = "experimental_skyfocus_handling_strategy",
+      name = "experimental_frontier_violation_check",
       defaultValue = "strict",
       effectTags = OptionEffectTag.EAGERNESS_TO_EXIT,
       documentationCategory = OptionDocumentationCategory.LOGGING,
-      converter = SkyfocusHandlingStrategyConverter.class,
-      help = "Strategies for Skyfocus to handle changes outside of the working set.")
-  public SkyfocusHandlingStrategy handlingStrategy;
+      converter = FrontierViolationCheckConverter.class,
+      help =
+          "Strategies to handle potential incorrectness from changes beyond the frontier (i.e."
+              + " outside the active directories)")
+  public FrontierViolationCheck frontierViolationCheck;
+
+  @Option(
+      name = "experimental_frontier_violation_verbose",
+      defaultValue = "false",
+      effectTags = OptionEffectTag.TERMINAL_OUTPUT,
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      help = "If true, Bazel will print instructions for fixing Skycache violations")
+  public boolean frontierViolationVerbose;
 
   /**
-   * Strategies for handing the "sad path" in Skyfocus, where it needs to handle changes outside of
-   * the working set. This usually requires some reanalysis to rebuild the dropped Skyframe nodes.
+   * Strategies for handing the "sad path" in Skyfocus and analysis caching, where it needs to
+   * handle changes outside of the active directories. This usually requires some reanalysis to
+   * rebuild the dropped Skyframe nodes.
    */
-  public enum SkyfocusHandlingStrategy {
+  public enum FrontierViolationCheck {
     /**
      * Strict mode. Makes the "sad path" explicit to the user, and how to avoid it. Errors out when
-     * Skyfocus detects a change outside of an active working set. Avoids automatic/graceful
+     * Skyfocus detects a change outside of an active active directories. Avoids automatic/graceful
      * handling for the user.
      */
     STRICT,
 
     /**
      * Warn mode. Attempt to handle the "sad path" gracefully. Emits warning messages when the user
-     * makes a change outside of the working set.
+     * makes a change outside of the active directories.
      */
     WARN,
+
+    /**
+     * Disabled. Only used for testing.
+     *
+     * <p>TODO: b/367284400 - replace this with a barebones diffawareness check that works in Bazel
+     * integration tests (e.g. making LocalDiffAwareness supported and not return
+     * EVERYTHING_MODIFIED) for baseline diffs.
+     */
+    DISABLED_FOR_TESTING,
   }
 
-  /** Enum converter for SkyfocusHandlingStrategy */
-  private static class SkyfocusHandlingStrategyConverter
-      extends EnumConverter<SkyfocusHandlingStrategy> {
-    public SkyfocusHandlingStrategyConverter() {
-      super(SkyfocusHandlingStrategy.class, "Skyfocus handling strategy option");
+  /** Enum converter for FrontierViolationCheck */
+  private static class FrontierViolationCheckConverter
+      extends EnumConverter<FrontierViolationCheck> {
+    public FrontierViolationCheckConverter() {
+      super(FrontierViolationCheck.class, "Skyfocus handling strategy option");
     }
   }
 }

@@ -59,9 +59,13 @@ public enum OptionMetadataTag {
 
   // reserved TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES(5)
   // reserved EXPLICIT_IN_OUTPUT_PATH(6)
+  // reserved IMMUTABLE(7)
 
-  /** Options which are IMMUTABLE cannot be changed in (non-exec) Starlark transitions. */
-  IMMUTABLE(7);
+  /**
+   * Options which are NON_CONFIGURABLE cannot be changed in (non-exec) Starlark transitions and
+   * cannot be used in select().
+   */
+  NON_CONFIGURABLE(8);
 
   private final int value;
 

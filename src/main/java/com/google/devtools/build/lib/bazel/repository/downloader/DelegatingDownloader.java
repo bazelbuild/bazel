@@ -18,7 +18,7 @@ import com.google.auth.Credentials;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
-import java.net.URL;
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,7 +46,7 @@ public class DelegatingDownloader implements Downloader {
 
   @Override
   public void download(
-      List<URL> urls,
+      List<URI> urls,
       Map<String, List<String>> headers,
       Credentials credentials,
       Optional<Checksum> checksum,
@@ -54,7 +54,8 @@ public class DelegatingDownloader implements Downloader {
       Path destination,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      Optional<String> type)
+      Optional<String> type,
+      String context)
       throws IOException, InterruptedException {
     Downloader downloader = defaultDelegate;
     if (delegate != null) {
@@ -69,6 +70,7 @@ public class DelegatingDownloader implements Downloader {
         destination,
         eventHandler,
         clientEnv,
-        type);
+        type,
+        context);
   }
 }

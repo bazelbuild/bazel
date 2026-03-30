@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -43,7 +44,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.buildeventstream.ChainableEvent;
 import com.google.devtools.build.lib.buildeventstream.LastBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
+import com.google.devtools.build.lib.buildeventstream.ReplaceableBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
@@ -60,6 +61,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoExecutionEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.ReleaseReplaceableBuildEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -88,8 +90,13 @@ import javax.annotation.Nullable;
 public class BuildEventStreamer {
   /** Return value for {@link #routeBuildEvent}. */
   private enum RetentionDecision {
+    // Delay posting this event until other events post.
     BUFFERED,
+    // Only post this event if the build ends before an event that replaces it is posted.
+    BUFFERED_FOR_REPLACEMENT,
+    // Don't post this event.
     DISCARD,
+    // Post this event immediately.
     POST
   }
 
@@ -282,77 +289,74 @@ public class BuildEventStreamer {
   // @GuardedBy annotation is doing lexical analysis that doesn't understand the closures below
   // will be running under the synchronized block.
   @SuppressWarnings("GuardedBy")
-  private void post(BuildEvent event) {
+  private synchronized void post(BuildEvent event) {
     List<BuildEvent> linkEvents = null;
     BuildEventId id = event.getEventId();
     List<BuildEvent> flushEvents = null;
     boolean lastEvent = false;
 
-    synchronized (this) {
-      if (announcedEvents == null) {
-        announcedEvents = new HashSet<>();
-        // The very first event of a stream is implicitly announced by the convention that
-        // a complete stream has to have at least one entry. In this way we keep the invariant
-        // that the set of posted events is always a subset of the set of announced events.
-        maybeRegisterAnnouncedEvent(id);
-        if (!event.getChildrenEvents().contains(ProgressEvent.INITIAL_PROGRESS_UPDATE)) {
-          BuildEvent progress = ProgressEvent.progressChainIn(progressCount, event.getEventId());
-          linkEvents = ImmutableList.of(progress);
-          progressCount++;
-          maybeRegisterAnnouncedEvents(progress.getChildrenEvents());
-          // the new first event in the stream, implicitly announced by the fact that complete
-          // stream may not be empty.
-          maybeRegisterAnnouncedEvent(progress.getEventId());
-          postedEvents.add(progress.getEventId());
-        }
-
-        if (!bufferedStdoutStderrPairs.isEmpty()) {
-          flushEvents = new ArrayList<>(bufferedStdoutStderrPairs.size());
-          for (Pair<String, String> outErrPair : bufferedStdoutStderrPairs) {
-            flushEvents.add(flushStdoutStderrEvent(outErrPair.getFirst(), outErrPair.getSecond()));
-          }
-        }
-        bufferedStdoutStderrPairs = null;
-      } else {
-        if (!announcedEvents.contains(id)) {
-          Iterable<String> allOut = ImmutableList.of();
-          Iterable<String> allErr = ImmutableList.of();
-          if (outErrProvider != null) {
-            allOut = orEmpty(outErrProvider.getOut());
-            allErr = orEmpty(outErrProvider.getErr());
-            progressBufferState.set(ProgressBufferState.ACCEPT_STDERR_AND_STDOUT);
-          }
-          linkEvents = new ArrayList<>();
-          List<BuildEvent> finalLinkEvents = linkEvents;
-          consumeAsPairsofStrings(
-              allOut,
-              allErr,
-              (out, err) -> {
-                BuildEvent progressEvent =
-                    ProgressEvent.progressChainIn(progressCount, id, out, err);
-                finalLinkEvents.add(progressEvent);
-                progressCount++;
-                maybeRegisterAnnouncedEvents(progressEvent.getChildrenEvents());
-                postedEvents.add(progressEvent.getEventId());
-              });
-        }
+    if (announcedEvents == null) {
+      announcedEvents = new HashSet<>();
+      // The very first event of a stream is implicitly announced by the convention that
+      // a complete stream has to have at least one entry. In this way we keep the invariant
+      // that the set of posted events is always a subset of the set of announced events.
+      maybeRegisterAnnouncedEvent(id);
+      if (!event.getChildrenEvents().contains(ProgressEvent.INITIAL_PROGRESS_UPDATE)) {
+        BuildEvent progress = ProgressEvent.progressChainIn(progressCount, event.getEventId());
+        linkEvents = ImmutableList.of(progress);
+        progressCount++;
+        maybeRegisterAnnouncedEvents(progress.getChildrenEvents());
+        // the new first event in the stream, implicitly announced by the fact that complete
+        // stream may not be empty.
+        maybeRegisterAnnouncedEvent(progress.getEventId());
+        postedEvents.add(progress.getEventId());
       }
 
-      if (event instanceof BuildInfoEvent) {
-        // The specification for BuildInfoEvent says that there may be many such events,
-        // but all except the first one should be ignored.
-        if (postedEvents.contains(id)) {
-          return;
+      if (!bufferedStdoutStderrPairs.isEmpty()) {
+        flushEvents = new ArrayList<>(bufferedStdoutStderrPairs.size());
+        for (Pair<String, String> outErrPair : bufferedStdoutStderrPairs) {
+          flushEvents.add(flushStdoutStderrEvent(outErrPair.getFirst(), outErrPair.getSecond()));
         }
       }
-
-      postedEvents.add(id);
-      maybeRegisterAnnouncedEvents(event.getChildrenEvents());
-      // We keep as an invariant that postedEvents is a subset of announced events, so this is a
-      // cheaper test for equality
-      if (announcedEvents.size() == postedEvents.size()) {
-        lastEvent = true;
+      bufferedStdoutStderrPairs = null;
+    } else {
+      if (!announcedEvents.contains(id)) {
+        Iterable<String> allOut = ImmutableList.of();
+        Iterable<String> allErr = ImmutableList.of();
+        if (outErrProvider != null) {
+          allOut = orEmpty(outErrProvider.getOut());
+          allErr = orEmpty(outErrProvider.getErr());
+          progressBufferState.set(ProgressBufferState.ACCEPT_STDERR_AND_STDOUT);
+        }
+        linkEvents = new ArrayList<>();
+        List<BuildEvent> finalLinkEvents = linkEvents;
+        consumeAsPairsofStrings(
+            allOut,
+            allErr,
+            (out, err) -> {
+              BuildEvent progressEvent = ProgressEvent.progressChainIn(progressCount, id, out, err);
+              finalLinkEvents.add(progressEvent);
+              progressCount++;
+              maybeRegisterAnnouncedEvents(progressEvent.getChildrenEvents());
+              postedEvents.add(progressEvent.getEventId());
+            });
       }
+    }
+
+    if (event instanceof BuildInfoEvent) {
+      // The specification for BuildInfoEvent says that there may be many such events,
+      // but all except the first one should be ignored.
+      if (postedEvents.contains(id)) {
+        return;
+      }
+    }
+
+    postedEvents.add(id);
+    maybeRegisterAnnouncedEvents(event.getChildrenEvents());
+    // We keep as an invariant that postedEvents is a subset of announced events, so this is a
+    // cheaper test for equality
+    if (announcedEvents.size() == postedEvents.size()) {
+      lastEvent = true;
     }
 
     BuildEvent mainEvent = event;
@@ -401,11 +405,26 @@ public class BuildEventStreamer {
     }
   }
 
-  /** Clear pending events by generating aborted events for all their requisits. */
+  /** Clear pending events by generating aborted events for all their requests. */
   private synchronized void clearPendingEvents() {
     while (!pendingEvents.isEmpty()) {
       BuildEventId id = pendingEvents.keySet().iterator().next();
-      buildEvent(new AbortedEvent(id, getLastAbortReason(), getAbortReasonDetails()));
+      Collection<BuildEventId> bufferedEventsPendingOnThisType =
+          releaseReplaceableBuildEvent(new ReleaseReplaceableBuildEvent(id));
+      if (!bufferedEventsPendingOnThisType.isEmpty()) {
+        // Replaceable (BUFERED_FOR_REPLACEMENT) events finally trigger on build abort, so
+        // we don't need a distinct AbortedEvent to acknowledge them. Normal buffered events
+        // don't trigger because their trigger event never happened, so they need an
+        // AbortedEvent.
+        ImmutableList.Builder<BuildEventId> children = ImmutableList.builder();
+        for (BuildEventId bufferedId : bufferedEventsPendingOnThisType) {
+          if (!announcedEvents.contains(bufferedId)) {
+            children.add(bufferedId);
+          }
+        }
+        buildEvent(
+            new AbortedEvent(id, children.build(), getLastAbortReason(), getAbortReasonDetails()));
+      }
     }
   }
 
@@ -498,12 +517,10 @@ public class BuildEventStreamer {
     BuildEvent event = configuration == null ? NullConfiguration.INSTANCE : configuration;
     BuildEventId id = event.getEventId();
     synchronized (this) {
-      if (configurationsPosted.contains(id)) {
-        return;
+      if (configurationsPosted.add(id)) {
+        post(event);
       }
-      configurationsPosted.add(id);
     }
-    post(event);
   }
 
   @Subscribe
@@ -521,6 +538,43 @@ public class BuildEventStreamer {
     addAbortReason(AbortReason.NO_BUILD);
   }
 
+  /**
+   * Posts a {@code RetensionDecision#BUFFERED_FOR_REPLACEMENT} build event without waiting for its
+   * replacement.
+   *
+   * <p>Does nothing if no replaceable event is pending for this event type. Note there can be at
+   * most one pending replaceable event for any build type.
+   *
+   * @param event event id of the replaceable event to post
+   * @return the IDs of normal buffered events which are also waiting on this event id, if any. This
+   *     is useful when builds abort, as they can become children of the AbortedEvent.
+   */
+  @Subscribe
+  public Collection<BuildEventId> releaseReplaceableBuildEvent(ReleaseReplaceableBuildEvent event) {
+    ImmutableList.Builder<BuildEventId> bufferedEventIDs = ImmutableList.builder();
+    BuildEvent replaceable = null;
+    synchronized (this) {
+      var pendingEventsThisType = pendingEvents.get(event.getEventId()).iterator();
+      while (pendingEventsThisType.hasNext()) {
+        BuildEvent pendingEvent = pendingEventsThisType.next();
+        if (pendingEvent instanceof ReplaceableBuildEvent) {
+          Verify.verify(
+              replaceable == null,
+              "Multiple replaceable events not supported for %s ",
+              event.getEventId());
+          replaceable = pendingEvent;
+          pendingEventsThisType.remove();
+        } else {
+          bufferedEventIDs.add(pendingEvent.getEventId());
+        }
+      }
+    }
+    if (replaceable != null) {
+      post(replaceable);
+    }
+    return bufferedEventIDs.build();
+  }
+
   @Subscribe
   @AllowConcurrentEvents
   public void buildEvent(BuildEvent event) {
@@ -535,6 +589,18 @@ public class BuildEventStreamer {
       }
     }
 
+    if (event instanceof BuildCompleteEvent buildCompleteEvent) {
+      if (isCrash(buildCompleteEvent) || isCatastrophe(buildCompleteEvent)) {
+        if (isOom(buildCompleteEvent)) {
+          addAbortReason(AbortReason.OUT_OF_MEMORY);
+        } else {
+          addAbortReason(AbortReason.INTERNAL);
+        }
+      } else if (isIncomplete(buildCompleteEvent)) {
+        addAbortReason(AbortReason.INCOMPLETE);
+      }
+    }
+
     switch (routeBuildEvent(event)) {
       case DISCARD:
         // Check if there are pending events waiting on this event
@@ -542,7 +608,11 @@ public class BuildEventStreamer {
         return; // bail: we're dropping this event
       case BUFFERED:
         // Bail: the event was buffered and the BuildEventStreamer is now responsible for eventually
-        // posting (or discarding) it
+        // posting it.
+        return;
+      case BUFFERED_FOR_REPLACEMENT:
+        // Bail: the event was buffered to possibly be replaced with an updated version. The
+        // BuildEventStreamer is now responsible for eventually posting or discarding it.
         return;
       case POST:
         break; // proceed
@@ -587,7 +657,10 @@ public class BuildEventStreamer {
       blockedEventsFifo = pendingEvents.removeAll(event.getEventId());
     }
     for (BuildEvent freedEvent : blockedEventsFifo) {
-      buildEvent(freedEvent);
+      // Replaceable events have been replaced, so can be silently dropped.
+      if (!(freedEvent instanceof ReplaceableBuildEvent)) {
+        buildEvent(freedEvent);
+      }
     }
 
     // Special-case handling for subclasses of `BuildCompletingEvent`.
@@ -595,17 +668,6 @@ public class BuildEventStreamer {
     // For most commands, exactly one `BuildCompletingEvent` will be posted to the EventBus. If the
     // command is "run" or "test", a non-crashing/catastrophic `BuildCompleteEvent` will be followed
     // by a RunBuildCompleteEvent/TestingCompleteEvent.
-    if (event instanceof BuildCompleteEvent buildCompleteEvent) {
-      if (isCrash(buildCompleteEvent) || isCatastrophe(buildCompleteEvent)) {
-        if (isOom(buildCompleteEvent)) {
-          addAbortReason(AbortReason.OUT_OF_MEMORY);
-        } else {
-          addAbortReason(AbortReason.INTERNAL);
-        }
-      } else if (isIncomplete(buildCompleteEvent)) {
-        addAbortReason(AbortReason.INCOMPLETE);
-      }
-    }
 
     if (event instanceof BuildCompletingEvent) {
       buildComplete(event);
@@ -832,6 +894,11 @@ public class BuildEventStreamer {
       return RetentionDecision.DISCARD;
     }
 
+    RetentionDecision replaceableDecision = decideBufferedForReplacementEvent(event);
+    if (replaceableDecision != null) {
+      return replaceableDecision;
+    }
+
     if (bufferUntilPrerequisitesReceived(event)) {
       return RetentionDecision.BUFFERED;
     }
@@ -872,11 +939,33 @@ public class BuildEventStreamer {
       // Publish failed actions
       return true;
     }
-    if (!event.getActionMetadataLogs().isEmpty()) {
-      // Publish all new logs with inputs and input sizes
-      return true;
-    }
     return event.getAction() instanceof ExtraAction;
+  }
+
+  @Nullable
+  private synchronized RetentionDecision decideBufferedForReplacementEvent(BuildEvent event) {
+    if (!(event instanceof ReplaceableBuildEvent replaceableBuiltEvent)) {
+      return null;
+    }
+    if (!replaceableBuiltEvent.replaceable()) {
+      // The event's class is replaceable but this instance isn't. Treat it normally.
+      return RetentionDecision.POST;
+    }
+    if (postedEvents.contains(event.getEventId())) {
+      // This event type has already been posted, so the replaceable event is outdated.
+      return RetentionDecision.DISCARD;
+    }
+    synchronized (this) {
+      Verify.verify(
+          pendingEvents.get(event.getEventId()).stream()
+              .filter(e -> e instanceof ReplaceableBuildEvent)
+              .findFirst()
+              .isEmpty(),
+          "Multiple replaceable events not supported for %s",
+          event.getEventId());
+      pendingEvents.put(event.getEventId(), event);
+    }
+    return RetentionDecision.BUFFERED_FOR_REPLACEMENT;
   }
 
   private synchronized boolean bufferUntilPrerequisitesReceived(BuildEvent event) {

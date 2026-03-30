@@ -18,7 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import javax.annotation.Nullable;
 
 /**
@@ -30,6 +30,10 @@ import javax.annotation.Nullable;
 public interface DependencyKind {
   /** A dependency for visibility. */
   DependencyKind VISIBILITY_DEPENDENCY = new NonAttributeDependencyKind("VISIBILITY");
+
+  /** A dependency for transitive visibility. */
+  DependencyKind TRANSITIVE_VISIBILITY_DEPENDENCY =
+      new NonAttributeDependencyKind("TRANSITIVE_VISIBILITY");
 
   /** The dependency on the rule that creates a given output file. */
   DependencyKind OUTPUT_FILE_RULE_DEPENDENCY = new NonAttributeDependencyKind("OUTPUT_FILE");
@@ -119,7 +123,7 @@ public interface DependencyKind {
 
   /** Returns a {@link DependencyKind} for the given execution group. */
   static DependencyKind forExecGroup(String execGroupName) {
-    if (ExecGroup.DEFAULT_EXEC_GROUP_NAME.equals(execGroupName)) {
+    if (DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME.equals(execGroupName)) {
       return defaultExecGroupToolchain();
     }
     return new AutoValue_DependencyKind_ToolchainDependencyKindImpl(execGroupName, false);
@@ -128,13 +132,15 @@ public interface DependencyKind {
   /** Returns a {@link DependencyKind} for the default execution group. */
   static DependencyKind defaultExecGroupToolchain() {
     return new AutoValue_DependencyKind_ToolchainDependencyKindImpl(
-        ExecGroup.DEFAULT_EXEC_GROUP_NAME, true);
+        DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME, true);
   }
 
   /** Returns a {@link DependencyKind} for the given execution group. */
   static DependencyKind forBaseTargetExecGroup(String execGroupName, Label toolchainType) {
     return new AutoValue_DependencyKind_BaseTargetToolchainDependencyKind(
-        execGroupName, execGroupName.equals(ExecGroup.DEFAULT_EXEC_GROUP_NAME), toolchainType);
+        execGroupName,
+        execGroupName.equals(DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME),
+        toolchainType);
   }
 
   /** Predicate to check if a dependency represents an aspect's base target toolchain. */

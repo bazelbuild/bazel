@@ -15,12 +15,6 @@
 package com.google.devtools.coverageoutputgenerator;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.assertMergedSourceFile;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.assertTracefile1;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createLinesExecution1;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createLinesExecution2;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createSourceFile1;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createSourceFile2;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -47,38 +41,65 @@ public class CoverageTest {
 
   @Test
   public void testOneTracefile() throws Exception {
-    SourceFileCoverage sourceFileCoverage = createSourceFile1(createLinesExecution1());
+    SourceFileCoverage sourceFileCoverage = new SourceFileCoverage("src.foo");
+    sourceFileCoverage.addLine(1, 1);
+    sourceFileCoverage.addLine(2, 1);
+
     coverage.add(sourceFileCoverage);
+
     assertThat(coverage.getAllSourceFiles()).hasSize(1);
-    assertTracefile1(Iterables.get(coverage.getAllSourceFiles(), 0));
+    assertThat(Iterables.get(coverage.getAllSourceFiles(), 0).getLines())
+        .containsExactly(1, 1L, 2, 1L);
   }
 
   @Test
-  public void testTwoOverlappingTracefiles() throws Exception {
-    int[] linesExecution1 = createLinesExecution1();
-    int[] linesExecution2 = createLinesExecution2();
-    SourceFileCoverage sourceFileCoverage1 = createSourceFile1(linesExecution1);
-    SourceFileCoverage sourceFileCoverage2 = createSourceFile2(linesExecution2);
+  public void testOverlappingTracefilesMerge() throws Exception {
+    SourceFileCoverage sourceFileCoverage1 = new SourceFileCoverage("src.foo");
+    SourceFileCoverage sourceFileCoverage2 = new SourceFileCoverage("src.foo");
+    sourceFileCoverage1.addLine(1, 2);
+    sourceFileCoverage1.addLine(2, 1);
+    sourceFileCoverage1.addLine(3, 2);
+    sourceFileCoverage1.addBranch(1, "", "0", true, 2);
+    sourceFileCoverage1.addBranch(1, "", "1", true, 1);
+    sourceFileCoverage2.addLine(1, 3);
+    sourceFileCoverage2.addLine(2, 3);
+    sourceFileCoverage2.addLine(3, 0);
+    sourceFileCoverage2.addBranch(1, "", "0", true, 1);
+    sourceFileCoverage2.addBranch(1, "", "1", true, 2);
 
     coverage.add(sourceFileCoverage1);
     coverage.add(sourceFileCoverage2);
 
     assertThat(coverage.getAllSourceFiles()).hasSize(1);
-    SourceFileCoverage merged = Iterables.get(coverage.getAllSourceFiles(), 0);
-    assertMergedSourceFile(merged, linesExecution1, linesExecution2);
+    assertThat(Iterables.get(coverage.getAllSourceFiles(), 0).getLines())
+        .containsExactly(1, 5L, 2, 4L, 3, 2L);
+    assertThat(Iterables.get(coverage.getAllSourceFiles(), 0).getAllBranches())
+        .containsExactly(
+            BranchCoverageItem.create(1, "", "0", true, 3),
+            BranchCoverageItem.create(1, "", "1", true, 3));
   }
 
   @Test
-  public void testTwoTracefiles() throws Exception {
-    SourceFileCoverage sourceFileCoverage1 = createSourceFile1(createLinesExecution1());
-    SourceFileCoverage sourceFileCoverage2 =
-        createSourceFile1("SOME_OTHER_FILENAME", createLinesExecution1());
+  public void testDistinctTracefiles() throws Exception {
+    SourceFileCoverage sourceFileCoverage1 = new SourceFileCoverage("src_1.foo");
+    SourceFileCoverage sourceFileCoverage2 = new SourceFileCoverage("src_2.foo");
+    sourceFileCoverage1.addLine(1, 1L);
+    sourceFileCoverage1.addLine(2, 1L);
+    sourceFileCoverage2.addLine(1, 3L);
+    sourceFileCoverage2.addLine(2, 3L);
 
     coverage.add(sourceFileCoverage1);
     coverage.add(sourceFileCoverage2);
+
     assertThat(coverage.getAllSourceFiles()).hasSize(2);
-    assertTracefile1(Iterables.get(coverage.getAllSourceFiles(), 0));
-    assertTracefile1(Iterables.get(coverage.getAllSourceFiles(), 1));
+    assertThat(Iterables.get(coverage.getAllSourceFiles(), 0).sourceFileName())
+        .isEqualTo("src_1.foo");
+    assertThat(Iterables.get(coverage.getAllSourceFiles(), 1).sourceFileName())
+        .isEqualTo("src_2.foo");
+    assertThat(Iterables.get(coverage.getAllSourceFiles(), 0).getLines())
+        .containsExactly(1, 1L, 2, 1L);
+    assertThat(Iterables.get(coverage.getAllSourceFiles(), 1).getLines())
+        .containsExactly(1, 3L, 2, 3L);
   }
 
   @Test

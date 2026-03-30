@@ -75,37 +75,60 @@ public final class UnixGlob {
     }
   }
 
+  /** Narrow interface of filesystem operations needed by {@link UnixGlob}. */
+  public interface FilesystemOps {
+    /** Returns the stat() for the given path, or null. Follows symlinks. */
+    @Nullable
+    FileStatus statIfFound(Path path) throws IOException;
+
+    /** Gets directory entries and their types. Does not follow symlinks. */
+    Collection<Dirent> readdir(Path path) throws IOException;
+
+    FilesystemOps DIRECT =
+        new FilesystemOps() {
+          @Override
+          public FileStatus statIfFound(Path path) throws IOException {
+            return path.statIfFound(Symlinks.NOFOLLOW);
+          }
+
+          @Override
+          public Collection<Dirent> readdir(Path path) throws IOException {
+            return path.readdir(Symlinks.NOFOLLOW);
+          }
+        };
+  }
+
   private static List<Path> globInternal(
       Path base,
       Collection<String> patterns,
       UnixGlobPathDiscriminator pathDiscriminator,
-      SyscallCache syscalls,
+      FilesystemOps filesystemOps,
       Executor executor)
       throws IOException, InterruptedException, BadPattern {
     GlobVisitor visitor = new GlobVisitor(executor);
-    return visitor.glob(base, patterns, pathDiscriminator, syscalls);
+    return visitor.glob(base, patterns, pathDiscriminator, filesystemOps);
   }
 
   private static List<Path> globInternalUninterruptible(
       Path base,
       Collection<String> patterns,
       UnixGlobPathDiscriminator pathDiscriminator,
-      SyscallCache syscalls,
+      FilesystemOps filesystemOps,
       Executor executor)
       throws IOException, BadPattern {
     GlobVisitor visitor = new GlobVisitor(executor);
-    return visitor.globUninterruptible(base, patterns, pathDiscriminator, syscalls);
+    return visitor.globUninterruptible(base, patterns, pathDiscriminator, filesystemOps);
   }
 
   private static long globInternalAndReturnNumGlobTasksForTesting(
       Path base,
       Collection<String> patterns,
       UnixGlobPathDiscriminator pathDiscriminator,
-      SyscallCache syscalls,
+      FilesystemOps filesystemOps,
       Executor executor)
       throws IOException, InterruptedException, BadPattern {
     GlobVisitor visitor = new GlobVisitor(executor);
-    visitor.glob(base, patterns, pathDiscriminator, syscalls);
+    var unused = visitor.glob(base, patterns, pathDiscriminator, filesystemOps);
     return visitor.getNumGlobTasksForTesting();
   }
 
@@ -113,11 +136,11 @@ public final class UnixGlob {
       Path base,
       Collection<String> patterns,
       UnixGlobPathDiscriminator pathDiscriminator,
-      SyscallCache syscalls,
+      FilesystemOps filesystemOps,
       Executor executor)
       throws BadPattern {
     Preconditions.checkNotNull(executor, "%s %s", base, patterns);
-    return new GlobVisitor(executor).globAsync(base, patterns, pathDiscriminator, syscalls);
+    return new GlobVisitor(executor).globAsync(base, patterns, pathDiscriminator, filesystemOps);
   }
 
   /**
@@ -297,14 +320,14 @@ public final class UnixGlob {
   public static class Builder {
     private final Path base;
     private final List<String> patterns;
-    private final SyscallCache syscallCache;
+    private final FilesystemOps filesystemOps;
     private UnixGlobPathDiscriminator pathDiscriminator = DEFAULT_DISCRIMINATOR;
     private Executor executor;
 
     /** Creates a glob builder with the given base path. */
-    public Builder(Path base, SyscallCache syscallCache) {
+    public Builder(Path base, FilesystemOps filesystemOps) {
       this.base = base;
-      this.syscallCache = syscallCache;
+      this.filesystemOps = filesystemOps;
       this.patterns = Lists.newArrayList();
     }
 
@@ -371,7 +394,8 @@ public final class UnixGlob {
 
     /** Executes the glob. */
     public List<Path> glob() throws IOException, BadPattern {
-      return globInternalUninterruptible(base, patterns, pathDiscriminator, syscallCache, executor);
+      return globInternalUninterruptible(
+          base, patterns, pathDiscriminator, filesystemOps, executor);
     }
 
     /**
@@ -380,14 +404,14 @@ public final class UnixGlob {
      * @throws InterruptedException if the thread is interrupted.
      */
     public List<Path> globInterruptible() throws IOException, InterruptedException, BadPattern {
-      return globInternal(base, patterns, pathDiscriminator, syscallCache, executor);
+      return globInternal(base, patterns, pathDiscriminator, filesystemOps, executor);
     }
 
     @VisibleForTesting
     public long globInterruptibleAndReturnNumGlobTasksForTesting()
         throws IOException, InterruptedException, BadPattern {
       return globInternalAndReturnNumGlobTasksForTesting(
-          base, patterns, pathDiscriminator, syscallCache, executor);
+          base, patterns, pathDiscriminator, filesystemOps, executor);
     }
 
     /**
@@ -395,7 +419,7 @@ public final class UnixGlob {
      * non-null argument.
      */
     public Future<List<Path>> globAsync() throws BadPattern {
-      return globAsyncInternal(base, patterns, pathDiscriminator, syscallCache, executor);
+      return globAsyncInternal(base, patterns, pathDiscriminator, filesystemOps, executor);
     }
   }
 
@@ -479,10 +503,10 @@ public final class UnixGlob {
         Path base,
         Collection<String> patterns,
         UnixGlobPathDiscriminator pathDiscriminator,
-        SyscallCache syscalls)
+        FilesystemOps filesystemOps)
         throws IOException, InterruptedException, BadPattern {
       try {
-        return globAsync(base, patterns, pathDiscriminator, syscalls).get();
+        return globAsync(base, patterns, pathDiscriminator, filesystemOps).get();
       } catch (ExecutionException e) {
         Throwable cause = e.getCause();
         throwIfInstanceOf(cause, IOException.class);
@@ -495,11 +519,11 @@ public final class UnixGlob {
         Path base,
         Collection<String> patterns,
         UnixGlobPathDiscriminator pathDiscriminator,
-        SyscallCache syscalls)
+        FilesystemOps filesystemOps)
         throws IOException, BadPattern {
       try {
         return Uninterruptibles.getUninterruptibly(
-            globAsync(base, patterns, pathDiscriminator, syscalls));
+            globAsync(base, patterns, pathDiscriminator, filesystemOps));
       } catch (ExecutionException e) {
         Throwable cause = e.getCause();
         throwIfInstanceOf(cause, IOException.class);
@@ -521,11 +545,11 @@ public final class UnixGlob {
         Path base,
         Collection<String> patterns,
         UnixGlobPathDiscriminator pathDiscriminator,
-        SyscallCache syscalls)
+        FilesystemOps filesystemOps)
         throws BadPattern {
       FileStatus baseStat;
       try {
-        baseStat = syscalls.statIfFound(base, Symlinks.FOLLOW);
+        baseStat = filesystemOps.statIfFound(base);
       } catch (IOException e) {
         return Futures.immediateFailedFuture(e);
       }
@@ -551,8 +575,8 @@ public final class UnixGlob {
           }
           GlobTaskContext context =
               numRecursivePatterns > 1
-                  ? new RecursiveGlobTaskContext(splitPattern, pathDiscriminator, syscalls)
-                  : new GlobTaskContext(splitPattern, pathDiscriminator, syscalls);
+                  ? new RecursiveGlobTaskContext(splitPattern, pathDiscriminator, filesystemOps)
+                  : new GlobTaskContext(splitPattern, pathDiscriminator, filesystemOps);
           context.queueGlob(base, baseStat.isDirectory(), 0);
         }
       } finally {
@@ -661,15 +685,15 @@ public final class UnixGlob {
     private class GlobTaskContext {
       private final String[] patternParts;
       private final UnixGlobPathDiscriminator pathDiscriminator;
-      private final SyscallCache syscalls;
+      private final FilesystemOps filesystemOps;
 
       GlobTaskContext(
           String[] patternParts,
           UnixGlobPathDiscriminator pathDiscriminator,
-          SyscallCache syscalls) {
+          FilesystemOps filesystemOps) {
         this.patternParts = patternParts;
         this.pathDiscriminator = pathDiscriminator;
-        this.syscalls = syscalls;
+        this.filesystemOps = filesystemOps;
       }
 
       protected void queueGlob(Path base, boolean baseIsDir, int patternIdx) {
@@ -716,8 +740,8 @@ public final class UnixGlob {
       private RecursiveGlobTaskContext(
           String[] patternParts,
           UnixGlobPathDiscriminator pathDiscriminator,
-          SyscallCache syscalls) {
-        super(patternParts, pathDiscriminator, syscalls);
+          FilesystemOps filesystemOps) {
+        super(patternParts, pathDiscriminator, filesystemOps);
       }
 
       @Override
@@ -760,7 +784,7 @@ public final class UnixGlob {
       boolean patternContainsWildcard = pattern.contains("*") || pattern.contains("?");
       Collection<Dirent> dents = null;
       if (baseIsDir && patternContainsWildcard) {
-        dents = context.syscalls.readdir(base);
+        dents = context.filesystemOps.readdir(base);
       }
 
       if (baseIsDir && !context.pathDiscriminator.shouldTraverseDirectory(base)) {
@@ -787,7 +811,7 @@ public final class UnixGlob {
       if (!patternContainsWildcard) {
         // We do not need to do a readdir in this case, just a stat.
         Path child = base.getChild(pattern);
-        FileStatus status = context.syscalls.statIfFound(child, Symlinks.FOLLOW);
+        FileStatus status = context.filesystemOps.statIfFound(child);
         if (status == null || (!status.isDirectory() && !status.isFile())) {
           // The file is a dangling symlink, fifo, does not exist, etc.
           return;
@@ -837,7 +861,7 @@ public final class UnixGlob {
       context.queueTask(
           () -> {
             try {
-              FileStatus status = context.syscalls.statIfFound(path, Symlinks.FOLLOW);
+              FileStatus status = context.filesystemOps.statIfFound(path);
               if (status != null) {
                 processFileOrDirectory(path, status.isDirectory(), idx, context);
               }

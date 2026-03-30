@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -74,6 +73,7 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
   static final String DEPS_ATTR = "deps";
   static final String SYMBOL_NAMES_ATTR = "symbol_names";
   static final String RENDER_MAIN_REPO_NAME = "render_main_repo_name";
+  static final String ALLOW_UNUSED_DOC_COMMENTS = "allow_unused_doc_comments";
   static final SafeImplicitOutputsFunction BINARYPROTO_OUT = fromTemplates("%{name}.binaryproto");
   static final SafeImplicitOutputsFunction TEXTPROTO_OUT = fromTemplates("%{name}.textproto");
 
@@ -103,7 +103,7 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
         getModuleInfo(ruleContext, module, new LabelRenderer(repositoryMapping, mainRepoName));
 
     NestedSet<Artifact> filesToBuild =
-        new NestedSetBuilder<Artifact>(Order.STABLE_ORDER)
+        NestedSet.<Artifact>builder(Order.STABLE_ORDER)
             .add(createBinaryProtoOutput(ruleContext, moduleInfo))
             .build();
     // Textproto output isn't in filesToBuild: we want to create it only if explicitly requested.
@@ -301,11 +301,14 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
   private static ModuleInfo getModuleInfo(
       RuleContext ruleContext, Module module, LabelRenderer labelRenderer)
       throws RuleErrorException {
+    ModuleInfoExtractor moduleInfoExtractor =
+        new ModuleInfoExtractor(getWantedSymbolPredicate(ruleContext), labelRenderer);
+    if (ruleContext.attributes().get(ALLOW_UNUSED_DOC_COMMENTS, BOOLEAN)) {
+      moduleInfoExtractor.allowUnusedDocComments();
+    }
     ModuleInfo moduleInfo;
     try {
-      moduleInfo =
-          new ModuleInfoExtractor(getWantedSymbolPredicate(ruleContext), labelRenderer)
-              .extractFrom(module);
+      moduleInfo = moduleInfoExtractor.extractFrom(module);
     } catch (ExtractionException e) {
       ruleContext.ruleError(e.getMessage());
       throw new RuleErrorException(e);

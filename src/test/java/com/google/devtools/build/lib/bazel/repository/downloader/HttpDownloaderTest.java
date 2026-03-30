@@ -21,6 +21,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
@@ -29,27 +30,28 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
-import java.net.URL;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -73,14 +75,14 @@ public class HttpDownloaderTest {
 
   @Rule public final Timeout timeout = new Timeout(30, SECONDS);
 
-  private final RepositoryCache repositoryCache = mock(RepositoryCache.class);
+  private final ExtendedEventHandler eventHandler = mock(ExtendedEventHandler.class);
+  private final DownloadCache downloadCache = mock(DownloadCache.class);
   // Scale timeouts down to make test fast.
   private final HttpDownloader httpDownloader = new HttpDownloader(0, Duration.ZERO, 8, .1f);
   private final DownloadManager downloadManager =
-      new DownloadManager(repositoryCache, httpDownloader, httpDownloader);
+      new DownloadManager(downloadCache, httpDownloader, httpDownloader, eventHandler);
 
   private final ExecutorService executor = Executors.newFixedThreadPool(2);
-  private final ExtendedEventHandler eventHandler = mock(ExtendedEventHandler.class);
   private final JavaIoFileSystem fs;
 
   public HttpDownloaderTest() {
@@ -118,18 +120,60 @@ public class HttpDownloaderTest {
           download(
               downloadManager,
               Collections.singletonList(
-                  new URL(String.format("http://localhost:%d/foo", server.getLocalPort()))),
+                  URI.create(String.format("http://localhost:%d/foo", server.getLocalPort()))),
               Collections.emptyMap(),
               Collections.emptyMap(),
               Optional.empty(),
               "testCanonicalId",
               Optional.empty(),
               fs.getPath(workingDir.newFile().getAbsolutePath()),
-              eventHandler,
               Collections.emptyMap(),
               "testRepo");
 
-      assertThat(new String(readFile(resultingFile), UTF_8)).isEqualTo("hello");
+      assertThat(new String(FileSystemUtils.readContent(resultingFile), UTF_8)).isEqualTo("hello");
+    }
+  }
+
+  @Test
+  public void downloadFrom1UrlOk_specialCharInBasename() throws IOException, InterruptedException {
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              () -> {
+                try (Socket socket = server.accept()) {
+                  readHttpRequest(socket.getInputStream());
+                  sendLines(
+                      socket,
+                      "HTTP/1.1 200 OK",
+                      "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                      "Connection: close",
+                      "Content-Type: text/plain",
+                      "Content-Length: 5",
+                      "",
+                      "hello");
+                }
+                return null;
+              });
+
+      Path resultingFile =
+          download(
+              downloadManager,
+              Collections.singletonList(
+                  URI.create(
+                      String.format("http://localhost:%d/arch:ve.zip", server.getLocalPort()))),
+              Collections.emptyMap(),
+              Collections.emptyMap(),
+              Optional.empty(),
+              "testCanonicalId",
+              Optional.of("zip"),
+              fs.getPath(workingDir.newFolder().getAbsolutePath()),
+              Collections.emptyMap(),
+              "testRepo");
+
+      assertThat(new String(FileSystemUtils.readContent(resultingFile), UTF_8)).isEqualTo("hello");
+      assertThat(resultingFile.asFragment().getFileExtension()).isEqualTo("zip");
+      assertThat(resultingFile.asFragment().getBaseName()).doesNotContain(":");
     }
   }
 
@@ -177,9 +221,9 @@ public class HttpDownloaderTest {
                 return null;
               });
 
-      final List<URL> urls = new ArrayList<>(2);
-      urls.add(new URL(String.format("http://localhost:%d/foo", server1.getLocalPort())));
-      urls.add(new URL(String.format("http://localhost:%d/foo", server2.getLocalPort())));
+      final List<URI> urls = new ArrayList<>(2);
+      urls.add(URI.create(String.format("http://localhost:%d/foo", server1.getLocalPort())));
+      urls.add(URI.create(String.format("http://localhost:%d/foo", server2.getLocalPort())));
 
       Path resultingFile =
           download(
@@ -191,11 +235,11 @@ public class HttpDownloaderTest {
               "testCanonicalId",
               Optional.empty(),
               fs.getPath(workingDir.newFile().getAbsolutePath()),
-              eventHandler,
               Collections.emptyMap(),
               "testRepo");
 
-      assertThat(new String(readFile(resultingFile), UTF_8)).isEqualTo("content1");
+      assertThat(new String(FileSystemUtils.readContent(resultingFile), UTF_8))
+          .isEqualTo("content1");
     }
   }
 
@@ -246,9 +290,9 @@ public class HttpDownloaderTest {
                 return null;
               });
 
-      final List<URL> urls = new ArrayList<>(2);
-      urls.add(new URL(String.format("http://localhost:%d/foo", server1.getLocalPort())));
-      urls.add(new URL(String.format("http://localhost:%d/foo", server2.getLocalPort())));
+      final List<URI> urls = new ArrayList<>(2);
+      urls.add(URI.create(String.format("http://localhost:%d/foo", server1.getLocalPort())));
+      urls.add(URI.create(String.format("http://localhost:%d/foo", server2.getLocalPort())));
 
       Path resultingFile =
           download(
@@ -260,11 +304,11 @@ public class HttpDownloaderTest {
               "testCanonicalId",
               Optional.empty(),
               fs.getPath(workingDir.newFile().getAbsolutePath()),
-              eventHandler,
               Collections.emptyMap(),
               "testRepo");
 
-      assertThat(new String(readFile(resultingFile), UTF_8)).isEqualTo("content2");
+      assertThat(new String(FileSystemUtils.readContent(resultingFile), UTF_8))
+          .isEqualTo("content2");
     }
   }
 
@@ -316,9 +360,9 @@ public class HttpDownloaderTest {
                 return null;
               });
 
-      final List<URL> urls = new ArrayList<>(2);
-      urls.add(new URL(String.format("http://localhost:%d/foo", server1.getLocalPort())));
-      urls.add(new URL(String.format("http://localhost:%d/foo", server2.getLocalPort())));
+      final List<URI> urls = new ArrayList<>(2);
+      urls.add(URI.create(String.format("http://localhost:%d/foo", server1.getLocalPort())));
+      urls.add(URI.create(String.format("http://localhost:%d/foo", server2.getLocalPort())));
 
       Path outputFile = fs.getPath(workingDir.newFile().getAbsolutePath());
       try {
@@ -331,7 +375,6 @@ public class HttpDownloaderTest {
             "testCanonicalId",
             Optional.empty(),
             outputFile,
-            eventHandler,
             Collections.emptyMap(),
             "testRepo");
         fail("Should have thrown");
@@ -346,14 +389,67 @@ public class HttpDownloaderTest {
     }
   }
 
-  private static byte[] readFile(Path path) throws IOException {
-    final byte[] data = new byte[(int) path.getFileSize()];
+  @Test
+  public void downloadFrom2UrlsFirstTlsErrorSecondOk() throws IOException, InterruptedException {
+    try (ServerSocket server1 = new ServerSocket(0, 1, InetAddress.getByName(null));
+        ServerSocket server2 = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      Future<?> server1Future =
+          executor.submit(
+              () -> {
+                // Determine which port was assigned
+                try (Socket socket = server1.accept()) {
+                  // Write garbage to trigger SSL handshake failure on client
+                  socket.getOutputStream().write("Not SSL".getBytes(UTF_8));
+                }
+                return null;
+              });
 
-    try (DataInputStream stream = new DataInputStream(path.getInputStream())) {
-      stream.readFully(data);
+      Future<?> server2Future =
+          executor.submit(
+              () -> {
+                try (Socket socket = server2.accept()) {
+                  readHttpRequest(socket.getInputStream());
+                  sendLines(
+                      socket,
+                      "HTTP/1.1 200 OK",
+                      "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                      "Connection: close",
+                      "Content-Type: text/plain",
+                      "",
+                      "content2");
+                }
+                return null;
+              });
+
+      final List<URI> urls = new ArrayList<>(2);
+      // Use https for the first one to trigger SSL handshake
+      urls.add(URI.create(String.format("https://localhost:%d/foo", server1.getLocalPort())));
+      urls.add(URI.create(String.format("http://localhost:%d/foo", server2.getLocalPort())));
+
+      Path resultingFile = fs.getPath(workingDir.newFile().getAbsolutePath());
+
+      httpDownloader.download(
+          urls,
+          ImmutableMap.of(),
+          StaticCredentials.EMPTY,
+          Optional.empty(),
+          "testCanonicalId",
+          resultingFile,
+          eventHandler,
+          ImmutableMap.of(),
+          Optional.empty(),
+          "testRepo");
+
+      try {
+        server1Future.get();
+        server2Future.get();
+      } catch (ExecutionException e) {
+        throw new IOException(e.getCause());
+      }
+
+      assertThat(new String(FileSystemUtils.readContent(resultingFile), UTF_8))
+          .isEqualTo("content2");
     }
-
-    return data;
   }
 
   @Test
@@ -380,7 +476,7 @@ public class HttpDownloaderTest {
       Path destination = fs.getPath(workingDir.newFile().getAbsolutePath());
       httpDownloader.download(
           Collections.singletonList(
-              new URL(String.format("http://localhost:%d/foo", server.getLocalPort()))),
+              URI.create(String.format("http://localhost:%d/foo", server.getLocalPort()))),
           Collections.emptyMap(),
           StaticCredentials.EMPTY,
           Optional.empty(),
@@ -388,9 +484,10 @@ public class HttpDownloaderTest {
           destination,
           eventHandler,
           Collections.emptyMap(),
-          Optional.empty());
+          Optional.empty(),
+          "context");
 
-      assertThat(new String(readFile(destination), UTF_8)).isEqualTo("hello");
+      assertThat(new String(FileSystemUtils.readContent(destination), UTF_8)).isEqualTo("hello");
     }
   }
 
@@ -420,7 +517,7 @@ public class HttpDownloaderTest {
           () ->
               httpDownloader.download(
                   Collections.singletonList(
-                      new URL(String.format("http://localhost:%d/foo", server.getLocalPort()))),
+                      URI.create(String.format("http://localhost:%d/foo", server.getLocalPort()))),
                   Collections.emptyMap(),
                   StaticCredentials.EMPTY,
                   Optional.empty(),
@@ -428,7 +525,8 @@ public class HttpDownloaderTest {
                   fs.getPath(workingDir.newFile().getAbsolutePath()),
                   eventHandler,
                   Collections.emptyMap(),
-                  Optional.empty()));
+                  Optional.empty(),
+                  "context"));
     }
   }
 
@@ -475,9 +573,9 @@ public class HttpDownloaderTest {
                 return null;
               });
 
-      final List<URL> urls = new ArrayList<>(2);
-      urls.add(new URL(String.format("http://localhost:%d/foo", server1.getLocalPort())));
-      urls.add(new URL(String.format("http://localhost:%d/foo", server2.getLocalPort())));
+      final List<URI> urls = new ArrayList<>(2);
+      urls.add(URI.create(String.format("http://localhost:%d/foo", server1.getLocalPort())));
+      urls.add(URI.create(String.format("http://localhost:%d/foo", server2.getLocalPort())));
 
       Path destination = fs.getPath(workingDir.newFile().getAbsolutePath());
       httpDownloader.download(
@@ -489,9 +587,10 @@ public class HttpDownloaderTest {
           destination,
           eventHandler,
           Collections.emptyMap(),
-          Optional.empty());
+          Optional.empty(),
+          "context");
 
-      assertThat(new String(readFile(destination), UTF_8)).isEqualTo("content2");
+      assertThat(new String(FileSystemUtils.readContent(destination), UTF_8)).isEqualTo("content2");
     }
   }
 
@@ -520,7 +619,7 @@ public class HttpDownloaderTest {
       assertThat(
               new String(
                   httpDownloader.downloadAndReadOneUrl(
-                      new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
+                      URI.create(String.format("http://localhost:%d/foo", server.getLocalPort())),
                       StaticCredentials.EMPTY,
                       Optional.empty(),
                       eventHandler,
@@ -556,7 +655,7 @@ public class HttpDownloaderTest {
           IOException.class,
           () ->
               httpDownloader.downloadAndReadOneUrl(
-                  new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
+                  URI.create(String.format("http://localhost:%d/foo", server.getLocalPort())),
                   StaticCredentials.EMPTY,
                   Optional.empty(),
                   eventHandler,
@@ -590,11 +689,11 @@ public class HttpDownloaderTest {
       assertThat(
               new String(
                   httpDownloader.downloadAndReadOneUrl(
-                      new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
+                      URI.create(String.format("http://localhost:%d/foo", server.getLocalPort())),
                       StaticCredentials.EMPTY,
                       Optional.of(
                           Checksum.fromString(
-                              RepositoryCache.KeyType.SHA256,
+                              DownloadCache.KeyType.SHA256,
                               Hashing.sha256().hashString("hello", UTF_8).toString())),
                       eventHandler,
                       ImmutableMap.of()),
@@ -630,11 +729,11 @@ public class HttpDownloaderTest {
               UnrecoverableHttpException.class,
               () ->
                   httpDownloader.downloadAndReadOneUrl(
-                      new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
+                      URI.create(String.format("http://localhost:%d/foo", server.getLocalPort())),
                       StaticCredentials.EMPTY,
                       Optional.of(
                           Checksum.fromString(
-                              RepositoryCache.KeyType.SHA256,
+                              DownloadCache.KeyType.SHA256,
                               Hashing.sha256().hashUnencodedChars("hello").toString())),
                       eventHandler,
                       ImmutableMap.of()));
@@ -647,7 +746,7 @@ public class HttpDownloaderTest {
     Downloader downloader = mock(Downloader.class);
     HttpDownloader httpDownloader = mock(HttpDownloader.class);
     DownloadManager downloadManager =
-        new DownloadManager(repositoryCache, downloader, httpDownloader);
+        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
     // do not retry
     downloadManager.setRetries(0);
     AtomicInteger times = new AtomicInteger(0);
@@ -659,21 +758,20 @@ public class HttpDownloaderTest {
                   throw new ContentLengthMismatchException(0, data.length);
                 })
         .when(downloader)
-        .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("testRepo"));
 
     assertThrows(
         ContentLengthMismatchException.class,
         () ->
             download(
                 downloadManager,
-                ImmutableList.of(new URL("http://localhost")),
+                ImmutableList.of(URI.create("http://localhost")),
                 Collections.emptyMap(),
                 ImmutableMap.of(),
                 Optional.empty(),
                 "testCanonicalId",
                 Optional.empty(),
                 fs.getPath(workingDir.newFile().getAbsolutePath()),
-                eventHandler,
                 ImmutableMap.of(),
                 "testRepo"));
 
@@ -686,7 +784,7 @@ public class HttpDownloaderTest {
     HttpDownloader httpDownloader = mock(HttpDownloader.class);
     int retries = 5;
     DownloadManager downloadManager =
-        new DownloadManager(repositoryCache, downloader, httpDownloader);
+        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
     downloadManager.setRetries(retries);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
@@ -704,19 +802,18 @@ public class HttpDownloaderTest {
                   return null;
                 })
         .when(downloader)
-        .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("testRepo"));
 
     Path result =
         download(
             downloadManager,
-            ImmutableList.of(new URL("http://localhost")),
+            ImmutableList.of(URI.create("http://localhost")),
             ImmutableMap.of(),
             ImmutableMap.of(),
             Optional.empty(),
             "testCanonicalId",
             Optional.empty(),
             fs.getPath(workingDir.newFile().getAbsolutePath()),
-            eventHandler,
             ImmutableMap.of(),
             "testRepo");
 
@@ -731,7 +828,7 @@ public class HttpDownloaderTest {
     HttpDownloader httpDownloader = mock(HttpDownloader.class);
     int retries = 5;
     DownloadManager downloadManager =
-        new DownloadManager(repositoryCache, downloader, httpDownloader);
+        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
     downloadManager.setRetries(retries);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
@@ -752,19 +849,18 @@ public class HttpDownloaderTest {
                   return null;
                 })
         .when(downloader)
-        .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("testRepo"));
 
     Path result =
         download(
             downloadManager,
-            ImmutableList.of(new URL("http://localhost")),
+            ImmutableList.of(URI.create("http://localhost")),
             ImmutableMap.of(),
             ImmutableMap.of(),
             Optional.empty(),
             "testCanonicalId",
             Optional.empty(),
             fs.getPath(workingDir.newFile().getAbsolutePath()),
-            eventHandler,
             ImmutableMap.of(),
             "testRepo");
 
@@ -773,16 +869,106 @@ public class HttpDownloaderTest {
     assertThat(content).isEqualTo("content");
   }
 
+  @Test
+  public void download_socketException_retries() throws Exception {
+    Downloader downloader = mock(Downloader.class);
+    HttpDownloader httpDownloader = mock(HttpDownloader.class);
+    int retries = 5;
+    DownloadManager downloadManager =
+        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
+    downloadManager.setRetries(retries);
+    AtomicInteger times = new AtomicInteger(0);
+    byte[] data = "content".getBytes(UTF_8);
+    doAnswer(
+            (Answer<Void>)
+                invocationOnMock -> {
+                  if (times.getAndIncrement() < 3) {
+                    throw new SocketException("Connection reset");
+                  }
+                  Path output = invocationOnMock.getArgument(5, Path.class);
+                  try (OutputStream outputStream = output.getOutputStream()) {
+                    ByteStreams.copy(new ByteArrayInputStream(data), outputStream);
+                  }
+
+                  return null;
+                })
+        .when(downloader)
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("testRepo"));
+
+    Path result =
+        download(
+            downloadManager,
+            ImmutableList.of(URI.create("http://localhost")),
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.empty(),
+            "testCanonicalId",
+            Optional.empty(),
+            fs.getPath(workingDir.newFile().getAbsolutePath()),
+            ImmutableMap.of(),
+            "testRepo");
+
+    assertThat(times.get()).isEqualTo(4);
+    String content = new String(ByteStreams.toByteArray(result.getInputStream()), UTF_8);
+    assertThat(content).isEqualTo("content");
+  }
+
+  @Test
+  public void download_socketExceptionWithOtherErrors_retries() throws Exception {
+    Downloader downloader = mock(Downloader.class);
+    HttpDownloader httpDownloader = mock(HttpDownloader.class);
+    int retries = 5;
+    DownloadManager downloadManager =
+        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
+    downloadManager.setRetries(retries);
+    AtomicInteger times = new AtomicInteger(0);
+    byte[] data = "content".getBytes(UTF_8);
+    doAnswer(
+            (Answer<Void>)
+                invocationOnMock -> {
+                  if (times.getAndIncrement() < 3) {
+                    IOException e = new IOException();
+                    e.addSuppressed(new SocketException("Connection reset"));
+                    e.addSuppressed(new IOException());
+                    throw e;
+                  }
+                  Path output = invocationOnMock.getArgument(5, Path.class);
+                  try (OutputStream outputStream = output.getOutputStream()) {
+                    ByteStreams.copy(new ByteArrayInputStream(data), outputStream);
+                  }
+
+                  return null;
+                })
+        .when(downloader)
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("testRepo"));
+
+    Path result =
+        download(
+            downloadManager,
+            ImmutableList.of(URI.create("http://localhost")),
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.empty(),
+            "testCanonicalId",
+            Optional.empty(),
+            fs.getPath(workingDir.newFile().getAbsolutePath()),
+            ImmutableMap.of(),
+            "testRepo");
+
+    assertThat(times.get()).isEqualTo(4);
+    String content = new String(ByteStreams.toByteArray(result.getInputStream()), UTF_8);
+    assertThat(content).isEqualTo("content");
+  }
+
   public Path download(
       DownloadManager downloadManager,
-      List<URL> originalUrls,
+      List<URI> originalUrls,
       Map<String, List<String>> headers,
       Map<URI, Map<String, List<String>>> authHeaders,
       Optional<Checksum> checksum,
       String canonicalId,
       Optional<String> type,
       Path output,
-      ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
       String context)
       throws IOException, InterruptedException {
@@ -799,10 +985,10 @@ public class HttpDownloaderTest {
               canonicalId,
               type,
               output,
-              eventHandler,
               clientEnv,
               context,
-              downloadPhaser);
+              downloadPhaser,
+              /* mayHardlink= */ true);
       Path downloadedPath = downloadManager.finalizeDownload(future);
       // Should not be in the download phase.
       assertThat(downloadPhaser.getPhase()).isNotEqualTo(0);

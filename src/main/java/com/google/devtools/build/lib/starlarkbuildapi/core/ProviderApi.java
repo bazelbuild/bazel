@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.core;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.StarlarkTypeValue;
 
 /** Interface for provider objects (constructors for {@link StructApi} objects). */
 @StarlarkBuiltin(
@@ -41,4 +41,4 @@ import net.starlark.java.eval.StarlarkValue;
             + "  </ul>"
             + "Create a new <code>Provider</code> using the "
             + "<a href=\"../globals/bzl.html#provider\">provider</a> function.")
-public interface ProviderApi extends StarlarkValue {}
+public interface ProviderApi extends StarlarkTypeValue {}

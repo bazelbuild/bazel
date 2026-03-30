@@ -26,14 +26,15 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link BuildConfigurationFunction}'s special behaviors. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
 
   @Before
@@ -77,16 +78,12 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         """);
   }
 
-  private CoreOptions getCoreOptions(ConfiguredTarget target) {
-    return getConfiguration(target).getOptions().get(CoreOptions.class);
-  }
-
   private String getMnemonic(ConfiguredTarget target) {
     return getConfiguration(target).getMnemonic();
   }
 
   @Test
-  public void testDiffAgainstBaselineOutputScheme_hasHash() throws Exception {
+  public void testHasHash() throws Exception {
     writeAllowlistFile();
     writeBuildSettingsBzl();
     scratch.file(
@@ -141,11 +138,9 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         simple(name = "dep")
         """);
 
-    useConfiguration("--experimental_output_directory_naming_scheme=diff_against_baseline");
     ConfiguredTarget test = getConfiguredTarget("//test");
 
     assertThat(getMnemonic(test)).doesNotContain("-ST-");
-    assertThat(getCoreOptions(test).affectedByStarlarkTransition).isEmpty();
 
     @SuppressWarnings("unchecked")
     ConfiguredTarget dep =
@@ -156,12 +151,10 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         .endsWith(
             OutputPathMnemonicComputer.transitionDirectoryNameFragment(
                 ImmutableList.of("//test:foo=transitioned")));
-    assertThat(getCoreOptions(dep).affectedByStarlarkTransition).isEmpty();
   }
 
   @Test
-  public void testDiffAgainstBaselineOutputScheme_avoidHashForInExplicitOutputPath()
-      throws Exception {
+  public void avoidHashForInExplicitOutputPath() throws Exception {
     writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
@@ -209,14 +202,11 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         simple(name = "dep")
         """);
 
-    useConfiguration(
-        "--compilation_mode=fastbuild",
-        "--experimental_output_directory_naming_scheme=diff_against_baseline");
+    useConfiguration("--compilation_mode=fastbuild");
     ConfiguredTarget test = getConfiguredTarget("//test");
 
     assertThat(getConfiguration(test).getMnemonic()).contains("fastbuild");
     assertThat(getMnemonic(test)).doesNotContain("-ST-");
-    assertThat(getCoreOptions(test).affectedByStarlarkTransition).isEmpty();
 
     @SuppressWarnings("unchecked")
     ConfiguredTarget dep =
@@ -225,11 +215,10 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
 
     assertThat(getConfiguration(dep).getMnemonic()).contains("opt");
     assertThat(getMnemonic(dep)).doesNotContain("-ST-");
-    assertThat(getCoreOptions(dep).affectedByStarlarkTransition).isEmpty();
   }
 
   @Test
-  public void testDiffAgainstBaselineOutputScheme_abaAvoidsHash() throws Exception {
+  public void abaAvoidsHash() throws Exception {
     writeAllowlistFile();
     writeBuildSettingsBzl();
     scratch.file(
@@ -292,11 +281,9 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         simple(name = "root")
         """);
 
-    useConfiguration("--experimental_output_directory_naming_scheme=diff_against_baseline");
     ConfiguredTarget test = getConfiguredTarget("//test");
 
     assertThat(getMnemonic(test)).doesNotContain("-ST-");
-    assertThat(getCoreOptions(test).affectedByStarlarkTransition).isEmpty();
 
     @SuppressWarnings("unchecked")
     ConfiguredTarget middle =
@@ -307,7 +294,6 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         .endsWith(
             OutputPathMnemonicComputer.transitionDirectoryNameFragment(
                 ImmutableList.of("//test:foo=transitioned")));
-    assertThat(getCoreOptions(middle).affectedByStarlarkTransition).isEmpty();
 
     @SuppressWarnings("unchecked")
     ConfiguredTarget root =
@@ -315,7 +301,6 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
             (List<ConfiguredTarget>) getMyInfoFromTarget(middle).getValue("dep"));
 
     assertThat(getMnemonic(test)).doesNotContain("-ST-");
-    assertThat(getCoreOptions(test).affectedByStarlarkTransition).isEmpty();
 
     assertThat(getConfiguration(test)).isEqualTo(getConfiguration(root));
     assertThat(getConfiguration(test)).isNotEqualTo(getConfiguration(middle));
@@ -326,8 +311,7 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testPlatformExplicitInOutputDirAndDynamicBaseline_withPlatformMappings()
-      throws Exception {
+  public void testPlatformExplicitInOutputDir_withPlatformMappings() throws Exception {
     writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
@@ -410,8 +394,7 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         "--experimental_platform_in_output_dir",
         "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
         "--experimental_override_name_platform_in_output_dir=//platforms:alpha=alpha",
-        "--experimental_override_name_platform_in_output_dir=//platforms:beta=beta",
-        "--experimental_output_directory_naming_scheme=diff_against_dynamic_baseline");
+        "--experimental_override_name_platform_in_output_dir=//platforms:beta=beta");
     ConfiguredTarget test = getConfiguredTarget("//test");
 
     assertThat(getMnemonic(test)).contains("alpha-fastbuild");
@@ -428,8 +411,7 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testPlatformExplicitInOutputDirAndDynamicBaseline_withMorePlatformMappings()
-      throws Exception {
+  public void testPlatformExplicitInOutputDir_withMorePlatformMappings() throws Exception {
     writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
@@ -514,8 +496,7 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         "--experimental_platform_in_output_dir",
         "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
         "--experimental_override_name_platform_in_output_dir=//platforms:alpha=alpha",
-        "--experimental_override_name_platform_in_output_dir=//platforms:beta=beta",
-        "--experimental_output_directory_naming_scheme=diff_against_dynamic_baseline");
+        "--experimental_override_name_platform_in_output_dir=//platforms:beta=beta");
     ConfiguredTarget test = getConfiguredTarget("//test");
 
     assertThat(getMnemonic(test)).contains("alpha-fastbuild");
@@ -538,8 +519,7 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testPlatformExplicitInOutputDirAndDynamicBaseline_withExecConfigDep()
-      throws Exception {
+  public void testPlatformExplicitInOutputDir_withExecConfigDep() throws Exception {
     writeAllowlistFile();
     scratch.file(
         "test/rules.bzl",
@@ -582,8 +562,7 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         "--host_platform=//platforms:alpha",
         "--experimental_platform_in_output_dir",
         "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
-        "--experimental_override_name_platform_in_output_dir=//platforms:alpha=alpha-override",
-        "--experimental_output_directory_naming_scheme=diff_against_dynamic_baseline");
+        "--experimental_override_name_platform_in_output_dir=//platforms:alpha=alpha-override");
     ConfiguredTarget test = getConfiguredTarget("//test");
 
     assertThat(getMnemonic(test)).contains("alpha-override-fastbuild");
@@ -594,5 +573,237 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
     // The platform name override is used in dep with exec config
     assertThat(getMnemonic(dep)).contains("alpha-override-opt-exec");
     assertThat(getMnemonic(dep)).doesNotContain("-ST-");
+  }
+
+  @Test
+  @TestParameters({
+    "{platformInOutputDir: True, nonExecMnemonic:"
+        + " alpha-override-fastbuild, execMnemonic: alpha-override-opt-exec}",
+    "{platformInOutputDir: False, nonExecMnemonic:"
+        + " alpha-fastbuild, execMnemonic: alpha-opt-exec}",
+    "{platformInOutputDir: Auto, nonExecMnemonic:"
+        + " alpha-fastbuild, execMnemonic: alpha-override-opt-exec}",
+  })
+  public void testDifferentStatesOfPlatformInOutputDir(
+      String platformInOutputDir, String nonExecMnemonic, String execMnemonic) throws Exception {
+    writeAllowlistFile();
+    scratch.file(
+        "test/rules.bzl",
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
+
+        def _impl(ctx):
+            return MyInfo(exec_dep = ctx.attr.exec_dep, non_exec_dep = ctx.attr.non_exec_dep)
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "exec_dep": attr.label(cfg = 'exec'),
+                "non_exec_dep": attr.label(),
+            },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:rules.bzl", "my_rule")
+
+        my_rule(
+            name = "test",
+            exec_dep = ":exec_dep",
+            non_exec_dep = ":non_exec_dep",
+        )
+
+        my_rule(
+            name = "exec_dep",
+        )
+
+        my_rule(
+            name = "non_exec_dep",
+        )
+        """);
+    scratch.file(
+        "platforms/BUILD",
+        """
+        platform(name = "alpha_platform")
+        """);
+
+    useConfiguration(
+        "--compilation_mode=fastbuild",
+        "--platforms=//platforms:alpha_platform",
+        "--cpu=alpha",
+        "--host_platform=//platforms:alpha_platform",
+        "--host_cpu=alpha",
+        "--experimental_platform_in_output_dir=" + platformInOutputDir,
+        "--experimental_override_name_platform_in_output_dir=//platforms:alpha_platform=alpha-override");
+    ConfiguredTarget test = getConfiguredTarget("//test");
+
+    assertThat(getMnemonic(test)).contains(nonExecMnemonic);
+    assertThat(getMnemonic(test)).doesNotContain("-ST-");
+
+    ConfiguredTarget dep = (ConfiguredTarget) getMyInfoFromTarget(test).getValue("exec_dep");
+    // The platform name override is used in dep with exec config
+    assertThat(getMnemonic(dep)).contains(execMnemonic);
+    assertThat(getMnemonic(dep)).doesNotContain("-ST-");
+
+    ConfiguredTarget nonExecDep =
+        (ConfiguredTarget) getMyInfoFromTarget(test).getValue("non_exec_dep");
+    // The platform name override is used in dep with non-exec config
+    assertThat(getMnemonic(nonExecDep)).contains(nonExecMnemonic);
+    assertThat(getMnemonic(nonExecDep)).doesNotContain("-ST-");
+  }
+
+  @Test
+  @TestParameters({
+    "{limitOutputDirToPlatforms: [],"
+        + "t1Path: p1-fastbuild,"
+        + "d1Path: p1-fastbuild,"
+        + "d2Path: p2-opt-exec,"
+        + "d3Path: p3-fastbuild}",
+    "{limitOutputDirToPlatforms: [//platforms:p1],"
+        + "t1Path: p1-fastbuild,"
+        + "d1Path: p1-fastbuild,"
+        + "d2Path: p2-opt-exec,"
+        + "d3Path: p3_cpu-fastbuild}",
+    "{limitOutputDirToPlatforms: [//platforms:p1, //platforms:p3],"
+        + "t1Path: p1-fastbuild,"
+        + "d1Path: p1-fastbuild,"
+        + "d2Path: p2-opt-exec,"
+        + "d3Path: p3-fastbuild}",
+  })
+  public void testLimitOutputDirToPlatforms(
+      List<String> limitOutputDirToPlatforms,
+      String t1Path,
+      String d1Path,
+      String d2Path,
+      String d3Path)
+      throws Exception {
+    writeAllowlistFile();
+    scratch.file(
+        "test/rules.bzl",
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
+
+        def _p3_transition_impl(settings, attr):
+            return {
+                "//command_line_option:platforms": ["//platforms:p3"]
+            }
+
+        p3_transition = transition(
+            implementation = _p3_transition_impl,
+            inputs = [],
+            outputs = ["//command_line_option:platforms"],
+        )
+
+        def _impl(ctx):
+            d3 = ctx.attr.d3[0] if ctx.attr.d3 else None
+            return MyInfo(d1 = ctx.attr.d1, d2 = ctx.attr.d2, d3 = d3)
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "d1": attr.label(),
+                "d2": attr.label(cfg = 'exec'),
+                "d3": attr.label(cfg = p3_transition),
+            },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:rules.bzl", "my_rule")
+
+        my_rule(
+            name = "t1",
+            d1 = ":d1",
+            d2 = ":d2",
+            d3 = ":d3",
+        )
+
+        my_rule(name = "d1")
+        my_rule(name = "d2")
+        my_rule(name = "d3")
+        """);
+    scratch.file(
+        "platforms/BUILD",
+        """
+        platform(name = "p1")
+        platform(name = "p2")
+        platform(name = "p3", flags = ["--cpu=p3_cpu"])
+        """);
+    useConfiguration(
+        "--compilation_mode=fastbuild",
+        "--platforms=//platforms:p1",
+        "--cpu=p1_cpu",
+        "--host_platform=//platforms:p2",
+        "--host_cpu=p2_cpu",
+        "--experimental_platform_in_output_dir",
+        "--incompatible_limit_platforms_in_output_dir_to="
+            + String.join(",", limitOutputDirToPlatforms));
+
+    ConfiguredTarget t1 = getConfiguredTarget("//test:t1");
+    assertThat(getMnemonic(t1)).isEqualTo(t1Path);
+
+    ConfiguredTarget d1 = (ConfiguredTarget) getMyInfoFromTarget(t1).getValue("d1");
+    assertThat(getMnemonic(d1)).isEqualTo(d1Path);
+
+    ConfiguredTarget d2 = (ConfiguredTarget) getMyInfoFromTarget(t1).getValue("d2");
+    assertThat(getMnemonic(d2)).isEqualTo(d2Path);
+
+    ConfiguredTarget d3 = (ConfiguredTarget) getMyInfoFromTarget(t1).getValue("d3");
+    assertThat(getMnemonic(d3)).contains(d3Path);
+    if (limitOutputDirToPlatforms.isEmpty()
+        || limitOutputDirToPlatforms.contains("//platforms:p3")) {
+      assertThat(getMnemonic(d3)).doesNotContain("-ST-");
+    } else {
+      assertThat(getMnemonic(d3)).contains("-ST-");
+    }
+  }
+
+  @Test
+  public void testPlatformWithNoCPUConstraint_emptyTargetCpu() throws Exception {
+    scratch.file(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "no_cpu_platform",
+        )
+        """);
+    scratch.file(
+        "test/lib.bzl",
+        """
+        my_rule = rule(
+            implementation = lambda ctx: [],
+            attrs = {
+                "exec_deps": attr.label_list(cfg = "exec"),
+            },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "my_rule")
+        my_rule(
+            name = "parent",
+            exec_deps = [":child"]
+        )
+        my_rule(name = "child")
+        """);
+
+    useConfiguration(
+        "--incompatible_target_cpu_from_platform",
+        "--platforms=//platforms:no_cpu_platform",
+        "--extra_execution_platforms=//platforms:no_cpu_platform");
+
+    BuildConfigurationValue config = getConfiguration(getConfiguredTarget("//test:parent"));
+    assertThat(config.isExecConfiguration()).isFalse();
+    assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "");
+
+    BuildConfigurationValue execConfig =
+        getConfiguration(
+            getDirectPrerequisite(getConfiguredTarget("//test:parent"), "//test:child"));
+
+    assertThat(execConfig.isExecConfiguration()).isTrue();
+    assertThat(execConfig.getMakeEnvironment()).containsEntry("TARGET_CPU", "");
   }
 }

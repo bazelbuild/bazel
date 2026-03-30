@@ -14,6 +14,7 @@
 
 package com.google.testing.junit.runner;
 
+import com.google.testing.junit.runner.internal.SignalHandlers;
 import com.google.testing.junit.runner.internal.StackTraces;
 import com.google.testing.junit.runner.junit4.JUnit4Bazel;
 import com.google.testing.junit.runner.junit4.JUnit4InstanceModules.Config;
@@ -22,8 +23,12 @@ import java.io.PrintStream;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import org.junit.runner.Result;
+import sun.misc.Signal;
 
 /**
  * A class to run JUnit tests in a controlled environment.
@@ -37,12 +42,21 @@ import java.util.concurrent.TimeUnit;
  * <p>It also traps SIGTERM signals to make sure that the test report is written when the signal is
  * closed by the unit test framework for running over time.
  */
+@SuppressWarnings("SunApi") // for signal handling, see JDK-8349056
 public class BazelTestRunner {
   /**
-   * If no arguments are passed on the command line, use this System property to
-   * determine which test suite to run.
+   * If no arguments are passed on the command line, use this System property to determine which
+   * test suite to run.
    */
   static final String TEST_SUITE_PROPERTY_NAME = "bazel.test_suite";
+
+  static final String AWAIT_NON_DAEMON_THREADS_PROPERTY_NAME =
+      "bazel.test_runner.await_non_daemon_threads";
+
+  private static final int EXIT_CODE_SUCCESS = 0;
+  private static final int EXIT_CODE_TEST_FAILURE_OTHER = 1;
+  private static final int EXIT_CODE_TEST_RUNNER_FAILURE = 2;
+  private static final int EXIT_CODE_TEST_FAILURE_OOM = 137;
 
   private BazelTestRunner() {
     // utility class; should not be instantiated
@@ -51,24 +65,29 @@ public class BazelTestRunner {
   /**
    * Takes as arguments the classes or packages to test.
    *
-   * <p>To help just run one test or method in a suite, the test suite
-   * may be passed in via system properties (-Dbazel.test_suite).
-   * An empty args parameter means to run all tests in the suite.
-   * A non-empty args parameter means to run only the specified tests/methods.
+   * <p>To help just run one test or method in a suite, the test suite may be passed in via system
+   * properties (-Dbazel.test_suite). An empty args parameter means to run all tests in the suite. A
+   * non-empty args parameter means to run only the specified tests/methods.
    *
    * <p>Return codes:
+   *
    * <ul>
-   * <li>Test runner failure, bad arguments, etc.: exit code of 2</li>
-   * <li>Normal test failure: exit code of 1</li>
-   * <li>All tests pass: exit code of 0</li>
+   *   <li>Test runner failure, bad arguments, etc.: exit code of 2
+   *   <li>Test failure that included an OutOfMemoryException: exit code of 137
+   *   <li>Normal test failure: exit code of 1
+   *   <li>All tests pass: exit code of 0
    * </ul>
    */
   public static void main(String[] args) {
     PrintStream stderr = System.err;
 
+    // Install signal handlers early to ensure stack traces are printed even if the test
+    // is interrupted during suite creation.
+    installSignalHandlers(stderr);
+
     String suiteClassName = System.getProperty(TEST_SUITE_PROPERTY_NAME);
     if (!checkTestSuiteProperty(suiteClassName)) {
-      System.exit(2);
+      System.exit(EXIT_CODE_TEST_RUNNER_FAILURE);
     }
 
     int exitCode;
@@ -79,7 +98,8 @@ public class BazelTestRunner {
       // logged
       // by the executing strategy, and return a failure, so this process can gracefully shut down.
       e.printStackTrace();
-      exitCode = 1;
+      exitCode =
+          e instanceof OutOfMemoryError ? EXIT_CODE_TEST_FAILURE_OOM : EXIT_CODE_TEST_FAILURE_OTHER;
     }
 
     System.err.printf("%nBazelTestRunner exiting with a return value of %d%n", exitCode);
@@ -88,6 +108,7 @@ public class BazelTestRunner {
     System.err.println();
 
     printStackTracesIfJvmExitHangs(stderr);
+    awaitAllNonDaemonThreadsToFinish();
 
     DateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
     Date shutdownTime = new Date();
@@ -109,14 +130,17 @@ public class BazelTestRunner {
           TEST_SUITE_PROPERTY_NAME);
       System.err.println();
       System.err.println("This property is set automatically when running with Bazel like such:");
-      System.err.printf("  java -D%s=[test-suite-class] %s%n",
+      System.err.printf(
+          "  java -D%s=[test-suite-class] %s%n",
           TEST_SUITE_PROPERTY_NAME, BazelTestRunner.class.getName());
-      System.err.printf("  java -D%s=[test-suite-class] -jar [deploy-jar]%n",
-          TEST_SUITE_PROPERTY_NAME);
+      System.err.printf(
+          "  java -D%s=[test-suite-class] -jar [deploy-jar]%n", TEST_SUITE_PROPERTY_NAME);
       System.err.println("E.g.:");
-      System.err.printf("  java -D%s=org.example.testing.junit.runner.SmallTests %s%n",
+      System.err.printf(
+          "  java -D%s=org.example.testing.junit.runner.SmallTests %s%n",
           TEST_SUITE_PROPERTY_NAME, BazelTestRunner.class.getName());
-      System.err.printf("  java -D%s=org.example.testing.junit.runner.SmallTests "
+      System.err.printf(
+          "  java -D%s=org.example.testing.junit.runner.SmallTests "
               + "-jar SmallTests_deploy.jar%n",
           TEST_SUITE_PROPERTY_NAME);
       return false;
@@ -135,14 +159,21 @@ public class BazelTestRunner {
       // No class found corresponding to the system property passed in from Bazel
       if (args.length == 0 && suiteClassName != null) {
         System.err.printf("Class not found: [%s]%n", suiteClassName);
-        return 2;
+        return EXIT_CODE_TEST_RUNNER_FAILURE;
       }
     }
 
     // TODO(kush): Use a new classloader for the following instantiation.
     JUnit4Runner runner =
         JUnit4Bazel.builder().suiteClass(suite).config(new Config(args)).build().runner();
-    return runner.run().wasSuccessful() ? 0 : 1;
+    Result result = runner.run();
+    if (result.wasSuccessful()) {
+      return EXIT_CODE_SUCCESS;
+    }
+    return result.getFailures().stream()
+            .anyMatch(failure -> failure.getException() instanceof OutOfMemoryError)
+        ? EXIT_CODE_TEST_FAILURE_OOM
+        : EXIT_CODE_TEST_FAILURE_OTHER;
   }
 
   private static Class<?> getTestClass(String name) {
@@ -158,28 +189,61 @@ public class BazelTestRunner {
   }
 
   /**
+   * If the system property {@code bazel.test_runner.await_non_daemon_threads} is set to true, adds
+   * a shutdown hook that waits for all non-daemon threads to finish before allowing the JVM to
+   * exit. This is useful for tests that spawn non-daemon threads that may still be running when the
+   * test finishes, but should be allowed to finish before the JVM to validate all code paths have
+   * proper cleanup logic.
+   */
+  @SuppressWarnings("ThreadPriorityCheck")
+  private static void awaitAllNonDaemonThreadsToFinish() {
+    if (!Boolean.getBoolean(AWAIT_NON_DAEMON_THREADS_PROPERTY_NAME)) {
+      return;
+    }
+    final Thread mainThread = Thread.currentThread();
+    Runtime.getRuntime()
+        .addShutdownHook(
+            new Thread(
+                () -> {
+                  final Thread currentThread = Thread.currentThread();
+                  while (true) {
+                    final List<Thread> nonDaemonAliveThreads =
+                        Thread.getAllStackTraces().keySet().stream()
+                            .filter(Thread::isAlive)
+                            .filter(thread -> !thread.isDaemon())
+                            .filter(t -> t.getId() != currentThread.getId())
+                            .filter(t -> t.getId() != mainThread.getId())
+                            .collect(Collectors.toList());
+
+                    if (nonDaemonAliveThreads.isEmpty()) {
+                      return;
+                    }
+                    Thread.yield();
+                  }
+                }));
+  }
+
+  /**
    * Prints out stack traces if the JVM does not exit quickly. This can help detect shutdown hooks
    * that are preventing the JVM from exiting quickly.
    *
    * @param out Print stream to use
    */
   private static void printStackTracesIfJvmExitHangs(final PrintStream out) {
-    Thread thread = new Thread(new Runnable() {
-      @Override
-      public void run() {
-        sleepUninterruptibly(5);
-        out.println("JVM still up after five seconds. Dumping stack traces for all threads.");
-        StackTraces.printAll(out);
-      }
-    }, "BazelTestRunner: Print stack traces if JVM exit hangs");
+    Thread thread =
+        new Thread(
+            () -> {
+              sleepUninterruptibly(5);
+              out.println("JVM still up after five seconds. Dumping stack traces for all threads.");
+              StackTraces.printAll(out, /* emitJsonThreadDump= */ true);
+            },
+            "BazelTestRunner: Print stack traces if JVM exit hangs");
 
     thread.setDaemon(true);
     thread.start();
   }
 
-  /**
-   * Invokes SECONDS.{@link TimeUnit#sleep(long) sleep(sleepForSeconds)} uninterruptibly.
-   */
+  /** Invokes SECONDS.{@link TimeUnit#sleep(long) sleep(sleepForSeconds)} uninterruptibly. */
   private static void sleepUninterruptibly(long sleepForSeconds) {
     boolean interrupted = false;
     try {
@@ -198,5 +262,16 @@ public class BazelTestRunner {
         Thread.currentThread().interrupt();
       }
     }
+  }
+
+  /** Installs a SIGTERM handler that prints stack traces for all threads. */
+  private static void installSignalHandlers(PrintStream errPrintStream) {
+    SignalHandlers signalHandlers = new SignalHandlers(SignalHandlers.createRealHandlerInstaller());
+    signalHandlers.installHandler(
+        new Signal("TERM"),
+        __ -> {
+          errPrintStream.println("Received SIGTERM, dumping stack traces for all threads\n");
+          StackTraces.printAll(errPrintStream, /* emitJsonThreadDump= */ true);
+        });
   }
 }

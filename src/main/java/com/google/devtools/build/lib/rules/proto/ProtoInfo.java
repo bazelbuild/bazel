@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 
@@ -34,13 +35,11 @@ import net.starlark.java.eval.Sequence;
  */
 @Immutable
 public final class ProtoInfo {
-  public static final ProtoInfoProvider PROVIDER = new ProtoInfoProvider();
 
   /** Provider class for {@link ProtoInfo} objects. */
   public static class ProtoInfoProvider extends StarlarkProviderWrapper<ProtoInfo> {
-
-    public ProtoInfoProvider() {
-      super(ProtoConstants.PROTO_INFO_KEY, "ProtoInfo");
+    public ProtoInfoProvider(BzlLoadValue.Key key) {
+      super(key, "ProtoInfo");
     }
 
     @Override
@@ -66,16 +65,6 @@ public final class ProtoInfo {
 
   public NestedSet<Artifact> getTransitiveProtoSources() {
     return transitiveProtoSources;
-  }
-
-  /** The {@code .proto} source files in this {@code proto_library}'s {@code srcs}. */
-  @VisibleForTesting
-  public ImmutableList<Artifact> getDirectSources() throws Exception {
-    return Sequence.cast(
-            value.getValue("_direct_proto_sources", Sequence.class),
-            Artifact.class,
-            "_direct_proto_sources")
-        .getImmutableList();
   }
 
   /** The proto source files that are used in compiling this {@code proto_library}. */
@@ -110,14 +99,5 @@ public final class ProtoInfo {
   @VisibleForTesting
   public NestedSet<Artifact> getTransitiveDescriptorSets() throws Exception {
     return value.getValue("transitive_descriptor_sets", Depset.class).getSet(Artifact.class);
-  }
-
-  /**
-   * Returns a set of {@code .proto} sources that may be imported by {@code proto_library} targets
-   * directly depending on this {@code ProtoInfo}.
-   */
-  @VisibleForTesting
-  public NestedSet<Artifact> getExportedSources() throws Exception {
-    return value.getValue("_exported_sources", Depset.class).getSet(Artifact.class);
   }
 }

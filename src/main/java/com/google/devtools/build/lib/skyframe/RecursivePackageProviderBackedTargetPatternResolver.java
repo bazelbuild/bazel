@@ -114,11 +114,6 @@ public final class RecursivePackageProviderBackedTargetPatternResolver
     return recursivePackageProvider.getPackage(eventHandler, pkgIdentifier);
   }
 
-  private Map<PackageIdentifier, Package> bulkGetPackages(Iterable<PackageIdentifier> pkgIds)
-      throws NoSuchPackageException, InterruptedException {
-    return recursivePackageProvider.bulkGetPackages(pkgIds);
-  }
-
   @Override
   @Nullable
   public Target getTargetOrNull(Label label)
@@ -167,7 +162,8 @@ public final class RecursivePackageProviderBackedTargetPatternResolver
       String originalPattern, Iterable<PackageIdentifier> pkgIds, FilteringPolicy policy)
       throws InterruptedException {
     try {
-      Map<PackageIdentifier, Package> pkgs = bulkGetPackages(pkgIds);
+      Map<PackageIdentifier, Package> pkgs =
+          recursivePackageProvider.bulkGetPackages(eventHandler, pkgIds);
       if (pkgs.size() != Iterables.size(pkgIds)) {
         throw new IllegalStateException(
             "Bulk package retrieval missing results: "

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.platform;
 
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.jni.JniLoader;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -30,20 +29,18 @@ public final class SystemMemoryPressureMonitor {
   @Nullable
   private Reporter reporter;
 
+  private PlatformNativeDepsService service;
+
   public static SystemMemoryPressureMonitor getInstance() {
     return singleton;
   }
 
-  private SystemMemoryPressureMonitor() {
-    JniLoader.loadJni();
-    if (JniLoader.isJniAvailable()) {
-      registerJNI();
-    }
+  private SystemMemoryPressureMonitor() {}
+
+  public void registerJniService(PlatformNativeDepsService service) {
+    this.service = service;
+    service.registerMemoryPressureJni(this::memoryPressureCallback);
   }
-
-  private native void registerJNI();
-
-  private native int systemMemoryPressure();
 
   /** The possible memory pressure levels. */
   public enum Level {
@@ -74,12 +71,12 @@ public final class SystemMemoryPressureMonitor {
 
   /** Return current memory pressure */
   public Level level() {
-    return Level.fromInt(systemMemoryPressure());
+    return Level.fromInt(service.systemMemoryPressure());
   }
 
   public synchronized void setReporter(@Nullable Reporter reporter) {
     this.reporter = reporter;
-    int pressure = systemMemoryPressure();
+    int pressure = service.systemMemoryPressure();
     if (Level.fromInt(pressure) != Level.NORMAL) {
       memoryPressureCallback(pressure);
     }

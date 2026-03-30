@@ -23,7 +23,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
@@ -40,10 +39,7 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Tuple;
-
-// LINT.IfChange
 
 /** A configuration containing flags required for Apple platforms and tools. */
 @Immutable
@@ -76,7 +72,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   static final String DEFAULT_IOS_CPU = CPU.getCurrent() == CPU.AARCH64 ? "sim_arm64" : "x86_64";
 
   private final String applePlatformType;
-  private final ConfigurationDistinguisher configurationDistinguisher;
   private final Label xcodeConfigLabel;
   private final AppleCommandLineOptions options;
   private final AppleCpus appleCpus;
@@ -91,14 +86,14 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   private final DottedVersion watchosMinimumOsFlag;
   private final boolean preferMutualXcode;
   private final boolean includeXcodeExecRequirements;
+  private final boolean disableAppleFragment;
 
   public AppleConfiguration(BuildOptions buildOptions) {
     AppleCommandLineOptions options = buildOptions.get(AppleCommandLineOptions.class);
     this.options = options;
-    this.appleCpus = AppleCpus.create(options, buildOptions.get(CoreOptions.class));
+    this.appleCpus = AppleCpus.create(options);
     this.applePlatformType =
         Preconditions.checkNotNull(options.applePlatformType, "applePlatformType");
-    this.configurationDistinguisher = options.configurationDistinguisher;
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(options.xcodeVersionConfig, "xcodeConfigLabel");
     // AppleConfiguration should not have this knowledge. This is a temporary workaround
@@ -114,12 +109,13 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     this.watchosMinimumOsFlag = DottedVersion.maybeUnwrap(options.watchosMinimumOs);
     this.preferMutualXcode = options.preferMutualXcode;
     this.includeXcodeExecRequirements = options.includeXcodeExecutionRequirements;
+    this.disableAppleFragment = options.disableAppleFragment;
   }
 
   /** A class that contains information pertaining to Apple CPUs. */
   @AutoValue
   public abstract static class AppleCpus {
-    public static AppleCpus create(AppleCommandLineOptions options, CoreOptions coreOptions) {
+    public static AppleCpus create(AppleCommandLineOptions options) {
       String appleSplitCpu = Preconditions.checkNotNull(options.appleSplitCpu, "appleSplitCpu");
       ImmutableList<String> iosMultiCpus =
           (options.iosMultiCpus == null || options.iosMultiCpus.isEmpty())
@@ -141,19 +137,9 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
           (options.macosCpus == null || options.macosCpus.isEmpty())
               ? ImmutableList.of(DEFAULT_MACOS_CPU)
               : ImmutableList.copyOf(options.macosCpus);
-      ImmutableList<String> catalystCpus =
-          (options.catalystCpus == null || options.catalystCpus.isEmpty())
-              ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_CATALYST_CPU)
-              : ImmutableList.copyOf(options.catalystCpus);
 
       return new AutoValue_AppleConfiguration_AppleCpus(
-          appleSplitCpu,
-          iosMultiCpus,
-          visionosCpus,
-          watchosCpus,
-          tvosCpus,
-          macosCpus,
-          catalystCpus);
+          appleSplitCpu, iosMultiCpus, visionosCpus, watchosCpus, tvosCpus, macosCpus);
     }
 
     abstract String appleSplitCpu();
@@ -167,8 +153,11 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     abstract ImmutableList<String> tvosCpus();
 
     abstract ImmutableList<String> macosCpus();
+  }
 
-    abstract ImmutableList<String> catalystCpus();
+  @Override
+  public boolean shouldInclude() {
+    return !disableAppleFragment;
   }
 
   @Override
@@ -180,7 +169,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     fields.put("watchos_cpus", Tuple.copyOf(appleCpus.watchosCpus()));
     fields.put("tvos_cpus", Tuple.copyOf(appleCpus.tvosCpus()));
     fields.put("macos_cpus", Tuple.copyOf(appleCpus.macosCpus()));
-    fields.put("catalyst_cpus", Tuple.copyOf(appleCpus.catalystCpus()));
     return StructProvider.STRUCT.create(fields, "");
   }
 
@@ -195,9 +183,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
 
   /**
    * Gets the single "effective" architecture for this configuration's {@link PlatformType} (for
-   * example, "i386" or "arm64"). Prefer this over {@link #getMultiArchitectures(PlatformType)} only
-   * if in the context of rule logic which is only concerned with a single architecture (such as in
-   * {@code objc_library}, which registers single-architecture compile actions).
+   * example, "i386" or "arm64").
    *
    * <p>Single effective architecture is determined using the following rules:
    *
@@ -235,135 +221,24 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     if (!Strings.isNullOrEmpty(appleCpus.appleSplitCpu())) {
       return appleCpus.appleSplitCpu();
     }
-    switch (applePlatformType) {
-      case PlatformType.IOS:
-        return appleCpus.iosMultiCpus().get(0);
-      case PlatformType.VISIONOS:
-        return appleCpus.visionosCpus().get(0);
-      case PlatformType.WATCHOS:
-        return appleCpus.watchosCpus().get(0);
-      case PlatformType.TVOS:
-        return appleCpus.tvosCpus().get(0);
-      case PlatformType.MACOS:
-        return appleCpus.macosCpus().get(0);
-      case PlatformType.CATALYST:
-        return appleCpus.catalystCpus().get(0);
-      default:
-        throw new IllegalArgumentException("Unhandled platform type " + applePlatformType);
-    }
-  }
-
-  /**
-   * Gets the "effective" architecture(s) for the given {@link PlatformType}. For example, "i386" or
-   * "arm64". At least one architecture is always returned. Prefer this over {@link
-   * #getSingleArchitecture} in rule logic which may support multiple architectures, such as
-   * bundling rules.
-   *
-   * <p>Effective architecture(s) is determined using the following rules:
-   *
-   * <ol>
-   *   <li>If {@code --apple_split_cpu} is set (done via prior configuration transition), then that
-   *       is the effective architecture.
-   *   <li>If the multi cpus flag (e.g. {@code --ios_multi_cpus}) is set and non-empty, return all
-   *       architectures from that flag.
-   *   <li>In the case of iOS, use {@code --cpu} if it leads with "ios_" for backwards
-   *       compatibility.
-   *   <li>In the case of macOS, use {@code --cpu} if it leads with "darwin_" for backwards
-   *       compatibility.
-   *   <li>Use the default.
-   * </ol>
-   *
-   * @throws IllegalArgumentException if {@code --apple_platform_type} is set (via prior
-   *     configuration transition) yet does not match {@code platformType}
-   */
-  public List<String> getMultiArchitectures(String platformType) {
-    if (!Strings.isNullOrEmpty(appleCpus.appleSplitCpu())) {
-      if (!applePlatformType.equals(platformType)) {
-        throw new IllegalArgumentException(
-            String.format(
-                "Expected post-split-transition platform type %s to match input %s ",
-                applePlatformType, platformType));
-      }
-      return ImmutableList.of(appleCpus.appleSplitCpu());
-    }
-    switch (platformType) {
-      case PlatformType.IOS:
-        return appleCpus.iosMultiCpus();
-      case PlatformType.VISIONOS:
-        return appleCpus.visionosCpus();
-      case PlatformType.WATCHOS:
-        return appleCpus.watchosCpus();
-      case PlatformType.TVOS:
-        return appleCpus.tvosCpus();
-      case PlatformType.MACOS:
-        return appleCpus.macosCpus();
-      case PlatformType.CATALYST:
-        return appleCpus.catalystCpus();
-      default:
-        throw new IllegalArgumentException("Unhandled platform type " + platformType);
-    }
+    return switch (applePlatformType) {
+      case PlatformType.IOS -> appleCpus.iosMultiCpus().get(0);
+      case PlatformType.VISIONOS -> appleCpus.visionosCpus().get(0);
+      case PlatformType.WATCHOS -> appleCpus.watchosCpus().get(0);
+      case PlatformType.TVOS -> appleCpus.tvosCpus().get(0);
+      case PlatformType.MACOS -> appleCpus.macosCpus().get(0);
+      default -> throw new IllegalArgumentException("Unhandled platform type " + applePlatformType);
+    };
   }
 
   /**
    * Gets the single "effective" platform for this configuration's {@link PlatformType} and
-   * architecture. Prefer this over {@link #getMultiArchPlatform(PlatformType)} only in cases if in
-   * the context of rule logic which is only concerned with a single architecture (such as in {@code
-   * objc_library}, which registers single-architecture compile actions).
+   * architecture.
    */
   @Override
   public ApplePlatform getSingleArchPlatform() {
     return ApplePlatform.forTarget(
         applePlatformType, getPrefixedAppleCpu(applePlatformType, appleCpus));
-  }
-
-  /**
-   * Gets the current configuration {@link ApplePlatform} for the given {@link PlatformType}.
-   * ApplePlatform is determined via a combination between the given platform type and the
-   * "effective" architectures of this configuration, as returned by {@link #getMultiArchitectures};
-   * if any of the supported architectures are of device type, this will return a device platform.
-   * Otherwise, this will return a simulator platform.
-   */
-  // TODO(bazel-team): This should support returning multiple platforms.
-  @Override
-  public ApplePlatform getMultiArchPlatform(String platformType) {
-    List<String> architectures = getMultiArchitectures(platformType);
-    switch (platformType) {
-      case PlatformType.IOS:
-        for (String arch : architectures) {
-          if (ApplePlatform.forTarget(PlatformType.IOS, arch) == ApplePlatform.IOS_DEVICE) {
-            return ApplePlatform.IOS_DEVICE;
-          }
-        }
-        return ApplePlatform.IOS_SIMULATOR;
-      case PlatformType.VISIONOS:
-        for (String arch : architectures) {
-          if (ApplePlatform.forTarget(PlatformType.VISIONOS, arch)
-              == ApplePlatform.VISIONOS_DEVICE) {
-            return ApplePlatform.VISIONOS_DEVICE;
-          }
-        }
-        return ApplePlatform.VISIONOS_SIMULATOR;
-      case PlatformType.WATCHOS:
-        for (String arch : architectures) {
-          if (ApplePlatform.forTarget(PlatformType.WATCHOS, arch) == ApplePlatform.WATCHOS_DEVICE) {
-            return ApplePlatform.WATCHOS_DEVICE;
-          }
-        }
-        return ApplePlatform.WATCHOS_SIMULATOR;
-      case PlatformType.TVOS:
-        for (String arch : architectures) {
-          if (ApplePlatform.forTarget(PlatformType.TVOS, arch) == ApplePlatform.TVOS_DEVICE) {
-            return ApplePlatform.TVOS_DEVICE;
-          }
-        }
-        return ApplePlatform.TVOS_SIMULATOR;
-      case PlatformType.MACOS:
-        return ApplePlatform.MACOS;
-      case PlatformType.CATALYST:
-        return ApplePlatform.CATALYST;
-      default:
-        throw new IllegalArgumentException("Unsupported platform type " + platformType);
-    }
   }
 
   @Nullable
@@ -446,9 +321,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
         components.add("min" + options.getMinimumOsVersion());
       }
     }
-    if (configurationDistinguisher != ConfigurationDistinguisher.UNKNOWN) {
-      components.add(configurationDistinguisher.getFileSystemName());
-    }
 
     if (!components.isEmpty()) {
       ctx.addToMnemonic(Joiner.on('-').join(components));
@@ -470,45 +342,4 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   public int hashCode() {
     return options.hashCode();
   }
-
-  /**
-   * Value used to avoid multiple configurations from conflicting. No two instances of this
-   * transition may exist with the same value in a single Bazel invocation.
-   */
-  public enum ConfigurationDistinguisher implements StarlarkValue {
-    UNKNOWN("unknown"),
-    /** Distinguisher for {@code apple_binary} rule with "ios" platform_type. */
-    APPLEBIN_IOS("applebin_ios"),
-    /** Distinguisher for {@code apple_binary} rule with "visionos" platform_type. */
-    APPLEBIN_VISIONOS("applebin_visionos"),
-    /** Distinguisher for {@code apple_binary} rule with "watchos" platform_type. */
-    APPLEBIN_WATCHOS("applebin_watchos"),
-    /** Distinguisher for {@code apple_binary} rule with "tvos" platform_type. */
-    APPLEBIN_TVOS("applebin_tvos"),
-    /** Distinguisher for {@code apple_binary} rule with "macos" platform_type. */
-    APPLEBIN_MACOS("applebin_macos"),
-    /** Distinguisher for {@code apple_binary} rule with "catalyst" platform_type. */
-    APPLEBIN_CATALYST("applebin_catalyst"),
-
-    /**
-     * Distinguisher for the apple crosstool configuration. We use "apl" for output directory names
-     * instead of "apple_crosstool" to avoid oversized path names, which can be problematic on OSX.
-     */
-    APPLE_CROSSTOOL("apl");
-
-    private final String fileSystemName;
-
-    private ConfigurationDistinguisher(String fileSystemName) {
-      this.fileSystemName = fileSystemName;
-    }
-
-    /**
-     * Returns the distinct string that should be used in creating output directories for a
-     * configuration with this distinguisher.
-     */
-    public String getFileSystemName() {
-      return fileSystemName;
-    }
-  }
-  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/objc/apple_configuration.bzl)
 }

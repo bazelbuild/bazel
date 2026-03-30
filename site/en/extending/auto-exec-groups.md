@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Automatic Execution Groups (AEGs)
 
+{% include "_buttons.html" %}
+
 Automatic execution groups select an [execution platform][exec_platform]
 for each toolchain type. In other words, one target can have multiple
 execution platforms without defining execution groups.
@@ -88,7 +90,8 @@ parameter should be added when `tools` are from a toolchain.
 
 As the name suggests, AEGs are exec groups created automatically for each
 toolchain type registered on a rule. There is no need to manually specify them,
-unlike the "classic" exec groups.
+unlike the "classic" exec groups. Moreover, name of AEG is automatically set to
+its toolchain type (e.g. `//tools:toolchain_type_1`).
 
 ### When should I use a custom exec_group? {:#when-should-use-exec-groups}
 

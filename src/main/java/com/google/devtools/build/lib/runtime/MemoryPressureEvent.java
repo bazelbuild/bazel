@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.auto.value.AutoBuilder;
 import com.google.common.annotations.VisibleForTesting;
+import java.time.Duration;
 
 /** A memory pressure event. */
 public record MemoryPressureEvent(
@@ -23,7 +24,8 @@ public record MemoryPressureEvent(
     boolean wasGcLockerInitiatedGc,
     boolean wasFullGc,
     long tenuredSpaceUsedBytes,
-    long tenuredSpaceMaxBytes) {
+    long tenuredSpaceMaxBytes,
+    Duration duration) {
 
   public final int percentTenuredSpaceUsed() {
     return (int) ((tenuredSpaceUsedBytes() * 100L) / tenuredSpaceMaxBytes());
@@ -50,6 +52,8 @@ public record MemoryPressureEvent(
     public abstract Builder setTenuredSpaceUsedBytes(long value);
 
     public abstract Builder setTenuredSpaceMaxBytes(long value);
+
+    public abstract Builder setDuration(Duration duration);
 
     public abstract MemoryPressureEvent build();
   }

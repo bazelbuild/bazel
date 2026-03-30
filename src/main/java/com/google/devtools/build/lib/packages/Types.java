@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.packages.Type.DictType;
 import com.google.devtools.build.lib.packages.Type.ListType;
+import com.google.devtools.build.lib.packages.Type.SetType;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.util.List;
 import net.starlark.java.eval.StarlarkInt;
@@ -31,6 +32,10 @@ public final class Types {
   /** The type of a list of strings. */
   @SerializationConstant
   public static final ListType<String> STRING_LIST = ListType.create(Type.STRING);
+
+  /** The type of a set of strings. */
+  @SerializationConstant
+  public static final SetType<String> STRING_SET = SetType.create(Type.STRING);
 
   /** The type of a list of signed 32-bit Starlark integer values. */
   @SerializationConstant

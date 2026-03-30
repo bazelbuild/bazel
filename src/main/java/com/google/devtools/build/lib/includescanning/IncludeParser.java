@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
@@ -65,6 +66,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -861,6 +863,7 @@ class IncludeParser {
       ActionExecutionMetadata actionExecutionMetadata,
       ActionExecutionContext actionExecutionContext,
       Artifact grepIncludes,
+      @Nullable PlatformInfo grepIncludesExecutionPlatform,
       @Nullable SpawnIncludeScanner remoteIncludeScanner,
       boolean isOutputFile)
       throws IOException, ExecException, InterruptedException {
@@ -874,9 +877,15 @@ class IncludeParser {
               actionExecutionMetadata,
               actionExecutionContext,
               grepIncludes,
+              grepIncludesExecutionPlatform,
               getFileType(),
               isOutputFile);
     } else {
+      if (isOutputFile && !actionExecutionContext.fileSystemSupportsInputDiscovery()) {
+        // Ensure that the file's metadata is available, which possibly requires a Skyframe restart.
+        var unused =
+            actionExecutionContext.getInputMetadataProvider().getInputMetadataChecked(file);
+      }
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.SCANNER, file.getExecPathString())) {
         inclusions =
@@ -884,14 +893,16 @@ class IncludeParser {
                 FileSystemUtils.readContent(actionExecutionContext.getInputPath(file)));
       } catch (IOException e) {
         if (remoteIncludeScanner != null && grepIncludes != null) {
-          logger.atWarning().withCause(e).log(
-              "Falling back on remote parsing of %s", actionExecutionContext.getInputPath(file));
+          logger.atWarning().atMostEvery(1, TimeUnit.SECONDS).log(
+              "Falling back on remote parsing of %s (cause %s)",
+              actionExecutionContext.getInputPath(file), e.getMessage());
           inclusions =
               remoteIncludeScanner.extractInclusions(
                   file,
                   actionExecutionMetadata,
                   actionExecutionContext,
                   grepIncludes,
+                  grepIncludesExecutionPlatform,
                   getFileType(),
                   isOutputFile);
         } else {

@@ -30,7 +30,10 @@ public final class CcBadDependenciesTest extends BuildViewTestCase {
   @Test
   public void testRejectsSingleUnknownSourceFile() throws Exception {
     reporter.removeHandler(failFastHandler);
-    scratch.file("foo/BUILD", "cc_library(name = 'foo', srcs = ['unknown.oops'])");
+    scratch.file(
+        "foo/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'foo', srcs = ['unknown.oops'])");
     scratch.file("foo/unknown.oops", "foo");
     configure("//foo:foo");
     assertContainsEvent(
@@ -54,6 +57,7 @@ public final class CcBadDependenciesTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "foo",
             srcs = ["//dependency:goodandbad_gen"],
@@ -78,6 +82,7 @@ public final class CcBadDependenciesTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "foo",
             srcs = ["//dependency:generated"],

@@ -172,11 +172,9 @@ Markdown for posterity.
 ### Using Google Docs {:#gdocs}
 
 For consistency, use the [Bazel design doc template](
-https://docs.google.com/document/d/1cE5zrjrR40RXNg64XtRFewSv6FrLV6slGkkqxBumS1w/edit){: .external}.
+https://docs.google.com/document/d/1cE5zrjrR40RXNg64XtRFewSv6FrLV6slGkkqxBumS1w/template/preview){: .external}.
 It includes the necessary header and creates visual
-consistency with other Bazel related documents. To do that, click on **File** >
-**Make a copy** or click this link to [make a copy of the design doc
-template](https://docs.google.com/document/d/1cE5zrjrR40RXNg64XtRFewSv6FrLV6slGkkqxBumS1w/copy){: .external}.
+consistency with other Bazel related documents.
 
 To make your document readable to the world, click on
 **Share** > **Advanced** > **Change…**, and
@@ -202,7 +200,7 @@ A reviewer comments, reviews and approves design documents.
 You're responsible for reviewing design documents, asking for additional
 information if needed, and approving a design that passes the review process.
 
-#### When you receive a new proposal {:#new-proposal}
+#### When you receive a new proposal {:#receive-new-proposal}
 
 1.  Take a quick look at the document.
 1.  Comment if critical information is missing, or if the design doesn't fit

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.bazel.BazelStartupOptionsModule.Options;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
@@ -33,6 +34,7 @@ import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TestOptions;
+import java.util.ArrayList;
 import java.util.Optional;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -64,7 +66,10 @@ public class CommandLineEventTest {
                 "testblaze",
                 fakeStartupOptions,
                 "someCommandName",
-                fakeCommandOptions,
+                fakeCommandOptions.getResidue(),
+                true,
+                new ArrayList<>(),
+                ImmutableSortedMap.of(),
                 Optional.of(ImmutableList.of()))
             .asStreamProto(null)
             .getStructuredCommandLine();
@@ -87,7 +92,15 @@ public class CommandLineEventTest {
 
     CommandLine line =
         new CanonicalCommandLineEvent(
-                "testblaze", fakeStartupOptions, "someCommandName", fakeCommandOptions)
+                "testblaze",
+                fakeStartupOptions,
+                "someCommandName",
+                fakeCommandOptions.getResidue(),
+                false,
+                ImmutableSortedMap.of(),
+                ImmutableSortedMap.of(),
+                fakeCommandOptions.asListOfCanonicalOptions(),
+                /* replaceable= */ false)
             .asStreamProto(null)
             .getStructuredCommandLine();
 
@@ -118,7 +131,10 @@ public class CommandLineEventTest {
                 "testblaze",
                 fakeStartupOptions,
                 "someCommandName",
-                fakeCommandOptions,
+                fakeCommandOptions.getResidue(),
+                false,
+                fakeCommandOptions.asListOfCanonicalOptions(),
+                ImmutableSortedMap.of(),
                 Optional.empty())
             .asStreamProto(null)
             .getStructuredCommandLine();
@@ -152,7 +168,10 @@ public class CommandLineEventTest {
                 "testblaze",
                 fakeStartupOptions,
                 "someCommandName",
-                fakeCommandOptions,
+                fakeCommandOptions.getResidue(),
+                false,
+                fakeCommandOptions.asListOfCanonicalOptions(),
+                ImmutableSortedMap.of(),
                 Optional.of(
                     ImmutableList.of(
                         Pair.of("", "--bazelrc=/some/path"),
@@ -193,7 +212,15 @@ public class CommandLineEventTest {
 
     CommandLine line =
         new CanonicalCommandLineEvent(
-                "testblaze", fakeStartupOptions, "someCommandName", fakeCommandOptions)
+                "testblaze",
+                fakeStartupOptions,
+                "someCommandName",
+                fakeCommandOptions.getResidue(),
+                false,
+                ImmutableSortedMap.of(),
+                ImmutableSortedMap.of(),
+                fakeCommandOptions.asListOfCanonicalOptions(),
+                /* replaceable= */ false)
             .asStreamProto(null)
             .getStructuredCommandLine();
 
@@ -233,7 +260,10 @@ public class CommandLineEventTest {
                 "testblaze",
                 fakeStartupOptions,
                 "someCommandName",
-                fakeCommandOptions,
+                fakeCommandOptions.getResidue(),
+                false,
+                fakeCommandOptions.asListOfCanonicalOptions(),
+                ImmutableSortedMap.of(),
                 Optional.of(ImmutableList.of()))
             .asStreamProto(null)
             .getStructuredCommandLine();
@@ -273,7 +303,15 @@ public class CommandLineEventTest {
 
     CommandLine line =
         new CanonicalCommandLineEvent(
-                "testblaze", fakeStartupOptions, "someCommandName", fakeCommandOptions)
+                "testblaze",
+                fakeStartupOptions,
+                "someCommandName",
+                ImmutableList.of(),
+                false,
+                ImmutableSortedMap.of(),
+                ImmutableSortedMap.of(),
+                fakeCommandOptions.asListOfCanonicalOptions(),
+                /* replaceable= */ false)
             .asStreamProto(null)
             .getStructuredCommandLine();
 
@@ -310,8 +348,12 @@ public class CommandLineEventTest {
                 "testblaze",
                 fakeStartupOptions,
                 "someCommandName",
-                fakeCommandOptions,
-                Optional.of(ImmutableList.of()))
+                fakeCommandOptions.getResidue(),
+                false,
+                fakeCommandOptions.asListOfExplicitOptions(),
+                fakeCommandOptions.getExplicitStarlarkOptions(
+                    OriginalCommandLineEvent::commandLinePriority),
+                Optional.empty())
             .asStreamProto(null)
             .getStructuredCommandLine();
 
@@ -339,7 +381,15 @@ public class CommandLineEventTest {
 
     CommandLine line =
         new CanonicalCommandLineEvent(
-                "testblaze", fakeStartupOptions, "someCommandName", fakeCommandOptions)
+                "testblaze",
+                fakeStartupOptions,
+                "someCommandName",
+                ImmutableList.of(),
+                false,
+                ImmutableSortedMap.of(),
+                ImmutableSortedMap.of(),
+                fakeCommandOptions.asListOfCanonicalOptions(),
+                /* replaceable= */ false)
             .asStreamProto(null)
             .getStructuredCommandLine();
 
@@ -379,7 +429,10 @@ public class CommandLineEventTest {
                 "testblaze",
                 fakeStartupOptions,
                 "someCommandName",
-                fakeCommandOptions,
+                ImmutableList.of(),
+                false,
+                fakeCommandOptions.asListOfCanonicalOptions(),
+                ImmutableSortedMap.of(),
                 Optional.of(ImmutableList.of()))
             .asStreamProto(null)
             .getStructuredCommandLine();
@@ -410,7 +463,15 @@ public class CommandLineEventTest {
 
     CommandLine line =
         new CanonicalCommandLineEvent(
-                "testblaze", fakeStartupOptions, "someCommandName", fakeCommandOptions)
+                "testblaze",
+                fakeStartupOptions,
+                "someCommandName",
+                ImmutableList.of(),
+                false,
+                ImmutableSortedMap.of(),
+                ImmutableSortedMap.of(),
+                fakeCommandOptions.asListOfCanonicalOptions(),
+                /* replaceable= */ false)
             .asStreamProto(null)
             .getStructuredCommandLine();
 
@@ -528,7 +589,10 @@ public class CommandLineEventTest {
                 "testblaze",
                 fakeStartupOptions,
                 "run",
-                fakeCommandOptions,
+                fakeCommandOptions.getResidue(),
+                false,
+                fakeCommandOptions.asListOfCanonicalOptions(),
+                ImmutableSortedMap.of(),
                 Optional.of(ImmutableList.of()))
             .asStreamProto(null)
             .getStructuredCommandLine();
@@ -556,7 +620,16 @@ public class CommandLineEventTest {
         ImmutableList.of("//some:target", "--sensitive_arg"), ImmutableList.of());
 
     CommandLine line =
-        new CanonicalCommandLineEvent("testblaze", fakeStartupOptions, "run", fakeCommandOptions)
+        new CanonicalCommandLineEvent(
+                "testblaze",
+                fakeStartupOptions,
+                "run",
+                fakeCommandOptions.getResidue(),
+                false,
+                ImmutableSortedMap.of(),
+                ImmutableSortedMap.of(),
+                fakeCommandOptions.asListOfCanonicalOptions(),
+                /* replaceable= */ false)
             .asStreamProto(null)
             .getStructuredCommandLine();
 

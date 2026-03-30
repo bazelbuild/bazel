@@ -20,12 +20,12 @@
 #include "src/main/native/jni.h"
 
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_SystemSuspensionModule
- * Method:    registerJNI
- * Signature: ()V
+ * Class: com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl
+ * Method:    registerSuspensionNative
+ * Signature: (Ljava/util/function/IntConsumer;)V
  */
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_platform_SystemSuspensionModule_registerJNI(
-    JNIEnv *env, jobject local_object) {
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerSuspensionNative(
+    JNIEnv* env, jobject local_object, jobject callback) {
   // Currently not implemented.
 }

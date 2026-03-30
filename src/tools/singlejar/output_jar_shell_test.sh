@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -75,5 +75,5 @@ function test_empty_resource_file() {
 }
 
 run_suite "Misc shell tests"
-#!/bin/bash
+#!/usr/bin/env bash
 

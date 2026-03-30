@@ -30,7 +30,6 @@ namespace devtools_ijar {
 static char errmsg[MAX_ERROR];
 
 struct MappedInputFileImpl {
-  size_t discarded_;
   int fd_;
 };
 
@@ -61,7 +60,6 @@ MappedInputFile::MappedInputFile(const char* name) {
 
   impl_ = new MappedInputFileImpl();
   impl_->fd_ = fd;
-  impl_->discarded_ = 0;
   buffer_ = reinterpret_cast<u1*>(buffer);
   length_ = length;
   opened_ = true;
@@ -71,12 +69,8 @@ MappedInputFile::~MappedInputFile() {
   delete impl_;
 }
 
-void MappedInputFile::Discard(size_t bytes) {
-  munmap(buffer_ + impl_->discarded_, bytes);
-  impl_->discarded_ += bytes;
-}
-
 int MappedInputFile::Close() {
+  munmap(buffer_, length_);
   if (close(impl_->fd_) < 0) {
     snprintf(errmsg, MAX_ERROR, "close(): %s", strerror(errno));
     errmsg_ = errmsg;

@@ -104,6 +104,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor.ConfigureTargetsR
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.FailureToRetrieveIntrospectedValueException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.TopLevelActionConflictReport;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptionsFields.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -634,6 +635,7 @@ public final class SkyframeBuildView {
       boolean extraActionTopLevelOnly,
       QuiescingExecutors executors,
       boolean shouldDiscardAnalysisCache,
+      boolean shouldClearSyscallCache,
       BuildDriverKeyTestContext buildDriverKeyTestContext,
       int skymeldAnalysisOverlapPercentage)
       throws InterruptedException,
@@ -714,7 +716,8 @@ public final class SkyframeBuildView {
                     buildResultListener,
                     skyframeExecutor,
                     ctKeys,
-                    shouldDiscardAnalysisCache,
+                    /* shouldDiscardAnalysisCache= */ shouldDiscardAnalysisCache,
+                    /* shouldClearSyscallCache= */ shouldClearSyscallCache,
                     /* measuredAnalysisTime= */ analysisWorkTimer.stop().elapsed().toMillis(),
                     /* conflictCheckingMode= */ conflictCheckingMode),
             /* executionGoAheadCallback= */ executor::launchQueuedUpExecutionPhaseTasks)) {
@@ -737,6 +740,9 @@ public final class SkyframeBuildView {
                   executors.executionParallelism(),
                   executor);
         } finally {
+          if (shouldClearSyscallCache) {
+            skyframeExecutor.clearSyscallCache();
+          }
           // Required for incremental correctness.
           // We unconditionally reset the states here instead of in #analysisFinishedCallback since
           // in case of --nokeep_going & analysis error, the analysis phase is never finished.
@@ -909,6 +915,7 @@ public final class SkyframeBuildView {
       SkyframeExecutor skyframeExecutor,
       List<ConfiguredTargetKey> configuredTargetKeys,
       boolean shouldDiscardAnalysisCache,
+      boolean shouldClearSyscallCache,
       long measuredAnalysisTime,
       ConflictCheckingMode conflictCheckingMode)
       throws InterruptedException {
@@ -933,6 +940,10 @@ public final class SkyframeBuildView {
           buildResultListener.getAnalyzedTargets(),
           buildResultListener.getAnalyzedAspects().keySet());
     }
+    if (skyframeExecutor.getRemoteAnalysisCachingDependenciesProvider().mode()
+        == RemoteAnalysisCacheMode.UPLOAD) {
+      skyframeExecutor.clearPackageValues();
+    }
 
     // At this point, it's safe to clear objects related to action conflict checking.
     // Clearing the states here is a performance optimization (reduce peak heap size) and isn't
@@ -941,7 +952,9 @@ public final class SkyframeBuildView {
 
     // Clearing the syscall cache here to free up some heap space.
     // TODO(b/273225564) Would this incur more CPU cost for the execution phase cache misses?
-    skyframeExecutor.clearSyscallCache();
+    if (shouldClearSyscallCache) {
+      skyframeExecutor.clearSyscallCache();
+    }
 
     enableAnalysis(false);
 
@@ -1040,9 +1053,8 @@ public final class SkyframeBuildView {
           eventHandler.handle(
               Event.warn(
                   String.format(
-                      "errors encountered while analyzing target '"
-                          + e.getArtifact().getOwnerLabel()
-                          + "': it will not be built")));
+                      "errors encountered while analyzing target '%s': it will not be built",
+                      e.getArtifact().getOwnerLabel())));
         }
       }
     }
@@ -1355,17 +1367,22 @@ public final class SkyframeBuildView {
       CachingAnalysisEnvironment analysisEnvironment,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
+      @Nullable OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> materializerTargets,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
-      @Nullable NestedSet<Package> transitivePackages,
-      ExecGroupCollection.Builder execGroupCollectionBuilder)
+      @Nullable NestedSet<Package.Metadata> transitivePackages,
+      ExecGroupCollection.Builder execGroupCollectionBuilder,
+      boolean crashIfExecutionPhase)
       throws InterruptedException,
           ActionConflictException,
           InvalidExecGroupException,
           AnalysisFailurePropagationException,
           StarlarkExecTransitionLoadingException {
     Preconditions.checkState(
-        enableAnalysis, "Already in execution phase %s %s", target, configuration);
+        enableAnalysis || !crashIfExecutionPhase,
+        "Already in execution phase %s %s",
+        target,
+        configuration);
     Preconditions.checkNotNull(analysisEnvironment);
     Preconditions.checkNotNull(target);
     Preconditions.checkNotNull(prerequisiteMap);
@@ -1389,6 +1406,7 @@ public final class SkyframeBuildView {
         configuration,
         configuredTargetKey,
         prerequisiteMap,
+        materializerTargets,
         configConditions,
         toolchainContexts,
         transitivePackages,
@@ -1499,11 +1517,6 @@ public final class SkyframeBuildView {
               // Created actions will be counted from {@link AspectValue} on the original target.
               return;
             }
-          }
-          if (alv.getNumActions() == 0) {
-            // No actions in deserialized action lookup values, and calling #getActions will
-            // cause an NPE.
-            return;
           }
 
           // During multithreaded operation, this is only set to true, so no concurrency issues.

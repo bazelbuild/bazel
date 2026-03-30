@@ -14,8 +14,12 @@
 
 package net.starlark.java.eval;
 
+import com.google.common.collect.ImmutableList;
 import javax.annotation.concurrent.Immutable;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.Types;
 
 /** The type of the Starlark None value. */
 @StarlarkBuiltin(
@@ -23,7 +27,17 @@ import net.starlark.java.annot.StarlarkBuiltin;
     documented = false,
     doc = "The type of the Starlark None value.")
 @Immutable
-public final class NoneType implements StarlarkValue {
+public final class NoneType implements StarlarkValue, TypeConstructor {
+
+  @Override
+  public StarlarkType createStarlarkType(ImmutableList<Arg> argsTuple) throws Failure {
+    return Types.NONE_CONSTRUCTOR.createStarlarkType(argsTuple);
+  }
+
+  @Override
+  public StarlarkType getStarlarkType() {
+    return Types.NONE;
+  }
 
   static final NoneType NONE = new NoneType();
 
@@ -45,7 +59,7 @@ public final class NoneType implements StarlarkValue {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("None");
   }
 }

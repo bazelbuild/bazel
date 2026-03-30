@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -63,6 +63,7 @@ function set_up {
 
   sed -i.bak '/sandbox_tmpfs_path/d' $TEST_TMPDIR/bazelrc
 
+  add_rules_python "MODULE.bazel"
   mkdir -p examples/hermetic
 
   cat << 'EOF' > examples/hermetic/unknown_file.txt
@@ -95,7 +96,7 @@ import import_module
 EOF
 
   cat << 'EOF' > examples/hermetic/BUILD
-
+load("@rules_python//python:py_test.bzl", "py_test")
 load(
   "test.bzl",
   "overwrite_via_symlink",
@@ -371,6 +372,6 @@ function test_other_artifacts() {
 
 # The test shouldn't fail if the environment doesn't support running it.
 check_sandbox_allowed || exit 0
-[ "$PLATFORM" != "darwin" ] || exit 0
+is_linux || exit 0
 
 run_suite "hermetic_sandbox"

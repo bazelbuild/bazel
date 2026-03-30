@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemOps;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.vfs.util.TestUnixGlobPathDiscriminator;
 import java.util.Collection;
@@ -105,7 +106,7 @@ public class RecursiveGlobTest {
   @Test
   public void testDoubleStarGlobWithNonExistentBase() throws Exception {
     Collection<Path> globResult =
-        new UnixGlob.Builder(fileSystem.getPath("/does/not/exist"), SyscallCache.NO_CACHE)
+        new UnixGlob.Builder(fileSystem.getPath("/does/not/exist"), FilesystemOps.DIRECT)
             .addPattern("**")
             .globInterruptible();
     assertThat(globResult).isEmpty();
@@ -119,7 +120,7 @@ public class RecursiveGlobTest {
   private void assertGlobMatches(String pattern, String... expecteds)
       throws Exception {
     assertThat(
-            new UnixGlob.Builder(tmpPath, SyscallCache.NO_CACHE)
+            new UnixGlob.Builder(tmpPath, FilesystemOps.DIRECT)
                 .addPatterns(pattern)
                 .globInterruptible())
         .containsExactlyElementsIn(resolvePaths(expecteds));
@@ -139,7 +140,7 @@ public class RecursiveGlobTest {
   @Test
   public void testRecursiveGlobsAreOptimized() throws Exception {
     long numGlobTasks =
-        new UnixGlob.Builder(tmpPath, SyscallCache.NO_CACHE)
+        new UnixGlob.Builder(tmpPath, FilesystemOps.DIRECT)
             .addPattern("**")
             .setPathDiscriminator(
                 new TestUnixGlobPathDiscriminator(p -> true, (p, isDir) -> !isDir))
@@ -159,7 +160,7 @@ public class RecursiveGlobTest {
         assertThrows(
             UnixGlob.BadPattern.class,
             () ->
-                new UnixGlob.Builder(tmpPath, SyscallCache.NO_CACHE)
+                new UnixGlob.Builder(tmpPath, FilesystemOps.DIRECT)
                     .addPattern(pattern)
                     .globInterruptible());
     assertThat(e).hasMessageThat().containsMatch("recursive wildcard must be its own segment");

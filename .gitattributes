@@ -9,8 +9,8 @@ site/* linguist-documentation
 #   https://docs.github.com/en/search-github/searching-on-github/finding-files-on-github#customizing-excluded-files
 **/build/** linguist-generated=false
 
-# Files that should not use CRLF line endings, even on Windows.
-tools/genrule/genrule-setup.sh -text
+# Files should not use CRLF line endings, even on Windows.
+* -text
 
 # A custom merge driver for the Bazel lockfile.
 # https://bazel.build/external/lockfile#automatic-resolution

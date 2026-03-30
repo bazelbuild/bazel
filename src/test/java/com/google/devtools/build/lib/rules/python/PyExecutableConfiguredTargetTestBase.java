@@ -15,9 +15,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -78,39 +76,6 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
     return ((FailAction) action).getErrorMessage();
   }
 
-  /** Asserts that a configured target has the given Python version. */
-  protected void assertPythonVersionIs(String targetName, PythonVersion version) throws Exception {
-    assertThat(getPythonVersion(getOkPyTarget(targetName))).isEqualTo(version);
-  }
-
-  /**
-   * Sets the configuration, then asserts that a configured target has the given Python version.
-   *
-   * <p>The configuration is given as a series of "--flag=value" strings.
-   */
-  protected void assertPythonVersionIs_UnderNewConfig(
-      String targetName, PythonVersion version, String... flags) throws Exception {
-    useConfiguration(flags);
-    assertPythonVersionIs(targetName, version);
-  }
-
-  /**
-   * Asserts that a configured target has the given Python version under multiple configurations.
-   *
-   * <p>The configurations are given as a series of arrays of "--flag=value" strings.
-   *
-   * <p>This destructively changes the current configuration.
-   */
-  protected void assertPythonVersionIs_UnderNewConfigs(
-      String targetName, PythonVersion version, String[]... configs) throws Exception {
-    for (String[] config : configs) {
-      useConfiguration(config);
-      assertWithMessage(String.format("Under config '%s'", Joiner.on(" ").join(config)))
-          .that(getPythonVersion(getOkPyTarget(targetName)))
-          .isEqualTo(version);
-    }
-  }
-
   private static String join(String... lines) {
     return String.join("\n", lines);
   }
@@ -126,7 +91,6 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void pyRuntimeInfoIsPresent() throws Exception {
-    useConfiguration("--incompatible_use_python_toolchains=true");
     scratch.file(
         "pkg/BUILD", //
         bzlLoad,
@@ -138,32 +102,6 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
   }
 
   @Test
-  public void versionAttr_UnknownValue() throws Exception {
-    checkError(
-        "pkg",
-        "foo",
-        // error:
-        "invalid value in 'python_version' attribute: "
-            + "has to be one of 'PY2' or 'PY3' instead of 'doesnotexist'",
-        // build file:
-        bzlLoad,
-        ruleDeclWithPyVersionAttr("foo", "doesnotexist"));
-  }
-
-  @Test
-  public void versionAttr_BadValue() throws Exception {
-    checkError(
-        "pkg",
-        "foo",
-        // error:
-        "invalid value in 'python_version' attribute: "
-            + "has to be one of 'PY2' or 'PY3' instead of 'PY2AND3'",
-        // build file:
-        bzlLoad,
-        ruleDeclWithPyVersionAttr("foo", "PY2AND3"));
-  }
-
-  @Test
   public void versionAttr_GoodValue() throws Exception {
     scratch.file(
         "pkg/BUILD", //
@@ -171,16 +109,6 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
         ruleDeclWithPyVersionAttr("foo", "PY3"));
     getOkPyTarget("//pkg:foo");
     assertNoEvents();
-  }
-
-  @Test
-  public void versionAttrWorks_WhenSameAsDefaultValue() throws Exception {
-    scratch.file(
-        "pkg/BUILD", //
-        bzlLoad,
-        ruleDeclWithPyVersionAttr("foo", "PY3"));
-
-    assertPythonVersionIs("//pkg:foo", PythonVersion.PY3);
   }
 
   @Test

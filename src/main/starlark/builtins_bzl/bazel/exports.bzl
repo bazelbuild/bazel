@@ -14,18 +14,47 @@
 
 """Exported builtins symbols that are specific to OSS Bazel."""
 
-load("@_builtins//:common/python/py_internal.bzl", "py_internal")
-load(":common/java/java_package_configuration.bzl", "java_package_configuration")
-load(":common/java/java_runtime.bzl", "java_runtime")
-load(":common/java/java_toolchain.bzl", "java_toolchain")
+load(":common/cc/cc_common_bazel.bzl", "cc_common")
+load(":common/java/java_common.bzl", "java_common_export_for_bazel")
+load(":common/objc/apple_common.bzl", "apple_common_bazel")
+load(":common/python/py_internal.bzl", "py_internal")
+
+_REMOVED_RULES = [
+    "cc_binary",
+    "cc_import",
+    "cc_library",
+    "cc_shared_library",
+    "cc_static_library",
+    "cc_test",
+    "cc_toolchain",
+    "cc_toolchain_alias",
+    "fdo_prefetch_hints",
+    "fdo_profile",
+    "memprof_profile",
+    "propeller_optimize",
+    "objc_import",
+    "objc_library",
+]
+
+def _removed_rule_failure(**_kwargs):
+    fail("""
+         This rule has been removed from Bazel. Please add a `load()` statement for it.
+         This can also be done automatically by running:
+         buildifier --lint=fix <path-to-BUILD-or-bzl-file>
+         """)
 
 exported_toplevels = {
     "py_internal": py_internal,
-    "proto_common_do_not_use": struct(INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION = _builtins.toplevel.proto_common_do_not_use.incompatible_enable_proto_toolchain_resolution()),
+    "java_common": java_common_export_for_bazel,
+    "cc_common": cc_common,
+    "apple_common": apple_common_bazel,
 }
+
 exported_rules = {
-    "java_package_configuration": java_package_configuration,
-    "java_runtime": java_runtime,
-    "java_toolchain": java_toolchain,
+    "cc_toolchain_suite": lambda name, **kwargs: _builtins.toplevel.native.filegroup(name = name),
+} | {
+    rule_name: _removed_rule_failure
+    for rule_name in _REMOVED_RULES
 }
+
 exported_to_java = {}

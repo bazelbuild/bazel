@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.WorkspaceStatus;
@@ -85,10 +85,14 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
-            "A command invoked at the beginning of the build to provide status "
-                + "information about the workspace in the form of key/value pairs.  "
-                + "See the User's Manual for the full specification. Also see "
-                + "tools/buildstamp/get_workspace_status for an example.")
+            """
+            A command invoked at the beginning of the build to provide status
+            information about the workspace in the form of key/value pairs.
+            See the User's Manual for the full specification. Also see
+            [`tools/buildstamp/get_workspace_status`][wksp-stat] for an example.
+
+            [wksp-stat]: https://github.com/bazelbuild/bazel/blob/master/tools/buildstamp/get_workspace_status
+            """)
     public PathFragment workspaceStatusCommand;
   }
 
@@ -192,7 +196,7 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
   @Override
   protected final void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp) {
     // Since executeUnconditionally() is true (and this action is special-cased anyway), there is no
     // point in calculating a fingerprint.

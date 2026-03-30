@@ -307,13 +307,14 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
   public void testCcTestActionListener() throws Exception {
     write("nobuild/main.cc",
         "int  main() { return 0; }");
-    write("nobuild/BUILD",
+    write(
+        "nobuild/BUILD",
+        "load('@rules_cc//cc:cc_test.bzl', 'cc_test')",
         "cc_test(name= 'cctest',",
         "             srcs=['main.cc'])",
         "extra_action(name = 'baz',",
         "             out_templates = ['$(ACTION_ID).tst'],",
-        "             cmd = " +
-        "                 'echo $(EXTRA_ACTION_FILE)>$(output $(ACTION_ID).tst)')",
+        "             cmd = 'echo $(EXTRA_ACTION_FILE)>$(output $(ACTION_ID).tst)')",
         "action_listener(name = 'bar',",
         "                mnemonics = ['CppCompile'],",
         "                extra_actions = [':baz'])");
@@ -490,7 +491,7 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
                 "While parsing option %s='%s': invalid package name ''%s'': "
                     + "package names may contain "
                     + "A-Z, a-z, 0-9, or any of ' !\"#$%%&'()*+,-./;<=>?[]^_`{|}~' "
-                    + "(most 7-bit ascii characters except 0-31, 127, ':', or '\\')",
+                    + "(any ASCII character except 0-31, 127, ':', or '\\')",
                 "--experimental_action_listener",
                 "this is \\not\\ a valid label",
                 "this is \\not\\ a valid label"));
@@ -563,6 +564,7 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
     write(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":defs.bzl", "shared_header")
 
         shared_header(name = "shared1")

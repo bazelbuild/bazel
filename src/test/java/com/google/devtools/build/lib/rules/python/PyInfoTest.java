@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -44,6 +45,7 @@ public class PyInfoTest extends BuildViewTestCase {
     }
     scratch.overwriteFile(
         "defs.bzl",
+        getPyLoad("PyInfo"),
         "def _impl(ctx):",
         "    dummy_file = ctx.file.dummy_file",
         "    info = PyInfo(",
@@ -86,7 +88,7 @@ public class PyInfoTest extends BuildViewTestCase {
         "    transitive_sources = depset(direct=[dummy_file])",
         "    uses_shared_libraries = True",
         "    imports = depset(direct=['abc'])",
-        "    has_py2_only_sources = True",
+        "    has_py2_only_sources = False",
         "    has_py3_only_sources = True");
 
     PyInfo info = getPyInfo();
@@ -95,8 +97,7 @@ public class PyInfoTest extends BuildViewTestCase {
         info.getTransitiveSourcesSet(), Order.STABLE_ORDER, dummyArtifact);
     assertThat(info.getUsesSharedLibraries()).isTrue();
     assertHasOrderAndContainsExactly(info.getImportsSet(), Order.STABLE_ORDER, "abc");
-    assertThat(info.getHasPy2OnlySources()).isTrue();
-    assertThat(info.getHasPy3OnlySources()).isTrue();
+    assertThat(info.getHasPy2OnlySources()).isFalse();
   }
 
   @Test
@@ -110,7 +111,6 @@ public class PyInfoTest extends BuildViewTestCase {
     assertThat(info.getUsesSharedLibraries()).isFalse();
     assertHasOrderAndContainsExactly(info.getImportsSet(), Order.STABLE_ORDER);
     assertThat(info.getHasPy2OnlySources()).isFalse();
-    assertThat(info.getHasPy3OnlySources()).isFalse();
   }
 
   @Test

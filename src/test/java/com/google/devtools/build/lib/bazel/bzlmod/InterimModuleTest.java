@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.InterimModuleBuilder;
-import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -28,24 +27,23 @@ import org.junit.runners.JUnit4;
 public class InterimModuleTest {
 
   @Test
-  public void withDepSpecsTransformed() throws Exception {
+  public void withDepsTransformed() throws Exception {
     assertThat(
             InterimModuleBuilder.create("", "")
                 .addDep("dep_foo", createModuleKey("foo", "1.0"))
                 .addDep("dep_bar", createModuleKey("bar", "2.0"))
+                .addNodepDep(createModuleKey("quux", "3.0"))
                 .build()
-                .withDepSpecsTransformed(
-                    depSpec ->
-                        DepSpec.fromModuleKey(
-                            createModuleKey(
-                                depSpec.name() + "_new",
-                                depSpec.version().getNormalized() + ".1"))))
+                .withDepsTransformed(
+                    key ->
+                        createModuleKey(key.name() + "_new", key.version().getNormalized() + ".1")))
         .isEqualTo(
             InterimModuleBuilder.create("", "")
                 .addDep("dep_foo", createModuleKey("foo_new", "1.0.1"))
                 .addOriginalDep("dep_foo", createModuleKey("foo", "1.0"))
                 .addDep("dep_bar", createModuleKey("bar_new", "2.0.1"))
                 .addOriginalDep("dep_bar", createModuleKey("bar", "2.0"))
+                .addNodepDep(createModuleKey("quux_new", "3.0.1"))
                 .build());
   }
 }

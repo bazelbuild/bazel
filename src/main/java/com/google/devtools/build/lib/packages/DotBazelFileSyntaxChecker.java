@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import net.starlark.java.syntax.Argument;
 import net.starlark.java.syntax.CallExpression;
 import net.starlark.java.syntax.DefStatement;
+import net.starlark.java.syntax.DictExpression;
 import net.starlark.java.syntax.ForStatement;
 import net.starlark.java.syntax.IfStatement;
 import net.starlark.java.syntax.LambdaExpression;
@@ -46,16 +47,26 @@ import net.starlark.java.syntax.SyntaxError;
 public class DotBazelFileSyntaxChecker extends NodeVisitor {
   private final String where;
   private final boolean canLoadBzl;
+  private final boolean allowLiteralStarStarArgs;
   private ImmutableList.Builder<SyntaxError> errors = ImmutableList.builder();
 
   /**
    * @param where describes the type of file being checked.
    * @param canLoadBzl whether the file type being check supports load statements. This is used to
    *     generate more informative error messages.
+   * @param allowLiteralStarStarArgs whether to allow **kwargs in function calls if the dict is a
+   *     literal. This is needed for some functions that take arbitrary keyword arguments whose keys
+   *     may have to contain non-identifier characters.
    */
-  public DotBazelFileSyntaxChecker(String where, boolean canLoadBzl) {
+  public DotBazelFileSyntaxChecker(
+      String where, boolean canLoadBzl, boolean allowLiteralStarStarArgs) {
     this.where = where;
     this.canLoadBzl = canLoadBzl;
+    this.allowLiteralStarStarArgs = allowLiteralStarStarArgs;
+  }
+
+  public DotBazelFileSyntaxChecker(String where, boolean canLoadBzl) {
+    this(where, canLoadBzl, /* allowLiteralStarStarArgs= */ false);
   }
 
   public final void check(StarlarkFile file) throws SyntaxError.Exception {
@@ -74,12 +85,19 @@ public class DotBazelFileSyntaxChecker extends NodeVisitor {
   // Reject f(*args) and f(**kwargs) calls.
   private void rejectStarArgs(CallExpression call) {
     for (Argument arg : call.getArguments()) {
-      if (arg instanceof Argument.StarStar) {
-        error(
-            arg.getStartLocation(),
-            "**kwargs arguments are not allowed in "
-                + where
-                + ". Pass the arguments in explicitly.");
+      if (arg instanceof Argument.StarStar starStar) {
+        if (!allowLiteralStarStarArgs) {
+          error(
+              arg.getStartLocation(),
+              "**kwargs arguments are not allowed in "
+                  + where
+                  + ". Pass the arguments in explicitly.");
+        }
+        if (!(starStar.getValue() instanceof DictExpression)) {
+          error(
+              arg.getStartLocation(),
+              "**kwargs arguments must be a literal dict in " + where + ".");
+        }
       } else if (arg instanceof Argument.Star) {
         error(
             arg.getStartLocation(),

@@ -173,7 +173,8 @@ public class ActionGraphDump {
     if (action instanceof ActionExecutionMetadata actionExecutionMetadata) {
       actionBuilder
           .setActionKey(
-              actionExecutionMetadata.getKey(getActionKeyContext(), /*artifactExpander=*/ null))
+              actionExecutionMetadata.getKey(
+                  getActionKeyContext(), /* inputMetadataProvider= */ null))
           .setDiscoversInputs(actionExecutionMetadata.discoversInputs());
     }
 
@@ -212,8 +213,7 @@ public class ActionGraphDump {
 
 
     if (action instanceof UnresolvedSymlinkAction) {
-      actionBuilder.setUnresolvedSymlinkTarget(
-          ((UnresolvedSymlinkAction) action).getTarget().toString());
+      actionBuilder.setUnresolvedSymlinkTarget(((UnresolvedSymlinkAction) action).getTarget());
     }
 
     // Include the content of param files in output.

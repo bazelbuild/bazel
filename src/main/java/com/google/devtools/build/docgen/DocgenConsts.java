@@ -97,9 +97,20 @@ public class DocgenConsts {
    */
   public static final String STARLARK_GENERIC_RULE_TYPE = "GENERIC";
 
-  /** Types a rule can have (Binary, Library, Test or Other). */
+  /**
+   * Types a rule can have (Binary, Library, Test, Flag or Other).
+   *
+   * <p>{@code FLAG} is a ruleset flag, like a Java or Go flag. While flags aren't rules, the doc
+   * generator reads .bzl rule definitions from stardoc. So we create fake rule definitions for
+   * flags to document them. We should ideally replace this with a proper documentation API for
+   * Starlark flags.
+   */
   public static enum RuleType {
-      BINARY, LIBRARY, TEST, OTHER
+    BINARY,
+    LIBRARY,
+    TEST,
+    FLAG,
+    OTHER
   }
 
   /**

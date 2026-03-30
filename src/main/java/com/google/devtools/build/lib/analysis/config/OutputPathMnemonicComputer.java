@@ -15,18 +15,15 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.COMMAND_LINE_OPTION_PREFIX;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
-import com.google.devtools.build.lib.analysis.test.TestConfiguration;
-import com.google.devtools.build.lib.analysis.test.TestTrimmingLogic;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -116,7 +113,7 @@ public final class OutputPathMnemonicComputer {
       return this;
     }
 
-    /* See docs at {@link Fragment.OutputDirectoriesContext.markAsExplicitInOutputPathFor}*/
+    /** See docs at {@link Fragment.OutputDirectoriesContext.markAsExplicitInOutputPathFor}. */
     @Override
     @CanIgnoreReturnValue
     public Fragment.OutputDirectoriesContext markAsExplicitInOutputPathFor(String optionName) {
@@ -168,14 +165,9 @@ public final class OutputPathMnemonicComputer {
    *
    * <p>platform_suffix is omitted if empty.
    *
-   * <p>The exact ST-hash used depends on if baselineOptions is available:
-   *
-   * <p>If not, assume in legacy mode and use `affected by starlark transition` to see what options
-   * need to be hashed.
-   *
-   * <p>If available, the hash includes all options that are different between buildOptions and
-   * baselineOptions but were also not excluded from the output path by a call to {@link
-   * Fragment.OutputDirectoriesContext.markAsExplicitInOutputPathFor}
+   * <p>The exact ST-hash used depends on baselineOptions. The hash includes all options that are
+   * different between buildOptions and baselineOptions but were also not excluded from the output
+   * path by a call to {@link Fragment.OutputDirectoriesContext.markAsExplicitInOutputPathFor}
    */
   static final String computeMnemonic(
       BuildOptions buildOptions,
@@ -187,7 +179,7 @@ public final class OutputPathMnemonicComputer {
 
     if (buildOptions.hasNoConfig()) {
       // Historically, the noconfig output path mnemonic had the compilation mode.
-      return coreOptions.compilationMode + "-noconfig"; // See NoConfigTransition.
+      return coreOptions.getCompilationMode() + "-noconfig"; // See NoConfigTransition.
     }
 
     PlatformOptions platformOptions = buildOptions.get(PlatformOptions.class);
@@ -196,11 +188,11 @@ public final class OutputPathMnemonicComputer {
 
     handlePlatformCpuDescriptor(ctx, coreOptions, platformOptions);
 
-    ctx.checkedAddToMnemonic(coreOptions.compilationMode.toString(), "Compilation mode");
+    ctx.checkedAddToMnemonic(coreOptions.getCompilationMode().toString(), "Compilation mode");
     ctx.markAsExplicitInOutputPathFor("compilation_mode");
 
-    if (!Strings.isNullOrEmpty(coreOptions.platformSuffix)) {
-      ctx.checkedAddToMnemonic(coreOptions.platformSuffix, "Platform suffix");
+    if (!Strings.isNullOrEmpty(coreOptions.getPlatformSuffix())) {
+      ctx.checkedAddToMnemonic(coreOptions.getPlatformSuffix(), "Platform suffix");
     }
     ctx.markAsExplicitInOutputPathFor("platform_suffix");
 
@@ -227,23 +219,19 @@ public final class OutputPathMnemonicComputer {
               + missingOptions);
     }
 
-    if (baselineOptions == null) {
-      ctx.checkedAddToMnemonic(
-          computeNameFragmentWithAffectedByStarlarkTransition(buildOptions),
-          "Transition directory name fragment");
-    } else {
-      ctx.checkedAddToMnemonic(
-          computeNameFragmentWithDiff(buildOptions, baselineOptions, explicitInOutputPathOptions),
-          "Transition directory name fragment");
-    }
+    ctx.checkedAddToMnemonic(
+        computeNameFragmentWithDiff(
+            buildOptions, Verify.verifyNotNull(baselineOptions), explicitInOutputPathOptions),
+        "Transition directory name fragment");
     return ctx.getMnemonic();
   }
 
   private static void handlePlatformCpuDescriptor(
       MnemonicContext ctx, CoreOptions coreOptions, @Nullable PlatformOptions platformOptions)
       throws InvalidMnemonicException {
-    if (!coreOptions.platformInOutputDir || platformOptions == null) {
-      ctx.checkedAddToMnemonic(coreOptions.cpu, "CPU/Platform descriptor");
+    if (platformOptions == null
+        || !coreOptions.usePlatformInOutputDir(platformOptions.computeTargetPlatform())) {
+      ctx.checkedAddToMnemonic(coreOptions.getCpu(), "CPU/Platform descriptor");
       ctx.markAsExplicitInOutputPathFor("cpu");
       return;
     }
@@ -261,26 +249,21 @@ public final class OutputPathMnemonicComputer {
   }
 
   private static String computePlatformName(Label platform, CoreOptions options) {
-    // As highest priority, use the last entry that matches in name override option.
-    Optional<String> overridePlatformName =
-        Streams.findLast(
-            options.overrideNamePlatformInOutputDirEntries.stream()
-                .filter(e -> e.getKey().equals(platform))
-                .map(Map.Entry::getValue));
+    Optional<String> overridePlatformName = options.getPlatformCpuNameOverride(platform);
     if (overridePlatformName.isPresent()) {
       return overridePlatformName.get();
     }
 
     // Handle legacy heuristic if enabled.
     // Note that it is known this heuristic is not necessarily complete.
-    if (options.usePlatformsInOutputDirLegacyHeuristic) {
+    if (options.getUsePlatformsInOutputDirLegacyHeuristic()) {
       // Only use non-default platforms.
 
       if (!PlatformOptions.platformIsDefault(platform)) {
         return platform.getName();
       }
       // Fall back to using the CPU.
-      return options.cpu;
+      return options.getCpu();
     }
     // As a last resort use hashCode of the unambiguous form of the label.
     return String.format("platform-%X", platform.getUnambiguousCanonicalForm().hashCode());
@@ -298,10 +281,6 @@ public final class OutputPathMnemonicComputer {
     // Quick short-circuit for trivial case.
     if (toOptions.equals(baselineOptions)) {
       return "";
-    }
-
-    if (!toOptions.contains(TestConfiguration.TestOptions.class)) {
-      baselineOptions = TestTrimmingLogic.trim(baselineOptions);
     }
 
     // TODO(blaze-configurability-team): As a mild performance update, getFirst already includes
@@ -322,43 +301,6 @@ public final class OutputPathMnemonicComputer {
     ImmutableSet<String> chosenStarlarkOptions =
         diff.getChangedStarlarkOptions().stream().map(Label::toString).collect(toImmutableSet());
     return hashChosenOptions(toOptions, chosenNativeOptions, chosenStarlarkOptions);
-  }
-
-  /**
-   * Compute the output directory name fragment corresponding to the new BuildOptions based on the
-   * names and values of all options (both native and Starlark) previously transitioned anywhere in
-   * the build by Starlark transitions. Options only set on command line are not affecting the
-   * computation.
-   *
-   * @param toOptions the {@link BuildOptions} to use to calculate which we need to compute {@code
-   *     transitionDirectoryNameFragment}.
-   */
-  private static String computeNameFragmentWithAffectedByStarlarkTransition(
-      BuildOptions toOptions) {
-    CoreOptions buildConfigOptions = toOptions.get(CoreOptions.class);
-    if (buildConfigOptions.affectedByStarlarkTransition.isEmpty()) {
-      return "";
-    }
-
-    ImmutableList.Builder<String> affectedNativeOptions = ImmutableList.builder();
-    ImmutableList.Builder<String> affectedStarlarkOptions = ImmutableList.builder();
-
-    // Note that explicitInOutputPathOptions is not sent to this function.
-    // It is possible for two BuildOptions to differ only in `affected by Starlark transition`
-    //   where the only different is one includes a marked option and the other doesn't.
-    // Thus, must include all options so those cases get a different output path.
-    // This legacy is no longer the default and thus entire code path is slated for removal.
-    for (String optionName : buildConfigOptions.affectedByStarlarkTransition) {
-      if (optionName.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
-        String nativeOptionName = optionName.substring(COMMAND_LINE_OPTION_PREFIX.length());
-        affectedNativeOptions.add(nativeOptionName);
-      } else {
-        affectedStarlarkOptions.add(optionName);
-      }
-    }
-
-    return hashChosenOptions(
-        toOptions, affectedNativeOptions.build(), affectedStarlarkOptions.build());
   }
 
   /**

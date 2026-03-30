@@ -38,16 +38,20 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.AspectCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.RuleClassCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.Distribution;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.DynamicExecutionMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics.GarbageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.NetworkMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.PackageMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.Entry;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TargetMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TimingMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerPoolMetrics;
 import com.google.devtools.build.lib.buildtool.CommandPrecompleteEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.CriticalPathEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -69,6 +73,10 @@ import com.google.devtools.build.lib.skyframe.SkyKeyStats;
 import com.google.devtools.build.lib.skyframe.SkyframeStats;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
+import com.google.devtools.build.lib.util.DecimalBucketer;
 import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus;
@@ -217,7 +225,7 @@ class MetricsCollector {
   public void onSomeExecutionStarted(SomeExecutionStartedEvent event) {
     if (event.countedInExecutionTime()) {
       if (executionStarted.compareAndSet(false, true)) {
-        Duration elapsedWallTime = Profiler.getProfileElapsedTime();
+        Duration elapsedWallTime = Profiler.instance().getProfileElapsedTime();
         if (elapsedWallTime != null) {
           timingMetrics.setActionsExecutionStartInMs(elapsedWallTime.toMillis());
         }
@@ -310,6 +318,13 @@ class MetricsCollector {
     env.getEventBus().post(new BuildMetricsEvent(createBuildMetrics()));
   }
 
+  @Subscribe
+  public void onCriticalPath(CriticalPathEvent event) {
+    com.google.protobuf.Duration protoDuration =
+        Durations.fromNanos(event.getCriticalPath().getAggregatedElapsedTime().toNanos());
+    timingMetrics.setCriticalPathTime(protoDuration);
+  }
+
   @SuppressWarnings("unused")
   @Subscribe
   private void logActionCacheStatistics(PostableActionCacheStats stats) {
@@ -330,6 +345,8 @@ class MetricsCollector {
 
     addSkyframeStats(buildGraphMetrics);
 
+    RemoteAnalysisCacheStatistics remoteAnalysisCacheStatistics = collectRemoteAnalysisCacheStats();
+
     BuildMetrics.Builder buildMetrics =
         BuildMetrics.newBuilder()
             .setActionSummary(finishActionSummary())
@@ -342,7 +359,8 @@ class MetricsCollector {
             .setBuildGraphMetrics(buildGraphMetrics.build())
             .addAllWorkerMetrics(workerMetrics)
             .setWorkerPoolMetrics(createWorkerPoolMetrics(workerProcessMetrics))
-            .setDynamicExecutionMetrics(dynamicExecutionStats.toMetrics());
+            .setDynamicExecutionMetrics(dynamicExecutionStats.toMetrics())
+            .setRemoteAnalysisCacheStatistics(remoteAnalysisCacheStatistics);
 
     NetworkMetrics networkMetrics = NetworkMetricsCollector.instance().collectMetrics();
     if (networkMetrics != null) {
@@ -352,19 +370,102 @@ class MetricsCollector {
     return buildMetrics.build();
   }
 
+  private Distribution computeDistributionProto(ImmutableList<DecimalBucketer.Bucket> buckets) {
+    Distribution.Builder result = Distribution.newBuilder();
+
+    for (var b : buckets) {
+      result.addHistogramBucket(
+          Distribution.HistogramBucket.newBuilder()
+              .setMin(b.minInclusive())
+              .setMax(b.maxExclusive())
+              .setCount(b.count())
+              .build());
+    }
+    return result.build();
+  }
+
+  private RemoteAnalysisCacheStatistics collectRemoteAnalysisCacheStats() {
+    RemoteAnalysisCachingEventListener listener = env.getRemoteAnalysisCachingEventListener();
+    RemoteAnalysisCacheStatistics.Builder result =
+        RemoteAnalysisCacheStatistics.newBuilder()
+            .setCacheHits(listener.getCacheHits().size())
+            .setCacheMisses(listener.getCacheMisses().size());
+
+    for (var entry : listener.getMissesByReason().entrySet()) {
+      result.addCacheMissesByReason(
+          Entry.newBuilder()
+              .setKey(entry.getKey().name())
+              .setValue(entry.getValue().get())
+              .build());
+    }
+
+    for (var entry : listener.getMissesBySkyFunctionName().entrySet()) {
+      result.addCacheMissesBySkyfunction(
+          Entry.newBuilder()
+              .setKey(entry.getKey().getName())
+              .setValue(entry.getValue().get())
+              .build());
+    }
+
+    for (var entry : listener.getHitsBySkyFunctionName().entrySet()) {
+      result.addCacheHitsBySkyfunction(
+          Entry.newBuilder()
+              .setKey(entry.getKey().getName())
+              .setValue(entry.getValue().get())
+              .build());
+    }
+
+    FingerprintValueStore.Stats fvsStats =
+        env.getRemoteAnalysisCachingEventListener().getFingerprintValueStoreStats();
+    result
+        .setValueStoreValueBytesReceived(fvsStats.valueBytesReceived())
+        .setValueStoreValueBytesSent(fvsStats.valueBytesSent())
+        .setValueStoreKeyBytesSent(fvsStats.keyBytesSent())
+        .setValueStoreWriteOps(fvsStats.entriesWritten())
+        .setValueStoreReadOpsSuccessful(fvsStats.entriesFound())
+        .setValueStoreReadOpsNotFound(fvsStats.entriesNotFound())
+        .setValueStoreReadBatches(fvsStats.getBatches())
+        .setValueStoreWriteBatches(fvsStats.setBatches())
+        .setValueStoreReadLatencyMicros(computeDistributionProto(fvsStats.getLatencyMicros()))
+        .setValueStoreReadBatchLatencyMicros(
+            computeDistributionProto(fvsStats.getBatchLatencyMicros()))
+        .setValueStoreWriteLatencyMicros(computeDistributionProto(fvsStats.setLatencyMicros()))
+        .setValueStoreWriteBatchLatencyMicros(
+            computeDistributionProto(fvsStats.setBatchLatencyMicros()));
+
+    RemoteAnalysisCacheClient.Stats raccStats =
+        env.getRemoteAnalysisCachingEventListener().getRemoteAnalysisCacheStats();
+    result
+        .setAnalysisCacheBytesReceived(raccStats.bytesReceived())
+        .setAnalysisCacheKeyBytesSent(raccStats.bytesSent())
+        .setAnalysisCacheOps(raccStats.requestsSent())
+        .setAnalysisCacheBatches(raccStats.batches())
+        .setAnalysisCacheReadLatencyMicros(computeDistributionProto(raccStats.latencyMicros()))
+        .setAnalysisCacheReadBatchLatencyMicros(
+            computeDistributionProto(raccStats.batchLatencyMicros()))
+        .setMetadataLookupResult(raccStats.matchStatus());
+
+    return result.build();
+  }
+
   private ActionData buildActionData(ActionStats actionStats) {
     NanosToMillisSinceEpochConverter nanosToMillisSinceEpochConverter =
         BlazeClock.createNanosToMillisSinceEpochConverter();
+    long numActionsExecuted = actionStats.numActionsExecuted.get();
     ActionData.Builder builder =
         ActionData.newBuilder()
             .setMnemonic(actionStats.mnemonic)
-            .setFirstStartedMs(
-                nanosToMillisSinceEpochConverter.toEpochMillis(
-                    actionStats.firstStarted.longValue()))
-            .setLastEndedMs(
-                nanosToMillisSinceEpochConverter.toEpochMillis(actionStats.lastEnded.longValue()))
-            .setActionsExecuted(actionStats.numActionsExecuted.get())
+            .setActionsExecuted(numActionsExecuted)
             .setActionsCreated(actionStats.numActionsRegistered.get());
+
+    if (numActionsExecuted > 0) {
+      builder
+          .setFirstStartedMs(
+              nanosToMillisSinceEpochConverter.toEpochMillis(actionStats.firstStarted.longValue()))
+          .setLastEndedMs(
+              nanosToMillisSinceEpochConverter.toEpochMillis(actionStats.lastEnded.longValue()));
+    }
+
     long systemTime = actionStats.systemTime.get();
     if (systemTime > 0) {
       builder.setSystemTime(Durations.fromMillis(systemTime));
@@ -490,11 +591,11 @@ class MetricsCollector {
   }
 
   private TimingMetrics finishTimingMetrics() {
-    Duration elapsedWallTime = Profiler.getProfileElapsedTime();
+    Duration elapsedWallTime = Profiler.instance().getProfileElapsedTime();
     if (elapsedWallTime != null) {
       timingMetrics.setWallTimeInMs(elapsedWallTime.toMillis());
     }
-    Duration cpuTime = Profiler.getServerProcessCpuTime();
+    Duration cpuTime = Profiler.instance().getServerProcessCpuTime();
     if (cpuTime != null) {
       timingMetrics.setCpuTimeInMs(cpuTime.toMillis());
     }

@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Map;
+import java.util.SortedMap;
 import javax.annotation.Nullable;
 
 /** {@link RunfilesTree} implementation wrapping a single {@link Runfiles} directory mapping. */
@@ -74,9 +74,8 @@ public final class FakeRunfilesTree implements RunfilesTree {
   }
 
   @Override
-  public Map<PathFragment, Artifact> getMapping() {
-    return runfiles.getRunfilesInputs(
-        /* eventHandler= */ null, /* location= */ null, repoMappingManifest);
+  public SortedMap<PathFragment, Artifact> getMapping() {
+    return runfiles.getRunfilesInputs(repoMappingManifest);
   }
 
   @Override
@@ -118,11 +117,6 @@ public final class FakeRunfilesTree implements RunfilesTree {
   @Override
   public Artifact getRepoMappingManifestForLogging() {
     return repoMappingManifest;
-  }
-
-  @Override
-  public boolean isLegacyExternalRunfiles() {
-    return runfiles.isLegacyExternalRunfiles();
   }
 
   @Override

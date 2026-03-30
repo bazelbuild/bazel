@@ -1,0 +1,9 @@
+warning_days: 21
+domains:
+  - bazel.build
+  - bcr.bazel.build
+  - blog.bazel.build
+  - dashboard.bazel.build
+  - mirror.bazel.build
+  - registry.bazel.build
+  - releases.bazel.build

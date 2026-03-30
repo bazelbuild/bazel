@@ -19,8 +19,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -29,7 +28,6 @@ import com.google.devtools.build.lib.util.OptionsUtils.PathFragmentConverter;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
-import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -37,7 +35,6 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Command-line options for platform-related configuration. */
@@ -46,6 +43,8 @@ public class PlatformOptions extends FragmentOptions {
   private static final ImmutableSet<String> DEFAULT_PLATFORM_NAMES =
       ImmutableSet.of("host", "host_platform", "target_platform", "default_host", "default_target");
 
+  public static final String DEFAULT_HOST_PLATFORM = "@bazel_tools//tools:host_platform";
+
   public static boolean platformIsDefault(Label platform) {
     return DEFAULT_PLATFORM_NAMES.contains(platform.getName());
   }
@@ -53,8 +52,8 @@ public class PlatformOptions extends FragmentOptions {
   @Option(
       name = "host_platform",
       oldName = "experimental_host_platform",
-      converter = EmptyToNullLabelConverter.class,
-      defaultValue = "@bazel_tools//tools:host_platform",
+      converter = HostPlatformConverter.class,
+      defaultValue = DEFAULT_HOST_PLATFORM,
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
         OptionEffectTag.AFFECTS_OUTPUTS,
@@ -71,11 +70,13 @@ public class PlatformOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "The platforms that are available as execution platforms to run actions. "
-              + "Platforms can be specified by exact target, or as a target pattern. "
-              + "These platforms will be considered before those declared in the WORKSPACE file by "
-              + "register_execution_platforms(). This option may only be set once; later "
-              + "instances will override earlier flag settings.")
+          """
+          The platforms that are available as execution platforms to run actions.
+          Platforms can be specified by exact target, or as a target pattern.
+          These platforms will be considered before those declared in the `WORKSPACE` file by
+          `register_execution_platforms()`. This option may only be set once; later
+          instances will override earlier flag settings.
+          """)
   public List<String> extraExecutionPlatforms;
 
   @Option(
@@ -106,10 +107,12 @@ public class PlatformOptions extends FragmentOptions {
         OptionEffectTag.LOADING_AND_ANALYSIS
       },
       help =
-          "The toolchain rules to be considered during toolchain resolution. "
-              + "Toolchains can be specified by exact target, or as a target pattern. "
-              + "These toolchains will be considered before those declared in the WORKSPACE file "
-              + "by register_toolchains().")
+          """
+          The toolchain rules to be considered during toolchain resolution.
+          Toolchains can be specified by exact target, or as a target pattern.
+          These toolchains will be considered before those declared in the `WORKSPACE` file
+          by `register_toolchains()`.
+          """)
   public List<String> extraToolchains;
 
   @Option(
@@ -147,31 +150,16 @@ public class PlatformOptions extends FragmentOptions {
         OptionEffectTag.LOADING_AND_ANALYSIS
       },
       metadataTags = {
-        OptionMetadataTag.IMMUTABLE,
+        OptionMetadataTag.NON_CONFIGURABLE,
       },
       help =
-          "The location of a mapping file that describes which platform to use if none is set or "
-              + "which flags to set when a platform already exists. Must be relative to the main "
-              + "workspace root. Defaults to 'platform_mappings' (a file directly under the "
-              + "workspace root).")
+          """
+          The location of a mapping file that describes which platform to use if none is set or
+          which flags to set when a platform already exists. Must be relative to the main
+          workspace root. Defaults to `platform_mappings` (a file directly under the
+          workspace root).
+          """)
   public PlatformMappingKey platformMappingKey;
-
-  @Option(
-      name = "experimental_add_exec_constraints_to_targets",
-      converter = RegexFilterToLabelListConverter.class,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      allowMultiple = true,
-      help =
-          "List of comma-separated regular expressions, each optionally prefixed by - (negative"
-              + " expression), assigned (=) to a list of comma-separated constraint value targets."
-              + " If a target matches no negative expression and at least one positive expression"
-              + " its toolchain resolution will be performed as if it had declared the constraint"
-              + " values as execution constraints. Example: //demo,-test=@platforms//cpus:x86_64"
-              + " will add 'x86_64' to any target under //demo except for those whose name contains"
-              + " 'test'.")
-  public List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints;
 
   /**
    * Deduplicate the given list, keeping the last copy of any duplicates.
@@ -224,6 +212,21 @@ public class PlatformOptions extends FragmentOptions {
   }
 
   /**
+   * Converter for {@code --host_platform} that returns the default host platform if the flag is set
+   * to empty string.
+   */
+  private static final class HostPlatformConverter extends LabelConverter {
+    @Override
+    @Nullable
+    public Label convert(String input, Object conversionContext) throws OptionsParsingException {
+      if (input.isEmpty()) {
+        return super.convert(DEFAULT_HOST_PLATFORM, conversionContext);
+      }
+      return super.convert(input, conversionContext);
+    }
+  }
+
+  /**
    * Converter for {@code --platform_mappings} that creates a canonical {@link PlatformMappingKey}
    * for the build.
    */
@@ -262,20 +265,4 @@ public class PlatformOptions extends FragmentOptions {
     }
   }
 
-  /** Converter of filter to label list valued flags. */
-  public static final class RegexFilterToLabelListConverter
-      extends Converters.AssignmentToListOfValuesConverter<RegexFilter, Label> {
-
-    public RegexFilterToLabelListConverter() {
-      super(
-          new RegexFilter.RegexFilterConverter(),
-          new CoreOptionConverters.LabelConverter(),
-          AllowEmptyKeys.NO);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a '<RegexFilter>=<label1>[,<label2>,...]' assignment";
-    }
-  }
 }

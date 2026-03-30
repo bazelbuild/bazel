@@ -28,6 +28,7 @@ This tool is private to the sbom() rule.
 import argparse
 import datetime
 import hashlib
+import heapq
 import json
 
 
@@ -63,6 +64,7 @@ def create_sbom(package_info: dict, maven_packages: dict) -> dict:
 
   packages = []
   relationships = []
+  missing = []
 
   relationships.append({
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -101,7 +103,7 @@ def create_sbom(package_info: dict, maven_packages: dict) -> dict:
       pi["downloadLocation"] = have_maven["url"]
     else:
       # TODO(aiuto): Do something better for this case.
-      print("MISSING ", pkg)
+      missing.append(pkg)
 
     packages.append(pi)
     relationships.append({
@@ -109,6 +111,15 @@ def create_sbom(package_info: dict, maven_packages: dict) -> dict:
         "relatedSpdxElement": spdxid,
         "relationshipType": "CONTAINS",
     })
+
+  if missing:
+    print(
+        f"Missing {len(missing)} packages in {package_info['top_level_target']}"
+    )
+    for pkg in heapq.nsmallest(10, missing):
+      print(f"  MISSING {pkg}")
+    if len(missing) > 10:
+      print(f"  ... and {len(missing) - 10} more")
 
   ret["packages"] = packages
   ret["relationships"] = relationships

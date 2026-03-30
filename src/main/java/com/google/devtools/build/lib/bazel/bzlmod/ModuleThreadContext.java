@@ -22,11 +22,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -51,10 +51,11 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   private final InterimModule.Builder module;
   private final ImmutableMap<String, NonRegistryOverride> builtinModules;
   @Nullable private final ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile;
-  private final Map<String, DepSpec> deps = new LinkedHashMap<>();
+  private final Map<String, ModuleKey> deps = new LinkedHashMap<>();
   private final List<ModuleExtensionUsageBuilder> extensionUsageBuilders = new ArrayList<>();
   private final Map<String, ModuleOverride> overrides = new LinkedHashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
+  private final List<Event> warnings = new ArrayList<>();
 
   private final Map<String, RepoOverride> overriddenRepos = new HashMap<>();
   private final Map<String, RepoOverride> overridingRepos = new HashMap<>();
@@ -108,11 +109,12 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   public void addRepoNameUsage(
       String repoName, String how, ImmutableList<StarlarkThread.CallStackEntry> stack)
       throws EvalException {
-    RepoNameUsage collision = repoNameUsages.put(repoName, new RepoNameUsage(how, stack));
+    RepoNameUsage incoming = new RepoNameUsage(how, stack);
+    RepoNameUsage collision = repoNameUsages.put(repoName, incoming);
     if (collision != null) {
       throw Starlark.errorf(
-          "The repo name '%s' is already being used %s at %s",
-          repoName, collision.how(), collision.location());
+          "The repo name '%s' cannot be defined %s at %s as it is already defined %s at %s",
+          repoName, incoming.how(), incoming.location(), collision.how(), collision.location());
     }
   }
 
@@ -138,16 +140,41 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     return module;
   }
 
+  public void addWarning(Event event) {
+    warnings.add(event);
+  }
+
+  public ImmutableList<Event> getWarnings() {
+    return ImmutableList.copyOf(warnings);
+  }
+
   public boolean shouldIgnoreDevDeps() {
     return ignoreDevDeps;
   }
 
-  public void addDep(String repoName, DepSpec depSpec) {
-    deps.put(repoName, depSpec);
+  public void addDep(Optional<String> repoName, ModuleKey depKey) {
+    if (repoName.isPresent()) {
+      deps.put(repoName.get(), depKey);
+    } else {
+      module.addNodepDep(depKey);
+    }
   }
 
-  List<ModuleExtensionUsageBuilder> getExtensionUsageBuilders() {
-    return extensionUsageBuilders;
+  ModuleExtensionUsageBuilder getOrCreateExtensionUsageBuilder(
+      String extensionBzlFile, String extensionName, boolean isolate) {
+    // Isolated extensions have to always get a new builder, non-isolated ones have to reuse an
+    // existing one if it exists so that they all contribute usages to the same row in a table.
+    if (!isolate) {
+      for (var builder : extensionUsageBuilders) {
+        if (builder.isForExtension(extensionBzlFile, extensionName)) {
+          return builder;
+        }
+      }
+    }
+    var newBuilder =
+        new ModuleExtensionUsageBuilder(this, extensionBzlFile, extensionName, isolate);
+    extensionUsageBuilders.add(newBuilder);
+    return newBuilder;
   }
 
   static class ModuleExtensionUsageBuilder {
@@ -184,7 +211,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       proxyBuilders.add(builder);
     }
 
-    boolean isForExtension(String extensionBzlFile, String extensionName) {
+    private boolean isForExtension(String extensionBzlFile, String extensionName) {
       return this.extensionBzlFile.equals(extensionBzlFile)
           && this.extensionName.equals(extensionName)
           && !this.isolate;
@@ -337,7 +364,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
         // The built-in module does not depend on itself.
         continue;
       }
-      deps.put(builtinModule, DepSpec.create(builtinModule, Version.EMPTY, -1));
+      deps.put(builtinModule, new ModuleKey(builtinModule, Version.EMPTY));
       try {
         addRepoNameUsage(builtinModule, "as a built-in dependency", ImmutableList.of());
       } catch (EvalException e) {

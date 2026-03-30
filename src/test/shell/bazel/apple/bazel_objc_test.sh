@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -19,8 +19,8 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-if [ "${PLATFORM}" != "darwin" ]; then
-  echo "This test suite requires running on OS X" >&2
+if ! is_darwin; then
+  echo "This test suite must be run on Darwin." >&2
   exit 0
 fi
 

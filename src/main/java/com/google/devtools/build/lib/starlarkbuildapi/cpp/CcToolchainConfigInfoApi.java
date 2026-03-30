@@ -18,7 +18,6 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkMethod;
 
 /** Additional layer of configurability for c++ rules through features and actions. */
 @StarlarkBuiltin(
@@ -30,12 +29,6 @@ import net.starlark.java.annot.StarlarkMethod;
             + "configure the C++ toolchain, and later on for command line construction. "
             + "Replaces the functionality of CROSSTOOL file.")
 public interface CcToolchainConfigInfoApi extends StructApi {
-  @StarlarkMethod(
-      name = "proto",
-      doc = "Returns CToolchain text proto from the CcToolchainConfigInfo data.",
-      structField = true)
-  String getProto();
-
   /** Provider class for {@link CcToolchainConfigInfoApi} objects. */
   @StarlarkBuiltin(
       name = "Provider",

@@ -16,11 +16,16 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.Settings;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.StarlarkTransitionVisitor;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import java.util.Map;
@@ -46,6 +51,81 @@ public final class StarlarkTransitionCache {
   private Cache<Key, Value> cache = Caffeine.newBuilder().softValues().build();
 
   /**
+   * Cache of the set of Starlark build settings referenced by a {@link ConfigurationTransition}.
+   *
+   * <p>This is a separate cache because even if a transition value is evaluated, its Starlark build
+   * settings are computed multiple times by {@link TransitionApplier}.
+   *
+   * <p>Since `--flag_alias` is non-configurable, we can assume that during a single build, the set
+   * of starlark build settings for a given transition won't change.
+   */
+  private Cache<ConfigurationTransition, ImmutableSet<Label>> starlarkBuildSettingsCache =
+      Caffeine.newBuilder().softValues().build();
+
+  /**
+   * Given a {@link ConfigurationTransition}, decompose (if possible) and find all referenced
+   * Starlark build settings.
+   *
+   * <p>If a transition references a build setting via an alias, this set includes the alias' label
+   * and *does not* include the actual label i.e. this method returns all referenced labels exactly
+   * as they are.
+   *
+   * <p>If a flag alias (defined via --flag_alias) is used in the transition, include the starlark
+   * flag mapped to this alias.
+   */
+  public ImmutableSet<Label> getAllStarlarkBuildSettings(
+      ConfigurationTransition root, ImmutableMap<String, Label> flagsAliases) {
+    var cachedValue = starlarkBuildSettingsCache.getIfPresent(root);
+    if (cachedValue != null) {
+      return cachedValue;
+    }
+
+    ImmutableSet.Builder<Label> keyBuilder = new ImmutableSet.Builder<>();
+    try {
+      root.visit(
+          (StarlarkTransitionVisitor)
+              transition ->
+                  keyBuilder.addAll(
+                      StarlarkTransition.getRelevantStarlarkSettingsFromTransition(
+                          transition, flagsAliases, Settings.INPUTS_AND_OUTPUTS)));
+    } catch (TransitionException e) {
+      // Not actually thrown in the visitor, but declared.
+    }
+
+    ImmutableSet<Label> result = keyBuilder.build();
+    starlarkBuildSettingsCache.put(root, result);
+    return result;
+  }
+
+  /** Adds the default values for a transition's input build settings to its input build options. */
+  private BuildOptions addDefaultStarlarkOptions(
+      BuildOptions fromOptions,
+      ImmutableMap<String, Label> flagsAliases,
+      ConfigurationTransition transition,
+      StarlarkBuildSettingsDetailsValue details) {
+    if (details.buildSettingToDefault().isEmpty()) {
+      // No need to traverse the transition to find its Starlark flag inputs. There are none.
+      return fromOptions;
+    }
+
+    BuildOptions.Builder optionsWithDefaults = null;
+    for (Label maybeAliasSetting : getAllStarlarkBuildSettings(transition, flagsAliases)) {
+      // details will only have the defaults of the actual setting so must unalias
+      Label setting = details.aliasToActual().getOrDefault(maybeAliasSetting, maybeAliasSetting);
+      if (!fromOptions.getStarlarkOptions().containsKey(maybeAliasSetting)) {
+        if (optionsWithDefaults == null) {
+          optionsWithDefaults = fromOptions.toBuilder();
+        }
+        optionsWithDefaults.addStarlarkOption(
+            maybeAliasSetting, details.buildSettingToDefault().get(setting));
+      }
+    }
+    return optionsWithDefaults == null
+        ? fromOptions
+        : optionsWithDefaults.addScopeTypeMap(fromOptions.getScopeTypeMap()).build();
+  }
+
+  /**
    * Applies a Starlark transition, possibly returning a cached result.
    *
    * @param fromOptions source options before the transition
@@ -68,11 +148,15 @@ public final class StarlarkTransitionCache {
       }
       return cachedResult.result;
     }
+
+    ImmutableMap<String, Label> flagsAliases =
+        fromOptions.get(CoreOptions.class).getCommandLineFlagAliasesMap();
+
     // All code below here only executes on a cache miss and thus should rely only on values that
     // are part of the above cache key or constants that exist throughout the lifetime of the
     // Blaze server instance.
     BuildOptions adjustedOptions =
-        StarlarkTransition.addDefaultStarlarkOptions(fromOptions, transition, details);
+        addDefaultStarlarkOptions(fromOptions, flagsAliases, transition, details);
     // TODO(bazel-team): Add safety-check that this never mutates fromOptions.
     StoredEventHandler handlerWithErrorStatus = new StoredEventHandler();
     Map<String, BuildOptions> result =
@@ -90,7 +174,7 @@ public final class StarlarkTransitionCache {
     if (handlerWithErrorStatus.hasErrors()) {
       throw new TransitionException("Errors encountered while applying Starlark transition");
     }
-    result = StarlarkTransition.validate(transition, details, result);
+    result = StarlarkTransition.validate(transition, details, flagsAliases, result);
     // If the transition errored (like bad Starlark code), this method already exited with an
     // exception so the results won't go into the cache. We still want to collect non-error events
     // like print() output.
@@ -102,6 +186,7 @@ public final class StarlarkTransitionCache {
 
   public void clear() {
     cache = Caffeine.newBuilder().softValues().build();
+    starlarkBuildSettingsCache = Caffeine.newBuilder().softValues().build();
   }
 
   private static final class Key {
@@ -145,6 +230,7 @@ public final class StarlarkTransitionCache {
 
   private static final class Value {
     private final Map<String, BuildOptions> result;
+
     /**
      * Stores events for successful transitions. Transitions that fail aren't added to the cache.
      * This is meant for non-error events like Starlark {@code print()} output. See {@link

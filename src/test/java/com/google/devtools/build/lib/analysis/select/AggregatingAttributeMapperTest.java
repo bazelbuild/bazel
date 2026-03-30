@@ -276,6 +276,7 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
             "x",
             "main",
             """
+            load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
             cc_binary(
                 name = "main",
                 srcs = select({

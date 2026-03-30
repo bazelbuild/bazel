@@ -19,6 +19,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -51,8 +52,11 @@ public final class ParsedFlagsValue implements SkyValue {
      * Returns a new {@link Key} for the given command-line flags, such as {@code
      * --compilation_mode=bdg} or {@code --//custom/starlark:flag=23}.
      */
-    public static Key create(ImmutableList<String> rawFlags, PackageContext packageContext) {
-      return create(rawFlags, packageContext, /* includeDefaultValues= */ false);
+    public static Key create(
+        ImmutableList<String> rawFlags,
+        PackageContext packageContext,
+        ImmutableMap<String, Label> flagAliasMappings) {
+      return create(rawFlags, packageContext, /* includeDefaultValues= */ false, flagAliasMappings);
     }
 
     /**
@@ -63,21 +67,27 @@ public final class ParsedFlagsValue implements SkyValue {
     public static Key create(
         ImmutableList<String> rawFlags,
         PackageContext packageContext,
-        boolean includeDefaultValues) {
-      return interner.intern(new Key(rawFlags, packageContext, includeDefaultValues));
+        boolean includeDefaultValues,
+        ImmutableMap<String, Label> flagAliasMappings) {
+      return interner.intern(
+          new Key(rawFlags, packageContext, includeDefaultValues, flagAliasMappings));
     }
 
     private final ImmutableList<String> rawFlags;
     private final PackageContext packageContext;
     private final boolean includeDefaultValues;
 
+    private final ImmutableMap<String, Label> flagAliasMappings;
+
     private Key(
         ImmutableList<String> rawFlags,
         PackageContext packageContext,
-        boolean includeDefaultValues) {
+        boolean includeDefaultValues,
+        ImmutableMap<String, Label> flagAliasMappings) {
       this.rawFlags = checkNotNull(rawFlags);
       this.packageContext = checkNotNull(packageContext);
       this.includeDefaultValues = includeDefaultValues;
+      this.flagAliasMappings = flagAliasMappings;
     }
 
     ImmutableList<String> rawFlags() {
@@ -90,6 +100,10 @@ public final class ParsedFlagsValue implements SkyValue {
 
     boolean includeDefaultValues() {
       return includeDefaultValues;
+    }
+
+    ImmutableMap<String, Label> flagAliasMappings() {
+      return flagAliasMappings;
     }
 
     @Override
@@ -217,7 +231,7 @@ public final class ParsedFlagsValue implements SkyValue {
       updateStarlarkFlag(builder, starlarkOption.getKey(), starlarkOption.getValue());
     }
 
-    return BuildConfigurationKey.create(builder.build());
+    return BuildConfigurationKey.create(builder.addScopeTypeMap(source.getScopeTypeMap()).build());
   }
 
   private static void updateOptionValue(
@@ -236,7 +250,7 @@ public final class ParsedFlagsValue implements SkyValue {
     Label flagName = Label.parseCanonicalUnchecked(rawFlagName);
     // If the known default value is the same as the new value, unset it.
     if (isStarlarkFlagSetToDefault(rawFlagName, rawFlagValue)) {
-      builder.removeStarklarkOption(flagName);
+      builder.removeStarlarkOption(flagName);
     } else {
       builder.addStarlarkOption(flagName, rawFlagValue);
     }

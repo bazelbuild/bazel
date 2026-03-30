@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
@@ -45,7 +44,6 @@ import net.starlark.java.eval.StarlarkValue;
     doc = "Utilities for Java compilation support in Starlark.")
 public interface JavaCommonApi<
         FileT extends FileApi,
-        JavaInfoT extends JavaInfoApi<FileT, ?, ?>,
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         StarlarkActionFactoryT extends StarlarkActionFactoryApi>
@@ -62,8 +60,8 @@ public interface JavaCommonApi<
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
             doc = "The list of providers to merge.")
       })
-  default JavaInfoT mergeJavaProviders(Sequence<?> providers /* <JavaInfoT> expected. */)
-      throws EvalException {
+  default JavaInfoApi<FileT, ?, ?> mergeJavaProviders(
+      Sequence<?> providers /* <JavaInfo> expected. */) throws EvalException {
     throw new UnsupportedOperationException();
   }
 
@@ -77,21 +75,6 @@ public interface JavaCommonApi<
               + "At least one of parameters output_jar or output_source_jar is required.",
       parameters = {
         @Param(name = "actions", named = true, doc = "ctx.actions"),
-        @Param(
-            name = "output_jar",
-            positional = false,
-            named = true,
-            allowedTypes = {
-              @ParamType(type = FileApi.class),
-              @ParamType(type = NoneType.class),
-            },
-            defaultValue = "None",
-            doc =
-                "Deprecated: The output jar of the rule. Used to name the resulting source jar. "
-                    + "The parameter sets output_source_jar parameter to `{output_jar}-src.jar`."
-                    + "Use output_source_jar parameter directly instead.",
-            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_JAVA_COMMON_PARAMETERS,
-            valueWhenDisabled = "None"),
         @Param(
             name = "output_source_jar",
             positional = false,
@@ -121,25 +104,13 @@ public interface JavaCommonApi<
             positional = false,
             named = true,
             doc = "A JavaToolchainInfo to used to find the ijar tool."),
-        @Param(
-            name = "host_javabase",
-            positional = false,
-            named = true,
-            doc =
-                "Deprecated: You can drop this parameter (host_javabase is provided with "
-                    + "java_toolchain)",
-            defaultValue = "None",
-            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_JAVA_COMMON_PARAMETERS,
-            valueWhenDisabled = "None"),
       })
   default FileApi packSources(
       StarlarkActionFactoryT actions,
-      Object outputJar,
       Object outputSourceJar,
       Sequence<?> sourceFiles, // <FileT> expected.
       Sequence<?> sourceJars, // <FileT> expected.
-      Info javaToolchain,
-      Object hostJavabase)
+      Info javaToolchain)
       throws EvalException {
     throw new UnsupportedOperationException();
   }
@@ -353,16 +324,6 @@ public interface JavaCommonApi<
                 "A BootClassPathInfo to be used for this compilation. If present, overrides the"
                     + " bootclasspath associated with the provided java_toolchain."),
         @Param(
-            name = "host_javabase",
-            positional = false,
-            named = true,
-            doc =
-                "Deprecated: You can drop this parameter (host_javabase is provided with "
-                    + "java_toolchain)",
-            defaultValue = "None",
-            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_JAVA_COMMON_PARAMETERS,
-            valueWhenDisabled = "None"),
-        @Param(
             name = "sourcepath",
             positional = false,
             named = true,
@@ -444,7 +405,7 @@ public interface JavaCommonApi<
             doc = "Allow this library to reflectively access the given <module>/<package>."),
       },
       useStarlarkThread = true)
-  default JavaInfoT createJavaCompileAction(
+  default JavaInfoApi<FileT, ?, ?> createJavaCompileAction(
       StarlarkRuleContextT starlarkRuleContext,
       Sequence<?> sourceJars, // <FileT> expected.
       Sequence<?> sourceFiles, // <FileT> expected.
@@ -462,7 +423,6 @@ public interface JavaCommonApi<
       String strictDepsMode,
       Info javaToolchain,
       Object bootClassPath,
-      Object hostJavabase,
       Sequence<?> sourcepathEntries, // <FileT> expected.
       Sequence<?> resources, // <FileT> expected.
       Sequence<?> resourceJars, // <FileT> expected.
@@ -503,6 +463,8 @@ public interface JavaCommonApi<
         @Param(name = "injecting_rule_kind"),
         @Param(name = "enable_direct_classpath"),
         @Param(name = "additional_inputs"),
+        @Param(name = "header_compilation_jar", named = true),
+        @Param(name = "header_compilation_direct_deps", named = true),
       })
   void createHeaderCompilationAction(
       StarlarkRuleContextT ctx,
@@ -521,7 +483,9 @@ public interface JavaCommonApi<
       Label targetLabel,
       Object injectingRuleKind,
       boolean enableDirectClasspath,
-      Sequence<?> additionalInputs)
+      Sequence<?> additionalInputs,
+      FileT headerCompilationJar,
+      Depset headerCompilationDirectDeps)
       throws EvalException,
           TypeException,
           RuleErrorException,
@@ -708,14 +672,6 @@ public interface JavaCommonApi<
       documented = false,
       useStarlarkThread = true)
   boolean isJavaInfoMergeRuntimeModuleFlagsEnabled(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
-      name = "wrap_java_info",
-      parameters = {@Param(name = "java_info")},
-      documented = false,
-      useStarlarkThread = true)
-  JavaInfoT wrapJavaInfo(Info javaInfo, StarlarkThread thread)
-      throws EvalException, RuleErrorException;
 
   @StarlarkMethod(
       name = "incompatible_disable_non_executable_java_binary",

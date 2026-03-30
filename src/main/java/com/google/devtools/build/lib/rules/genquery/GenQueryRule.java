@@ -31,14 +31,12 @@ public final class GenQueryRule implements RuleDefinition {
 
   /** Adds {@link GenQueryRule} and its dependencies to the provided builder. */
   public static void register(ConfiguredRuleClassProvider.Builder builder) {
-    builder.addConfigurationFragment(GenQueryConfiguration.class);
     builder.addRuleDefinition(new GenQueryRule());
   }
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
-        .requiresConfigurationFragments(GenQueryConfiguration.class)
         /* <!-- #BLAZE_RULE(genquery).ATTRIBUTE(scope) -->
         The scope of the query. The query is not allowed to touch targets outside the transitive
         closure of these targets.

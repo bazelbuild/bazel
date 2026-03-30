@@ -20,7 +20,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
@@ -35,11 +34,12 @@ import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
@@ -141,7 +141,7 @@ public final class SpawnActionTest extends BuildViewTestCase {
                 BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
                 BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
             /* isToolConfiguration= */ false,
-            /* executionPlatform= */ null,
+            /* executionPlatform= */ PlatformInfo.EMPTY_PLATFORM_INFO,
             ImmutableList.of(),
             ImmutableMap.<String, String>builder()
                 .put("prop1", "foo")
@@ -254,7 +254,6 @@ public final class SpawnActionTest extends BuildViewTestCase {
 
     ActionExecutionContext actionExecutionContext =
         new ActionExecutionContextBuilder()
-            .setArtifactExpander(treeArtifact -> ImmutableSortedSet.of())
             .setMetadataProvider(new FakeActionInputFileCache())
             .build();
 

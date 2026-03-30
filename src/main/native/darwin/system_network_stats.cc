@@ -26,8 +26,8 @@
 namespace blaze_jni {
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_profiler_SystemNetworkStats_getNetIoCountersNative(
-    JNIEnv *env, jclass clazz, jobject counters_map) {
+Java_com_google_devtools_build_lib_profiler_SystemNetworkStatsServiceImpl_getNetIoCountersNative(
+    JNIEnv* env, jclass clazz, jobject counters_map) {
   int mib[6] = {CTL_NET,         // networking subsystem
                 PF_ROUTE,        // type of information
                 0,               // always 0 for CTL_NET/PF_ROUTE
@@ -35,16 +35,25 @@ Java_com_google_devtools_build_lib_profiler_SystemNetworkStats_getNetIoCountersN
                 NET_RT_IFLIST2,  // operation
                 0};
 
+  std::vector<char> buf;
   size_t buf_len;
-  if (sysctl(mib, 6, nullptr, &buf_len, nullptr, 0) < 0) {
-    PostException(env, errno, "sysctl");
-    return;
-  }
+  for (;;) {
+    if (sysctl(mib, 6, nullptr, &buf_len, nullptr, 0) < 0) {
+      PostException(env, errno, "sysctl");
+      return;
+    }
 
-  std::vector<char> buf(buf_len);
-  if (sysctl(mib, 6, buf.data(), &buf_len, nullptr, 0) < 0) {
-    PostException(env, errno, "sysctl");
-    return;
+    buf.resize(buf_len);
+    if (sysctl(mib, 6, buf.data(), &buf_len, nullptr, 0) == 0) {
+      break;
+    }
+    if (errno != ENOMEM) {
+      PostException(env, errno, "sysctl");
+      return;
+    }
+
+    // The list of network interfaces grew between the first and second
+    // call to sysctl(), causing it to fail with ENOMEM. Perform a retry.
   }
 
   jclass map_class = env->GetObjectClass(counters_map);
@@ -53,11 +62,12 @@ Java_com_google_devtools_build_lib_profiler_SystemNetworkStats_getNetIoCountersN
       "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
 
   jclass counter_class = env->FindClass(
-      "com/google/devtools/build/lib/profiler/SystemNetworkStats$NetIoCounter");
+      "com/google/devtools/build/lib/profiler/"
+      "SystemNetworkStatsService$NetIoCounter");
   jmethodID counter_create =
       env->GetStaticMethodID(counter_class, "create",
                              "(JJJJ)Lcom/google/devtools/build/lib/profiler/"
-                             "SystemNetworkStats$NetIoCounter;");
+                             "SystemNetworkStatsService$NetIoCounter;");
 
   const char *end = buf.data() + buf_len;
   for (const char *next = buf.data(); next < end;) {

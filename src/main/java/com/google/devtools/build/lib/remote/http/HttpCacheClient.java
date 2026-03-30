@@ -30,14 +30,13 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
+import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.LazyFileInputStream;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -641,7 +640,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
           public void close() {
             // Ensure that the InputStream can't be closed somewhere in the Netty
             // pipeline, so that we can support retries. The InputStream is closed in
-            // the finally block below.
+            // the listener block below.
           }
         };
     UploadCommand upload = new UploadCommand(uri, casUpload, key, wrappedIn, length);
@@ -719,24 +718,12 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<Void> uploadFile(
-      RemoteActionExecutionContext context, Digest digest, Path file) {
-    return retrier.executeAsync(
-        () ->
-            uploadAsync(
-                digest.getHash(),
-                digest.getSizeBytes(),
-                new LazyFileInputStream(file),
-                /* casUpload= */ true));
-  }
-
-  @Override
   public ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, ByteString data) {
+      RemoteActionExecutionContext context, Digest digest, Blob blob) {
     return retrier.executeAsync(
         () ->
             uploadAsync(
-                digest.getHash(), digest.getSizeBytes(), data.newInput(), /* casUpload= */ true));
+                digest.getHash(), digest.getSizeBytes(), blob.get(), /* casUpload= */ true));
   }
 
   @Override
@@ -763,7 +750,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
       RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
     ByteString serialized = actionResult.toByteString();
     return uploadAsync(
-        actionKey.getDigest().getHash(),
+        actionKey.digest().getHash(),
         serialized.size(),
         serialized.newInput(),
         /* casUpload= */ false);

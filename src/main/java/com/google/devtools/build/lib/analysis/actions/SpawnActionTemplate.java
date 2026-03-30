@@ -29,18 +29,19 @@ import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptionsFields.OutputPathsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -108,7 +109,9 @@ public final class SpawnActionTemplate extends ActionKeyComputer
 
   @Override
   public ImmutableList<SpawnAction> generateActionsForInputArtifacts(
-      ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner) {
+      ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+      ActionLookupKey artifactOwner,
+      EventHandler eventHandler) {
     ImmutableList.Builder<SpawnAction> expandedActions =
         ImmutableList.builderWithExpectedSize(inputTreeFileArtifacts.size());
     for (TreeFileArtifact inputTreeFileArtifact : inputTreeFileArtifacts) {
@@ -128,7 +131,7 @@ public final class SpawnActionTemplate extends ActionKeyComputer
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     TreeFileArtifact inputTreeFileArtifact =
@@ -140,7 +143,7 @@ public final class SpawnActionTemplate extends ActionKeyComputer
             ActionTemplateExpansionValue.key(
                 outputTreeArtifact.getArtifactOwner(), /*actionIndex=*/ 0));
     SpawnAction dummyAction = createAction(inputTreeFileArtifact, outputTreeFileArtifact);
-    dummyAction.computeKey(actionKeyContext, artifactExpander, fp);
+    dummyAction.computeKey(actionKeyContext, inputMetadataProvider, fp);
   }
 
   /**
@@ -164,20 +167,20 @@ public final class SpawnActionTemplate extends ActionKeyComputer
   }
 
   /**
-   * Returns the input TreeArtifact.
+   * Returns the input TreeArtifact(s).
    *
-   * <p>This method is called by Skyframe to expand the input TreeArtifact into child
+   * <p>This method is called by Skyframe to expand the input TreeArtifact(s) into child
    * TreeFileArtifacts. Skyframe then expands this SpawnActionTemplate with the TreeFileArtifacts
    * through {@link #generateActionsForInputArtifacts}.
    */
   @Override
-  public SpecialArtifact getInputTreeArtifact() {
-    return inputTreeArtifact;
+  public ImmutableList<SpecialArtifact> getInputTreeArtifacts() {
+    return ImmutableList.of(inputTreeArtifact);
   }
 
   @Override
-  public SpecialArtifact getOutputTreeArtifact() {
-    return outputTreeArtifact;
+  public ImmutableSet<Artifact> getOutputs() {
+    return ImmutableSet.of(outputTreeArtifact);
   }
 
   @Override

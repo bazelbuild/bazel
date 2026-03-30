@@ -40,6 +40,12 @@ public interface PackageMetricsRecorder {
   Map<PackageIdentifier, Duration> getLoadTimes();
 
   /**
+   * Returns a {@code Map<PackageIdentifier, Long>} of glob costs. This may contain only a subset of
+   * all packages loaded based on the implementation.
+   */
+  Map<PackageIdentifier, Long> getGlobFilesystemOperationCost();
+
+  /**
    * Returns a {@code Map<PackageIdentifier, Long>} of computation steps. This may contain only a
    * subset of all packages loaded based on the implementation.
    */
@@ -88,6 +94,7 @@ public interface PackageMetricsRecorder {
                     .setLoadDuration(plm.getLoadDuration())
                     .setNumTargets(plm.getNumTargets())
                     .setNumTransitiveLoads(plm.getNumTransitiveLoads())
+                    .setGlobFilesystemOperationCost(plm.getGlobFilesystemOperationCost())
                     .build())
         .collect(toImmutableList());
   }

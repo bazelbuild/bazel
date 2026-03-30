@@ -15,17 +15,19 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import static java.util.Objects.requireNonNull;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Optional;
 import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.StarlarkList;
 
 /**
  * Represents a node in the external dependency graph during module resolution (discovery &
@@ -36,41 +38,14 @@ import javax.annotation.Nullable;
  * after discovery but before selection, or when there's a multiple_version_override in play).
  *
  * <p>Compared to {@link Module}, which is used after module resolution, this class holds some more
- * information that's useful only during resolution, such as the {@code max_compatibility_level} for
- * each dep, the {@code compatibility_level}, the {@code registry} the module comes from, etc.
+ * information that's useful only during resolution, such as the {@code registry} the module comes
+ * from, etc.
  */
 @AutoValue
 public abstract class InterimModule extends ModuleBase {
 
-  /**
-   * The compatibility level of the module, which essentially signifies the "major version" of the
-   * module in terms of SemVer.
-   */
-  public abstract int getCompatibilityLevel();
-
   /** List of bazel compatible versions that would run/fail this module */
   public abstract ImmutableList<String> getBazelCompatibility();
-
-  /** The specification of a dependency. */
-  @AutoCodec
-  public record DepSpec(String name, Version version, int maxCompatibilityLevel) {
-    public DepSpec {
-      requireNonNull(name, "name");
-      requireNonNull(version, "version");
-    }
-
-    public static DepSpec create(String name, Version version, int maxCompatibilityLevel) {
-      return new DepSpec(name, version, maxCompatibilityLevel);
-    }
-
-    public static DepSpec fromModuleKey(ModuleKey key) {
-      return create(key.name(), key.version(), -1);
-    }
-
-    public final ModuleKey toModuleKey() {
-      return new ModuleKey(name(), version());
-    }
-  }
 
   /**
    * The resolved direct dependencies of this module, which can be either the original ones,
@@ -78,13 +53,20 @@ public abstract class InterimModule extends ModuleBase {
    * a {@link NonRegistryOverride} (the version will be ""). The key type is the repo name of the
    * dep.
    */
-  public abstract ImmutableMap<String, DepSpec> getDeps();
+  public abstract ImmutableMap<String, ModuleKey> getDeps();
 
   /**
    * The original direct dependencies of this module as they are declared in their MODULE file. The
    * key type is the repo name of the dep.
    */
-  public abstract ImmutableMap<String, DepSpec> getOriginalDeps();
+  public abstract ImmutableMap<String, ModuleKey> getOriginalDeps();
+
+  /**
+   * The "nodep" dependencies of this module: these don't actually add a dependency on the specified
+   * module, but if specified module is somehow in the dependency graph, it'll be at least at this
+   * version.
+   */
+  public abstract ImmutableList<ModuleKey> getNodepDeps();
 
   /**
    * The registry where this module came from. Must be null iff the module has a {@link
@@ -101,17 +83,17 @@ public abstract class InterimModule extends ModuleBase {
     return new AutoValue_InterimModule.Builder()
         .setName("")
         .setVersion(Version.EMPTY)
-        .setKey(ModuleKey.ROOT)
-        .setCompatibilityLevel(0);
+        .setKey(ModuleKey.ROOT);
   }
 
   /**
-   * Returns a new {@link InterimModule} with all values in {@link #getDeps} transformed using the
-   * given function.
+   * Returns a new {@link InterimModule} with all values in {@link #getDeps} and {@link
+   * #getNodepDeps} transformed using the given function.
    */
-  public InterimModule withDepSpecsTransformed(UnaryOperator<DepSpec> transform) {
+  public InterimModule withDepsTransformed(UnaryOperator<ModuleKey> transform) {
     return toBuilder()
         .setDeps(ImmutableMap.copyOf(Maps.transformValues(getDeps(), transform::apply)))
+        .setNodepDeps(ImmutableList.copyOf(Lists.transform(getNodepDeps(), transform::apply)))
         .build();
   }
 
@@ -127,13 +109,20 @@ public abstract class InterimModule extends ModuleBase {
     /** Optional; defaults to {@link ModuleKey#ROOT}. */
     public abstract Builder setKey(ModuleKey value);
 
-    /** Optional; defaults to {@code 0}. */
-    public abstract Builder setCompatibilityLevel(int value);
 
     /** Optional; defaults to {@link #setName}. */
     public abstract Builder setRepoName(String value);
 
     abstract ImmutableList.Builder<String> bazelCompatibilityBuilder();
+
+    abstract ImmutableMap.Builder<String, String> flagAliasesBuilder();
+
+    @CanIgnoreReturnValue
+    public final Builder addFlagAlias(String nativeName, String starlarkLabel)
+        throws LabelSyntaxException {
+      flagAliasesBuilder().put(nativeName, starlarkLabel);
+      return this;
+    }
 
     @CanIgnoreReturnValue
     public final Builder addBazelCompatibilityValues(Iterable<String> values) {
@@ -157,9 +146,19 @@ public abstract class InterimModule extends ModuleBase {
       return this;
     }
 
-    public abstract Builder setOriginalDeps(ImmutableMap<String, DepSpec> value);
+    public abstract Builder setOriginalDeps(ImmutableMap<String, ModuleKey> value);
 
-    public abstract Builder setDeps(ImmutableMap<String, DepSpec> value);
+    public abstract Builder setDeps(ImmutableMap<String, ModuleKey> value);
+
+    abstract ImmutableList.Builder<ModuleKey> nodepDepsBuilder();
+
+    @CanIgnoreReturnValue
+    public final Builder addNodepDep(ModuleKey value) {
+      nodepDepsBuilder().add(value);
+      return this;
+    }
+
+    public abstract Builder setNodepDeps(ImmutableList<ModuleKey> value);
 
     public abstract Builder setRegistry(Registry value);
 
@@ -176,6 +175,8 @@ public abstract class InterimModule extends ModuleBase {
     abstract ModuleKey getKey();
 
     abstract String getName();
+
+    abstract Version getVersion();
 
     abstract Optional<String> getRepoName();
 
@@ -205,9 +206,10 @@ public abstract class InterimModule extends ModuleBase {
         .setRepoName(interim.getRepoName())
         .setExecutionPlatformsToRegister(interim.getExecutionPlatformsToRegister())
         .setToolchainsToRegister(interim.getToolchainsToRegister())
-        .setDeps(ImmutableMap.copyOf(Maps.transformValues(interim.getDeps(), DepSpec::toModuleKey)))
+        .setDeps(interim.getDeps())
         .setRepoSpec(maybeAppendAdditionalPatches(remoteRepoSpec, override))
         .setExtensionUsages(interim.getExtensionUsages())
+        .setFlagAliases(interim.getFlagAliases())
         .build();
   }
 
@@ -216,40 +218,17 @@ public abstract class InterimModule extends ModuleBase {
     if (!(override instanceof SingleVersionOverride singleVersion)) {
       return repoSpec;
     }
-    if (singleVersion.patches().isEmpty()) {
+    if (singleVersion.patches().isEmpty()
+        && singleVersion.patchCmds().isEmpty()
+        && singleVersion.patchStrip() == 0) {
       return repoSpec;
     }
-    ImmutableMap.Builder<String, Object> attrBuilder = ImmutableMap.builder();
+    Dict.Builder<String, Object> attrBuilder = Dict.builder();
     attrBuilder.putAll(repoSpec.attributes().attributes());
-    attrBuilder.put("patches", singleVersion.patches());
-    attrBuilder.put("patch_cmds", singleVersion.patchCmds());
-    attrBuilder.put("patch_args", ImmutableList.of("-p" + singleVersion.patchStrip()));
-    return RepoSpec.builder()
-        .setBzlFile(repoSpec.bzlFile())
-        .setRuleClassName(repoSpec.ruleClassName())
-        .setAttributes(AttributeValues.create(attrBuilder.buildOrThrow()))
-        .build();
-  }
-
-  static UnaryOperator<DepSpec> applyOverrides(
-      ImmutableMap<String, ModuleOverride> overrides, String rootModuleName) {
-    return depSpec -> {
-      if (rootModuleName.equals(depSpec.name())) {
-        return DepSpec.fromModuleKey(ModuleKey.ROOT);
-      }
-
-      Version newVersion = depSpec.version();
-      @Nullable ModuleOverride override = overrides.get(depSpec.name());
-      if (override instanceof NonRegistryOverride) {
-        newVersion = Version.EMPTY;
-      } else if (override instanceof SingleVersionOverride singleVersionOverride) {
-        Version overrideVersion = singleVersionOverride.version();
-        if (!overrideVersion.isEmpty()) {
-          newVersion = overrideVersion;
-        }
-      }
-
-      return DepSpec.create(depSpec.name(), newVersion, depSpec.maxCompatibilityLevel());
-    };
+    attrBuilder.put("patches", StarlarkList.immutableCopyOf(singleVersion.patches()));
+    attrBuilder.put("patch_cmds", StarlarkList.immutableCopyOf(singleVersion.patchCmds()));
+    attrBuilder.put("patch_args", StarlarkList.immutableOf("-p" + singleVersion.patchStrip()));
+    return new RepoSpec(
+        repoSpec.repoRuleId(), AttributeValues.create(attrBuilder.buildImmutable()));
   }
 }

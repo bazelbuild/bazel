@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
@@ -26,13 +26,17 @@ function usage() {
   echo "$USAGE" "$DESCRIPTION" >&2
 }
 
+# Find the bazel checkout this script is from, even if it is symlinked.
+CURRENT_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
+# The bazel dir is two levels above this script, dev/bazel-dev.sh
+PARENT_DIR="$(dirname "$(dirname "${CURRENT_SCRIPT}")")"
+
 # Configuration params. Export these in your bashrc to set personal defaults.
 
 # The source of Bazel code.
 BAZEL_REPO=${BAZEL_REPO:-https://github.com/bazelbuild/bazel}
 # Where to keep the Bazel repository. If you make changes here, be warned that
 # this script may overwrite or lose them.
-PARENT_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")"
 BAZEL_DIR=${BAZEL_DIR:-${PARENT_DIR}}
 # Bazel to use to build local bazel binaries.
 BAZEL_BINARY=${BAZEL_BINARY:-$(which bazel)}

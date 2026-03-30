@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
@@ -84,6 +83,7 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
                 "jdeps": "lib%s.jdeps",
                 "manifest": "lib%s.jar_manifest_proto",
                 "headers": "lib%s-native-header.jar",
+                "tjar": "lib%s-tjar.jar",
             }
             for file, name in OUTS.items():
                 OUTS[file] = ctx.actions.declare_file(name % ctx.label.name)
@@ -102,6 +102,7 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
                 runtime_deps = [d[JavaInfo] for d in ctx.attr.runtime_deps],
                 exports = [d[JavaInfo] for d in ctx.attr.exports],
                 jdeps = OUTS["jdeps"],
+                header_compilation_jar = OUTS["tjar"],
             )
             return [java_info]
 
@@ -141,9 +142,7 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
     StarlarkInfo dictInfo = getStarlarkProvider(dictTarget, "Info");
     @SuppressWarnings("unchecked") // deserialization
     Dict<Object, Object> javaInfo = (Dict<Object, Object>) dictInfo.getValue("result");
-    return deepStripAttributes(
-        javaInfo,
-        attr -> attr.startsWith("_") || ImmutableSet.of("to_proto", "to_json").contains(attr));
+    return deepStripAttributes(javaInfo, attr -> attr.startsWith("_"));
   }
 
   @SuppressWarnings("unchecked")

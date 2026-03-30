@@ -28,10 +28,10 @@ import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutorFactory;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SingleFileSystemSyscallCache;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -59,15 +59,15 @@ public final class WorkspaceBuilder {
       ImmutableMap.builder();
   private AllocationTracker allocationTracker;
 
-  @Nullable
-  private SkyframeExecutorRepositoryHelpersHolder skyframeExecutorRepositoryHelpersHolder = null;
-
   @Nullable private SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver = null;
   private SyscallCache syscallCache;
 
   private boolean allowExternalRepositories = true;
+  private Supplier<Path> repoContentsCachePathSupplier = () -> null;
   @Nullable private Supplier<ObjectCodecRegistry> analysisCodecRegistrySupplier = null;
-  @Nullable private FingerprintValueService.Factory fingerprintValueServiceFactory = null;
+
+  @Nullable
+  private RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier = null;
 
   WorkspaceBuilder(BlazeDirectories directories, BinTools binTools) {
     this.directories = directories;
@@ -124,7 +124,8 @@ public final class WorkspaceBuilder {
             diffAwarenessFactories.build(),
             skyFunctions.buildOrThrow(),
             singleFsSyscallCache,
-            skyframeExecutorRepositoryHelpersHolder,
+            allowExternalRepositories,
+            repoContentsCachePathSupplier,
             skyKeyStateReceiver == null
                 ? SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE
                 : skyKeyStateReceiver,
@@ -139,7 +140,7 @@ public final class WorkspaceBuilder {
         allocationTracker,
         singleFsSyscallCache,
         analysisCodecRegistrySupplier,
-        fingerprintValueServiceFactory,
+        remoteAnalysisCachingServicesSupplier,
         allowExternalRepositories);
   }
 
@@ -150,9 +151,11 @@ public final class WorkspaceBuilder {
   @CanIgnoreReturnValue
   public WorkspaceBuilder setSkyframeExecutorFactory(
       SkyframeExecutorFactory skyframeExecutorFactory) {
-    Preconditions.checkState(this.skyframeExecutorFactory == null,
+    Preconditions.checkState(
+        this.skyframeExecutorFactory == null,
         "At most one Skyframe factory supported. But found two: %s and %s",
-        this.skyframeExecutorFactory, skyframeExecutorFactory);
+        this.skyframeExecutorFactory,
+        skyframeExecutorFactory);
     this.skyframeExecutorFactory = Preconditions.checkNotNull(skyframeExecutorFactory);
     return this;
   }
@@ -164,9 +167,11 @@ public final class WorkspaceBuilder {
   @CanIgnoreReturnValue
   public WorkspaceBuilder setWorkspaceStatusActionFactory(
       WorkspaceStatusAction.Factory workspaceStatusActionFactory) {
-    Preconditions.checkState(this.workspaceStatusActionFactory == null,
+    Preconditions.checkState(
+        this.workspaceStatusActionFactory == null,
         "At most one workspace status action factory supported. But found two: %s and %s",
-        this.workspaceStatusActionFactory, workspaceStatusActionFactory);
+        this.workspaceStatusActionFactory,
+        workspaceStatusActionFactory);
     this.workspaceStatusActionFactory = Preconditions.checkNotNull(workspaceStatusActionFactory);
     return this;
   }
@@ -216,15 +221,15 @@ public final class WorkspaceBuilder {
   }
 
   @CanIgnoreReturnValue
-  public WorkspaceBuilder setSkyframeExecutorRepositoryHelpersHolder(
-      SkyframeExecutorRepositoryHelpersHolder skyframeExecutorRepositoryHelpersHolder) {
-    this.skyframeExecutorRepositoryHelpersHolder = skyframeExecutorRepositoryHelpersHolder;
+  public WorkspaceBuilder allowExternalRepositories(boolean allowExternalRepositories) {
+    this.allowExternalRepositories = allowExternalRepositories;
     return this;
   }
 
   @CanIgnoreReturnValue
-  public WorkspaceBuilder setAllowExternalRepositories(boolean allowExternalRepositories) {
-    this.allowExternalRepositories = allowExternalRepositories;
+  public WorkspaceBuilder setRepoContentsCachePathSupplier(
+      Supplier<Path> repoContentsCachePathSupplier) {
+    this.repoContentsCachePathSupplier = repoContentsCachePathSupplier;
     return this;
   }
 
@@ -248,9 +253,9 @@ public final class WorkspaceBuilder {
   }
 
   @CanIgnoreReturnValue
-  public WorkspaceBuilder setFingerprintValueServiceFactory(
-      FingerprintValueService.Factory factory) {
-    this.fingerprintValueServiceFactory = factory;
+  public WorkspaceBuilder setRemoteAnalysisCachingServicesSupplier(
+      RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier) {
+    this.remoteAnalysisCachingServicesSupplier = remoteAnalysisCachingServicesSupplier;
     return this;
   }
 }

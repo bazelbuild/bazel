@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcConfigurationApi;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkThread;
 
@@ -42,27 +41,19 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi 
       ImmutableList.of("-O0", "-DDEBUG=1", "-fstack-protector", "-fstack-protector-all", "-g");
 
   @VisibleForTesting
-  static final ImmutableList<String> GLIBCXX_DBG_COPTS =
-      ImmutableList.of(
-          "-D_GLIBCXX_DEBUG", "-D_GLIBCXX_DEBUG_PEDANTIC", "-D_GLIBCPP_CONCEPT_CHECKS");
-
-  @VisibleForTesting
   static final ImmutableList<String> OPT_COPTS =
       ImmutableList.of(
           "-Os", "-DNDEBUG=1", "-Wno-unused-variable", "-Winit-self", "-Wno-extra");
 
   private final DottedVersion iosSimulatorVersion;
   private final String iosSimulatorDevice;
-  private final boolean runMemleaks;
   private final CompilationMode compilationMode;
-  private final ImmutableList<String> fastbuildOptions;
-  @Nullable private final String signingCertName;
-  private final boolean debugWithGlibcxx;
   private final boolean deviceDebugEntitlements;
-  private final boolean avoidHardcodedCompilationFlags;
   private final boolean disallowSdkFrameworksAttributes;
   private final boolean alwayslinkByDefault;
   private final boolean stripExecutableSafely;
+  private final boolean builtinObjcStripAction;
+  private final boolean disableObjcFragment;
 
   public ObjcConfiguration(BuildOptions buildOptions) {
     CoreOptions options = buildOptions.get(CoreOptions.class);
@@ -70,17 +61,19 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi 
 
     this.iosSimulatorDevice = objcOptions.iosSimulatorDevice;
     this.iosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.iosSimulatorVersion);
-    this.runMemleaks = objcOptions.runMemleaks;
-    this.compilationMode = Preconditions.checkNotNull(options.compilationMode, "compilationMode");
-    this.fastbuildOptions = ImmutableList.copyOf(objcOptions.fastbuildOptions);
-    this.signingCertName = objcOptions.iosSigningCertName;
-    this.debugWithGlibcxx = objcOptions.debugWithGlibcxx;
+    this.compilationMode =
+        Preconditions.checkNotNull(options.getCompilationMode(), "compilationMode");
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
-    this.avoidHardcodedCompilationFlags =
-        objcOptions.incompatibleAvoidHardcodedObjcCompilationFlags;
     this.disallowSdkFrameworksAttributes = objcOptions.incompatibleDisallowSdkFrameworksAttributes;
     this.alwayslinkByDefault = objcOptions.incompatibleObjcAlwayslinkByDefault;
     this.stripExecutableSafely = objcOptions.incompatibleStripExecutableSafely;
+    this.builtinObjcStripAction = objcOptions.incompatibleBuiltinObjcStripAction;
+    this.disableObjcFragment = objcOptions.disableObjcFragment;
+  }
+
+  @Override
+  public boolean shouldInclude() {
+    return !disableObjcFragment;
   }
 
   /**
@@ -98,11 +91,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi 
     return iosSimulatorVersion;
   }
 
-  @Override
-  public boolean runMemleaks() {
-    return runMemleaks;
-  }
-
   /**
    * Returns the current compilation mode.
    */
@@ -110,37 +98,17 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi 
     return compilationMode;
   }
 
-  /**
-   * Returns the default set of clang options for the current compilation mode.
-   */
   @Override
   public ImmutableList<String> getCoptsForCompilationMode() {
     switch (compilationMode) {
-      case DBG:
-        ImmutableList.Builder<String> opts = ImmutableList.builder();
-        if (!this.avoidHardcodedCompilationFlags) {
-          opts.addAll(DBG_COPTS);
-        }
-        if (this.debugWithGlibcxx) {
-          opts.addAll(GLIBCXX_DBG_COPTS);
-        }
-        return opts.build();
-      case FASTBUILD:
-        return fastbuildOptions;
-      case OPT:
-        return this.avoidHardcodedCompilationFlags ? ImmutableList.of() : OPT_COPTS;
-      default:
-        throw new AssertionError();
+      case DBG, OPT -> {
+        return ImmutableList.of();
+      }
+      case FASTBUILD -> {
+        return ImmutableList.of("-O0", "-DDEBUG=1");
+      }
+      default -> throw new AssertionError();
     }
-  }
-
-  /**
-   * Returns the flag-supplied certificate name to be used in signing or {@code null} if no such
-   * certificate was specified.
-   */
-  @Override
-  public String getSigningCertName() {
-    return this.signingCertName;
   }
 
   /**
@@ -190,5 +158,11 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi 
   @Override
   public boolean stripExecutableSafely() {
     return stripExecutableSafely;
+  }
+
+  /** Returns whether to emit a strip action as part of objc linking. */
+  @Override
+  public boolean builtinObjcStripAction() {
+    return builtinObjcStripAction;
   }
 }

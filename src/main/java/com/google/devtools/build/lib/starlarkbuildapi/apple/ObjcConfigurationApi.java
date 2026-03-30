@@ -49,28 +49,12 @@ public interface ObjcConfigurationApi extends StarlarkValue {
   DottedVersionApi<?> getIosSimulatorVersion();
 
   @StarlarkMethod(
-      name = "run_memleaks",
-      structField = true,
-      doc = "Returns a boolean indicating whether memleaks should be run during tests or not.")
-  boolean runMemleaks();
-
-  @StarlarkMethod(
       name = "copts_for_current_compilation_mode",
       structField = true,
       doc =
           "Returns a list of default options to use for compiling Objective-C in the current "
               + "mode.")
   ImmutableList<String> getCoptsForCompilationMode();
-
-  @StarlarkMethod(
-      name = "signing_certificate_name",
-      structField = true,
-      allowReturnNones = true,
-      doc =
-          "Returns the flag-supplied certificate name to be used in signing, or None if no such "
-              + "certificate was specified.")
-  @Nullable
-  String getSigningCertName();
 
   @StarlarkMethod(
       name = "uses_device_debug_entitlements",
@@ -107,4 +91,10 @@ public interface ObjcConfigurationApi extends StarlarkValue {
           "Returns whether executable strip action should use flag -x, which does not break "
               + "dynamic symbol resolution.")
   boolean stripExecutableSafely();
+
+  @StarlarkMethod(
+      name = "builtin_objc_strip_action",
+      structField = true,
+      doc = "Returns whether to emit a strip action as part of objc linking.")
+  boolean builtinObjcStripAction();
 }

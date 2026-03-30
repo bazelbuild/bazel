@@ -21,25 +21,24 @@
 #include "src/main/native/jni.h"
 
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_SystemLoadAdvisoryModule
- * Method:    registerJNI
- * Signature: ()V
+ * Class: com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl
+ * Method:    registerLoadAdvisoryNative
+ * Signature: (Ljava/util/function/IntConsumer;)V
  */
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_platform_SystemLoadAdvisoryModule_registerJNI(
-    JNIEnv *env, jobject local_object) {
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerLoadAdvisoryNative(
+    JNIEnv* env, jobject local_object, jobject callback) {
   // Currently not implemented.
 }
 
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_SystemLoadAdvisoryModule
- * Method:    systemLoadAdvisory
+ * Class: com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl
+ * Method:    systemLoadAdvisoryNative
  * Signature: ()I
  */
 extern "C" JNIEXPORT int JNICALL
-Java_com_google_devtools_build_lib_platform_SystemLoadAdvisoryModule_systemLoadAdvisory(
-    JNIEnv *env, jobject local_object) {
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_systemLoadAdvisoryNative(
+    JNIEnv* env, jobject local_object) {
   // Currently not implemented.
   return 0;
 }
-

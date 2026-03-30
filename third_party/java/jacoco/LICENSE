@@ -1,4 +1,4 @@
-Copyright © 2009, 2023 Mountainminds GmbH & Co. KG and Contributors
+Copyright © 2009, 2025 Mountainminds GmbH & Co. KG and Contributors
 
 The JaCoCo Java Code Coverage Library and all included documentation is made available by Mountainminds GmbH & Co. KG, Munich. Except indicated below, the Content is provided to you under the terms and conditions of the Eclipse Public License Version 2.0 ("EPL"). A copy of the EPL is provided with this Content and is also available at https://www.eclipse.org/legal/epl-2.0/.
 
@@ -31,7 +31,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ASM
-ASM 9.6 is subject to the terms and conditions of the following license:
+ASM 9.9 is subject to the terms and conditions of the following license:
 
 ASM: a very small and fast Java bytecode manipulation framework
 Copyright (c) 2000-2011 INRIA, France Telecom

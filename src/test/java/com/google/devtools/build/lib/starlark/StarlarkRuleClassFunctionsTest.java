@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.starlark;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.analysis.testing.ExecGroupSubject.assertThat;
+import static com.google.devtools.build.lib.analysis.testing.DeclaredExecGroupSubject.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.RuleClassSubject.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.StarlarkDefinedAspectSubject.assertThat;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.testing.EqualsTester;
+import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -41,9 +42,11 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.MacroFunction;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.analysis.test.CoverageConfiguration;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
+import com.google.devtools.build.lib.cmdline.BazelModuleKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -56,9 +59,10 @@ import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.AspectPropagationEdgesSupplier.FixedListSupplier;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.MacroClass;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -78,7 +82,6 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
@@ -86,10 +89,12 @@ import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -130,7 +135,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Override
-  protected void setBuildLanguageOptions(String... options) throws Exception {
+  protected void setBuildLanguageOptions(String... options)
+      throws OptionsParsingException, InterruptedException, AbruptExitException {
     super.setBuildLanguageOptions(options); // for BuildViewTestCase
     ev.setSemantics(options); // for StarlarkThread
   }
@@ -226,7 +232,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "  return",
         "r = rule(impl, attrs = {'a': attr.string(), 'b': attr.label()})");
     Stream<Attribute> builtInAttributes =
-        getRuleClass("r").getAttributes().stream()
+        getRuleClass("r").getAttributeProvider().getAttributes().stream()
             .filter(attr -> !(attr.getName().equals("a") || attr.getName().equals("b")));
     assertThat(builtInAttributes.map(Attribute::starlarkDefined)).doesNotContain(true);
   }
@@ -240,8 +246,11 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "  pass",
         "exec_rule = rule(implementation = _impl, executable = True)",
         "non_exec_rule = rule(implementation = _impl)");
-    assertThat(getRuleClass("exec_rule").hasAttr("args", Types.STRING_LIST)).isTrue();
-    assertThat(getRuleClass("non_exec_rule").hasAttr("args", Types.STRING_LIST)).isFalse();
+    assertThat(getRuleClass("exec_rule").getAttributeProvider().hasAttr("args", Types.STRING_LIST))
+        .isTrue();
+    assertThat(
+            getRuleClass("non_exec_rule").getAttributeProvider().hasAttr("args", Types.STRING_LIST))
+        .isFalse();
   }
 
   /**
@@ -357,7 +366,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     Package pkg = getPackage("pkg");
     assertThat(pkg).isNull();
-    assertContainsEvent("Cannot instantiate a macro when loading a .bzl file");
+    assertContainsEvent(
+        "a symbolic macro can only be instantiated while evaluating a BUILD file or a legacy or"
+            + " symbolic macro");
   }
 
   @Test
@@ -412,7 +423,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "pkg/foo.bzl",
         """
         def _impl(name, visibility, target_suffix):
-            native.cc_library(name = name + "_" + target_suffix)
+            native.filegroup(name = name + "_" + target_suffix)
         my_macro = macro(
             implementation=_impl,
             attrs = {
@@ -568,13 +579,13 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     // the analysis mock to register the fragment. But since our expected failure occurs during
     // .bzl loading, our test machinery doesn't process the error correctly, and instead
     // getPackage() returns null and no events are emitted.)
-    ev.setFragmentNameToClass(ImmutableMap.of("cpp", CppConfiguration.class));
+    ev.setFragmentNameToClass(ImmutableMap.of("coverage", CoverageConfiguration.class));
 
     ev.checkEvalErrorContains(
         "In macro attribute 'xyz': Macros do not support computed defaults or late-bound defaults",
         """
         def _impl(name, visibility, xyz): pass
-        _latebound_default = configuration_field(fragment = "cpp", name = "cc_toolchain")
+        _latebound_default = configuration_field(fragment = "coverage", name = "output_generator")
         my_macro = macro(
             implementation=_impl,
             attrs = {
@@ -630,15 +641,11 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(unexported.getExtensionLabel()).isNull();
 
     assertThat(exported.getMacroClass().getName()).isEqualTo("exported");
-    assertThat(exported.getMacroClass().getAttributes())
+    assertThat(exported.getMacroClass().getAttributeProvider().getAttributes())
         .containsExactly(
-            "name",
             RuleClass.NAME_ATTRIBUTE,
-            "visibility",
             MacroClass.VISIBILITY_ATTRIBUTE,
-            "abc",
             Attribute.attr("abc", Type.INTEGER).starlarkDefined().build(),
-            "xyz",
             Attribute.attr("xyz", Type.STRING).starlarkDefined().build());
     assertThat(unexported.getMacroClass()).isNull();
   }
@@ -885,10 +892,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             + " definitions");
   }
 
-  private static StarlarkProviderIdentifier legacy(String legacyId) {
-    return StarlarkProviderIdentifier.forLegacy(legacyId);
-  }
-
   private static StarlarkProviderIdentifier declared(String exportedName) {
     return StarlarkProviderIdentifier.forKey(
         new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), exportedName));
@@ -899,11 +902,13 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     Attribute attr =
         buildAttribute(
             "a1", //
+            "a = provider()",
             "b = provider()",
-            "attr.label_list(allow_files = True, providers = ['a', b])");
+            "attr.label_list(allow_files = True, providers = [a, b])");
     assertThat(attr.starlarkDefined()).isTrue();
-    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("a"), declared("b")))).isTrue();
-    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("a")))).isFalse();
+    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(declared("a"), declared("b"))))
+        .isTrue();
+    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(declared("a")))).isFalse();
   }
 
   @Test
@@ -911,8 +916,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     Attribute attr =
         buildAttribute(
             "a1",
+            "a = provider()",
             "b = provider()",
-            "attr.label_list(allow_files = True, providers = [['a', b],[]])");
+            "attr.label_list(allow_files = True, providers = [[a, b],[]])");
     assertThat(attr.starlarkDefined()).isTrue();
     assertThat(attr.getRequiredProviders().acceptsAny()).isTrue();
   }
@@ -922,12 +928,15 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     Attribute attr =
         buildAttribute(
             "a1",
+            "a = provider()",
             "b = provider()",
-            "attr.label_list(allow_files = True, providers = [['a', b], ['c']])");
+            "c = provider()",
+            "attr.label_list(allow_files = True, providers = [[a, b], [c]])");
     assertThat(attr.starlarkDefined()).isTrue();
-    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("a"), declared("b")))).isTrue();
-    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("c")))).isTrue();
-    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("a")))).isFalse();
+    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(declared("a"), declared("b"))))
+        .isTrue();
+    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(declared("c")))).isTrue();
+    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(declared("a")))).isFalse();
   }
 
   private static AdvertisedProviderSet set(StarlarkProviderIdentifier... ids) {
@@ -947,24 +956,22 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void testAttrWithWrongProvidersList() throws Exception {
     checkAttributeError(
-        "element in 'providers' is of unexpected type. Either all elements should be providers,"
-            + " or all elements should be lists of providers,"
-            + " but got list with an element of type int.",
-        "attr.label_list(allow_files = True,  providers = [['a', 1], ['c']])");
+        "Error in label_list: at index 1 of providers, got element of type int, want Provider",
+        "a = provider()",
+        "c = provider()",
+        "attr.label_list(allow_files = True,  providers = [[a, 1], [c]])");
 
     checkAttributeError(
-        "element in 'providers' is of unexpected type. Either all elements should be providers,"
-            + " or all elements should be lists of providers,"
-            + " but got an element of type string.",
+        "Error in label_list: at index 1 of providers, got element of type string, want sequence",
         "b = provider()",
         "attr.label_list(allow_files = True,  providers = [['a', b], 'c'])");
 
     checkAttributeError(
-        "element in 'providers' is of unexpected type. Either all elements should be providers,"
-            + " or all elements should be lists of providers,"
-            + " but got an element of type string.",
+        "Error in label_list: at index 1 of providers, got element of type Provider, want sequence",
+        "a = provider()",
+        "b = provider()",
         "c = provider()",
-        "attr.label_list(allow_files = True,  providers = [['a', b], c])");
+        "attr.label_list(allow_files = True,  providers = [[a, b], c])");
   }
 
   @Test
@@ -1308,6 +1315,21 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         buildAttribute("a3", "attr.label_keyed_string_dict(default = {'//foo:bar': 'my value'})");
     assertThat(dictAttr.getDefaultValueUnchecked())
         .isEqualTo(ImmutableMap.of(Label.parseCanonicalUnchecked("//foo:bar"), "my value"));
+
+    Attribute labelListDictAttr =
+        buildAttribute(
+            "a4",
+            "attr.label_list_dict(default = {'my': ['//foo:bar', '//bar:foo'], 'value':"
+                + " ['//bar:foo']})");
+    assertThat(labelListDictAttr.getDefaultValueUnchecked())
+        .isEqualTo(
+            ImmutableMap.of(
+                "my",
+                ImmutableList.of(
+                    Label.parseCanonicalUnchecked("//foo:bar"),
+                    Label.parseCanonicalUnchecked("//bar:foo")),
+                "value",
+                ImmutableList.of(Label.parseCanonicalUnchecked("//bar:foo"))));
   }
 
   @Test
@@ -1326,6 +1348,11 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "invalid label '/bar:foo' in dict key element: invalid package name '/bar': "
             + "package names may not start with '/'",
         "attr.label_keyed_string_dict(default = {'//foo:bar': 'a', '/bar:foo': 'b'})");
+
+    ev.checkEvalErrorContains(
+        "invalid label '/bar:foo' in element 1 of dict value element: invalid package name"
+            + " '/bar': package names may not start with '/'",
+        "attr.label_list_dict(default = {'my': ['//foo:bar', '/bar:foo']})");
   }
 
   @Test
@@ -1490,6 +1517,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             "label",
             "label_keyed_string_dict",
             "label_list",
+            "label_list_dict",
             "output",
             "output_list",
             "string",
@@ -1642,7 +1670,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testRuleAddAttribute() throws Exception {
     evalAndExport(ev, "def impl(ctx): return None", "r1 = rule(impl, attrs={'a1': attr.string()})");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
-    assertThat(c.hasAttr("a1", Type.STRING)).isTrue();
+    assertThat(c.getAttributeProvider().hasAttr("a1", Type.STRING)).isTrue();
   }
 
   private static void evalAndExport(BazelEvaluationTestCase ev, String... lines) throws Exception {
@@ -1695,8 +1723,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "            'a2': attr.int()",
         "})");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
-    assertThat(c.hasAttr("a1", BuildType.LABEL_LIST)).isTrue();
-    assertThat(c.hasAttr("a2", Type.INTEGER)).isTrue();
+    assertThat(c.getAttributeProvider().hasAttr("a1", BuildType.LABEL_LIST)).isTrue();
+    assertThat(c.getAttributeProvider().hasAttr("a2", Type.INTEGER)).isTrue();
   }
 
   @Test
@@ -1706,7 +1734,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "def impl(ctx): return None",
         "r1 = rule(impl, attrs = {'a1': attr.string(mandatory=True)})");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
-    assertThat(c.getAttributeByName("a1").isMandatory()).isTrue();
+    assertThat(c.getAttributeProvider().getAttributeByName("a1").isMandatory()).isTrue();
   }
 
   @Test
@@ -1798,6 +1826,19 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testLabelReprRoundTrip() throws Exception {
+    // TODO(bazel-team): Test that an actual Label object can be repr'd and then eval'd in any
+    // context (in particular - in a non-main-repo context) to arrive back at the original Label.
+    String labelRepr = "Label(\"@@//:foo\")";
+    assertThat(ev.eval(labelRepr)).isInstanceOf(Label.class);
+    assertThat(ev.eval(String.format("repr(%s)", labelRepr))).isEqualTo(labelRepr);
+
+    setBuildLanguageOptions("--noincompatible_unambiguous_label_stringification");
+    assertThat(ev.eval(String.format("repr(%s)", labelRepr))).isNotEqualTo(labelRepr);
+    assertThat((String) ev.eval(String.format("repr(%s)", labelRepr))).doesNotContain("@@");
+  }
+
+  @Test
   public void testRuleLabelDefaultValue() throws Exception {
     evalAndExport(
         ev,
@@ -1805,7 +1846,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             + "r1 = rule(impl, attrs = {'a1': "
             + "attr.label(default = Label('//foo:foo'), allow_files=True)})");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
-    Attribute a = c.getAttributeByName("a1");
+    Attribute a = c.getAttributeProvider().getAttributeByName("a1");
     assertThat(a.getDefaultValueUnchecked()).isInstanceOf(Label.class);
     assertThat(a.getDefaultValueUnchecked().toString()).isEqualTo("//foo:foo");
   }
@@ -1817,7 +1858,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "def impl(ctx): return None",
         "r1 = rule(impl, attrs = {'a1': attr.int(default = 40+2)})");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
-    Attribute a = c.getAttributeByName("a1");
+    Attribute a = c.getAttributeProvider().getAttributeByName("a1");
     assertThat(a.getDefaultValueUnchecked()).isEqualTo(StarlarkInt.of(42));
   }
 
@@ -1868,6 +1909,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "p/BUILD",
         """
+        load("@rules_cc//cc:cc_test.bzl", "cc_test")
         # -0x7fffffff + -0x7fffffff = 2
         s = select({"//conditions:default": -0x7fffffff})
 
@@ -1884,10 +1926,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testRuleInheritsBaseRuleAttributes() throws Exception {
     evalAndExport(ev, "def impl(ctx): return None", "r1 = rule(impl)");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
-    assertThat(c.hasAttr("tags", Types.STRING_LIST)).isTrue();
-    assertThat(c.hasAttr("visibility", BuildType.NODEP_LABEL_LIST)).isTrue();
-    assertThat(c.hasAttr("deprecation", Type.STRING)).isTrue();
-    assertThat(c.hasAttr(":action_listener", BuildType.LABEL_LIST))
+    assertThat(c.getAttributeProvider().hasAttr("tags", Types.STRING_LIST)).isTrue();
+    assertThat(c.getAttributeProvider().hasAttr("visibility", BuildType.NODEP_LABEL_LIST)).isTrue();
+    assertThat(c.getAttributeProvider().hasAttr("deprecation", Type.STRING)).isTrue();
+    assertThat(c.getAttributeProvider().hasAttr(":action_listener", BuildType.LABEL_LIST))
         .isTrue(); // required for extra actions
   }
 
@@ -2105,6 +2147,105 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     ev.checkEvalErrorContains(
         "in struct field .a: cannot encode builtin_function_or_method as JSON",
         "json.encode(struct(a=rule))");
+  }
+
+  @Test
+  public void testJsonAndProtoFileEncoding() throws Exception {
+    // Test that File objects can be encoded as JSON and proto.
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:rule.bzl", "test_rule")
+        test_rule(
+            name = "test",
+            src = "test.txt",
+        )
+        """);
+
+    scratch.file(
+        "test/rule.bzl",
+        """
+        def _impl(ctx):
+            json_input = {"file": ctx.file.src, "other": True}
+            json_expected_output = {
+                "file": {
+                    "path": ctx.file.src.path,
+                    "short_path": ctx.file.src.short_path,
+                    "root": ctx.file.src.root.path,
+                },
+                "other": True
+            }
+            json_encoded = json.encode(json_input)
+            json_decoded = json.decode(json_encoded)
+
+            if json_decoded != json_expected_output:
+                fail("JSON encode/decode of File did not round-trip. Expected: {}, actual: {}".format(repr(json_expected_output), repr(json_decoded)))
+
+            proto_input = struct(input = json_input)  # proto input must be wrapped in a struct
+            proto_expected_encoded = 'input {\\n  key: "file"\\n  value {\\n    path: "%s"\\n    root: "%s"\\n    short_path: "%s"\\n  }\\n}\\ninput {\\n  key: "other"\\n  value: true\\n}\\n' % (
+                ctx.file.src.path,
+                ctx.file.src.root.path,
+                ctx.file.src.short_path,
+            )
+            proto_encoded = proto.encode_text(proto_input)
+            if proto_encoded != proto_expected_encoded:
+                fail("Proto encoding of File failed. Expected: {}, actual: {}".format(repr(proto_expected_encoded), repr(proto_encoded)))
+
+            return []
+
+        test_rule = rule(
+            implementation = _impl,
+            attrs = {"src": attr.label(allow_single_file=True, mandatory=True)}
+        )
+        """);
+
+    scratch.file("test/test.txt", "test content");
+
+    var unused = createRuleContext("//test:test");
+    // The rule implementation tests the JSON encoding internally
+  }
+
+  @Test
+  public void testJsonAndProtoNativeInfoEncoding() throws Exception {
+    // FeatureFlagInfo is a NativeInfo having both struct fields (value, error) and non-struct-field
+    // methods (is_valid_value), which makes it a good test case for NativeInfo method filtering in
+    // json and textproto encoding.
+    // Note for future maintainers: If FeatureFlagInfo ever evolves to not have non-struct-field
+    // methods, update this test case to use a different NativeInfo subclass having some
+    // non-constructor @StarlarkMethod-annotatated methods with structField = true, and some
+    // without; for example, PackageSpecificationInfo.
+    // If no such NativeInfo subclass exists or is ever likely to be added, consider removing this
+    // test case and having NativeInfo trivially implement Structure rather than StarlarkEncodable.
+    scratch.file(
+        "test/rule.bzl",
+        """
+        def _impl(ctx):
+            feature_flag_info = config_common.FeatureFlagInfo(value = "val")
+            if "is_valid_value" not in dir(feature_flag_info):
+                fail("feature_flag_info.is_valid_value not found, got %s" % repr(dir(feature_flag_info)))
+            json_encoded = json.encode(feature_flag_info)
+            proto_encoded = proto.encode_text(feature_flag_info)
+            # We expect no `is_valid_value` method in json encoding.
+            if json_encoded != '{"error":null,"value":"val"}':
+                fail("json.encode(feature_flag_info) not as expected, got %s" % repr(json_encoded))
+            # We expect no `is_valid_value` method or `error` None-valued field in proto encoding.
+            if proto_encoded != 'value: "val"\\n':
+                fail("proto.encode_text(feature_flag_info) not as expected, got %s" % repr(proto_encoded))
+            return []
+
+        test_rule = rule(
+            implementation = _impl,
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:rule.bzl", "test_rule")
+        test_rule(name = "test")
+        """);
+
+    var unused = createRuleContext("//test:test");
+    // The rule implementation tests the json and proto encoding internally
   }
 
   @Test
@@ -2645,10 +2786,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "my_aspect = aspect(_impl, attr_aspects=['srcs', 'data'])");
 
     StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
-    assertThat(myAspect.getAttributeAspects()).containsExactly("srcs", "data");
-    assertThat(myAspect.getDefinition(AspectParameters.EMPTY).propagateAlong("srcs")).isTrue();
-    assertThat(myAspect.getDefinition(AspectParameters.EMPTY).propagateAlong("data")).isTrue();
-    assertThat(myAspect.getDefinition(AspectParameters.EMPTY).propagateAlong("other")).isFalse();
+    var attrAspects = myAspect.getAttributeAspects();
+
+    assertThat(attrAspects).isInstanceOf(FixedListSupplier.class);
+    assertThat(((FixedListSupplier<String>) attrAspects).getList()).containsExactly("srcs", "data");
   }
 
   @Test
@@ -2660,8 +2801,40 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "my_aspect = aspect(_impl, attr_aspects=['*'])");
 
     StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
-    assertThat(myAspect.getAttributeAspects()).containsExactly("*");
-    assertThat(myAspect.getDefinition(AspectParameters.EMPTY).propagateAlong("foo")).isTrue();
+    var attrAspects = myAspect.getAttributeAspects();
+
+    assertThat(attrAspects).isInstanceOf(FixedListSupplier.class);
+    assertThat(((FixedListSupplier<String>) attrAspects).getList()).containsExactly("*");
+  }
+
+  @Test
+  public void aspectEmptyAttrs() throws Exception {
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):", //
+        "   pass",
+        "my_aspect = aspect(_impl, attr_aspects=[])");
+
+    StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
+    var attrAspects = myAspect.getAttributeAspects();
+
+    assertThat(attrAspects).isInstanceOf(FixedListSupplier.class);
+    assertThat(((FixedListSupplier<String>) attrAspects).getList()).isEmpty();
+  }
+
+  @Test
+  public void aspectDefaultAttrs() throws Exception {
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):", //
+        "   pass",
+        "my_aspect = aspect(_impl)");
+
+    StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
+    var attrAspects = myAspect.getAttributeAspects();
+
+    assertThat(attrAspects).isInstanceOf(FixedListSupplier.class);
+    assertThat(((FixedListSupplier<String>) attrAspects).getList()).isEmpty();
   }
 
   @Test
@@ -2670,8 +2843,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ev,
         "def _impl(target, ctx):",
         "   pass",
+        "java = provider()",
         "cc = provider()",
-        "my_aspect = aspect(_impl, required_aspect_providers=['java', cc])");
+        "my_aspect = aspect(_impl, required_aspect_providers=[java, cc])");
     StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
     RequiredProviders requiredProviders =
         myAspect.getDefinition(AspectParameters.EMPTY).getRequiredProvidersForAspects();
@@ -2681,12 +2855,12 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             requiredProviders.isSatisfiedBy(
                 AdvertisedProviderSet.builder()
                     .addStarlark(declared("cc"))
-                    .addStarlark("java")
+                    .addStarlark(declared("java"))
                     .build()))
         .isTrue();
     assertThat(
             requiredProviders.isSatisfiedBy(
-                AdvertisedProviderSet.builder().addStarlark("cc").build()))
+                AdvertisedProviderSet.builder().addStarlark(declared("cc")).build()))
         .isFalse();
   }
 
@@ -2696,8 +2870,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ev,
         "def _impl(target, ctx):",
         "   pass",
+        "java = provider()",
         "cc = provider()",
-        "my_aspect = aspect(_impl, required_aspect_providers=[['java'], [cc]])");
+        "my_aspect = aspect(_impl, required_aspect_providers=[[java], [cc]])");
     StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
     RequiredProviders requiredProviders =
         myAspect.getDefinition(AspectParameters.EMPTY).getRequiredProvidersForAspects();
@@ -2705,7 +2880,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isFalse();
     assertThat(
             requiredProviders.isSatisfiedBy(
-                AdvertisedProviderSet.builder().addStarlark("java").build()))
+                AdvertisedProviderSet.builder().addStarlark(declared("java")).build()))
         .isTrue();
     assertThat(
             requiredProviders.isSatisfiedBy(
@@ -2713,7 +2888,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         .isTrue();
     assertThat(
             requiredProviders.isSatisfiedBy(
-                AdvertisedProviderSet.builder().addStarlark("prolog").build()))
+                AdvertisedProviderSet.builder().addStarlark(declared("prolog")).build()))
         .isFalse();
   }
 
@@ -2764,8 +2939,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ev,
         "def _impl(target, ctx):",
         "   pass",
+        "java = provider()",
         "cc = provider()",
-        "my_aspect = aspect(_impl, required_providers=['java', cc])");
+        "my_aspect = aspect(_impl, required_providers=[java, cc])");
     StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
     RequiredProviders requiredProviders =
         myAspect.getDefinition(AspectParameters.EMPTY).getRequiredProviders();
@@ -2776,7 +2952,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             requiredProviders.isSatisfiedBy(
                 AdvertisedProviderSet.builder()
                     .addStarlark(declared("cc"))
-                    .addStarlark("java")
+                    .addStarlark(declared("java"))
                     .build()))
         .isTrue();
     assertThat(
@@ -2791,8 +2967,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ev,
         "def _impl(target, ctx):",
         "   pass",
+        "java = provider()",
         "cc = provider()",
-        "my_aspect = aspect(_impl, required_providers=[['java'], [cc]])");
+        "my_aspect = aspect(_impl, required_providers=[[java], [cc]])");
     StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
     RequiredProviders requiredProviders =
         myAspect.getDefinition(AspectParameters.EMPTY).getRequiredProviders();
@@ -2801,7 +2978,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isFalse();
     assertThat(
             requiredProviders.isSatisfiedBy(
-                AdvertisedProviderSet.builder().addStarlark("java").build()))
+                AdvertisedProviderSet.builder().addStarlark(declared("java")).build()))
         .isTrue();
     assertThat(
             requiredProviders.isSatisfiedBy(
@@ -2809,7 +2986,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         .isTrue();
     assertThat(
             requiredProviders.isSatisfiedBy(
-                AdvertisedProviderSet.builder().addStarlark("prolog").build()))
+                AdvertisedProviderSet.builder().addStarlark(declared("prolog")).build()))
         .isFalse();
   }
 
@@ -2850,13 +3027,12 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "def _impl(target, ctx):",
         "   pass",
         "y = provider()",
-        "my_aspect = aspect(_impl, provides = ['x', y])");
+        "my_aspect = aspect(_impl, provides = [y])");
     StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
     AdvertisedProviderSet advertisedProviders =
         myAspect.getDefinition(AspectParameters.EMPTY).getAdvertisedProviders();
     assertThat(advertisedProviders.canHaveAnyProvider()).isFalse();
-    assertThat(advertisedProviders.getStarlarkProviders())
-        .containsExactly(legacy("x"), declared("y"));
+    assertThat(advertisedProviders.getStarlarkProviders()).containsExactly(declared("y"));
   }
 
   @Test
@@ -2867,11 +3043,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "def _impl(target, ctx):",
         "   pass",
         "y = provider()",
-        "my_aspect = aspect(_impl, provides = ['x', 1])");
+        "my_aspect = aspect(_impl, provides = [y, 1])");
     MoreAsserts.assertContainsEvent(
         ev.getEventCollector(),
-        " Illegal argument: element in 'provides' is of unexpected type."
-            + " Should be list of providers, but got item of type int. ");
+        "Error in aspect: at index 1 of provides, got element of type int, want Provider");
   }
 
   @Test
@@ -3040,6 +3215,24 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void invalidAttrAspectsType() throws Exception {
+    ev.checkEvalErrorContains(
+        "'attr_aspects' got value of type 'string', want 'sequence or function'",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect(_impl, attr_aspects='foo')");
+  }
+
+  @Test
+  public void invalidToolchainsAspectsType() throws Exception {
+    ev.checkEvalErrorContains(
+        "'toolchains_aspects' got value of type 'string', want 'sequence or function'",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect(_impl, toolchains_aspects='foo')");
+  }
+
+  @Test
   public void testMandatoryConfigParameterForExecutableLabels() throws Exception {
     scratch.file(
         "third_party/foo/extension.bzl",
@@ -3158,19 +3351,102 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ")");
     RuleClass plum = ((StarlarkRuleFunction) ev.lookup("plum")).getRuleClass();
     assertThat(plum.getToolchainTypes()).isEmpty();
-    ExecGroup execGroup = plum.getExecGroups().get("group");
-    assertThat(execGroup).hasToolchainType("//test:my_toolchain_type1");
-    assertThat(execGroup).toolchainType("//test:my_toolchain_type1").isMandatory();
-    assertThat(execGroup).hasToolchainType("//test:my_toolchain_type2");
-    assertThat(execGroup).toolchainType("//test:my_toolchain_type2").isMandatory();
-    assertThat(execGroup).hasToolchainType("//test:my_toolchain_type3");
-    assertThat(execGroup).toolchainType("//test:my_toolchain_type3").isOptional();
-    assertThat(execGroup).hasToolchainType("//test:my_toolchain_type4");
-    assertThat(execGroup).toolchainType("//test:my_toolchain_type4").isMandatory();
+    DeclaredExecGroup declaredExecGroup = plum.getDeclaredExecGroups().get("group");
+    assertThat(declaredExecGroup).hasToolchainType("//test:my_toolchain_type1");
+    assertThat(declaredExecGroup).toolchainType("//test:my_toolchain_type1").isMandatory();
+    assertThat(declaredExecGroup).hasToolchainType("//test:my_toolchain_type2");
+    assertThat(declaredExecGroup).toolchainType("//test:my_toolchain_type2").isMandatory();
+    assertThat(declaredExecGroup).hasToolchainType("//test:my_toolchain_type3");
+    assertThat(declaredExecGroup).toolchainType("//test:my_toolchain_type3").isOptional();
+    assertThat(declaredExecGroup).hasToolchainType("//test:my_toolchain_type4");
+    assertThat(declaredExecGroup).toolchainType("//test:my_toolchain_type4").isMandatory();
 
     assertThat(plum.getExecutionPlatformConstraints()).isEmpty();
-    assertThat(execGroup).hasExecCompatibleWith("//constraint:cv1");
-    assertThat(execGroup).hasExecCompatibleWith("//constraint:cv2");
+    assertThat(declaredExecGroup).hasExecCompatibleWith("//constraint:cv1");
+    assertThat(declaredExecGroup).hasExecCompatibleWith("//constraint:cv2");
+  }
+
+  @Test
+  public void testRuleOrderedRequirements() throws Exception {
+    registerDummyStarlarkFunction();
+    evalAndExport(
+        ev,
+        "plum = rule(",
+        "  implementation = impl,",
+        "  exec_compatible_with = [",
+        "    '//constraint:cv5',",
+        "    '//constraint:cv4',",
+        "    '//constraint:cv3',",
+        "    '//constraint:cv2',",
+        "    '//constraint:cv1',",
+        "  ],",
+        "  toolchains = [",
+        "    '//test:my_toolchain_type5',",
+        "    '//test:my_toolchain_type4',",
+        "    '//test:my_toolchain_type3',",
+        "    '//test:my_toolchain_type2',",
+        "    '//test:my_toolchain_type1',",
+        "  ],",
+        "  exec_groups = {",
+        "    'group5': exec_group(",
+        "      toolchains = [",
+        "        '//test:my_toolchain_type5',",
+        "        '//test:my_toolchain_type4',",
+        "        '//test:my_toolchain_type3',",
+        "        '//test:my_toolchain_type2',",
+        "        '//test:my_toolchain_type1',",
+        "      ],",
+        "    ),",
+        "    'group4': exec_group(",
+        "      exec_compatible_with = [",
+        "        '//constraint:cv5',",
+        "        '//constraint:cv4',",
+        "        '//constraint:cv3',",
+        "        '//constraint:cv2',",
+        "        '//constraint:cv1',",
+        "      ],",
+        "    ),",
+        "    'group3': exec_group(),",
+        "    'group2': exec_group(),",
+        "    'group1': exec_group(),",
+        "  },",
+        ")");
+    RuleClass plum = ((StarlarkRuleFunction) ev.lookup("plum")).getRuleClass();
+    assertThat(plum.getToolchainTypes().stream().map(ToolchainTypeRequirement::toolchainType))
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//test:my_toolchain_type5"),
+            Label.parseCanonicalUnchecked("//test:my_toolchain_type4"),
+            Label.parseCanonicalUnchecked("//test:my_toolchain_type3"),
+            Label.parseCanonicalUnchecked("//test:my_toolchain_type2"),
+            Label.parseCanonicalUnchecked("//test:my_toolchain_type1"))
+        .inOrder();
+    assertThat(plum.getExecutionPlatformConstraints())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//constraint:cv5"),
+            Label.parseCanonicalUnchecked("//constraint:cv4"),
+            Label.parseCanonicalUnchecked("//constraint:cv3"),
+            Label.parseCanonicalUnchecked("//constraint:cv2"),
+            Label.parseCanonicalUnchecked("//constraint:cv1"))
+        .inOrder();
+    assertThat(plum.getDeclaredExecGroups().keySet())
+        .containsExactly("group5", "group4", "group3", "group2", "group1")
+        .inOrder();
+    assertThat(plum.getDeclaredExecGroups().get("group5").toolchainTypesMap().keySet())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//test:my_toolchain_type5"),
+            Label.parseCanonicalUnchecked("//test:my_toolchain_type4"),
+            Label.parseCanonicalUnchecked("//test:my_toolchain_type3"),
+            Label.parseCanonicalUnchecked("//test:my_toolchain_type2"),
+            Label.parseCanonicalUnchecked("//test:my_toolchain_type1"))
+        .inOrder();
+    assertThat(plum.getDeclaredExecGroups().get("group4").execCompatibleWith())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//constraint:cv5"),
+            Label.parseCanonicalUnchecked("//constraint:cv4"),
+            Label.parseCanonicalUnchecked("//constraint:cv3"),
+            Label.parseCanonicalUnchecked("//constraint:cv2"),
+            Label.parseCanonicalUnchecked("//constraint:cv1"))
+        .inOrder();
   }
 
   @Test
@@ -3195,7 +3471,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         r = foo_rule(name = "foo")
 
         # Native rule should return None
-        c = cc_library(name = "cc")
+        c = filegroup(name = "cc")
 
         foo_rule(
             name = "check",
@@ -3234,7 +3510,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "  ],",
         "  exec_compatible_with=['//constraint:cv1', '//constraint:cv2'],",
         ")");
-    ExecGroup group = ((ExecGroup) ev.lookup("group"));
+    DeclaredExecGroup group = ((DeclaredExecGroup) ev.lookup("group"));
     assertThat(group).hasToolchainType("//test:my_toolchain_type1");
     assertThat(group).toolchainType("//test:my_toolchain_type1").isMandatory();
     assertThat(group).hasToolchainType("//test:my_toolchain_type2");
@@ -3474,7 +3750,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     RuleContext ruleContext = createRuleContext("//:main").getRuleContext();
 
     Rule rule = ruleContext.getRule();
-    Attribute attr = rule.getRuleClassObject().getAttributeByName("deps");
+    Attribute attr = rule.getRuleClassObject().getAttributeProvider().getAttributeByName("deps");
     ImmutableList<Aspect> aspects = attr.getAspects(rule);
     Aspect requiredNativeAspect = aspects.get(0);
     assertThat(requiredNativeAspect.getAspectClass().getName())
@@ -3829,6 +4105,179 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
+  public void labelListDict() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        """
+        load(":a.bzl", "a")
+        a(name="a", dict={"foo_key": [":foo", ":gen"], "gen_key": [":gen"]})
+
+        filegroup(name="foo", srcs=["foo.txt"])
+        genrule(name="gen", srcs=[], outs=["gen.txt"], cmd="exit 1")
+        """);
+
+    scratch.file(
+        "a/a.bzl",
+        """
+        DictInfo = provider(fields=["dict"])
+
+        def _a_impl(ctx):
+            return [DictInfo(dict = ctx.attr.dict)]
+
+        a = rule(implementation=_a_impl, attrs={"dict": attr.label_list_dict()})
+        """);
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    StructImpl info =
+        (StructImpl)
+            a.get(
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//a:a.bzl")), "DictInfo"));
+    Map<String, List<ConfiguredTarget>> dict =
+        (Map<String, List<ConfiguredTarget>>) info.getValue("dict");
+    assertThat(dict.keySet()).containsExactly("foo_key", "gen_key");
+    assertThat(dict.get("foo_key").stream().map(ConfiguredTarget::getLabel))
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//a:foo"), Label.parseCanonicalUnchecked("//a:gen"));
+    assertThat(dict.get("gen_key").stream().map(ConfiguredTarget::getLabel))
+        .containsExactly(Label.parseCanonicalUnchecked("//a:gen"));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void labelListDictWithSplitConfiguration() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        """
+        load(":a.bzl", "a")
+        a(name="a", dict={"foo_key": [":foo", ":gen"], "gen_key": [":gen"]})
+
+        filegroup(name="foo", srcs=["foo.txt"])
+        genrule(name="gen", srcs=[], outs=["gen.txt"], cmd="exit 1")
+        """);
+
+    scratch.file(
+        "a/a.bzl",
+        """
+        DictInfo = provider(fields=["dict"])
+
+        def _a_impl(ctx):
+            return [DictInfo(dict = ctx.split_attr.dict)]
+
+        def _trans_impl(settings, attr):
+          return {
+            "fastbuild_key": {"//command_line_option:compilation_mode": "fastbuild"},
+            "dbg_key": {"//command_line_option:compilation_mode": "dbg"},
+          }
+
+        trans = transition(
+            implementation = _trans_impl,
+            inputs = [],
+            outputs = ["//command_line_option:compilation_mode"])
+
+        a = rule(
+            implementation=_a_impl,
+            attrs={"dict": attr.label_list_dict(cfg=trans)})
+        """);
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    StructImpl info =
+        (StructImpl)
+            a.get(
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//a:a.bzl")), "DictInfo"));
+    Map<String, Map<String, List<ConfiguredTarget>>> dict =
+        (Map<String, Map<String, List<ConfiguredTarget>>>) info.getValue("dict");
+    assertThat(dict.keySet()).containsExactly("fastbuild_key", "dbg_key");
+    Map<String, List<ConfiguredTarget>> fastbuild = dict.get("fastbuild_key");
+    Map<String, List<ConfiguredTarget>> dbg = dict.get("dbg_key");
+    assertThat(fastbuild.keySet()).containsExactly("foo_key", "gen_key");
+    assertThat(dbg.keySet()).containsExactly("foo_key", "gen_key");
+
+    var endsWith =
+        Correspondence.from((String first, String second) -> first.endsWith(second), "ends with");
+    assertThat(
+            fastbuild.get("foo_key").stream()
+                .map(target -> getFilesToBuild(target).getSingleton().getExecPathString())
+                .toList())
+        .comparingElementsUsing(endsWith)
+        .containsExactly("a/foo.txt", "-fastbuild/bin/a/gen.txt");
+    assertThat(
+            dbg.get("foo_key").stream()
+                .map(target -> getFilesToBuild(target).getSingleton().getExecPathString())
+                .toList())
+        .comparingElementsUsing(endsWith)
+        .containsExactly("a/foo.txt", "-dbg/bin/a/gen.txt");
+    assertThat(
+            fastbuild.get("gen_key").stream()
+                .map(target -> getFilesToBuild(target).getSingleton().getExecPathString())
+                .toList())
+        .comparingElementsUsing(endsWith)
+        .containsExactly("-fastbuild/bin/a/gen.txt");
+    assertThat(
+            dbg.get("gen_key").stream()
+                .map(target -> getFilesToBuild(target).getSingleton().getExecPathString())
+                .toList())
+        .comparingElementsUsing(endsWith)
+        .containsExactly("-dbg/bin/a/gen.txt");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void initializer_labelListDict() throws Exception {
+    scratch.file(
+        "BUILD",
+        """
+        filegroup(name = 'val1')
+        filegroup(name = 'val2')
+        """);
+    scratch.file(
+        "initializer_testing/b.bzl",
+        """
+        def initializer(**kwargs):
+            return {}
+
+        MyInfo = provider()
+
+        def impl(ctx):
+            return [MyInfo(dict = ctx.attr.dict)]
+
+        my_rule = rule(
+            impl,
+            initializer = initializer,
+            attrs = {
+                "dict": attr.label_list_dict(),
+            },
+        )
+        """);
+    scratch.file(
+        "initializer_testing/BUILD",
+        """
+        load(":b.bzl", "my_rule")
+
+        my_rule(
+            name = "my_target",
+            dict = {"key1": ["//:val1", "//:val2"], "key2": ["//:val1"]},
+        )
+        """);
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//initializer_testing:my_target");
+    ConfiguredTarget val1 = getConfiguredTarget("//:val1");
+    ConfiguredTarget val2 = getConfiguredTarget("//:val2");
+    StructImpl info =
+        (StructImpl)
+            myTarget.get(
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//initializer_testing:b.bzl")), "MyInfo"));
+
+    assertThat(((Map<String, List<ConfiguredTarget>>) info.getValue("dict")))
+        .containsExactly(
+            "key1", StarlarkList.immutableOf(val1, val2), "key2", StarlarkList.immutableOf(val1))
+        .inOrder();
+  }
+
+  @Test
   public void initializer_legacyAnyType() throws Exception {
     scratch.file(
         "initializer_testing/b.bzl",
@@ -3912,7 +4361,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     ev.assertContainsError(
         """
         expected value of type 'list(label)' for attribute 'srcs' of 'my_rule', but got \
-        "default_files" (string)""");
+        "default_files" (string)\
+        """);
   }
 
   @Test
@@ -4444,8 +4894,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     getConfiguredTarget("//initializer_testing:my_target");
 
     ev.assertContainsError(
-        "Cannot instantiate a rule when loading a .bzl file. Rules may be instantiated only in a"
-            + " BUILD thread.");
+        "a rule can only be instantiated while evaluating a BUILD file or a legacy or symbolic"
+            + " macro");
   }
 
   @Test
@@ -4485,8 +4935,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     getConfiguredTarget("//initializer_testing:my_target");
 
     ev.assertContainsError(
-        "existing_rules() can only be used while evaluating a BUILD file (or legacy macro), a rule"
-            + " finalizer, or a WORKSPACE file");
+        "existing_rules() can only be used while evaluating a BUILD file, a legacy macro, or a rule"
+            + " finalizer");
   }
 
   @Test
@@ -4624,6 +5074,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void extendRule_ccBinary() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
     mockToolsConfig.overwrite(
         "tools/allowlists/extend_rule_allowlist/BUILD",
         """
@@ -4639,12 +5092,14 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "extend_rule_testing/child.bzl",
         """
+        load("@rules_cc//cc/private/rules_impl:cc_binary.bzl", "cc_binary")
+
         def _impl(ctx):
             return ctx.super()
 
         my_binary = rule(
             implementation = _impl,
-            parent = native.cc_binary,
+            parent = cc_binary,
         )
         """);
     scratch.file(
@@ -5155,13 +5610,23 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(rule.getRuleClassObject().isExecutableStarlark()).isFalse();
     assertThat(rule.getRuleClassObject().getRuleClassType()).isEqualTo(RuleClassType.NORMAL);
     assertThat(
-            rule.getRuleClassObject().getAttributeByName("deps").getAspectClasses().stream()
+            rule
+                .getRuleClassObject()
+                .getAttributeProvider()
+                .getAttributeByName("deps")
+                .getAspectClasses()
+                .stream()
                 .map(AspectClass::toString))
         .containsExactly(
             "//extend_rule_testing/parent:parent.bzl%parent_aspect",
             "//extend_rule_testing:child.bzl%my_aspect");
     assertThat(
-            rule.getRuleClassObject().getAttributeByName("tool").getAspectClasses().stream()
+            rule
+                .getRuleClassObject()
+                .getAttributeProvider()
+                .getAttributeByName("tool")
+                .getAspectClasses()
+                .stream()
                 .map(AspectClass::toString))
         .containsExactly("//extend_rule_testing:child.bzl%my_aspect");
   }
@@ -5221,12 +5686,33 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         """);
 
     StarlarkDefinedAspect aspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
-    assertThat(aspect).isNotNull();
-    assertThat(aspect.getToolchainsAspects()).hasSize(2);
-    assertThat(aspect.getToolchainsAspects())
+    var toolchainsAspects = aspect.getToolchainsAspects();
+
+    assertThat(toolchainsAspects).isInstanceOf(FixedListSupplier.class);
+    assertThat(((FixedListSupplier<Label>) toolchainsAspects).getList()).hasSize(2);
+    assertThat(((FixedListSupplier<Label>) toolchainsAspects).getList())
         .containsExactly(
             Label.parseCanonicalUnchecked("//toolchains:type1"),
             Label.parseCanonicalUnchecked("//toolchains:type2"));
+  }
+
+  @Test
+  public void toolchainsAspectsDefault_emptyList() throws Exception {
+    evalAndExport(
+        ev,
+        """
+        def _aspect_impl(target, ctx):
+            return []
+        my_aspect = aspect(
+            implementation = _aspect_impl,
+        )
+        """);
+
+    StarlarkDefinedAspect aspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
+    var toolchainsAspects = aspect.getToolchainsAspects();
+
+    assertThat(toolchainsAspects).isInstanceOf(FixedListSupplier.class);
+    assertThat(((FixedListSupplier<Label>) toolchainsAspects).getList()).isEmpty();
   }
 
   @Test
@@ -5279,6 +5765,64 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     ev.assertContainsError(
         "Error in rule: attribute `_tool`: private attributes cannot be overridden.");
+  }
+
+  @Test
+  public void extendRule_parentPrivateAttrDefault_visibilityCheckedAgainstParent()
+      throws Exception {
+    scratch.file(
+        "extend_rule_testing/parent/BUILD",
+        """
+        exports_files(
+            ["parent_tool.txt"],
+            visibility = ["//extend_rule_testing/parent:__pkg__"],
+        )
+        """);
+    scratch.file("extend_rule_testing/parent/parent_tool.txt");
+    scratch.file(
+        "extend_rule_testing/parent/parent.bzl",
+        """
+        def _impl(ctx):
+            return []
+
+        parent_library = rule(
+            implementation = _impl,
+            extendable = True,
+            attrs = {
+                "_tool": attr.label(
+                    allow_single_file = True,
+                    default = "//extend_rule_testing/parent:parent_tool.txt",
+                ),
+            },
+        )
+        """);
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        """
+        load("//extend_rule_testing/parent:parent.bzl", "parent_library")
+
+        def _impl(ctx):
+            return ctx.super()
+
+        my_library = rule(
+            implementation = _impl,
+            parent = parent_library,
+        )
+        """);
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        """
+        load(":child.bzl", "my_library")
+
+        my_library(name = "my_target")
+        """);
+
+    // This should succeed because the visibility of the parent's private attribute default should
+    // be checked against the parent rule's package, not the child rule's package.
+    // See https://github.com/bazelbuild/bazel/issues/28618
+    getConfiguredTarget("//extend_rule_testing:my_target");
+
+    assertNoEvents();
   }
 
   @Test
@@ -5982,8 +6526,61 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     Rule rule = getRuleContext(myTarget).getRule();
 
     assertNoEvents();
-    assertThat(rule.getRuleClassObject().getExecGroups().keySet())
+    assertThat(rule.getRuleClassObject().getDeclaredExecGroups().keySet())
         .containsExactly("parent_exec_group", "child_exec_group");
+  }
+
+  @Test
+  public void extendRule_execGroups_overwritten() throws Exception {
+    registerDummyStarlarkFunction();
+    evalAndExport(
+        ev,
+        """
+        parent_test = rule(
+            implementation = impl,
+            test = True,
+            exec_groups = {
+                "parent_group": exec_group(
+                    exec_compatible_with=[':cv1'],
+                ),
+                "overridden_group": exec_group(
+                    exec_compatible_with=[':cv2'],
+                ),
+            },
+        )
+
+        my_test = rule(
+            implementation = impl,
+            parent = parent_test,
+            exec_groups = {
+                "test": exec_group(
+                    exec_compatible_with=[':cv3'],
+                ),
+                "child_group": exec_group(
+                    exec_compatible_with=[':cv4'],
+                ),
+                "overridden_group": exec_group(
+                    exec_compatible_with=[':cv5'],
+                ),
+            },
+        )
+        """);
+
+    RuleClass ruleClass = ((StarlarkRuleFunction) ev.lookup("my_test")).getRuleClass();
+    assertThat(ruleClass.getDeclaredExecGroups().keySet())
+        .containsExactly("test", "child_group", "overridden_group", "parent_group");
+    DeclaredExecGroup testExecGroup = ruleClass.getDeclaredExecGroups().get("test");
+    assertThat(testExecGroup).hasExecCompatibleWith("//test:cv3");
+
+    DeclaredExecGroup parentExecGroup = ruleClass.getDeclaredExecGroups().get("parent_group");
+    assertThat(parentExecGroup).hasExecCompatibleWith("//test:cv1");
+
+    DeclaredExecGroup childExecGroup = ruleClass.getDeclaredExecGroups().get("child_group");
+    assertThat(childExecGroup).hasExecCompatibleWith("//test:cv4");
+
+    DeclaredExecGroup overriddenExecGroup =
+        ruleClass.getDeclaredExecGroups().get("overridden_group");
+    assertThat(overriddenExecGroup).hasExecCompatibleWith("//test:cv5");
   }
 
   private void scratchStarlarkTransition() throws IOException {
@@ -6517,12 +7114,14 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             PackageIdentifier.create(currentRepo, PathFragment.create("lib")), "label.bzl");
     Object clientData =
         BazelModuleContext.create(
-            bzlLabel,
+            BazelModuleKey.createFakeModuleKeyForTesting(bzlLabel),
             RepositoryMapping.create(
                 ImmutableMap.of("my_module", currentRepo, "dep", otherRepo), currentRepo),
             "lib/label.bzl",
             /* loads= */ ImmutableList.of(),
-            /* bzlTransitiveDigest= */ new byte[0]);
+            /* bzlTransitiveDigest= */ new byte[0],
+            /* docCommentsMap= */ ImmutableMap.of(),
+            /* unusedDocCommentLines= */ ImmutableList.of());
     Module module =
         Module.withPredeclaredAndData(
             StarlarkSemantics.DEFAULT,
@@ -6645,6 +7244,32 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     var deserialized = RoundTripping.roundTripWithSkyframe(this::getDoneValue, myRule);
     assertThat(myRule).isSameInstanceAs(deserialized);
+  }
+
+  @Test
+  public void aspectPropagationPredicateNotFunction_fails() throws Exception {
+    ev.checkEvalErrorContains(
+        "parameter 'propagation_predicate' got value of type 'string', want 'function or NoneType'",
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(_impl,",
+        "   propagation_predicate = 'not_a_function'",
+        ")");
+  }
+
+  @Test
+  public void aspectApplyToGeneratingRules_hasPropagationPredicate_fails() throws Exception {
+    ev.checkEvalErrorContains(
+        "An aspect cannot simultaneously have a propagation predicate and apply to generating"
+            + " rules.",
+        "def _impl(target, ctx):",
+        "   pass",
+        "def _function():",
+        "  return True",
+        "my_aspect = aspect(_impl,",
+        "   propagation_predicate = _function,",
+        "   apply_to_generating_rules = True",
+        ")");
   }
 
   private SkyValue getDoneValue(SkyKey key) {

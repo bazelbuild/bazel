@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 # Description:
 #   C++ utility tests for Bazel
 package(default_visibility = ["//visibility:public"])
@@ -64,8 +67,20 @@ cc_test(
     deps = [
         "//src/main/cpp:blaze_util",
         "//src/main/cpp:option_processor",
+        "//src/main/cpp:sem_ver",
         "//src/main/cpp:workspace_layout",
         "//src/main/cpp/util",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "sem_ver_test",
+    size = "small",
+    srcs = ["sem_ver_test.cc"],
+    deps = [
+        "//src/main/cpp:sem_ver",
+        "@abseil-cpp//absl/strings:str_format",
         "@com_google_googletest//:gtest_main",
     ],
 )

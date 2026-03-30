@@ -16,20 +16,18 @@ package com.google.devtools.build.lib.rules.starlarkdocextract;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
-import static com.google.devtools.build.lib.starlarkdocextract.AttributeInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO;
+import static com.google.devtools.build.lib.starlarkdocextract.RuleInfoExtractor.IMPLICIT_RULE_ATTRIBUTES;
 import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_ORDINARY;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil;
-import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.starlarkdocextract.ModuleInfoExtractor;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeInfo;
@@ -44,27 +42,18 @@ import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.Prov
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RepositoryRuleInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.StarlarkFunctionInfo;
-import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.TextFormat;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.NoSuchElementException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class StarlarkDocExtractTest extends BuildViewTestCase {
-
-  @Override
-  protected ConfiguredRuleClassProvider createRuleClassProvider() {
-    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
-    TestRuleClassProvider.addStandardRules(builder);
-    // Ensure repository_rule is supported.
-    builder.addStarlarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
-    return builder.build();
-  }
 
   private static ModuleInfo protoFromBinaryFileWriteAction(Action action) throws Exception {
     assertThat(action).isInstanceOf(BinaryFileWriteAction.class);
@@ -355,20 +344,27 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
             OriginKey.newBuilder().setName("my_rule").setFile("//:origin.bzl").build());
 
     assertThat(moduleInfo.getRuleInfo(0).getAttributeList())
-        .containsExactly(
-            IMPLICIT_NAME_ATTRIBUTE_INFO,
-            AttributeInfo.newBuilder()
-                .setName("a")
-                .setType(AttributeType.LABEL)
-                .setDefaultValue("None")
-                .addProviderNameGroup(
-                    ProviderNameGroup.newBuilder()
-                        .addProviderName("namespace.RenamedInfo")
-                        .addProviderName("other_namespace.RenamedOtherInfo")
-                        .addOriginKey(
-                            OriginKey.newBuilder().setName("MyInfo").setFile("//:origin.bzl"))
-                        .addOriginKey(
-                            OriginKey.newBuilder().setName("MyOtherInfo").setFile("//:origin.bzl")))
+        .isEqualTo(
+            ImmutableList.builder()
+                .addAll(IMPLICIT_RULE_ATTRIBUTES.values())
+                .add(
+                    AttributeInfo.newBuilder()
+                        .setName("a")
+                        .setType(AttributeType.LABEL)
+                        .setDefaultValue("None")
+                        .addProviderNameGroup(
+                            ProviderNameGroup.newBuilder()
+                                .addProviderName("namespace.RenamedInfo")
+                                .addProviderName("other_namespace.RenamedOtherInfo")
+                                .addOriginKey(
+                                    OriginKey.newBuilder()
+                                        .setName("MyInfo")
+                                        .setFile("//:origin.bzl"))
+                                .addOriginKey(
+                                    OriginKey.newBuilder()
+                                        .setName("MyOtherInfo")
+                                        .setFile("//:origin.bzl")))
+                        .build())
                 .build());
     assertThat(moduleInfo.getRuleInfo(0).getAdvertisedProviders())
         .isEqualTo(
@@ -400,7 +396,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         BzlmodTestUtil.createModuleKey("origin_repo", "0.1"),
         "module(name='origin_repo', version='0.1')");
     Path originRepoPath = moduleRoot.getRelative("origin_repo+0.1");
-    scratch.file(originRepoPath.getRelative("WORKSPACE").getPathString());
+    scratch.file(originRepoPath.getRelative("REPO.bazel").getPathString());
     scratch.file(
         originRepoPath.getRelative("BUILD").getPathString(), //
         "exports_files(['origin.bzl'])");
@@ -955,7 +951,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
                 .setOriginKey(
                     OriginKey.newBuilder().setName("my_repo_rule").setFile("//:dep.bzl").build())
                 .setDocString("My repository rule\n\nWith details")
-                .addAllAttribute(ModuleInfoExtractor.IMPLICIT_REPOSITORY_RULE_ATTRIBUTES)
+                .addAllAttribute(ModuleInfoExtractor.IMPLICIT_REPOSITORY_RULE_ATTRIBUTES.values())
                 .addAttribute(
                     AttributeInfo.newBuilder()
                         .setName("a")
@@ -1146,65 +1142,13 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
   }
 
   @Test
-  public void repoName_inMainWorkspaceRepo() throws Exception {
-    setBuildLanguageOptions("--noenable_bzlmod", "--enable_workspace");
-    rewriteWorkspace(
-        """
-        workspace(name = "my_repo")
-        """);
-    scratch.file(
-        "foo.bzl",
-        """
-        def my_macro(arg = Label("//target:target")):
-            pass
-
-        my_rule = rule(
-            implementation = lambda ctx: None,
-            attrs = {"a": attr.label(default = "//target:target")},
-        )
-        """);
-    scratch.file(
-        "BUILD",
-        """
-        starlark_doc_extract(
-            name = "with_main_repo_name",
-            src = "foo.bzl",
-            render_main_repo_name = True,
-        )
-
-        # render_main_repo_name is false by default
-        starlark_doc_extract(
-            name = "without_main_repo_name",
-            src = "foo.bzl",
-        )
-        """);
-
-    ModuleInfo withMainRepoName = protoFromConfiguredTarget("//:with_main_repo_name");
-    assertThat(withMainRepoName.getFile()).isEqualTo("@my_repo//:foo.bzl");
-    assertThat(withMainRepoName.getFuncInfo(0).getParameter(0).getDefaultValue())
-        .isEqualTo("Label(\"@my_repo//target:target\")");
-    assertThat(withMainRepoName.getRuleInfo(0).getOriginKey().getFile())
-        .isEqualTo("@my_repo//:foo.bzl");
-    assertThat(getFirstRuleFirstAttr(withMainRepoName).getDefaultValue())
-        .isEqualTo("\"@my_repo//target\"");
-
-    ModuleInfo withoutMainRepoName = protoFromConfiguredTarget("//:without_main_repo_name");
-    assertThat(withoutMainRepoName.getFile()).isEqualTo("//:foo.bzl");
-    assertThat(withoutMainRepoName.getFuncInfo(0).getParameter(0).getDefaultValue())
-        .isEqualTo("Label(\"//target:target\")");
-    assertThat(withoutMainRepoName.getRuleInfo(0).getOriginKey().getFile()).isEqualTo("//:foo.bzl");
-    assertThat(getFirstRuleFirstAttr(withoutMainRepoName).getDefaultValue())
-        .isEqualTo("\"//target\"");
-  }
-
-  @Test
   public void repoName_inBzlmodDep() throws Exception {
     scratch.overwriteFile(
         "MODULE.bazel", "module(name = 'my_module')", "bazel_dep(name='dep_mod', version='0.1')");
     registry.addModule(
         BzlmodTestUtil.createModuleKey("dep_mod", "0.1"), "module(name='dep_mod', version='0.1')");
     Path depModRepoPath = moduleRoot.getRelative("dep_mod+0.1");
-    scratch.file(depModRepoPath.getRelative("WORKSPACE").getPathString());
+    scratch.file(depModRepoPath.getRelative("REPO.bazel").getPathString());
     scratch.file(
         depModRepoPath.getRelative("foo.bzl").getPathString(),
         """
@@ -1236,38 +1180,39 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
   }
 
   @Test
-  public void repoName_inWorkspaceDep() throws Exception {
-    setBuildLanguageOptions("--enable_workspace");
-    rewriteWorkspace(
-        """
-        local_repository(name = "dep", path = "dep_path")
-        """);
-    scratch.file("dep_path/WORKSPACE", "workspace(name = 'dep')");
+  public void unusedDocComments(@TestParameter boolean allowUnusedDocComments) throws Exception {
     scratch.file(
-        "dep_path/foo.bzl",
+        "foo.bzl",
         """
-        def my_macro(arg = Label("//target:target")):
+        #: Unused doc comment
+        def my_func():
             pass
 
-        my_rule = rule(
-            implementation = lambda ctx: None,
-            attrs = {"a": attr.label(default = "//target:target")},
-        )
+        def _my_function():
+            pass
+
+        #: Unexpected doc comment
+        MY_FUNCTION_ALIAS = _my_function
         """);
     scratch.file(
-        "dep_path/BUILD",
-        """
-        starlark_doc_extract(
-            name = "extract",
-            src = "foo.bzl",
-        )
-        """);
-
-    ModuleInfo moduleInfo = protoFromConfiguredTarget("@dep//:extract");
-    assertThat(moduleInfo.getFile()).isEqualTo("@dep//:foo.bzl");
-    assertThat(moduleInfo.getFuncInfo(0).getParameter(0).getDefaultValue())
-        .isEqualTo("Label(\"@dep//target:target\")");
-    assertThat(moduleInfo.getRuleInfo(0).getOriginKey().getFile()).isEqualTo("@dep//:foo.bzl");
-    assertThat(getFirstRuleFirstAttr(moduleInfo).getDefaultValue()).isEqualTo("\"@dep//target\"");
+        "BUILD",
+        String.format(
+            """
+            starlark_doc_extract(
+                name = "extract",
+                src = "foo.bzl",%s
+            )
+            """,
+            allowUnusedDocComments ? "\n    allow_unused_doc_comments = True" : ""));
+    if (allowUnusedDocComments) {
+      assertThat(protoFromConfiguredTarget("//:extract").getStarlarkOtherSymbolInfoList())
+          .isEmpty();
+    } else {
+      AssertionError error =
+          assertThrows(AssertionError.class, () -> getConfiguredTarget("//:extract"));
+      assertThat(error)
+          .hasMessageThat()
+          .contains("in /workspace/foo.bzl: unexpected or conflicting doc comments on line 1");
+    }
   }
 }

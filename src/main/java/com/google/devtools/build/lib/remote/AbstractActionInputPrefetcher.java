@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -23,7 +22,6 @@ import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toListenableFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.mergeBulkTransfer;
-import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
@@ -40,13 +38,14 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
@@ -63,6 +62,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -80,13 +80,24 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   protected final Path execRoot;
   protected final RemoteOutputChecker remoteOutputChecker;
 
-  private final ActionOutputDirectoryHelper outputDirectoryHelper;
+  @Nullable protected final ActionOutputDirectoryHelper outputDirectoryHelper;
 
   /** The state of a directory tracked by {@link DirectoryTracker}, as explained below. */
   enum DirectoryState {
     PERMANENTLY_WRITABLE,
     TEMPORARILY_WRITABLE,
     OUTPUT_PERMISSIONS
+  }
+
+  /**
+   * Returns the metadata for an {@link ActionInput}.
+   *
+   * <p>This will generally call through to a {@link InputMetadataProvider} or {@link
+   * OutputMetadataStore} and ask for the metadata of either an input or an output artifact.
+   */
+  @VisibleForTesting
+  public interface MetadataSupplier {
+    FileArtifactValue getMetadata(ActionInput actionInput) throws IOException, InterruptedException;
   }
 
   /**
@@ -121,18 +132,28 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
 
     private void setWritable(Path dir, DirectoryState newState) throws IOException {
+      // Compare as fragments since execRoot may be located on a file system overlaying the host
+      // file system where downloads are written to.
+      if (!dir.asFragment().startsWith(execRoot.asFragment())) {
+        return;
+      }
       AtomicReference<IOException> caughtException = new AtomicReference<>();
 
       directoryStateMap.compute(
           dir,
           (unusedKey, oldState) -> {
-            if (oldState == DirectoryState.TEMPORARILY_WRITABLE
-                || oldState == DirectoryState.PERMANENTLY_WRITABLE) {
+            if (!forceRefetch(dir)
+                && (oldState == DirectoryState.TEMPORARILY_WRITABLE
+                    || oldState == DirectoryState.PERMANENTLY_WRITABLE)) {
               // Already writable, but must potentially upgrade from temporary to permanent.
               return newState == DirectoryState.PERMANENTLY_WRITABLE ? newState : oldState;
             }
             try {
-              outputDirectoryHelper.createOutputDirectory(dir, execRoot);
+              if (outputDirectoryHelper != null) {
+                outputDirectoryHelper.createOutputDirectory(dir, execRoot);
+              } else {
+                dir.createDirectoryAndParents();
+              }
               dir.setWritable(true);
             } catch (IOException e) {
               caughtException.set(e);
@@ -159,8 +180,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       directoryStateMap.compute(
           dir,
           (unusedKey, oldState) -> {
-            if (oldState == DirectoryState.OUTPUT_PERMISSIONS
-                || oldState == DirectoryState.PERMANENTLY_WRITABLE) {
+            if (!forceRefetch(dir)
+                && (oldState == DirectoryState.OUTPUT_PERMISSIONS
+                    || oldState == DirectoryState.PERMANENTLY_WRITABLE)) {
               // Either the output permissions have already been set, or we're not changing the
               // permissions ever again.
               return oldState;
@@ -182,16 +204,16 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   private final DirectoryTracker directoryTracker = new DirectoryTracker();
 
-  /** A symlink in the output tree. */
-  record Symlink(PathFragment linkExecPath, PathFragment targetExecPath) {
+  /** A symlink in the output tree that points to another artifact's absolute path. */
+  record Symlink(Path linkPath, Path targetPath) {
     Symlink {
-      requireNonNull(linkExecPath, "linkExecPath");
-      requireNonNull(targetExecPath, "targetExecPath");
-      checkArgument(!linkExecPath.equals(targetExecPath));
+      checkNotNull(linkPath, "linkPath");
+      checkNotNull(targetPath, "targetPath");
+      checkArgument(!linkPath.equals(targetPath), "linkPath and targetPath must differ");
     }
 
-    static Symlink of(PathFragment linkExecPath, PathFragment targetExecPath) {
-      return new Symlink(linkExecPath, targetExecPath);
+    static Symlink of(Path linkPath, Path targetPath) {
+      return new Symlink(linkPath, targetPath);
     }
   }
 
@@ -200,7 +222,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       Path execRoot,
       TempPathGenerator tempPathGenerator,
       RemoteOutputChecker remoteOutputChecker,
-      ActionOutputDirectoryHelper outputDirectoryHelper,
+      @Nullable ActionOutputDirectoryHelper outputDirectoryHelper,
       OutputPermissions outputPermissions) {
     this.reporter = reporter;
     this.execRoot = execRoot;
@@ -210,26 +232,39 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     this.outputPermissions = outputPermissions;
   }
 
-  private boolean shouldDownloadFile(Path path, FileArtifactValue metadata) {
-    if (!path.exists()) {
+  private static boolean shouldDownloadFile(Path path, FileArtifactValue metadata)
+      throws IOException {
+    var stat = path.statIfFound();
+    if (stat == null) {
       return true;
     }
 
-    // In the most cases, skyframe should be able to detect source files modifications and delete
-    // staled outputs before action execution. However, there are some cases where outputs are not
-    // tracked by skyframe. We compare the digest here to make sure we don't use staled files.
-    try {
-      byte[] digest = path.getFastDigest();
-      if (digest == null) {
-        digest = path.getDigest();
-      }
-      return !Arrays.equals(digest, metadata.getDigest());
-    } catch (IOException ignored) {
+    // If an action output is stale, Skyframe will delete it prior to action execution. However,
+    // this doesn't apply to spawn outputs that aren't action outputs, or to files in external repos
+    // that are remote repo contents cache hits. To avoid incorrectly reusing one such stale file,
+    // check for its up-to-dateness here.
+    if (stat.getSize() != metadata.getSize()) {
       return true;
     }
+    var contentsProxy = metadata.getContentsProxy();
+    if (contentsProxy != null && contentsProxy.equals(FileContentsProxy.create(stat))) {
+      return false;
+    }
+
+    byte[] digest = path.getFastDigest();
+    if (digest == null) {
+      digest = path.getDigest();
+    }
+    return !Arrays.equals(digest, metadata.getDigest());
   }
 
   protected abstract boolean canDownloadFile(Path path, FileArtifactValue metadata);
+
+  /**
+   * If true, then all previously acquired knowledge of the file system state of this path (e.g. the
+   * existence of tree artifact directories or previously downloaded files) must be discarded.
+   */
+  protected abstract boolean forceRefetch(Path path);
 
   /**
    * Downloads file to the given path via its metadata.
@@ -237,19 +272,19 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * @param tempPath the temporary path which the input should be written to.
    */
   protected abstract ListenableFuture<Void> doDownloadFile(
-      ActionExecutionMetadata action,
+      @Nullable ActionExecutionMetadata action,
       Reporter reporter,
+      ActionInput input,
       Path tempPath,
-      PathFragment execPath,
       FileArtifactValue metadata,
-      Priority priority)
+      Priority priority,
+      Reason reason)
       throws IOException;
 
   protected void prefetchVirtualActionInput(VirtualActionInput input) throws IOException {}
 
   /**
-   * Fetches remotely stored action outputs, that are inputs to this spawn, and stores them under
-   * their path in the output base.
+   * Fetches remotely stored action outputs and stores them under their path in the output base.
    *
    * <p>The {@code inputs} may not contain any unexpanded directories.
    *
@@ -260,15 +295,40 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    */
   @Override
   public ListenableFuture<Void> prefetchFiles(
-      ActionExecutionMetadata action,
+      @Nullable ActionExecutionMetadata action,
+      @Nullable Spawn spawn,
+      Supplier<Iterable<? extends ActionInput>> expandedInputs,
+      InputMetadataProvider metadataProvider,
+      Priority priority,
+      Reason reason) {
+    return prefetchFilesInterruptibly(
+        action, expandedInputs.get(), metadataProvider::getInputMetadata, priority, reason);
+  }
+
+  /**
+   * Fetches remotely stored action outputs and stores them under their path in the output base.
+   *
+   * <p>The {@code inputs} may not contain any unexpanded directories.
+   *
+   * <p>This method is safe to be called concurrently from spawn runners before running any local
+   * spawn.
+   *
+   * <p>This method is similar to #prefetchFiles() above, but note that {@code metadataSupplier} may
+   * throw {@link InterruptedException}. If it does, this method will propagate this exception in
+   * the returned future.
+   *
+   * @return a future that is completed once all downloads have finished.
+   */
+  public ListenableFuture<Void> prefetchFilesInterruptibly(
+      @Nullable ActionExecutionMetadata action,
       Iterable<? extends ActionInput> inputs,
       MetadataSupplier metadataSupplier,
-      Priority priority) {
+      Priority priority,
+      Reason reason) {
     List<ActionInput> files = new ArrayList<>();
 
     for (ActionInput input : inputs) {
-      // Source artifacts don't need to be fetched.
-      if (input instanceof Artifact && ((Artifact) input).isSourceArtifact()) {
+      if (!RemoteOutputChecker.mayBeRemote(input)) {
         continue;
       }
 
@@ -297,7 +357,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     try (var s = Profiler.instance().profile("compose prefetches")) {
       for (var file : files) {
         transfers.add(
-            prefetchFile(action, dirsWithOutputPermissions, metadataSupplier, file, priority));
+            prefetchFile(
+                action, dirsWithOutputPermissions, metadataSupplier, file, priority, reason));
       }
     }
 
@@ -324,43 +385,51 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private ListenableFuture<Void> prefetchFile(
-      ActionExecutionMetadata action,
+      @Nullable ActionExecutionMetadata action,
       Set<Path> dirsWithOutputPermissions,
       MetadataSupplier metadataSupplier,
       ActionInput input,
-      Priority priority) {
+      Priority priority,
+      Reason reason) {
     try {
       if (input instanceof VirtualActionInput virtualActionInput) {
         prefetchVirtualActionInput(virtualActionInput);
         return immediateVoidFuture();
       }
 
-      PathFragment execPath = input.getExecPath();
+      Path inputPath =
+          input instanceof Artifact artifact
+              ? artifact.getPath()
+              : execRoot.getRelative(input.getExecPath());
 
+      // Metadata may legitimately be missing, e.g. if this is an optional test output.
       FileArtifactValue metadata = metadataSupplier.getMetadata(input);
-      if (metadata == null || !canDownloadFile(execRoot.getRelative(execPath), metadata)) {
+      if (metadata == null || !canDownloadFile(inputPath, metadata)) {
         return immediateVoidFuture();
       }
 
-      @Nullable Symlink symlink = maybeGetSymlink(action, input, metadata, metadataSupplier);
+      @Nullable Symlink symlink = maybeGetSymlink(input, inputPath, metadata, metadataSupplier);
 
       if (symlink != null) {
-        checkState(execPath.startsWith(symlink.linkExecPath()));
-        execPath =
-            symlink.targetExecPath().getRelative(execPath.relativeTo(symlink.linkExecPath()));
+        // Symlink tracks the parent of a TreeFileArtifact, so the parent relative path has to be
+        // translated relative to it.
+        var parentRelativePath = inputPath.relativeTo(symlink.linkPath());
+        inputPath = symlink.targetPath().getRelative(parentRelativePath);
       }
 
-      @Nullable PathFragment treeRootExecPath = maybeGetTreeRoot(action, input, metadataSupplier);
+      @Nullable Path treeRootPath = maybeGetTreeRoot(input, metadataSupplier);
 
       Completable result =
           downloadFileNoCheckRx(
               action,
-              execRoot.getRelative(execPath),
-              treeRootExecPath != null ? execRoot.getRelative(treeRootExecPath) : null,
+              input,
+              inputPath,
+              treeRootPath,
               dirsWithOutputPermissions,
               input,
               metadata,
-              priority);
+              priority,
+              reason);
 
       if (symlink != null) {
         result = result.andThen(plantSymlink(symlink));
@@ -373,16 +442,15 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   /**
-   * For an input belonging to a tree artifact, returns the prefetch exec path of the tree artifact
-   * root. Otherwise, returns null.
+   * For an input belonging to a tree artifact, returns the resolved path of the tree artifact root.
+   * Otherwise, returns null.
    *
    * <p>Some artifacts (notably, those created by {@code ctx.actions.symlink}) are materialized in
    * the output tree as a symlink to another artifact, as indicated by the {@link
-   * FileArtifactValue#getMaterializationExecPath()} field in their metadata.
+   * FileArtifactValue#getResolvedPath()} field in their metadata.
    */
   @Nullable
-  private PathFragment maybeGetTreeRoot(
-      ActionExecutionMetadata action, ActionInput input, MetadataSupplier metadataSupplier)
+  private Path maybeGetTreeRoot(ActionInput input, MetadataSupplier metadataSupplier)
       throws IOException, InterruptedException {
     if (!(input instanceof TreeFileArtifact treeFile)) {
       return null;
@@ -390,16 +458,20 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     SpecialArtifact treeArtifact = treeFile.getParent();
     FileArtifactValue treeMetadata = metadataSupplier.getMetadata(treeArtifact);
     if (treeMetadata == null) {
-      if (!treeFile.isChildOfDeclaredDirectory() && action.getOutputs().contains(treeFile)) {
-        // If this file is produced by an action template, the full tree artifact metadata might
-        // not be available yet. However, we know with certainty that the file is not materialized
-        // as a symlink.
-        return null;
-      }
-      throw new IllegalStateException(
-          String.format("input %s belongs to a tree artifact whose metadata is missing", treeFile));
+      // There are two cases where tree metadata is legitimately not available:
+      // (1) If the file is the output of an action expanded from an action template. In this
+      //     case, the symlink optimization is intentionally not supported.
+      // (2) If the file is part of an input fileset. In this case, a symlink has already been
+      //     created, but we're currently unable to prefetch the file(s) it points to.
+      // TODO: b/401575099 - Treating fileset more like runfiles could make the tree metadata
+      //  available for case (2).
+      return null;
     }
-    return treeMetadata.getMaterializationExecPath().orElse(treeArtifact.getExecPath());
+    PathFragment resolvedPath = treeMetadata.getResolvedPath();
+    if (resolvedPath != null) {
+      return treeArtifact.getPath().getFileSystem().getPath(resolvedPath);
+    }
+    return treeArtifact.getPath();
   }
 
   /**
@@ -408,13 +480,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    *
    * <p>Some artifacts (notably, those created by {@code ctx.actions.symlink}) are materialized in
    * the output tree as a symlink to another artifact, as indicated by the {@link
-   * FileArtifactValue#getMaterializationExecPath()} field in their (or their parent tree
-   * artifact's) metadata.
+   * FileArtifactValue#getResolvedPath()} field in their (or their parent tree artifact's) metadata.
    */
   @Nullable
   private Symlink maybeGetSymlink(
-      ActionExecutionMetadata action,
       ActionInput input,
+      Path inputPath,
       FileArtifactValue metadata,
       MetadataSupplier metadataSupplier)
       throws IOException, InterruptedException {
@@ -422,27 +493,28 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       SpecialArtifact treeArtifact = treeFile.getParent();
       FileArtifactValue treeMetadata = metadataSupplier.getMetadata(treeArtifact);
       if (treeMetadata == null) {
-        if (!treeFile.isChildOfDeclaredDirectory() && action.getOutputs().contains(treeFile)) {
-          // If this file is produced by an action template, the full tree artifact metadata might
-          // not be available yet. However, we know with certainty that the file is not materialized
-          // as a symlink.
-          return null;
-        }
-        throw new IllegalStateException(
-            String.format(
-                "input %s belongs to a tree artifact whose metadata is missing", treeFile));
+        // There are two cases where tree metadata is legitimately not available:
+        // (1) If the file is the output of an action expanded from an action template. In this
+        //     case, the symlink optimization is intentionally not supported.
+        // (2) If the file is part of an input fileset. In this case, a symlink has already been
+        //     created, but we're currently unable to prefetch the file(s) it points to.
+        // TODO: b/401575099 - Treating fileset more like runfiles could make the tree metadata
+        //  available for case (2).
+        return null;
       }
-      return maybeGetSymlink(action, treeArtifact, treeMetadata, metadataSupplier);
+      return maybeGetSymlink(treeArtifact, treeArtifact.getPath(), treeMetadata, metadataSupplier);
     }
-    PathFragment execPath = input.getExecPath();
-    PathFragment materializationExecPath = metadata.getMaterializationExecPath().orElse(execPath);
-    if (!materializationExecPath.equals(execPath)) {
-      return Symlink.of(execPath, materializationExecPath);
+    if (metadata.getResolvedPath() == null) {
+      return null;
     }
-    return null;
+    Path resolvedPath = inputPath.getFileSystem().getPath(metadata.getResolvedPath());
+    if (resolvedPath.equals(inputPath)) {
+      return null;
+    }
+    return Symlink.of(inputPath, resolvedPath);
   }
 
-  private Path resolveOneSymlink(Path path) throws IOException {
+  private static Path resolveOneSymlink(Path path) throws IOException {
     var targetPathFragment = path.readSymbolicLink();
     if (targetPathFragment.isAbsolute()) {
       return path.getFileSystem().getPath(targetPathFragment);
@@ -451,7 +523,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
   }
 
-  private Path maybeResolveSymlink(Path path) throws IOException {
+  private static Path maybeResolveSymlink(Path path) throws IOException {
     // Potentially resolves a symlink to its target path. This differs from
     // Path#resolveSymbolicLinks() that:
     //   1. Path#resolveSymbolicLinks() checks each segment of the path, but we assume there is no
@@ -473,17 +545,19 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private Completable downloadFileNoCheckRx(
-      ActionExecutionMetadata action,
+      @Nullable ActionExecutionMetadata action,
+      ActionInput input,
       Path path,
       @Nullable Path treeRoot,
       Set<Path> dirsWithOutputPermissions,
       ActionInput actionInput,
       FileArtifactValue metadata,
-      Priority priority) {
+      Priority priority,
+      Reason reason) {
     // If the path to be prefetched is a non-dangling symlink, prefetch its target path instead.
     // Note that this only applies to symlinks created by spawns (or, currently, with the internal
     // version of BwoB); symlinks created in-process through an ActionFileSystem should have already
-    // been resolved into their materializationExecPath in maybeGetSymlink.
+    // been canonicalized by maybeGetSymlink.
     try {
       if (treeRoot != null) {
         var treeRootRelativePath = path.relativeTo(treeRoot);
@@ -496,12 +570,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       return Completable.error(e);
     }
 
-    if (actionInput instanceof Artifact && ((Artifact) actionInput).isChildOfDeclaredDirectory()) {
+    if (treeRoot != null
+        && actionInput instanceof Artifact artifact
+        && artifact.isChildOfDeclaredDirectory()) {
       // Arrange for the output permissions to be set on every directory inside the tree artifact.
       // This must be done at assembly time to ensure that the permissions are set before the
       // prefetchFiles call returns, even when the actual downloads are deduplicated against a
       // concurrent call. See finalizeDownload for why we don't do so in other cases.
-      checkNotNull(treeRoot);
       for (Path dir = path.getParentDirectory();
           dir.startsWith(treeRoot);
           dir = dir.getParentDirectory()) {
@@ -511,7 +586,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       }
     }
 
-    Path finalPath = path;
+    // Downloads should always be written to the "actual" host file system, not any overlays.
+    Path finalPath = path.forHostFileSystem();
 
     Completable download =
         usingTempPath(
@@ -521,25 +597,23 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                             doDownloadFile(
                                 action,
                                 reporter,
-                                tempPath,
-                                finalPath.relativeTo(execRoot),
+                                input,
+                                tempPath.forHostFileSystem(),
                                 metadata,
-                                priority),
+                                priority,
+                                reason),
                         directExecutor())
                     .doOnComplete(
                         () -> {
-                          finalizeDownload(tempPath, finalPath, dirsWithOutputPermissions);
+                          finalizeDownload(
+                              metadata,
+                              tempPath.forHostFileSystem(),
+                              finalPath,
+                              dirsWithOutputPermissions);
                           alreadyDeleted.set(true);
-                        })
-                    .doOnError(
-                        error -> {
-                          if (error instanceof CacheNotFoundException cacheNotFoundException) {
-                            reporter.post(
-                                new LostInputsEvent(cacheNotFoundException.getMissingDigest()));
-                          }
                         }));
 
-    return downloadCache.executeIfNot(
+    return downloadCache.execute(
         finalPath,
         Completable.defer(
             () -> {
@@ -547,39 +621,48 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                 return download;
               }
               return Completable.complete();
-            }));
+            }),
+        forceRefetch(finalPath));
   }
 
-  private void finalizeDownload(Path tmpPath, Path finalPath, Set<Path> dirsWithOutputPermissions)
+  private void finalizeDownload(
+      FileArtifactValue metadata, Path tmpPath, Path finalPath, Set<Path> dirsWithOutputPermissions)
       throws IOException {
     Path parentDir = checkNotNull(finalPath.getParentDirectory());
 
-    // Ensure the parent directory exists and is writable. We cannot rely on this precondition to be
-    // have been established by the execution of the owning action in a previous invocation, since
-    // the output tree may have been externally modified in between invocations.
-    if (dirsWithOutputPermissions.contains(parentDir)) {
-      // The file belongs to a tree artifact created by an action that declared an output directory
-      // (as opposed to an action template expansion). The output permissions should be set on the
-      // parent directory after prefetching.
-      directoryTracker.setTemporarilyWritable(parentDir);
+    // Compare as fragments since execRoot may be located on a file system overlaying the host
+    // file system where the download is written to.
+    if (finalPath.asFragment().startsWith(execRoot.asFragment())) {
+      // Ensure the parent directory exists and is writable. We cannot rely on this precondition to
+      // have been established by the execution of the owning action in a previous invocation, since
+      // the output tree may have been externally modified in between invocations.
+      if (dirsWithOutputPermissions.contains(parentDir)) {
+        // The file belongs to a tree artifact created by an action that declared an output
+        // directory (as opposed to an action template expansion). The output permissions should be
+        // set on the parent directory after prefetching.
+        directoryTracker.setTemporarilyWritable(parentDir);
+      } else {
+        // One of the following must apply:
+        //   (1) The file does not belong to a tree artifact.
+        //   (2) The file belongs to a tree artifact created by an action template expansion.
+        // In case (1), the parent directory is a package or a subdirectory of a package, and should
+        // remain writable. In case (2), even though we arguably ought to set the output permissions
+        // on the parent directory to match local execution, we choose not to do it and avoid the
+        // additional implementation complexity required to detect a race condition between
+        // concurrent calls touching the same directory.
+        directoryTracker.setPermanentlyWritable(parentDir);
+      }
     } else {
-      // There are three cases:
-      //   (1) The file does not belong to a tree artifact.
-      //   (2) The file belongs to a tree artifact created by an action template expansion.
-      //   (3) The file belongs to a tree artifact but we don't know it. This can occur when the
-      //       file belongs to a tree artifact inside a fileset (see b/254844173).
-      // In case (1), the parent directory is a package or a subdirectory of a package, and should
-      // remain writable. In cases (2) and (3), even though we arguably ought to set the output
-      // permissions on the parent directory to match the outcome of a locally executed action, we
-      // choose not to do it and avoid the additional implementation complexity required to detect a
-      // race condition between concurrent calls touching the same directory.
-      directoryTracker.setPermanentlyWritable(parentDir);
+      parentDir.createDirectoryAndParents();
     }
 
     // Set output permissions on files, matching the behavior of SkyframeActionExecutor#checkOutputs
     // for artifacts produced by local actions.
     tmpPath.chmod(outputPermissions.getPermissionsMode());
     FileSystemUtils.moveFile(tmpPath, finalPath);
+
+    // Set the contents proxy when supported, to make future modification checks cheaper.
+    metadata.setContentsProxy(FileContentsProxy.create(finalPath.stat()));
   }
 
   private interface TaskWithTempPath {
@@ -606,7 +689,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         /* eager= */ false);
   }
 
-  private void deletePartialDownload(Path path) {
+  private static void deletePartialDownload(Path path) {
     try {
       path.delete();
     } catch (IOException e) {
@@ -616,18 +699,17 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private Completable plantSymlink(Symlink symlink) {
-    return downloadCache.executeIfNot(
-        execRoot.getRelative(symlink.linkExecPath()),
+    return downloadCache.execute(
+        symlink.linkPath(),
         Completable.defer(
             () -> {
-              Path link = execRoot.getRelative(symlink.linkExecPath());
-              Path target = execRoot.getRelative(symlink.targetExecPath());
               // Delete the link path if it already exists. This is the case for tree artifacts,
               // whose root directory is created before the action runs.
-              link.delete();
-              link.createSymbolicLink(target);
+              symlink.linkPath().delete();
+              symlink.linkPath().createSymbolicLink(symlink.targetPath());
               return Completable.complete();
-            }));
+            }),
+        forceRefetch(symlink.linkPath));
   }
 
   public ImmutableSet<Path> downloadedFiles() {
@@ -639,7 +721,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   @VisibleForTesting
-  public AsyncTaskCache.NoResult<Path> getDownloadCache() {
+  AsyncTaskCache.NoResult<Path> getDownloadCache() {
     return downloadCache;
   }
 
@@ -664,20 +746,22 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       }
 
       var metadata = outputMetadataStore.getOutputMetadata(output);
-      if (!metadata.isRemote()) {
+      if (!canDownloadFile(output.getPath(), metadata)) {
         continue;
       }
 
       if (output.isTreeArtifact()) {
-        var children =
-            outputMetadataStore.getTreeArtifactValue((SpecialArtifact) output).getChildren();
-        for (var file : children) {
-          if (remoteOutputChecker.shouldDownloadOutput(file)) {
-            outputsToDownload.add(file);
-          }
-        }
+        outputMetadataStore
+            .getTreeArtifactValue((SpecialArtifact) output)
+            .getChildValues()
+            .forEach(
+                (child, childMetadata) -> {
+                  if (remoteOutputChecker.shouldDownloadOutput(child, childMetadata)) {
+                    outputsToDownload.add(child);
+                  }
+                });
       } else {
-        if (remoteOutputChecker.shouldDownloadOutput(output)) {
+        if (remoteOutputChecker.shouldDownloadOutput(output, metadata)) {
           outputsToDownload.add(output);
         }
       }
@@ -686,8 +770,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     if (!outputsToDownload.isEmpty()) {
       try (var s = Profiler.instance().profile(ProfilerTask.REMOTE_DOWNLOAD, "Download outputs")) {
         getFromFuture(
-            prefetchFiles(
-                action, outputsToDownload, outputMetadataStore::getOutputMetadata, Priority.HIGH));
+            prefetchFilesInterruptibly(
+                action,
+                outputsToDownload,
+                output -> outputMetadataStore.getOutputMetadata((Artifact) output),
+                Priority.HIGH,
+                Reason.OUTPUTS));
       }
     }
   }

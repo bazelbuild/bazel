@@ -14,11 +14,12 @@ filegroup(
 java_library(
     name = "collect_local_resource_usage",
     srcs = [
-        "CollectLocalResourceUsage.java",
+        "LocalResourceUsageCollectors.java",
     ],
     deps = [
         ":network_metrics_collector",
         ":profiler",
+        ":system_network_stats_service",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
@@ -28,45 +29,66 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_metrics",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+    ],
+)
+
+# Profiler interface and helper classes. Available in both the SC and the LC.
+java_library(
+    name = "profiler",
+    srcs = [
+        "AsyncProfiler.java",
+        "AutoProfiler.java",
+        "CounterSeriesCollector.java",
+        "CounterSeriesTask.java",
+        "MemoryProfiler.java",
+        "ProfilePhase.java",
+        "Profiler.java",
+        "ProfilerTask.java",
+        "SilentCloseable.java",
+        "SlowTask.java",
+        "StatRecorder.java",
+        "TimeSeries.java",
+        "TraceProfilerService.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
+        "//src/main/java/com/google/devtools/build/lib/util:TestType",
+        "//src/main/java/com/google/devtools/build/lib/util:heap_offset_helper",
+        "//src/main/java/com/google/devtools/build/lib/util:pair",
+        "//src/main/java/com/google/devtools/common/options",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
 
+# SC only
 java_library(
-    name = "profiler",
+    name = "profiler_impl",
     srcs = [
-        "AutoProfiler.java",
-        "CounterSeriesTask.java",
         "CounterSeriesTraceData.java",
         "JsonTraceFileWriter.java",
-        "LocalResourceCollector.java",
-        "MemoryProfiler.java",
         "MetricData.java",
         "PredicateBasedStatRecorder.java",
-        "ProfilePhase.java",
-        "Profiler.java",
-        "ProfilerTask.java",
-        "SilentCloseable.java",
+        "ResourceCollector.java",
         "SingleStatRecorder.java",
-        "StatRecorder.java",
+        "TaskData.java",
         "ThreadMetadata.java",
-        "TimeSeries.java",
+        "TimeSeriesImpl.java",
         "TraceData.java",
+        "TraceProfilerServiceImpl.java",
     ],
     deps = [
+        ":profiler",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
-        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/collect:extrema",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/util:heap_offset_helper",
-        "//src/main/java/com/google/devtools/build/lib/util:pair",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:auto_value",
         "//third_party:error_prone_annotations",
-        "//third_party:flogger",
         "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -77,14 +99,14 @@ java_library(
     name = "command_profiler_module",
     srcs = ["CommandProfilerModule.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:async_profiler",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
-        "@maven//:tools_profiler_async_profiler",
     ],
 )
 
@@ -92,9 +114,8 @@ java_library(
     name = "network_metrics_collector",
     srcs = ["NetworkMetricsCollector.java"],
     deps = [
-        ":system_network_stats",
+        ":system_network_stats_service",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
-        "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -102,12 +123,18 @@ java_library(
 )
 
 java_library(
-    name = "system_network_stats",
-    srcs = ["SystemNetworkStats.java"],
+    name = "system_network_stats_service",
+    srcs = ["SystemNetworkStatsService.java"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/runtime:blaze_service"],
+)
+
+java_library(
+    name = "system_network_stats_service_impl",
+    srcs = ["SystemNetworkStatsServiceImpl.java"],
     deps = [
+        ":system_network_stats_service",
         "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//third_party:auto_value",
         "//third_party:guava",
     ],
 )
@@ -124,6 +151,7 @@ java_library(
 
 java_library(
     name = "profiler-output",
+    testonly = 1,
     srcs =
         [
             "JsonProfile.java",
@@ -135,7 +163,6 @@ java_library(
     deps = [
         ":profiler",
         "//src/main/java/com/google/devtools/build/lib/util",
-        "//third_party:auto_value",
         "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",

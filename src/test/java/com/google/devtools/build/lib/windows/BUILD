@@ -1,3 +1,4 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:defs.bzl", "java_binary", "java_test")
 
 package(
@@ -35,19 +36,24 @@ java_test(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/shell:windows_subprocess_factory",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:default_syscall_cache",
         "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/windows",
         "//src/main/java/com/google/devtools/build/lib/windows:file",
         "//src/main/java/com/google/devtools/build/lib/windows:processes",
-        "//src/main/java/com/google/devtools/build/lib/windows:windows_short_path",
+        "//src/main/java/com/google/devtools/build/lib/windows:windows_path_operations",
         "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/java/com/google/devtools/build/lib/windows/util",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "@bazel_tools//tools/java/runfiles",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "@rules_java//java/runfiles",
     ],
 )
 

@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkConfig;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
+import com.google.devtools.build.lib.cmdline.BazelModuleKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
@@ -30,7 +31,6 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
-import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.config.ConfigGlobalLibrary;
 import com.google.devtools.build.lib.rules.config.ConfigStarlarkCommon;
@@ -50,6 +50,8 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.SymbolGenerator;
+import net.starlark.java.syntax.Comment;
+import net.starlark.java.syntax.DocComments;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
@@ -181,20 +183,43 @@ public final class BazelEvaluationTestCase {
     this.fragmentNameToClass = fragmentNameToClass;
   }
 
-  private Object newModule(ImmutableMap.Builder<String, Object> predeclared) {
+  private Module newModule(
+      ImmutableMap.Builder<String, Object> predeclared,
+      ImmutableMap<String, DocComments> docCommentsMap,
+      ImmutableList<Comment> unusedDocCommentLines) {
     predeclared.putAll(StarlarkGlobalsImpl.INSTANCE.getFixedBzlToplevels());
     predeclared.put("platform_common", new PlatformCommon());
     predeclared.put("config_common", new ConfigStarlarkCommon());
     predeclared.put("config", new StarlarkConfig());
     Starlark.addMethods(predeclared, new ConfigGlobalLibrary());
 
-    // Return the module's client data. (This one uses dummy values for tests.)
-    return BazelModuleContext.create(
-        label,
-        RepositoryMapping.ALWAYS_FALLBACK,
-        "test/label.bzl",
-        /* loads= */ ImmutableList.of(),
-        /* bzlTransitiveDigest= */ new byte[0]);
+    BazelModuleContext clientData =
+        BazelModuleContext.create(
+            BazelModuleKey.createFakeModuleKeyForTesting(label),
+            RepositoryMapping.EMPTY,
+            this.label.toString(),
+            /* loads= */ ImmutableList.of(),
+            /* bzlTransitiveDigest= */ new byte[0],
+            docCommentsMap,
+            unusedDocCommentLines);
+    return Module.withPredeclaredAndData(semantics, predeclared.buildOrThrow(), clientData);
+  }
+
+  /** Creates a new Starlark module for testing, and having no doc comments. */
+  public Module newModule() {
+    return newModule(
+        ImmutableMap.builder(),
+        /* docCommentsMap= */ ImmutableMap.of(),
+        /* unusedDocCommentLines= */ ImmutableList.of());
+  }
+
+  /**
+   * Creates a new Starlark module suitable for testing, with doc comments from the given compiled
+   * {@link Program}.
+   */
+  public Module newModule(Program program) {
+    return newModule(
+        ImmutableMap.builder(), program.getDocCommentsMap(), program.getUnusedDocCommentLines());
   }
 
   /** Sets a thread owner, for cases where the default value of {@code "test"} doesn't work. */
@@ -216,11 +241,7 @@ public final class BazelEvaluationTestCase {
 
   public Module getModule() {
     if (this.module == null) {
-      ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
-      Object clientData = newModule(predeclared);
-      Module module =
-          Module.withPredeclaredAndData(semantics, predeclared.buildOrThrow(), clientData);
-      this.module = module;
+      this.module = newModule();
     }
     return this.module;
   }

@@ -19,6 +19,7 @@ import com.google.devtools.build.docgen.annot.GlobalMethods;
 import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -232,9 +233,19 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
               + "For example, in the BUILD file <code>some/package/BUILD</code>, its value "
               + "will be <code>some/package</code>. "
               + "If the BUILD file calls a function defined in a .bzl file, "
-              + "<code>package_name()</code> will match the caller BUILD file package.",
+              + "<code>package_name()</code> will match the caller BUILD file package. "
+              + "The value will always be an empty string for the root package.",
       useStarlarkThread = true)
   String packageName(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "package_default_visibility",
+      doc =
+          "Returns the default visibility of the package being evaluated. This is the value of the"
+              + " <code>default_visibility</code> parameter of <code>package()</code>, extended to"
+              + " include the package itself.",
+      useStarlarkThread = true)
+  List<Label> packageDefaultVisibility(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "repository_name",
@@ -272,8 +283,8 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
               + " function. <p>The result of this function is the same <code>Label</code> value as"
               + " would be produced by passing the given string to a label-valued attribute of a"
               + " target declared in the BUILD file. <p><i>Usage note:</i> The difference between"
-              + " this function and <a href='../builtins/Label.html#Label'>Label()</a></code> is"
-              + " that <code>Label()</code> uses the context of the package of the"
+              + " this function and <a href='../builtins/Label.html#Label'><code>Label()</code>"
+              + "</a> is that <code>Label()</code> uses the context of the package of the"
               + " <code>.bzl</code> file that called it, not the package of the <code>BUILD</code>"
               + " file. Use <code>Label()</code> when you need to refer to a fixed target that is"
               + " hardcoded into the macro, such as a compiler. Use"
@@ -281,7 +292,10 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
               + " supplied by the BUILD file to a <code>Label</code> object. (There is no way to"
               + " convert a string to a <code>Label</code> in the context of a package other than"
               + " the BUILD file or the calling .bzl file. For that reason, outer macros should"
-              + " always prefer to pass Label objects to inner macros rather than label strings.)",
+              + " always prefer to pass Label objects to inner macros rather than label strings.)"
+              + "<a href='ctx.html#package_relative_label'><code>ctx.package_relative_label()"
+              + "</code></a> provides the same functionality within a rule or aspect implementation"
+              + " function.",
       parameters = {
         @Param(
             name = "input",

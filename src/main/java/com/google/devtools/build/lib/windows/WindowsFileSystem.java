@@ -22,11 +22,12 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.File;
+import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
+import java.nio.file.Path;
 import java.nio.file.attribute.DosFileAttributes;
 import javax.annotation.Nullable;
 
@@ -52,8 +53,8 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
-  protected boolean delete(PathFragment path) throws IOException {
-    long startTime = Profiler.nanoTimeMaybe();
+  public boolean delete(PathFragment path) throws IOException {
+    long startTime = Profiler.instance().nanoTimeMaybe();
     try {
       return WindowsFileOperations.deletePath(
           StringEncoding.internalToPlatform(path.getPathString()));
@@ -62,71 +63,64 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     } catch (java.nio.file.AccessDeniedException e) {
       throw new IOException(path.getPathString() + ERR_PERMISSION_DENIED, e);
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_DELETE, path.getPathString());
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_DELETE, path.getPathString());
     }
   }
 
   @Override
-  protected boolean createWritableDirectory(PathFragment path) throws IOException {
-    // All directories are writable on Windows.
-    return createDirectory(path);
-  }
-
-  @Override
-  protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
+  public void createSymbolicLink(
+      PathFragment linkPath, PathFragment targetFragment, SymlinkTargetType type)
       throws IOException {
     PathFragment targetPath =
         targetFragment.isAbsolute()
             ? targetFragment
             : linkPath.getParentDirectory().getRelative(targetFragment);
+
+    FileStatus stat = statIfFound(targetPath, /* followSymlinks= */ true);
+    boolean existingFile = stat != null && stat.isFile();
+    boolean existingDirectory = stat != null && stat.isDirectory();
+
     try {
-      File link = getIoFile(linkPath);
-      File target = getIoFile(targetPath);
-      if (target.isDirectory()) {
-        WindowsFileOperations.createJunction(link.toString(), target.toString());
-      } else if (createSymbolicLinks) {
+      Path link = getNioPath(linkPath);
+      Path target = getNioPath(targetPath);
+
+      if (!createSymbolicLinks && existingFile) {
+        // If symlinks aren't enabled and the target is an existing file, fall back to a copy.
+        Files.copy(target, link);
+      } else if (createSymbolicLinks
+          && (existingFile || (!existingDirectory && type != SymlinkTargetType.DIRECTORY))) {
+        // If symlinks are enabled and the target is not an existing or future directory, create a
+        // symlink.
         WindowsFileOperations.createSymlink(link.toString(), target.toString());
-      } else if (!target.exists()) {
-        // Still Create a dangling junction if the target doesn't exist.
-        WindowsFileOperations.createJunction(link.toString(), target.toString());
       } else {
-        Files.copy(target.toPath(), link.toPath());
+        // Otherwise, create a junction.
+        WindowsFileOperations.createJunction(link.toString(), target.toString());
       }
-    } catch (java.nio.file.FileAlreadyExistsException e) {
-      throw new IOException(linkPath + ERR_FILE_EXISTS, e);
-    } catch (java.nio.file.AccessDeniedException e) {
-      throw new IOException(linkPath + ERR_PERMISSION_DENIED, e);
-    } catch (java.nio.file.NoSuchFileException e) {
-      throw new FileNotFoundException(linkPath + ERR_NO_SUCH_FILE_OR_DIR);
+    } catch (IOException e) {
+      throw translateNioToIoException(linkPath, e);
     }
   }
 
   @Override
-  protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
+  public PathFragment readSymbolicLink(PathFragment path) throws IOException {
     java.nio.file.Path nioPath = getNioPath(path);
-    WindowsFileOperations.ReadSymlinkOrJunctionResult result =
-        WindowsFileOperations.readSymlinkOrJunction(nioPath.toString());
-    if (result.getStatus() == WindowsFileOperations.ReadSymlinkOrJunctionResult.Status.OK) {
-      return PathFragment.create(StringEncoding.platformToInternal(result.getResult()));
-    }
-    if (result.getStatus() == WindowsFileOperations.ReadSymlinkOrJunctionResult.Status.NOT_A_LINK) {
-      throw new NotASymlinkException(path);
-    }
-    throw new IOException(result.getResult());
+    return PathFragment.create(
+        StringEncoding.platformToInternal(
+            WindowsFileOperations.readSymlinkOrJunction(nioPath.toString())));
   }
 
   @Override
   public boolean supportsSymbolicLinksNatively(PathFragment path) {
-    return false;
+    return createSymbolicLinks;
   }
 
   @Override
-  public boolean isFilePathCaseSensitive() {
-    return false;
+  public boolean mayBeCaseOrNormalizationInsensitive() {
+    return true;
   }
 
   @Override
-  protected boolean fileIsSymbolicLink(File file) {
+  protected boolean fileIsSymbolicLink(Path file) {
     try {
       if (isSymlinkOrJunction(file)) {
         return true;
@@ -142,11 +136,11 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
-  protected FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
-    File file = getIoFile(path);
+  public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
+    Path nioPath = getNioPath(path);
     final DosFileAttributes attributes;
     try {
-      attributes = getAttribs(file, followSymlinks);
+      attributes = getAttribs(nioPath, followSymlinks);
     } catch (IOException e) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     }
@@ -177,7 +171,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
           @Override
           public boolean isSymbolicLink() {
             if (isSymbolicLink == null) {
-              isSymbolicLink = !followSymlinks && fileIsSymbolicLink(file);
+              isSymbolicLink = !followSymlinks && fileIsSymbolicLink(nioPath);
             }
             return isSymbolicLink;
           }
@@ -219,15 +213,15 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
-  protected boolean isSymbolicLink(PathFragment path) {
-    return fileIsSymbolicLink(getIoFile(path));
+  public boolean isSymbolicLink(PathFragment path) {
+    return fileIsSymbolicLink(getNioPath(path));
   }
 
   @Override
-  protected boolean isDirectory(PathFragment path, boolean followSymlinks) {
+  public boolean isDirectory(PathFragment path, boolean followSymlinks) {
     if (!followSymlinks) {
       try {
-        if (isSymlinkOrJunction(getIoFile(path))) {
+        if (isSymlinkOrJunction(getNioPath(path))) {
           return false;
         }
       } catch (IOException e) {
@@ -238,13 +232,13 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
-  protected void setReadable(PathFragment path, boolean readable) {
+  public void setReadable(PathFragment path, boolean readable) {
     // Windows does not have a notion of readable files.
     // https://github.com/openjdk/jdk/blob/e52a2aeeacaeb26c801b6e31f8e67e61b1ea2de3/src/java.base/windows/native/libjava/WinNTFileSystem_md.c#L473-L476
   }
 
   @Override
-  protected void setExecutable(PathFragment path, boolean executable) {
+  public void setExecutable(PathFragment path, boolean executable) {
     // Windows does not have a notion of executable files.
     // https://github.com/openjdk/jdk/blob/e52a2aeeacaeb26c801b6e31f8e67e61b1ea2de3/src/java.base/windows/native/libjava/WinNTFileSystem_md.c#L473-L476
   }
@@ -280,13 +274,12 @@ public class WindowsFileSystem extends JavaIoFileSystem {
    * they are dangling), though only directory junctions and directory symlinks are useful.
    */
   @VisibleForTesting
-  static boolean isSymlinkOrJunction(File file) throws IOException {
-    return WindowsFileOperations.isSymlinkOrJunction(file.getPath());
+  static boolean isSymlinkOrJunction(Path file) throws IOException {
+    return WindowsFileOperations.isSymlinkOrJunction(file.toString());
   }
 
-  private static DosFileAttributes getAttribs(File file, boolean followSymlinks)
+  private static DosFileAttributes getAttribs(Path file, boolean followSymlinks)
       throws IOException {
-    return Files.readAttributes(
-        file.toPath(), DosFileAttributes.class, symlinkOpts(followSymlinks));
+    return Files.readAttributes(file, DosFileAttributes.class, symlinkOpts(followSymlinks));
   }
 }

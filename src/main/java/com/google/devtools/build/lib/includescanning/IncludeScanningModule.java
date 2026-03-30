@@ -31,11 +31,11 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
@@ -44,12 +44,10 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeExtractionContext;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeScanningContext;
-import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.rules.cpp.SwigIncludeScanningContext;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -58,12 +56,12 @@ import com.google.devtools.build.lib.skyframe.EphemeralCheckIfOutputConsumed;
 import com.google.devtools.build.lib.skyframe.MutableSupplier;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -77,8 +75,8 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
- * Module that provides implementations of {@link CppIncludeExtractionContext},
- * {@link CppIncludeScanningContext}, and {@link SwigIncludeScanningContext}.
+ * Module that provides implementations of {@link CppIncludeExtractionContext}, {@link
+ * CppIncludeScanningContext}, and {@link SwigIncludeScanningContext}.
  */
 public class IncludeScanningModule extends BlazeModule {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -119,19 +117,14 @@ public class IncludeScanningModule extends BlazeModule {
   }
 
   @Override
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return "build".equals(command.name())
+  public Iterable<Class<? extends OptionsBase>> getCommandOptions(String commandName) {
+    return commandName.equals("build")
         ? ImmutableList.of(IncludeScanningOptions.class)
         : ImmutableList.of();
   }
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
-    CppOptions cppOptions = env.getOptions().getOptions(CppOptions.class);
-    if (cppOptions != null && cppOptions.experimentalIncludeScanning) {
-      env.getReporter()
-          .handle(Event.warn("Include scanning enabled. This feature is unsupported."));
-    }
     artifactFactory.set(env.getSkyframeBuildView().getArtifactFactory());
   }
 
@@ -159,9 +152,7 @@ public class IncludeScanningModule extends BlazeModule {
     return skyFunctions.buildOrThrow();
   }
 
-  /**
-   * Implementation of {@link CppIncludeExtractionContext}.
-   */
+  /** Implementation of {@link CppIncludeExtractionContext}. */
   public static final class CppIncludeExtractionContextImpl implements CppIncludeExtractionContext {
     private final CommandEnvironment env;
 
@@ -175,9 +166,7 @@ public class IncludeScanningModule extends BlazeModule {
     }
   }
 
-  /**
-   * SwigIncludeScanningContextImpl implements SwigIncludeScanningContext.
-   */
+  /** SwigIncludeScanningContextImpl implements SwigIncludeScanningContext. */
   public static final class SwigIncludeScanningContextImpl implements SwigIncludeScanningContext {
     private final CommandEnvironment env;
     private final Supplier<SpawnIncludeScanner> spawnScannerSupplier;
@@ -202,11 +191,13 @@ public class IncludeScanningModule extends BlazeModule {
         Artifact source,
         ImmutableSet<Artifact> legalOutputPaths,
         ImmutableList<PathFragment> swigIncludePaths,
-        Artifact grepIncludes)
+        Artifact grepIncludes,
+        @Nullable PlatformInfo grepIncludesExecutionPlatform)
         throws IOException, ExecException, InterruptedException {
       SwigIncludeScanner scanner =
           new SwigIncludeScanner(
               includePool.get(),
+              shouldShuffle(env),
               spawnScannerSupplier.get(),
               cache,
               swigIncludePaths,
@@ -234,9 +225,10 @@ public class IncludeScanningModule extends BlazeModule {
             includes,
             actionExecutionMetadata,
             actionExecContext,
-            grepIncludes);
-      } catch (IORuntimeException e) {
-        throw e.getCauseIOException();
+            grepIncludes,
+            grepIncludesExecutionPlatform);
+      } catch (UncheckedIOException e) {
+        throw e.getCause();
       } catch (NoSuchPackageException e) {
         throw new IllegalStateException("Swig has no hints! For " + source, e);
       }
@@ -332,8 +324,7 @@ public class IncludeScanningModule extends BlazeModule {
     @SuppressWarnings("AllowVirtualThreads")
     @Override
     public void executorCreated() {
-      var buildRequestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
-      var useAsyncExecution = buildRequestOptions != null && buildRequestOptions.useAsyncExecution;
+      var useAsyncExecution = useAsyncExecution(env);
       int threads = options.includeScanningParallelism;
       if (useAsyncExecution) {
         includePool =
@@ -363,6 +354,7 @@ public class IncludeScanningModule extends BlazeModule {
           new IncludeScannerSupplier(
               env.getDirectories(),
               includePool,
+              shouldShuffle(env),
               env.getSkyframeBuildView().getArtifactFactory(),
               spawnScannerSupplier,
               env.getExecRoot());
@@ -370,5 +362,16 @@ public class IncludeScanningModule extends BlazeModule {
       spawnScannerSupplier.get().setOutputService(env.getOutputService());
       spawnScannerSupplier.get().setInMemoryOutput(options.inMemoryIncludesFiles);
     }
+  }
+
+  private static boolean useAsyncExecution(CommandEnvironment env) {
+    var buildRequestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
+    return buildRequestOptions != null && buildRequestOptions.getUseAsyncExecution();
+  }
+
+  private static boolean shouldShuffle(CommandEnvironment env) {
+    // Don't shuffle if using virtual threads, otherwise it introduces high CPU regression on
+    // machines with large number of cores.
+    return !useAsyncExecution(env);
   }
 }

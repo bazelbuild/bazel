@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
+import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -52,6 +53,9 @@ import net.starlark.java.eval.Starlark;
  */
 public final class LabelBuildSettings {
   @SerializationConstant @VisibleForSerialization
+  static final String NONCONFIGURABLE_ATTRIBUTE_REASON =
+      "part of a rule class that *triggers* configurable behavior";
+
   // TODO(b/65746853): find a way to do this without passing the entire BuildConfigurationValue
   static final LabelLateBoundDefault<BuildConfigurationValue> ACTUAL =
       LabelLateBoundDefault.fromTargetConfigurationWithRuleBasedDefault(
@@ -83,6 +87,11 @@ public final class LabelBuildSettings {
         .removeAttribute("distribs")
         .removeAttribute(":action_listener")
         .add(attr(":alias", LABEL).value(ACTUAL))
+        .add(
+            attr("scope", STRING)
+                .value("universal")
+                .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+        .add(attr("on_leave_scope", NODEP_LABEL).nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
         .setBuildSetting(BuildSetting.create(flag, NODEP_LABEL))
         .canHaveAnyProvider()
         .toolchainResolutionMode(ToolchainResolutionMode.DISABLED)
@@ -98,7 +107,7 @@ public final class LabelBuildSettings {
 
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
-      return buildRuleClass(builder, /*flag=*/ false);
+      return buildRuleClass(builder, /* flag= */ false);
     }
   }
 
@@ -111,7 +120,7 @@ public final class LabelBuildSettings {
 
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
-      return buildRuleClass(builder, /*flag=*/ true);
+      return buildRuleClass(builder, /* flag= */ true);
     }
   }
 

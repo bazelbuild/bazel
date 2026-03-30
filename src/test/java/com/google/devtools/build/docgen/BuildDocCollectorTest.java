@@ -48,7 +48,9 @@ public final class BuildDocCollectorTest {
       new SourceUrlMapper(
           /* sourceUrlRoot= */ "https://example.com/",
           /* inputRoot= */ "/tmp/io_bazel/",
-          ImmutableMap.of("@_builtins//", "https://example.com/src/main/starlark/builtins_bzl/"));
+          ImmutableMap.of(
+              "@//", "https://main-repo.com/",
+              "@_builtins//", "https://example.com/src/main/starlark/builtins_bzl/"));
 
   @Before
   public void setUpCollectorState() {
@@ -171,7 +173,7 @@ public final class BuildDocCollectorTest {
     assertThat(oldAttribute.getAttributeName()).isEqualTo("old");
     assertThat(oldAttribute.isDeprecated()).isTrue();
     assertThat(oldAttribute.getSynopsis()).isEqualTo("String; default is <code>\"???\"</code>");
-
+    assertThat(ruleDoc.getAttribute("old")).isEqualTo(oldAttribute);
     assertThat(ruleDocOrigin)
         .containsExactly(
             "my_binary", DocumentationOrigin.create("//:test.bzl", "binary_rules.my_binary"));

@@ -12,7 +12,7 @@ filegroup(
 )
 
 java_library(
-    name = "BuildEventServiceAvailabilityEvent",
+    name = "build_event_service_availability_event",
     srcs = ["BuildEventServiceAvailabilityEvent.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
@@ -22,7 +22,7 @@ java_library(
 )
 
 java_library(
-    name = "buildeventservice-options",
+    name = "build_event_service_options",
     srcs = ["BuildEventServiceOptions.java"],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
@@ -33,19 +33,25 @@ java_library(
     name = "buildeventservice",
     srcs = glob(
         ["*.java"],
-        exclude = ["BuildEventServiceOptions.java"],
+        exclude = [
+            "BuildEventServiceOptions.java",
+            "BuildEventServiceAvailabilityEvent.java",
+        ],
     ),
     deps = [
-        ":buildeventservice-options",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
+        ":build_event_service_availability_event",
+        ":build_event_service_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/authandtls",
+        "//src/main/java/com/google/devtools/build/lib/authandtls:grpc",
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper",
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
-        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_client",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_grpc_client",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream:build_event_service_upload_complete_event",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream:large-buildevent-serialized-event",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/transports",
@@ -54,6 +60,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/network:connectivity_status",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/runtime:build_event_streamer",
+        "//src/main/java/com/google/devtools/build/lib/runtime:common_command_options",
+        "//src/main/java/com/google/devtools/build/lib/runtime:counting_artifact_group_namer",
+        "//src/main/java/com/google/devtools/build/lib/runtime:instrumentation_output",
+        "//src/main/java/com/google/devtools/build/lib/runtime:synchronized_output_stream",
+        "//src/main/java/com/google/devtools/build/lib/runtime:target_summary_publisher",
+        "//src/main/java/com/google/devtools/build/lib/runtime:ui_options",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
@@ -64,13 +78,11 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:spawn_java_proto",
         "//third_party:auth",
-        "//third_party:auto_value",
+        "//third_party:error_prone_annotations",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/grpc-java:grpc-jar",
-        "@googleapis//google/devtools/build/v1:build_java_proto",
-        "@protobuf//:protobuf_java",
-        "@protobuf//:protobuf_java_util",
+        "@com_google_protobuf//:protobuf_java_util",
     ],
 )

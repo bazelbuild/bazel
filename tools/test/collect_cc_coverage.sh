@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
  # Copyright 2016 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,7 +37,9 @@
 # gcda or profraw) and uses either lcov or gcov to get the coverage data.
 # The coverage data is placed in $COVERAGE_OUTPUT_FILE.
 
-if [[ -n "$VERBOSE_COVERAGE" ]]; then
+set -u
+
+if [[ -n "${VERBOSE_COVERAGE:-}" ]]; then
   set -x
 fi
 
@@ -46,12 +48,6 @@ function uses_llvm() {
   if stat "${COVERAGE_DIR}"/*.profraw >/dev/null 2>&1; then
     return 0
   fi
-  return 1
-}
-
-# Returns 0 if gcov must be used, 1 otherwise.
-function uses_gcov() {
-  [[ "$GCOV_COVERAGE" -eq "1"  ]] && return 0
   return 1
 }
 
@@ -77,8 +73,7 @@ function init_gcov() {
 # Writes the collected coverage into the given output file.
 function llvm_coverage_lcov() {
   local output_file="${1}"; shift
-  export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
-  "${COVERAGE_GCOV_PATH}" merge -output "${output_file}.data" \
+  "${LLVM_PROFDATA}" merge -output "${output_file}.data" \
       "${COVERAGE_DIR}"/*.profraw
 
   local object_param=""
@@ -97,8 +92,7 @@ function llvm_coverage_lcov() {
 
 function llvm_coverage_profdata() {
   local output_file="${1}"; shift
-  export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
-  "${COVERAGE_GCOV_PATH}" merge -output "${output_file}" \
+  "${LLVM_PROFDATA}" merge -output "${output_file}" \
       "${COVERAGE_DIR}"/*.profraw
 }
 
@@ -111,6 +105,8 @@ function llvm_coverage_profdata() {
 # - output_file     The location of the file where the generated code coverage
 #                   report is written.
 function gcov_coverage() {
+  init_gcov
+
   local output_file="${1}"; shift
 
   # We'll save the standard output of each the gcov command in this log.
@@ -163,9 +159,9 @@ function gcov_coverage() {
           # because of a gcov issue that segfaults when both -i and -b are used
           # (see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=84879).
           if [[ $gcov_major_version -le 7 ]]; then
-              "${GCOV}" -i $COVERAGE_GCOV_OPTIONS -o "$(dirname ${gcda})" "${gcda}"
+              "${GCOV}" -i ${COVERAGE_GCOV_OPTIONS:-} -o "$(dirname ${gcda})" "${gcda}"
           else
-              "${GCOV}" -i -b $COVERAGE_GCOV_OPTIONS -o "$(dirname ${gcda})" "${gcda}"
+              "${GCOV}" -i -b ${COVERAGE_GCOV_OPTIONS:-} -o "$(dirname ${gcda})" "${gcda}"
           fi
 
           # Check the type of output: gcov 9 or later outputs compressed JSON
@@ -186,8 +182,6 @@ function gcov_coverage() {
 }
 
 function main() {
-  init_gcov
-
   # If llvm code coverage is used, we output the raw code coverage report in
   # the $COVERAGE_OUTPUT_FILE. This report will not be converted to any other
   # format by LcovMerger.

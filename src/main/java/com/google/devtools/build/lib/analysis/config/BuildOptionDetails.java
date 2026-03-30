@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.devtools.common.options.OptionsParser.getOptionDefinitionByName;
+import static java.util.Arrays.stream;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -54,6 +57,7 @@ public final class BuildOptionDetails {
   static BuildOptionDetails forOptions(
       Iterable<? extends FragmentOptions> buildOptions, Map<Label, Object> starlarkOptions) {
     ImmutableMap.Builder<String, OptionDetails> map = ImmutableMap.builder();
+    ImmutableMap.Builder<String, String> oldNameToCanonicalName = ImmutableMap.builder();
     for (FragmentOptions options : buildOptions) {
       ImmutableList<? extends OptionDefinition> optionDefinitions =
           OptionsParser.getOptionDefinitions(options.getClass());
@@ -64,13 +68,20 @@ public final class BuildOptionDetails {
           // ignore internal options
           continue;
         }
+        if (!optionDefinition.getOldOptionName().isEmpty()) {
+          oldNameToCanonicalName.put(
+              optionDefinition.getOldOptionName(), optionDefinition.getOptionName());
+        }
         Object value = optionDefinition.getValue(options);
         map.put(
             optionDefinition.getOptionName(),
             new OptionDetails(options.getClass(), value, optionDefinition.allowsMultiple()));
       }
     }
-    return new BuildOptionDetails(map.buildOrThrow(), ImmutableMap.copyOf(starlarkOptions));
+    return new BuildOptionDetails(
+        map.buildOrThrow(),
+        oldNameToCanonicalName.buildOrThrow(),
+        ImmutableMap.copyOf(starlarkOptions));
   }
 
   private static final class OptionDetails {
@@ -104,13 +115,21 @@ public final class BuildOptionDetails {
    */
   private final ImmutableMap<String, OptionDetails> nativeOptionsMap;
 
+  /**
+   * For options with {@link Option#oldName()}, maps the old name to the canonical name. Options
+   * with no old name aren't in this map.
+   */
+  private final ImmutableMap<String, String> oldNameToCanonicalName;
+
   /** Maps Starlark option labels to values */
   private final ImmutableMap<Label, Object> starlarkOptionsMap;
 
   private BuildOptionDetails(
       ImmutableMap<String, OptionDetails> nativeOptionsMap,
+      ImmutableMap<String, String> oldNameToCanonicalName,
       ImmutableMap<Label, Object> starlarkOptionsMap) {
     this.nativeOptionsMap = nativeOptionsMap;
+    this.oldNameToCanonicalName = oldNameToCanonicalName;
     this.starlarkOptionsMap = starlarkOptionsMap;
   }
 
@@ -148,6 +167,14 @@ public final class BuildOptionDetails {
   }
 
   /**
+   * If this is an {@link Option#oldName()} alias for a canonical option name, returns the canonical
+   * name. Else returns the original name (since there's only one).
+   */
+  public String getCanonicalName(String optionName) {
+    return oldNameToCanonicalName.getOrDefault(optionName, optionName);
+  }
+
+  /**
    * Returns whether or not the given option supports multiple values at the command line (e.g.
    * "--myoption value1 --myOption value2 ..."). Returns false for unrecognized options. Use {@link
    * #getOptionClass} to distinguish between those and legitimate single-value options.
@@ -158,5 +185,19 @@ public final class BuildOptionDetails {
   public boolean allowsMultipleValues(String optionName) {
     OptionDetails optionDetails = nativeOptionsMap.get(optionName);
     return optionDetails != null && optionDetails.allowsMultiple;
+  }
+
+  public boolean isNonConfigurable(String optionName) {
+    OptionDetails optionDetails = nativeOptionsMap.get(optionName);
+    if (optionDetails == null) {
+      return false;
+    }
+    OptionDefinition optionDefinition =
+        getOptionDefinitionByName(optionDetails.optionsClass, optionName);
+    if (optionDefinition == null) {
+      return false;
+    }
+    return stream(optionDefinition.getOptionMetadataTags())
+        .anyMatch(OptionMetadataTag.NON_CONFIGURABLE::equals);
   }
 }

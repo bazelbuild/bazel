@@ -19,13 +19,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -38,13 +35,13 @@ public class PackageGroup implements Target {
   private final boolean containsErrors;
   private final Label label;
   private final Location location;
-  private final Package containingPackage;
+  private final Packageoid containingPackageoid;
   private final PackageGroupContents packageSpecifications;
   private final List<Label> includes;
 
   public PackageGroup(
       Label label,
-      Package pkg,
+      Packageoid pkg,
       Collection<String> packageSpecifications,
       Collection<Label> includes,
       boolean allowPublicPrivate,
@@ -53,7 +50,7 @@ public class PackageGroup implements Target {
       Location location) {
     this.label = label;
     this.location = location;
-    this.containingPackage = pkg;
+    this.containingPackageoid = pkg;
     this.includes = ImmutableList.copyOf(includes);
 
     // TODO(bazel-team): Consider refactoring so constructor takes a PackageGroupContents.
@@ -109,11 +106,6 @@ public class PackageGroup implements Target {
   }
 
   @Override
-  public Set<DistributionType> getDistributions() {
-    return Collections.emptySet();
-  }
-
-  @Override
   public Label getLabel() {
     return label;
   }
@@ -124,8 +116,18 @@ public class PackageGroup implements Target {
   }
 
   @Override
-  public Package getPackage() {
-    return containingPackage;
+  public Packageoid getPackageoid() {
+    return containingPackageoid;
+  }
+
+  @Override
+  public Package.Metadata getPackageMetadata() {
+    return containingPackageoid.getMetadata();
+  }
+
+  @Override
+  public Package.Declarations getPackageDeclarations() {
+    return containingPackageoid.getDeclarations();
   }
 
   @Override

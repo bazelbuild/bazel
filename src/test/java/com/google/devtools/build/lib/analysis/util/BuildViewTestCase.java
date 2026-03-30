@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -144,7 +143,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
@@ -154,13 +153,11 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
-import com.google.devtools.build.lib.skyframe.PackageRootsNoSymlinkCreation;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyFunctionEnvironmentForTesting;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
@@ -175,7 +172,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
-import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -190,6 +186,7 @@ import com.google.errorprone.annotations.ForOverride;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -204,9 +201,9 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Predicate;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.After;
 import org.junit.Before;
@@ -231,7 +228,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   // Note that these configurations are virtual (they use only VFS)
   protected BuildConfigurationValue targetConfig; // "target" or "build" config
   protected BuildConfigurationValue execConfig;
-  private List<String> configurationArgs;
+  private ImmutableList<String> configurationArgs;
 
   private PackageOptions packageOptions;
   private BuildLanguageOptions buildLanguageOptions;
@@ -290,7 +287,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, outputBase),
             rootDirectory,
-            /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
     moduleRoot = scratch.dir("modules");
     registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(moduleRoot.getPathString());
@@ -338,7 +334,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .setSyscallCache(SyscallCache.NO_CACHE)
             .setDiffAwarenessFactories(diffAwarenessFactories)
-            .setRepositoryHelpersHolder(getRepositoryHelpersHolder())
+            .allowExternalRepositories(allowExternalRepositories())
             .setGlobUnderSingleDep(globUnderSingleDep)
             .build();
     if (usesInliningBzlLoadFunction()) {
@@ -356,10 +352,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
     skyframeExecutor.preparePackageLoading(
-        new PathPackageLocator(
-            outputBase,
-            ImmutableList.of(root),
-            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
+        createPackageLocator(),
         packageOptions,
         buildLanguageOptions,
         UUID.randomUUID(),
@@ -373,10 +366,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         new ActionLogBufferPathGenerator(directories.getActionTempsDirectory(getExecRoot()));
   }
 
+  protected final PathPackageLocator createPackageLocator() {
+    return new PathPackageLocator(
+        outputBase, ImmutableList.of(root), BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
+  }
+
   @ForOverride
-  @Nullable
-  protected SkyframeExecutorRepositoryHelpersHolder getRepositoryHelpersHolder() {
-    return null;
+  protected boolean allowExternalRepositories() {
+    return false;
   }
 
   private void injectInliningBzlLoadFunction(
@@ -418,7 +415,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected void initializeMockClient() throws IOException {
     analysisMock.setupMockClient(mockToolsConfig);
-    analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
     analysisMock.setupPrelude(mockToolsConfig);
   }
 
@@ -457,7 +453,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     // This is being done outside of BuildView, potentially even before the BuildView was
     // constructed and thus cannot rely on BuildView having injected this for us.
-    skyframeExecutor.setBaselineConfiguration(buildOptions);
+    skyframeExecutor.setBaselineConfiguration(buildOptions, reporter);
     return skyframeExecutor.createConfiguration(reporter, buildOptions, false);
   }
 
@@ -522,19 +518,28 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty())));
+                RepositoryDirectoryValue.VENDOR_DIRECTORY, Optional.empty())));
   }
 
-  protected void setPackageOptions(String... options) throws Exception {
+  protected void setPackageOptions(String... options)
+      throws OptionsParsingException, InterruptedException, AbruptExitException {
     packageOptions = parsePackageOptions(options);
     setUpSkyframe();
     invalidatePackages(/* alsoConfigs= */ false);
   }
 
-  protected void setBuildLanguageOptions(String... options) throws Exception {
+  protected void setBuildLanguageOptions(String... options)
+      throws OptionsParsingException, InterruptedException, AbruptExitException {
     buildLanguageOptions = parseBuildLanguageOptions(options);
+    setUpSkyframe();
+    invalidatePackages(/* alsoConfigs= */ false);
+  }
+
+  protected void setPackageAndBuildLanguageOptions(
+      PackageOptions packageOptions, BuildLanguageOptions buildLanguageOptions)
+      throws InterruptedException, AbruptExitException {
+    this.packageOptions = packageOptions;
+    this.buildLanguageOptions = buildLanguageOptions;
     setUpSkyframe();
     invalidatePackages(/* alsoConfigs= */ false);
   }
@@ -547,14 +552,15 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return "public";
   }
 
-  private PackageOptions parsePackageOptions(String... options) throws Exception {
+  private PackageOptions parsePackageOptions(String... options) throws OptionsParsingException {
     OptionsParser parser = OptionsParser.builder().optionsClasses(PackageOptions.class).build();
     parser.parse("--default_visibility=" + getDefaultVisibility());
     parser.parse(options);
     return parser.getOptions(PackageOptions.class);
   }
 
-  protected BuildLanguageOptions parseBuildLanguageOptions(String... options) throws Exception {
+  protected BuildLanguageOptions parseBuildLanguageOptions(String... options)
+      throws OptionsParsingException {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
     parser.parse(getDefaultBuildLanguageOptions());
@@ -562,10 +568,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return parser.getOptions(BuildLanguageOptions.class);
   }
 
-  protected List<String> getDefaultBuildLanguageOptions() throws Exception {
+  protected List<String> getDefaultBuildLanguageOptions() {
     ImmutableList.Builder<String> ans = ImmutableList.builder();
     ans.addAll(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
-    ans.add("--enable_bzlmod");
     return ans.build();
   }
 
@@ -658,7 +663,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Creates BuildView using current execConfig/targetConfig values. Ensures that execConfig is
    * either identical to the targetConfig or {@code isExecConfiguration()} is true.
    */
-  protected final void createBuildView() {
+  protected final void createBuildView()
+      throws InvalidConfigurationException, InterruptedException {
     Preconditions.checkNotNull(targetConfig);
     Preconditions.checkState(
         getExecConfiguration().equals(getTargetConfiguration())
@@ -669,11 +675,13 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         getTargetConfiguration());
 
     skyframeExecutor.handleAnalysisInvalidatingChange();
+    skyframeExecutor.setBaselineConfiguration(targetConfig.getOptions(), reporter);
 
     view = new BuildViewForTesting(directories, ruleClassProvider, skyframeExecutor, null);
     view.setConfigurationForTesting(targetConfig);
 
-    view.setArtifactRoots(new PackageRootsNoSymlinkCreation(Root.fromPath(rootDirectory)));
+    Root root = Root.fromPath(rootDirectory);
+    view.getArtifactFactory().setPackageRoots(pkgId -> root);
   }
 
   protected CachingAnalysisEnvironment getTestAnalysisEnvironment() throws InterruptedException {
@@ -1202,22 +1210,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Rewrites the WORKSPACE to have the required boilerplate and the given lines of content.
-   *
-   * <p>Triggers Skyframe to reinitialize everything.
-   */
-  public void rewriteWorkspace(String... lines) throws Exception {
-    scratch.overwriteFile(
-        "WORKSPACE",
-        new ImmutableList.Builder<String>()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .addAll(ImmutableList.copyOf(lines))
-            .build());
-
-    invalidatePackages();
-  }
-
-  /**
    * Rewrites the MODULE.bazel file
    *
    * <p>Triggers Skyframe to reinitialize everything.
@@ -1323,8 +1315,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     reporter.removeHandler(failFastHandler); // expect errors
     ConfiguredTarget target = scratchConfiguredTarget(packageName, ruleName, lines);
     if (target != null) {
-      assertWithMessage(
-              "Rule '" + "//" + packageName + ":" + ruleName + "' did not contain an error")
+      assertWithMessage("Rule '" + "//%s:%s' did not contain an error", packageName, ruleName)
           .that(view.hasErrors(target))
           .isTrue();
     }
@@ -1348,8 +1339,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     reporter.removeHandler(failFastHandler); // expect errors
     ConfiguredTarget target = scratchConfiguredTarget(packageName, ruleName, lines);
     if (target != null) {
-      assertWithMessage(
-              "Rule '" + "//" + packageName + ":" + ruleName + "' did not contain an error")
+      assertWithMessage("Rule '" + "//%s:%s' did not contain an error", packageName, ruleName)
           .that(view.hasErrors(target))
           .isTrue();
     }
@@ -1369,7 +1359,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     reporter.removeHandler(failFastHandler); // expect errors
     ConfiguredTarget target = getConfiguredTarget(label);
     if (target != null) {
-      assertWithMessage("Rule '" + label + "' did not contain an error")
+      assertWithMessage("Rule '%s' did not contain an error", label)
           .that(view.hasErrors(target))
           .isTrue();
     }
@@ -1404,7 +1394,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       throws Exception {
     eventCollector.clear();
     ConfiguredTarget target = scratchConfiguredTarget(packageName, ruleName, lines);
-    assertWithMessage("Rule '" + "//" + packageName + ":" + ruleName + "' did contain an error")
+    assertWithMessage("Rule '" + "//%s:%s' did contain an error", packageName, ruleName)
         .that(view.hasErrors(target))
         .isFalse();
     return assertContainsEvent(expectedWarningMessage);
@@ -2115,6 +2105,26 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         .getPackage(reporter, PackageIdentifier.createInMainRepo(packageName));
   }
 
+  /**
+   * Copies the protolark-provided {@code project} scl definition into the given scratch file path.
+   *
+   * <p>{@code PROJECT.scl} files load this file to define their configuration. This method loads
+   * the actual (non-mocked) file, so tests can effectively match production code.
+   */
+  protected void writeProjectSclDefinition(String dest) throws Exception {
+
+    scratch.file(
+        dest,
+        Files.readString(
+            java.nio.file.Path.of(
+                com.google.devtools.build.runfiles.Runfiles.preload()
+                    .withSourceRepository("")
+                    .rlocation(
+                        TestConstants.WORKSPACE_NAME
+                            + "/"
+                            + TestConstants.PROJECT_SCL_DEFINITION_PATH))));
+  }
+
   /** A stub analysis environment. */
   protected class StubAnalysisEnvironment implements AnalysisEnvironment {
 
@@ -2190,18 +2200,17 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
-    public Artifact.DerivedArtifact getDerivedArtifact(
-        PathFragment rootRelativePath, ArtifactRoot root, boolean contentBasedPath) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Artifact getStableWorkspaceStatusArtifact() {
       throw new UnsupportedOperationException();
     }
 
     @Override
     public Artifact getVolatileWorkspaceStatusArtifact() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void declareStampSettingDep() {
       throw new UnsupportedOperationException();
     }
 
@@ -2233,22 +2242,25 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected ImmutableList<String> baselineCoverageArtifactBasenames(ConfiguredTarget target)
       throws Exception {
-    Artifact baselineCoverage =
-        target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR).getBaselineCoverageArtifact();
-    if (baselineCoverage == null) {
-      return ImmutableList.of();
-    }
-    ImmutableList.Builder<String> basenames = ImmutableList.builder();
-    var baselineCoverageAction = (BaselineCoverageAction) getGeneratingAction(baselineCoverage);
-    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-    baselineCoverageAction
-        .newDeterministicWriter(ActionsTestUtil.createContext(reporter))
-        .writeOutputFile(bytes);
+    ImmutableList<Artifact> baselineCoverageArtifacts =
+        target
+            .get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR)
+            .getBaselineCoverageArtifacts()
+            .toList();
 
-    for (String line : Splitter.on('\n').split(bytes.toString(UTF_8))) {
-      if (line.startsWith("SF:")) {
-        String basename = line.substring(line.lastIndexOf('/') + 1);
-        basenames.add(basename);
+    ImmutableList.Builder<String> basenames = ImmutableList.builder();
+    for (Artifact baselineCoverage : baselineCoverageArtifacts) {
+      var baselineCoverageAction = (BaselineCoverageAction) getGeneratingAction(baselineCoverage);
+      ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+      baselineCoverageAction
+          .newDeterministicWriter(ActionsTestUtil.createContext(reporter))
+          .writeTo(bytes);
+
+      for (String line : Splitter.on('\n').split(bytes.toString(UTF_8))) {
+        if (line.startsWith("SF:")) {
+          String basename = line.substring(line.lastIndexOf('/') + 1);
+          basenames.add(basename);
+        }
       }
     }
     return basenames.build();
@@ -2349,7 +2361,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected final String getImplicitOutputPath(
-      ConfiguredTarget target, SafeImplicitOutputsFunction outputFunction) {
+      ConfiguredTarget target, SafeImplicitOutputsFunction outputFunction) throws EvalException {
     Rule rule;
     try {
       rule = (Rule) skyframeExecutor.getPackageManager().getTarget(reporter, target.getLabel());
@@ -2368,35 +2380,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * the result of the {@code outputFunction}.
    */
   protected final Artifact getImplicitOutputArtifact(
-      ConfiguredTarget target, SafeImplicitOutputsFunction outputFunction) {
+      ConfiguredTarget target, SafeImplicitOutputsFunction outputFunction) throws EvalException {
     return getBinArtifact(getImplicitOutputPath(target, outputFunction), target);
   }
 
-  static final Pattern WORKSPACE_NAME_PATTERN =
-      Pattern.compile(
-          "workspace\\(\\s*name\\s*=\\s*(?:'|\")(\\w+)(?:'|\")\\s*\\)", Pattern.MULTILINE);
-
-  private String findWorkspaceName() {
-    // HACK -- we have to somehow get the workspace name here. But running skyframe itself is too
-    // demanding (and who knows what might go wrong if we run skyframe mid-setup); so we fall back
-    // to just reading out the WORKSPACE file ourselves and doing a simple parse. This function
-    // crudely reproduces the logic of WorkspaceNameFunction.
-    if (buildLanguageOptions.enableBzlmod) {
-      return ruleClassProvider.getRunfilesPrefix();
-    }
-    try {
-      Matcher matcher = WORKSPACE_NAME_PATTERN.matcher(scratch.readFile("WORKSPACE"));
-      if (matcher.find()) {
-        return matcher.group(1);
-      }
-      return "__main__";
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
   public Path getExecRoot() {
-    return directories.getExecRoot(findWorkspaceName());
+    return directories.getExecRoot(ruleClassProvider.getRunfilesPrefix());
   }
 
   /** Returns true iff commandLine contains the option --flagName followed by arg. */
@@ -2434,19 +2423,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   public class ActionExecutionContextBuilder {
     private InputMetadataProvider actionInputFileCache = null;
     private final TreeMap<String, String> clientEnv = new TreeMap<>();
-    private ArtifactExpander artifactExpander = null;
     private Executor executor = new DummyExecutor(fileSystem, getExecRoot());
 
     @CanIgnoreReturnValue
     public ActionExecutionContextBuilder setMetadataProvider(
         InputMetadataProvider actionInputFileCache) {
       this.actionInputFileCache = actionInputFileCache;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public ActionExecutionContextBuilder setArtifactExpander(ArtifactExpander artifactExpander) {
-      this.artifactExpander = artifactExpander;
       return this;
     }
 
@@ -2468,10 +2450,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           actionLogBufferPathGenerator.generate(ArtifactPathResolver.IDENTITY),
           reporter,
           clientEnv,
-          /* topLevelFilesets= */ ImmutableMap.of(),
-          artifactExpander,
           /* actionFileSystem= */ null,
-          /* skyframeDepsResult= */ null,
           DiscoveredModulesPruner.DEFAULT,
           SyscallCache.NO_CACHE,
           ThreadStateReceiver.NULL_INSTANCE);

@@ -16,7 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.actions.FileStateValue.NONEXISTENT_FILE_STATE_NODE;
-import static com.google.devtools.build.lib.skyframe.SkyfocusState.WorkingSetType.DERIVED;
+import static com.google.devtools.build.lib.skyframe.SkyfocusState.ActiveDirectoriesType.DERIVED;
+import static com.google.devtools.build.lib.skyframe.SkyfocusState.ActiveDirectoriesType.USER_DEFINED;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 
@@ -25,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
@@ -35,7 +37,6 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.skyframe.SkyfocusState.WorkingSetType;
 import com.google.devtools.build.lib.skyframe.SkyframeFocuser.FocusResult;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -49,24 +50,24 @@ import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
-/** A class that prepares the working set to run the core SkyframeFocuser algorithm. */
+/** A class that prepares the active directories to run the core SkyframeFocuser algorithm. */
 public class SkyfocusExecutor {
 
   private SkyfocusExecutor() {}
 
   /**
-   * Prepares the working set to run the core SkyframeFocuser algorithm.
+   * Prepares the active directories to run the core SkyframeFocuser algorithm.
    *
-   * <p>This method will update the working set if the user has requested a new working set from the
-   * command line, or if the user has not requested a new working set, automatically derive it using
-   * the source state.
+   * <p>This method will update the active directories if the user has requested new active
+   * directories from the command line, or if the user has not requested new active directories,
+   * automatically derive it using the source state.
    *
-   * @return an optional of a SkyfocusState. If the value is present, the working set has been
-   *     updated.
+   * @return an optional of a SkyfocusState. If the value is present, the active directories has
+   *     been updated.
    */
-  public static Optional<SkyfocusState> prepareWorkingSet(
+  public static Optional<SkyfocusState> prepareActiveDirectories(
       Collection<Label> topLevelTargetLabels,
-      Optional<PathFragmentPrefixTrie> workingSetMatcher,
+      Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher,
       InMemoryMemoizingEvaluator evaluator,
       SkyfocusState skyfocusState,
       PackageManager packageManager,
@@ -74,7 +75,7 @@ public class SkyfocusExecutor {
       ExtendedEventHandler eventHandler) {
     Preconditions.checkState(
         !topLevelTargetLabels.isEmpty(),
-        "Cannot prepare working set without top level targets to focus on.");
+        "Cannot prepare active directories without top level targets to focus on.");
 
     SkyfocusState.Builder newSkyfocusStateBuilder =
         skyfocusState.toBuilder()
@@ -85,20 +86,20 @@ public class SkyfocusExecutor {
                     .addAll(topLevelTargetLabels)
                     .build());
 
-    Set<FileStateKey> newWorkingSet = Sets.newConcurrentHashSet();
+    Set<FileStateKey> newActiveDirectories = Sets.newConcurrentHashSet();
 
-    if (skyfocusState.options().workingSet.isEmpty()
-        && skyfocusState.workingSetType().equals(DERIVED)) {
-      // If the user hasn't defined a new working set from the command line and there
-      // isn't an active user-defined working set in use, automatically derive one using the
+    if (skyfocusState.options().activeDirectories.isEmpty()
+        && skyfocusState.activeDirectoriesType().equals(DERIVED)) {
+      // If the user hasn't defined a new active directories from the command line and there
+      // isn't an active user-defined active directories in use, automatically derive one using the
       // targets being built.
-      try (SilentCloseable c = Profiler.instance().profile("Skyfocus derive working set")) {
-        eventHandler.handle(Event.info("Skyfocus: automatically deriving working set."));
+      try (SilentCloseable c = Profiler.instance().profile("Skyfocus derive active directories")) {
+        eventHandler.handle(Event.info("Skyfocus: automatically deriving active directories."));
 
         ImmutableSet<PathFragment> topLevelTargetPackages =
             topLevelTargetLabels.stream().map(Label::getPackageFragment).collect(toImmutableSet());
 
-        // For each FSK, add to the working set if the FSK's parent dir shares the same
+        // For each FSK, add to the active directories if the FSK's parent dir shares the same
         // package as one of the top level targets.
         evaluator
             .getInMemoryGraph()
@@ -112,12 +113,12 @@ public class SkyfocusExecutor {
                       return;
                     }
 
-                    if (workingSetMatcher.isPresent()) {
-                      // Check if the file belongs to the given working set prefixes.
-                      if (workingSetMatcher
+                    if (activeDirectoriesMatcher.isPresent()) {
+                      // Check if the file belongs to the given active directories prefixes.
+                      if (activeDirectoriesMatcher
                           .get()
                           .includes(fileStateKey.argument().getRootRelativePath())) {
-                        newWorkingSet.add(fileStateKey.argument());
+                        newActiveDirectories.add(fileStateKey.argument());
                       }
                       return;
                     }
@@ -131,7 +132,7 @@ public class SkyfocusExecutor {
                             eventHandler,
                             PackageIdentifier.create(RepositoryName.MAIN, currPath))) {
                           if (topLevelTargetPackages.contains(currPath)) {
-                            newWorkingSet.add(fileStateKey.argument());
+                            newActiveDirectories.add(fileStateKey.argument());
                           }
                           break;
                         }
@@ -151,42 +152,46 @@ public class SkyfocusExecutor {
                 });
 
         if (!skyfocusState.forcedRerun()
-            && skyfocusState.workingSet().containsAll(newWorkingSet)
+            && skyfocusState.activeDirectories().containsAll(newActiveDirectories)
             && skyfocusState.focusedTargetLabels().containsAll(topLevelTargetLabels)) {
-          // Already focused on a superset of the working set, no need to do anything.
+          // Already focused on a superset of the active directories, no need to do anything.
           return Optional.empty();
         }
 
         newSkyfocusStateBuilder
-            .workingSetType(DERIVED)
-            .workingSet(
+            .activeDirectoriesType(DERIVED)
+            .activeDirectories(
                 ImmutableSet.<FileStateKey>builder()
                     .addAll(
-                        // Only persist previously derived working sets. If they were
+                        // Only persist previously derived active directoriess. If they were
                         // user defined, overwrite them.
-                        skyfocusState.workingSetType().equals(DERIVED)
-                            ? skyfocusState.workingSet()
+                        skyfocusState.activeDirectoriesType().equals(DERIVED)
+                            ? skyfocusState.activeDirectories()
                             : ImmutableSet.of())
-                    .addAll(newWorkingSet)
+                    .addAll(newActiveDirectories)
                     .build());
       }
     } else {
-      if (skyfocusState.options().workingSet.isEmpty() && !skyfocusState.forcedRerun()) {
-        // No command line request to update the working set; return early.
+      if (skyfocusState.options().activeDirectories.isEmpty() && !skyfocusState.forcedRerun()) {
+        // No command line request to update the active directories; return early.
         return Optional.empty();
       }
 
-      // User is setting a new explicit working set from the command line option.
-      // This will override any previously defined working set.
+      // User is setting a new explicit active directories from the command line option.
+      // This will override any previously defined active directories.
 
-      ImmutableSet<RootedPath> workingSetRootedPaths =
+      ImmutableSet<RootedPath> activeDirectoriesRootedPaths =
           Stream.concat(
-                  skyfocusState.options().workingSet.stream(),
-                  // The Bzlmod lockfile can be created after a build without having existed
-                  // before
-                  // and must always be kept in the working set if it is used.
-                  Stream.of("MODULE.bazel.lock"))
-              .map(k -> toFileStateKey(pkgLocator, k))
+                  Stream.concat(
+                          skyfocusState.options().activeDirectories.stream(),
+                          // The Bzlmod lockfile can be created after a build without having existed
+                          // before and must always be kept in the active directories if it is used.
+                          Stream.of(LabelConstants.MODULE_LOCKFILE_NAME.toString()))
+                      .map(k -> toFileStateKey(pkgLocator, k)),
+                  Stream.of(
+                      RootedPath.toRootedPath(
+                          Root.fromPath(pkgLocator.getOutputBase()),
+                          LabelConstants.MODULE_LOCKFILE_NAME)))
               .collect(toImmutableSet());
       evaluator
           .getInMemoryGraph()
@@ -194,46 +199,46 @@ public class SkyfocusExecutor {
               node -> {
                 if (node.getKey() instanceof FileStateKey fileStateKey) {
                   RootedPath rootedPath = fileStateKey.argument();
-                  if (workingSetRootedPaths.contains(rootedPath)) {
-                    newWorkingSet.add(fileStateKey);
+                  if (activeDirectoriesRootedPaths.contains(rootedPath)) {
+                    newActiveDirectories.add(fileStateKey);
                   }
                 }
               });
 
-      int missingCount = workingSetRootedPaths.size() - newWorkingSet.size();
+      int missingCount = activeDirectoriesRootedPaths.size() - newActiveDirectories.size();
       if (missingCount > 0) {
         eventHandler.handle(
             Event.warn(
                 missingCount
                     + " files were not found in the transitive closure, and so they are not"
-                    + " included in the working set. They are: "
-                    + workingSetRootedPaths.stream()
-                        .filter(not(newWorkingSet::contains))
+                    + " included in the active directories. They are: "
+                    + activeDirectoriesRootedPaths.stream()
+                        .filter(not(newActiveDirectories::contains))
                         .map(r -> r.getRootRelativePath().toString())
                         .collect(joining(", "))));
       }
 
-      if ((skyfocusState.options().workingSet.isEmpty()
-              || skyfocusState.workingSet().equals(newWorkingSet))
+      if ((skyfocusState.options().activeDirectories.isEmpty()
+              || skyfocusState.activeDirectories().equals(newActiveDirectories))
           && skyfocusState.focusedTargetLabels().containsAll(topLevelTargetLabels)) {
         if (skyfocusState.forcedRerun()) {
-          newWorkingSet.addAll(skyfocusState.workingSet());
+          newActiveDirectories.addAll(skyfocusState.activeDirectories());
         } else {
           return Optional.empty();
         }
       }
 
       newSkyfocusStateBuilder
-          .workingSetType(WorkingSetType.USER_DEFINED)
-          .workingSet(ImmutableSet.copyOf(newWorkingSet));
+          .activeDirectoriesType(USER_DEFINED)
+          .activeDirectories(ImmutableSet.copyOf(newActiveDirectories));
     }
 
-    eventHandler.handle(Event.info("Updated working set successfully."));
+    eventHandler.handle(Event.info("Updated active directories successfully."));
     return Optional.of(newSkyfocusStateBuilder.build());
   }
 
   public static FocusResult execute(
-      ImmutableSet<FileStateKey> workingSet,
+      ImmutableSet<FileStateKey> activeDirectories,
       InMemoryMemoizingEvaluator evaluator,
       ExtendedEventHandler eventHandler,
       @Nullable ActionCache actionCache)
@@ -249,7 +254,7 @@ public class SkyfocusExecutor {
             // like stamping, but retains a lot of memory (100MB of retained heap for a 9+GB build).
             // Figure out a way to not include it.
             .add(PrecomputedValue.BUILD_ID.getKey())
-            .addAll(workingSet)
+            .addAll(activeDirectories)
             .build();
 
     eventHandler.handle(
@@ -267,7 +272,6 @@ public class SkyfocusExecutor {
 
     return focusResult;
   }
-
 
   /** Turns a root relative path string into a RootedPath object. */
   static RootedPath toFileStateKey(PathPackageLocator pkgLocator, String rootRelativePathFragment) {

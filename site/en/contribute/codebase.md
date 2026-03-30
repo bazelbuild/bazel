@@ -89,7 +89,7 @@ The source code of the client is under `src/main/cpp` and the protocol used to
 communicate with the server is in `src/main/protobuf/command_server.proto` .
 
 The main entry point of the server is `BlazeRuntime.main()` and the gRPC calls
-from the client are handled by `GrpcServerImpl.run()`.
+from the client are handled by `CommandServer.serveAndAwaitTermination()`.
 
 ## Directory layout {:#directory-layout}
 
@@ -636,10 +636,6 @@ necessitates the following additional components:
 *   **The output runfiles manifest.** This is used by runtime libraries that
     handle runfiles trees, notably on Windows, which sometimes doesn't support
     symbolic links.
-*   **The runfiles middleman.** In order for a runfiles tree to exist, one needs
-    to build the symlink tree and the artifact the symlinks point to. In order
-    to decrease the number of dependency edges, the runfiles middleman can be
-    used to represent all these.
 *   **Command line arguments** for running the binary whose runfiles the
     `RunfilesSupport` object represents.
 
@@ -751,9 +747,7 @@ The set of toolchains to be used for a configured target is determined by
 *   The set of toolchain types that are required by the configured target (in
     `UnloadedToolchainContextKey)`
 *   The set of execution platform constraints of the configured target (the
-    `exec_compatible_with` attribute) and the configuration
-    (`--experimental_add_exec_constraints_to_targets`), in
-    `UnloadedToolchainContextKey`
+    `exec_compatible_with` attribute), in `UnloadedToolchainContextKey`
 
 Its result is an `UnloadedToolchainContext`, which is essentially a map from
 toolchain type (represented as a `ToolchainTypeInfo` instance) to the label of
@@ -911,7 +905,7 @@ Artifacts come in two kinds: source artifacts (ones that are available
 before Bazel starts executing) and derived artifacts (ones that need to be
 built). Derived artifacts can themselves be multiple kinds:
 
-1.  **Regular artifacts. **These are checked for up-to-dateness by computing
+1.  **Regular artifacts.** These are checked for up-to-dateness by computing
     their checksum, with mtime as a shortcut; we don't checksum the file if its
     ctime hasn't changed.
 2.  **Unresolved symlink artifacts.** These are checked for up-to-dateness by
@@ -926,19 +920,10 @@ built). Derived artifacts can themselves be multiple kinds:
     to do a rebuild just because the current time changed.
 
 There is no fundamental reason why source artifacts cannot be tree artifacts or
-unresolved symlink artifacts, it's just that we haven't implemented it yet (we
-should, though -- referencing a source directory in a `BUILD` file is one of the
-few known long-standing incorrectness issues with Bazel; we have an
-implementation that kind of works which is enabled by the
-`BAZEL_TRACK_SOURCE_DIRECTORIES=1` JVM property)
-
-A notable kind of `Artifact` are middlemen. They are indicated by `Artifact`
-instances that are the outputs of `MiddlemanAction`. They are used for one
-special case:
-
-*   Runfiles middlemen are used to ensure the presence of a runfiles tree so
-    that one does not separately need to depend on the output manifest and every
-    single artifact referenced by the runfiles tree.
+unresolved symlink artifacts; it's just that we haven't implemented it yet. At
+the moment, source symlinks are always resolved, and while source directories
+are supported, their contents are entirely opaque to build rules and thus don't
+support the same kind of lazy command line expansion as tree artifacts do.
 
 Actions are best understood as a command that needs to be run, the environment
 it needs and the set of outputs it produces. The following things are the main
@@ -1336,12 +1321,10 @@ want to compute the test coverage for a binary, it is not enough to merge the
 coverage of all of the tests because there may be code in the binary that is not
 linked into any test. Therefore, what we do is to emit a coverage file for every
 binary which contains only the files we collect coverage for with no covered
-lines. The baseline coverage file for a target is at
-`bazel-testlogs/$PACKAGE/$TARGET/baseline_coverage.dat` . It is also generated
-for binaries and libraries in addition to tests if you pass the
-`--nobuild_tests_only` flag to Bazel.
-
-Baseline coverage is currently broken.
+lines. The default baseline coverage file for a target is at
+`bazel-testlogs/$PACKAGE/$TARGET/baseline_coverage.dat`, but rules are
+encouraged to generate their own baseline coverage files with more meaningful
+content than just the names of the source files.
 
 We track two groups of files for coverage collection for each rule: the set of
 instrumented files and the set of instrumentation metadata files.

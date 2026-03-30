@@ -52,13 +52,15 @@ public final class ObjcLibraryAnalysisTest extends AnalysisTestCase {
       String context = build.getFirst();
       String srcs = build.getSecond();
 
-      scratch.overwriteFile("foo/BUILD", "objc_library(name = 'lib', srcs = " + srcs + ")");
+      scratch.overwriteFile(
+          "foo/BUILD",
+          "load('@rules_cc//cc:objc_library.bzl', 'objc_library')",
+          "objc_library(name = 'lib', srcs = " + srcs + ")");
       update("//foo:lib");
 
       DerivedArtifact libraryToLink =
           (DerivedArtifact)
-              getConfiguredTarget("//foo:lib")
-                  .get(CcInfo.PROVIDER)
+              CcInfo.get(getConfiguredTarget("//foo:lib"))
                   .getCcLinkingContext()
                   .getLibraries()
                   .getSingleton()

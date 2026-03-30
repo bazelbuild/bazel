@@ -33,7 +33,7 @@ By default, Bazel then [selects](#version-selection) one version of each module
 to use. Bazel represents each module with a repo, and consults the registry
 again to learn how to define each of the repos.
 
-## Version format
+## Version format {:#version-format}
 
 Bazel has a diverse ecosystem and projects use various versioning schemes. The
 most popular by far is [SemVer](https://semver.org){: .external}, but there are
@@ -41,7 +41,7 @@ also prominent projects using different schemes such as
 [Abseil](https://github.com/abseil/abseil-cpp/releases){: .external}, whose
 versions are date-based, for example `20210324.2`).
 
-For this reason, Bzlmod adopts a more relaxed version of the SemVer spec. The
+For this reason, Bazel adopts a more relaxed version of the SemVer spec. The
 differences include:
 
 *   SemVer prescribes that the "release" part of the version must consist of 3
@@ -51,12 +51,14 @@ differences include:
     In Bazel, this is loosened to allow letters too, and the comparison
     semantics match the "identifiers" in the "prerelease" part.
 *   Additionally, the semantics of major, minor, and patch version increases are
-    not enforced. However, see [compatibility level](#compatibility_level) for
-    details on how we denote backwards compatibility.
+    not enforced.
 
 Any valid SemVer version is a valid Bazel module version. Additionally, two
 SemVer versions `a` and `b` compare `a < b` if and only if the same holds when
 they're compared as Bazel module versions.
+
+Finally, to learn more about module versioning, [see the `MODULE.bazel`
+FAQ](faq#module-versioning-best-practices).
 
 ## Version selection {:#version-selection}
 
@@ -71,7 +73,7 @@ management space. Suppose you have the dependency graph:
    D 1.0    D 1.1
 ```
 
-Which version of `D` should be used? To resolve this question, Bzlmod uses the
+Which version of `D` should be used? To resolve this question, Bazel uses the
 [Minimal Version Selection](https://research.swtch.com/vgo-mvs){: .external}
 (MVS) algorithm introduced in the Go module system. MVS assumes that all new
 versions of a module are backwards compatible, and so picks the highest version
@@ -89,21 +91,6 @@ non-yanked version, or use the
 [`--allow_yanked_versions`](/reference/command-line-reference#flag--allow_yanked_versions)
 flag to explicitly allow the yanked version.
 
-## Compatibility level
-
-In Go, MVS's assumption about backwards compatibility works because it treats
-backwards incompatible versions of a module as a separate module. In terms of
-SemVer, that means `A 1.x` and `A 2.x` are considered distinct modules, and can
-coexist in the resolved dependency graph. This is, in turn, made possible by
-encoding the major version in the package path in Go, so there aren't any
-compile-time or linking-time conflicts.
-
-Bazel, however, cannot provide such guarantees, so it needs the "major version"
-number in order to detect backwards incompatible versions. This number is called
-the *compatibility level*, and is specified by each module version in its
-`module()` directive. With this information, Bazel can throw an error when it
-detects that versions of the same module with different compatibility levels
-exist in the resolved dependency graph.
 
 ## Overrides
 
@@ -138,23 +125,15 @@ A [`multiple_version_override`](/rules/lib/globals/module#multiple_version_overr
 can be specified to allow multiple versions of the same module to coexist in the
 resolved dependency graph.
 
-You can specify an explicit list of allowed versions for the module, which must
-all be present in the dependency graph before resolution — there must exist
-*some* transitive dependency depending on each allowed version. After
-resolution, only the allowed versions of the module remain, while Bazel upgrades
-other versions of the module to the nearest higher allowed version at the same
-compatibility level. If no higher allowed version at the same compatibility
-level exists, Bazel throws an error.
+If there are multiple versions of the same module remaining in the dependency
+graph, Bazel will pick the nearest higher allowed version for each dependent.
 
 For example, if versions `1.1`, `1.3`, `1.5`, `1.7`, and `2.0` exist in the
-dependency graph before resolution and the major version is the compatibility
-level:
+dependency graph before resolution:
 
 *   A multiple-version override allowing `1.3`, `1.7`, and `2.0` results in
     `1.1` being upgraded to `1.3`, `1.5` being upgraded to `1.7`, and other
     versions remaining the same.
-*   A multiple-version override allowing `1.5` and `2.0` results in an error, as
-    `1.7` has no higher version at the same compatibility level to upgrade to.
 *   A multiple-version override allowing `1.9` and `2.0` results in an error, as
     `1.9` is not present in the dependency graph before resolution.
 
@@ -172,6 +151,11 @@ Bazel supports the following non-registry overrides:
 *   [`archive_override`](/rules/lib/globals/module#archive_override)
 *   [`git_override`](/rules/lib/globals/module#git_override)
 *   [`local_path_override`](/rules/lib/globals/module#local_path_override)
+
+Note that setting a version value in the source archive `MODULE.bazel` can have
+downsides when the module is being overridden with a non-registry override. To
+learn more about this [see the `MODULE.bazel`
+FAQ](faq#module-versioning-best-practices).
 
 ## Define repos that don't represent Bazel modules {:#use_repo_rule}
 

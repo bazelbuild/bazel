@@ -64,8 +64,6 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.vfs.ModifiedFileSet;
-import com.google.devtools.build.lib.vfs.Root;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -183,36 +181,6 @@ public class AspectTest extends AnalysisTestCase {
     assertThat(a.getProvider(RuleInfo.class).getData().toList())
         .containsExactly("rule //a:a", "aspect //a:b", "aspect //a:c");
   }
-
-  @Test
-  public void aspectCreationWorksThroughBind() throws Exception {
-    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
-      // TODO(b/67651960): fix or justify disabling.
-      return;
-    }
-    setRulesAvailableInTests(TestAspects.BASE_RULE, TestAspects.HONEST_RULE,
-        TestAspects.ASPECT_REQUIRING_PROVIDER_RULE);
-    pkg("a",
-        "aspect_requiring_provider(name='a', foo=['//external:b'])",
-        "honest(name='b', foo=[])");
-
-    scratch.overwriteFile("WORKSPACE",
-        new ImmutableList.Builder<String>()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .add("bind(name='b', actual='//a:b')")
-            .build());
-
-    useConfiguration("--enable_workspace");
-    update();
-
-    skyframeExecutor.invalidateFilesUnderPathForTesting(
-        reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
-
-    ConfiguredTarget a = getConfiguredTarget("//a:a");
-    assertThat(a.getProvider(RuleInfo.class).getData().toList())
-        .containsExactly("rule //a:a", "aspect //a:b");
-  }
-
 
   @Test
   public void aspectCreatedIfAdvertisedProviderIsPresent() throws Exception {
@@ -777,15 +745,16 @@ public class AspectTest extends AnalysisTestCase {
     scratch.file(
         "foo/shared_aspect.bzl",
         """
+        MyInfo = provider()
         def _shared_aspect_impl(target, ctx):
             shared_file = ctx.actions.declare_file("shared_file")
             ctx.actions.write(output = shared_file, content = "Shared content")
             lib = ctx.rule.attr.lib
             if lib:
-                result = depset([shared_file], transitive = [ctx.rule.attr.lib.prov])
+                result = depset([shared_file], transitive = [ctx.rule.attr.lib[MyInfo].prov])
             else:
                 result = depset([shared_file])
-            return struct(prov = result)
+            return MyInfo(prov = result)
 
         shared_aspect = aspect(
             implementation = _shared_aspect_impl,
@@ -798,7 +767,7 @@ public class AspectTest extends AnalysisTestCase {
         simple_rule = rule(
             implementation = _rule_impl,
             attrs = {"lib": attr.label(
-                providers = ["prov"],
+                providers = [MyInfo],
                 aspects = [shared_aspect],
             )},
         )
@@ -928,9 +897,6 @@ public class AspectTest extends AnalysisTestCase {
     assertContainsEvent(
         "Aspect 'FalseAdvertisementAspect', applied to '//a:s',"
             + " does not provide advertised provider 'RequiredProvider'");
-    assertContainsEvent(
-        "Aspect 'FalseAdvertisementAspect', applied to '//a:s',"
-            + " does not provide advertised provider 'advertised_provider'");
   }
 
   @Test
@@ -1008,7 +974,7 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
-  public void duplicateTopLevelAspects_duplicateAspectsNotAllowed() throws Exception {
+  public void duplicateTopLevelAspects_allowedAndDeduplicated() throws Exception {
     AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
     setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());
     pkg(
@@ -1016,16 +982,13 @@ public class AspectTest extends AnalysisTestCase {
         "load('@rules_java//java:defs.bzl', 'java_binary')",
         "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])");
     reporter.removeHandler(failFastHandler);
-
-    assertThrows(
-        ViewCreationFailedException.class,
-        () ->
-            update(
-                new EventBus(),
-                defaultFlags(),
-                ImmutableList.of(aspectApplyingToFiles.getName(), aspectApplyingToFiles.getName()),
-                "//a:x_deploy.jar"));
-    assertContainsEvent("Aspect AspectApplyingToFiles has already been added");
+    AnalysisResult analysisResult =
+        update(
+            new EventBus(),
+            defaultFlags(),
+            ImmutableList.of(aspectApplyingToFiles.getName(), aspectApplyingToFiles.getName()),
+            "//a:x_deploy.jar");
+    assertThat(analysisResult.getAspectsMap()).hasSize(1);
   }
 
   @Test
@@ -1166,20 +1129,15 @@ public class AspectTest extends AnalysisTestCase {
         a = aspect(
             implementation = _a_impl,
             attrs = {"_f": attr.label(
-                default = configuration_field(
-                    fragment = "cpp",
-                    name = "cc_toolchain",
-                ),
+                default = configuration_field(fragment = "coverage", name = "output_generator"),
             )},
         )
         r = rule(
             implementation = _r_impl,
             attrs = {
                 "_f": attr.label(
-                    default = configuration_field(
-                        fragment = "cpp",
-                        name = "cc_toolchain",
-                    ),
+                    default =
+                        configuration_field(fragment = "coverage", name = "output_generator"),
                 ),
                 "dep": attr.label(aspects = [a]),
             },
@@ -1496,6 +1454,7 @@ public class AspectTest extends AnalysisTestCase {
     scratch.file(
         "aspect_hints/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//aspect_hints:hints.bzl", "hint")
         load("//aspect_hints:hints_counter.bzl", "count_hints")
 

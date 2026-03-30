@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
@@ -23,14 +24,14 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.FileArtifactValue.UnresolvedSymlinkArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.Protos.File;
 import com.google.devtools.build.lib.exec.Protos.Platform;
@@ -60,6 +61,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** A {@link SpawnLogContext} implementation that produces a log in expanded format. */
@@ -147,7 +149,7 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
   public void logSpawn(
       Spawn spawn,
       InputMetadataProvider inputMetadataProvider,
-      SortedMap<PathFragment, ActionInput> inputMap,
+      Supplier<SortedMap<PathFragment, ActionInput>> inputMap,
       FileSystem fileSystem,
       Duration timeout,
       SpawnResult result)
@@ -169,7 +171,7 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
               .collect(toImmutableList());
 
       try (SilentCloseable c1 = Profiler.instance().profile("logSpawn/inputs")) {
-        for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
+        for (Map.Entry<PathFragment, ActionInput> e : inputMap.get().entrySet()) {
           PathFragment displayPath = e.getKey();
           ActionInput input = e.getValue();
 
@@ -184,8 +186,8 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
 
           boolean isTool =
               toolFiles.contains(input)
-                  || input instanceof TreeFileArtifact treeFileArtifact
-                      && toolFiles.contains(treeFileArtifact.getParent())
+                  || (input instanceof TreeFileArtifact treeFileArtifact
+                      && toolFiles.contains(treeFileArtifact.getParent()))
                   || toolRunfilesDirectories.stream().anyMatch(displayPath::startsWith);
 
           Path contentPath = fileSystem.getPath(execRoot.getRelative(input.getExecPathString()));
@@ -197,12 +199,12 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
           }
 
           if (input.isSymlink()) {
-            UnresolvedSymlinkArtifactValue metadata =
-                (UnresolvedSymlinkArtifactValue) inputMetadataProvider.getInputMetadata(input);
+            FileArtifactValue metadata = inputMetadataProvider.getInputMetadata(input);
+            checkState(metadata.getType().isSymlink(), metadata);
             builder
                 .addInputsBuilder()
                 .setPath(displayPath.getPathString())
-                .setSymlinkTargetPath(metadata.getSymlinkTarget())
+                .setSymlinkTargetPath(metadata.getUnresolvedSymlinkTarget())
                 .setIsTool(isTool);
             continue;
           }

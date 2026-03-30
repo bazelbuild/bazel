@@ -34,8 +34,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.common.truth.extensions.proto.ProtoTruth;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
@@ -49,6 +51,7 @@ import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollector.Colle
 import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollectorIdleTask;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace;
@@ -58,13 +61,17 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandLinePathFactory;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
+import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
@@ -139,6 +146,7 @@ public final class RemoteModuleTest {
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
     ClientOptions clientOptions = Options.getDefaults(ClientOptions.class);
     ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    TestOptions testOptions = Options.getDefaults(TestOptions.class);
 
     AuthAndTLSOptions authAndTLSOptions = Options.getDefaults(AuthAndTLSOptions.class);
 
@@ -150,6 +158,7 @@ public final class RemoteModuleTest {
     when(options.getOptions(RemoteOptions.class)).thenReturn(remoteOptions);
     when(options.getOptions(AuthAndTLSOptions.class)).thenReturn(authAndTLSOptions);
     when(options.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
+    when(options.getOptions(TestOptions.class)).thenReturn(testOptions);
 
     String productName = "bazel";
     Scratch scratch = new Scratch(new InMemoryFileSystem(DigestHashFunction.SHA256));
@@ -167,13 +176,19 @@ public final class RemoteModuleTest {
             .addBlazeModule(new CredentialModule())
             .addBlazeModule(remoteModule)
             .addBlazeModule(new BlockWaitingModule())
+            .addBlazeModule(
+                new BlazeModule() {
+                  @Override
+                  public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
+                    builder.setRunfilesPrefix(TestConstants.WORKSPACE_NAME);
+                  }
+                })
             .build();
 
     BlazeDirectories directories =
         new BlazeDirectories(
             serverDirectories,
             scratch.dir("/workspace"),
-            scratch.dir("/system_javabase"),
             productName);
     BlazeWorkspace workspace = runtime.initWorkspace(directories, BinTools.empty(directories));
     Command command = BuildCommand.class.getAnnotation(Command.class);
@@ -184,10 +199,13 @@ public final class RemoteModuleTest {
         /* warnings= */ new ArrayList<>(),
         /* waitTimeInMs= */ 0,
         /* commandStartTime= */ 0,
-        /* commandExtensions= */ ImmutableList.of(),
+        /* idleTaskResultsFromPreviousIdlePeriod= */ ImmutableList.of(),
         /* shutdownReasonConsumer= */ s -> {},
+        /* commandExtensions= */ ImmutableList.of(),
         NO_OP_COMMAND_EXTENSION_REPORTER,
-        /* attemptNumber= */ 1);
+        /* attemptNumber= */ 1,
+        /* buildRequestIdOverride= */ null,
+        ConfigFlagDefinitions.NONE);
   }
 
   static class CapabilitiesImpl extends CapabilitiesImplBase {
@@ -606,6 +624,48 @@ public final class RemoteModuleTest {
     remoteModule.beforeCommand(env);
     env.throwPendingException();
     return env;
+  }
+
+  @Test
+  public void diskCache_defaultLocation_resolvesToOutputUserRoot() throws Exception {
+    remoteOptions.diskCache = PathFragment.EMPTY_FRAGMENT;
+
+    var env = beforeCommand();
+
+    // The disk cache should be resolved to <outputUserRoot>/cache/disk.
+    Path outputUserRoot = env.getDirectories().getServerDirectories().getOutputUserRoot();
+    PathFragment resolved = remoteOptions.getDiskCachePath(outputUserRoot);
+    assertThat(resolved).isNotNull();
+    assertThat(resolved.getPathString())
+        .isEqualTo(outputUserRoot.getRelative("cache/disk").getPathString());
+    assertThat(resolved.isAbsolute()).isTrue();
+  }
+
+  @Test
+  public void diskCache_defaultLocation_withGarbageCollection() throws Exception {
+    remoteOptions.diskCache = PathFragment.EMPTY_FRAGMENT;
+    remoteOptions.diskCacheGcIdleDelay = Duration.ofMinutes(2);
+    remoteOptions.diskCacheGcMaxSize = 1234567890L;
+
+    var env = beforeCommand();
+
+    Path outputUserRoot = env.getDirectories().getServerDirectories().getOutputUserRoot();
+    Path expectedPath = outputUserRoot.getRelative("cache/disk");
+    assertThat(env.getIdleTasks()).hasSize(1);
+    assertThat(env.getIdleTasks().get(0)).isInstanceOf(DiskCacheGarbageCollectorIdleTask.class);
+    var idleTask = (DiskCacheGarbageCollectorIdleTask) env.getIdleTasks().get(0);
+    assertThat(idleTask.getGarbageCollector().getRoot().getPathString())
+        .isEqualTo(expectedPath.getPathString());
+  }
+
+  @Test
+  public void diskCacheUnset_disablesDiskCache() throws Exception {
+    remoteOptions.diskCache = null;
+
+    var env = beforeCommand();
+
+    assertThat(remoteOptions.diskCache).isNull();
+    assertThat(env.getIdleTasks()).isEmpty();
   }
 
   private void assertCircuitBreakerInstance() {

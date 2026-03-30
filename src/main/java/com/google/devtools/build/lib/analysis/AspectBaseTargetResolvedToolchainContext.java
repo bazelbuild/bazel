@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Predicates.notNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -44,7 +47,7 @@ public abstract class AspectBaseTargetResolvedToolchainContext
     implements ResolvedToolchainsDataInterface<
         AspectBaseTargetResolvedToolchainContext.ToolchainAspectsProviders> {
 
-  public abstract ImmutableMap<ToolchainTypeInfo, ToolchainAspectsProviders> getToolchains();
+  public abstract ImmutableMap<ToolchainTypeInfo, ToolchainAspectsProviders> toolchains();
 
   public static AspectBaseTargetResolvedToolchainContext load(
       UnloadedToolchainContext unloadedToolchainContext,
@@ -63,16 +66,27 @@ public abstract class AspectBaseTargetResolvedToolchainContext
 
       if (toolchainTarget instanceof MergedConfiguredTarget mergedConfiguredTarget) {
         // Only add the aspects providers from the toolchains that the aspects applied to.
+        TemplateVariableInfo templateVariableInfo =
+            (TemplateVariableInfo)
+                mergedConfiguredTarget
+                    .getBaseConfiguredTarget()
+                    .get(TemplateVariableInfo.PROVIDER.id());
         toolchainsBuilder.put(
             toolchainType,
             new ToolchainAspectsProviders(
-                mergedConfiguredTarget.getAspectsProviders(), mergedConfiguredTarget.getLabel()));
+                mergedConfiguredTarget.getAspectsProviders(),
+                templateVariableInfo,
+                mergedConfiguredTarget.getLabel()));
       } else {
         // Add empty providers for the toolchains that the aspects did not apply to.
+        TemplateVariableInfo templateVariableInfo =
+            (TemplateVariableInfo) toolchainTarget.get(TemplateVariableInfo.PROVIDER.id());
         toolchainsBuilder.put(
             toolchainType,
             new ToolchainAspectsProviders(
-                new TransitiveInfoProviderMapBuilder().build(), toolchainTarget.getLabel()));
+                new TransitiveInfoProviderMapBuilder().build(),
+                templateVariableInfo,
+                toolchainTarget.getLabel()));
       }
     }
     ImmutableMap<ToolchainTypeInfo, ToolchainAspectsProviders> toolchains =
@@ -96,10 +110,17 @@ public abstract class AspectBaseTargetResolvedToolchainContext
   @Nullable
   public ToolchainAspectsProviders forToolchainType(Label toolchainTypeLabel) {
     if (requestedToolchainTypeLabels().containsKey(toolchainTypeLabel)) {
-      return getToolchains().get(requestedToolchainTypeLabels().get(toolchainTypeLabel));
+      return toolchains().get(requestedToolchainTypeLabels().get(toolchainTypeLabel));
     }
 
     return null;
+  }
+
+  public ImmutableList<TemplateVariableInfo> templateVariableProviders() {
+    return toolchains().values().stream()
+        .map(ToolchainAspectsProviders::templateVariableProvider)
+        .filter(notNull())
+        .collect(toImmutableList());
   }
 
   /**
@@ -110,35 +131,41 @@ public abstract class AspectBaseTargetResolvedToolchainContext
       implements StarlarkIndexable, Structure, ResolvedToolchainData {
 
     private final TransitiveInfoProviderMap aspectsProviders;
+    @Nullable private final TemplateVariableInfo templateVariableInfo;
     private final Label label;
 
-    private ToolchainAspectsProviders(TransitiveInfoProviderMap aspectsProviders, Label label) {
+    private ToolchainAspectsProviders(
+        TransitiveInfoProviderMap aspectsProviders,
+        @Nullable TemplateVariableInfo templateVariableInfo,
+        Label label) {
       this.aspectsProviders = aspectsProviders;
+      this.templateVariableInfo = templateVariableInfo;
       this.label = label;
     }
 
     @Override
     public final Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
-      Provider constructor = selectExportedProvider(key, "index");
+      Provider constructor = selectExportedProvider(key, semantics, "index");
       Object declaredProvider = aspectsProviders.get(constructor.getKey());
       if (declaredProvider != null) {
         return declaredProvider;
       }
       throw Starlark.errorf(
           "%s doesn't contain declared provider '%s'",
-          Starlark.repr(this), constructor.getPrintableName());
+          Starlark.repr(this, semantics), constructor.getPrintableName());
     }
 
     @Override
     public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
-      return aspectsProviders.get(selectExportedProvider(key, "query").getKey()) != null;
+      return aspectsProviders.get(selectExportedProvider(key, semantics, "query").getKey()) != null;
     }
 
     /**
      * Selects the provider identified by {@code key}, throwing a Starlark error if the key is not a
      * provider or not exported.
      */
-    private Provider selectExportedProvider(Object key, String operation) throws EvalException {
+    private Provider selectExportedProvider(
+        Object key, StarlarkSemantics semantics, String operation) throws EvalException {
       if (!(key instanceof Provider constructor)) {
         throw Starlark.errorf(
             "This type only supports %sing by object constructors, got %s instead",
@@ -148,13 +175,13 @@ public abstract class AspectBaseTargetResolvedToolchainContext
         throw Starlark.errorf(
             "%s only supports %sing by exported providers. Assign the provider a name "
                 + "in a top-level assignment statement.",
-            Starlark.repr(this), operation);
+            Starlark.repr(this, semantics), operation);
       }
       return constructor;
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append("<ToolchainAspectsProviders for toolchain target: " + label + ">");
     }
 
@@ -177,6 +204,11 @@ public abstract class AspectBaseTargetResolvedToolchainContext
     public String getErrorMessageForUnknownField(String field) {
       // Use the default error message.
       return null;
+    }
+
+    @Nullable
+    public TemplateVariableInfo templateVariableProvider() {
+      return this.templateVariableInfo;
     }
   }
 }

@@ -19,10 +19,9 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -47,10 +46,10 @@ public class WorkerFilesHash {
     Hasher hasher = Hashing.sha256().newHasher();
     workerFilesMap.forEach(
         (execPath, digest) -> {
-          String execPathString = execPath.getPathString();
-          hasher.putByte(StringUnsafe.getInstance().getCoder(execPathString));
-          hasher.putInt(execPathString.length());
-          hasher.putBytes(StringUnsafe.getInstance().getByteArray(execPathString));
+          byte[] execPathBytes = StringUnsafe.getInternalStringBytes(execPath.getPathString());
+          hasher.putByte((byte) 0);
+          hasher.putInt(execPathBytes.length);
+          hasher.putBytes(execPathBytes);
 
           hasher.putInt(digest.length);
           hasher.putBytes(digest);
@@ -65,16 +64,15 @@ public class WorkerFilesHash {
    * @throws MissingInputException if metadata is missing for any of the worker files.
    */
   public static SortedMap<PathFragment, byte[]> getWorkerFilesWithDigests(
-      Spawn spawn, ArtifactExpander artifactExpander, InputMetadataProvider actionInputFileCache)
-      throws IOException {
+      Spawn spawn, InputMetadataProvider actionInputFileCache) throws IOException {
     TreeMap<PathFragment, byte[]> workerFilesMap = new TreeMap<>();
 
     List<ActionInput> tools =
-        ActionInputHelper.expandArtifacts(
+        InputMetadataProvider.expandArtifacts(
+            actionInputFileCache,
             spawn.getToolFiles(),
-            artifactExpander,
             /* keepEmptyTreeArtifacts= */ false,
-            /* keepRunfilesTreeArtifacts= */ true);
+            /* keepRunfilesTrees= */ true);
     for (ActionInput tool : tools) {
       if (tool instanceof Artifact artifact && artifact.isRunfilesTree()) {
         RunfilesTree runfilesTree =
@@ -89,10 +87,15 @@ public class WorkerFilesHash {
             if (metadata == null) {
               throw new MissingInputException(localArtifact);
             }
-            if (metadata.getType().isFile()) {
+            var digest = metadata.getDigest();
+            if (digest != null) {
               workerFilesMap.put(
                   spawn.getPathMapper().map(root.getRelative(mapping.getKey())),
                   metadata.getDigest());
+            } else {
+              // If BAZEL_TRACK_SOURCE_DIRECTORIES is explicitly disabled, the metadata may not have
+              // a digest.
+              Preconditions.checkState(metadata.getType() == FileStateType.DIRECTORY);
             }
           }
         }
@@ -104,9 +107,7 @@ public class WorkerFilesHash {
       if (metadata == null) {
         throw new MissingInputException(tool);
       }
-      workerFilesMap.put(
-          spawn.getPathMapper().map(tool.getExecPath()),
-          actionInputFileCache.getInputMetadata(tool).getDigest());
+      workerFilesMap.put(spawn.getPathMapper().map(tool.getExecPath()), metadata.getDigest());
     }
 
     return workerFilesMap;

@@ -104,9 +104,9 @@ public final class EvaluationTest {
     }
 
     @Override
-    public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) {
+    public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs) {
       callCount++;
-      if (positional.length > 0 && Starlark.truth(positional[0])) {
+      if (!args.isEmpty() && Starlark.truth(args.get(0))) {
         Thread.currentThread().interrupt();
       }
       return Starlark.NONE;
@@ -228,10 +228,10 @@ public final class EvaluationTest {
           }
 
           @Override
-          public StarlarkInt fastcall(StarlarkThread thread, Object[] positional, Object[] named)
+          public StarlarkInt call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
               throws EvalException {
             StarlarkInt sum = StarlarkInt.of(0);
-            for (Object arg : positional) {
+            for (Object arg : args) {
               sum = StarlarkInt.add(sum, (StarlarkInt) arg);
             }
             return sum;
@@ -628,7 +628,7 @@ public final class EvaluationTest {
     Object obj =
         new StarlarkValue() {
           @Override
-          public void repr(Printer printer) {
+          public void repr(Printer printer, StarlarkSemantics semantics) {
             printer.append("<str marker>");
           }
         };
@@ -654,7 +654,7 @@ public final class EvaluationTest {
     Object obj =
         new StarlarkValue() {
           @Override
-          public void repr(Printer printer) {
+          public void repr(Printer printer, StarlarkSemantics semantics) {
             printer.append("<str marker>");
           }
         };
@@ -864,5 +864,54 @@ public final class EvaluationTest {
       Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
     }
     assertThat(module.getDocumentation()).isEqualTo("preset docstring");
+  }
+
+  @Test
+  public void typeAliasStatement_evalsAsNoop() throws Exception {
+    ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    ev.new Scenario().setUp("type X = int").testLookup("X", null);
+    ev.new Scenario().setUp("Y = 'foo'; type Y = bool").testLookup("Y", "foo");
+  }
+
+  @Test
+  public void varStatement_evalsAsNoop() throws Exception {
+    ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    ev.new Scenario().setUp("X : int").testLookup("X", null);
+  }
+
+  @Test
+  public void varStatement_canLeaveToplevelSymbolcUninitialized() throws Exception {
+    ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    ev.new Scenario()
+        .setUp(
+            """
+            X : int
+            def f():
+                print(X)
+            """)
+        .testIfErrorContains("global variable 'X' is referenced before assignment", "f()");
+  }
+
+  @Test
+  public void castExpression_evalsAsIdentity() throws Exception {
+    // The dynamic behavior of `cast` (disregarding type checking) is to return its value unchanged.
+    ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    ev.new Scenario()
+        .setUp(
+            """
+            x = cast(list, [1])
+            y = cast(int, "this is not an int")
+            z = cast(dict[str, str], 42)
+            """)
+        .testEval("x", "[1]")
+        .testEval("y", "\"this is not an int\"")
+        .testEval("z", "42");
+  }
+
+  // TODO(b/350661266): resolve types in isinstance().
+  @Test
+  public void isinstanceExpression_notYetSupported() throws Exception {
+    ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
+    ev.new Scenario().testIfExactError("isinstance() is not yet supported", "isinstance(x, list)");
   }
 }

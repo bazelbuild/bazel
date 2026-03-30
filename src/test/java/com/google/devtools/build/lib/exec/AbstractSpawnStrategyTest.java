@@ -26,8 +26,8 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
@@ -44,14 +44,18 @@ import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.SortedMap;
+import java.util.function.Supplier;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -64,8 +68,8 @@ public class AbstractSpawnStrategyTest {
           .build();
 
   private static class TestedSpawnStrategy extends AbstractSpawnStrategy {
-    public TestedSpawnStrategy(Path execRoot, SpawnRunner spawnRunner) {
-      super(execRoot, spawnRunner, new ExecutionOptions());
+    TestedSpawnStrategy(SpawnRunner spawnRunner) {
+      super(spawnRunner, new ExecutionOptions());
     }
   }
 
@@ -97,7 +101,7 @@ public class AbstractSpawnStrategyTest {
         .thenReturn(spawnResult);
 
     List<SpawnResult> spawnResults =
-        new TestedSpawnStrategy(execRoot, spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
+        new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
 
     assertThat(spawnResults).containsExactly(spawnResult);
 
@@ -121,7 +125,7 @@ public class AbstractSpawnStrategyTest {
         .exec(any(Spawn.class), any(SpawnExecutionContext.class));
 
     ImmutableList<SpawnResult> spawnResults =
-        new TestedSpawnStrategy(execRoot, spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
+        new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
 
     assertThat(spawnResults).containsExactly(spawnResult);
     // Must only be called exactly once.
@@ -151,8 +155,7 @@ public class AbstractSpawnStrategyTest {
             SpawnExecException.class,
             () ->
                 // Ignoring the List<SpawnResult> return value.
-                new TestedSpawnStrategy(execRoot, spawnRunner)
-                    .exec(SIMPLE_SPAWN, actionExecutionContext));
+                new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext));
     assertThat(e.getSpawnResult()).isSameInstanceAs(result);
     // Must only be called exactly once.
     verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionContext.class));
@@ -169,7 +172,7 @@ public class AbstractSpawnStrategyTest {
     when(actionExecutionContext.getExecRoot()).thenReturn(execRoot);
 
     List<SpawnResult> spawnResults =
-        new TestedSpawnStrategy(execRoot, spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
+        new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
     assertThat(spawnResults).containsExactly(spawnResult);
     verify(spawnRunner, never()).exec(any(Spawn.class), any(SpawnExecutionContext.class));
   }
@@ -190,7 +193,7 @@ public class AbstractSpawnStrategyTest {
         .thenReturn(spawnResult);
 
     List<SpawnResult> spawnResults =
-        new TestedSpawnStrategy(execRoot, spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
+        new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
 
     assertThat(spawnResults).containsExactly(spawnResult);
 
@@ -213,7 +216,7 @@ public class AbstractSpawnStrategyTest {
         .thenReturn(spawnResult);
 
     List<SpawnResult> spawnResults =
-        new TestedSpawnStrategy(execRoot, spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
+        new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
 
     assertThat(spawnResults).containsExactly(spawnResult);
 
@@ -241,7 +244,7 @@ public class AbstractSpawnStrategyTest {
         .thenReturn(spawnResult);
 
     List<SpawnResult> spawnResults =
-        new TestedSpawnStrategy(execRoot, spawnRunner)
+        new TestedSpawnStrategy(spawnRunner)
             .exec(SIMPLE_SPAWN, actionExecutionContext, (exitCode, errorMessage, outErr) -> {});
 
     assertThat(spawnResults).containsExactly(spawnResult);
@@ -266,7 +269,7 @@ public class AbstractSpawnStrategyTest {
         .thenReturn(spawnResult);
 
     List<SpawnResult> spawnResults =
-        new TestedSpawnStrategy(execRoot, spawnRunner)
+        new TestedSpawnStrategy(spawnRunner)
             .exec(SIMPLE_SPAWN, actionExecutionContext, (exitCode, errorMessage, outErr) -> {});
 
     assertThat(spawnResults).containsExactly(spawnResult);
@@ -301,8 +304,7 @@ public class AbstractSpawnStrategyTest {
             SpawnExecException.class,
             () ->
                 // Ignoring the List<SpawnResult> return value.
-                new TestedSpawnStrategy(execRoot, spawnRunner)
-                    .exec(SIMPLE_SPAWN, actionExecutionContext));
+                new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext));
     assertThat(e.getSpawnResult()).isSameInstanceAs(result);
     // Must only be called exactly once.
     verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionContext.class));
@@ -328,16 +330,16 @@ public class AbstractSpawnStrategyTest {
         .thenReturn(spawnResult);
 
     ImmutableList<SpawnResult> spawnResults =
-        new TestedSpawnStrategy(execRoot, spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
+        new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
     assertThat(spawnResults).containsExactly(spawnResult);
 
     verify(spawnLogContext)
         .logSpawn(
-            SIMPLE_SPAWN,
-            inputMetadataProvider,
-            ImmutableSortedMap.of(),
-            actionFs,
-            Duration.ZERO,
-            spawnResult);
+            eq(SIMPLE_SPAWN),
+            eq(inputMetadataProvider),
+            ArgumentMatchers.<Supplier<SortedMap<PathFragment, ActionInput>>>any(),
+            eq(actionFs),
+            eq(Duration.ZERO),
+            eq(spawnResult));
   }
 }

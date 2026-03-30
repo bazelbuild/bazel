@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <errno.h>
+#include <jni.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -43,11 +44,6 @@ std::string ErrorMessage(int error_number) {
 #endif
 }
 
-int portable_fstatat(
-    int dirfd, char *name, portable_stat_struct *statbuf, int flags) {
-  return fstatat64(dirfd, name, statbuf, flags);
-}
-
 uint64_t StatEpochMilliseconds(const portable_stat_struct &statbuf,
                                StatTimes t) {
   switch (t) {
@@ -58,6 +54,7 @@ uint64_t StatEpochMilliseconds(const portable_stat_struct &statbuf,
     case STAT_MTIME:
       return statbuf.st_mtim.tv_sec * 1000L + statbuf.st_mtim.tv_nsec / 1000000;
   }
+  return 0;
 }
 
 ssize_t portable_getxattr(const char *path, const char *name, void *value,
@@ -130,8 +127,8 @@ int portable_cpu_speed() {
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_profiler_SystemNetworkStats_getNetIoCountersNative(
-    JNIEnv *env, jclass clazz, jobject counters_list) {
+Java_com_google_devtools_build_lib_profiler_SystemNetworkStatsServiceImpl_getNetIoCountersNative(
+    JNIEnv* env, jclass clazz, jobject counters_map) {
   // Currently not implemented.
 }
 

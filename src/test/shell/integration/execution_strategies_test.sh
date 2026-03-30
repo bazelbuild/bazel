@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
@@ -44,15 +44,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 # Tests that you can set the spawn strategy flags to a list of strategies.
 function test_multiple_strategies() {
   SERVER_LOG=$(bazel info server_log)
@@ -89,6 +80,36 @@ function test_empty_strategy_means_default() {
   assert_contains "\"FooBar\" = " "$SERVER_LOG"
 }
 
+# Tests that spawn filters for execution platform propagate into the spawn registry as expected.
+# Resolution tested in unit tests.
+function test_allowed_strategies_by_exec_platform() {
+  SERVER_LOG=$(bazel info server_log)
+  bazel build --spawn_strategy=worker,local --allowed_strategies_by_exec_platform="${default_host_platform}"=local || fail
+  assert_contains '"'"${default_host_platform}"'" = \[\(Standalone\|Local\).*SpawnStrategy\]' "$SERVER_LOG"
+}
+
+# Tests that canonical labels can be used to target execution platform strategy filters.
+function test_allowed_strategies_by_exec_platform_canonicalized() {
+  SERVER_LOG=$(bazel info server_log)
+  bazel build --spawn_strategy=worker,local --allowed_strategies_by_exec_platform="${default_host_platform}"=local || fail
+  assert_contains '"'"${default_host_platform}"'" = \[\(Standalone\|Local\).*SpawnStrategy\]' "$SERVER_LOG"
+}
+
+# Tests that expected message is printed when no spawn strategy can be resolved.
+function test_allowed_strategies_by_exec_platform_exhausted() {
+  cat >BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = ["input.txt"],
+  outs = ["out"],
+  cmd = "",
+)
+EOF
+  touch input.txt
+  bazel build --spawn_strategy=dynamic --allowed_strategies_by_exec_platform="${default_host_platform}"=worker,local //:foo 2> $TEST_log || true
+  assert_contains "Your .* --allowed_strategies_by_exec_platform flags are probably too strict" "$TEST_log"
+}
+
 # Runs a build, waits for the given dir and file to appear, and then kills
 # Bazel to check what happens with said files.
 function build_and_interrupt() {
@@ -108,7 +129,7 @@ function build_and_interrupt() {
 }
 
 function test_local_deletes_plain_outputs_on_interrupt() {
-  if "$is_windows"; then
+  if is_windows; then
     cat 1>&2 <<EOF
 This test is known to be broken on Windows because the kill+wait sequence
 in build_and_interrupt doesn't seem to do the right thing.
@@ -146,7 +167,7 @@ EOF
 }
 
 function test_local_deletes_tree_artifacts_on_interrupt() {
-  if "$is_windows"; then
+  if is_windows; then
     cat 1>&2 <<EOF
 This test is known to be broken on Windows because the kill+wait sequence
 in build_and_interrupt doesn't seem to do the right thing.
@@ -188,7 +209,7 @@ EOF
 }
 
 function test_ignore_local_failures() {
-  if "$is_windows"; then
+  if is_windows; then
     cat 1>&2 <<EOF
 This test is known to be broken on Windows because it does not have Posix signals
 Skipping...
@@ -218,7 +239,7 @@ EOF
   bazel build --internal_spawn_scheduler --genrule_strategy=dynamic \
     --dynamic_remote_strategy=sandboxed \
     --dynamic_local_strategy=standalone \
-    --noincompatible_sandbox_hermetic_tmp \
+    --sandbox_add_mount_pair=/tmp \
     --experimental_dynamic_ignore_local_signals=8,9,10 \
     --experimental_local_lockfree_output \
     --experimental_local_execution_delay=0 \

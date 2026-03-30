@@ -58,17 +58,19 @@ public class StandaloneModule extends BlazeModule {
 
     ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
     TestSummaryOptions testSummaryOptions = env.getOptions().getOptions(TestSummaryOptions.class);
+    if (testSummaryOptions == null) {
+      // It is possible, though unlikely, that the test summary options have not been set.
+      // This can happen if a test runner is being run without the test command having been used.
+      testSummaryOptions = TestSummaryOptions.DEFAULTS;
+    }
     Path testTmpRoot =
         TestStrategy.getTmpRoot(env.getWorkspace(), env.getExecRoot(), executionOptions);
     TestActionContext testStrategy =
-        new StandaloneTestStrategy(
-            executionOptions,
-            testSummaryOptions,
-            env.getBlazeWorkspace().getBinTools(),
-            testTmpRoot);
-    registryBuilder.register(TestActionContext.class, testStrategy, "standalone");
+        new StandaloneTestStrategy(executionOptions, testSummaryOptions, testTmpRoot);
+    // Keep the standalone test strategy last so that it is the default one.
     registryBuilder.register(
         TestActionContext.class, new ExclusiveTestStrategy(testStrategy), "exclusive");
+    registryBuilder.register(TestActionContext.class, testStrategy, "standalone");
     registryBuilder.register(FileWriteActionContext.class, new FileWriteStrategy(), "local");
     registryBuilder.register(
         TemplateExpansionContext.class, new LocalTemplateExpansionStrategy(), "local");
@@ -93,9 +95,7 @@ public class StandaloneModule extends BlazeModule {
     // could potentially be used and a spawnActionContext doesn't specify which one it wants, the
     // last one from strategies list will be used
     registryBuilder.registerStrategy(
-        new StandaloneSpawnStrategy(env.getExecRoot(), localSpawnRunner, executionOptions),
-        "standalone",
-        "local");
+        new StandaloneSpawnStrategy(localSpawnRunner, executionOptions), "standalone", "local");
 
     // This makes the "standalone" strategy the default Spawn strategy, unless it is overridden by a
     // later BlazeModule.

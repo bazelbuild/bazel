@@ -56,7 +56,8 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
         new TargetAndErrorIfAny(
             /* packageLoadedSuccessfully= */ true,
             /* errorLoadingTarget= */ null,
-            pkg.getTarget(label.getName()));
+            pkg.getTarget(label.getName()),
+            pkg);
     TransitiveTraversalFunction function =
         new TransitiveTraversalFunction() {
           @Override
@@ -111,7 +112,8 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
         new TargetAndErrorIfAny(
             /* packageLoadedSuccessfully= */ true,
             /* errorLoadingTarget= */ null,
-            pkg.getTarget(label.getName()));
+            pkg.getTarget(label.getName()),
+            pkg);
     TransitiveTraversalFunction function =
         new TransitiveTraversalFunction() {
           @Override
@@ -153,7 +155,8 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
         new TargetAndErrorIfAny(
             /* packageLoadedSuccessfully= */ true,
             /* errorLoadingTarget= */ new NoSuchTargetException("self error is long and last"),
-            pkg.getTarget(label.getName()));
+            pkg.getTarget(label.getName()),
+            pkg);
     TransitiveTraversalFunction function =
         new TransitiveTraversalFunction() {
           @Override
@@ -214,7 +217,8 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
         new TargetAndErrorIfAny(
             /* packageLoadedSuccessfully= */ true,
             /* errorLoadingTarget= */ null,
-            pkg.getTarget(label.getName()));
+            pkg.getTarget(label.getName()),
+            pkg);
     TransitiveTraversalFunction function =
         new TransitiveTraversalFunction() {
           @Override

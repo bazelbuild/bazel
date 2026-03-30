@@ -21,7 +21,8 @@ import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.buildMod
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createRepositoryMapping;
 
-import com.google.devtools.build.lib.windows.WindowsShortPath;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.windows.WindowsPathOperations;
 import java.util.stream.Stream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,6 +42,7 @@ public class ModuleTest {
             .addDep("my_foo", fooKey)
             .addDep("my_bar", barKey)
             .addDep("my_root", ModuleKey.ROOT)
+            .setFlagAliases(ImmutableMap.of())
             .build();
     assertThat(
             module.getRepoMappingWithBazelDepsOnly(
@@ -69,6 +71,7 @@ public class ModuleTest {
             .setKey(ModuleKey.ROOT)
             .addDep("my_foo", createModuleKey("foo", "1.0"))
             .addDep("my_bar", createModuleKey("bar", "2.0"))
+            .setFlagAliases(ImmutableMap.of())
             .build();
     assertThat(
             module.getRepoMappingWithBazelDepsOnly(
@@ -97,6 +100,6 @@ public class ModuleTest {
   }
 
   private static void assertNotAShortPath(String name) {
-    assertWithMessage("For %s", name).that(WindowsShortPath.isShortPath(name)).isFalse();
+    assertWithMessage("For %s", name).that(WindowsPathOperations.isShortPath(name)).isFalse();
   }
 }

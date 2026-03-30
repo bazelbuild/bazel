@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.collect.Iterables.elementsEqual;
+import static java.util.Comparator.comparing;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 import com.google.common.base.Preconditions;
@@ -23,9 +25,7 @@ import com.google.common.collect.Iterators;
 import com.google.common.escape.Escaper;
 import com.google.common.escape.Escapers;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.SkyframeAwareAction;
-import com.google.devtools.build.lib.vfs.OsPathPolicy;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.Arrays;
@@ -70,7 +70,7 @@ public final class Actions {
     if (action instanceof NotifyOnActionCacheHit) {
       return true;
     }
-    return ((Action) action).isVolatile() && !(action instanceof SkyframeAwareAction);
+    return ((Action) action).isVolatile();
   }
 
   /**
@@ -85,17 +85,33 @@ public final class Actions {
   public static boolean canBeShared(
       ActionKeyContext actionKeyContext, ActionAnalysisMetadata a, ActionAnalysisMetadata b)
       throws InterruptedException {
-    return a.isShareable()
-        && b.isShareable()
-        && a.getMnemonic().equals(b.getMnemonic())
+    if (!(a.getMnemonic().equals(b.getMnemonic())
         // Non-Actions cannot be shared.
         && a instanceof Action
         && b instanceof Action
-        && a.getKey(actionKeyContext, /*artifactExpander=*/ null)
-            .equals(b.getKey(actionKeyContext, /*artifactExpander=*/ null))
-        && artifactsEqualWithoutOwner(
-            a.getMandatoryInputs().toList(), b.getMandatoryInputs().toList())
-        && artifactsEqualWithoutOwner(a.getOutputs(), b.getOutputs());
+        && a.getKey(actionKeyContext, /* inputMetadataProvider= */ null)
+            .equals(b.getKey(actionKeyContext, /* inputMetadataProvider= */ null)))) {
+      return false;
+    }
+    // Uses a standard comparison technique for shareable actions.
+    if (a.isShareable() && b.isShareable()) {
+      return artifactsEqualWithoutOwner(
+              a.getMandatoryInputs().toList(), b.getMandatoryInputs().toList())
+          && artifactsEqualWithoutOwner(a.getOutputs(), b.getOutputs());
+    }
+
+    // If this is reached, at least one action is not shareable. If the actions differ on this, they
+    // cannot be shared.
+    if (a.isShareable() || b.isShareable()) {
+      return false;
+    }
+
+    // If the artifacts are in fact equal (with owners), these are aliases of the same action and
+    // not in conflict with each other. This can occur under remote analysis. Without remote
+    // analysis, this won't be reached because the actions would have reference equality. The
+    // MapBasedActionGraph doesn't consider actions that are the same object instance for conflicts.
+    return a.getMandatoryInputs().toList().equals(b.getMandatoryInputs().toList())
+        && elementsEqual(a.getOutputs(), b.getOutputs());
   }
 
   /**
@@ -182,7 +198,7 @@ public final class Actions {
   }
 
   private static void verifyGeneratingActionKeys(
-      Artifact.DerivedArtifact output,
+      DerivedArtifact output,
       ActionLookupData otherKey,
       boolean allowSharedAction,
       ActionKeyContext actionKeyContext,
@@ -219,12 +235,15 @@ public final class Actions {
       ActionLookupKey actionLookupKey,
       boolean allowSharedAction)
       throws ActionConflictException, InterruptedException, ArtifactGeneratedByOtherRuleException {
-    Map<PathFragment, Artifact.DerivedArtifact> seenArtifacts = new HashMap<>();
+    Map<PathFragment, DerivedArtifact> seenArtifacts = new HashMap<>();
     // Loop over the actions, looking at all outputs for conflicts.
     int actionIndex = 0;
     for (ActionAnalysisMetadata action : actions) {
       ActionLookupData generatingActionKey =
-          dependsOnBuildId(action)
+          // Runfiles tree actions have the unfortunate property that their RichArtifactData
+          // contains a NestedSet of Artifacts, which we currently deem to be not worth serializing.
+          // TODO: b/401575099 - See if we can factor out the NestedSet and remove this exclusion.
+          dependsOnBuildId(action) || action instanceof RunfilesTreeAction
               ? ActionLookupData.createUnshareable(actionLookupKey, actionIndex)
               : ActionLookupData.create(actionLookupKey, actionIndex);
       for (Artifact artifact : action.getOutputs()) {
@@ -234,18 +253,13 @@ public final class Actions {
             artifact,
             generatingActionKey,
             action);
-        Artifact.DerivedArtifact output = (Artifact.DerivedArtifact) artifact;
+        DerivedArtifact output = (DerivedArtifact) artifact;
         // Has an artifact with this execPath been seen before?
-        Artifact.DerivedArtifact equalOutput =
-            seenArtifacts.putIfAbsent(output.getExecPath(), output);
+        DerivedArtifact equalOutput = seenArtifacts.putIfAbsent(output.getExecPath(), output);
         if (equalOutput != null) {
           // Yes: assert that its generating action and this artifact's are compatible.
           verifyGeneratingActionKeys(
-              equalOutput,
-              generatingActionKey,
-              allowSharedAction,
-              actionKeyContext,
-              actions);
+              equalOutput, generatingActionKey, allowSharedAction, actionKeyContext, actions);
         }
         // Was this output already seen, so it has a generating action key set?
         if (!output.hasGeneratingActionKey()) {
@@ -264,11 +278,7 @@ public final class Actions {
           }
           // Key is already set: verify that the generating action and this action are compatible.
           verifyGeneratingActionKeys(
-              output,
-              generatingActionKey,
-              allowSharedAction,
-              actionKeyContext,
-              actions);
+              output, generatingActionKey, allowSharedAction, actionKeyContext, actions);
         }
       }
       actionIndex++;
@@ -276,29 +286,7 @@ public final class Actions {
   }
 
   private static final Comparator<Artifact> EXEC_PATH_PREFIX_COMPARATOR =
-      (lhs, rhs) -> {
-        // We need to use the OS path policy in case the OS is case insensitive.
-        OsPathPolicy os = OsPathPolicy.getFilePathOs();
-        String str1 = lhs.getExecPathString();
-        String str2 = rhs.getExecPathString();
-        int len1 = str1.length();
-        int len2 = str2.length();
-        int n = Math.min(len1, len2);
-        for (int i = 0; i < n; ++i) {
-          char c1 = str1.charAt(i);
-          char c2 = str2.charAt(i);
-          int res = os.compare(c1, c2);
-          if (res != 0) {
-            if (c1 == PathFragment.SEPARATOR_CHAR) {
-              return -1;
-            } else if (c2 == PathFragment.SEPARATOR_CHAR) {
-              return 1;
-            }
-            return res;
-          }
-        }
-        return len1 - len2;
-      };
+      comparing(Artifact::getExecPath, PathFragment.HIERARCHICAL_COMPARATOR);
 
   /**
    * Check whether two artifacts are a runfiles tree - runfiles output manifest pair.
@@ -381,24 +369,11 @@ public final class Actions {
   }
 
   /**
-   * Returns the escaped name for a given relative path as a string. This takes
-   * a short relative path and turns it into a string suitable for use as a
-   * filename. Invalid filename characters are escaped with an '_' + a single
-   * character token.
+   * Returns the escaped name for a given relative path as a string. This takes a short relative
+   * path and turns it into a string suitable for use as a filename. Invalid filename characters are
+   * escaped with an '_' + a single character token.
    */
   public static String escapedPath(String path) {
-    return PATH_ESCAPER.escape(path);
-  }
-
-  /**
-   * Returns a string that is usable as a unique path component for a label. It is guaranteed
-   * that no other label maps to this string.
-   */
-  public static String escapeLabel(Label label) {
-    String path = label.getPackageName() + ":" + label.getName();
-    if (!label.getRepository().isMain()) {
-      path = label.getRepository().getName() + "@" + path;
-    }
     return PATH_ESCAPER.escape(path);
   }
 
@@ -419,24 +394,19 @@ public final class Actions {
       return null;
     }
 
-    var generatingActionKey = ((Artifact.DerivedArtifact) artifact).getGeneratingActionKey();
-    var actionLookupKey = generatingActionKey.getActionLookupKey();
+    return getGeneratingAction(graph, (DerivedArtifact) artifact);
+  }
 
-    // In analysis caching build with cache hits, deserialized ActionLookupValues do not contain
-    // actions, so the generating action for the artifact does not exist in the graph. It would
-    // require a reanalysis of the entire configured target subgraph to produce the action,
-    // nullifying the benefits of analysis caching.
-    //
-    // In practice this should be fine for critical path computation and execution graph log,
-    // because this represents a pruned subgraph for the action and there was no work done other
-    // than deserialization.
-    if (graph.getValue(actionLookupKey) instanceof ActionLookupValue actionLookupValue) {
-      // Not all ActionLookupKeys resolve to an ActionLookupValue, e.g. RemoteConfiguredTargetValue.
-      if (actionLookupValue.getNumActions() > 0) {
-        return actionLookupValue.getActions().get(generatingActionKey.getActionIndex());
-      }
-    }
+  @Nullable
+  public static ActionAnalysisMetadata getGeneratingAction(
+      WalkableGraph graph, DerivedArtifact artifact) throws InterruptedException {
+    return getAction(graph, artifact.getGeneratingActionKey());
+  }
 
-    return null;
+  public static ActionAnalysisMetadata getAction(
+      WalkableGraph graph, ActionLookupData actionLookupData) throws InterruptedException {
+    var actionLookupKey = actionLookupData.getActionLookupKey();
+    var actionLookupValue = (ActionLookupValue) graph.getValue(actionLookupKey);
+    return actionLookupValue.getActions().get(actionLookupData.getActionIndex());
   }
 }

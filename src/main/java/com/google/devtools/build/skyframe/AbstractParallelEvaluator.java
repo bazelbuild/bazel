@@ -357,7 +357,7 @@ abstract class AbstractParallelEvaluator {
               .getProgressReceiver()
               .evaluated(
                   skyKey,
-                  EvaluationState.get(valueMaybeWithMetadata, /* changed= */ false),
+                  EvaluationState.get(valueMaybeWithMetadata, /* versionChanged= */ false),
                   /* newValue= */ null,
                   /* newError= */ null,
                   /* directDeps= */ null);
@@ -424,6 +424,9 @@ abstract class AbstractParallelEvaluator {
         try {
           evaluatorContext.getProgressReceiver().stateStarting(skyKey, NodeState.CHECK_DIRTY);
           if (maybeHandleDirtyNode(nodeEntry) == DirtyOutcome.ALREADY_PROCESSED) {
+            if (nodeEntry.getLifecycleState() == LifecycleState.DONE) {
+              evaluatorContext.getProgressReceiver().changePruned(skyKey);
+            }
             return;
           }
         } finally {
@@ -531,7 +534,8 @@ abstract class AbstractParallelEvaluator {
                     .getErrorInfoManager()
                     .fromException(skyKey, reifiedBuilderException, isTransitivelyTransient);
             env.setError(nodeEntry, errorInfo);
-            Set<SkyKey> rdepsToBubbleUpTo = env.commitAndGetParents(nodeEntry);
+            Set<SkyKey> rdepsToBubbleUpTo =
+                env.commitAndGetParents(nodeEntry, /* expectDoneDeps= */ true);
             if (shouldFailFast) {
               evaluatorContext.signalParentsOnAbort(
                   skyKey, rdepsToBubbleUpTo, nodeEntry.getVersion());
@@ -608,7 +612,8 @@ abstract class AbstractParallelEvaluator {
               return;
             }
             env.setValue(value);
-            Set<SkyKey> reverseDeps = env.commitAndGetParents(nodeEntry);
+            Set<SkyKey> reverseDeps =
+                env.commitAndGetParents(nodeEntry, /* expectDoneDeps= */ true);
             evaluatorContext.signalParentsAndEnqueueIfReady(
                 skyKey, reverseDeps, nodeEntry.getVersion());
           } finally {
@@ -705,7 +710,7 @@ abstract class AbstractParallelEvaluator {
           // If the child error was catastrophic, committing this parent to the graph is not
           // necessary, but since we don't do error bubbling in catastrophes, it doesn't violate any
           // invariants either.
-          Set<SkyKey> reverseDeps = env.commitAndGetParents(nodeEntry);
+          Set<SkyKey> reverseDeps = env.commitAndGetParents(nodeEntry, /* expectDoneDeps= */ true);
           evaluatorContext.signalParentsAndEnqueueIfReady(
               skyKey, reverseDeps, nodeEntry.getVersion());
           return;

@@ -16,10 +16,12 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static java.util.stream.Collectors.joining;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -27,25 +29,25 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
-import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptionsFields.OutputPathsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.LtoAction;
 import com.google.devtools.build.lib.server.FailureDetails.LtoAction.Code;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Map;
@@ -67,8 +69,10 @@ import javax.annotation.Nullable;
  * <p>For more information on ThinLTO see
  * http://blog.llvm.org/2016/06/thinlto-scalable-and-incremental-lto.html.
  */
+@AutoCodec
 public final class LtoBackendAction extends SpawnAction {
   private static final String GUID = "72ce1eca-4625-4e24-a0d8-bb91bb8b0e0e";
+  private static final String MNEMONIC = "CcLtoBackendCompile";
 
   private final NestedSet<Artifact> mandatoryInputs;
   private final BitcodeFiles bitcodeFiles;
@@ -76,27 +80,25 @@ public final class LtoBackendAction extends SpawnAction {
   private boolean inputsDiscovered = false;
 
   public LtoBackendAction(
+      ActionOwner owner,
       NestedSet<Artifact> inputs,
       @Nullable BitcodeFiles allBitcodeFiles,
       @Nullable Artifact importsFile,
       ImmutableSet<Artifact> outputs,
-      ActionOwner owner,
       CommandLines argv,
       ActionEnvironment env,
-      Map<String, String> executionInfo,
-      CharSequence progressMessage,
-      String mnemonic) {
+      ImmutableMap<String, String> executionInfo) {
     super(
         owner,
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         inputs,
         outputs,
         AbstractAction.DEFAULT_RESOURCE_SET,
         argv,
         env,
-        ImmutableMap.copyOf(executionInfo),
-        progressMessage,
-        mnemonic,
+        executionInfo,
+        "LTO Backend Compile %{output}",
+        MNEMONIC,
         OutputPathsMode.OFF);
     mandatoryInputs = inputs;
     Preconditions.checkState(
@@ -104,6 +106,35 @@ public final class LtoBackendAction extends SpawnAction {
         "Either both or neither bitcodeFiles and imports files should be null");
     bitcodeFiles = allBitcodeFiles;
     imports = importsFile;
+  }
+
+  /** Constructor for serialization. */
+  @VisibleForSerialization
+  @AutoCodec.Instantiator
+  LtoBackendAction(
+      ActionOwner owner,
+      NestedSet<Artifact> mandatoryInputs,
+      Object rawOutputs,
+      CommandLines commandLines,
+      ActionEnvironment environment,
+      ImmutableSortedMap<String, String> sortedExecutionInfo,
+      @Nullable BitcodeFiles bitcodeFiles,
+      Artifact imports) {
+    super(
+        owner,
+        /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        mandatoryInputs,
+        rawOutputs,
+        AbstractAction.DEFAULT_RESOURCE_SET,
+        commandLines,
+        environment,
+        sortedExecutionInfo,
+        "LTO Backend Compile %{output}",
+        MNEMONIC,
+        OutputPathsMode.OFF);
+    this.mandatoryInputs = mandatoryInputs;
+    this.bitcodeFiles = bitcodeFiles;
+    this.imports = imports;
   }
 
   @Override
@@ -149,8 +180,7 @@ public final class LtoBackendAction extends SpawnAction {
       HashSet<PathFragment> inputPaths, ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
     NestedSetBuilder<Artifact> bitcodeInputs = NestedSetBuilder.stableOrder();
-    ImmutableMap<PathFragment, Artifact> execPathToArtifact =
-        bitcodeFiles.getFilesArtifactPathMap();
+    Map<PathFragment, Artifact> execPathToArtifact = bitcodeFiles.getFilesArtifactPathMap();
     Set<PathFragment> missingInputs = new HashSet<>();
     for (PathFragment inputPath : inputPaths) {
       Optional<Artifact> maybeArtifact = getArtifactOrTreeArtifact(inputPath, execPathToArtifact);
@@ -248,7 +278,7 @@ public final class LtoBackendAction extends SpawnAction {
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp)
       throws InterruptedException {
     fp.addString(GUID);
@@ -269,52 +299,26 @@ public final class LtoBackendAction extends SpawnAction {
     fp.addStringMap(getExecutionInfo());
   }
 
-  /** Builder class to construct {@link LtoBackendAction} instances. */
-  public static class Builder extends SpawnAction.Builder {
-    private BitcodeFiles bitcodeFiles;
-    private Artifact imports;
-
-    public Builder() {
-      super();
-    }
-
-    public Builder(Builder other) {
-      super(other);
-      bitcodeFiles = other.bitcodeFiles;
-      imports = other.imports;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addImportsInfo(BitcodeFiles allBitcodeFiles, Artifact importsFile) {
-      this.bitcodeFiles = allBitcodeFiles;
-      this.imports = importsFile;
-      return this;
-    }
-
-    @Override
-    protected SpawnAction createSpawnAction(
-        ActionOwner owner,
-        NestedSet<Artifact> tools,
-        NestedSet<Artifact> inputsAndTools,
-        ImmutableSet<Artifact> outputs,
-        ResourceSetOrBuilder resourceSetOrBuilder,
-        CommandLines commandLines,
-        ActionEnvironment env,
-        @Nullable BuildConfigurationValue configuration,
-        ImmutableMap<String, String> executionInfo,
-        CharSequence progressMessage,
-        String mnemonic) {
-      return new LtoBackendAction(
-          inputsAndTools,
-          bitcodeFiles,
-          imports,
-          outputs,
-          owner,
-          commandLines,
-          env,
-          executionInfo,
-          progressMessage,
-          mnemonic);
-    }
+  @VisibleForTesting
+  static LtoBackendAction create(
+      ActionOwner actionOwner,
+      BuildConfigurationValue configuration,
+      NestedSet<Artifact> inputs,
+      @Nullable BitcodeFiles allBitcodeFiles,
+      @Nullable Artifact importsFile,
+      ImmutableSet<Artifact> outputs,
+      CommandLines argv,
+      ActionEnvironment env) {
+    return new LtoBackendAction(
+        actionOwner,
+        inputs,
+        allBitcodeFiles,
+        importsFile,
+        outputs,
+        argv,
+        env,
+        configuration == null
+            ? ImmutableMap.of()
+            : configuration.modifiedExecutionInfo(ImmutableMap.of(), MNEMONIC));
   }
 }

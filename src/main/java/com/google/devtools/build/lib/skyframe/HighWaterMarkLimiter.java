@@ -98,13 +98,12 @@ public final class HighWaterMarkLimiter {
     syscallCache.clear();
   }
 
-  /** Returns {@link MemoryPressureStats} about the number of cache drops. */
-  public MemoryPressureStats getStats() {
-    return MemoryPressureStats.newBuilder()
+  /** Populate fields about cache drops. */
+  public void populateStats(MemoryPressureStats.Builder memoryPressureStatsBuilder) {
+    memoryPressureStatsBuilder
         .setMinorGcDrops(
             options.skyframeHighWaterMarkMinorGcDropsPerInvocation - minorGcDropsRemaining)
         .setFullGcDrops(
-            options.skyframeHighWaterMarkFullGcDropsPerInvocation - fullGcDropsRemaining)
-        .build();
+            options.skyframeHighWaterMarkFullGcDropsPerInvocation - fullGcDropsRemaining);
   }
 }

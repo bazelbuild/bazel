@@ -20,11 +20,15 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
+import com.google.devtools.build.lib.util.CommandDescriptionForm;
+import com.google.devtools.build.lib.util.CommandFailureUtils;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -35,6 +39,7 @@ import javax.annotation.Nullable;
 public class HardlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpawn {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private boolean sandboxDebug = false;
+  @Nullable private final ImmutableList<String> interactiveDebugArguments;
 
   public HardlinkedSandboxedSpawn(
       Path sandboxPath,
@@ -48,6 +53,7 @@ public class HardlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpa
       @Nullable Path sandboxDebugPath,
       @Nullable Path statisticsPath,
       boolean sandboxDebug,
+      @Nullable ImmutableList<String> interactiveDebugArguments,
       String mnemonic) {
     super(
         sandboxPath,
@@ -62,6 +68,7 @@ public class HardlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpa
         statisticsPath,
         mnemonic);
     this.sandboxDebug = sandboxDebug;
+    this.interactiveDebugArguments = interactiveDebugArguments;
   }
 
   @Override
@@ -76,11 +83,14 @@ public class HardlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpa
    * path.
    */
   private void hardLinkRecursive(Path source, Path target) throws IOException {
-    if (source.isSymbolicLink()) {
+    FileStatus stat = source.stat(Symlinks.NOFOLLOW);
+
+    if (stat.isSymbolicLink()) {
       source = source.resolveSymbolicLinks();
+      stat = source.stat();
     }
 
-    if (source.isFile(Symlinks.NOFOLLOW)) {
+    if (stat.isFile()) {
       try {
         source.createHardLink(target);
       } catch (IOException e) {
@@ -90,7 +100,7 @@ public class HardlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpa
         }
         FileSystemUtils.copyFile(source, target);
       }
-    } else if (source.isDirectory()) {
+    } else if (stat.isDirectory()) {
       if (source.startsWith(target)) {
         throw new IllegalArgumentException(source + " is a subdirectory of " + target);
       }
@@ -101,5 +111,24 @@ public class HardlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpa
         hardLinkRecursive(entry, toPath);
       }
     }
+  }
+
+  @Override
+  public Optional<String> getInteractiveDebugInstructions() {
+    if (interactiveDebugArguments == null) {
+      return Optional.empty();
+    }
+    return Optional.of(
+        "Run this command to start an interactive shell in an identical sandboxed environment:\n"
+            + CommandFailureUtils.describeCommand(
+                CommandDescriptionForm.COMPLETE,
+                /* prettyPrintArgs= */ false,
+                interactiveDebugArguments,
+                getEnvironment(),
+                /* environmentVariablesToClear= */ null,
+                /* cwd= */ sandboxExecRoot.getPathString(),
+                /* configurationChecksum= */ null,
+                /* executionPlatformLabel= */ null,
+                /* spawnRunner= */ null));
   }
 }

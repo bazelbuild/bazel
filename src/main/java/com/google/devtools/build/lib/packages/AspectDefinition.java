@@ -32,7 +32,6 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -65,18 +64,14 @@ public final class AspectDefinition {
   private final ImmutableMap<String, Attribute> attributes;
   private final ImmutableSet<ToolchainTypeRequirement> toolchainTypes;
 
-  /**
-   * Which attributes aspect should propagate along:
-   *
-   * <ul>
-   *   <li>A {@code null} value means propagate along all attributes
-   *   <li>A (possibly empty) set means to propagate only along the attributes in a set
-   * </ul>
-   */
-  @Nullable private final ImmutableSet<String> restrictToAttributes;
+  /** A supplier of the attributes to which the aspect will propagate. */
+  private final AspectPropagationEdgesSupplier<String> restrictToAttributes;
 
-  /** Toolchain types for which the aspect will propagate to matching resolved toolchains. */
-  private final ImmutableSet<Label> propagateToToolchainsTypes;
+  /**
+   * A supplier of the toolchains types for which the aspect will propagate to matching resolved
+   * toolchains.
+   */
+  private final AspectPropagationEdgesSupplier<Label> propagateToToolchainsTypes;
 
   @Nullable private final ConfigurationFragmentPolicy configurationFragmentPolicy;
   private final boolean applyToFiles;
@@ -84,8 +79,10 @@ public final class AspectDefinition {
 
   private final ImmutableSet<AspectClass> requiredAspectClasses;
 
+  @Nullable private final AspectPropagationPredicate propagationPredicate;
+
   private final ImmutableSet<Label> execCompatibleWith;
-  private final ImmutableMap<String, ExecGroup> execGroups;
+  private final ImmutableMap<String, DeclaredExecGroup> execGroups;
   private final ImmutableSet<? extends StarlarkSubruleApi> subrules;
 
   public AdvertisedProviderSet getAdvertisedProviders() {
@@ -99,14 +96,15 @@ public final class AspectDefinition {
       RequiredProviders requiredProvidersForAspects,
       ImmutableMap<String, Attribute> attributes,
       ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
-      @Nullable ImmutableSet<String> restrictToAttributes,
-      ImmutableSet<Label> propagateToToolchainsTypes,
+      AspectPropagationEdgesSupplier<String> restrictToAttributes,
+      AspectPropagationEdgesSupplier<Label> propagateToToolchainsTypes,
       @Nullable ConfigurationFragmentPolicy configurationFragmentPolicy,
       boolean applyToFiles,
       boolean applyToGeneratingRules,
       ImmutableSet<AspectClass> requiredAspectClasses,
+      @Nullable AspectPropagationPredicate propagationPredicate,
       ImmutableSet<Label> execCompatibleWith,
-      ImmutableMap<String, ExecGroup> execGroups,
+      ImmutableMap<String, DeclaredExecGroup> execGroups,
       ImmutableSet<? extends StarlarkSubruleApi> subrules) {
     this.aspectClass = aspectClass;
     this.advertisedProviders = advertisedProviders;
@@ -120,6 +118,7 @@ public final class AspectDefinition {
     this.applyToFiles = applyToFiles;
     this.applyToGeneratingRules = applyToGeneratingRules;
     this.requiredAspectClasses = requiredAspectClasses;
+    this.propagationPredicate = propagationPredicate;
     this.execCompatibleWith = execCompatibleWith;
     this.execGroups = execGroups;
     this.subrules = subrules;
@@ -151,7 +150,7 @@ public final class AspectDefinition {
   }
 
   /** Returns the execution groups that this aspect can use when creating actions. */
-  public ImmutableMap<String, ExecGroup> execGroups() {
+  public ImmutableMap<String, DeclaredExecGroup> execGroups() {
     return execGroups;
   }
 
@@ -179,22 +178,17 @@ public final class AspectDefinition {
     return requiredProvidersForAspects;
   }
 
-  /** Returns whether the aspect propagates along the give {@code attributeName} or not. */
-  public boolean propagateAlong(String attributeName) {
-    if (restrictToAttributes != null) {
-      return restrictToAttributes.contains(attributeName);
-    }
-    return true;
+  /** Returns the supplier of the attributes to which the aspect will propagate. */
+  public AspectPropagationEdgesSupplier<String> getAttributeAspects() {
+    return restrictToAttributes;
   }
 
-  /** Returns whether the aspect propagates to toolchains of the given {@code toolchainType}. */
-  public boolean canPropagateToToolchainType(Label toolchainType) {
-    return propagateToToolchainsTypes.contains(toolchainType);
-  }
-
-  /** Returns whether the aspect propagates to toolchains. */
-  public boolean propagatesToToolchains() {
-    return !propagateToToolchainsTypes.isEmpty();
+  /**
+   * Returns the supplier of the toolchains types for which the aspect will propagate to matching
+   * resolved toolchains.
+   */
+  public AspectPropagationEdgesSupplier<Label> getToolchainsAspects() {
+    return propagateToToolchainsTypes;
   }
 
   /** Returns the set of configuration fragments required by this Aspect. */
@@ -226,6 +220,11 @@ public final class AspectDefinition {
   /** Checks if the given {@code maybeRequiredAspect} is required by this aspect definition */
   public boolean requires(Aspect maybeRequiredAspect) {
     return requiredAspectClasses.contains(maybeRequiredAspect.getAspectClass());
+  }
+
+  @Nullable
+  public AspectPropagationPredicate getPropagationPredicate() {
+    return propagationPredicate;
   }
 
   /** Collects all attribute labels from the specified aspectDefinition. */
@@ -276,16 +275,19 @@ public final class AspectDefinition {
         RequiredProviders.acceptAnyBuilder();
     private final RequiredProviders.Builder requiredAspectProviders =
         RequiredProviders.acceptNoneBuilder();
-    @Nullable private LinkedHashSet<String> propagateAlongAttributes = new LinkedHashSet<>();
-    private ImmutableSet<Label> propagateToToolchainsTypes = ImmutableSet.of();
+    private AspectPropagationEdgesSupplier<String> propagateAlongAttributes =
+        AspectPropagationEdgesSupplier.DEFAULT_ATTR_ASPECTS_SUPPLIER;
+    private AspectPropagationEdgesSupplier<Label> propagateToToolchainsTypes =
+        AspectPropagationEdgesSupplier.DEFAULT_TOOLCHAINS_ASPECTS_SUPPLIER;
     private final ConfigurationFragmentPolicy.Builder configurationFragmentPolicy =
         new ConfigurationFragmentPolicy.Builder();
     private boolean applyToFiles = false;
     private boolean applyToGeneratingRules = false;
     private final Set<ToolchainTypeRequirement> toolchainTypes = new HashSet<>();
     private ImmutableSet<AspectClass> requiredAspectClasses = ImmutableSet.of();
+    private AspectPropagationPredicate propagationPredicate = null;
     private ImmutableSet<Label> execCompatibleWith = ImmutableSet.of();
-    private ImmutableMap<String, ExecGroup> execGroups = ImmutableMap.of();
+    private ImmutableMap<String, DeclaredExecGroup> execGroups = ImmutableMap.of();
     private ImmutableSet<? extends StarlarkSubruleApi> subrules = ImmutableSet.of();
 
     public Builder(AspectClass aspectClass) {
@@ -334,6 +336,12 @@ public final class AspectDefinition {
     }
 
     @CanIgnoreReturnValue
+    public Builder propagationPredicate(AspectPropagationPredicate propagationPredicate) {
+      this.propagationPredicate = propagationPredicate;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
     public Builder requireAspectsWithProviders(
         Iterable<ImmutableSet<StarlarkProviderIdentifier>> providerSets) {
       for (ImmutableSet<StarlarkProviderIdentifier> providerSet : providerSets) {
@@ -353,49 +361,20 @@ public final class AspectDefinition {
       return this;
     }
 
-    /**
-     * Declares that this aspect propagates along an {@code attribute} on the target associated with
-     * this aspect.
-     *
-     * <p>Specify multiple attributes by calling this method repeatedly.
-     *
-     * <p>Aspect can also declare to propagate along all attributes with {@link
-     * #propagateAlongAttributes}.
-     */
+    /** Sets the supplier of the attributes to which the aspect will propagate. */
     @CanIgnoreReturnValue
-    public Builder propagateAlongAttribute(String attribute) {
-      Preconditions.checkNotNull(attribute);
-      Preconditions.checkState(
-          this.propagateAlongAttributes != null,
-          "Either propagate along all attributes, or along specific attributes, not both");
-
-      this.propagateAlongAttributes.add(attribute);
-
+    public Builder propagateToAttributes(AspectPropagationEdgesSupplier<String> attributes) {
+      this.propagateAlongAttributes = attributes;
       return this;
     }
 
     /**
-     * Declares that this aspect propagates along all attributes on the target associated with this
-     * aspect.
-     *
-     * <p>Specify either this or {@link #propagateAlongAttribute(String)}, not both.
+     * Sets the supplier of the toolchains types for which the aspect will propagate to matching
+     * resolved toolchains.
      */
     @CanIgnoreReturnValue
-    public Builder propagateAlongAllAttributes() {
-      Preconditions.checkState(
-          this.propagateAlongAttributes != null,
-          "Aspects for all attributes must only be specified once");
-
-      Preconditions.checkState(
-          this.propagateAlongAttributes.isEmpty(),
-          "Specify either aspects for all attributes, or for specific attributes, not both");
-      this.propagateAlongAttributes = null;
-      return this;
-    }
-
-    /** Declares that this aspect propagates to toolchains of the given types. */
-    @CanIgnoreReturnValue
-    public Builder propagateToToolchainsTypes(ImmutableSet<Label> toolchainsTypes) {
+    public Builder propagateToToolchainsTypes(
+        AspectPropagationEdgesSupplier<Label> toolchainsTypes) {
       this.propagateToToolchainsTypes = toolchainsTypes;
       return this;
     }
@@ -542,7 +521,7 @@ public final class AspectDefinition {
 
     /** Sets the execution groups that are available for actions created by this aspect. */
     @CanIgnoreReturnValue
-    public Builder execGroups(ImmutableMap<String, ExecGroup> execGroups) {
+    public Builder execGroups(ImmutableMap<String, DeclaredExecGroup> execGroups) {
       // TODO(b/230337573): validate names
       // TODO(b/230337573): handle copy_from_default
       this.execGroups = execGroups;
@@ -562,10 +541,34 @@ public final class AspectDefinition {
      */
     public AspectDefinition build() {
       RequiredProviders requiredProviders = this.requiredProviders.build();
-      if (applyToGeneratingRules && !requiredProviders.acceptsAny()) {
+      if (applyToGeneratingRules) {
+        if (!requiredProviders.acceptsAny()) {
+          throw new IllegalStateException(
+              "An aspect cannot simultaneously have required providers "
+                  + "and apply to generating rules.");
+        }
+
+        if (propagationPredicate != null) {
+          throw new IllegalStateException(
+              "An aspect cannot simultaneously have a propagation predicate and apply to generating"
+                  + " rules.");
+        }
+      }
+
+      if (applyToFiles) {
+        if (!requiredProviders.acceptsAny()) {
+          throw new IllegalStateException(
+              "An aspect cannot simultaneously have required providers and apply to files.");
+        }
+        if (propagationPredicate != null) {
+          throw new IllegalStateException(
+              "An aspect cannot simultaneously have a propagation predicate and apply to files.");
+        }
+      }
+
+      if (applyToFiles && !requiredProviders.acceptsAny()) {
         throw new IllegalStateException(
-            "An aspect cannot simultaneously have required providers "
-                + "and apply to generating rules.");
+            "An aspect cannot simultaneously have required providers and apply to files.");
       }
 
       return new AspectDefinition(
@@ -575,12 +578,13 @@ public final class AspectDefinition {
           requiredAspectProviders.build(),
           ImmutableMap.copyOf(attributes),
           ImmutableSet.copyOf(toolchainTypes),
-          propagateAlongAttributes == null ? null : ImmutableSet.copyOf(propagateAlongAttributes),
+          propagateAlongAttributes,
           propagateToToolchainsTypes,
           configurationFragmentPolicy.build(),
           applyToFiles,
           applyToGeneratingRules,
           requiredAspectClasses,
+          propagationPredicate,
           execCompatibleWith,
           execGroups,
           subrules);

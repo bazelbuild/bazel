@@ -36,7 +36,7 @@ public class PackageProgressReceiverTest {
     progress.startReadPackage(id);
     String activity = progress.progressState().getSecond();
 
-    assertWithMessage("Unfinished package '" + id + "' should be visible in activity: " + activity)
+    assertWithMessage("Unfinished package '%s' should be visible in activity: %s", id, activity)
         .that(activity.contains(id.toString()))
         .isTrue();
   }
@@ -52,8 +52,7 @@ public class PackageProgressReceiverTest {
     String state = progress.progressState().getFirst();
     String activity = progress.progressState().getSecond();
 
-    assertWithMessage(
-            "Finished package '" + id + "' should not be visible in activity: " + activity)
+    assertWithMessage("Finished package '%s' should not be visible in activity: %s", id, activity)
         .that(activity.contains(id.toString()))
         .isFalse();
     assertWithMessage("Number of completed packages should be visible in state")

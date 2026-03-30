@@ -125,13 +125,9 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
 
   @Override
   public Object getValue(StarlarkSemantics semantics, String name) throws EvalException {
-    if (semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS)
-        && !SPECIAL_FIELD_NAMES.contains(name)) {
+    if (!SPECIAL_FIELD_NAMES.contains(name)) {
       throw Starlark.errorf(
-          "Accessing providers via the field syntax on structs is "
-              + "deprecated and will be removed soon. It may be temporarily re-enabled by setting "
-              + "--incompatible_disable_target_provider_fields=false. See "
-              + "https://github.com/bazelbuild/bazel/issues/9014 for details.");
+          "Accessing providers via the field syntax on structs is deprecated and removed.");
     } else if (semantics.getBool(
             BuildLanguageOptions.INCOMPATIBLE_DISABLE_TARGET_DEFAULT_PROVIDER_FIELDS)
         && DEFAULT_PROVIDER_FIELDS.contains(name)) {
@@ -163,19 +159,21 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   public final Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
     // Only call `getKey()` on unexported Providers to avoid crashing. Users can write:
     // rule(implementation = lambda ctx: ctx.attr.input[provider()], attr = {"input": ...})
-    Provider constructor = selectExportedProvider(key, "index");
+    Provider constructor = selectExportedProvider(key, semantics, "index");
     Object declaredProvider = get(constructor.getKey());
     if (declaredProvider != null) {
       return declaredProvider;
     }
     throw Starlark.errorf(
         "%s%s doesn't contain declared provider '%s'",
-        Starlark.repr(this), getRuleClassStringForError(), constructor.getPrintableName());
+        Starlark.repr(this, semantics),
+        getRuleClassStringForError(),
+        constructor.getPrintableName());
   }
 
   @Override
   public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
-    return get(selectExportedProvider(key, "query").getKey()) != null;
+    return get(selectExportedProvider(key, semantics, "query").getKey()) != null;
   }
 
   @Override
@@ -244,7 +242,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   // All main target classes must override this method to provide more descriptive strings.
   // Exceptions are currently EnvironmentGroupConfiguredTarget and PackageGroupConfiguredTarget.
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<unknown target " + getLabel() + ">");
   }
 
@@ -256,7 +254,8 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
    * Selects the provider identified by {@code key}, throwing a Starlark error if the key is not a
    * provider or not exported.
    */
-  private Provider selectExportedProvider(Object key, String operation) throws EvalException {
+  private Provider selectExportedProvider(Object key, StarlarkSemantics semantics, String operation)
+      throws EvalException {
     if (!(key instanceof Provider constructor)) {
       throw Starlark.errorf(
           "Type Target only supports %sing by object constructors, got %s instead",
@@ -266,7 +265,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
       throw Starlark.errorf(
           "%s%s only supports %sing by exported providers. Assign the provider a name "
               + "in a top-level assignment statement.",
-          Starlark.repr(this), getRuleClassStringForError(), operation);
+          Starlark.repr(this, semantics), getRuleClassStringForError(), operation);
     }
     return constructor;
   }
@@ -279,12 +278,15 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
    * so all values must be accessible in Starlark. If the value of a provider is not convertible to
    * a Starlark value, that name/value pair is left out of the {@link Dict}.
    */
-  static Dict<String, Object> toProvidersDictForQuery(TransitiveInfoProviderMap providers) {
+  Dict<String, Object> toProvidersDictForQuery(TransitiveInfoProviderMap providers) {
     Dict.Builder<String, Object> dict = Dict.builder();
     for (int i = 0; i < providers.getProviderCount(); i++) {
       tryAddProviderForQuery(
           dict, providers.getProviderKeyAt(i), providers.getProviderInstanceAt(i));
     }
+    // DefaultInfo is not stored as a provider, but Starlark targets still observe it on
+    // dependencies.
+    tryAddProviderForQuery(dict, DefaultInfo.PROVIDER.getKey(), DefaultInfo.build(this));
     return dict.buildImmutable();
   }
 

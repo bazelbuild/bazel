@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
+import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.runtime.UiOptions;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.Builder;
@@ -66,6 +67,7 @@ import javax.annotation.Nullable;
 public class SkyframeBuilder implements Builder {
   private final ResourceManager resourceManager;
   private final SkyframeExecutor skyframeExecutor;
+  private final String actionExecutionSalt;
   private final ModifiedFileSet modifiedOutputFiles;
   private final InputMetadataProvider fileCache;
   private final ActionInputPrefetcher actionInputPrefetcher;
@@ -78,6 +80,7 @@ public class SkyframeBuilder implements Builder {
       SkyframeExecutor skyframeExecutor,
       ResourceManager resourceManager,
       ActionCacheChecker actionCacheChecker,
+      String actionExecutionSalt,
       ModifiedFileSet modifiedOutputFiles,
       InputMetadataProvider fileCache,
       ActionInputPrefetcher actionInputPrefetcher,
@@ -86,6 +89,7 @@ public class SkyframeBuilder implements Builder {
     this.resourceManager = resourceManager;
     this.skyframeExecutor = skyframeExecutor;
     this.actionCacheChecker = actionCacheChecker;
+    this.actionExecutionSalt = actionExecutionSalt;
     this.modifiedOutputFiles = modifiedOutputFiles;
     this.fileCache = fileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
@@ -106,16 +110,22 @@ public class SkyframeBuilder implements Builder {
       OptionsProvider options,
       @Nullable Range<Long> lastExecutionTimeRange,
       TopLevelArtifactContext topLevelArtifactContext,
-      RemoteArtifactChecker remoteArtifactChecker)
+      OutputChecker outputChecker)
       throws BuildFailedException, AbruptExitException, TestExecException, InterruptedException {
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
     // TODO(bazel-team): Should use --experimental_fsvc_threads instead of the hardcoded constant
     // but plumbing the flag through is hard.
-    int fsvcThreads = buildRequestOptions == null ? 200 : buildRequestOptions.fsvcThreads;
+    int fsvcThreads = buildRequestOptions == null ? 200 : buildRequestOptions.getFsvcThreads();
+    boolean skyframeErrorHandlingRefactor =
+        buildRequestOptions != null && buildRequestOptions.getSkyframeErrorHandlingRefactor();
     skyframeExecutor.detectModifiedOutputFiles(
-        modifiedOutputFiles, lastExecutionTimeRange, remoteArtifactChecker, fsvcThreads);
+        modifiedOutputFiles, lastExecutionTimeRange, outputChecker, fsvcThreads);
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
-      skyframeExecutor.configureActionExecutor(fileCache, actionInputPrefetcher);
+      skyframeExecutor.configureActionExecutor(
+          fileCache,
+          actionInputPrefetcher,
+          actionExecutionSalt,
+          options.getOptions(UiOptions.class).maxStdoutErrBytes);
     }
     // Note that executionProgressReceiver accesses builtTargets concurrently (after wrapping in a
     // synchronized collection), so unsynchronized access to this variable is unsafe while it runs.
@@ -139,7 +149,7 @@ public class SkyframeBuilder implements Builder {
             executionProgressReceiver.createInactivityMonitor(statusReporter),
             executionProgressReceiver.createInactivityReporter(
                 statusReporter, isBuildingExclusiveArtifacts),
-            options.getOptions(BuildRequestOptions.class).progressReportInterval);
+            options.getOptions(BuildRequestOptions.class).getProgressReportInterval());
 
     skyframeExecutor.setActionExecutionProgressReportingObjects(executionProgressReceiver,
         executionProgressReceiver, statusReporter);
@@ -175,12 +185,16 @@ public class SkyframeBuilder implements Builder {
               topLevelArtifactContext);
       // progressReceiver is finished, so unsynchronized access to builtTargets is now safe.
       DetailedExitCode detailedExitCode =
-          SkyframeErrorProcessor.processResult(
-              reporter,
-              result,
-              options.getOptions(KeepGoingOption.class).keepGoing,
-              skyframeExecutor.getCyclesReporter(),
-              bugReporter);
+          SkyframeErrorProcessor.processExecutionErrors(
+                  result,
+                  skyframeExecutor.getCyclesReporter(),
+                  reporter,
+                  options.getOptions(KeepGoingOption.class).keepGoing,
+                  skyframeExecutor.tracksStateForIncrementality(),
+                  skyframeExecutor.getEventBus(),
+                  bugReporter,
+                  skyframeErrorHandlingRefactor)
+              .executionDetailedExitCode();
 
       if (detailedExitCode != null) {
         detailedExitCodes.add(detailedExitCode);
@@ -202,13 +216,18 @@ public class SkyframeBuilder implements Builder {
                 actionCacheChecker,
                 actionOutputDirectoryHelper,
                 topLevelArtifactContext);
+
         detailedExitCode =
-            SkyframeErrorProcessor.processResult(
-                reporter,
-                result,
-                options.getOptions(KeepGoingOption.class).keepGoing,
-                skyframeExecutor.getCyclesReporter(),
-                bugReporter);
+            SkyframeErrorProcessor.processExecutionErrors(
+                    result,
+                    skyframeExecutor.getCyclesReporter(),
+                    reporter,
+                    options.getOptions(KeepGoingOption.class).keepGoing,
+                    skyframeExecutor.tracksStateForIncrementality(),
+                    skyframeExecutor.getEventBus(),
+                    bugReporter,
+                    skyframeErrorHandlingRefactor)
+                .executionDetailedExitCode();
         Preconditions.checkState(
             detailedExitCode != null || !result.keyNames().isEmpty(),
             "Build reported as successful but test %s not executed: %s",
@@ -229,13 +248,18 @@ public class SkyframeBuilder implements Builder {
                 options,
                 actionCacheChecker,
                 actionOutputDirectoryHelper);
+
         detailedExitCode =
-            SkyframeErrorProcessor.processResult(
-                reporter,
-                result,
-                options.getOptions(KeepGoingOption.class).keepGoing,
-                skyframeExecutor.getCyclesReporter(),
-                bugReporter);
+            SkyframeErrorProcessor.processExecutionErrors(
+                    result,
+                    skyframeExecutor.getCyclesReporter(),
+                    reporter,
+                    options.getOptions(KeepGoingOption.class).keepGoing,
+                    skyframeExecutor.tracksStateForIncrementality(),
+                    skyframeExecutor.getEventBus(),
+                    bugReporter,
+                    skyframeErrorHandlingRefactor)
+                .executionDetailedExitCode();
         if (detailedExitCode != null) {
           detailedExitCodes.add(detailedExitCode);
         }

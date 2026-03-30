@@ -42,6 +42,8 @@ public abstract class AbstractAttributeMapperTest extends BuildViewTestCase {
             "p",
             "myrule",
             """
+            load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
             cc_binary(
                 name = "myrule",
                 srcs = ["a", "b", "c"],
@@ -59,7 +61,7 @@ public abstract class AbstractAttributeMapperTest extends BuildViewTestCase {
   @Test
   public void testPackageDefaultProperties() throws Exception {
     // TODO: blaze-configurability-team - write some package args and test them.
-    assertThat(mapper.getPackageArgs()).isEqualTo(rule.getPackage().getPackageArgs());
+    assertThat(mapper.getPackageArgs()).isEqualTo(rule.getPackageDeclarations().getPackageArgs());
   }
 
   @Test

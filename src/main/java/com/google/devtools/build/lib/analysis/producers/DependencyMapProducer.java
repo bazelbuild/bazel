@@ -13,15 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.producers;
 
+import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.computeAttributeAspects;
 import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.computePropagatingAspects;
+import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.computeToolchainsAspects;
 import static com.google.devtools.build.lib.analysis.producers.DependencyError.isSecondErrorMoreImportant;
 import static java.util.Arrays.asList;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.DependencyKind;
+import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -36,9 +40,8 @@ import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.state.StateMachine;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
@@ -56,6 +59,9 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
   /** Receiver for output of {@link DependencyMapProducer}. */
   public interface ResultSink extends TransitionCollector {
     void acceptDependencyMap(OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> value);
+
+    void acceptMaterializerTargets(
+        OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> value);
 
     void acceptDependencyMapError(DependencyError error);
 
@@ -87,6 +93,11 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
    */
   private final ConfiguredTargetAndData[][] results;
 
+  private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> materializerTargets;
+
+  private ImmutableMultimap<Aspect, String> computedAttributeAspects;
+  private ImmutableMultimap<Aspect, Label> computedToolchainsAspects;
+
   private DependencyError lastError;
 
   public DependencyMapProducer(
@@ -97,6 +108,8 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
     this.dependencyLabels = dependencyLabels;
     this.sink = sink;
     this.results = new ConfiguredTargetAndData[dependencyLabels.size()][];
+    this.computedAttributeAspects = null;
+    this.computedToolchainsAspects = null;
   }
 
   private static boolean isForDependencyResolution(DependencyKind dependencyKind) {
@@ -129,17 +142,32 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
 
   /** An exception thrown if a materializer cannot be evaluated. */
   public static class MaterializerException extends Exception {
-    public MaterializerException(
+
+    private MaterializerException(String message, Exception cause) {
+      super(message, cause);
+    }
+
+    /** This one says "on attribute" because attribute materializers are "on attributes". */
+    public static MaterializerException materializerAttributeException(
         Attribute attribute, Label label, String message, Exception cause) {
-      super(
+      return new MaterializerException(
           String.format(
-              "Error while evaluating materializer on attribute '%s' or rule '%s': %s",
+              "Error while evaluating materializer on attribute '%s' of target '%s': %s",
+              attribute.getPublicName(), label, message),
+          cause);
+    }
+
+    /** This one says "in attribute" because materializer targets are "in attributes". */
+    public static MaterializerException materializerRuleException(
+        Attribute attribute, Label label, String message, Exception cause) {
+      return new MaterializerException(
+          String.format(
+              "Error while evaluating materializer target in attribute '%s' of target '%s': %s",
               attribute.getPublicName(), label, message),
           cause);
     }
   }
 
-  @SuppressWarnings("rawtypes")
   @Nullable
   private ImmutableList<Label> getMaterializationResultMaybe(DependencyKind kind)
       throws InterruptedException {
@@ -152,14 +180,13 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
     }
 
     // By this point, we know the attribute is a materializingDefault. Compute the attributes
-    // available to
-    // it...
+    // available to it...
     ImmutableSortedKeyListMultimap<String, ConfiguredTargetAndData> attrs = createMaterializerMap();
     ImmutableMap<String, Object> prerequisitesForMaterializer =
         computePrerequisitesForMaterializer(parameters.associatedRule(), attrs);
 
     // ...then invoke the function,
-    MaterializingDefault materializingDefault = kind.getAttribute().getMaterializer();
+    MaterializingDefault<?, ?> materializingDefault = kind.getAttribute().getMaterializer();
     Object materializerResult;
     try {
       materializerResult =
@@ -172,7 +199,7 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
       parameters.eventHandler().handle(Event.error(parameters.location(), e.getMessageWithStack()));
       acceptDependencyError(
           DependencyError.of(
-              new MaterializerException(
+              MaterializerException.materializerAttributeException(
                   kind.getAttribute(), parameters.label(), e.getMessage(), e)));
       return null;
     }
@@ -190,13 +217,16 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
   }
 
   private class MaterializedDependencySink implements DependencyProducer.ResultSink {
+    private int remaining;
     private final int resultsIndex;
-    private int labelCount;
-    private final List<ConfiguredTargetAndData> materializationResults = new ArrayList<>();
+    // The outer array is for the individual labels the materializer returns, the inner array is for
+    // the different configurations in case the attribute has a split transition
+    private final ConfiguredTargetAndData[][] materializationResults;
 
     private MaterializedDependencySink(int resultsIndex, int labelCount) {
       this.resultsIndex = resultsIndex;
-      this.labelCount = labelCount;
+      this.remaining = labelCount;
+      this.materializationResults = new ConfiguredTargetAndData[labelCount][];
     }
 
     @Override
@@ -207,13 +237,28 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
 
     @Override
     public void acceptDependencyValues(int index, ConfiguredTargetAndData[] values) {
-      for (var value : values) {
-        materializationResults.add(value);
+      materializationResults[index] = values;
+      if (--remaining > 0) {
+        // More dependencies to come
+        return;
       }
 
-      if (--labelCount == 0) {
-        results[resultsIndex] = materializationResults.toArray(new ConfiguredTargetAndData[] {});
-      }
+      // "results" is an array of arrays: for each (dependency kind, label) pair, it contains an
+      // array with a dependency for each configuration in a split transition. Materializers abuse
+      // this mechanism by putting all configured targets returned by a materializer into the second
+      // array because it cannot be known how many of them there are before "results" is created.
+      // This means that if a materializer has a split configuration, we need to do a level of
+      // flattening here.
+      results[resultsIndex] =
+          Arrays.stream(materializationResults)
+              .flatMap(Arrays::stream)
+              .toArray(ConfiguredTargetAndData[]::new);
+    }
+
+    @Override
+    public void acceptMaterializerTarget(
+        DependencyKind dependencyKind, ConfiguredTargetAndData target) {
+      DependencyMapProducer.this.acceptMaterializerTarget(dependencyKind, target);
     }
 
     @Override
@@ -247,6 +292,8 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
               : computePropagatingAspects(
                   kind,
                   parameters.aspects(),
+                  this.computedAttributeAspects,
+                  this.computedToolchainsAspects,
                   parameters.associatedRule(),
                   parameters.baseTargetToolchainContexts());
       for (var label : entry.getValue()) {
@@ -264,9 +311,16 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
           } else {
             MaterializedDependencySink sink =
                 new MaterializedDependencySink(currentIndex, materializationResults.size());
-            for (Label materializedLabel : materializationResults) {
+            for (int i = 0; i < materializationResults.size(); i++) {
               tasks.enqueue(
-                  new DependencyProducer(parameters, kind, materializedLabel, aspects, sink, -1));
+                  new DependencyProducer(
+                      parameters,
+                      kind,
+                      materializationResults.get(i),
+                      aspects,
+                      sink,
+                      /* originatingMaterializerTarget= */ null,
+                      i));
             }
           }
         } else if (label != null) {
@@ -277,6 +331,7 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
                   label,
                   aspects,
                   (DependencyProducer.ResultSink) this,
+                  /* originatingMaterializerTarget= */ null,
                   currentIndex));
         }
       }
@@ -287,6 +342,14 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
 
   @Override
   public StateMachine step(Tasks tasks) throws InterruptedException {
+    try {
+      computeAspectPropagationEdges();
+    } catch (EvalException e) {
+      parameters.eventHandler().handle(Event.error(parameters.location(), e.getMessageWithStack()));
+      acceptDependencyError(
+          DependencyError.of(new DependencyEvaluationException(e, parameters.location())));
+      return DONE;
+    }
     return attributeResolutionStep(tasks, true, this::evaluateMaterializersIfNeeded);
   }
 
@@ -294,9 +357,42 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
     return attributeResolutionStep(tasks, false, this::buildAndEmitResult);
   }
 
+  /** Computes the aspects' propagation attribute names and toolchain types. */
+  private void computeAspectPropagationEdges() throws InterruptedException, EvalException {
+    if (parameters.aspects().isEmpty()) {
+      return;
+    }
+
+    this.computedAttributeAspects =
+        computeAttributeAspects(
+            parameters.aspects(),
+            parameters.target(),
+            parameters.attributeMap(),
+            this.dependencyLabels,
+            parameters.eventHandler());
+    this.computedToolchainsAspects =
+        computeToolchainsAspects(
+            parameters.aspects(),
+            parameters.target(),
+            parameters.attributeMap(),
+            this.dependencyLabels,
+            parameters.eventHandler());
+  }
+
   @Override
   public void acceptDependencyValues(int index, ConfiguredTargetAndData[] values) {
     results[index] = values;
+  }
+
+  @Override
+  public void acceptMaterializerTarget(
+      DependencyKind dependencyKind, ConfiguredTargetAndData target) {
+
+    // Lazily allocate since materializers should be relatively rare.
+    if (materializerTargets == null) {
+      materializerTargets = new OrderedSetMultimap<>();
+    }
+    materializerTargets.put(dependencyKind, target);
   }
 
   @Override
@@ -363,6 +459,7 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
     }
 
     sink.acceptDependencyMap(output);
+    sink.acceptMaterializerTargets(materializerTargets);
     return DONE;
   }
 

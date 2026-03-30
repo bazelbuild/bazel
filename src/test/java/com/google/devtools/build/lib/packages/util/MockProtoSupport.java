@@ -41,10 +41,12 @@ public final class MockProtoSupport {
     createNetProto2(config);
     setupWorkspace(config);
     registerProtoToolchain(config);
+    // copybara:strip_begin(internal-only)
+    createProtoFlags(config);
+    // copybara:strip_end
   }
 
   private static void registerProtoToolchain(MockToolsConfig config) throws IOException {
-    config.append("WORKSPACE", "register_toolchains('//tools/proto/toolchains:all')");
     config.append("MODULE.bazel", "register_toolchains('//tools/proto/toolchains:all')");
     config.create(
         "tools/proto/toolchains/BUILD",
@@ -56,6 +58,35 @@ public final class MockProtoSupport {
             + "')");
   }
 
+  // copybara:strip_begin(internal-only)
+  private static void createProtoFlags(MockToolsConfig config) throws IOException {
+    // Don't deal with the license.
+    config.overwrite(
+        "third_party/protobuf/bazel/flags/java/mutable/BUILD",
+        """
+        label_flag(
+            name = "proto_toolchain_for_javamutable",
+            build_setting_default = "//tools/proto/toolchains:javamutable",
+        )
+
+        label_flag(
+            name = "proto_toolchain_for_javamutable_with_stubby1",
+            build_setting_default = "//tools/proto/toolchains:javamutable_with_stubby1",
+        )
+
+        label_flag(
+            name = "proto_toolchain_for_javamutable_with_stubby3",
+            build_setting_default = "//tools/proto/toolchains:javamutable_with_stubby3",
+        )
+
+        label_flag(
+            name = "proto_toolchain_for_javamutable_with_stubby13",
+            build_setting_default = "//tools/proto/toolchains:javamutable_with_stubby13",
+        )
+        """);
+  }
+
+  // copybara:strip_end
   /**
    * Create a dummy net/proto2 compiler, a dummy protoc_minimal and proto APIs for all languages and
    * versions.
@@ -159,6 +190,7 @@ public final class MockProtoSupport {
     config.create(
         "net/rpc/compiler/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         package(default_visibility = ["//visibility:public"])
 
         cc_binary(
@@ -175,6 +207,8 @@ public final class MockProtoSupport {
     config.create(
         "net/grpc/compiler/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
         package(default_visibility = ["//visibility:public"])
 
         cc_binary(
@@ -187,6 +221,8 @@ public final class MockProtoSupport {
     config.create(
         "net/proto2/public/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         package(default_visibility = ["//visibility:public"])
 
         cc_library(
@@ -203,6 +239,8 @@ public final class MockProtoSupport {
     config.create(
         "net/proto2/bridge/public/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         package(default_visibility = ["//visibility:public"])
 
         cc_library(
@@ -213,6 +251,7 @@ public final class MockProtoSupport {
     config.create(
         "net/proto/BUILD",
         getPyLoad("py_library"),
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "package(default_visibility=['//visibility:public'])",
         "cc_library(name = 'proto',",
         "           srcs = [ 'proto.cc' ])",
@@ -227,6 +266,8 @@ public final class MockProtoSupport {
     config.create(
         "net/rpc/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         package(default_visibility = ["//visibility:public"])
 
         cc_library(name = "stubby12_proto_rpc_libs")
@@ -234,6 +275,8 @@ public final class MockProtoSupport {
     config.create(
         "net/rpc4/public/core/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         package(default_visibility = ["//visibility:public"])
 
         cc_library(name = "stubby4_rpc_libs")
@@ -241,6 +284,8 @@ public final class MockProtoSupport {
     config.create(
         "net/grpc/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         package(default_visibility = ["//visibility:public"])
 
         cc_library(
@@ -386,7 +431,8 @@ public final class MockProtoSupport {
         """);
     if (TestConstants.PRODUCT_NAME.equals("bazel")) {
       Runfiles runfiles = Runfiles.preload().withSourceRepository("");
-      PathFragment path = PathFragment.create(runfiles.rlocation("protobuf/bazel/BUILD.bazel"));
+      PathFragment path =
+          PathFragment.create(runfiles.rlocation("com_google_protobuf/bazel/BUILD.bazel"));
       config.copyDirectory(
           path.getParentDirectory(), "third_party/protobuf/bazel", MAX_VALUE, false);
       config.overwrite(
@@ -404,8 +450,17 @@ public final class MockProtoSupport {
               + "proto_compiler = '"
               + ProtoConstants.DEFAULT_PROTOC_LABEL
               + "')");
+      config.overwrite(
+          "third_party/protobuf/bazel/private/toolchains/prebuilt/authenticity.bzl",
+          "def _authenticity_impl(ctx):",
+          "    return [OutputGroupInfo(_validation = depset())]",
+          "authenticity_rule = rule(implementation = _authenticity_impl)");
+      config.overwrite(
+          "third_party/protobuf/bazel/private/toolchains/prebuilt/BUILD.bazel",
+          "load(':authenticity.bzl', 'authenticity_rule')",
+          "authenticity_rule(name = 'authenticity_validation', visibility ="
+              + " ['//visibility:public'])");
       config.overwrite("proto_bazel_features_workspace/BUILD");
-      config.overwrite("proto_bazel_features_workspace/WORKSPACE");
       config.overwrite(
           "proto_bazel_features_workspace/features.bzl",
           "bazel_features = struct(",
@@ -413,6 +468,11 @@ public final class MockProtoSupport {
           "  proto = struct(starlark_proto_info = True),",
           "  cc = struct(protobuf_on_allowlist = True),",
           ")");
+      config.overwrite(
+          "third_party/protobuf/src/google/protobuf/compiler/BUILD.bazel",
+          """
+          genrule(name = "protoc", cmd = '', outs = ["protoc_minimal"], executable = True)
+          """);
     }
   }
 }

@@ -151,9 +151,7 @@ public final class ConfigFeatureFlagNamingTest extends BuildViewTestCase {
             default_value = "default",
         )
         """);
-    useConfiguration(
-        "--enforce_transitive_configs_for_config_feature_flag",
-        "--experimental_output_directory_naming_scheme=diff_against_dynamic_baseline");
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     String aMnemonic = getMnemonic(getConfiguredTarget("//test:top_a"));
     String bMnemonic = getMnemonic(getConfiguredTarget("//test:top_b"));
     assertThat(aMnemonic).isEqualTo(bMnemonic);
@@ -192,9 +190,7 @@ public final class ConfigFeatureFlagNamingTest extends BuildViewTestCase {
             default_value = "default",
         )
         """);
-    useConfiguration(
-        "--enforce_transitive_configs_for_config_feature_flag",
-        "--experimental_output_directory_naming_scheme=diff_against_dynamic_baseline");
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     String aMnemonic = getMnemonic(getConfiguredTarget("//test:top_a"));
     String bMnemonic = getMnemonic(getConfiguredTarget("//test:top_b"));
     assertThat(aMnemonic).isNotEqualTo(bMnemonic);
@@ -308,9 +304,7 @@ public final class ConfigFeatureFlagNamingTest extends BuildViewTestCase {
             default_value = "default",
         )
         """);
-    useConfiguration(
-        "--enforce_transitive_configs_for_config_feature_flag",
-        "--experimental_output_directory_naming_scheme=diff_against_dynamic_baseline");
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     ConfiguredTarget viaSetter = getConfiguredTarget("//test:via_setter");
     ConfiguredTarget viaConsumer = getDirectPrerequisite(viaSetter, "//test:via_consumer");
     assertThat(getMnemonic(viaSetter)).isEqualTo(getMnemonic(viaConsumer));
@@ -348,9 +342,7 @@ public final class ConfigFeatureFlagNamingTest extends BuildViewTestCase {
             default_value = "default",
         )
         """);
-    useConfiguration(
-        "--enforce_transitive_configs_for_config_feature_flag",
-        "--experimental_output_directory_naming_scheme=diff_against_dynamic_baseline");
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     ConfiguredTarget viaSetter = getConfiguredTarget("//test:via_setter");
     ConfiguredTarget viaConsumer = getDirectPrerequisite(viaSetter, "//test:via_consumer");
     assertThat(getMnemonic(viaSetter)).isNotEqualTo(getMnemonic(viaConsumer));

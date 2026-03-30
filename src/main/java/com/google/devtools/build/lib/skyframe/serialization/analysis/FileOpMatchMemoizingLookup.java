@@ -1,0 +1,189 @@
+// Copyright 2025 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.skyframe.serialization.analysis;
+
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.AlwaysMatch.ALWAYS_MATCH_RESULT;
+import static java.lang.Math.min;
+
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.devtools.build.lib.concurrent.QuiescingFuture;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.AvailableFileDependencies;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.MissingFileDependencies;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FileOpMatchResult;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FileOpMatchResultOrFuture;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FutureFileOpMatchResult;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FileSystemDependencies.FileOpDependency;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.ListingDependencies.AvailableListingDependencies;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.ListingDependencies.MissingListingDependencies;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
+
+/**
+ * Matches {@link FileOpDependency} instances representing cached value dependencies against {@link
+ * #changes}, containing file system content changes.
+ *
+ * <p>The {@code validityHorizon} (VH) parameter of {@link #getValueOrFuture} has subtle semantics,
+ * but works correctly, even in the presence of multiple overlapping nodes at different versions and
+ * VH values. See {@link VersionedChangesValidator} and {@link VersionedChanges} for more details.
+ */
+final class FileOpMatchMemoizingLookup
+    extends AbstractValueOrFutureMap<
+        FileOpDependency, FileOpMatchResultOrFuture, FileOpMatchResult, FutureFileOpMatchResult> {
+  private final VersionedChanges changes;
+  private final Executor executor;
+
+  FileOpMatchMemoizingLookup(
+      Executor executor,
+      VersionedChanges changes,
+      ConcurrentMap<FileOpDependency, FileOpMatchResultOrFuture> map) {
+    super(map, FutureFileOpMatchResult::new, FutureFileOpMatchResult.class);
+    this.changes = changes;
+    this.executor = executor;
+  }
+
+  VersionedChanges changes() {
+    return changes;
+  }
+
+  FileOpMatchResultOrFuture getValueOrFuture(FileOpDependency key, int validityHorizon) {
+    FileOpMatchResultOrFuture result = getOrCreateValueForSubclasses(key);
+    if (result instanceof FutureFileOpMatchResult future && future.tryTakeOwnership()) {
+      try {
+        return populateFutureFileOpMatchResult(validityHorizon, future);
+      } finally {
+        future.verifyComplete();
+      }
+    }
+    return result;
+  }
+
+  private FileOpMatchResultOrFuture populateFutureFileOpMatchResult(
+      int validityHorizon, FutureFileOpMatchResult ownedFuture) {
+    return switch (ownedFuture.key()) {
+      case AvailableFileDependencies file ->
+          aggregateAnyAdditionalFileDependencies(
+              file.findEarliestMatch(changes, validityHorizon), file, validityHorizon, ownedFuture);
+      case MissingFileDependencies missing -> ownedFuture.completeWith(ALWAYS_MATCH_RESULT);
+      case AvailableListingDependencies listing -> {
+        // Matches the listing (files inside the directory changed).
+        int version = listing.findEarliestMatch(changes, validityHorizon);
+        // Then matches the directory itself.
+        AvailableFileDependencies realDirectory = listing.realDirectory();
+        yield aggregateAnyAdditionalFileDependencies(
+            min(version, realDirectory.findEarliestMatch(changes, validityHorizon)),
+            realDirectory,
+            validityHorizon,
+            ownedFuture);
+      }
+      case MissingListingDependencies missing -> ownedFuture.completeWith(ALWAYS_MATCH_RESULT);
+    };
+  }
+
+  private FileOpMatchResultOrFuture aggregateAnyAdditionalFileDependencies(
+      int baseVersion,
+      AvailableFileDependencies file,
+      int validityHorizon,
+      FutureFileOpMatchResult ownedFuture) {
+    if (file.getDependencyCount() == 0) {
+      return ownedFuture.completeWith(FileOpMatchResult.create(baseVersion));
+    }
+    var aggregator = new AggregatingFutureFileOpMatchResult(baseVersion, executor);
+    for (int i = 0; i < file.getDependencyCount(); i++) {
+      aggregator.addDependency(getValueOrFuture(file.getDependency(i), validityHorizon));
+    }
+    aggregator.notifyAllDependenciesAdded();
+    return ownedFuture.completeWith(aggregator);
+  }
+
+  private static final class AggregatingFutureFileOpMatchResult
+      extends QuiescingFuture<FileOpMatchResult> implements FutureCallback<FileOpMatchResult> {
+    private final Executor executor;
+    private volatile FileOpMatchResult result;
+
+    private AggregatingFutureFileOpMatchResult(int version, Executor executor) {
+      super(directExecutor());
+      this.executor = executor;
+      this.result = FileOpMatchResult.create(version);
+    }
+
+    private void addDependency(FileOpMatchResultOrFuture resultOrFuture) {
+      switch (resultOrFuture) {
+        case FileOpMatchResult match:
+          updateResult(match);
+          break;
+        case FutureFileOpMatchResult future:
+          increment();
+          Futures.addCallback(future, (FutureCallback<FileOpMatchResult>) this, executor);
+          break;
+      }
+    }
+
+    private void notifyAllDependenciesAdded() {
+      decrement();
+    }
+
+    private void updateResult(FileOpMatchResult newResult) {
+      FileOpMatchResult snapshot;
+      do {
+        snapshot = result;
+      } while (newResult.version() < snapshot.version()
+          && !RESULT_HANDLE.compareAndSet(this, snapshot, newResult));
+    }
+
+    @Override
+    protected FileOpMatchResult getValue() {
+      return result;
+    }
+
+    /**
+     * Implementation of {@link FutureCallback<FileOpMatchResult>}.
+     *
+     * @deprecated only for {@link #addDependency} futures callback processing.
+     */
+    @Deprecated
+    @Override
+    public void onSuccess(FileOpMatchResult result) {
+      updateResult(result);
+      decrement();
+    }
+
+    /**
+     * Implementation of {@link FutureCallback<FileOpMatchResult>}.
+     *
+     * @deprecated only for {@link #addDependency} futures callback processing.
+     */
+    @Deprecated
+    @Override
+    public void onFailure(Throwable t) {
+      notifyException(t);
+    }
+
+    private static final VarHandle RESULT_HANDLE;
+
+    static {
+      try {
+        RESULT_HANDLE =
+            MethodHandles.lookup()
+                .findVarHandle(
+                    AggregatingFutureFileOpMatchResult.class, "result", FileOpMatchResult.class);
+      } catch (ReflectiveOperationException e) {
+        throw new ExceptionInInitializerError(e);
+      }
+    }
+  }
+}

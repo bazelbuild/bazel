@@ -38,33 +38,15 @@ public final class JniLoader {
     Throwable jniLoadError;
     try {
       switch (OS.getCurrent()) {
-        case LINUX:
-        case FREEBSD:
-        case OPENBSD:
-        case UNKNOWN:
+        case LINUX, FREEBSD, OPENBSD, UNKNOWN -> {
           loadLibrary("main/native/libunix_jni.so");
-          break;
-
-        case DARWIN:
+        }
+        case DARWIN -> {
           loadLibrary("main/native/libunix_jni.dylib");
-          break;
-
-        case WINDOWS:
-          try {
-            // TODO(jmmv): This is here only for the bootstrapping process, which builds the JNI
-            // library and passes a -Djava.library.path to the JVM to find it. I'm sure that this
-            // can be replaced by properly bundling the library as a resource in the JAR. For some
-            // strange reason that I haven't fully understood yet, this also must come first.
-            System.loadLibrary("windows_jni");
-          } catch (UnsatisfiedLinkError e) {
-            try {
-              loadLibrary("main/native/windows/windows_jni.dll");
-            } catch (IOException e2) {
-              e2.addSuppressed(e);
-              throw e2;
-            }
-          }
-          break;
+        }
+        case WINDOWS -> {
+          loadLibrary("main/native/windows/windows_jni.dll");
+        }
       }
       jniLoadError = null;
     } catch (IOException | UnsatisfiedLinkError e) {
@@ -124,6 +106,12 @@ public final class JniLoader {
         }
       } catch (IOException e2) {
         // Nothing else we can do. Rely on "delete on exit" to try clean things up later on.
+        if (dir != null) {
+          dir.toFile().deleteOnExit();
+        }
+        if (tempFile != null) {
+          tempFile.toFile().deleteOnExit();
+        }
       }
       throw e;
     }
@@ -132,23 +120,21 @@ public final class JniLoader {
   private JniLoader() {}
 
   /**
-   * Triggers the load of the JNI bundle in a platform-independent basis.
+   * Ensures that the JNI library has been loaded.
    *
-   * <p>This does <b>not</b> fail if the JNI bundle cannot be loaded because there are scenarios in
-   * which we want to run Bazel without JNI (e.g. during bootstrapping) or are able to fall back to
-   * an alternative implementation (e.g. in some filesystem implementations).
-   *
-   * <p>Callers can check if the JNI bundle was successfully loaded via {@link #isJniAvailable()}
-   * and obtain the load error via {@link #getJniLoadError()}.
+   * <p>If the JNI library cannot be loaded, this method returns normally, but the error can be
+   * later retrieved via {@link #getJniLoadError()}. This makes it possible for this method to be
+   * called during static initialization, while delaying the failure to a later stage where we're in
+   * a better position to display an error message (see {@link BlazeRuntime#main()}).
    */
-  public static void loadJni() {}
-
-  /** Returns whether the JNI bundle was successfully loaded. */
-  public static boolean isJniAvailable() {
-    return JNI_LOAD_ERROR == null;
+  public static void loadJni() {
+    // No-op: loading occurs in the static initializer.
   }
 
-  /** Returns the exception thrown while loading the JNI bundle, if it failed. */
+  /**
+   * Ensures that the JNI library has been loaded and returns the exception thrown while loading it,
+   * if any.
+   */
   @Nullable
   public static Throwable getJniLoadError() {
     return JNI_LOAD_ERROR;

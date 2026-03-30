@@ -70,6 +70,8 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     scratch.file(
         "third_party/x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')
         licenses(["unencumbered"])
 
@@ -133,6 +135,8 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     scratch.file(
         "third_party/x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')
         licenses(["unencumbered"])
 
@@ -195,6 +199,8 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         "third_party/x/BUILD",
         "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
         "licenses(['unencumbered'])",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_binary(name = 'plugin', srcs = ['plugin.cc'])",
         "cc_library(name = 'runtime', srcs = ['runtime.cc'])",
         "proto_library(name = 'descriptors', srcs = ['metadata.proto', 'descriptor.proto'])",
@@ -227,6 +233,8 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         "third_party/x/BUILD",
         "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
         "licenses(['unencumbered'])",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_binary(name = 'plugin', srcs = ['plugin.cc'])",
         "cc_library(name = 'runtime', srcs = ['runtime.cc'])",
         "proto_library(name = 'descriptors', srcs = ['metadata.proto', 'descriptor.proto'])",

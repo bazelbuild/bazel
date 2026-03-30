@@ -25,7 +25,7 @@ import javax.annotation.Nullable;
  * protects against undefined behavior in response to unexpected configuration-dependent inputs.
  */
 public class NonconfigurableAttributeMapper extends AbstractAttributeMapper {
-  private NonconfigurableAttributeMapper(Rule rule) {
+  private NonconfigurableAttributeMapper(RuleOrMacroInstance rule) {
     super(rule);
   }
 
@@ -36,7 +36,7 @@ public class NonconfigurableAttributeMapper extends AbstractAttributeMapper {
    *   Label fooLabel = NonconfigurableAttributeMapper.of(rule).get("foo", Type.LABEL);
    * </pre>
    */
-  public static NonconfigurableAttributeMapper of(Rule rule) {
+  public static NonconfigurableAttributeMapper of(RuleOrMacroInstance rule) {
     return new NonconfigurableAttributeMapper(rule);
   }
 

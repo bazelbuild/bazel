@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+# LINT.IfChange(forked_exports)
 """The provider ObjcInfo for ObjC rules. For more context see doc param of provider() call."""
 
 def _objcinfo_init(
@@ -94,3 +94,5 @@ passed in via {@code providers} into the {@code _objcinfo_init} constructor.""",
     },
     init = _objcinfo_init,
 )
+
+# LINT.ThenChange(//src/main/starlark/builtins_bzl/common/objc/objc_info.bzl)

@@ -32,13 +32,13 @@ class BazelOverridesTest(test_base.TestBase):
         os.path.join(self.registries_work_dir, 'main')
     )
     self.main_registry.start()
-    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+    self.main_registry.createShModule('aaa', '1.0').createShModule(
         'aaa', '1.1'
-    ).createCcModule('bbb', '1.0', {'aaa': '1.0'}).createCcModule(
+    ).createShModule('bbb', '1.0', {'aaa': '1.0'}).createShModule(
         'bbb', '1.1', {'aaa': '1.1'}
-    ).createCcModule(
+    ).createShModule(
         'ccc', '1.1', {'aaa': '1.1', 'bbb': '1.1'}
-    ).createCcModule(
+    ).createShModule(
         'ddd', '1.0'
     )
     self.ScratchFile(
@@ -46,7 +46,6 @@ class BazelOverridesTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'build --noenable_workspace',
             'build --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
@@ -63,45 +62,45 @@ class BazelOverridesTest(test_base.TestBase):
     self.main_registry.stop()
     test_base.TestBase.tearDown(self)
 
-  def writeMainProjectFiles(self):
+  def writeMainProjectFiles(self, aaa_repo_name='aaa'):
     self.ScratchFile(
         'aaa.patch',
         [
-            '--- a/aaa.cc',
-            '+++ b/aaa.cc',
-            '@@ -1,6 +1,6 @@',
-            ' #include <stdio.h>',
-            ' #include "aaa.h"',
-            ' void hello_aaa(const std::string& caller) {',
-            '-    std::string lib_name = "aaa@1.0";',
-            '+    std::string lib_name = "aaa@1.0 (locally patched)";',
-            '     printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
+            '--- a/aaa.sh',
+            '+++ b/aaa.sh',
+            '@@ -1,5 +1,5 @@',
+            ' function hello_aaa {',
+            '     caller_name="${1}"',
+            '-    lib_name="aaa@1.0"',
+            '+    lib_name="aaa@1.0 (locally patched)"',
+            '     echo "${caller_name} => ${lib_name}"',
             ' }',
         ],
     )
     self.ScratchFile(
         'BUILD',
         [
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = [',
-            '    "@aaa//:lib_aaa",',
+            '    "@%s//:lib_aaa",' % aaa_repo_name,
             '    "@bbb//:lib_bbb",',
             '  ],',
+            '  use_bash_launcher = True,',
             ')',
         ],
     )
     self.ScratchFile(
-        'main.cc',
+        'main.sh',
         [
-            '#include "aaa.h"',
-            '#include "bbb.h"',
-            'int main() {',
-            '    hello_aaa("main function");',
-            '    hello_bbb("main function");',
-            '}',
+            'source $(rlocation %s/aaa.sh)' % aaa_repo_name,
+            'source $(rlocation bbb/bbb.sh)',
+            'hello_aaa "main function"',
+            'hello_bbb "main function"',
         ],
+        executable=True,
     )
 
   def testSingleVersionOverrideWithPatch(self):
@@ -109,7 +108,7 @@ class BazelOverridesTest(test_base.TestBase):
     self.ScratchFile(
         'MODULE.bazel',
         [
-            'bazel_dep(name = "aaa", version = "1.1")',
+            'bazel_dep(name = "aaa")',
             'bazel_dep(name = "bbb", version = "1.1")',
             # Both main and bbb@1.1 has to depend on the locally patched aaa@1.0
             'single_version_override(',
@@ -120,10 +119,92 @@ class BazelOverridesTest(test_base.TestBase):
             ')',
         ],
     )
+    self.AddBazelDep('rules_shell')
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.0 (locally patched)', stdout)
     self.assertIn('main function => bbb@1.1', stdout)
     self.assertIn('bbb@1.1 => aaa@1.0 (locally patched)', stdout)
+
+  def testSingleVersionOverrideWithPatchCmds(self):
+    self.writeMainProjectFiles()
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa")',
+            'bazel_dep(name = "bbb", version = "1.1")',
+            # Both main and bbb@1.1 has to depend on the locally patched aaa@1.0
+            'single_version_override(',
+            '  module_name = "aaa",',
+            '  version = "1.0",',
+            '  patch_cmds = [',
+            """    "sed -e 's|aaa@1.0|aaa@1.0 (locally patched with patch_cmds)|' aaa.sh > aaa.sh.new",""",
+            '    "mv aaa.sh.new aaa.sh",',
+            '  ],',
+            ')',
+        ],
+    )
+    self.AddBazelDep('rules_shell')
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
+    self.assertIn(
+        'main function => aaa@1.0 (locally patched with patch_cmds)', stdout
+    )
+    self.assertIn('main function => bbb@1.1', stdout)
+    self.assertIn(
+        'bbb@1.1 => aaa@1.0 (locally patched with patch_cmds)', stdout
+    )
+
+  def testSingleVersionOverrideWithPatchAndPatchCmds(self):
+    self.writeMainProjectFiles()
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa")',
+            'bazel_dep(name = "bbb", version = "1.1")',
+            # Both main and bbb@1.1 has to depend on the locally patched aaa@1.0
+            'single_version_override(',
+            '  module_name = "aaa",',
+            '  version = "1.0",',
+            '  patches = ["//:aaa.patch"],',
+            '  patch_strip = 1,',
+            '  patch_cmds = [',
+            """    "sed -e 's|locally patched|locally patched with patches and patch_cmds|' aaa.sh > aaa.sh.new",""",
+            '    "mv aaa.sh.new aaa.sh",',
+            '  ],',
+            ')',
+        ],
+    )
+    self.AddBazelDep('rules_shell')
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
+    self.assertIn(
+        'main function => aaa@1.0 (locally patched with patches and'
+        ' patch_cmds)',
+        stdout,
+    )
+    self.assertIn('main function => bbb@1.1', stdout)
+    self.assertIn(
+        'bbb@1.1 => aaa@1.0 (locally patched with patches and patch_cmds)',
+        stdout,
+    )
+
+  def testSingleVersionOverrideVersionTooLow(self):
+    self.writeMainProjectFiles()
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.1")',
+            'single_version_override(',
+            '  module_name = "aaa",',
+            '  version = "1.0",',
+            ')',
+        ],
+    )
+    exit_code, _, stderr = self.RunBazel(['mod', 'deps'], allow_failure=True)
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    self.assertIn(
+        "ERROR: module 'aaa' is overridden to use version '1.0', which is lower"
+        " than the version '1.1' requested by the root module",
+        stderr,
+    )
 
   def testRegistryOverride(self):
     self.writeMainProjectFiles()
@@ -133,7 +214,7 @@ class BazelOverridesTest(test_base.TestBase):
     )
     another_registry.start()
     try:
-      another_registry.createCcModule('aaa', '1.0')
+      another_registry.createShModule('aaa', '1.0')
       self.ScratchFile(
           'MODULE.bazel',
           [
@@ -145,6 +226,7 @@ class BazelOverridesTest(test_base.TestBase):
               ')',
           ],
       )
+      self.AddBazelDep('rules_shell')
       _, stdout, _ = self.RunBazel(['run', '//:main'])
       self.assertIn('main function => aaa@1.0 from another registry', stdout)
       self.assertIn('main function => bbb@1.0', stdout)
@@ -158,54 +240,42 @@ class BazelOverridesTest(test_base.TestBase):
     self.ScratchFile(
         'aaa2.patch',
         [
-            '--- a/aaa.cc',
-            '+++ b/aaa.cc',
-            '@@ -1,6 +1,6 @@',
-            ' #include <stdio.h>',
-            ' #include "aaa.h"',
-            ' void hello_aaa(const std::string& caller) {',
-            '-    std::string lib_name = "aaa@1.0 (locally patched)";',
-            '+    std::string lib_name = "aaa@1.0 (locally patched again)";',
-            '     printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
+            '--- a/aaa.sh',
+            '+++ b/aaa.sh',
+            '@@ -1,5 +1,5 @@',
+            ' function hello_aaa {',
+            '     caller_name="${1}"',
+            '-    lib_name="aaa@1.0 (locally patched)"',
+            '+    lib_name="aaa@1.0 (locally patched again)"',
+            '     echo "${caller_name} => ${lib_name}"',
             ' }',
         ],
     )
     self.ScratchFile(
         'aaa3.patch',
         [
-            '--- a/aaa.cc',
-            '+++ b/aaa.cc',
-            '@@ -1,6 +1,6 @@',
-            ' #include <stdio.h>',
-            ' #include "aaa.h"',
-            ' void hello_aaa(const std::string& caller) {',
-            '-    std::string lib_name = "aaa@1.0 (locally patched again)";',
-            (
-                '+    std::string lib_name = "aaa@1.0 (locally patched again'
-                ' and again)";'
-            ),
-            '     printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
+            '--- a/aaa.sh',
+            '+++ b/aaa.sh',
+            '@@ -1,5 +1,5 @@',
+            ' function hello_aaa {',
+            '     caller_name="${1}"',
+            '-    lib_name="aaa@1.0 (locally patched again)"',
+            '+    lib_name="aaa@1.0 (locally patched again and again)"',
+            '     echo "${caller_name} => ${lib_name}"',
             ' }',
         ],
     )
     self.ScratchFile(
         'aaa4.patch',
         [
-            '--- a/aaa.cc',
-            '+++ b/aaa.cc',
-            '@@ -1,6 +1,6 @@',
-            ' #include <stdio.h>',
-            ' #include "aaa.h"',
-            ' void hello_aaa(const std::string& caller) {',
-            (
-                '-    std::string lib_name = "aaa@1.0 (locally patched again'
-                ' and again)";'
-            ),
-            (
-                '+    std::string lib_name = "aaa@1.0 (locally patched all over'
-                ' again)";'
-            ),
-            '     printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
+            '--- a/aaa.sh',
+            '+++ b/aaa.sh',
+            '@@ -1,5 +1,5 @@',
+            ' function hello_aaa {',
+            '     caller_name="${1}"',
+            '-    lib_name="aaa@1.0 (locally patched again and again)"',
+            '+    lib_name="aaa@1.0 (locally patched all over again)"',
+            '     echo "${caller_name} => ${lib_name}"',
             ' }',
         ],
     )
@@ -228,6 +298,7 @@ class BazelOverridesTest(test_base.TestBase):
             ')',
         ],
     )
+    self.AddBazelDep('rules_shell')
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn(
         'main function => aaa@1.0 (locally patched all over again)', stdout
@@ -271,6 +342,7 @@ class BazelOverridesTest(test_base.TestBase):
             ')',
         ],
     )
+    self.AddBazelDep('rules_shell')
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.0 (locally patched)', stdout)
     self.assertIn('main function => bbb@1.1', stdout)
@@ -279,33 +351,34 @@ class BazelOverridesTest(test_base.TestBase):
   def testGitOverrideStripPrefix(self):
     self.writeMainProjectFiles()
 
-    # Update BUILD and main.cc to also call `ddd`.
+    # Update BUILD and main.sh to also call `ddd`.
     self.ScratchFile(
         'BUILD',
         [
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = [',
             '    "@aaa//:lib_aaa",',
             '    "@bbb//:lib_bbb",',
             '    "@ddd//:lib_ddd",',
             '  ],',
+            '  use_bash_launcher = True,',
             ')',
         ],
     )
     self.ScratchFile(
-        'main.cc',
+        'main.sh',
         [
-            '#include "aaa.h"',
-            '#include "bbb.h"',
-            '#include "ddd.h"',
-            'int main() {',
-            '    hello_aaa("main function");',
-            '    hello_bbb("main function");',
-            '    hello_ddd("main function");',
-            '}',
+            'source $(rlocation aaa/aaa.sh)',
+            'source $(rlocation bbb/bbb.sh)',
+            'source $(rlocation ddd/ddd.sh)',
+            'hello_aaa "main function"',
+            'hello_bbb "main function"',
+            'hello_ddd "main function"',
         ],
+        executable=True,
     )
     src_aaa_1_0 = self.main_registry.projects.joinpath('aaa', '1.0')
     src_ddd_1_0 = self.main_registry.projects.joinpath('ddd', '1.0')
@@ -323,20 +396,16 @@ class BazelOverridesTest(test_base.TestBase):
     subdir_name = 'subdir_containing_ddd'
     shutil.copytree(src=src_ddd_1_0, dst=src_aaa_1_0 / subdir_name)
 
-    # Edit the code in 'subdir_containing_ddd/ddd.cc' so that we can assert
+    # Edit the code in 'subdir_containing_ddd/ddd.sh' so that we can assert
     # that we're using it.
     src_aaa_relpath = src_aaa_1_0.relative_to(self._test_cwd)
     self.ScratchFile(
-        str(src_aaa_relpath / subdir_name / 'ddd.cc'),
+        str(src_aaa_relpath / subdir_name / 'ddd.sh'),
         [
-            '#include <stdio.h>',
-            '#include "ddd.h"',
-            'void hello_ddd(const std::string& caller) {',
-            '    std::string lib_name = "ddd@1.0";',
-            (
-                '    printf("%s => %s from subdir\\n", caller.c_str(),'
-                ' lib_name.c_str());'
-            ),
+            'function hello_ddd {',
+            '    caller_name="${1}"',
+            '    lib_name="ddd@1.0"',
+            '    echo "${caller_name} => ${lib_name} from subdir"',
             '}',
         ],
     )
@@ -367,7 +436,7 @@ class BazelOverridesTest(test_base.TestBase):
             ')',
         ],
     )
-
+    self.AddBazelDep('rules_shell')
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.1', stdout)
     self.assertIn('main function => bbb@1.1', stdout)
@@ -388,10 +457,46 @@ class BazelOverridesTest(test_base.TestBase):
             ')',
         ],
     )
+    self.AddBazelDep('rules_shell')
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.0', stdout)
     self.assertIn('main function => bbb@1.1', stdout)
     self.assertIn('bbb@1.1 => aaa@1.0', stdout)
+
+  def testLocalPathOverrideOverriddenWithOverrideRepository(self):
+    src_aaa_1_0 = self.main_registry.projects.joinpath('aaa', '1.0')
+
+    other_registry = BazelRegistry(
+        os.path.join(self.registries_work_dir, 'other'),
+        registry_suffix=' overridden',
+    ).createShModule('aaa', '1.0')
+    src_aaa_override = other_registry.projects.joinpath('aaa', '1.0')
+
+    self.writeMainProjectFiles(aaa_repo_name='aaa_renamed')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            (
+                'bazel_dep(name = "aaa", version = "1.1", repo_name ='
+                ' "aaa_renamed")'
+            ),
+            'bazel_dep(name = "bbb", version = "1.1")',
+            'local_path_override(',
+            '  module_name = "aaa",',
+            '  path = "%s",' % str(src_aaa_1_0.resolve()).replace('\\', '/'),
+            ')',
+        ],
+    )
+    self.AddBazelDep('rules_shell')
+    _, stdout, _ = self.RunBazel([
+        'run',
+        '--override_repository=aaa_renamed=%s'
+        % str(src_aaa_override.resolve()).replace('\\', '/'),
+        '//:main',
+    ])
+    self.assertIn('main function => aaa@1.0 overridden', stdout)
+    self.assertIn('main function => bbb@1.1', stdout)
+    self.assertIn('bbb@1.1 => aaa@1.0 overridden', stdout)
 
   def testCmdAbsoluteModuleOverride(self):
     # test commandline_overrides takes precedence over local_path_override
@@ -495,8 +600,9 @@ class BazelOverridesTest(test_base.TestBase):
         allow_failure=True,
     )
     self.assertIn(
-        'ERROR: Error computing the main repository mapping: module not found'
-        ' in registries: ss@1.0',
+        'ERROR: Error computing the main repository mapping: in module'
+        ' dependency chain <root> -> ss@1.0: module ss@1.0 not found in'
+        ' registries:',
         stderr,
     )
 
@@ -604,13 +710,13 @@ class BazelOverridesTest(test_base.TestBase):
         '',
     ])
     main_repo_mapping = json.loads('\n'.join(stdout))
-    self.assertEqual(main_repo_mapping['my_repo'], '+_repo_rules+my_repo')
+    self.assertEqual(main_repo_mapping['my_repo'], '+local_repository+my_repo')
 
     _, stdout, _ = self.RunBazel([
         'mod',
         'dump_repo_mapping',
         '--inject_repository=my_repo=%workspace%/other_repo',
-        '+_repo_rules+my_repo',
+        '+local_repository+my_repo',
     ])
     my_repo_mapping = json.loads('\n'.join(stdout))
     self.assertEqual(main_repo_mapping, my_repo_mapping)
@@ -649,11 +755,88 @@ class BazelOverridesTest(test_base.TestBase):
         allow_failure=True,
     )
     self.AssertNotExitCode(exit_code, 0, stderr)
+    stderr = '\n'.join(stderr)
     self.assertIn(
-        "Error in use_repo: The repo name 'my_repo' is already being used by"
-        ' --inject_repository at <builtin>',
+        "ERROR: The repo name 'my_repo' cannot be defined by"
+        ' --inject_repository at <builtin> as it is already defined by'
+        ' a use_repo() call at',
         stderr,
     )
+    self.assertIn(
+        'MODULE.bazel:2:9',
+        stderr,
+    )
+
+  def testInjectRepositoryRepoNameSideEffects(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            (
+                'local_repository = use_repo_rule("@//:defs.bzl",'
+                ' "local_repository")'
+            ),
+            'local_repository(name = "repo")',
+        ],
+    )
+    self.ScratchFile(
+        'defs.bzl',
+        [
+            'def _impl(ctx):',
+            '  ctx.file("BUILD")',
+            # Deliberate collision with `@bazel_tools//tools/build_defs/repo:loc
+            # al.bzl%local_repository`
+            'local_repository = repository_rule(implementation=_impl)',
+        ],
+    )
+    self.ScratchFile('BUILD')
+
+    self.ScratchFile('other_module/REPO.bazel')
+    self.ScratchFile('other_repo/BUILD', ['filegroup(name="target")'])
+
+    _, stdout, _ = self.RunBazel(['mod', 'dump_repo_mapping', ''])
+    self.assertIn(
+        '"+local_repository+repo"',
+        '\n'.join(stdout),
+    )
+
+    # --inject_repository _must not_ affect `use_repo_rule` generated repo names
+    # .
+    _, stdout, _ = self.RunBazel([
+        'mod',
+        'dump_repo_mapping',
+        '',
+        '--inject_repository=injected_repo=%workspace%/other_repo',
+    ])
+    self.assertIn(
+        '"+local_repository+repo"',
+        '\n'.join(stdout),
+    )
+    self.assertIn(
+        '"+local_repository2+injected_repo"',
+        '\n'.join(stdout),
+    )
+
+  def testInjectRepositoryAndLocalRepository(self):
+    # Regression test for https://github.com/bazelbuild/bazel/issues/27953
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            (
+                'local_repository ='
+                ' use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl",'
+                ' "local_repository")'
+            ),
+            'local_repository(name = "local_repo", path = "local_repo")',
+        ],
+    )
+    self.ScratchFile('local_repo/REPO.bazel')
+    self.ScratchFile('injected_repo/REPO.bazel')
+
+    self.RunBazel([
+        'mod',
+        'deps',
+        '--inject_repository=injected_repo=%workspace%/injected_repo',
+    ])
 
   def testOverrideRepositoryOnNonExistentRepo(self):
     self.ScratchFile('other_repo/REPO.bazel')
@@ -668,9 +851,114 @@ class BazelOverridesTest(test_base.TestBase):
         allow_failure=True,
     )
     self.AssertNotExitCode(exit_code, 0, stderr)
+
     self.assertIn(
-        "ERROR: No repository visible as '@my_repo' from main repository",
-        stderr,
+        "no repository visible as '@my_repo'",
+        '\n'.join(stderr).lower(),
+    )
+
+    exit_code, _, stderr = self.RunBazel(
+        [
+            'build',
+            '--override_repository=my_repo=%workspace%/other_repo',
+            '@@my_repo//:target',
+        ],
+        allow_failure=True,
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+
+    if self.IsWindows():
+      # The use of --python_path on Windows results in a different error
+      # message.
+      expected_msg = (
+          "no repository visible as '@my_repo' from the main"
+          ' repository, but overridden with --override_repository. Use'
+          ' --inject_repository to add new repositories.'
+      )
+    else:
+      expected_msg = (
+          "Skipping '@@my_repo//:target': no such package '@@my_repo//':"
+          ' the repository @@my_repo does not exist, but has been specified'
+          ' as overridden with --override_repository. Use --inject_repository'
+          ' instead to add a new repository.'
+      )
+
+    self.assertIn(expected_msg, '\n'.join(stderr))
+
+  def testOverrideRepositoryOnUseRepoRule(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            (
+                'local_repository ='
+                ' use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl",'
+                ' "local_repository")'
+            ),
+            'local_repository(',
+            '  name = "my_repo",',
+            '  path = "original_repo",',
+            ')',
+        ],
+    )
+
+    self.ScratchFile('original_repo/REPO.bazel')
+    self.ScratchFile('original_repo/BUILD', ['filegroup(name="original")'])
+
+    self.ScratchFile('override_repo/REPO.bazel')
+    self.ScratchFile('override_repo/BUILD', ['filegroup(name="overridden")'])
+
+    # Verify that the overridden repo is used
+    self.RunBazel(
+        [
+            'build',
+            '--override_repository=+local_repository+my_repo=%workspace%/override_repo',
+            '@my_repo//:overridden',
+        ],
+    )
+    self.RunBazel(
+        [
+            'build',
+            '--override_repository=my_repo=%workspace%/override_repo',
+            '@my_repo//:overridden',
+        ],
+    )
+
+  def testOverrideRepositoryWithTypo(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            (
+                'local_repository ='
+                ' use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl",'
+                ' "local_repository")'
+            ),
+            'local_repository(',
+            '  name = "my_repo",',
+            '  path = "original_repo",',
+            ')',
+        ],
+    )
+
+    self.ScratchFile('original_repo/REPO.bazel')
+    self.ScratchFile('original_repo/BUILD', ['filegroup(name="original")'])
+
+    self.ScratchFile('override_repo/REPO.bazel')
+    self.ScratchFile('override_repo/BUILD', ['filegroup(name="overridden")'])
+
+    exit_code, _, stderr = self.RunBazel(
+        [
+            'build',
+            '--override_repository=my_repto=%workspace%/override_repo',
+            '@my_repo//:overridden',
+        ],
+        allow_failure=True,
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    self.assertIn(
+        "no repository visible as '@my_repto' (did you mean '@my_repo'?)"
+        ' from the main repository, but overridden with --override_repository.'
+        ' Use --inject_repository to add new repositories.',
+        '\n'.join(stderr),
     )
 
 

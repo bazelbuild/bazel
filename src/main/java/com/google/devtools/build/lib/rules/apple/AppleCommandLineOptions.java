@@ -20,12 +20,10 @@ import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelC
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
-import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -34,18 +32,6 @@ import java.util.List;
 
 /** Command-line options for building for Apple platforms. */
 public class AppleCommandLineOptions extends FragmentOptions {
-  @Option(
-      name = "experimental_objc_provider_from_linked",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "No-op. Kept here for backwards compatibility. This field will be removed in a "
-              + "future release.")
-  // TODO(b/32411441): This flag should be removed.
-  public boolean objcProviderFromLinked;
-
   @Option(
       name = "xcode_version",
       defaultValue = "null",
@@ -167,6 +153,19 @@ public class AppleCommandLineOptions extends FragmentOptions {
               + " selected via xcode-select.")
   public boolean preferMutualXcode;
 
+  // Tracked in #28081.
+  @Option(
+      name = "incompatible_remove_ctx_apple_fragment",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "When true, Apple build flags are defined with Apple rules (in BUIILD files) and"
+              + " ctx.fragments.apple is undefined. This is a migration flag to move all Apple"
+              + " flags from core Bazel to Apple rules.")
+  public boolean disableAppleFragment;
+
   @VisibleForTesting public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
   @VisibleForTesting public static final String DEFAULT_WATCHOS_SDK_VERSION = "2.0";
   @VisibleForTesting public static final String DEFAULT_MACOS_SDK_VERSION = "10.11";
@@ -174,8 +173,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
   @VisibleForTesting static final String DEFAULT_IOS_CPU = "x86_64";
 
   /** The default visionOS CPU value. */
-  public static final String DEFAULT_VISIONOS_CPU =
-      CPU.getCurrent() == CPU.AARCH64 ? "sim_arm64" : "x86_64";
+  public static final String DEFAULT_VISIONOS_CPU = "sim_arm64";
 
   /** The default watchos CPU value. */
   public static final String DEFAULT_WATCHOS_CPU =
@@ -191,17 +189,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
 
   /** The default Catalyst CPU value. */
   public static final String DEFAULT_CATALYST_CPU = "x86_64";
-
-  @Option(
-      name = "apple_crosstool_top",
-      defaultValue = "@bazel_tools//tools/cpp:toolchain",
-      converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.CHANGES_INPUTS},
-      help =
-          "The label of the crosstool package to be used in Apple and Objc rules and their"
-              + " dependencies.")
-  public Label appleCrosstoolTop;
 
   @Option(
       name = "apple_platform_type",
@@ -223,22 +210,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
           "Don't set this value from the command line - it is derived from other flags and "
               + "configuration transitions derived from rule attributes")
   public String appleSplitCpu;
-
-  // This option exists because two configurations are not allowed to have the same cache key
-  // (partially derived from options). Since we have multiple transitions that may result in the
-  // same configuration values at runtime we need an artificial way to distinguish between them.
-  // This option must only be set by those transitions for this purpose.
-  // TODO(bazel-team): Remove this once we have dynamic configurations but make sure that different
-  // configurations (e.g. by min os version) always use different output paths.
-  // TODO(blaze-configurability-team): Deprecate this when legacy output directory scheme is gone.
-  @Option(
-      name = "apple configuration distinguisher",
-      defaultValue = "UNKNOWN",
-      converter = ConfigurationDistinguisherConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      metadataTags = {OptionMetadataTag.INTERNAL})
-  public ConfigurationDistinguisher configurationDistinguisher;
 
   @Option(
       name = "ios_multi_cpus",
@@ -293,16 +264,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public List<String> macosCpus;
 
   @Option(
-      name = "catalyst_cpus",
-      allowMultiple = true,
-      converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
-      help = "Comma-separated list of architectures for which to build Apple Catalyst binaries.")
-  public List<String> catalystCpus;
-
-  @Option(
       name = "xcode_version_config",
       defaultValue = "@bazel_tools//tools/cpp:host_xcodes",
       converter = LabelConverter.class,
@@ -338,16 +299,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public static final String DEFAULT_XCODE_VERSION_CONFIG_LABEL = "//tools/objc:host_xcodes";
 
   @Option(
-      name = "incompatible_enable_apple_toolchain_resolution",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "Use toolchain resolution to select the Apple SDK for apple rules (Starlark and native)")
-  public boolean incompatibleUseToolchainResolution;
-
-  @Option(
       name = "apple_platforms",
       converter = LabelListConverter.class,
       defaultValue = "",
@@ -355,6 +306,16 @@ public class AppleCommandLineOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
       help = "Comma-separated list of platforms to use when building Apple binaries.")
   public List<Label> applePlatforms;
+
+  @Option(
+      name = "use_platforms_in_apple_crosstool_transition",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "Makes apple_crosstool_transition fall back to using the value of `--platforms` flag"
+              + " instead of legacy `--cpu` when needed.")
+  public boolean usePlatformsInAppleCrosstoolTransition;
 
   /** Returns whether the minimum OS version is explicitly set for the current platform. */
   public DottedVersion getMinimumOsVersion() {
@@ -382,14 +343,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
     }
 
     return DottedVersion.maybeUnwrap(option);
-  }
-
-  /** Converter for the Apple configuration distinguisher. */
-  public static final class ConfigurationDistinguisherConverter
-      extends EnumConverter<ConfigurationDistinguisher> {
-    public ConfigurationDistinguisherConverter() {
-      super(ConfigurationDistinguisher.class, "Apple rule configuration distinguisher");
-    }
   }
 
   /** Flag converter for PlatformType string flag, just converting to lowercase. */

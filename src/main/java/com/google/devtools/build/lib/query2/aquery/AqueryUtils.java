@@ -50,7 +50,9 @@ public class AqueryUtils {
       // getInputs() is potentially missing inputs that will be added by discovery (if the action
       // hasn't yet executed) and inputs that have been removed by discovery (if the action has
       // already executed). Instead, assemble the inputs from getOriginalInputs() and
-      // getSchedulingDependencies(), which also include those added or removed by discovery.
+      // getSchedulingDependencies(), which also include those added or removed by discovery. This
+      // comment is not applicable for Starlark unused_input_list actions, which are always returned
+      // to a pre-input-discovery state after execution.
       return NestedSetBuilder.<Artifact>stableOrder()
           .addTransitive(action.getOriginalInputs())
           .addTransitive(action.getSchedulingDependencies())

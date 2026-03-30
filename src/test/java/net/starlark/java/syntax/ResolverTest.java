@@ -14,7 +14,7 @@
 package net.starlark.java.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static net.starlark.java.syntax.LexerTest.assertContainsError;
+import static net.starlark.java.syntax.TestUtils.assertContainsError;
 
 import com.google.common.base.Joiner;
 import java.util.List;
@@ -34,16 +34,13 @@ public class ResolverTest {
   private StarlarkFile resolveFile(String... lines) throws SyntaxError.Exception {
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
-    Resolver.resolveFile(file, Resolver.moduleWithPredeclared("pre"));
+    Resolver.resolveFile(file, TestUtils.Module.withPredeclared("pre"));
     return file;
   }
 
   // Assertions that parsing and resolution succeeds.
   private void assertValid(String... lines) throws SyntaxError.Exception {
-    StarlarkFile file = resolveFile(lines);
-    if (!file.ok()) {
-      throw new SyntaxError.Exception(file.errors());
-    }
+    getValidFile(lines);
   }
 
   // Asserts that parsing of the program succeeds but resolution fails
@@ -51,6 +48,14 @@ public class ResolverTest {
   private void assertInvalid(String expectedError, String... lines) throws SyntaxError.Exception {
     List<SyntaxError> errors = getResolutionErrors(lines);
     assertContainsError(errors, expectedError);
+  }
+
+  private StarlarkFile getValidFile(String... lines) throws SyntaxError.Exception {
+    StarlarkFile file = resolveFile(lines);
+    if (!file.ok()) {
+      throw new SyntaxError.Exception(file.errors());
+    }
+    return file;
   }
 
   // Returns the non-empty list of resolution errors of the program.
@@ -457,52 +462,358 @@ public class ResolverTest {
   }
 
   @Test
-  public void testBindingScopeAndIndex() throws Exception {
+  public void testBindingScopeAndIndex_basic() throws Exception {
     checkBindings(
-        "xᴳ₀ = 0", //
-        "yᴳ₁ = 1",
-        "zᴳ₂ = 2",
-        "xᴳ₀(xᴳ₀, yᴳ₁, preᴾ₀)",
-        "[xᴸ₀ for xᴸ₀ in xᴳ₀ if yᴳ₁]",
-        "def fᴳ₃(xᴸ₀ = xᴳ₀):",
-        "  xᴸ₀ = yᴸ₁",
-        "  yᴸ₁ = zᴳ₂");
+        // Assign successive indices.
+        "xᴳ₀ = 0",
+        // Visit LHS.
+        "yᴳ₁, zᴳ₂ = 1, 2",
+        // Visit function identifiers and subscripts, don't visit field names, resolve predeclareds.
+        "xᴳ₀(yᴳ₁.f  , preᴾ₀[zᴳ₂])");
+  }
 
+  @Test
+  public void testBindingScopeAndIndex_bindingAfterFirstUse() throws Exception {
+    checkBindings(
+        // Use before definition. (Dynamically invalid, but resolves just fine.)
+        "xᴳ₀",
+        "xᴳ₀ = 0",
+        // Same in local scope, but permit reassignment.
+        "def fᴳ₁():",
+        "  yᴸ₀",
+        "  yᴸ₀ = 0",
+        "  yᴸ₀ = 0",
+        "  yᴸ₀");
+  }
+
+  @Test
+  public void testBindingScopeAndIndex_functionBlock() throws Exception {
+    checkBindings(
+        "xᴳ₀ = 0",
+        "yᴳ₁ = 1",
+        // Default expr resolves outside function block, for all params.
+        "def fᴳ₂(xᴸ₀ = xᴳ₀, zᴸ₁ = xᴳ₀):",
+        // Param available within function block, and shadows global.
+        "  xᴸ₀",
+        "  zᴸ₁ = 1",
+        // New bindings in body are local to function block.
+        "  wᴸ₂ = 2",
+        // Global is referenced directly without cell/free indirection.
+        "  yᴳ₁",
+        // Can resolve recursive reference to current function.
+        "  fᴳ₂");
+  }
+
+  @Test
+  public void testBindingScopeAndIndex_nestedFunctions() throws Exception {
+    checkBindings(
+        "aᴳ₀ = 0", // a used in nested function but not a cell because it's global
+        "bᴳ₁ = 1", // b not used in nested function
+        "def fᴳ₂():",
+        "  cᶜ₀ = aᴳ₀", // c used in nested function, so made a cell; still increments index
+        "  dᴸ₁ = 1", // d not used in nested function, remains local
+        "  def gᴸ₂():",
+        "    cᶠ₀", // use of enclosing local becomes free; does not increment index
+        "    eᴸ₀ = 1");
+  }
+
+  @Test
+  public void testBindingScopeAndIndex_comprehensions() throws Exception {
+    checkBindings(
+        "xᴳ₀ = 0",
+        "yᴳ₁ = 0",
+        // Comprehensions have their own block.
+        // First for-clause resolved outside of this block.
+        // Subsequent for-clauses resolved inside this block.
+        "[xᴸ₀ for xᴸ₀ in xᴳ₀ for xᴸ₀ in xᴸ₀ if yᴳ₁]");
+  }
+
+  @Test
+  public void testBindingScopeAndIndex_loads() throws Exception {
     // Load statements create file-local bindings.
     // Functions that reference load bindings are closures.
     checkBindings(
-        "load('module', aᶜ₀='a', bᴸ₁='b')", //
-        "aᶜ₀, bᴸ₁",
-        "def fᴳ₀(): aᶠ₀");
+        """
+        load('module', aᶜ₀='a', bᴸ₁='b')
+        aᶜ₀, bᴸ₁
+        def fᴳ₀():
+          aᶠ₀
+        """);
+  }
 
-    // If a name is bound globally, all toplevel references
-    // resolve to it, even those that precede it.
-    checkBindings("preᴾ₀");
-    checkBindings("preᴳ₀; preᴳ₀=1; preᴳ₀");
+  @Test
+  public void testBindingScopeAndIndex_functionAnnotations() throws Exception {
+    options.allowTypeSyntax(true);
+    options.resolveTypeSyntax(true);
 
     checkBindings(
-        "aᴳ₀, bᴳ₁ = 0, 0", //
-        "def fᴳ₂(aᴸ₀=bᴳ₁):",
-        "  aᴸ₀, bᴳ₁",
-        "  [(aᴸ₁, bᴳ₁) for aᴸ₁ in aᴸ₀]");
+        """
+        Tᴳ₀ = 1
+        def fᴳ₁(xᴸ₀: Tᴳ₀ = preᴾ₀) -> preᴾ₀:
+          pass
+        """);
 
-    // Nested functions have lexical scope.
+    // Type annotations are resolved outside of the function's block, just like default expressions.
     checkBindings(
-        "def fᴳ₀(aᴸ₀, bᶜ₁):", // b is a cell: an indirect local shared with nested functions
-        "  aᴸ₀",
-        "  def gᴸ₂(cᴸ₀):",
-        "    bᶠ₀, cᴸ₀"); // b is a free var: a reference to a cell of an outer function
+        """
+        xᴳ₀ = 1
+        def fᴳ₁(xᴸ₀: xᴳ₀) -> xᴳ₀:
+          xᴸ₀
+        """);
+  }
 
-    // Multiply nested functions.
+  @Test
+  public void testBindingScopeAndIndex_varAnnotations() throws Exception {
+    options.allowTypeSyntax(true);
+    options.resolveTypeSyntax(true);
+
     checkBindings(
-        "load('module', aᶜ₀='a')",
-        "bᴳ₀ = 0",
-        "def fᴳ₁(cᶜ₀):",
-        "  aᶠ₀, bᴳ₀, cᶜ₀",
-        "  def gᶜ₁(dᶜ₀):",
-        "    aᶠ₀, bᴳ₀, cᶠ₁, dᶜ₀, fᴳ₁",
-        "    def hᶜ₁(eᴸ₀):",
-        "      aᶠ₀, bᴳ₀, cᶠ₁, dᶠ₂, eᴸ₀, fᴳ₁, gᶠ₃, hᶠ₄");
+        "Tᴳ₀ = 1",
+        // A var statement creates a binding for its variable (x), and its type annotation (T) has
+        // its binding set.
+        "xᴳ₁ : Tᴳ₀",
+        // Var statements can shadow predeclared.
+        "preᴳ₂ : Tᴳ₀",
+        "def fᴳ₃():",
+        "  xᴳ₁",
+        "  preᴳ₂");
+
+    // Type annotations in assignments have their bindings set.
+    checkBindings("xᴳ₀ : preᴾ₀ = 1");
+  }
+
+  @Test
+  public void testBindingScopeAndIndex_typeAlias() throws Exception {
+    options.allowTypeSyntax(true);
+    options.resolveTypeSyntax(true);
+
+    // A type declaration creates a binding for its variable (T) and its definition has its bindings
+    // set.
+    checkBindings("type Tᴳ₀ = preᴾ₀");
+
+    // A type declaration can shadow a predeclared.
+    checkBindings(
+        """
+        Tᴳ₀ = 1
+        type preᴳ₁ = Tᴳ₀
+        """);
+
+    // This is dumb and illegal, but not for resolver-related reasons.
+    checkBindings("type Tᴳ₀ = Tᴳ₀");
+  }
+
+  @Test
+  public void testBindingScopeAndIndex_cast() throws Exception {
+    options.allowTypeSyntax(true);
+    options.resolveTypeSyntax(true);
+
+    checkBindings("cast(preᴾ₀, preᴾ₀)");
+  }
+
+  // TODO: #27848 - Add test case for isinstance(), once supported.
+
+  @Test
+  public void testBindingScopeAndIndex_typeSyntaxNotResolvedWhenFlagDisabled() throws Exception {
+    options.allowTypeSyntax(true);
+    options.resolveTypeSyntax(false);
+
+    checkBindings(
+        """
+        def fᴳ₀(xᴸ₀: T   = preᴾ₀) -> pre  :
+          pass
+        xᴳ₁ : pre  #
+        yᴳ₂ : pre   = 1
+        """);
+
+    checkBindings(
+        """
+        type T   = S  #
+        cast(T  , preᴾ₀)
+        """);
+  }
+
+  @Test
+  public void testBindingScopeAndIndex_genericTypeVars_notResolved() throws Exception {
+    // Check that these are not currently processed.
+    // TODO: #27370 - Add support to the resolver for these.
+    options.allowTypeSyntax(true);
+    options.resolveTypeSyntax(true);
+    checkBindings(
+        "def fᴳ₀[S  , T  ]():", //
+        "  pass",
+        "type Fooᴳ₁[X  ] = preᴾ₀");
+  }
+
+  @Test
+  public void testDocComments() throws Exception {
+    options.allowTypeSyntax(true);
+    StarlarkFile file =
+        getValidFile(
+            """
+            #: Doc for FOO
+            #: multiline
+            FOO = 1
+
+            BAR, BAZ = (2, 3)  #: Applies to LHS list
+
+            #: Applies to var annotation without initialier
+            QUX : pre
+            QUUX : pre #: And the trailing version...
+            """);
+
+    assertThat(file.docCommentsMap.keySet())
+        .containsExactly("FOO", "BAR", "BAZ", "QUX", "QUUX")
+        .inOrder();
+    assertThat(file.docCommentsMap.values().stream().map(DocComments::getText))
+        .containsExactly(
+            "Doc for FOO\nmultiline",
+            "Applies to LHS list",
+            "Applies to LHS list",
+            "Applies to var annotation without initialier",
+            "And the trailing version...")
+        .inOrder();
+  }
+
+  @Test
+  public void testTypeAliasStatement_mustBeAtTopLevel() throws Exception {
+    options.allowTypeSyntax(true);
+    assertInvalid(
+        ":2:3: type alias statement not at top level",
+        """
+        def f():
+          type X = int
+        """);
+  }
+
+  @Test
+  public void testTypeAliasStatement_redeclarationDisallowed() throws Exception {
+    options.allowTypeSyntax(true);
+    options.resolveTypeSyntax(true);
+    assertInvalid(
+        ":2:6: 'T' redeclared at top level",
+        """
+        type T = pre
+        type T = pre
+        """);
+    assertInvalid(
+        ":2:6: 'T' redeclared at top level",
+        """
+        T = 1
+        type T = pre
+        """);
+    assertInvalid(
+        ":2:1: 'T' redeclared at top level",
+        """
+        type T = pre
+        T = 1
+        """);
+  }
+
+  @Test
+  public void testTypeAliasStatement_redeclarationAllowedWithFlag() throws Exception {
+    options.allowTypeSyntax(true);
+    options.allowToplevelRebinding(true);
+    assertValid(
+        """
+        type T = pre
+        type T = pre
+        """);
+    assertValid(
+        """
+        T = 1
+        type T = pre
+        """);
+    assertValid(
+        """
+        type T = pre
+        T = 1
+        """);
+  }
+
+  @Test
+  public void testMultipleTypeAnnotationsDisallowed_topLevel() throws Exception {
+    options.allowTypeSyntax(true);
+    List<SyntaxError> errors =
+        getResolutionErrors(
+            // All four permutations of VarStatement vs annotated assignment statement.
+            """
+            a : int
+            a : str
+
+            b : int = 123
+            b : str
+
+            c : int
+            c : str = "abc"
+
+            d : int = 123
+            d : str = "abc"
+            """);
+    assertContainsError(errors, ":2:1: 'a' redeclared at top level");
+    assertContainsError(errors, ":5:1: 'b' redeclared at top level");
+    assertContainsError(errors, ":8:1: 'c' redeclared at top level");
+    assertContainsError(errors, ":11:1: 'd' redeclared at top level");
+  }
+
+  @Test
+  public void testSingleAnnotationWithReassignmentIsAllowed() throws Exception {
+    options.allowTypeSyntax(true);
+    assertValid(
+        """
+        def f():
+            a : pre
+            a = 123
+        """);
+  }
+
+  @Test
+  public void testAnnotationFollowedByAssignmentStillCountsAsRedeclaration() throws Exception {
+    options.allowTypeSyntax(true);
+    assertInvalid(
+        "'a' redeclared at top level",
+        """
+        a : int
+        a = 123
+        """);
+  }
+
+  @Test
+  public void testCastExpression_cannotBeLhsOfAssignment() throws Exception {
+    options.allowTypeSyntax(true);
+    StarlarkFile file =
+        resolveFile(
+            """
+            cast(int, x) = 42
+            cast(int, y[0]) = 42
+            cast(list[int], z) += [42]
+            """);
+    assertThat(file.ok()).isFalse();
+    assertContainsError(file.errors(), "cannot assign to 'cast(int, x)'");
+    assertContainsError(file.errors(), "cannot assign to 'cast(int, y[0])'");
+    assertContainsError(file.errors(), "cannot assign to 'cast(list[int], z)'");
+  }
+
+  @Test
+  public void testCastExpression_valueAndType_areResolved() throws Exception {
+    options.allowTypeSyntax(true);
+    options.resolveTypeSyntax(true);
+
+    StarlarkFile goodFile = resolveFile("cast(pre, pre)");
+    assertThat(goodFile.ok()).isTrue();
+
+    StarlarkFile badFile = resolveFile("cast(a, b)");
+    assertThat(badFile.ok()).isFalse();
+    assertContainsError(badFile.errors(), "name 'a' is not defined");
+    assertContainsError(badFile.errors(), "name 'b' is not defined");
+  }
+
+  // TODO: #27848 - Resolve types in isinstance().
+  @Test
+  public void testIsInstanceExpression_notYetSupported() throws Exception {
+    options.allowTypeSyntax(true);
+    StarlarkFile badFile = resolveFile("isinstance(x, list)");
+    assertThat(badFile.ok()).isFalse();
+    assertContainsError(badFile.errors(), "isinstance() is not yet supported");
   }
 
   // checkBindings verifies the binding (scope and index) of each identifier.
@@ -521,10 +832,17 @@ public class ResolverTest {
       @Override
       public void visit(Identifier id) {
         // Replace ...x__... with ...xᴸ₀...
+        Resolver.Binding binding = id.getBinding();
+        String suffix = "";
+        if (binding != null) {
+          suffix += "ᴸᴳᶜᶠᴾᵁ".charAt(binding.getScope().ordinal()); // follow order of enum
+          suffix += "₀₁₂₃₄₅₆₇₈₉".charAt(binding.getIndex()); // 10 is plenty
+        } else {
+          suffix = "  ";
+        }
         out[0] =
             out[0].substring(0, id.getEndOffset())
-                + "ᴸᴳᶜᶠᴾᵁ".charAt(id.getBinding().getScope().ordinal()) // follow order of enum
-                + "₀₁₂₃₄₅₆₇₈₉".charAt(id.getBinding().getIndex()) // 10 is plenty
+                + suffix
                 + out[0].substring(id.getEndOffset() + 2);
       }
     }.visit(file);

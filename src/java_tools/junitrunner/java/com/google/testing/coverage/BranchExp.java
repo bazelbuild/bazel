@@ -16,31 +16,67 @@ package com.google.testing.coverage;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /** A branch coverage that must be evaluated as a combination of probes. */
 public class BranchExp implements CovExp {
   private final List<CovExp> branches;
 
-  private boolean hasValue;
+  // Cache the evaluation result to avoid reevaluating the expression with the same probes.
   private boolean[] probesUsed;
-  private boolean value;
+  private boolean value = false;
+
+  /** Create a BranchExp for a known number of branches but with no expression data. */
+  public static BranchExp initializeEmptyBranches() {
+    return new BranchExp(new ArrayList<>());
+  }
 
   public BranchExp(List<CovExp> branches) {
     this.branches = branches;
-    hasValue = false;
   }
 
   /** Create a new BranchExp using this CovExp as the only branch. */
   public BranchExp(CovExp exp) {
     branches = new ArrayList<CovExp>();
     branches.add(exp);
-    hasValue = false;
   }
 
-  /** Gets the expressions for the branches. */
+  /** Returns true if any branches been set for this BranchExp. */
+  public boolean hasBranches() {
+    return branches.stream().anyMatch(exp -> !exp.equals(NullExp.NULL_EXP));
+  }
+
+  /**
+   * Returns the expressions for the logical branches.
+   *
+   * <p>Expressions that have not been set are omitted.
+   */
   public List<CovExp> getBranches() {
-    return branches;
+    return branches.stream()
+        .filter(exp -> !exp.equals(NullExp.NULL_EXP))
+        .collect(Collectors.toList());
+  }
+
+  /** Set the expression at a given index for this branch. */
+  public void setBranchAtIndex(int index, CovExp exp) {
+    extendBranches(index + 1);
+    branches.set(index, exp);
+    invalidateEvalCache();
+  }
+
+  /** Returns the expression at a given index for this branch. */
+  public CovExp getBranchAtIndex(int index) {
+    return branches.get(index);
+  }
+
+  /** Expands the current branch set to the new size */
+  private void extendBranches(int size) {
+    if (branches.size() < size) {
+      // This preserves the cached eval value so no need to invalidate.
+      branches.addAll(Collections.nCopies(size - branches.size(), NullExp.NULL_EXP));
+    }
   }
 
   /**
@@ -50,12 +86,8 @@ public class BranchExp implements CovExp {
    */
   public int add(CovExp exp) {
     branches.add(exp);
+    invalidateEvalCache();
     return branches.size() - 1;
-  }
-
-  /** Update an existing branch expression. */
-  public void update(int idx, CovExp exp) {
-    branches.set(idx, exp);
   }
 
   /** Make a new BranchExp representing the concatenation of branches in inputs. */
@@ -87,9 +119,13 @@ public class BranchExp implements CovExp {
     return exp instanceof BranchExp ? (BranchExp) exp : new BranchExp(exp);
   }
 
+  private void invalidateEvalCache() {
+    probesUsed = null;
+  }
+
   @Override
   public boolean eval(final boolean[] probes) {
-    if (hasValue && probes == probesUsed) {
+    if (probes == probesUsed) {
       return value;
     }
     value = false;
@@ -99,7 +135,6 @@ public class BranchExp implements CovExp {
         break;
       }
     }
-    hasValue = value; // The value is cached.
     probesUsed = probes;
     return value;
   }

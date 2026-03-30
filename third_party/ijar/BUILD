@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 package(
     default_visibility = [
         "//src:__subpackages__",
@@ -51,7 +54,7 @@ cc_library(
         "common.h",
         "zlib_client.h",
     ],
-    deps = ["//third_party/zlib"],
+    deps = ["@zlib"],
 )
 
 cc_library(
@@ -98,6 +101,8 @@ filegroup(
         "BUILD",
         "common.h",
         "mapped_file.h",
+        "mapped_file_unix.cc",
+        "mapped_file_windows.cc",
         "platform_utils.cc",
         "platform_utils.h",
         "zip.cc",
@@ -105,14 +110,7 @@ filegroup(
         "zip_main.cc",
         "zlib_client.cc",
         "zlib_client.h",
-    ] + select({
-        "//src/conditions:windows": [
-            "mapped_file_windows.cc",
-        ],
-        "//conditions:default": [
-            "mapped_file_unix.cc",
-        ],
-    }),
+    ],
     visibility = ["//visibility:public"],
 )
 
@@ -126,7 +124,6 @@ genrule(
     name = "ijar_transitive_srcs_zip",
     srcs = [
         ":ijar_srcs_zip",
-        "//src:zlib_zip",
         "//src/main/cpp/util:cpp_util_with_deps_zip",
     ],
     outs = ["ijar_srcs_with_deps.zip"],

@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps:tests.bzl", "create_golden_test")
 
 # Description:
@@ -55,16 +56,17 @@ java_test(
     ],
     data = [
         "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_client",
+        "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_condy",
         "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_Library",
         "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_LibraryAnnotations",
         "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_LibraryException",
         "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_LibraryInterface",
         "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_LibraryModuleInfo",
         "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_Library_no_members",
-        "@bazel_tools//tools/jdk:platformclasspath",
+        "@rules_java//toolchains:platformclasspath",
     ],
     jvm_flags = [
-        "-Dclasscache.test.bootclasspath=$(location @bazel_tools//tools/jdk:platformclasspath)",
+        "-Dclasscache.test.bootclasspath=$(location @rules_java//toolchains:platformclasspath)",
         "-Dclasscache.test.Client=$(location //src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_client)",
         "-Dclasscache.test.Library=$(location //src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_Library)",
         "-Dclasscache.test.Library_no_members=$(location //src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_Library_no_members)",
@@ -72,6 +74,7 @@ java_test(
         "-Dclasscache.test.LibraryException=$(location //src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_LibraryException)",
         "-Dclasscache.test.LibraryInterface=$(location //src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_LibraryInterface)",
         "-Dclasscache.test.LibraryModuleInfo=$(location //src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_LibraryModuleInfo)",
+        "-Dclasscache.test.Condy=$(location //src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_condy)",
     ],
     test_class = "com.google.devtools.build.importdeps.ClassCacheTest",
     deps = [
@@ -90,16 +93,17 @@ java_test(
     ],
     data = [
         "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_client",
+        "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_condy",
         "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_Library",
         "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_LibraryAnnotations",
         "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_LibraryException",
         "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_LibraryInterface",
         "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_LibraryModuleInfo",
         "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_Library_no_members",
-        "@bazel_tools//tools/jdk:platformclasspath",
+        "@rules_java//toolchains:platformclasspath",
     ],
     jvm_flags = [
-        "-Dclasscache.test.bootclasspath=$(location @bazel_tools//tools/jdk:platformclasspath)",
+        "-Dclasscache.test.bootclasspath=$(location @rules_java//toolchains:platformclasspath)",
         "-Dclasscache.test.Client=$(location //src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_client)",
         "-Dclasscache.test.Library=$(location //src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_Library)",
         "-Dclasscache.test.Library_no_members=$(location //src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_Library_no_members)",
@@ -107,6 +111,7 @@ java_test(
         "-Dclasscache.test.LibraryException=$(location //src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_LibraryException)",
         "-Dclasscache.test.LibraryInterface=$(location //src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_LibraryInterface)",
         "-Dclasscache.test.LibraryModuleInfo=$(location //src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_LibraryModuleInfo)",
+        "-Dclasscache.test.Condy=$(location //src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_condy)",
     ],
     test_class = "com.google.devtools.build.importdeps.DepsCheckerClassVisitorTest",
     deps = [
@@ -128,7 +133,7 @@ create_golden_test(
     has_bootclasspath = False,
     import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
     missing_jar = None,
-    rt_jar = "@bazel_tools//tools/jdk:platformclasspath",
+    rt_jar = "@rules_java//toolchains:platformclasspath",
     testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
 )
 
@@ -142,7 +147,7 @@ create_golden_test(
     has_bootclasspath = False,
     import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
     missing_jar = None,
-    rt_jar = "@bazel_tools//tools/jdk:platformclasspath",
+    rt_jar = "@rules_java//toolchains:platformclasspath",
     testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
 )
 
@@ -155,7 +160,7 @@ create_golden_test(
     has_bootclasspath = False,
     import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
     missing_jar = None,
-    rt_jar = "@bazel_tools//tools/jdk:platformclasspath",
+    rt_jar = "@rules_java//toolchains:platformclasspath",
     testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
 )
 
@@ -168,7 +173,7 @@ create_golden_test(
     has_bootclasspath = True,
     import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
     missing_jar = "testdata_lib_LibraryException",
-    rt_jar = "@bazel_tools//tools/jdk:platformclasspath",
+    rt_jar = "@rules_java//toolchains:platformclasspath",
     testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
 )
 
@@ -181,7 +186,7 @@ create_golden_test(
     has_bootclasspath = True,
     import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
     missing_jar = "testdata_lib_LibraryAnnotations",
-    rt_jar = "@bazel_tools//tools/jdk:platformclasspath",
+    rt_jar = "@rules_java//toolchains:platformclasspath",
     testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
 )
 
@@ -194,7 +199,7 @@ create_golden_test(
     has_bootclasspath = True,
     import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
     missing_jar = "testdata_lib_Library",
-    rt_jar = "@bazel_tools//tools/jdk:platformclasspath",
+    rt_jar = "@rules_java//toolchains:platformclasspath",
     testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
 )
 
@@ -208,7 +213,7 @@ create_golden_test(
     has_bootclasspath = True,
     import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
     missing_jar = "testdata_lib_LibraryInterface",
-    rt_jar = "@bazel_tools//tools/jdk:platformclasspath",
+    rt_jar = "@rules_java//toolchains:platformclasspath_nostrip",
     testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
 )
 
@@ -223,7 +228,7 @@ create_golden_test(
     import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
     missing_jar = "testdata_lib_Library",
     replacing_jar = "testdata_lib_Library_no_members",
-    rt_jar = "@bazel_tools//tools/jdk:platformclasspath",
+    rt_jar = "@rules_java//toolchains:platformclasspath_nostrip",
     testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
 )
 
@@ -238,7 +243,7 @@ create_golden_test(
     import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
     missing_jar = "testdata_lib_Library",
     replacing_jar = "testdata_lib_Library_no_members",
-    rt_jar = "@bazel_tools//tools/jdk:platformclasspath",
+    rt_jar = "@rules_java//toolchains:platformclasspath",
     testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
 )
 
@@ -252,7 +257,7 @@ create_golden_test(
     import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
     missing_jar = None,
     replacing_jar = None,
-    rt_jar = "@bazel_tools//tools/jdk:platformclasspath",
+    rt_jar = "@rules_java//toolchains:platformclasspath",
     testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
 )
 
@@ -310,7 +315,7 @@ sh_test(
         "$(location //src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker)",
         "--checking_mode=error",
         "--bootclasspath_entry",
-        "$(location @bazel_tools//tools/jdk:platformclasspath)",
+        "$(location @rules_java//toolchains:platformclasspath)",
         "--input",
         "$(location //src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:libInvokePolymorphic.jar)",
     ],
@@ -321,12 +326,15 @@ sh_test(
         "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps:golden_invoke_polymorphic_test.stderr.txt",
         "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps:golden_invoke_polymorphic_test.txt",
         "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:libInvokePolymorphic.jar",
-        "@bazel_tools//tools/jdk:platformclasspath",
+        "@rules_java//toolchains:platformclasspath",
     ],
 )
 
 java_binary(
     name = "DumpProto",
     srcs = ["DumpProto.java"],
-    deps = ["//src/main/protobuf:deps_java_proto"],
+    deps = [
+        "//src/main/protobuf:deps_java_proto",
+        "@com_google_protobuf//:protobuf_java",
+    ],
 )

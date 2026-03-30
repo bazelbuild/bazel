@@ -184,6 +184,8 @@ public class BuildRequest implements OptionsProvider {
   private final UUID id;
   private final LoadingCache<Class<? extends OptionsBase>, Optional<OptionsBase>> optionsCache;
   private final Map<String, Object> starlarkOptions;
+  private final Map<String, String> scopesAttributes;
+  private final Map<String, Object> onLeaveScopeValues;
 
   /** A human-readable description of all the non-default option settings. */
   private final String optionsDescription;
@@ -235,6 +237,8 @@ public class BuildRequest implements OptionsProvider {
                   return Optional.fromNullable(result);
                 });
     this.starlarkOptions = options.getStarlarkOptions();
+    this.scopesAttributes = options.getScopesAttributes();
+    this.onLeaveScopeValues = options.getOnLeaveScopeValues();
     this.needsInstrumentationFilter = needsInstrumentationFilter;
     this.runTests = runTests;
     this.checkForActionConflicts = checkForActionConflicts;
@@ -268,6 +272,16 @@ public class BuildRequest implements OptionsProvider {
   @Override
   public Map<String, Object> getStarlarkOptions() {
     return starlarkOptions;
+  }
+
+  @Override
+  public Map<String, String> getScopesAttributes() {
+    return scopesAttributes;
+  }
+
+  @Override
+  public Map<String, Object> getOnLeaveScopeValues() {
+    return onLeaveScopeValues;
   }
 
   @Override
@@ -387,18 +401,13 @@ public class BuildRequest implements OptionsProvider {
     List<String> warnings = new ArrayList<>();
 
     int localTestJobs = getExecutionOptions().localTestJobs;
-    int jobs = getBuildOptions().jobs;
+    int jobs = getBuildOptions().getJobs();
     if (localTestJobs > jobs) {
       warnings.add(
           String.format(
               "High value for --local_test_jobs: %d. This exceeds the value for --jobs: "
                   + "%d. Only up to %d local tests will run concurrently.",
               localTestJobs, jobs, jobs));
-    }
-
-    // Validate other BuildRequest options.
-    if (getBuildOptions().verboseExplanations && getBuildOptions().explanationPath == null) {
-      warnings.add("--verbose_explanations has no effect when --explain=<file> is not enabled");
     }
 
     return warnings;
@@ -410,13 +419,14 @@ public class BuildRequest implements OptionsProvider {
     return new TopLevelArtifactContext(
         getOptions(ExecutionOptions.class).testStrategy.equals("exclusive"),
         getOptions(BuildEventProtocolOptions.class).expandFilesets,
-        getOptions(BuildEventProtocolOptions.class).fullyResolveFilesetSymlinks,
         OutputGroupInfo.determineOutputGroups(
-            buildOptions.outputGroups, validationMode(), /* shouldRunTests= */ shouldRunTests()));
+            buildOptions.getOutputGroups(),
+            validationMode(),
+            /* shouldRunTests= */ shouldRunTests()));
   }
 
   public ImmutableList<String> getAspects() {
-    List<String> aspects = getBuildOptions().aspects;
+    List<String> aspects = getBuildOptions().getAspects();
     ImmutableList.Builder<String> result = ImmutableList.<String>builder().addAll(aspects);
     if (!aspects.contains(AspectCollection.VALIDATION_ASPECT_NAME) && useValidationAspect()) {
       result.add(AspectCollection.VALIDATION_ASPECT_NAME);
@@ -426,7 +436,8 @@ public class BuildRequest implements OptionsProvider {
 
   @Nullable
   public ImmutableMap<String, String> getAspectsParameters() throws ViewCreationFailedException {
-    List<Map.Entry<String, String>> aspectsParametersList = getBuildOptions().aspectsParameters;
+    List<Map.Entry<String, String>> aspectsParametersList =
+        getBuildOptions().getAspectsParameters();
     try {
       return aspectsParametersList.stream()
           .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -449,10 +460,10 @@ public class BuildRequest implements OptionsProvider {
 
   private OutputGroupInfo.ValidationMode validationMode() {
     BuildRequestOptions buildOptions = getBuildOptions();
-    if (!buildOptions.runValidationActions) {
+    if (!buildOptions.getRunValidationActions()) {
       return OutputGroupInfo.ValidationMode.OFF;
     }
-    return buildOptions.useValidationAspect
+    return buildOptions.getUseValidationAspect()
         ? OutputGroupInfo.ValidationMode.ASPECT
         : OutputGroupInfo.ValidationMode.OUTPUT_GROUP;
   }

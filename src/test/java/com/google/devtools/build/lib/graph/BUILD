@@ -20,6 +20,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/graph",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:rule_visibility",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
         "//third_party:junit4",

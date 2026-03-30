@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.starlarkbuildapi.apple;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import javax.annotation.Nullable;
-import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -48,21 +47,6 @@ public interface AppleConfigurationApi extends StarlarkValue {
               + "<a href='#multi_arch_platform'>multi_arch_platform</a> for other cases.",
       structField = true)
   ApplePlatformApi getSingleArchPlatform();
-
-  @StarlarkMethod(
-      name = "multi_arch_platform",
-      doc =
-          "The platform of the current configuration for the given platform type. This should only "
-              + "be invoked in a context where multiple architectures may be supported; consider "
-              + "<a href='#single_arch_platform'>single_arch_platform</a> for other cases.",
-      parameters = {
-        @Param(
-            name = "platform_type",
-            positional = true,
-            named = false,
-            doc = "The apple platform type.")
-      })
-  ApplePlatformApi getMultiArchPlatform(String platformType);
 
   @StarlarkMethod(name = "apple_cpus", documented = false, structField = true)
   StructApi getAppleCpusForStarlark() throws EvalException;

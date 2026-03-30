@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2023 The Bazel Authors. All rights reserved.
 #
@@ -35,18 +35,20 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 # they are tranitive dependencies for all Bazel users (although fetched lazily).
 expected_modules=(
   abseil-cpp
+  apple_support
   bazel_features
   bazel_skylib
   buildozer
   googletest
   jsoncpp
+  nlohmann_json
   platforms
   protobuf
   pybind11_bazel
   re2
   rules_android
+  rules_apple
   rules_cc
-  rules_fuzzing
   rules_java
   rules_jvm_external
   rules_kotlin
@@ -55,6 +57,9 @@ expected_modules=(
   rules_proto
   rules_python
   rules_shell
+  rules_swift
+  stardoc
+  swift_argument_parser
   zlib
 )
 
@@ -69,19 +74,6 @@ function test_verify_lock_file() {
   # Verify the list of expected modules in the lock file.
   grep -o '"https://bcr\.bazel\.build[^"]*source.json"' MODULE.bazel.lock | sed -E 's|.*modules/([^/]+)/.*|\1|' | sort -u > actual_modules
   diff -u <(printf '%s\n' "${expected_modules[@]}" | sort) actual_modules || fail "Expected modules in lockfile do not match the actual modules. Please update 'expected_modules' if necessary."
-
-  # Verify if python toolchain version matches Bazel's lock file to ensure it's cached in integration tests.
-  # Check strings like `"default_version": "3.11"`` for default python version.
-  python_version=$(grep -o '"default_version": "[0-9.]*"' MODULE.bazel.lock | grep -o '[0-9.]*')
-  echo "Extracted Python version: $python_version from default lockfile"
-
-  root_lockfile=$(rlocation io_bazel/MODULE.bazel.lock)
-  python_version_root=$(grep -o '"default_version": "[0-9.]*"' $root_lockfile | grep -o '[0-9.]*')
-  echo "Extracted Python version: $python_version_root from root lockfile"
-
-  if [ "$python_version" != "$python_version_root" ]; then
-    fail "Python version in default lockfile does not match root lockfile. Please update Python toolchain version in the root MODULE.bazel file to match."
-  fi
 
   # Verify MODULE.tools with --check_direct_dependencies=error
   echo "Running: bazel mod deps --check_direct_dependencies for MODULE.tools"

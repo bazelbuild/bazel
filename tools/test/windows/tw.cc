@@ -21,14 +21,13 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-#include <windows.h>
-
 #include <errno.h>
 #include <limits.h>  // INT_MAX
 #include <lmcons.h>  // UNLEN
 #include <string.h>
 #include <sys/types.h>
 #include <wchar.h>
+#include <windows.h>
 
 #include <algorithm>
 #include <cstdio>
@@ -40,6 +39,7 @@
 #include <string>
 #include <vector>
 
+#include "rules_cc/cc/runfiles/runfiles.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
@@ -49,7 +49,6 @@
 #include "third_party/ijar/common.h"
 #include "third_party/ijar/platform_utils.h"
 #include "third_party/ijar/zip.h"
-#include "tools/cpp/runfiles/runfiles.h"
 
 namespace bazel {
 namespace tools {
@@ -333,6 +332,12 @@ bool IsReadableFile(const Path& p) {
   return true;
 }
 
+bool DirectoryExists(const Path& p) {
+  DWORD attrs = GetFileAttributesW(AddUncPrefixMaybe(p).c_str());
+  return attrs != INVALID_FILE_ATTRIBUTES &&
+         ((attrs & FILE_ATTRIBUTE_DIRECTORY) != 0);
+}
+
 // Gets an environment variable's value.
 // Returns:
 // - true, if the envvar is defined and successfully fetched, or it's empty or
@@ -397,6 +402,10 @@ bool SetEnv(const wchar_t* name, const std::wstring& value) {
     LogErrorWithArgAndValue(__LINE__, "Failed to set envvar", name, err);
     return false;
   }
+}
+
+bool SetPathEnv(const std::wstring& name, const Path& path) {
+  return SetEnv(name.c_str(), AsMixedPath(path.Get()));
 }
 
 bool SetPathEnv(const wchar_t* name, const Path& path) {
@@ -466,6 +475,14 @@ bool ChdirToRunfiles(const Path& abs_exec_root, const Path& abs_test_srcdir) {
   // dependencies.
   std::wstring coverage_dir;
   if (!GetEnv(L"COVERAGE_DIR", &coverage_dir) || coverage_dir.empty()) {
+    if (!DirectoryExists(dir)) {
+      LogError(
+          __LINE__,
+          L"ERROR: RUNFILES_DIR does not exist. This can happen when using "
+          L"--nobuild_runfile_manifests with local execution. Use a different "
+          L"execution strategy, or build with runfile manifests.");
+      return false;
+    }
     if (!SetCurrentDirectoryW(dir.Get().c_str())) {
       DWORD err = GetLastError();
       LogErrorWithArgAndValue(__LINE__, "Could not chdir", dir.Get(), err);
@@ -555,11 +572,15 @@ bool ExportHome(const Path& test_tmpdir) {
   }
 }
 
-bool ExportRunfiles(const Path& cwd, const Path& test_srcdir) {
+bool ExportRunfiles(const Path& cwd, const Path& test_srcdir,
+                    const std::wstring& env_prefix) {
   Path runfiles_dir;
-  if (!GetPathEnv(L"RUNFILES_DIR", &runfiles_dir) ||
-      (runfiles_dir.Absolutize(cwd) &&
-       !SetPathEnv(L"RUNFILES_DIR", runfiles_dir))) {
+  if (!GetPathEnv(L"RUNFILES_DIR", &runfiles_dir)) {
+    return false;
+  }
+  runfiles_dir.Absolutize(cwd);
+  if (!UnsetEnv(L"RUNFILES_DIR") ||
+      !SetPathEnv(env_prefix + L"RUNFILES_DIR", runfiles_dir)) {
     return false;
   }
 
@@ -567,9 +588,14 @@ bool ExportRunfiles(const Path& cwd, const Path& test_srcdir) {
   // {JAVA,PYTHON}_RUNFILES vars.
   Path java_rf, py_rf;
   if (!GetPathEnv(L"JAVA_RUNFILES", &java_rf) ||
-      (java_rf.Absolutize(cwd) && !SetPathEnv(L"JAVA_RUNFILES", java_rf)) ||
-      !GetPathEnv(L"PYTHON_RUNFILES", &py_rf) ||
-      (py_rf.Absolutize(cwd) && !SetPathEnv(L"PYTHON_RUNFILES", py_rf))) {
+      !GetPathEnv(L"PYTHON_RUNFILES", &py_rf)) {
+    return false;
+  }
+  java_rf.Absolutize(cwd);
+  py_rf.Absolutize(cwd);
+  if (!UnsetEnv(L"JAVA_RUNFILES") || !UnsetEnv(L"PYTHON_RUNFILES") ||
+      !SetPathEnv(env_prefix + L"JAVA_RUNFILES", java_rf) ||
+      !SetPathEnv(env_prefix + L"PYTHON_RUNFILES", py_rf)) {
     return false;
   }
 
@@ -584,7 +610,7 @@ bool ExportRunfiles(const Path& cwd, const Path& test_srcdir) {
     Path runfiles_mf;
     if (!runfiles_mf.Set(test_srcdir.Get() + L"\\MANIFEST") ||
         (IsReadableFile(runfiles_mf) &&
-         !SetPathEnv(L"RUNFILES_MANIFEST_FILE", runfiles_mf))) {
+         !SetPathEnv(env_prefix + L"RUNFILES_MANIFEST_FILE", runfiles_mf))) {
       return false;
     }
   }
@@ -895,7 +921,7 @@ bool AppendFileTo(const Path& file, const size_t total_size, HANDLE output) {
 // If the MIME type is unknown or an error occurs, the method returns
 // "application/octet-stream".
 std::string GetMimeType(const std::string& filename) {
-  static constexpr char* kDefaultMimeType = "application/octet-stream";
+  static constexpr const char* kDefaultMimeType = "application/octet-stream";
   std::string::size_type pos = filename.find_last_of('.');
   if (pos == std::string::npos) {
     return kDefaultMimeType;
@@ -1119,9 +1145,6 @@ bool PrintTestLogStartMarker() {
   return true;
 }
 
-inline bool GetWorkspaceName(std::wstring* result) {
-  return GetEnv(L"TEST_WORKSPACE", result) && !result->empty();
-}
 
 inline void ComputeRunfilePath(const std::wstring& test_workspace,
                                std::wstring* s) {
@@ -1146,8 +1169,8 @@ bool FindTestBinary(const Path& argv0, const Path& cwd, std::wstring test_path,
     }
 
     std::string error;
-    std::unique_ptr<bazel::tools::cpp::runfiles::Runfiles> runfiles(
-        bazel::tools::cpp::runfiles::Runfiles::Create(argv0_acp, &error));
+    std::unique_ptr<rules_cc::cc::runfiles::Runfiles> runfiles(
+        rules_cc::cc::runfiles::Runfiles::Create(argv0_acp, &error));
     if (runfiles == nullptr) {
       LogError(__LINE__, "Failed to load runfiles");
       return false;
@@ -1206,24 +1229,6 @@ bool FindTestBinary(const Path& argv0, const Path& cwd, std::wstring test_path,
   return true;
 }
 
-bool CreateCommandLine(const Path& path, const std::wstring& args,
-                       std::unique_ptr<WCHAR[]>* result) {
-  // kMaxCmdline value: see lpCommandLine parameter of CreateProcessW.
-  static constexpr size_t kMaxCmdline = 32767;
-
-  if (path.Get().size() + args.size() > kMaxCmdline) {
-    LogErrorWithValue(__LINE__, L"Command is too long",
-                      path.Get().size() + args.size());
-    return false;
-  }
-
-  // Add an extra character for the final null-terminator.
-  result->reset(new WCHAR[path.Get().size() + args.size() + 1]);
-
-  wcsncpy(result->get(), path.Get().c_str(), path.Get().size());
-  wcsncpy(result->get() + path.Get().size(), args.c_str(), args.size() + 1);
-  return true;
-}
 
 bool StartSubprocess(const Path& path, const std::wstring& args,
                      const Path& outerr, std::unique_ptr<Tee>* tee,
@@ -1384,25 +1389,58 @@ bool CreateUndeclaredOutputsAnnotations(const Path& undecl_annot_dir,
   return true;
 }
 
-bool ParseArgs(int argc, wchar_t** argv, Path* out_argv0,
-               std::wstring* out_test_path_arg, std::wstring* out_args) {
-  if (!out_argv0->Set(argv[0])) {
+bool ParseArgs(int argc, wchar_t** argv, const Path& exec_root,
+               const Path& srcdir, Path* out_executable, std::wstring* out_args,
+               std::wstring* out_runfiles_env_prefix) {
+  Path argv0;
+  if (!argv0.Set(argv[0])) {
     return false;
   }
   argc--;
   argv++;
 
-  if (argc < 1) {
-    LogError(__LINE__, "Usage: $0 <test_path> [test_args...]");
+  std::wstring coverage_dir;
+  if (!GetEnv(L"COVERAGE_DIR", &coverage_dir)) {
     return false;
   }
 
-  *out_test_path_arg = argv[0];
-  std::wstringstream stm;
-  for (int i = 1; i < argc; i++) {
-    stm << L' ' << bazel::windows::WindowsEscapeArg(argv[i]);
+  std::wstringstream args;
+  if (!coverage_dir.empty()) {
+    if (argc < 2) {
+      LogError(__LINE__,
+               "Usage: $0 <coverage_wrapper> <test_path> [test_args...]");
+      return false;
+    }
+    if (!out_executable->Set(argv[0])) {
+      return false;
+    }
+    Path test_path;
+    if (!FindTestBinary(argv0, exec_root, argv[1], srcdir, &test_path)) {
+      return false;
+    }
+    args << bazel::windows::WindowsEscapeArg(test_path.Get());
+    argc--;
+    argv++;
+    // The coverage wrapper has its own runfiles tree, so we need to prefix all
+    // environment variables that influence runfiles discovery before setting
+    // them in the wrapper env. The wrapper will unwrap and pass them to the
+    // test binary.
+    *out_runfiles_env_prefix = L"BAZEL_COVERAGE_INTERNAL_";
+  } else {
+    if (argc < 1) {
+      LogError(__LINE__, "Usage: $0 <test_path> [test_args...]");
+      return false;
+    }
+    if (!FindTestBinary(argv0, exec_root, argv[0], srcdir, out_executable)) {
+      return false;
+    }
+    *out_runfiles_env_prefix = L"";
   }
-  *out_args = stm.str();
+
+  for (int i = 1; i < argc; i++) {
+    args << L' ' << bazel::windows::WindowsEscapeArg(argv[i]);
+  }
+  *out_args = args.str();
   return true;
 }
 
@@ -1640,49 +1678,11 @@ std::string CreateErrorTag(int exit_code) {
   }
 }
 
-bool ShouldCreateXml(const Path& xml_log, const MainType main_type,
-                     bool* result) {
-  *result = true;
-
-  // If running from the xml generator binary, we should always create the xml
-  // file.
-  if (main_type == MainType::kXmlWriterMain) {
-    return true;
-  }
-
-  DWORD attr = GetFileAttributesW(AddUncPrefixMaybe(xml_log).c_str());
-  if (attr != INVALID_FILE_ATTRIBUTES) {
-    // The XML file already exists, maybe the test framework wrote it.
-    // Leave the file alone.
-    *result = false;
-    return true;
-  }
-
-  std::wstring split_xml_generation;
-  if (!GetEnv(L"EXPERIMENTAL_SPLIT_XML_GENERATION", &split_xml_generation)) {
-    LogError(__LINE__, "Failed to get %EXPERIMENTAL_SPLIT_XML_GENERATION%");
-    return false;
-  }
-  if (split_xml_generation == L"1") {
-    // Bazel generates the test xml as a separate action, so we don't have to
-    // create it.
-    *result = false;
-  }
-
-  return true;
-}
-
 bool CreateXmlLog(const Path& output, const Path& test_outerr,
                   const Duration duration, const int exit_code,
                   const DeleteAfterwards delete_afterwards,
                   const MainType main_type) {
-  bool should_create_xml;
-  if (!ShouldCreateXml(output, main_type, &should_create_xml)) {
-    LogErrorWithArg(__LINE__, "Failed to decide if XML log is needed",
-                    output.Get());
-    return false;
-  }
-  if (!should_create_xml) {
+  if (main_type != MainType::kXmlWriterMain) {
     return true;
   }
 
@@ -1928,27 +1928,26 @@ void ZipEntryPaths::Create(const std::string& root,
 }
 
 int TestWrapperMain(int argc, wchar_t** argv) {
-  Path argv0;
-  std::wstring test_path_arg;
-  Path test_path, exec_root, srcdir, tmpdir, test_outerr, xml_log;
+  Path executable, exec_root, srcdir, tmpdir, test_outerr, xml_log;
   UndeclaredOutputs undecl;
-  std::wstring args;
-  if (!AddCurrentDirectoryToPATH() ||
-      !ParseArgs(argc, argv, &argv0, &test_path_arg, &args) ||
-      !PrintTestLogStartMarker() || !GetCwd(&exec_root) || !ExportUserName() ||
+  std::wstring args, runfiles_env_prefix;
+  if (!AddCurrentDirectoryToPATH() || !GetCwd(&exec_root) ||
       !ExportSrcPath(exec_root, &srcdir) ||
-      !FindTestBinary(argv0, exec_root, test_path_arg, srcdir, &test_path) ||
+      !ParseArgs(argc, argv, exec_root, srcdir, &executable, &args,
+                 &runfiles_env_prefix) ||
+      !PrintTestLogStartMarker() || !ExportUserName() ||
       !ChdirToRunfiles(exec_root, srcdir) ||
       !ExportTmpPath(exec_root, &tmpdir) || !ExportHome(tmpdir) ||
-      !ExportRunfiles(exec_root, srcdir) || !ExportShardStatusFile(exec_root) ||
-      !ExportGtestVariables(tmpdir) || !ExportMiscEnvvars(exec_root) ||
+      !ExportRunfiles(exec_root, srcdir, runfiles_env_prefix) ||
+      !ExportShardStatusFile(exec_root) || !ExportGtestVariables(tmpdir) ||
+      !ExportMiscEnvvars(exec_root) ||
       !ExportXmlPath(exec_root, &test_outerr, &xml_log) ||
       !GetAndUnexportUndeclaredOutputsEnvvars(exec_root, &undecl)) {
     return 1;
   }
 
   Duration test_duration;
-  int result = RunSubprocess(test_path, args, test_outerr, &test_duration);
+  int result = RunSubprocess(executable, args, test_outerr, &test_duration);
   if (!CreateXmlLog(xml_log, test_outerr, test_duration, result,
                     DeleteAfterwards::kEnabled, MainType::kTestWrapperMain) ||
       !ArchiveUndeclaredOutputs(undecl) ||

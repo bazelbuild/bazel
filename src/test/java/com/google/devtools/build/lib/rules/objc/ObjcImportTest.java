@@ -52,6 +52,7 @@ public class ObjcImportTest extends ObjcRuleTestCase {
     scratch.file(
         "imp/BUILD",
         """
+        load("@rules_cc//cc:objc_import.bzl", "objc_import")
         objc_import(
             name = "imp",
             archives = ["precomp_lib.a"],
@@ -66,6 +67,7 @@ public class ObjcImportTest extends ObjcRuleTestCase {
     scratch.file(
         "lib/BUILD",
         """
+        load("@rules_cc//cc:objc_library.bzl", "objc_library")
         objc_library(
             name = "lib",
             deps = ["//imp"],
@@ -151,6 +153,7 @@ public class ObjcImportTest extends ObjcRuleTestCase {
     scratch.file(
         "imp/BUILD",
         """
+        load("@rules_cc//cc:objc_import.bzl", "objc_import")
         objc_import(
             name = "imp",
             archives = ["precomp_lib.a"],
@@ -182,6 +185,7 @@ public class ObjcImportTest extends ObjcRuleTestCase {
     scratch.file(
         "imp/BUILD",
         """
+        load("@rules_cc//cc:objc_import.bzl", "objc_import")
         objc_import(
             name = "imp",
             archives = ["precomp_lib.a"],
@@ -205,7 +209,11 @@ public class ObjcImportTest extends ObjcRuleTestCase {
 
   @Test
   public void testArchiveRequiresDotInName() throws Exception {
-    checkError("x", "x", "'//x:fooa' does not produce any objc_import archives files (expected .a)",
+    checkError(
+        "x",
+        "x",
+        "'//x:fooa' does not produce any objc_import archives files (expected .a)",
+        "load('@rules_cc//cc:objc_import.bzl', 'objc_import')",
         "objc_import(",
         "    name = 'x',",
         "    archives = ['fooa'],",
@@ -218,6 +226,7 @@ public class ObjcImportTest extends ObjcRuleTestCase {
     scratch.file(
         "imp/BUILD",
         """
+        load("@rules_cc//cc:objc_import.bzl", "objc_import")
         objc_import(
             name = "imp",
             archives = ["imp.a"],
@@ -264,6 +273,7 @@ public class ObjcImportTest extends ObjcRuleTestCase {
     scratch.file(
         "imp/BUILD",
         """
+        load("@rules_cc//cc:objc_import.bzl", "objc_import")
         objc_import(
             name = "imp_dep",
             hdrs = ["precomp_dep.h"],

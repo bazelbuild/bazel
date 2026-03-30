@@ -65,7 +65,7 @@ public abstract class Args implements CommandLineArgsApi {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("context.args() object");
   }
 
@@ -520,6 +520,9 @@ public abstract class Args implements CommandLineArgsApi {
     }
 
     private void addSingleArg(Object value, @Nullable String format) throws EvalException {
+      if (value instanceof String s) {
+        value = s.intern();
+      }
       validateNoDirectory(value);
       validateFormatString("format", format);
       if (format == null) {

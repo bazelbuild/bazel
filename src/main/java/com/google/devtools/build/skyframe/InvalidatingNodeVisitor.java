@@ -24,8 +24,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
-import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor.ExceptionHandlingMode;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.concurrent.ForkJoinQuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
@@ -47,7 +45,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /**
@@ -94,23 +91,6 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
   // Aliased to InvalidationState.pendingVisitations.
   protected final Set<Pair<SkyKey, InvalidationType>> pendingVisitations;
   protected final QuiescingExecutor executor;
-
-  protected InvalidatingNodeVisitor(
-      GraphT graph,
-      DirtyAndInflightTrackingProgressReceiver progressReceiver,
-      InvalidationState state) {
-    this.executor =
-        new AbstractQueueVisitor(
-            /* parallelism= */ DEFAULT_THREAD_COUNT,
-            /* keepAliveTime= */ 15,
-            /* units= */ TimeUnit.SECONDS,
-            ExceptionHandlingMode.FAIL_FAST,
-            "skyframe-invalidator",
-            errorClassifier);
-    this.graph = Preconditions.checkNotNull(graph);
-    this.progressReceiver = Preconditions.checkNotNull(progressReceiver);
-    this.pendingVisitations = state.pendingValues;
-  }
 
   protected InvalidatingNodeVisitor(
       GraphT graph,
@@ -433,7 +413,11 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
         QueryableGraph graph,
         DirtyAndInflightTrackingProgressReceiver progressReceiver,
         InvalidationState state) {
-      super(graph, progressReceiver, state);
+      super(
+          graph,
+          progressReceiver,
+          state,
+          NamedForkJoinPool.newNamedPool("dirty node visitor", DEFAULT_THREAD_COUNT));
     }
 
     @Override
@@ -480,11 +464,12 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
       ArrayList<SkyKey> keysToGet = new ArrayList<>(keys.size());
       for (SkyKey key : keys) {
         if (setToCheck.add(key)) {
-          Preconditions.checkState(
-              !isChanged || key.functionName().getHermeticity() != FunctionHermeticity.HERMETIC,
-              "Nodes with hermetic functions cannot be marked 'changed': "
-                  + "%s function:%s hermeticity:%s"
-                      .formatted(key, key.functionName(), key.functionName().getHermeticity()));
+          if (isChanged && key.functionName().getHermeticity() == FunctionHermeticity.HERMETIC) {
+            throw new IllegalStateException(
+                "Nodes with hermetic functions cannot be marked 'changed': "
+                    + "%s function:%s hermeticity:%s"
+                        .formatted(key, key.functionName(), key.functionName().getHermeticity()));
+          }
           keysToGet.add(key);
         }
       }

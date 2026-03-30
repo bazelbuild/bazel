@@ -15,11 +15,13 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.DigestUtil.isOldStyleDigestFunction;
 
 import build.bazel.remote.execution.v2.ActionCacheGrpc;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheFutureStub;
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageFutureStub;
 import build.bazel.remote.execution.v2.Digest;
@@ -29,6 +31,9 @@ import build.bazel.remote.execution.v2.FindMissingBlobsResponse;
 import build.bazel.remote.execution.v2.GetActionResultRequest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
+import build.bazel.remote.execution.v2.SpliceBlobRequest;
+import build.bazel.remote.execution.v2.SplitBlobRequest;
+import build.bazel.remote.execution.v2.SplitBlobResponse;
 import build.bazel.remote.execution.v2.UpdateActionResultRequest;
 import com.google.bytestream.ByteStreamGrpc;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamStub;
@@ -49,6 +54,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
+import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -59,7 +65,6 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.zstd.ZstdDecompressingOutputStream;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import io.grpc.Channel;
 import io.grpc.Status;
@@ -90,7 +95,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   private final ByteStreamUploader uploader;
   private final int maxMissingBlobsDigestsPerMessage;
 
-  private AtomicBoolean closed = new AtomicBoolean();
+  private final AtomicBoolean closed = new AtomicBoolean();
 
   @VisibleForTesting
   public GrpcCacheClient(
@@ -163,6 +168,78 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
             new NetworkTimeInterceptor(context::getNetworkTime))
         .withCallCredentials(callCredentialsProvider.getCallCredentials())
         .withDeadlineAfter(options.remoteTimeout.toSeconds(), TimeUnit.SECONDS);
+  }
+
+  /**
+   * Registers a blob as the concatenation of previously uploaded chunks via the SpliceBlob RPC. All
+   * chunks must already be present in the CAS.
+   *
+   * @return a future that completes when the splice is acknowledged, or null if chunking is not
+   *     enabled
+   */
+  @Override
+  @Nullable
+  public ListenableFuture<Void> spliceBlob(
+      RemoteActionExecutionContext context, Digest blobDigest, List<Digest> chunkDigests) {
+    if (!options.experimentalRemoteCacheChunking) {
+      return null;
+    }
+    SpliceBlobRequest request =
+        SpliceBlobRequest.newBuilder()
+            .setInstanceName(options.remoteInstanceName)
+            .setBlobDigest(blobDigest)
+            .addAllChunkDigests(chunkDigests)
+            .setDigestFunction(digestUtil.getDigestFunction())
+            .setChunkingFunction(ChunkingFunction.Value.FAST_CDC_2020)
+            .build();
+    return Futures.catchingAsync(
+        Futures.transform(
+            Utils.refreshIfUnauthenticatedAsync(
+                () ->
+                    retrier.executeAsync(
+                        () ->
+                            channel.withChannelFuture(
+                                ch -> casFutureStub(context, ch).spliceBlob(request))),
+                callCredentialsProvider),
+            unused -> null,
+            directExecutor()),
+        StatusRuntimeException.class,
+        (e) -> Futures.immediateFailedFuture(new IOException(e)),
+        directExecutor());
+  }
+
+  /**
+   * Queries the server for chunk information about a blob using the SplitBlob RPC.
+   *
+   * @return a future with the split blob response, or null if chunking is not enabled
+   */
+  @Nullable
+  public ListenableFuture<SplitBlobResponse> splitBlob(
+      RemoteActionExecutionContext context, Digest digest) {
+    if (!options.experimentalRemoteCacheChunking) {
+      return null;
+    }
+    SplitBlobRequest request =
+        SplitBlobRequest.newBuilder()
+            .setInstanceName(options.remoteInstanceName)
+            .setBlobDigest(digest)
+            .setDigestFunction(digestUtil.getDigestFunction())
+            .setChunkingFunction(ChunkingFunction.Value.FAST_CDC_2020)
+            .build();
+    return Futures.catchingAsync(
+        Utils.refreshIfUnauthenticatedAsync(
+            () ->
+                retrier.executeAsync(
+                    () ->
+                        channel.withChannelFuture(
+                            ch -> casFutureStub(context, ch).splitBlob(request))),
+            callCredentialsProvider),
+        StatusRuntimeException.class,
+        (e) ->
+            e.getStatus().getCode() == Code.NOT_FOUND
+                ? Futures.immediateFailedFuture(new CacheNotFoundException(digest))
+                : Futures.immediateFailedFuture(new IOException(e)),
+        directExecutor());
   }
 
   @Override
@@ -279,7 +356,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         GetActionResultRequest.newBuilder()
             .setInstanceName(options.remoteInstanceName)
             .setDigestFunction(digestUtil.getDigestFunction())
-            .setActionDigest(actionKey.getDigest())
+            .setActionDigest(actionKey.digest())
             .setInlineStderr(inlineOutErr)
             .setInlineStdout(inlineOutErr)
             .addAllInlineOutputFiles(inlineOutputFiles)
@@ -310,7 +387,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
                                             UpdateActionResultRequest.newBuilder()
                                                 .setInstanceName(options.remoteInstanceName)
                                                 .setDigestFunction(digestUtil.getDigestFunction())
-                                                .setActionDigest(actionKey.getDigest())
+                                                .setActionDigest(actionKey.digest())
                                                 .setActionResult(actionResult)
                                                 .build())),
                             StatusRuntimeException.class,
@@ -484,27 +561,35 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   }
 
   @Override
-  public ListenableFuture<Void> uploadFile(
-      RemoteActionExecutionContext context, Digest digest, Path path) {
-    return uploadChunker(
-        context,
-        digest,
-        Chunker.builder()
-            .setInput(digest.getSizeBytes(), path)
-            .setCompressed(shouldCompress(digest))
-            .build());
-  }
-
-  @Override
   public ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, ByteString data) {
-    return uploadChunker(
-        context,
-        digest,
-        Chunker.builder()
-            .setInput(data.toByteArray())
-            .setCompressed(shouldCompress(digest))
-            .build());
+      RemoteActionExecutionContext context, Digest digest, Blob blob) {
+    return Futures.catchingAsync(
+        uploadChunker(
+            context,
+            digest,
+            Chunker.builder()
+                .setInput(digest.getSizeBytes(), blob)
+                .setCompressed(shouldCompress(digest))
+                .build()),
+        IOException.class,
+        e -> {
+          var cause = e.getCause();
+          if (!(cause instanceof StatusRuntimeException sre)) {
+            return Futures.immediateFailedFuture(e);
+          }
+          var code = sre.getStatus().getCode();
+          String blobDescription = blob.description();
+          // INVALID_ARGUMENT is returned in case of a digest mismatch, which can hint at concurrent
+          // modifications to the blob's source. Print it to help the user debug such issues.
+          // https://github.com/bazelbuild/bazel/blob/ec36eacc31678ecf4b5c25f9ab7ab166330aff28/third_party/remoteapis/build/bazel/remote/execution/v2/remote_execution.proto#L283-L286
+          if (code == Code.INVALID_ARGUMENT && blobDescription != null) {
+            return Futures.immediateFailedFuture(
+                new IOException(
+                    "while uploading %s: %s".formatted(blobDescription, e.getMessage()), e));
+          }
+          return Futures.immediateFailedFuture(e);
+        },
+        MoreExecutors.directExecutor());
   }
 
   ListenableFuture<Void> uploadChunker(
@@ -513,10 +598,10 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
     f.addListener(
         () -> {
           try {
-            chunker.reset();
+            chunker.close();
           } catch (IOException e) {
             logger.atWarning().withCause(e).log(
-                "failed to reset chunker uploading %s/%d", digest.getHash(), digest.getSizeBytes());
+                "failed to close chunker uploading %s/%d", digest.getHash(), digest.getSizeBytes());
           }
         },
         MoreExecutors.directExecutor());

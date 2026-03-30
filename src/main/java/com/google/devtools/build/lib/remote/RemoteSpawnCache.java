@@ -21,14 +21,10 @@ import static com.google.devtools.build.lib.remote.util.Utils.createSpawnResult;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
@@ -39,15 +35,15 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.LocalExecution;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
+import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionCapabilitiesException;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
-import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -56,21 +52,18 @@ import java.util.concurrent.ConcurrentHashMap;
 @ThreadSafe // If the RemoteActionCache implementation is thread-safe.
 final class RemoteSpawnCache implements SpawnCache {
 
-  private final Path execRoot;
   private final RemoteOptions options;
   private final RemoteExecutionService remoteExecutionService;
   private final DigestUtil digestUtil;
   private final boolean verboseFailures;
-  private final ConcurrentHashMap<RemoteCacheClient.ActionKey, LocalExecution> inFlightExecutions =
+  private final ConcurrentHashMap<ActionKey, LocalExecution> inFlightExecutions =
       new ConcurrentHashMap<>();
 
   RemoteSpawnCache(
-      Path execRoot,
       RemoteOptions options,
       boolean verboseFailures,
       RemoteExecutionService remoteExecutionService,
       DigestUtil digestUtil) {
-    this.execRoot = execRoot;
     this.options = options;
     this.verboseFailures = verboseFailures;
     this.remoteExecutionService = remoteExecutionService;
@@ -82,9 +75,14 @@ final class RemoteSpawnCache implements SpawnCache {
     return remoteExecutionService;
   }
 
+  @VisibleForTesting
+  int getInFlightExecutionsSize() {
+    return inFlightExecutions.size();
+  }
+
   @Override
   public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context)
-      throws InterruptedException, IOException, ExecException, ForbiddenActionInputException {
+      throws InterruptedException, IOException, ExecException {
     boolean shouldAcceptCachedResult =
         remoteExecutionService.getReadCachePolicy(spawn).allowAnyCache();
     boolean shouldUploadLocalResults =
@@ -95,7 +93,9 @@ final class RemoteSpawnCache implements SpawnCache {
 
     Stopwatch totalTime = Stopwatch.createStarted();
 
-    RemoteAction action = remoteExecutionService.buildRemoteAction(spawn, context);
+    RemoteAction action =
+        remoteExecutionService.buildRemoteAction(
+            spawn, context, MerkleTreeComputer.BlobPolicy.DISCARD);
     SpawnMetrics.Builder spawnMetrics =
         SpawnMetrics.Builder.forRemoteExec()
             .setInputBytes(action.getInputBytes())
@@ -114,7 +114,9 @@ final class RemoteSpawnCache implements SpawnCache {
       // first one.
       LocalExecution previousExecution = null;
       try {
-        thisExecution = LocalExecution.createIfDeduplicatable(action);
+        thisExecution =
+            LocalExecution.createIfDeduplicatable(
+                action, () -> inFlightExecutions.remove(action.getActionKey()));
         if (shouldUploadLocalResults && thisExecution != null) {
           LocalExecution previousOrThisExecution =
               inFlightExecutions.merge(
@@ -130,8 +132,12 @@ final class RemoteSpawnCache implements SpawnCache {
                       return thisExecutionArg;
                     }
                   });
-          previousExecution =
-              previousOrThisExecution == thisExecution ? null : previousOrThisExecution;
+          if (previousOrThisExecution != thisExecution) {
+            // The current execution is not the first one to be registered for this action key, so
+            // we need to wait for the previous one to finish before we can reuse its result.
+            previousExecution = previousOrThisExecution;
+            thisExecution = null;
+          }
         }
         try {
           RemoteActionResult result;
@@ -139,9 +145,14 @@ final class RemoteSpawnCache implements SpawnCache {
               prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
             result = remoteExecutionService.lookupCache(action);
           }
-          // In case the remote cache returned a failed action (exit code != 0) we treat it as a
-          // cache miss
-          if (result != null && result.getExitCode() == 0) {
+          // In case the remote cache returned a failed action (exit code != 0) or failed to create
+          // a mandatory output, we treat it as a cache miss.
+          if (result != null
+              && result.getExitCode() == 0
+              && result.maybeGetMissingMandatoryOutput(action).isEmpty()) {
+            if (thisExecution != null) {
+              thisExecution.close();
+            }
             Stopwatch fetchTime = Stopwatch.createStarted();
             InMemoryOutput inMemoryOutput;
             try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "download outputs")) {
@@ -150,9 +161,9 @@ final class RemoteSpawnCache implements SpawnCache {
             fetchTime.stop();
             totalTime.stop();
             spawnMetrics
-                .setFetchTimeInMs((int) fetchTime.elapsed().toMillis())
-                .setTotalTimeInMs((int) totalTime.elapsed().toMillis())
-                .setNetworkTimeInMs((int) action.getNetworkTime().getDuration().toMillis());
+                .setFetchTime(fetchTime.elapsed())
+                .setTotalTime(totalTime.elapsed())
+                .setNetworkTime(action.getNetworkTime().getDuration());
             SpawnResult spawnResult =
                 createSpawnResult(
                     digestUtil,
@@ -165,14 +176,25 @@ final class RemoteSpawnCache implements SpawnCache {
                     result.getExecutionMetadata().getExecutionCompletedTimestamp(),
                     spawnMetrics.build(),
                     spawn.getMnemonic());
+            remoteExecutionService.maybeWriteParamFilesLocally(spawn);
             return SpawnCache.success(spawnResult);
           }
         } catch (CacheNotFoundException e) {
           // Intentionally left blank
         } catch (CredentialHelperException e) {
+          if (thisExecution != null) {
+            thisExecution.close();
+          }
           throw createExecExceptionForCredentialHelperException(e);
         } catch (RemoteExecutionCapabilitiesException e) {
-          throw createExecExceptionFromRemoteExecutionCapabilitiesException(e);
+          boolean shouldLocalFallback =
+              options.remoteLocalFallbackForRemoteCache && options.remoteLocalFallback;
+          if (!shouldLocalFallback) {
+            if (thisExecution != null) {
+              thisExecution.close();
+            }
+            throw createExecExceptionFromRemoteExecutionCapabilitiesException(e);
+          }
         } catch (IOException e) {
           if (BulkTransferException.allCausedByCacheNotFoundException(e)) {
             // Intentionally left blank
@@ -194,10 +216,11 @@ final class RemoteSpawnCache implements SpawnCache {
           }
           if (previousResult != null) {
             spawnMetrics
-                .setFetchTimeInMs((int) fetchTime.elapsed().toMillis())
-                .setTotalTimeInMs((int) totalTime.elapsed().toMillis())
-                .setNetworkTimeInMs((int) action.getNetworkTime().getDuration().toMillis());
+                .setFetchTime(fetchTime.elapsed())
+                .setTotalTime(totalTime.elapsed())
+                .setNetworkTime(action.getNetworkTime().getDuration());
             SpawnMetrics buildMetrics = spawnMetrics.build();
+            remoteExecutionService.maybeWriteParamFilesLocally(spawn);
             return SpawnCache.success(
                 new SpawnResult.DelegateSpawnResult(previousResult) {
                   @Override
@@ -249,26 +272,15 @@ final class RemoteSpawnCache implements SpawnCache {
             return;
           }
 
-          if (options.experimentalGuardAgainstConcurrentChanges) {
-            try (SilentCloseable c = prof.profile("checkForConcurrentModifications")) {
-              checkForConcurrentModifications();
-            } catch (IOException | ForbiddenActionInputException e) {
-              var msg =
-                  spawn.getTargetLabel()
-                      + ": Skipping uploading outputs because of concurrent modifications "
-                      + "with --experimental_guard_against_concurrent_changes enabled: "
-                      + e.getMessage();
-              remoteExecutionService.report(Event.warn(msg));
-              return;
-            }
-          }
-
           // As soon as the result is in the cache, actions can get the result from it instead of
           // from the first in-flight execution. Not keeping in-flight executions around
           // indefinitely is important to avoid excessive memory pressure - Spawns can be very
           // large.
           remoteExecutionService.uploadOutputs(
-              action, result, () -> inFlightExecutions.remove(action.getActionKey()));
+              action,
+              result,
+              thisExecutionFinal != null ? thisExecutionFinal.delayClose() : () -> {},
+              options.guardAgainstConcurrentChanges);
           if (thisExecutionFinal != null
               && action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
             // In this case outputs have been uploaded synchronously and the callback above has run,
@@ -282,24 +294,10 @@ final class RemoteSpawnCache implements SpawnCache {
           }
         }
 
-        private void checkForConcurrentModifications()
-            throws IOException, ForbiddenActionInputException {
-          for (ActionInput input : action.getInputMap(true).values()) {
-            if (input instanceof VirtualActionInput) {
-              continue;
-            }
-            FileArtifactValue metadata = context.getInputMetadataProvider().getInputMetadata(input);
-            Path path = execRoot.getRelative(input.getExecPath());
-            if (metadata.wasModifiedSinceDigest(path)) {
-              throw new IOException(path + " was modified during execution");
-            }
-          }
-        }
-
         @Override
         public void close() {
           if (thisExecutionFinal != null) {
-            thisExecutionFinal.cancel();
+            thisExecutionFinal.close();
           }
         }
       };

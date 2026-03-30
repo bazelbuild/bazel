@@ -24,14 +24,15 @@ import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 /** Constants used in Proto rules. */
 public final class ProtoConstants {
 
-  public static final BzlLoadValue.Key PROTO_INFO_KEY = keyForBuild(Label.parseCanonicalUnchecked("@@com_google_protobuf+//bazel/private:proto_info.bzl"));
-
   // Two keys support either bzlmod or WORKSPACE mode of cc_shared_library
   public static final ImmutableList<BzlLoadValue.Key> EXTERNAL_PROTO_INFO_KEYS =
       ImmutableList.of(
           keyForBuild(  // WORKSPACE
               Label.parseCanonicalUnchecked(
                   "@com_google_protobuf//bazel/private:proto_info.bzl")),
+          keyForBuild(  // tests
+              Label.parseCanonicalUnchecked(
+                  "@com_google_protobuf+//bazel/private:proto_info.bzl")),
           keyForBuild(  // bzlmod
               Label.parseCanonicalUnchecked(
                   "@@protobuf+//bazel/private:proto_info.bzl")));

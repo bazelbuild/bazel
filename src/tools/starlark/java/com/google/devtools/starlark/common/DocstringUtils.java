@@ -81,12 +81,16 @@ public final class DocstringUtils {
 
     /** The one-line summary at the start of the docstring. */
     final String summary;
+
     /** Documentation of function parameters from the 'Args:' section. */
     final List<ParameterDoc> parameters;
+
     /** Documentation of the return value from the 'Returns:' section, or empty if there is none. */
     final String returns;
+
     /** Deprecation warning from the 'Deprecated:' section, or empty if there is none. */
     final String deprecated;
+
     /** Rest of the docstring that is not part of any of the special sections above. */
     final String longDescription;
 
@@ -102,7 +106,6 @@ public final class DocstringUtils {
       this.deprecated = deprecated;
       this.longDescription = longDescription;
     }
-
 
     /** Returns the one-line summary of the docstring. */
     public String getSummary() {
@@ -137,8 +140,8 @@ public final class DocstringUtils {
     }
 
     /**
-     * Returns the documentation of the return value from the 'Returns:' section, or empty if
-     * there is none.
+     * Returns the documentation of the return value from the 'Returns:' section, or empty if there
+     * is none.
      */
     public String getReturns() {
       return returns;
@@ -179,9 +182,6 @@ public final class DocstringUtils {
      */
     private int lineNumber = 0;
 
-    /** Whether there was a blank line before the current line. */
-    private boolean blankLineBefore = false;
-
     /** Whether we've seen a special section, e.g. 'Args:', already. */
     private boolean specialSectionsStarted = false;
 
@@ -211,7 +211,6 @@ public final class DocstringUtils {
      */
     private boolean nextLine() {
       if (linesIter.hasNext()) {
-        blankLineBefore = line.trim().isEmpty();
         line = linesIter.next();
         lineNumber++;
         return true;
@@ -317,9 +316,6 @@ public final class DocstringUtils {
 
     private void checkSectionStart(boolean duplicateSection) {
       specialSectionsStarted = true;
-      if (!blankLineBefore) {
-        error("section should be preceded by a blank line");
-      }
       if (duplicateSection) {
         error("duplicate '" + line + "' section");
       }
@@ -355,9 +351,6 @@ public final class DocstringUtils {
         }
         int actualIndentation = getIndentation(line);
         if (actualIndentation == 0) {
-          if (!blankLineBefore) {
-            error("end of 'Args' section without blank line");
-          }
           break;
         }
         String trimmedLine;
@@ -438,9 +431,6 @@ public final class DocstringUtils {
         if (line.isEmpty()) {
           trimmedLine = line;
         } else if (getIndentation(line) == 0) {
-          if (!blankLineBefore) {
-            error("end of section without blank line");
-          }
           break;
         } else {
           if (getIndentation(line) < 2) {

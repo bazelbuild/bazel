@@ -35,8 +35,8 @@ class SourceUrlMapper {
    * @param inputRoot input directory corresponding to the source tree root
    * @param repoPathsRewrites an ordered map of repo path prefixes; A repo path is a string formed
    *     by concatenation of @repo// and a path. This handles labels from @builtins as well as from
-   *     external * repositories. A map entry of the form "foo" -> "bar" indicates that if a repo
-   *     path starts with "foo", that prefix should be replaced with "bar" to form a full url.
+   *     external repositories. A map entry of the form "foo" -> "bar" indicates that if a repo path
+   *     starts with "foo", that prefix should be replaced with "bar" to form a full url.
    */
   SourceUrlMapper(
       String sourceUrlRoot, String inputRoot, ImmutableMap<String, String> repoPathsRewrites) {
@@ -46,7 +46,7 @@ class SourceUrlMapper {
   }
 
   SourceUrlMapper(DocLinkMap linkMap, String inputRoot) {
-    this(linkMap.sourceUrlRoot, inputRoot, ImmutableMap.copyOf(linkMap.repoPathRewrites));
+    this(linkMap.sourceUrlRoot(), inputRoot, linkMap.repoPathRewrites());
   }
 
   /**
@@ -95,11 +95,9 @@ class SourceUrlMapper {
             + label.toPathFragment().getPathString();
     for (Map.Entry<String, String> entry : repoPathsRewrites.entrySet()) {
       if (path.startsWith(entry.getKey())) {
-        path = entry.getValue() + path.substring(entry.getKey().length());
-        break;
+        return entry.getValue() + path.substring(entry.getKey().length());
       }
     }
-
-    return path;
+    throw new IllegalStateException("Label URL left untransformed: " + path);
   }
 }

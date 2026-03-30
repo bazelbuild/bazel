@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.util;
 
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.Uninterruptibles;
-import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.errorprone.annotations.ThreadSafe;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.logging.Level;
@@ -28,7 +28,7 @@ import javax.annotation.Nullable;
  * Logging utilities for sending log messages to a remote service. Log messages will not be output
  * anywhere else, including the terminal and blaze clients.
  */
-@ThreadSafety.ThreadSafe
+@ThreadSafe
 public final class LoggingUtil {
   // TODO(bazel-team): this class is a thin wrapper around Logger and could probably be discarded.
   private static Future<Logger> remoteLogger;
@@ -74,16 +74,15 @@ public final class LoggingUtil {
   }
 
   /**
-   * Log a message to the remote backend.  This is done out of thread, so this
-   * method is non-blocking.
+   * Log a message to the remote backend. This is done out of thread, so this method is
+   * non-blocking.
    *
    * @param level The severity level. Non null.
    * @param msg The log message. Non null.
-   * @param trace The stack trace.  May be null.
+   * @param trace The stack trace. May be null.
    * @param values Additional values to upload.
    */
-  public static void logToRemote(Level level, String msg, Throwable trace,
-      String... values) {
+  public static void logToRemote(Level level, String msg, Throwable trace, String... values) {
     Logger logger = getRemoteLogger();
     if (logger != null) {
       LogRecord logRecord = new LogRecord(level, msg);

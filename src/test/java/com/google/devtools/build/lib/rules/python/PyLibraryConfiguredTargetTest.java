@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.rules.python.PythonTestUtils.assumesDefaultIsPY2;
 import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -36,7 +35,6 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
 
   @Test
   public void pyRuntimeInfoIsNotPresent() throws Exception {
-    useConfiguration("--incompatible_use_python_toolchains=true");
     scratch.file(
         "pkg/BUILD", //
         getPyLoad("py_library"),
@@ -45,20 +43,6 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
         "    srcs = [':foo.py'],",
         ")");
     assertThat(PyRuntimeInfo.fromTargetNullable(getConfiguredTarget("//pkg:foo"))).isNull();
-  }
-
-  @Test
-  public void versionIs3IfSetByFlag() throws Exception {
-    assumesDefaultIsPY2();
-    useConfiguration("--python_version=PY3");
-    scratch.file(
-        "pkg/BUILD", //
-        getPyLoad("py_library"),
-        "py_library(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'],",
-        ")");
-    assertThat(getPythonVersion(getConfiguredTarget("//pkg:foo"))).isEqualTo(PythonVersion.PY3);
   }
 
   @Test
@@ -72,47 +56,6 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
     ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
     FileConfiguredTarget srcFile = getFileConfiguredTarget("//pkg:foo.py");
     assertThat(getFilesToBuild(target).toList()).containsExactly(srcFile.getArtifact());
-  }
-
-  @Test
-  public void srcsCanContainRuleGeneratingPyAndNonpyFiles() throws Exception {
-    scratchConfiguredTarget(
-        "pkg",
-        "foo",
-        // build file:
-        getPyLoad("py_binary"),
-        "py_binary(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py', ':bar'])",
-        "genrule(",
-        "    name = 'bar',",
-        "    outs = ['bar.cc', 'bar.py'],",
-        "    cmd = 'touch $(OUTS)')");
-    assertNoEvents();
-  }
-
-  @Test
-  public void whatIfSrcsContainsRuleGeneratingNoPyFiles() throws Exception {
-    // In Bazel it's an error, in Blaze it's a warning.
-    String[] lines = {
-      getPyLoad("py_binary"),
-      "py_binary(",
-      "    name = 'foo',",
-      "    srcs = ['foo.py', ':bar'])",
-      "genrule(",
-      "    name = 'bar',",
-      "    outs = ['bar.cc'],",
-      "    cmd = 'touch $(OUTS)')"
-    };
-    if (analysisMock.isThisBazel()) {
-      checkError(
-          "pkg",
-          "foo",
-          // error:
-          "'//pkg:bar' does not produce any py_binary srcs files",
-          // build file:
-          lines);
-    }
   }
 
   @Test

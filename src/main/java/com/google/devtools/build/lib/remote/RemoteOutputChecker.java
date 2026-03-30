@@ -22,13 +22,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
-import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
@@ -36,16 +38,20 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
-import com.google.devtools.build.lib.remote.util.ConcurrentPathTrie;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
-/** A {@link RemoteArtifactChecker} that checks the TTL of remote metadata. */
-public class RemoteOutputChecker implements RemoteArtifactChecker {
+/**
+ * An {@link OutputChecker} that decides which outputs to download taking into account the output
+ * mode and the TTL of remote metadata.
+ */
+public class RemoteOutputChecker implements OutputChecker {
   private enum CommandMode {
     UNKNOWN,
     BUILD,
@@ -54,29 +60,28 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     COVERAGE;
   }
 
-  private final Clock clock;
   private final CommandMode commandMode;
   private final RemoteOutputsMode outputsMode;
-  private final ImmutableList<Pattern> patternsToDownload;
   @Nullable private final RemoteOutputChecker lastRemoteOutputChecker;
 
-  private final ConcurrentPathTrie pathsToDownload = new ConcurrentPathTrie();
+  @Nullable private Clock clock;
+
+  private final ImmutableList<Predicate<String>> patternsToDownload;
+  private final ConcurrentArtifactPathTrie pathsToDownload = new ConcurrentArtifactPathTrie();
+  private final Set<PathFragment> pathsToSkip = ConcurrentHashMap.newKeySet();
 
   public RemoteOutputChecker(
-      Clock clock,
       String commandName,
       RemoteOutputsMode outputsMode,
-      ImmutableList<Pattern> patternsToDownload) {
-    this(clock, commandName, outputsMode, patternsToDownload, /* lastRemoteOutputChecker= */ null);
+      ImmutableList<Predicate<String>> patternsToDownload) {
+    this(commandName, outputsMode, patternsToDownload, /* lastRemoteOutputChecker= */ null);
   }
 
   public RemoteOutputChecker(
-      Clock clock,
       String commandName,
       RemoteOutputsMode outputsMode,
-      ImmutableList<Pattern> patternsToDownload,
+      ImmutableList<Predicate<String>> patternsToDownload,
       RemoteOutputChecker lastRemoteOutputChecker) {
-    this.clock = clock;
     this.commandMode =
         switch (commandName) {
           case "build" -> CommandMode.BUILD;
@@ -88,6 +93,11 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     this.outputsMode = outputsMode;
     this.patternsToDownload = patternsToDownload;
     this.lastRemoteOutputChecker = lastRemoteOutputChecker;
+  }
+
+  /** Sets this checker to check the TTL of remote metadata when deciding whether to trust it. */
+  public void setCheckMetadataTtl(Clock clock) {
+    this.clock = clock;
   }
 
   // Skymeld-only.
@@ -162,7 +172,12 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
           TopLevelArtifactHelper.getAllArtifactsToBuild(target, topLevelArtifactContext)
               .getImportantArtifacts();
       addOutputsToDownload(artifactsToBuild.toList());
-      addRunfiles(target);
+      // RunfileTrees are requested with this special output group. We lack access to an
+      // InputMetadataProvider that can expand arbitrary RunfileTrees, so we have to mirror that
+      // logic here.
+      if (topLevelArtifactContext.outputGroups().contains(OutputGroupInfo.HIDDEN_TOP_LEVEL)) {
+        addRunfiles(target);
+      }
       addExtraActionArtifacts(target);
     }
   }
@@ -178,24 +193,21 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     }
     var runfiles = runfilesSupport.getRunfiles();
     for (Artifact runfile : runfiles.getArtifacts().toList()) {
-      if (runfile.isSourceArtifact()) {
-        continue;
+      if (mayBeRemote(runfile)) {
+        addOutputToDownload(runfile);
       }
-      addOutputToDownload(runfile);
     }
     for (var symlink : runfiles.getSymlinks().toList()) {
       var artifact = symlink.getArtifact();
-      if (artifact.isSourceArtifact()) {
-        continue;
+      if (mayBeRemote(artifact)) {
+        addOutputToDownload(artifact);
       }
-      addOutputToDownload(artifact);
     }
     for (var symlink : runfiles.getRootSymlinks().toList()) {
       var artifact = symlink.getArtifact();
-      if (artifact.isSourceArtifact()) {
-        continue;
+      if (mayBeRemote(artifact)) {
+        addOutputToDownload(artifact);
       }
-      addOutputToDownload(artifact);
     }
   }
 
@@ -209,8 +221,9 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
 
   private void addTargetUnderTest(ProviderCollection target) {
     TestProvider testProvider = checkNotNull(target.getProvider(TestProvider.class));
-    if (outputsMode != RemoteOutputsMode.MINIMAL && commandMode == CommandMode.TEST) {
-      // In test mode, download the outputs of the test runner action.
+    if (outputsMode != RemoteOutputsMode.MINIMAL
+        && (commandMode == CommandMode.TEST || commandMode == CommandMode.COVERAGE)) {
+      // In test or coverage mode, download the outputs of the test runner action.
       addOutputsToDownload(testProvider.getTestParams().getOutputs());
     }
     if (commandMode == CommandMode.COVERAGE) {
@@ -238,12 +251,20 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     }
   }
 
+  /** Marks a file for download. */
   public void addOutputToDownload(ActionInput file) {
-    if (file instanceof Artifact && ((Artifact) file).isTreeArtifact()) {
-      pathsToDownload.addPrefix(file.getExecPath());
-    } else {
-      pathsToDownload.add(file.getExecPath());
-    }
+    pathsToDownload.add(file);
+  }
+
+  /**
+   * Marks a file as not for download, regardless of the output mode.
+   *
+   * <p>This is used by {@link RemoteExecutionService} to skip downloading in-memory outputs.
+   *
+   * @param execPath the exec path of the file that is not to be downloaded.
+   */
+  public void skipDownload(PathFragment execPath) {
+    pathsToSkip.add(execPath);
   }
 
   private boolean shouldAddTopLevelTarget(@Nullable ConfiguredTarget configuredTarget) {
@@ -252,9 +273,9 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
       case RUN -> true;
       case COVERAGE, TEST -> {
         // Do not download test binary in test/coverage mode.
-        if (configuredTarget instanceof RuleConfiguredTarget ruleConfiguredTarget) {
-          var isTestRule = isTestRuleName(ruleConfiguredTarget.getRuleClassString());
-          yield !isTestRule && outputsMode != RemoteOutputsMode.MINIMAL;
+        if (configuredTarget instanceof RuleConfiguredTarget ruleConfiguredTarget
+            && isTestRuleName(ruleConfiguredTarget.getRuleClassString())) {
+          yield false;
         }
         yield outputsMode != RemoteOutputsMode.MINIMAL;
       }
@@ -264,30 +285,64 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
 
   private boolean matchesPattern(PathFragment execPath) {
     for (var pattern : patternsToDownload) {
-      if (pattern.matcher(execPath.toString()).matches()) {
+      if (pattern.test(execPath.toString())) {
         return true;
       }
     }
     return false;
   }
 
-  /** Returns whether this {@link ActionInput} should be downloaded. */
-  public boolean shouldDownloadOutput(ActionInput output) {
-    checkState(
-        !(output instanceof Artifact && ((Artifact) output).isTreeArtifact()),
-        "shouldDownloadOutput should not be called on a tree artifact");
-    return shouldDownloadOutput(output.getExecPath());
+  /**
+   * Returns whether this {@link ActionInput} could conceivably be only available remotely.
+   *
+   * <p>Use this as a quick check to avoid unnecessary extra work for artifacts that are definitely
+   * local.
+   */
+  public static boolean mayBeRemote(ActionInput actionInput) {
+    return !(actionInput instanceof Artifact artifact
+        && artifact.isSourceArtifact()
+        // Source artifacts in the main repo don't need to be fetched.
+        && (artifact.getOwner() == null || artifact.getOwner().getRepository().isMain()));
   }
 
-  /** Returns whether an {@link ActionInput} with the given path should be downloaded. */
-  public boolean shouldDownloadOutput(PathFragment execPath) {
+  /** Returns whether this {@link ActionInput} should be downloaded. */
+  @Override
+  public boolean shouldDownloadOutput(ActionInput output, FileArtifactValue metadata) {
+    checkState(
+        !(output instanceof Artifact artifact && artifact.isTreeArtifact()),
+        "shouldDownloadOutput should not be called on a tree artifact");
+    return metadata.isRemote()
+        && shouldDownloadOutput(
+            output.getExecPath(),
+            output instanceof TreeFileArtifact artifact
+                ? artifact.getParent().getExecPath()
+                : null);
+  }
+
+  /**
+   * Returns whether a remote {@link ActionInput} with the given path should be downloaded.
+   *
+   * @param treeRootExecPath the path of the tree artifact if the given {@link ActionInput} is
+   *     contained in one
+   */
+  public boolean shouldDownloadOutput(
+      PathFragment execPath, @Nullable PathFragment treeRootExecPath) {
+    if (pathsToSkip.contains(execPath)) {
+      return false;
+    }
     return outputsMode == RemoteOutputsMode.ALL
         || pathsToDownload.contains(execPath)
-        || matchesPattern(execPath);
+        || matchesPattern(execPath)
+        || (treeRootExecPath != null && matchesPattern(treeRootExecPath));
   }
 
   @Override
-  public boolean shouldTrustRemoteArtifact(ActionInput file, RemoteFileArtifactValue metadata) {
+  public boolean shouldTrustMetadata(ActionInput file, FileArtifactValue metadata) {
+    // Local metadata is always trusted.
+    if (!metadata.isRemote()) {
+      return true;
+    }
+
     // If Bazel should download this file, but it does not exist locally, returns false to rerun
     // the generating action to trigger the download (just like in the normal build, when local
     // outputs are missing).
@@ -295,16 +350,29 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     if (lastRemoteOutputChecker != null) {
       // This is an incremental build. If the file was downloaded by previous build and is now
       // missing, invalidate the action.
-      if (lastRemoteOutputChecker.shouldDownloadOutput(file)) {
+      if (lastRemoteOutputChecker.shouldDownloadOutput(file, metadata)) {
         return false;
       }
     }
 
-    if (shouldDownloadOutput(file)) {
+    if (shouldDownloadOutput(file, metadata)) {
       return false;
     }
 
-    return metadata.isAlive(clock.now());
+    if (clock != null) {
+      return isAlive(metadata);
+    }
+
+    // The remote metadata may have passed its TTL, but we are requested to optimistically assume
+    // that it's still available remotely. If it isn't, build or action rewinding will take care
+    // of rerunning the actions needed to produce the file and also evict the stale metadata. This
+    // incurs roughly the same performance hit, but only when actually needed.
+    return true;
+  }
+
+  private boolean isAlive(FileArtifactValue metadata) {
+    var expirationTime = metadata.getExpirationTime();
+    return expirationTime == null || expirationTime.isAfter(clock.now());
   }
 
   public void maybeInvalidateSkyframeValues(MemoizingEvaluator memoizingEvaluator) {

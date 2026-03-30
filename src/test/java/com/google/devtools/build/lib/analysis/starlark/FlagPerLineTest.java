@@ -168,7 +168,7 @@ public class FlagPerLineTest extends BuildViewTestCase {
     try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
       ParameterFile.writeParameterFile(
           outputStream,
-          args.build(() -> RepositoryMapping.ALWAYS_FALLBACK).arguments(),
+          args.build(() -> RepositoryMapping.EMPTY).arguments(),
           args.getParameterFileType());
       bytes = outputStream.toByteArray();
     }

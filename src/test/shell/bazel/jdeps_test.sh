@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -76,6 +76,14 @@ function test_jdeps() {
     grep -v "unnamed module" > ../jdeps \
     || fail "Failed to run jdeps on non denylisted class files."
   cd ..
+
+  # Keep java.instrument for allocation_instrumenter, which is supplied by the user.
+  echo "java.instrument" >> jdeps
+  # java.management is needed for JMX Beans, but for some reason ends up missing from
+  # the jdeps output in some cases, see
+  # https://github.com/bazelbuild/bazel/issues/12685
+  # See https://github.com/bazelbuild/bazel/issues/12685
+  echo "java.management" >> jdeps
 
   # Make the list sorted and unique and compare it with expected results.
   cat jdeps | \

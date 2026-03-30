@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -43,15 +43,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 #### HELPER FUNCTIONS ##################################################
 
 if ! type try_with_timeout >&/dev/null; then
@@ -62,6 +53,8 @@ fi
 
 function set_up() {
   cd ${WORKSPACE_DIR}
+  add_rules_java MODULE.bazel
+
   mkdir -p "foo"
   cat > foo/foocc.py <<'EOF'
 import sys
@@ -189,6 +182,7 @@ EOF
 function test_incremental_err_reporting() {
   export DONT_SANITY_CHECK_SERIALIZATION=1
   cat > foo/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
 genrule(
     name = "foo",
     outs = ["file.o"],

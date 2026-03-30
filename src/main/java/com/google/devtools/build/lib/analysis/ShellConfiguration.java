@@ -24,7 +24,9 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
+import javax.annotation.Nullable;
 
 /** A configuration fragment that tells where the shell is. */
 @RequiresOptions(options = {ShellConfiguration.Options.class})
@@ -48,28 +50,20 @@ public class ShellConfiguration extends Fragment {
     shellExecutables = osToShellMap;
   }
 
-  /**
-   * Injects a map for locating the correct sh executable given a set of target constraints. Assumes
-   * no options-based default shell.
-   */
-  public static void injectShellExecutableFinder(Map<OS, PathFragment> osToShellMap) {
-    optionsBasedDefault = (options) -> null;
-    shellExecutables = osToShellMap;
-  }
-
-  private final PathFragment defaultShellExecutableFromOptions;
+  @Nullable private final PathFragment defaultShellExecutableFromOptions;
 
   public ShellConfiguration(BuildOptions buildOptions) {
     this.defaultShellExecutableFromOptions =
         optionsBasedDefault.apply(buildOptions.get(Options.class));
   }
 
-  public static Map<OS, PathFragment> getShellExecutables() {
-    return shellExecutables;
+  static Optional<PathFragment> getShellExecutable(OS os) {
+    return Optional.ofNullable(shellExecutables.get(os));
   }
 
-  /* Returns a function for retrieving the default shell from build options. */
-  public PathFragment getOptionsBasedDefault() {
+  /* Returns the default shell from build options if set explicitly. */
+  @Nullable
+  PathFragment getOptionsBasedDefault() {
     return defaultShellExecutableFromOptions;
   }
 
@@ -82,13 +76,18 @@ public class ShellConfiguration extends Fragment {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         help =
-            "Absolute path to the shell executable for Bazel to use. If this is unset, but the "
-                + "BAZEL_SH environment variable is set on the first Bazel invocation (that starts "
-                + "up a Bazel server), Bazel uses that. If neither is set, Bazel uses a hard-coded "
-                + "default path depending on the operating system it runs on (Windows: "
-                + "c:/msys64/usr/bin/bash.exe, FreeBSD: /usr/local/bin/bash, all others: "
-                + "/bin/bash). Note that using a shell that is not compatible with bash may lead "
-                + "to build failures or runtime failures of the generated binaries.")
+            """
+            Absolute path to the shell executable for Bazel to use. If this is unset, but the
+            `BAZEL_SH` environment variable is set on the first Bazel invocation (that starts
+            up a Bazel server), Bazel uses that. If neither is set, Bazel uses a hard-coded
+            default path depending on the operating system it runs on;
+            - Windows: `c:/msys64/usr/bin/bash.exe`
+            - FreeBSD: `/usr/local/bin/bash`
+            - All others: `/bin/bash`.
+
+            Note that using a shell that is not compatible with `bash` may lead
+            to build failures or runtime failures of the generated binaries.
+            """)
     public PathFragment shellExecutable;
   }
 }

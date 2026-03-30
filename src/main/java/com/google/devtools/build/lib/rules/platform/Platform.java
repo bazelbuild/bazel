@@ -65,10 +65,6 @@ public class Platform implements RuleConfiguredTargetFactory {
         PlatformProviderUtils.constraintValues(
             ruleContext.getPrerequisites(PlatformRule.CONSTRAINT_VALUES_ATTR)));
 
-    String remoteExecutionProperties =
-        ruleContext.attributes().get(PlatformRule.REMOTE_EXECUTION_PROPS_ATTR, Type.STRING);
-    platformBuilder.setRemoteExecutionProperties(remoteExecutionProperties);
-
     Map<String, String> execProperties =
         ruleContext.attributes().get(PlatformRule.EXEC_PROPS_ATTR, Types.STRING_DICT);
     if (execProperties != null && !execProperties.isEmpty()) {
@@ -93,6 +89,10 @@ public class Platform implements RuleConfiguredTargetFactory {
     } else {
       platformBuilder.checkToolchainTypes(false);
     }
+
+    String missingToolchainErrorMessage =
+        ruleContext.attributes().get(PlatformRule.MISSING_TOOLCHAIN_ERROR_ATTR, Type.STRING);
+    platformBuilder.setMissingToolchainErrorMessage(missingToolchainErrorMessage);
 
     PlatformInfo platformInfo;
     try {

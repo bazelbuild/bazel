@@ -14,8 +14,23 @@
 
 package net.starlark.java.eval;
 
+import javax.annotation.Nullable;
+import net.starlark.java.syntax.StarlarkType;
+
 /** Base interface for all Starlark values besides boxed Java primitives. */
 public interface StarlarkValue {
+
+  /**
+   * Returns the type of this Starlark value, or null if no information is provided.
+   *
+   * <p>This method should not be called directly in client code. The canonical way to obtain the
+   * type of a value is {@link Starlark#getStarlarkType}, which may inject information obtained in
+   * other ways.
+   */
+  @Nullable
+  default StarlarkType getStarlarkType() {
+    return null;
+  }
 
   /**
    * Prints an official representation of object x.
@@ -26,11 +41,7 @@ public interface StarlarkValue {
    *
    * @param printer a printer to be used for formatting nested values.
    */
-  // TODO(brandjon): We can consider adding a StarlarkSemantics param to repr(), to match str() and
-  // debugPrint(). Counterargument is that it's nice to have a supported way of stringifying a
-  // Starlark value independently of a Starlark evaluation environment. If necessary we could use
-  // toString for that purpose, or even define a separate semantics-independent repr-like method.
-  default void repr(Printer printer) {
+  default void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<unknown object ").append(getClass().getName()).append(">");
   }
 
@@ -42,7 +53,7 @@ public interface StarlarkValue {
    * @param printer a printer to be used for formatting nested values.
    */
   default void str(Printer printer, StarlarkSemantics semantics) {
-    repr(printer);
+    repr(printer, semantics);
   }
 
   /**

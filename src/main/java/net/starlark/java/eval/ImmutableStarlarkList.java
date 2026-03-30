@@ -112,7 +112,7 @@ abstract class ImmutableStarlarkList<E> extends StarlarkList<E> {
   @Override
   public Object[] toArray() {
     Object[] elems = elems();
-    return elems.length != 0 ? Arrays.copyOf(elems, elems.length, Object[].class) : EMPTY_ARRAY;
+    return Arrays.copyOf(elems, elems.length, Object[].class);
   }
 
   @SuppressWarnings("unchecked")

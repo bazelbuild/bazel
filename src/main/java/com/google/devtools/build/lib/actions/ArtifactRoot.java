@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.Objects;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * A root for an artifact. The roots are the directories containing artifacts, and they are mapped
@@ -90,8 +91,9 @@ import net.starlark.java.eval.Printer;
  */
 @AutoCodec
 @Immutable
-public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi {
+public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi, CommandLineItem {
   private static final Interner<ArtifactRoot> INTERNER = Interners.newWeakInterner();
+
   /**
    * Do not use except in tests and in {@link
    * com.google.devtools.build.lib.skyframe.SkyframeExecutor}.
@@ -100,7 +102,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
    */
   public static ArtifactRoot asSourceRoot(Root root) {
     return INTERNER.intern(
-        new ArtifactRoot(root, PathFragment.EMPTY_FRAGMENT, RootType.MainSource));
+        new ArtifactRoot(root, PathFragment.EMPTY_FRAGMENT, RootType.MAIN_SOURCE));
   }
 
   /**
@@ -118,7 +120,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
             .getParentDirectory()
             .endsWith(LabelConstants.EXTERNAL_REPOSITORY_LOCATION));
     return INTERNER.intern(
-        new ArtifactRoot(root, PathFragment.EMPTY_FRAGMENT, RootType.ExternalSource));
+        new ArtifactRoot(root, PathFragment.EMPTY_FRAGMENT, RootType.EXTERNAL_SOURCE));
   }
 
   /**
@@ -178,14 +180,14 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
    * artifact they want to create, which is why this enum is public.
    */
   public enum RootType {
-    MainSource,
-    ExternalSource,
-    Output,
+    MAIN_SOURCE,
+    EXTERNAL_SOURCE,
+    OUTPUT,
     // Sibling root types are in effect when --experimental_sibling_repository_layout is activated.
     // These will eventually replace the above Output types when the flag becomes the default option
     // and then removed.
-    SiblingMainOutput,
-    SiblingExternalOutput,
+    SIBLING_MAIN_OUTPUT,
+    SIBLING_EXTERNAL_OUTPUT,
   }
 
   private final Root root;
@@ -220,18 +222,22 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
     return execPath.getPathString();
   }
 
+  public RootType getRootType() {
+    return rootType;
+  }
+
   public boolean isSourceRoot() {
-    return rootType == RootType.MainSource || rootType == RootType.ExternalSource;
+    return rootType == RootType.MAIN_SOURCE || rootType == RootType.EXTERNAL_SOURCE;
   }
 
   private static boolean isOutputRootType(RootType rootType) {
-    return rootType == RootType.SiblingMainOutput
-        || rootType == RootType.SiblingExternalOutput
-        || rootType == RootType.Output;
+    return rootType == RootType.SIBLING_MAIN_OUTPUT
+        || rootType == RootType.SIBLING_EXTERNAL_OUTPUT
+        || rootType == RootType.OUTPUT;
   }
 
   public boolean isExternal() {
-    return rootType == RootType.ExternalSource || rootType == RootType.SiblingExternalOutput;
+    return rootType == RootType.EXTERNAL_SOURCE || rootType == RootType.SIBLING_EXTERNAL_OUTPUT;
   }
 
   /**
@@ -239,7 +245,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
    * created without the --experimental_sibling_repository_layout flag set.
    */
   public boolean isLegacy() {
-    return rootType == RootType.Output;
+    return rootType == RootType.OUTPUT;
   }
 
   @Override
@@ -294,7 +300,12 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append(isSourceRoot() ? "<source root>" : "<derived root>");
+  }
+
+  @Override
+  public String expandToCommandLine() {
+    return getExecPathString();
   }
 }

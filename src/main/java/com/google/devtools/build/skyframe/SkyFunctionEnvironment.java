@@ -908,8 +908,13 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
    * <p>Parents should be enqueued unless (1) this node is being built after the main evaluation has
    * aborted, or (2) this node is being built with {@code --nokeep_going}, and so we are about to
    * shut down the main evaluation anyway.
+   *
+   * @param expectDoneDeps whether to expect all deps to be done. Normally, a node can be done only
+   *     if its deps are done but in some cases (e.g. short-circuiting cycle detection) we don't
+   *     have that property so we can't assert all deps are done.
    */
-  Set<SkyKey> commitAndGetParents(NodeEntry primaryEntry) throws InterruptedException {
+  Set<SkyKey> commitAndGetParents(NodeEntry primaryEntry, boolean expectDoneDeps)
+      throws InterruptedException {
     // Construct the definitive error info, if there is one.
     if (errorInfo == null) {
       errorInfo =
@@ -936,7 +941,8 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
 
     NestedSet<Reportable> events =
         reportEventsAndGetEventsToStore(
-            primaryEntry, /* expectDoneDeps= */ !skyKey.supportsPartialReevaluation());
+            primaryEntry,
+            /* expectDoneDeps= */ expectDoneDeps && !skyKey.supportsPartialReevaluation());
 
     SkyValue valueWithMetadata;
     if (value == null) {

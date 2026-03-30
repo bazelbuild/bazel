@@ -73,6 +73,13 @@ public interface ProcessableGraph extends QueryableGraph {
   }
 
   /**
+   * Cancel all in-flight graph lookups. This may be a no-op for many graph implementations, but is
+   * particularly useful to clean up pending work when graph lookups consist of I/O operations or
+   * RPCs.
+   */
+  default void cancelLookups() {}
+
+  /**
    * Optional optimization: graph may use internal knowledge to filter out keys in {@code deps} that
    * have not been recomputed since the last computation of {@code parent}. When determining if
    * {@code parent} needs to be re-evaluated, this may be used to avoid unnecessary graph accesses.

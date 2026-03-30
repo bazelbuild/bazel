@@ -14,10 +14,14 @@
 package com.google.devtools.build.lib.concurrent;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.ForkJoinPool.commonPool;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -66,6 +70,9 @@ public final class QuiescingFutureTest {
   }
 
   private static final class ConstantQuiescingFuture extends QuiescingFuture<String> {
+    private ConstantQuiescingFuture() {
+      super(directExecutor());
+    }
 
     @Override
     protected String getValue() {
@@ -117,12 +124,150 @@ public final class QuiescingFutureTest {
     private final AtomicInteger counter;
 
     private CountingQuiescingFuture(AtomicInteger counter) {
+      super(directExecutor());
       this.counter = counter;
     }
 
     @Override
     protected Integer getValue() {
       return counter.get();
+    }
+  }
+
+  @Test
+  public void notifyException_callsDoneWithError_notGetValue() throws Exception {
+    AtomicBoolean doneWithErrorCalled = new AtomicBoolean(false);
+    AtomicBoolean getValueCalled = new AtomicBoolean(false);
+    var future = new TestQuiescingFuture(doneWithErrorCalled, getValueCalled);
+
+    var error = new RuntimeException("oops");
+    future.notifyException(error);
+
+    assertThat(future.isDone()).isTrue();
+    assertThat(doneWithErrorCalled.get()).isTrue();
+    assertThat(getValueCalled.get()).isFalse();
+
+    // Future should be in an error state
+    var thrown = assertThrows(ExecutionException.class, future::get);
+    assertThat(thrown).hasCauseThat().isSameInstanceAs(error);
+  }
+
+  @Test
+  public void notifyException_multipleErrors_callsDoneWithErrorOnce() throws Exception {
+    AtomicInteger doneWithErrorCallCount = new AtomicInteger(0);
+    AtomicBoolean getValueCalled = new AtomicBoolean(false);
+    var future =
+        new TestQuiescingFuture(
+            () -> doneWithErrorCallCount.getAndIncrement(), () -> getValueCalled.set(true));
+
+    future.increment(); // Add an extra task
+    future.notifyException(new RuntimeException("error1"));
+    assertThat(future.isDone()).isTrue(); // Done after first exception
+
+    future.notifyException(new RuntimeException("error2")); // Second error
+
+    // Wait for all decrements to complete
+    assertThrows(ExecutionException.class, future::get);
+    assertThat(doneWithErrorCallCount.get()).isEqualTo(1);
+    assertThat(getValueCalled.get()).isFalse();
+  }
+
+  @Test
+  public void mixNotifyExceptionAndDecrement_callsDoneWithError() throws Exception {
+    AtomicBoolean doneWithErrorCalled = new AtomicBoolean(false);
+    AtomicBoolean getValueCalled = new AtomicBoolean(false);
+    var future = new TestQuiescingFuture(doneWithErrorCalled, getValueCalled);
+
+    future.increment();
+    future.increment();
+
+    future.notifyException(new RuntimeException("error"));
+    assertThat(future.isDone()).isTrue(); // Done after first exception
+
+    future.decrement();
+    assertThat(doneWithErrorCalled.get()).isFalse(); // Not called yet
+
+    future.decrement();
+    assertThat(doneWithErrorCalled.get()).isTrue(); // Called after all decrements
+    assertThat(getValueCalled.get()).isFalse();
+  }
+
+  @Test
+  public void executorTest() throws Exception {
+    AtomicBoolean executorCalled = new AtomicBoolean(false);
+    var future =
+        new QuiescingFuture<String>(
+            command -> {
+              executorCalled.set(true);
+              command.run();
+            }) {
+          @Override
+          protected String getValue() {
+            return "executed";
+          }
+        };
+
+    future.decrement();
+    assertThat(future.get()).isEqualTo("executed");
+    assertThat(executorCalled.get()).isTrue();
+  }
+
+  @Test
+  public void concurrentNotifyExceptionAndDecrement() throws Exception {
+    CountDownLatch doneWithErrorCalled = new CountDownLatch(1);
+    AtomicBoolean getValueCalled = new AtomicBoolean(false);
+    var future =
+        new TestQuiescingFuture(
+            () -> doneWithErrorCalled.countDown(), () -> getValueCalled.set(true));
+
+    var error = new RuntimeException("concurrent error");
+    for (int i = 0; i < 10; i++) {
+      future.increment();
+      final int capturedIndex = i;
+      commonPool()
+          .execute(
+              () -> {
+                if (capturedIndex % 2 == 0) {
+                  future.notifyException(error);
+                } else {
+                  future.decrement();
+                }
+              });
+    }
+    future.decrement(); // Clears the pre-increment.
+
+    // Waits for completion
+    var thrown = assertThrows(ExecutionException.class, future::get);
+    assertThat(thrown).hasCauseThat().isSameInstanceAs(error);
+
+    assertThat(future.isDone()).isTrue();
+
+    assertThat(doneWithErrorCalled.await(60, SECONDS)).isTrue();
+  }
+
+  private static class TestQuiescingFuture extends QuiescingFuture<String> {
+    private final Runnable doneWithErrorCallback;
+    private final Runnable getValueCallback;
+
+    private TestQuiescingFuture(AtomicBoolean doneWithErrorCalled, AtomicBoolean getValueCalled) {
+      this(() -> doneWithErrorCalled.set(true), () -> getValueCalled.set(true));
+    }
+
+    private TestQuiescingFuture(Runnable doneWithErrorCallback, Runnable getValueCallback) {
+      super(directExecutor());
+      this.doneWithErrorCallback = doneWithErrorCallback;
+      this.getValueCallback = getValueCallback;
+    }
+
+    @Override
+    protected String getValue() {
+      getValueCallback.run();
+      return "result";
+    }
+
+    @Override
+    protected void doneWithError() {
+      doneWithErrorCallback.run();
     }
   }
 }

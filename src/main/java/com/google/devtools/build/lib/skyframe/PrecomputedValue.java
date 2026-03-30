@@ -18,9 +18,10 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.RuleVisibility;
+import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -61,6 +62,10 @@ public final class PrecomputedValue implements SkyValue {
       injectable.inject(precomputed.key, Delta.justNew(new PrecomputedValue(supplier.get())));
     }
 
+    public SkyKey getKey() {
+      return precomputed.getKey();
+    }
+
     @Override
     public String toString() {
       return precomputed + ": " + supplier.get();
@@ -84,12 +89,12 @@ public final class PrecomputedValue implements SkyValue {
   public static final Precomputed<StarlarkSemantics> STARLARK_SEMANTICS =
       new Precomputed<>("starlark_semantics");
 
-  public static final Precomputed<UUID> BUILD_ID =
-      new Precomputed<>("build_id", /* shareable= */ false);
+  public static final Precomputed<UUID> BUILD_ID = Precomputed.createUnshareable("build_id");
 
   public static final Precomputed<Map<String, String>> ACTION_ENV = new Precomputed<>("action_env");
 
-  public static final Precomputed<Map<String, String>> REPO_ENV = new Precomputed<>("repo_env");
+  public static final Precomputed<ImmutableMap<String, String>> REPO_ENV =
+      new Precomputed<>("repo_env");
 
   public static final Precomputed<PathPackageLocator> PATH_PACKAGE_LOCATOR =
       new Precomputed<>("path_package_locator");
@@ -97,9 +102,24 @@ public final class PrecomputedValue implements SkyValue {
   public static final Precomputed<Boolean> REMOTE_EXECUTION_ENABLED =
       new Precomputed<>("remote_execution_enabled");
 
-  // Unsharable because of complications in deserializing BuildOptions on startup due to caching.
-  public static final Precomputed<BuildOptions> BASELINE_CONFIGURATION =
-      new Precomputed<>("baseline_configuration", /*shareable=*/ false);
+  public static final Precomputed<LazyMacroExpansionPackages> LAZY_MACRO_EXPANSION_PACKAGES =
+      new Precomputed<>("lazy_macro_expansion_packages");
+
+  /**
+   * A marker Skyframe dependency for a configured target that may behave differently due to {@code
+   * --stamp=true}, even if it does not own a stamped action.
+   *
+   * <p>Examples are:
+   *
+   * <ul>
+   *   <li>When a starlark transition reads {@code //command_line_option:stamp} as an input.
+   *   <li>A {@code config_setting} that matches on the value of {@code --stamp}.
+   * </ul>
+   *
+   * <p>The value is irrelevant. Its {@link Injected#getKey} is just a marker dependency.
+   */
+  public static final Injected STAMP_SETTING_MARKER =
+      injected(new Precomputed<>("stamp_setting_marker"), Boolean.TRUE);
 
   private final Object value;
 
@@ -108,9 +128,7 @@ public final class PrecomputedValue implements SkyValue {
     this.value = Preconditions.checkNotNull(value);
   }
 
-  /**
-   * Returns the value of the variable.
-   */
+  /** Returns the value of the variable. */
   public Object get() {
     return value;
   }
@@ -142,11 +160,15 @@ public final class PrecomputedValue implements SkyValue {
     private final SkyKey key;
 
     public Precomputed(String key) {
-      this(key, /*shareable=*/ true);
+      this(key, /* shareable= */ true);
     }
 
     private Precomputed(String key, boolean shareable) {
       this.key = shareable ? Key.create(key) : UnshareableKey.create(key);
+    }
+
+    public static <T> Precomputed<T> createUnshareable(String key) {
+      return new Precomputed<>(key, /* shareable= */ false);
     }
 
     public SkyKey getKey() {

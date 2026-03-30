@@ -14,54 +14,14 @@
 
 package com.google.devtools.build.lib.bazel.rules.cpp;
 
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
-import com.google.devtools.build.lib.rules.cpp.CcDebugInfoContext;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkerInput;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingOutputs;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.rules.cpp.CcModule;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainConfigInfo;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
-import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
-import com.google.devtools.build.lib.rules.cpp.CppSemantics;
-import com.google.devtools.build.lib.rules.cpp.FeatureConfigurationForStarlark;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
-import com.google.devtools.build.lib.rules.cpp.LtoBackendArtifacts;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.BazelCcModuleApi;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 
 /** A module that contains Starlark utilities for C++ support. */
-public class BazelCcModule extends CcModule
-    implements BazelCcModuleApi<
-        StarlarkActionFactory,
-        Artifact,
-        ConstraintValueInfo,
-        StarlarkRuleContext,
-        FeatureConfigurationForStarlark,
-        CcCompilationContext,
-        CcCompilationOutputs,
-        CcLinkingOutputs,
-        LtoBackendArtifacts,
-        LinkerInput,
-        LibraryToLink,
-        CcLinkingContext,
-        CcToolchainVariables,
-        CcToolchainConfigInfo,
-        CcDebugInfoContext,
-        CppModuleMap> {
-
+public class BazelCcModule extends CcModule {
   @Override
-  public CppSemantics getSemantics() {
-    return BazelCppSemantics.CPP;
-  }
-
-  @Override
-  public CppSemantics getSemantics(Language language) {
-    return (language == Language.CPP) ? BazelCppSemantics.CPP : BazelCppSemantics.OBJC;
+  public Provider getCcToolchainProvider() {
+    return CcToolchainProvider.BAZEL_PROVIDER;
   }
 }

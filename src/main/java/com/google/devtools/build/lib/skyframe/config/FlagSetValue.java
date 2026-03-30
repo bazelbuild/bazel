@@ -14,82 +14,83 @@
 package com.google.devtools.build.lib.skyframe.config;
 
 import static com.google.common.base.Strings.nullToEmpty;
+import static java.util.Objects.requireNonNull;
 
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Objects;
 import javax.annotation.Nullable;
 
 /** A return value of {@link FlagSetFunction} */
 public class FlagSetValue implements SkyValue {
 
-  private final BuildOptions topLevelBuildOptions;
+  private final ImmutableSet<String> flags;
+
+  /**
+   * Warnings and info messages for the caller to emit. This lets the caller persistently emit
+   * messages that Skyframe ignores on cache hits. See {@link Reportable#storeForReplay}).
+   */
+  private final ImmutableSet<Event> persistentMessages;
 
   /** Key for {@link FlagSetValue} based on the raw flags. */
   @ThreadSafety.Immutable
   @AutoCodec
-  public static final class Key implements SkyKey {
-    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
-    private final Label projectFile;
-    private final String sclConfig;
-    private final BuildOptions targetOptions;
-    private final ImmutableMap<String, String> userOptions;
+  public record Key(
+      ImmutableSet<Label> targets,
+      Label projectFile,
+      @Nullable String sclConfig,
+      BuildOptions targetOptions,
+      ImmutableSet<String> allOptionNames,
+      ImmutableMap<String, String> userOptions,
+      ConfigFlagDefinitions configFlagDefinitions,
+      boolean enforceCanonical)
+      implements SkyKey {
 
-    private final boolean enforceCanonical;
-
-    public Key(
-        Label projectFile,
-        @Nullable String sclConfig,
-        BuildOptions targetOptions,
-        ImmutableMap<String, String> userOptions,
-        boolean enforceCanonical) {
-      this.projectFile = Verify.verifyNotNull(projectFile);
-      this.sclConfig = nullToEmpty(sclConfig);
-      this.targetOptions = Verify.verifyNotNull(targetOptions);
-      this.userOptions = Verify.verifyNotNull(userOptions);
-      this.enforceCanonical = enforceCanonical;
+    public Key {
+      requireNonNull(targets, "targets");
+      requireNonNull(projectFile, "projectFile");
+      sclConfig = nullToEmpty(sclConfig);
+      requireNonNull(targetOptions, "targetOptions");
+      requireNonNull(allOptionNames, "allOptionNames");
+      requireNonNull(userOptions, "userOptions");
+      requireNonNull(configFlagDefinitions, "configFlagDefinitions");
     }
 
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
+
+    /**
+     * Creating @link FlagSetValue.Key. b/409382048 requires to pass the targets to the Key so it
+     * can be used in FlagSetFunction. But this is bad for Skyframe caching. For the sake of fast
+     * iteration, this is the simplest approach. We should consider to optimize this in the future.
+     */
     public static Key create(
+        ImmutableSet<Label> targets,
         Label projectFile,
         String sclConfig,
         BuildOptions targetOptions,
+        ImmutableSet<String> allOptionNames,
         ImmutableMap<String, String> userOptions,
+        ConfigFlagDefinitions configFlagDefinitions,
         boolean enforceCanonical) {
       return interner.intern(
-          new Key(projectFile, sclConfig, targetOptions, userOptions, enforceCanonical));
-    }
-
-    public Label getProjectFile() {
-      return projectFile;
-    }
-
-    public String getSclConfig() {
-      return sclConfig;
-    }
-
-    public BuildOptions getTargetOptions() {
-      return targetOptions;
-    }
-
-    public ImmutableMap<String, String> getUserOptions() {
-      return userOptions;
-    }
-
-    /**
-     * Whether {@code --scl_config} must match an officially supported project configuration. See
-     * {@link com.google.devtools.build.lib.buildtool.BuildRequestOptions#enforceProjectConfigs}.
-     */
-    public boolean enforceCanonical() {
-      return enforceCanonical;
+          new Key(
+              targets,
+              projectFile,
+              sclConfig,
+              targetOptions,
+              allOptionNames,
+              userOptions,
+              configFlagDefinitions,
+              enforceCanonical));
     }
 
     @Override
@@ -101,38 +102,24 @@ public class FlagSetValue implements SkyValue {
     public SkyFunctionName functionName() {
       return SkyFunctions.FLAG_SET;
     }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (o == null || getClass() != o.getClass()) {
-        return false;
-      }
-      Key key = (Key) o;
-      return Objects.equals(projectFile, key.projectFile)
-          && Objects.equals(sclConfig, key.sclConfig)
-          && Objects.equals(targetOptions, key.targetOptions)
-          && Objects.equals(userOptions, key.userOptions)
-          && (enforceCanonical == key.enforceCanonical);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(projectFile, sclConfig, targetOptions, userOptions, enforceCanonical);
-    }
   }
 
-  public static FlagSetValue create(BuildOptions buildOptions) {
-    return new FlagSetValue(buildOptions);
+  public static FlagSetValue create(
+      ImmutableSet<String> flags, ImmutableSet<Event> persistentMessages) {
+    return new FlagSetValue(flags, persistentMessages);
   }
 
-  public FlagSetValue(BuildOptions buildOptions) {
-    this.topLevelBuildOptions = buildOptions;
+  public FlagSetValue(ImmutableSet<String> flags, ImmutableSet<Event> persistentMessages) {
+    this.flags = flags;
+    this.persistentMessages = persistentMessages;
   }
 
-  public BuildOptions getTopLevelBuildOptions() {
-    return topLevelBuildOptions;
+  /** Returns the set of flags to be applied to the build from the flagset, in flag=value form. */
+  public ImmutableSet<String> getOptionsFromFlagset() {
+    return flags;
+  }
+
+  public ImmutableSet<Event> getPersistentMessages() {
+    return persistentMessages;
   }
 }

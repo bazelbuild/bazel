@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -55,28 +55,13 @@ function tear_down() {
   stop_worker
 }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if "$is_windows"; then
-  declare -r EXE_EXT=".exe"
-else
-  declare -r EXE_EXT=""
-fi
-
 function has_utf8_locale() {
   charmap="$(LC_ALL=en_US.UTF-8 locale charmap 2>/dev/null)"
   [[ "${charmap}" == "UTF-8" ]]
 }
 
 function setup_credential_helper_test() {
-  setup_credential_helper
+  setup_credential_helper 3600
 
   mkdir -p a
 
@@ -111,6 +96,9 @@ function test_credential_helper_remote_cache() {
   # First build should have called helper for 4 distinct URIs.
   expect_credential_helper_calls 4
 
+  # Don't clean to avoid clearing credential cache; delete manually instead.
+  rm -rf "$(bazel info output_base)/execroot"
+
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
       --credential_helper="${TEST_TMPDIR}/credhelper" \
@@ -140,6 +128,9 @@ function test_credential_helper_remote_execution() {
 
   # First build should have called helper for 5 distinct URIs.
   expect_credential_helper_calls 5
+
+  # Don't clean to avoid clearing credential cache; delete manually instead.
+  rm -rf "$(bazel info output_base)/execroot"
 
   bazel build \
       --spawn_strategy=remote \
@@ -231,13 +222,9 @@ EOF
 
 # TODO(b/211478955): Deflake and re-enable.
 function DISABLED_test_remote_grpc_via_unix_socket_proxy() {
-  case "$PLATFORM" in
-  darwin|freebsd|linux|openbsd)
-    ;;
-  *)
+  if is_windows; then
     return 0
-    ;;
-  esac
+  fi
 
   # Test that remote execution can be routed via a UNIX domain socket if
   # supported by the platform.
@@ -270,13 +257,9 @@ EOF
 
 # TODO(b/211478955): Deflake and re-enable.
 function DISABLED_test_remote_grpc_via_unix_socket_direct() {
-  case "$PLATFORM" in
-  darwin|freebsd|linux|openbsd)
-    ;;
-  *)
+  if is_windows; then
     return 0
-    ;;
-  esac
+  fi
 
   # Test that remote execution can be routed via a UNIX domain socket if
   # supported by the platform.
@@ -307,8 +290,10 @@ EOF
 }
 
 function test_cc_binary() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 package(default_visibility = ["//visibility:public"])
 cc_binary(
 name = 'test',
@@ -334,8 +319,10 @@ EOF
 }
 
 function test_cc_test() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 package(default_visibility = ["//visibility:public"])
 cc_test(
 name = 'test',
@@ -350,36 +337,15 @@ EOF
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
       --test_output=errors \
-      --noexperimental_split_xml_generation \
-      //a:test >& $TEST_log \
-      || fail "Failed to run //a:test with remote execution"
-}
-
-function test_cc_test_split_xml() {
-  mkdir -p a
-  cat > a/BUILD <<EOF
-package(default_visibility = ["//visibility:public"])
-cc_test(
-name = 'test',
-srcs = [ 'test.cc' ],
-)
-EOF
-  cat > a/test.cc <<EOF
-#include <iostream>
-int main() { std::cout << "Hello test!" << std::endl; return 0; }
-EOF
-  bazel test \
-      --spawn_strategy=remote \
-      --remote_executor=grpc://localhost:${worker_port} \
-      --test_output=errors \
-      --experimental_split_xml_generation \
       //a:test >& $TEST_log \
       || fail "Failed to run //a:test with remote execution"
 }
 
 function test_cc_binary_grpc_cache() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 package(default_visibility = ["//visibility:public"])
 cc_binary(
 name = 'test',
@@ -404,8 +370,10 @@ EOF
 }
 
 function test_cc_binary_grpc_cache_statsline() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 package(default_visibility = ["//visibility:public"])
 cc_binary(
 name = 'test',
@@ -428,8 +396,10 @@ EOF
 }
 
 function test_failing_cc_test() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 package(default_visibility = ["//visibility:public"])
 cc_test(
 name = 'test',
@@ -582,6 +552,33 @@ EOF
   expect_log "2 processes: 1 internal, 1 local"
 }
 
+function test_local_fallback_if_remote_cache_unavailable() {
+  # Test that when --remote_local_fallback is set and remote_cache is unavailable when build starts, we fallback to
+  # not use remote cache. See https://github.com/bazelbuild/bazel/issues/13487.
+  mkdir -p gen1
+  cat > gen1/BUILD <<'EOF'
+genrule(
+name = "gen1",
+srcs = [],
+outs = ["out1"],
+cmd = "touch \"$@\"",
+)
+EOF
+
+  bazel build \
+      --spawn_strategy=local \
+      --remote_cache=grpc://noexist.invalid \
+      --incompatible_remote_local_fallback_for_remote_cache \
+      --remote_local_fallback \
+      --build_event_text_file=gen1.log \
+      --nobuild_event_text_file_path_conversion \
+      //gen1 >& $TEST_log \
+      || fail "Expected success"
+
+  mv gen1.log $TEST_log
+  expect_log "2 processes: 1 internal, 1 local"
+}
+
 function test_local_fallback_if_remote_executor_unavailable() {
   # Test that when --remote_local_fallback is set and remote_executor is unavailable when build starts, we fallback to
   # local strategy. See https://github.com/bazelbuild/bazel/issues/13487.
@@ -616,8 +613,10 @@ function is_file_uploaded() {
 function test_failed_test_outputs_not_uploaded() {
   # Test that outputs of a failed test/action are not uploaded to the remote
   # cache. This is a regression test for https://github.com/bazelbuild/bazel/issues/7232
+  add_rules_cc "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 package(default_visibility = ["//visibility:public"])
 cc_test(
   name = 'test',
@@ -671,8 +670,10 @@ EOF
 }
 
 function test_py_test() {
+  add_rules_python "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_python//python:py_test.bzl", "py_test")
 package(default_visibility = ["//visibility:public"])
 py_test(
 name = 'test',
@@ -693,8 +694,10 @@ EOF
 }
 
 function test_py_test_with_xml_output() {
+  add_rules_python "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_python//python:py_test.bzl", "py_test")
 package(default_visibility = ["//visibility:public"])
 py_test(
 name = 'test',
@@ -731,8 +734,10 @@ EOF
 }
 
 function test_failing_py_test_with_xml_output() {
+  add_rules_python "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_python//python:py_test.bzl", "py_test")
 package(default_visibility = ["//visibility:public"])
 py_test(
 name = 'test',
@@ -795,8 +800,10 @@ EOF
 }
 
 function test_timeout() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "sleep",
   timeout = "short",
@@ -805,7 +812,7 @@ sh_test(
 EOF
 
   cat > a/sleep.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 for i in {1..3}
 do
     echo "Sleeping $i..."
@@ -828,8 +835,10 @@ EOF
 }
 
 function test_passed_env_user() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "user_test",
   timeout = "short",
@@ -885,8 +894,10 @@ EOF
 # For example, if the network connection to the remote executor fails it shouldn't be displayed as
 # a test error.
 function test_display_non_testerrors() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "test",
   timeout = "short",
@@ -980,7 +991,7 @@ EOF
            || fail "Failed to run //a:starlark_output_dir_test with remote execution"
 }
 
-function test_remote_exec_properties() {
+function test_remote_default_exec_properties() {
   # Test that setting remote exec properties works.
   mkdir -p a
   cat > a/BUILD <<'EOF'
@@ -1221,9 +1232,9 @@ EOF
 
 function test_nobuild_runfile_links() {
   mkdir data && echo "hello" > data/hello && echo "world" > data/world
-
+  add_rules_shell "MODULE.bazel"
   cat > test.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 [[ -f ${RUNFILES_DIR}/_main/data/hello ]]
 [[ -f ${RUNFILES_DIR}/_main/data/world ]]
@@ -1231,6 +1242,8 @@ exit 0
 EOF
   chmod 755 test.sh
   cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 filegroup(
   name = "runfiles",
   srcs = ["data/hello", "data/world"],
@@ -1253,9 +1266,8 @@ EOF
   [[ ! -f bazel-bin/test.runfiles/MANIFEST ]] || fail "expected output manifest to exist"
 }
 
-function test_platform_default_properties_invalidation() {
-  # Test that when changing values of --remote_default_platform_properties all actions are
-  # invalidated if no platform is used.
+function test_remote_default_exec_properties_invalidation() {
+  # Test that changing --remote_default_exec_properties invalidates actions,
   mkdir -p test
   cat > test/BUILD << 'EOF'
 genrule(
@@ -1278,8 +1290,7 @@ EOF
     --remote_default_exec_properties="build=88888" \
     //test:test >& $TEST_log || fail "Failed to build //test:test"
 
-  # Changing --remote_default_platform_properties value should invalidate SkyFrames in-memory
-  # caching and make it re-run the action.
+  # Changing --remote_default_exec_properties value should invalidate Skyframe.
   expect_log "2 processes: 1 internal, 1 remote"
 
   bazel build \
@@ -1287,8 +1298,7 @@ EOF
     --remote_default_exec_properties="build=88888" \
     //test:test >& $TEST_log || fail "Failed to build //test:test"
 
-  # The same value of --remote_default_platform_properties should NOT invalidate SkyFrames in-memory cache
-  #  and make the action should not be re-run.
+  # Unchanging --remote_default_exec_properties should NOT invalidate Skyframe.
   expect_log "1 process: 1 internal"
 
   bazel shutdown
@@ -1298,25 +1308,13 @@ EOF
     --remote_default_exec_properties="build=88888" \
     //test:test >& $TEST_log || fail "Failed to build //test:test"
 
-  # The same value of --remote_default_platform_properties should NOT invalidate SkyFrames on-disk cache
-  #  and the action should not be re-run.
+  # Unchanging --remote_default_exec_properties should NOT invalidate Skyframe.
   expect_log "1 process: .*1 internal"
-
-  bazel build \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_default_exec_properties="build=88888" \
-    --remote_default_platform_properties='properties:{name:"build" value:"1234"}' \
-    //test:test >& $TEST_log && fail "Should fail" || true
-
-  # Build should fail with a proper error message if both
-  # --remote_default_platform_properties and --remote_default_exec_properties
-  # are provided via command line
-  expect_log "Setting both --remote_default_platform_properties and --remote_default_exec_properties is not allowed"
 }
 
-function test_platform_default_properties_invalidation_with_platform_exec_properties() {
-  # Test that when changing values of --remote_default_platform_properties all actions are
-  # invalidated.
+function test_remote_default_exec_properties_invalidation_with_platform_exec_properties() {
+  # Test that changing --remote_default_exec_properties invalidates actions,
+  # even if an exec platform with exec properties is set.
   mkdir -p test
   cat > test/BUILD << 'EOF'
 platform(
@@ -1348,45 +1346,9 @@ EOF
     --remote_default_exec_properties="build=88888" \
     //test:test >& $TEST_log || fail "Failed to build //test:test"
 
-  # Changing --remote_default_platform_properties value does not invalidate SkyFrames
-  # given its is superseded by the platform exec_properties.
-  expect_log "1 process: .*1 internal."
-}
-
-function test_platform_default_properties_invalidation_with_platform_remote_execution_properties() {
-  # Test that when changing values of --remote_default_platform_properties all actions are
-  # invalidated.
-  mkdir -p test
-  cat > test/BUILD << 'EOF'
-platform(
-    name = "platform_with_remote_execution_properties",
-    remote_execution_properties = """properties: {name: "foo" value: "baz"}""",
-)
-
-genrule(
-    name = "test",
-    srcs = [],
-    outs = ["output.txt"],
-    cmd = "echo \"foo\" > \"$@\""
-)
-EOF
-
-  bazel build \
-    --extra_execution_platforms=//test:platform_with_remote_execution_properties \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_default_exec_properties="build=1234" \
-    //test:test >& $TEST_log || fail "Failed to build //test:test"
-
-  expect_log "2 processes: 1 internal, 1 remote"
-
-  bazel build \
-    --extra_execution_platforms=//test:platform_with_remote_execution_properties \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_default_exec_properties="build=88888" \
-    //test:test >& $TEST_log || fail "Failed to build //test:test"
-
-  # Changing --remote_default_platform_properties value does not invalidate SkyFrames
-  # given its is superseded by the platform remote_execution_properties.
+  # Changing --remote_default_exec_properties value invalidates Skyframe, but
+  # it doesn't affect the spawn's platform properties, so we still get a remote
+  # cache hit.
   expect_log "2 processes: 1 remote cache hit, 1 internal"
 }
 
@@ -2043,6 +2005,7 @@ EOF
 }
 
 function setup_exclusive_test_case() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/success.sh <<'EOF'
 #!/bin/sh
@@ -2050,6 +2013,7 @@ exit 0
 EOF
   chmod 755 a/success.sh
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "success_test",
   srcs = ["success.sh"],
@@ -2125,6 +2089,7 @@ function test_exclusive_test_wont_remote_exec() {
 # runfiles. The error we would see here without the flag would be "Cannot find
 # runfiles". See #4685.
 function test_java_rbe_coverage_produces_report() {
+  add_rules_java "MODULE.bazel"
   mkdir -p java/factorial
 
   JAVA_TOOLS_ZIP="released"
@@ -2133,6 +2098,9 @@ function test_java_rbe_coverage_produces_report() {
   cd java/factorial
 
   cat > BUILD <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_library(
     name = "fact",
     srcs = ["Factorial.java"],
@@ -2247,13 +2215,6 @@ function test_empty_tree_artifact_as_inputs() {
   bazel build \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_merkle_tree_cache \
-    //pkg:a &>$TEST_log || fail "expected build to succeed with Merkle tree cache"
-
-  bazel clean --expunge
-  bazel build \
-    --spawn_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
     --experimental_remote_discard_merkle_trees=false \
     //pkg:a &>$TEST_log || fail "expected build to succeed without Merkle tree discarding"
 
@@ -2318,15 +2279,6 @@ function test_create_tree_artifact_outputs() {
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
     //pkg:a &>$TEST_log || fail "expected build to succeed"
-  [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
-  [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
-
-  bazel clean --expunge
-  bazel build \
-    --spawn_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_merkle_tree_cache \
-    //pkg:a &>$TEST_log || fail "expected build to succeed with Merkle tree cache"
   [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
   [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
 
@@ -2412,10 +2364,15 @@ function test_cc_rbe_coverage_produces_report() {
   # Check to see if intermediate files are supported, otherwise skip.
   gcov --help | grep "\-i," || return 0
 
+  add_rules_cc "MODULE.bazel"
   local test_dir="a/cc/coverage_test"
   mkdir -p $test_dir
 
   cat > "$test_dir"/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
@@ -2547,10 +2504,15 @@ function test_cc_rbe_coverage_produces_report_with_llvm() {
     return 0
   fi
 
+  add_rules_cc "MODULE.bazel"
   local test_dir="a/cc/coverage_test"
   mkdir -p $test_dir
 
   cat > "$test_dir"/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
@@ -2640,7 +2602,7 @@ int main(int argc, char** argv) {
 
 EOF
 
-  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 GCOV=llvm-profdata BAZEL_LLVM_COV=llvm-cov CC=clang \
+  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 BAZEL_LLVM_PROFDATA=llvm-profdata BAZEL_LLVM_COV=llvm-cov CC=clang \
     bazel coverage \
       --test_output=all \
       --experimental_fetch_all_coverage_outputs \
@@ -2681,8 +2643,11 @@ EOF
 }
 
 function test_async_upload_works_for_flaky_tests() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "test",
     srcs = ["test.sh"],
@@ -2763,8 +2728,10 @@ function test_local_test_execution_with_disk_cache() {
   # considered stale on a cache hit.
   # Regression test for https://github.com/bazelbuild/bazel/issues/14426.
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = 'test',
   srcs = ['test.sh'],
@@ -2781,7 +2748,7 @@ EOF
     --disk_cache=$CACHEDIR \
     //a:test >& $TEST_log || fail "Failed to build //a:test"
 
-  expect_log "7 processes: 5 internal, 2 .*-sandbox"
+  expect_log "7 processes: 6 internal, 2 .*-sandbox"
 
   bazel clean
 
@@ -2789,7 +2756,7 @@ EOF
     --disk_cache=$CACHEDIR \
     //a:test >& $TEST_log || fail "Failed to build //a:test"
 
-  expect_log "7 processes: 2 disk cache hit, 5 internal"
+  expect_log "7 processes: 2 disk cache hit, 6 internal"
 }
 
 # Bazel assumes that non-ASCII characters in file contents (and, in
@@ -2934,7 +2901,7 @@ EOF
 function test_unicode_execution() {
   # The in-tree remote execution worker only supports non-ASCII paths when
   # running in a UTF-8 locale.
-  if ! "$is_windows"; then
+  if ! is_windows; then
     if ! has_utf8_locale; then
       echo "Skipping test due to lack of UTF-8 locale."
       echo "Available locales:"
@@ -2967,7 +2934,7 @@ function test_unicode_execution() {
 function test_unicode_cache() {
   # The in-tree remote execution worker only supports non-ASCII paths when
   # running in a UTF-8 locale.
-  if ! "$is_windows"; then
+  if ! is_windows; then
     if ! has_utf8_locale; then
       echo "Skipping test due to lack of UTF-8 locale."
       echo "Available locales:"
@@ -3021,12 +2988,14 @@ local_repository(
   path = "other_repo",
 )
 EOF
+  add_rules_cc "MODULE.bazel"
 
   mkdir -p other_repo
   touch other_repo/REPO.bazel
 
   mkdir -p other_repo/lib
   cat > other_repo/lib/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
   name = "lib",
   srcs = ["lib.cpp"],
@@ -3046,6 +3015,7 @@ EOF
 
   mkdir -p other_repo/test
   cat > other_repo/test/BUILD <<'EOF'
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_test(
   name = "test",
   srcs = ["test.cpp"],
@@ -3141,15 +3111,6 @@ EOF
     build \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_merkle_tree_cache \
-    //pkg:b &>$TEST_log || fail "expected build to succeed with Merkle tree cache"
-
-  bazel clean --expunge
-  bazel \
-    --windows_enable_symlinks \
-    build \
-    --spawn_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
     --experimental_remote_discard_merkle_trees=false \
     //pkg:b &>$TEST_log || fail "expected build to succeed without Merkle tree discarding"
 
@@ -3178,13 +3139,14 @@ function setup_cc_binary_tool_with_dynamic_deps() {
   local repo=$1
 
   cat >> MODULE.bazel <<'EOF'
-bazel_dep(name = "apple_support", version = "1.17.0")
+bazel_dep(name = "apple_support", version = "1.21.0")
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "other_repo",
   path = "other_repo",
 )
 EOF
+  add_rules_cc "MODULE.bazel"
 
   mkdir -p $repo
   touch $repo/REPO.bazel
@@ -3193,6 +3155,9 @@ EOF
   # Use a comma in the target name as that is known to be problematic whith -Wl,
   # which is commonly used to pass rpaths to the linker.
   cat > $repo/lib/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_import.bzl", "cc_import")
+
 cc_binary(
   name = "l,ib",
   srcs = ["lib.cpp"],
@@ -3219,6 +3184,8 @@ EOF
 
   mkdir -p $repo/pkg
   cat > $repo/pkg/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 cc_binary(
   name = "tool",
   srcs = ["tool.cpp"],
@@ -3244,7 +3211,6 @@ function test_cc_binary_tool_with_dynamic_deps() {
   setup_cc_binary_tool_with_dynamic_deps .
 
   bazel build \
-      --incompatible_macos_set_install_name \
       --remote_executor=grpc://localhost:${worker_port} \
       //pkg:rule >& $TEST_log || fail "Build should succeed"
 }
@@ -3253,7 +3219,6 @@ function test_cc_binary_tool_with_dynamic_deps_sibling_repository_layout() {
   setup_cc_binary_tool_with_dynamic_deps .
 
   bazel build \
-      --incompatible_macos_set_install_name \
       --experimental_sibling_repository_layout \
       --remote_executor=grpc://localhost:${worker_port} \
       //pkg:rule >& $TEST_log || fail "Build should succeed"
@@ -3263,7 +3228,6 @@ function test_external_cc_binary_tool_with_dynamic_deps() {
   setup_cc_binary_tool_with_dynamic_deps other_repo
 
   bazel build \
-      --incompatible_macos_set_install_name \
       --remote_executor=grpc://localhost:${worker_port} \
       @other_repo//pkg:rule >& $TEST_log || fail "Build should succeed"
 }
@@ -3272,14 +3236,15 @@ function test_external_cc_binary_tool_with_dynamic_deps_sibling_repository_layou
   setup_cc_binary_tool_with_dynamic_deps other_repo
 
   bazel build \
-      --incompatible_macos_set_install_name \
       --experimental_sibling_repository_layout \
       --remote_executor=grpc://localhost:${worker_port} \
       @other_repo//pkg:rule >& $TEST_log || fail "Build should succeed"
 }
 
 function test_shard_status_file_checked_remote_download_minimal() {
+  add_rules_shell "MODULE.bazel"
   cat <<'EOF' > BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
     name = 'x',
     srcs = ['x.sh'],
@@ -3291,7 +3256,6 @@ EOF
 
   bazel test \
       --remote_executor=grpc://localhost:${worker_port} \
-      --incompatible_check_sharding_support \
       --remote_download_minimal \
       //:x  &> $TEST_log && fail "expected failure"
   expect_log "Sharding requested, but the test runner did not advertise support for it by touching TEST_SHARD_STATUS_FILE."
@@ -3299,13 +3263,14 @@ EOF
   echo 'touch "$TEST_SHARD_STATUS_FILE"' > x.sh
   bazel test \
       --remote_executor=grpc://localhost:${worker_port} \
-      --incompatible_check_sharding_support \
       --remote_download_minimal \
       //:x  &> $TEST_log || fail "expected success"
 }
 
 function test_premature_exit_file_checked_remote_download_minimal() {
+  add_rules_shell "MODULE.bazel"
   cat <<'EOF' > BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
     name = 'x',
     srcs = ['x.sh'],
@@ -3449,7 +3414,29 @@ function test_platform_no_remote_exec_test_action() {
 exit 0
 EOF
   chmod 755 a/test.sh
+  cat > a/rule.bzl <<'EOF'
+def _my_test(ctx):
+  script = ctx.actions.declare_file(ctx.label.name)
+  ctx.actions.run_shell(
+    outputs = [script],
+    command = """
+cat > $1 <<'EOF2'
+#!/usr/bin/env sh
+exit 0
+EOF2
+chmod +x $1
+""",
+    arguments = [script.path],
+  )
+  return [DefaultInfo(executable = script)]
+my_test = rule(
+  implementation = _my_test,
+  test = True,
+)
+EOF
   cat > a/BUILD <<'EOF'
+load(":rule.bzl", "my_test")
+
 constraint_setting(name = "foo")
 
 constraint_value(
@@ -3460,11 +3447,14 @@ constraint_value(
 
 platform(
     name = "host",
-    constraint_values = [":has_foo"],
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+        ":has_foo",
+    ],
     exec_properties = {
-        "no-remote-exec": "1",
+        "test.no-remote-exec": "1",
     },
-    parents = ["@bazel_tools//tools:host_platform"],
     visibility = ["//visibility:public"],
 )
 
@@ -3480,36 +3470,31 @@ platform(
     },
 )
 
-sh_test(
+my_test(
     name = "test",
-    srcs = ["test.sh"],
-    exec_compatible_with = [":has_foo"],
+    exec_group_compatible_with = {
+        "test": [":has_foo"],
+    },
 )
 
-sh_test(
+my_test(
     name = "test2",
-    srcs = ["test.sh"],
-    exec_compatible_with = [":has_foo"],
-    target_compatible_with = [":has_foo"],
+    exec_properties = {
+        "test.no-remote-exec": "1",
+    },
 )
 EOF
 
-  # A test target includes 2 actions: 1 build action (a) and 1 test action (b)
-  # This test currently demonstrates that:
-  #  - (b) would always be executed on Bazel's target platform, set by "--platforms=" flag.
-  #  - Regardless of 'no-remote-exec' set on (b)'s platform, (b) would still be executed remotely.
-  #    The remote test action will be sent with `"no-remote-exec": "1"` in it's platform.
-  #
-  # TODO: Make this test's result consistent with 'test_platform_no_remote_exec'.
-  # Test action (b) should be executed locally instead of remotely in this setup.
-
+  # A my_test target includes 2 actions: 1 build action (a) and 1 test action (b),
+  # with (b) running two spawns (test execution, test XML generation).
+  # The genrule spawn runs remotely, both test spawns run locally.
   bazel test \
     --extra_execution_platforms=//a:remote,//a:host \
     --platforms=//a:remote \
     --spawn_strategy=remote,local \
     --remote_executor=grpc://localhost:${worker_port} \
     //a:test >& $TEST_log || fail "Failed to test //a:test"
-  expect_log "1 local, 1 remote"
+  expect_log "2 local, 1 remote"
 
   bazel test \
     --extra_execution_platforms=//a:remote,//a:host \
@@ -3517,7 +3502,7 @@ EOF
     --spawn_strategy=remote,local \
     --remote_executor=grpc://localhost:${worker_port} \
     //a:test2 >& $TEST_log || fail "Failed to test //a:test2"
-  expect_log "1 local, 1 remote"
+  expect_log "2 local, 1 remote"
 
   bazel clean
 
@@ -3527,7 +3512,7 @@ EOF
     --spawn_strategy=remote,local \
     --remote_executor=grpc://localhost:${worker_port} \
     //a:test >& $TEST_log || fail "Failed to test //a:test"
-  expect_log "2 remote cache hit"
+  expect_log "3 remote cache hit"
 
   bazel test \
     --extra_execution_platforms=//a:remote,//a:host \
@@ -3535,10 +3520,11 @@ EOF
     --spawn_strategy=remote,local \
     --remote_executor=grpc://localhost:${worker_port} \
     //a:test2 >& $TEST_log || fail "Failed to test //a:test2"
-  expect_log "2 remote cache hit"
+  expect_log "3 remote cache hit"
 }
 
 function setup_inlined_outputs() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/input.txt <<'EOF'
 input
@@ -3579,6 +3565,7 @@ my_rule = rule(
 EOF
   cat > a/BUILD <<'EOF'
 load("//a:defs.bzl", "my_rule")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 my_rule(
   name = "my_rule",
@@ -3685,6 +3672,167 @@ EOF
     --experimental_output_paths=strip \
     //a:my_rule >& $TEST_log || fail "Failed to build //a:my_rule"
   assert_contains "input" bazel-bin/a/my_rule
+}
+
+# Verifies that the contents of a directory have the same representation with
+# remote execution regardless of whether they are added as a source directory or
+# via globbing.
+function test_source_directory() {
+  add_rules_shell "MODULE.bazel"
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+filegroup(
+    name = "source_directory",
+    srcs = ["dir"],
+)
+
+filegroup(
+    name = "glob",
+    srcs = glob(["dir/**"]),
+)
+
+sh_binary(
+    name = "tool_with_source_directory",
+    srcs = ["tool.sh"],
+    data = [":source_directory"],
+)
+
+sh_binary(
+    name = "tool_with_glob",
+    srcs = ["tool.sh"],
+    data = [":glob"],
+)
+
+GENRULE_COMMAND_TEMPLATE = """
+[[ -f a/dir/file.txt ]] || { echo "a/dir/file.txt is not a file"; exit 1; }
+[[ ! -L a/dir/file.txt ]] || { echo "a/dir/file.txt is a symlink"; exit 1; }
+[[ -f a/dir/subdir/file.txt ]] || { echo "a/dir/subdir/file.txt is not a file"; exit 1; }
+[[ ! -L a/dir/subdir/file.txt ]] || { echo "a/dir/subdir/file.txt is a symlink"; exit 1; }
+[[ -f a/dir/symlink.txt ]] || { echo "a/dir/symlink.txt is not a file"; exit 1; }
+[[ ! -L a/dir/symlink.txt ]] || { echo "a/dir/symlink.txt is a symlink"; exit 1; }
+[[ -f a/dir/symlink_dir/file.txt ]] || { echo "a/dir/subdir/file.txt is not a file"; exit 1; }
+[[ ! -L a/dir/symlink_dir ]] || { echo "a/dir/symlink_dir is a symlink"; exit 1; }
+[[ ! -e a/dir/empty_dir ]] || { echo "a/dir/empty_dir exists"; exit 1; }
+[[ ! -e a/dir/symlink_empty_dir ]] || { echo "a/dir/symlink_empty_dir exists"; exit 1; }
+
+runfiles_prefix=$(execpath %s).runfiles/_main
+[[ -f $$runfiles_prefix/a/dir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/file.txt is not a file"; exit 1; }
+[[ ! -L $$runfiles_prefix/a/dir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/file.txt is a symlink"; exit 1; }
+[[ -f $$runfiles_prefix/a/dir/subdir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/subdir/file.txt is not a file"; exit 1; }
+[[ ! -L $$runfiles_prefix/a/dir/subdir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/subdir/file.txt is a symlink"; exit 1; }
+[[ -f $$runfiles_prefix/a/dir/symlink.txt ]] || { echo "$$runfiles_prefix/a/dir/symlink.txt is not a file"; exit 1; }
+[[ ! -L $$runfiles_prefix/a/dir/symlink.txt ]] || { echo "$$runfiles_prefix/a/dir/symlink.txt is a symlink"; exit 1; }
+[[ -f $$runfiles_prefix/a/dir/symlink_dir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/subdir/file.txt is not a file"; exit 1; }
+[[ ! -L $$runfiles_prefix/a/dir/symlink_dir ]] || { echo "$$runfiles_prefix/a/dir/symlink_dir is a symlink"; exit 1; }
+[[ ! -e $$runfiles_prefix/a/dir/empty_dir ]] || { echo "$$runfiles_prefix/a/dir/empty_dir exists"; exit 1; }
+[[ ! -e $$runfiles_prefix/a/dir/symlink_empty_dir ]] || { echo "$$runfiles_prefix/a/dir/symlink_empty_dir exists"; exit 1; }
+
+touch $@
+"""
+
+genrule(
+    name = "gen_source_directory",
+    srcs = [":source_directory"],
+    tools = [":tool_with_source_directory"],
+    outs = ["out1"],
+    cmd = GENRULE_COMMAND_TEMPLATE % ":tool_with_source_directory",
+)
+
+genrule(
+    name = "gen_glob",
+    srcs = [":glob"],
+    tools = [":tool_with_glob"],
+    outs = ["out2"],
+    cmd = GENRULE_COMMAND_TEMPLATE % ":tool_with_glob",
+)
+EOF
+  mkdir -p a/dir
+  touch a/tool.sh
+  chmod +x a/tool.sh
+  touch a/dir/file.txt
+  ln -s file.txt a/dir/symlink.txt
+  mkdir -p a/dir/subdir
+  touch a/dir/subdir/file.txt
+  ln -s subdir a/dir/symlink_dir
+  mkdir a/dir/empty_dir
+  ln -s empty_dir a/dir/symlink_empty_dir
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:gen_glob >& $TEST_log || fail "Failed to build //a:gen_glob"
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:gen_source_directory >& $TEST_log || fail "Failed to build //a:gen_source_directory"
+}
+
+# TODO: Turn this into a more targeted test after enabling proper source
+#  directory tracking (#25834) - it is not specific to remote execution.
+function test_source_directory_dangling_symlink() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+    name = "gen",
+    srcs = ["dir"],
+    outs = ["out"],
+    cmd = """
+touch $@
+""",
+)
+EOF
+  mkdir -p a/dir
+  ln -s does_not_exist a/dir/symlink.txt
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:gen >& $TEST_log && fail "build //a:gen should fail"
+  expect_log "The file type of '.*a/dir/symlink.txt' is not supported."
+}
+
+function do_test_concurrent_modification_during_upload() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+    name = "gen_and_overwrite",
+    srcs = ["in"],
+    outs = ["out"],
+    # Non-hermetically overwrite the source file.
+    cmd = """
+cat $< $< > $@
+echo -n "overwritten" > $<
+""",
+    tags = ["local"],
+)
+
+genrule(
+    name = "remote",
+    # Forced to run after gen_and_overwrite.
+    srcs = ["in", "out"],
+    outs = ["combined"],
+    cmd = "cat $(SRCS) > $@",
+)
+EOF
+  echo -n "$1" > a/in
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:remote >& $TEST_log && fail "build //a:remote should fail"
+  assert_contains "overwritten" a/in
+  expect_log "while uploading file .*/a/in:"
+  expect_log_n "a/in" 1
+}
+
+function test_concurrent_modification_during_upload_shorter() {
+  do_test_concurrent_modification_during_upload "very long content that will be overwritten"
+}
+
+function test_concurrent_modification_during_upload_longer() {
+  do_test_concurrent_modification_during_upload "short"
+}
+
+function test_concurrent_modification_during_upload_same_length() {
+  do_test_concurrent_modification_during_upload "same length"
 }
 
 run_suite "Remote execution and remote cache tests"

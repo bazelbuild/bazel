@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -27,6 +27,7 @@ set -e
 
 function set_up() {
   add_bazel_skylib "MODULE.bazel"
+  add_rules_shell "MODULE.bazel"
 
   mkdir -p pkg
   touch pkg/somesourcefile
@@ -50,6 +51,8 @@ EOF
   chmod 755 pkg/slowtest.sh
   touch pkg/sourcefileA pkg/sourcefileB pkg/sourcefileC
   cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 exports_files(["somesourcefile"])
 sh_test(
   name = "true",
@@ -172,6 +175,21 @@ def _semifailing_aspect_impl(target, ctx):
     })]
 
 semifailing_aspect = aspect(implementation = _semifailing_aspect_impl)
+EOF
+cat > requiringaspect.bzl <<'EOF'
+load(":simpleaspect.bzl", "simple_aspect")
+def _requiring_aspect_impl(target, ctx):
+    for orig_out in ctx.rule.attr.outs:
+        aspect_out = ctx.actions.declare_file(orig_out.name + ".requiring")
+        ctx.actions.write(
+            output=aspect_out,
+            content = "Hello from requiring aspect")
+    return [OutputGroupInfo(aspect_out=depset([aspect_out]))]
+
+requiring_aspect = aspect(
+    implementation=_requiring_aspect_impl,
+    requires=[simple_aspect],
+)
 EOF
 mkdir -p semifailingpkg/
 cat > semifailingpkg/BUILD <<'EOF'
@@ -535,8 +553,10 @@ base=$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR
 echo "some information" > $base/something.part
 EOF
   chmod u+x undeclared_annotations/undeclared_annotations_test.sh
-  echo "sh_test(name='bep_undeclared_test', srcs=['undeclared_annotations_test.sh'], tags=['local'])" \
-    > undeclared_annotations/BUILD
+  cat > undeclared_annotations/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(name='bep_undeclared_test', srcs=['undeclared_annotations_test.sh'], tags=['local'])
+EOF
   bazel test  --build_event_text_file="${TEST_log}" //undeclared_annotations:bep_undeclared_test || fail "Expected success"
   expect_log 'test_result'
   expect_log 'test.outputs_manifest__ANNOTATIONS'
@@ -555,8 +575,11 @@ base=$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR
 echo "some information" > $base/something.pb
 EOF
   chmod u+x undeclared_annotations/undeclared_annotations_test.sh
-  echo "sh_test(name='bep_undeclared_pb_test', srcs=['undeclared_annotations_test.sh'], tags=['local'])" \
-    > undeclared_annotations/BUILD
+  cat > undeclared_annotations/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(name='bep_undeclared_pb_test', srcs=['undeclared_annotations_test.sh'], tags=['local'])
+EOF
+
   bazel test --build_event_text_file="${TEST_log}" //undeclared_annotations:bep_undeclared_pb_test || fail "Expected success"
   expect_log 'test_result'
   expect_log 'test.outputs_manifest__ANNOTATIONS.pb'
@@ -815,6 +838,54 @@ function test_aspect_target_summary() {
   expect_log_once 'overall_build_success.*true'
 }
 
+function test_aspect_with_failing_target_summary() {
+  mkdir -p demo
+  cat >demo/BUILD <<'EOF'
+genrule(
+    name = "failrule",
+    outs = ["fail.out"],
+    cmd = "echo failrule > $(location fail.out); false",
+)
+EOF
+
+  bazel build --keep_going --build_event_text_file=$TEST_log \
+    --experimental_bep_target_summary \
+    --aspects=simpleaspect.bzl%simple_aspect \
+    --output_groups=default,aspect_out \
+    //demo:failrule && fail "bazel build unexpectedly succeeded"
+  expect_not_log 'aborted'
+  expect_log_n '^configured' 2
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
+  expect_log_n '^completed' 2
+  expect_log_once '^target_summary '
+  expect_not_log 'overall_build_success.*true'
+}
+
+function test_aspect_with_requires_failing_target_summary() {
+  mkdir -p demo
+  cat >demo/BUILD <<'EOF'
+genrule(
+    name = "failrule",
+    outs = ["fail.out"],
+    cmd = "echo failrule > $(location fail.out); false",
+)
+EOF
+
+  bazel build --keep_going --build_event_text_file=$TEST_log \
+    --experimental_bep_target_summary \
+    --aspects=requiringaspect.bzl%requiring_aspect \
+    --output_groups=default,aspect_out \
+    //demo:failrule && fail "bazel build unexpectedly succeeded"
+  expect_not_log 'aborted'
+  expect_log_n '^configured' 3
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
+  expect_log_n '^completed' 3
+  expect_log_once '^target_summary '
+  expect_not_log 'overall_build_success.*true'
+}
+
 function test_failing_aspect() {
   bazel build --build_event_text_file=$TEST_log \
     --aspects=failingaspect.bzl%failing_aspect \
@@ -1015,10 +1086,10 @@ function test_loading_failure() {
   # being expanded.
   (bazel build --build_event_text_file=$TEST_log \
          //does/not/exist && fail "build failure expected") || true
-  expect_log_once 'aborted'
+  expect_log_once 'aborted\ {'
   expect_log_once 'reason: LOADING_FAILURE'
   expect_log 'description.*BUILD file not found'
-  expect_not_log 'expanded'
+  expect_not_log 'expanded\ {'
   expect_log 'last_message: true'
   expect_log_once '^build_tool_logs'
 }
@@ -1223,6 +1294,8 @@ function test_circular_dep() {
   touch test.sh
   chmod u+x test.sh
   cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
   name = "circular",
   srcs = ["test.sh"],
@@ -1465,11 +1538,13 @@ function test_skyframe_stats() {
 function test_build_metrics() {
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(name="a", srcs=["a.sh"])
 EOF
 
   cat > a/a.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 exit 0
 EOF
 
@@ -1488,6 +1563,7 @@ EOF
 function test_packages_loaded_contains_only_successfully_loaded_packages() {
   mkdir just-to-get-packages-needed-for-toolchain-resolution
   cat > just-to-get-packages-needed-for-toolchain-resolution/BUILD <<'EOF'
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name = 'whatever')
 EOF
   # Do an initial invocation to get Bazel to load packages necessary for
@@ -1504,12 +1580,14 @@ EOF
     unsuccessful-because-of-BUILD-file-syntax-error \
     unsuccessful-because-of-BUILD-file-evaluation-error
   cat > successful/BUILD <<'EOF'
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(
   name = 'successful',
   deps = ['//dep-of-successful:dep'],
 )
 EOF
   cat > dep-of-successful/BUILD <<'EOF'
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name = 'dep', visibility = ['//visibility:public'])
 EOF
   # We use 3 different sorts of package loading errors to exercise different
@@ -1572,6 +1650,62 @@ EOF
   #   * //successful
   #   * //dep-of-successful
   expect_log 'packages_loaded: 2'
+}
+
+function test_glob_filesystem_operation_cost() {
+  local p="test_glob_filesystem_operation_cost"
+  mkdir -p "$p" "$p/c"
+  touch "$p/a"
+  touch "$p/b"
+  touch "$p/c/c.txt"
+  mkdir "$p/d"
+  for subdir in d/1 d/2 d/1/1 d/1/2 d/2/1 d/2/2
+  do
+    local dir="$p/$subdir"
+    mkdir -p "$dir"
+    touch "$dir/a.txt"
+    touch "$dir/b.txt"
+    touch "$dir/c.txt"
+  done
+  cat > "$p/BUILD" <<'EOF'
+# These two glob calls share the same filesystem operation of readdir(p).
+# Since that directory has 5 dirents, this operation has cost 1+5 = 6.
+glob(["*a"])
+glob(["*b"])
+
+# This will do a direct stat of p/c/c.txt, so it has cost 1.
+glob(["c/c.txt"])
+
+# This will do a readdir on each recursive subdir of d. 3 dirs of those (d, d/1,
+# and d/2) have 5 dirents each and 4 dirs of those (d/1/1, d/1/2, d/2/1, d/2/2)
+# have 3 dirents each . So this glob has cost 3*(1+5) + 4*(1+3) = 34.
+glob(["d/**"])
+
+# Therefore the total glob filesystem operation cost is 6 + 1 + 34 = 41.
+EOF
+
+  bazel build \
+    --nobuild \
+    --build_event_json_file=bep.json \
+    --experimental_publish_package_metrics_in_bep \
+    "//$p:BUILD"
+  cp bep.json "$TEST_log" || fail "cp failed"
+  expect_log '"packageLoadMetrics":\[{"name":"test_glob_filesystem_operation_cost"[^}]*"globFilesystemOperationCost":"41"'
+}
+
+function test_java_version_info_in_build_started() {
+  mkdir -p a
+  touch a/BUILD
+  bazel build --nobuild //a:all --build_event_text_file=bep.txt \
+    >/dev/null 2>&1 || fail "build failed"
+  assert_contains "java_version_info {" bep.txt
+  assert_contains 'java_version: ".\+"' bep.txt
+  assert_contains "java_major_version: [0-9]\+" bep.txt
+  if grep -sq 'java_version: "[0-9]\+\\.[1-9]' bep.txt; then
+    # Due to proto default values, java_minor_version will be set in the BEP
+    # textproto file only if the minor version is not 0.
+    assert_contains "java_minor_version: [0-9]\+" bep.txt
+  fi
 }
 
 run_suite "Integration tests for the build event stream"

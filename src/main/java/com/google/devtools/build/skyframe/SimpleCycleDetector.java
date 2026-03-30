@@ -23,12 +23,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.bugreport.BugReport;
-import com.google.devtools.build.lib.profiler.AutoProfiler;
-import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.skyframe.NodeEntry.LifecycleState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDeps;
-import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -44,7 +41,15 @@ import javax.annotation.Nullable;
  */
 public class SimpleCycleDetector implements CycleDetector {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-  private static final Duration MIN_LOGGING = Duration.ofMillis(10);
+
+  /** The max number of cycles we will report to the user for a given root, to avoid OOMing. */
+  private static final int MAX_CYCLES_TO_STORE = 20;
+
+  private final boolean storeExactCycles;
+
+  public SimpleCycleDetector(boolean storeExactCycles) {
+    this.storeExactCycles = storeExactCycles;
+  }
 
   @Override
   public void checkForCycles(
@@ -52,28 +57,25 @@ public class SimpleCycleDetector implements CycleDetector {
       EvaluationResult.Builder<?> result,
       ParallelEvaluatorContext evaluatorContext)
       throws InterruptedException {
-    try (AutoProfiler p =
-        GoogleAutoProfilerUtils.logged("Checking for Skyframe cycles", MIN_LOGGING)) {
-      for (SkyKey root : badRoots) {
-        ErrorInfo errorInfo = checkForCycles(root, evaluatorContext);
-        if (errorInfo == null) {
-          // This node just wasn't finished when evaluation aborted -- there were no cycles below
-          // it.
-          checkState(
-              !evaluatorContext.keepGoing(root),
-              "Missing error info with keep going (root=%s, badRoots=%s)",
-              root,
-              badRoots);
-          continue;
-        }
+    for (SkyKey root : badRoots) {
+      ErrorInfo errorInfo = checkForCycles(root, evaluatorContext);
+      if (errorInfo == null) {
+        // This node just wasn't finished when evaluation aborted -- there were no cycles below
+        // it.
         checkState(
-            !errorInfo.getCycleInfo().isEmpty(),
-            "%s was not evaluated, but was not part of a cycle",
-            root);
-        result.addError(root, errorInfo);
-        if (!evaluatorContext.keepGoing(root)) {
-          return;
-        }
+            !evaluatorContext.keepGoing(root),
+            "Missing error info with keep going (root=%s, badRoots=%s)",
+            root,
+            badRoots);
+        continue;
+      }
+      checkState(
+          !errorInfo.getCycleInfo().isEmpty(),
+          "%s was not evaluated, but was not part of a cycle",
+          root);
+      result.addError(root, errorInfo);
+      if (!evaluatorContext.keepGoing(root)) {
+        return;
       }
     }
   }
@@ -87,7 +89,7 @@ public class SimpleCycleDetector implements CycleDetector {
    * those children. Finally, when the original root's node is constructed, we return its ErrorInfo.
    */
   @Nullable
-  private static ErrorInfo checkForCycles(SkyKey root, ParallelEvaluatorContext evaluatorContext)
+  private ErrorInfo checkForCycles(SkyKey root, ParallelEvaluatorContext evaluatorContext)
       throws InterruptedException {
     // The number of cycles found. Do not keep on searching for more cycles after this many were
     // found.
@@ -130,7 +132,7 @@ public class SimpleCycleDetector implements CycleDetector {
           continue;
         }
         Set<SkyKey> removedDeps = ImmutableSet.of();
-        if (cyclesFound < MAX_CYCLES) {
+        if (cyclesFound < MAX_CYCLES_TO_STORE || !storeExactCycles) {
           // Value must be ready, because all of its children have finished, so we can build its
           // error.
           checkState(
@@ -178,7 +180,7 @@ public class SimpleCycleDetector implements CycleDetector {
               "Previously requested deps not done: " + undoneDeps.getDepKeys(), undoneDeps);
         }
         env.setError(entry, ErrorInfo.fromChildErrors(key, errorDeps));
-        Set<SkyKey> reverseDeps = env.commitAndGetParents(entry);
+        Set<SkyKey> reverseDeps = env.commitAndGetParents(entry, /* expectDoneDeps= */ true);
         evaluatorContext.signalParentsOnAbort(key, reverseDeps, entry.getVersion());
       } else {
         entry = evaluatorContext.getGraph().get(null, Reason.CYCLE_CHECKING, key);
@@ -189,7 +191,7 @@ public class SimpleCycleDetector implements CycleDetector {
       if (entry.isDone()) {
         continue;
       }
-      if (cyclesFound == MAX_CYCLES) {
+      if (cyclesFound >= MAX_CYCLES_TO_STORE && storeExactCycles) {
         // Do not keep on searching for cycles indefinitely, to avoid excessive runtime/OOMs.
         continue;
       }
@@ -199,7 +201,12 @@ public class SimpleCycleDetector implements CycleDetector {
         // Found a cycle!
         cyclesFound++;
         Iterable<SkyKey> cycle = graphPath.subList(cycleStart, graphPath.size());
-        logger.atInfo().log("Found cycle : %s from %s", cycle, graphPath);
+        // Log the cycle only if storing cycles, as cycle-storing mode ensures that the number
+        // of graph cycles is bounded. Otherwise, a cycle-heavy graph could overflow the
+        // INFO log.
+        if (storeExactCycles) {
+          logger.atInfo().log("Found cycle : %s from %s", cycle, graphPath);
+        }
         // Put this node into a consistent state for building if it is dirty.
         if (entry.isDirty()) {
           // If this loop runs more than once, we are in the peculiar position of entry not needing
@@ -248,18 +255,19 @@ public class SimpleCycleDetector implements CycleDetector {
                   Sets.difference(entry.getAllRemainingDirtyDirectDeps(), removedDeps),
                   evaluatorContext);
 
-          // Construct error info for this node. Get errors from children, which are all done
+          // Construct full error info for this node. Get errors from children, which are all done
           // except possibly for the cycleChild.
           List<ErrorInfo> allErrors =
               getChildrenErrorsForCycleChecking(
                   entry.getTemporaryDirectDeps().getAllElementsAsIterable(),
-                  /*unfinishedChild=*/ cycleChild,
+                  /* unfinishedChild= */ cycleChild,
                   evaluatorContext);
-          CycleInfo cycleInfo = new CycleInfo(cycle);
+          CycleInfo cycleInfo =
+              storeExactCycles ? CycleInfo.createCycleInfo(cycle) : CycleInfo.cycleInfoNoDetails();
           // Add in this cycle.
           allErrors.add(ErrorInfo.fromCycle(cycleInfo));
           env.setError(entry, ErrorInfo.fromChildErrors(key, allErrors));
-          Set<SkyKey> reverseDeps = env.commitAndGetParents(entry);
+          Set<SkyKey> reverseDeps = env.commitAndGetParents(entry, /* expectDoneDeps= */ true);
           evaluatorContext.signalParentsOnAbort(key, reverseDeps, entry.getVersion());
           continue;
         } else {
@@ -271,7 +279,8 @@ public class SimpleCycleDetector implements CycleDetector {
               key,
               root,
               entry);
-          return ErrorInfo.fromCycle(new CycleInfo(graphPath.subList(0, cycleStart), cycle));
+          return ErrorInfo.fromCycle(
+              CycleInfo.createCycleInfo(graphPath.subList(0, cycleStart), cycle));
         }
       }
 
@@ -351,9 +360,6 @@ public class SimpleCycleDetector implements CycleDetector {
    */
   private static final SkyKey CHILDREN_FINISHED = () -> null;
 
-  /** The max number of cycles we will report to the user for a given root, to avoid OOMing. */
-  private static final int MAX_CYCLES = 20;
-
   /**
    * Returns the child of this node that is in the cycle that was just found. If the cycle is a
    * self-edge, returns the node itself.
@@ -410,7 +416,7 @@ public class SimpleCycleDetector implements CycleDetector {
    * @param unfinishedChild child which is allowed to not be done.
    * @return List of ErrorInfos from all children that had errors.
    */
-  private static List<ErrorInfo> getChildrenErrorsForCycleChecking(
+  private List<ErrorInfo> getChildrenErrorsForCycleChecking(
       Iterable<SkyKey> children, SkyKey unfinishedChild, ParallelEvaluatorContext evaluatorContext)
       throws InterruptedException {
     List<ErrorInfo> allErrors = new ArrayList<>();
@@ -420,9 +426,14 @@ public class SimpleCycleDetector implements CycleDetector {
       NodeEntry childNodeEntry = childEntries.get(childKey);
       ErrorInfo errorInfo =
           getErrorMaybe(
-              childKey, childNodeEntry, /*allowUnfinished=*/ childKey.equals(unfinishedChild));
+              childKey, childNodeEntry, /* allowUnfinished= */ childKey.equals(unfinishedChild));
       if (errorInfo != null) {
-        allErrors.add(errorInfo);
+        // Drop child cycle error if not storing cycles, as these will be redundant with the cycle
+        // error of the parent node.
+        boolean dropErrorInfo = !storeExactCycles && !errorInfo.getCycleInfo().isEmpty();
+        if (!dropErrorInfo) {
+          allErrors.add(errorInfo);
+        }
       }
     }
     return allErrors;

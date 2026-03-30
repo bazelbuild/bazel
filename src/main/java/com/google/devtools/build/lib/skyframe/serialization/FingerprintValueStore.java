@@ -15,15 +15,54 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.immediateWriteStatus;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
+import com.google.devtools.build.lib.util.DecimalBucketer;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /** Encapsulates fingerprint keyed bytes storage system. */
 public interface FingerprintValueStore {
+  /** Usage statistics. */
+  record Stats(
+      long valueBytesReceived,
+      long valueBytesSent,
+      long keyBytesSent,
+      long entriesWritten,
+      long entriesFound,
+      long entriesNotFound,
+      long getBatches,
+      long setBatches,
+      ImmutableList<DecimalBucketer.Bucket> getLatencyMicros,
+      ImmutableList<DecimalBucketer.Bucket> setLatencyMicros,
+      ImmutableList<DecimalBucketer.Bucket> getBatchLatencyMicros,
+      ImmutableList<DecimalBucketer.Bucket> setBatchLatencyMicros) {}
+
+  Stats EMPTY_STATS =
+      new Stats(
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          ImmutableList.of(),
+          ImmutableList.of(),
+          ImmutableList.of(),
+          ImmutableList.of());
+
+  default Stats getStats() {
+    return EMPTY_STATS;
+  }
+
+  default void shutdown() {}
+
   /**
    * Associates a fingerprint with the serialized representation of some object.
    *
@@ -32,18 +71,24 @@ public interface FingerprintValueStore {
    *
    * @return a future that completes when the write completes
    */
-  ListenableFuture<Void> put(KeyBytesProvider fingerprint, byte[] serializedBytes);
+  WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes);
 
   /**
    * Retrieves the serialized bytes associated with {@code fingerprint}.
    *
-   * <p>If the given fingerprint does not exist in the store, the returned future fails with a
-   * {@link MissingFingerprintValueException}.
-   *
-   * <p>The caller should deduplicate {@code get} calls to avoid multiple fetches of the same
-   * fingerprint.
+   * @param fallback whether to search fallback silos if the primary one misses.
+   * @return a future eventually containing the serialized bytes. If the fingerprint is missing, the
+   *     future may contain null or a failed future, depending on the implementation.
    */
-  ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) throws IOException;
+  default ListenableFuture<byte[]> get(KeyBytesProvider fingerprint, boolean fallback)
+      throws IOException {
+    throw new UnsupportedOperationException();
+  }
+
+  /** Retrieves the serialized bytes associated with {@code fingerprint}, searching fallbacks. */
+  default ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) throws IOException {
+    return get(fingerprint, /* fallback= */ true);
+  }
 
   /**
    * {@link FingerprintValueStore#get} was called with a fingerprint that does not exist in the
@@ -67,22 +112,45 @@ public interface FingerprintValueStore {
 
   /** An in-memory {@link FingerprintValueStore} for testing. */
   static class InMemoryFingerprintValueStore implements FingerprintValueStore {
+    private static final ListenableFuture<byte[]> IMMEDIATE_NULL = immediateFuture((byte[]) null);
+
     public final ConcurrentHashMap<KeyBytesProvider, byte[]> fingerprintToContents =
         new ConcurrentHashMap<>();
 
-    @Override
-    public ListenableFuture<Void> put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
-      fingerprintToContents.put(fingerprint, serializedBytes);
-      return immediateVoidFuture();
+    private final boolean useNullForMissingValues;
+
+    public InMemoryFingerprintValueStore() {
+      this(/* useNullForMissingValues= */ false);
+    }
+
+    public InMemoryFingerprintValueStore(boolean useNullForMissingValues) {
+      this.useNullForMissingValues = useNullForMissingValues;
     }
 
     @Override
-    public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) {
+    public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
+      fingerprintToContents.put(fingerprint, serializedBytes);
+      return immediateWriteStatus();
+    }
+
+    @Override
+    public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint, boolean fallback) {
       byte[] serializedBytes = fingerprintToContents.get(fingerprint);
       if (serializedBytes == null) {
-        return immediateFailedFuture(new MissingFingerprintValueException(fingerprint));
+        return useNullForMissingValues
+            ? IMMEDIATE_NULL
+            : immediateFailedFuture(new MissingFingerprintValueException(fingerprint));
       }
       return immediateFuture(serializedBytes);
+    }
+
+    public void remove(KeyBytesProvider fingerprint) {
+      // KeyBytesProvider is sealed and .equals() is properly implemented for all implementations
+      fingerprintToContents.remove(fingerprint);
+    }
+
+    public Iterable<KeyBytesProvider> keys() {
+      return fingerprintToContents.keySet();
     }
   }
 }

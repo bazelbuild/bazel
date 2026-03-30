@@ -15,6 +15,9 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -60,7 +63,9 @@ public class AttributeValuesAdapter extends TypeAdapter<AttributeValues> {
     JsonObject jsonObject = JsonParser.parseReader(in).getAsJsonObject();
     Dict.Builder<String, Object> dict = Dict.builder();
     for (Map.Entry<String, JsonElement> entry : jsonObject.entrySet()) {
-      dict.put(entry.getKey(), deserializeObject(entry.getValue()));
+      // The set of valid attribute names per repo rule is small and static, so interning them
+      // helps reduce memory usage.
+      dict.put(entry.getKey().intern(), deserializeObject(entry.getValue()));
     }
     return AttributeValues.create(dict.buildImmutable());
   }
@@ -148,7 +153,7 @@ public class AttributeValuesAdapter extends TypeAdapter<AttributeValues> {
     if (obj instanceof Label label) {
       String labelString = label.getUnambiguousCanonicalForm();
       Preconditions.checkState(labelString.startsWith("@@"));
-      return labelString;
+      return internalToUnicode(labelString);
     }
     String string = (String) obj;
     // Strings that start with "@@" need to be escaped to avoid being interpreted as a label. We
@@ -157,19 +162,20 @@ public class AttributeValuesAdapter extends TypeAdapter<AttributeValues> {
     // sequence also have to be escaped.
     if (string.startsWith("@@")
         || (string.startsWith(STRING_ESCAPE_SEQUENCE) && string.endsWith(STRING_ESCAPE_SEQUENCE))) {
-      return STRING_ESCAPE_SEQUENCE + string + STRING_ESCAPE_SEQUENCE;
+      return internalToUnicode(STRING_ESCAPE_SEQUENCE + string + STRING_ESCAPE_SEQUENCE);
     }
-    return string;
+    return internalToUnicode(string);
   }
 
   /**
    * Deserializes a string to either a label or a String depending on the prefix and presence of the
    * escape sequence.
    *
-   * @param value String to be deserialized
+   * @param unicodeValue String to be deserialized
    * @return Object of type String of Label
    */
-  private Object deserializeStringToObject(String value) {
+  private Object deserializeStringToObject(String unicodeValue) {
+    String value = unicodeToInternal(unicodeValue);
     // A string represents a label if and only if it starts with "@@".
     if (value.startsWith("@@")) {
       return Label.parseCanonicalUnchecked(value);

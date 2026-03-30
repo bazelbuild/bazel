@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
+import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
@@ -54,6 +55,12 @@ final class GenQueryPackageProvider implements PackageProvider, CachingPackageLo
     }
     // Prefer to throw a checked exception on error; malformed genquery should not crash.
     throw new NoSuchPackageException(packageId, "is not within the scope of the query");
+  }
+
+  @Override
+  public InputFile getBuildFile(ExtendedEventHandler eventHandler, PackageIdentifier packageId)
+      throws NoSuchPackageException {
+    return getPackage(eventHandler, packageId).getBuildFile();
   }
 
   @Override

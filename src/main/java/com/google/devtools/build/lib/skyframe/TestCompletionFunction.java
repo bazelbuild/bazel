@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
@@ -84,7 +85,7 @@ public final class TestCompletionFunction implements SkyFunction {
           DetailedExitCode detailedExitCode = e.getDetailedExitCode();
           if (detailedExitCode.getExitCode().equals(ExitCode.BUILD_FAILURE)
               && ctValue instanceof ActionLookupValue actionLookupValue) {
-            postTestResultEventsForUnbuildableTestInputs(
+            postTestResultEventsForBuiltTestThatCouldNotBeRun(
                 env, (ActionLookupData) actionKey, actionLookupValue, detailedExitCode);
           } else {
             return null;
@@ -101,23 +102,28 @@ public final class TestCompletionFunction implements SkyFunction {
   }
 
   /**
-   * Posts events for test actions that could not run because one or more exec-configuration inputs
-   * common to all tests failed to build.
+   * Posts events for test actions that could not run despite the fact that the test target built
+   * successfully.
    *
    * <p>When we run this SkyFunction we will have already built the test executable and its inputs,
-   * but we might fail to build the exec-configuration attributes providing inputs to the {@link
-   * TestRunnerAction} such as {@code $test_runtime}, {@code $test_wrapper}, {@code
-   * test_setup_script} and others (see {@link
-   * com.google.devtools.build.lib.analysis.BaseRuleClasses.TestBaseRule#build(com.google.devtools.build.lib.packages.RuleClass.Builder,
-   * com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment)} where all Test-type rules
-   * have additional attributes added).
+   * but we might be unable to run the test. The currently known scenarios where this happens are:
    *
-   * <p>When these exec-configuration inputs cannot be built, we do not get to use any {@code
-   * TestStrategy} that is responsible for posting {@link TestAttempt} and {@link TestResult}
-   * events. We need to handle this case here and post minimal events indicating the test {@link
-   * BlazeTestStatus.FAILED_TO_BUILD FAILED_TO_BUILD}.
+   * <ol>
+   *   <li>A failure to build the exec-configured attributes providing inputs to the {@link
+   *       TestRunnerAction} such as {@code $test_runtime}, {@code $test_wrapper}, {@code
+   *       test_setup_script} and others.
+   *   <li>The test strategy throws an {@link ExecException} prior to running the test, for example
+   *       when some sort of validation fails.
+   *   <li>The test action observes lost input(s) and initiates action rewinding, but the lost
+   *       input(s) fail to build. Note that this implies action nondeterminism, since the lost
+   *       input(s) were previously built successfully.
+   * </ol>
+   *
+   * <p>In these scenarios, we do not get to use any {@code TestStrategy} that is responsible for
+   * posting {@link TestAttempt} and {@link TestResult} events. We need to post minimal events here
+   * indicating the test {@link BlazeTestStatus#FAILED_TO_BUILD FAILED_TO_BUILD}.
    */
-  private static void postTestResultEventsForUnbuildableTestInputs(
+  private static void postTestResultEventsForBuiltTestThatCouldNotBeRun(
       Environment env,
       ActionLookupData actionKey,
       ActionLookupValue actionLookupValue,

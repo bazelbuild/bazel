@@ -32,6 +32,10 @@ public final class CpuProfilerTest {
 
   private CpuProfilerTest() {} // uninstantiable
 
+  static {
+    CpuProfiler.setNativeSupport(new CpuProfilerNativeSupportImpl());
+  }
+
   public static void main(String[] args) throws Exception {
     String pprofCmd = args.length == 0 ? "/bin/pprof" : args[0];
     if (!new File(pprofCmd).exists()) {
@@ -105,7 +109,7 @@ public final class CpuProfilerTest {
     boolean ok = true;
     for (String want : new String[] {"flat%", "sorted", "range"}) {
       if (!got.contains(want)) {
-        System.err.println("pprof output does not contain substring: " + got);
+        System.err.println("pprof output does not contain substring: " + want);
         ok = false;
       }
     }

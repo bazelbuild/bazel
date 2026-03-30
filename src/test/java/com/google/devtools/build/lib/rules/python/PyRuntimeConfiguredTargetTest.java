@@ -51,31 +51,6 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void pythonVersionDefault() throws Exception {
-    // When using toolchains, the python_version attribute is mandatory.
-    useConfiguration("--incompatible_use_python_toolchains=false");
-    scratch.file(
-        "pkg/BUILD",
-        getPyLoad("py_runtime"),
-        "py_runtime(",
-        "    name = 'myruntime_default',",
-        "    interpreter_path = '/default/interpreter',",
-        ")",
-        "py_runtime(",
-        "    name = 'myruntime_explicit',",
-        "    interpreter_path = '/explicit/interpreter',",
-        "    python_version = 'PY3',",
-        ")");
-    PyRuntimeInfo infoDefault =
-        PyRuntimeInfo.fromTarget(getConfiguredTarget("//pkg:myruntime_default"));
-    PyRuntimeInfo infoExplicit =
-        PyRuntimeInfo.fromTarget(getConfiguredTarget("//pkg:myruntime_explicit"));
-
-    assertThat(infoDefault.getPythonVersion()).isEqualTo(PythonVersion.PY3);
-    assertThat(infoExplicit.getPythonVersion()).isEqualTo(PythonVersion.PY3);
-  }
-
-  @Test
   public void cannotUseBothInterpreterAndPath() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(

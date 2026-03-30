@@ -14,32 +14,32 @@
 
 package com.google.devtools.build.lib.platform;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 /** Detects suspension events. */
 public final class SystemDiskSpaceModule extends BlazeModule {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
-  static {
-    JniLoader.loadJni();
-  }
+  private PlatformNativeDepsService service;
 
   @GuardedBy("this")
   @Nullable
   private Reporter reporter;
 
-  private native void registerJNI();
-
-  public SystemDiskSpaceModule() {
-    if (JniLoader.isJniAvailable()) {
-      registerJNI();
-    }
+  @Override
+  public void workspaceInit(
+      BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
+    service = checkNotNull(runtime.getBlazeService(PlatformNativeDepsService.class));
+    service.registerDiskSpaceJni(this::diskSpaceCallback);
   }
 
   @Override

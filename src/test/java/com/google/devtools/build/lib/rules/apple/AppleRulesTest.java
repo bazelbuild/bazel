@@ -55,6 +55,10 @@ public class AppleRulesTest extends AnalysisTestCase {
     scratch.file(
         "xcode/BUILD",
         """
+        load("@build_bazel_apple_support//xcode:available_xcodes.bzl", "available_xcodes")
+        load("@build_bazel_apple_support//xcode:xcode_config.bzl", "xcode_config")
+        load("@build_bazel_apple_support//xcode:xcode_version.bzl", "xcode_version")
+
         xcode_version(
             name = "version10_1_0",
             aliases = [
@@ -108,6 +112,7 @@ public class AppleRulesTest extends AnalysisTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "xxx",
             srcs = ["dep1.cc"],

@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 # Description:
 #   C++ utility tests for Bazel
 package(default_visibility = ["//visibility:public"])
@@ -31,6 +34,7 @@ cc_test(
     deps = [
         ":test_util",
         "//src/main/cpp/util:filesystem",
+        "@abseil-cpp//absl/strings",
         "@com_google_googletest//:gtest_main",
     ] + select({
         "//src/conditions:windows": [

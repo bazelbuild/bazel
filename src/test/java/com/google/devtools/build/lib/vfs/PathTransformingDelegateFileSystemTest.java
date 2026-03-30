@@ -19,6 +19,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.Arrays.stream;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -41,7 +42,7 @@ import org.junit.runner.RunWith;
 
 /** Unit tests for PathTransformingDelegateFileSystem. Make sure all methods rewrite paths. */
 @RunWith(TestParameterInjector.class)
-public class PathTransformingDelegateFileSystemTest {
+public final class PathTransformingDelegateFileSystemTest {
   private final FileSystem delegateFileSystem = createMockFileSystem();
   private final TestDelegateFileSystem fileSystem = new TestDelegateFileSystem(delegateFileSystem);
 
@@ -56,7 +57,8 @@ public class PathTransformingDelegateFileSystemTest {
   public void verifyGetDigestFunctionCalled() {
     // getDigestFunction gets called in the constructor of PathTransformingDelegateFileSystem, make
     // sure to "consume" that so that tests don't need to account for that.
-    verify(delegateFileSystem).getDigestFunction();
+    verify(delegateFileSystem, atLeastOnce()).getDigestFunction();
+    verifyNoMoreInteractions(delegateFileSystem);
   }
 
   @Test
@@ -101,10 +103,12 @@ public class PathTransformingDelegateFileSystemTest {
   public void createSymbolicLink_callsDelegateWithRewrittenPathNotTarget() throws Exception {
     PathFragment target = PathFragment.create("/original/target");
 
-    fileSystem.createSymbolicLink(PathFragment.create("/original/dir/file"), target);
+    fileSystem.createSymbolicLink(
+        PathFragment.create("/original/dir/file"), target, SymlinkTargetType.UNSPECIFIED);
 
     verify(delegateFileSystem)
-        .createSymbolicLink(PathFragment.create("/transformed/dir/file"), target);
+        .createSymbolicLink(
+            PathFragment.create("/transformed/dir/file"), target, SymlinkTargetType.UNSPECIFIED);
     verifyNoMoreInteractions(delegateFileSystem);
   }
 
@@ -158,7 +162,11 @@ public class PathTransformingDelegateFileSystemTest {
             getFileSystemMethod("getPath", PathFragment.class),
             getFileSystemMethod("readSymbolicLink", PathFragment.class),
             getFileSystemMethod("resolveSymbolicLinks", PathFragment.class),
-            getFileSystemMethod("createSymbolicLink", PathFragment.class, PathFragment.class));
+            getFileSystemMethod(
+                "createSymbolicLink",
+                PathFragment.class,
+                PathFragment.class,
+                SymlinkTargetType.class));
 
     private static Method getFileSystemMethod(String name, Class<?>... parameterTypes) {
       try {

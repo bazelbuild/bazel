@@ -87,8 +87,8 @@ final class SingletonTuple extends Tuple {
   }
 
   @Override
-  public void repr(Printer printer) {
-    printer.append('(').repr(elem).append(",)");
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    printer.append('(').repr(elem, semantics).append(",)");
   }
 
   @Override

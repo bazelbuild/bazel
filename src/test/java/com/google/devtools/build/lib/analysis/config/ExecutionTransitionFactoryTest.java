@@ -47,7 +47,7 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
                 .attributes(FakeAttributeMapper.empty())
                 .analysisData(
                     getSkyframeExecutor()
-                        .getStarlarkExecTransitionForTesting(targetConfig.getOptions(), reporter))
+                        .getStarlarkExecTransition(targetConfig.getOptions(), reporter))
                 .executionPlatform(execPlatform)
                 .build());
   }
@@ -69,7 +69,7 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
     assertThat(result).isNotNull();
     assertThat(result).isNotSameInstanceAs(options);
 
-    assertThat(result.get(CoreOptions.class).isExec).isTrue();
+    assertThat(result.get(CoreOptions.class).getIsExec()).isTrue();
     assertThat(result.get(PlatformOptions.class).platforms).containsExactly(EXECUTION_PLATFORM);
   }
 
@@ -93,93 +93,21 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void executionTransition_confDist_legacy() throws Exception {
+  public void executionTransitionOutputPathDistinguisher() throws Exception {
     PatchTransition transition = getExecTransition(EXECUTION_PLATFORM);
     assertThat(transition).isNotNull();
 
     // Apply the transition.
     BuildOptions options =
         BuildOptions.of(
-            targetConfig.getOptions().getFragmentClasses(),
-            "--platforms=//platform:target",
-            "--experimental_exec_configuration_distinguisher=legacy");
+            targetConfig.getOptions().getFragmentClasses(), "--platforms=//platform:target");
 
     BuildOptions result =
         transition.patch(
             new BuildOptionsView(options, transition.requiresOptionFragments()),
             new StoredEventHandler());
 
-    assertThat(result.get(CoreOptions.class).affectedByStarlarkTransition).isEmpty();
-    assertThat(result.get(CoreOptions.class).platformSuffix)
-        .contains(String.format("%X", EXECUTION_PLATFORM.getCanonicalForm().hashCode()));
-  }
-
-  @Test
-  public void executionTransition_confDist_fullHash() throws Exception {
-    PatchTransition transition = getExecTransition(EXECUTION_PLATFORM);
-    assertThat(transition).isNotNull();
-
-    // Apply the transition.
-    BuildOptions options =
-        BuildOptions.of(
-            targetConfig.getOptions().getFragmentClasses(),
-            "--platforms=//platform:target",
-            "--experimental_exec_configuration_distinguisher=full_hash");
-
-    BuildOptions result =
-        transition.patch(
-            new BuildOptionsView(options, transition.requiresOptionFragments()),
-            new StoredEventHandler());
-
-    BuildOptions mutableCopy = result.clone();
-    mutableCopy.get(CoreOptions.class).platformSuffix = "";
-    int fullHash = mutableCopy.hashCode();
-
-    assertThat(result.get(CoreOptions.class).affectedByStarlarkTransition).isEmpty();
-    assertThat(result.get(CoreOptions.class).platformSuffix)
-        .contains(String.format("%X", fullHash));
-  }
-
-  @Test
-  public void executionTransition_confDist_diffToAffected() throws Exception {
-    PatchTransition transition = getExecTransition(EXECUTION_PLATFORM);
-    assertThat(transition).isNotNull();
-
-    // Apply the transition.
-    BuildOptions options =
-        BuildOptions.of(
-            targetConfig.getOptions().getFragmentClasses(),
-            "--platforms=//platform:target",
-            "--experimental_exec_configuration_distinguisher=diff_to_affected");
-
-    BuildOptions result =
-        transition.patch(
-            new BuildOptionsView(options, transition.requiresOptionFragments()),
-            new StoredEventHandler());
-
-    assertThat(result.get(CoreOptions.class).affectedByStarlarkTransition).isNotEmpty();
-    assertThat(result.get(CoreOptions.class).platformSuffix).isEqualTo("exec");
-  }
-
-  @Test
-  public void executionTransition_confDist_off() throws Exception {
-    PatchTransition transition = getExecTransition(EXECUTION_PLATFORM);
-    assertThat(transition).isNotNull();
-
-    // Apply the transition.
-    BuildOptions options =
-        BuildOptions.of(
-            targetConfig.getOptions().getFragmentClasses(),
-            "--platforms=//platform:target",
-            "--experimental_exec_configuration_distinguisher=off");
-
-    BuildOptions result =
-        transition.patch(
-            new BuildOptionsView(options, transition.requiresOptionFragments()),
-            new StoredEventHandler());
-
-    assertThat(result.get(CoreOptions.class).affectedByStarlarkTransition).isEmpty();
-    assertThat(result.get(CoreOptions.class).platformSuffix).isEqualTo("exec");
+    assertThat(result.get(CoreOptions.class).getPlatformSuffix()).isEqualTo("exec");
   }
 
   @Test
@@ -249,8 +177,10 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
     }
 
     // Fix the details of the exec transition so that the check passes.
-    flipped.get(CoreOptions.class).starlarkExecConfig =
-        targetConfig.getOptions().get(CoreOptions.class).starlarkExecConfig;
+    flipped
+        .get(CoreOptions.class)
+        .setStarlarkExecConfig(
+            targetConfig.getOptions().get(CoreOptions.class).getStarlarkExecConfig());
 
     PatchTransition execTransition = getExecTransition(EXECUTION_PLATFORM);
     BuildOptions execOptions =
@@ -300,10 +230,12 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
                         || o.getValue().hasOptionMetadataTag(OptionMetadataTag.EXPERIMENTAL))
             .filter(o -> o.getValue().getDefinition().getType().isAssignableFrom(boolean.class))
             .filter(o -> !o.getValue().getDefinition().isDeprecated())
-            .filter(
-                // Skipping this explicitly as propagating it causes a cycle when compiling the
-                // optimizer itself.
-                o -> !o.getKey().equals("experimental_local_java_optimizations"))
+            // Skipping this explicitly as propagating it causes a cycle when compiling
+            // the optimizer itself.
+            .filter(o -> !o.getKey().equals("experimental_local_java_optimizations"))
+            // A rare (only?) case of a flag named "--experimental_..." that isn't
+            // actually experimental.
+            .filter(o -> !o.getKey().equals("experimental_deps_ok"))
             .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
     // Verify all "--experimental_*" options also have the EXPERIMENTAL metadata tag.
@@ -323,8 +255,10 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
     }
 
     // Fix the details of the exec transition so that the check passes.
-    flipped.get(CoreOptions.class).starlarkExecConfig =
-        targetConfig.getOptions().get(CoreOptions.class).starlarkExecConfig;
+    flipped
+        .get(CoreOptions.class)
+        .setStarlarkExecConfig(
+            targetConfig.getOptions().get(CoreOptions.class).getStarlarkExecConfig());
 
     PatchTransition execTransition = getExecTransition(EXECUTION_PLATFORM);
     BuildOptions execOptions =

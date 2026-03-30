@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.OS;
-import io.grpc.Server;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Before;
@@ -40,12 +39,12 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ServerWatcherRunnableTest {
   private ManualClock clock;
-  private Server mockServer;
+  private GrpcCommandServer mockGrpcCommandServer;
 
   @Before
   public final void setManualClock() {
     clock = new ManualClock();
-    mockServer = mock(Server.class);
+    mockGrpcCommandServer = mock(GrpcCommandServer.class);
     BlazeClock.setClock(clock);
   }
 
@@ -54,14 +53,17 @@ public class ServerWatcherRunnableTest {
     CommandManager mockCommands = mock(CommandManager.class);
     ServerWatcherRunnable underTest =
         new ServerWatcherRunnable(
-            mockServer, /*maxIdleSeconds=*/ 10, /*shutdownOnLowSysMem=*/ false, mockCommands);
+            mockGrpcCommandServer,
+            /* maxIdleSeconds= */ 10,
+            /* shutdownOnLowSysMem= */ false,
+            mockCommands);
     Thread thread = new Thread(underTest);
     when(mockCommands.isEmpty()).thenReturn(true);
     AtomicInteger checkIdleCounter = new AtomicInteger();
     doAnswer(
             invocation -> {
               checkIdleCounter.incrementAndGet();
-              verify(mockServer, never()).shutdown();
+              verify(mockGrpcCommandServer, never()).shutdown();
               clock.advanceMillis(Duration.ofSeconds(5).toMillis());
               return null;
             })
@@ -71,7 +73,7 @@ public class ServerWatcherRunnableTest {
     thread.start();
     thread.join(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
 
-    verify(mockServer).shutdown();
+    verify(mockGrpcCommandServer).shutdown();
     assertThat(checkIdleCounter.get()).isEqualTo(2);
   }
 
@@ -94,7 +96,7 @@ public class ServerWatcherRunnableTest {
   }
 
   @Test
-  public void runLowAsboluteLowPercentageMemoryCheck() throws Exception {
+  public void runLowAbsoluteLowPercentageMemoryCheck() throws Exception {
     if (!usingLinux()) {
       return;
     }
@@ -123,7 +125,7 @@ public class ServerWatcherRunnableTest {
     ProcMeminfoParser mockParser = mock(ProcMeminfoParser.class);
     ServerWatcherRunnable underTest =
         new ServerWatcherRunnable(
-            mockServer,
+            mockGrpcCommandServer,
             // Shut down after an hour if we see no memory issues.
             /* maxIdleSeconds= */ Duration.ofHours(1).toSeconds(),
             shutdownOnLowSysMem,
@@ -146,7 +148,7 @@ public class ServerWatcherRunnableTest {
 
     thread.start();
     thread.join(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
-    verify(mockServer).shutdown();
+    verify(mockGrpcCommandServer).shutdown();
 
     // If we shut down due to memory pressure, it will only be after 5 minutes of being idle.
     return serverWatcherLoopCounter.get() == 5;

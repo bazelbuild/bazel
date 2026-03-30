@@ -16,14 +16,6 @@ java_library(
     ],
 )
 
-java_library(
-    name = "api-android",
-    srcs = glob(["*.java"]),
-    deps = [
-        "//third_party/java/junit:junit-android",
-    ],
-)
-
 filegroup(
     name = "srcs",
     srcs = glob(["**/*.java"]) + ["BUILD"],

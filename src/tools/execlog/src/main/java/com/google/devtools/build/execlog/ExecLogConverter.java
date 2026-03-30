@@ -77,7 +77,7 @@ final class ExecLogConverter {
       System.exit(1);
     }
 
-    if (!Files.exists(options.input.path()) && !Files.isReadable(options.input.path())) {
+    if (!Files.isReadable(options.input.path())) {
       System.err.println(
           "Input path '" + options.input.path() + "' does not exist or is not readable.");
       System.exit(1);

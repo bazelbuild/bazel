@@ -35,10 +35,10 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -67,7 +67,6 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
   private Path output;
   private List<Substitution> substitutions;
   private BlazeDirectories directories;
-  private BinTools binTools;
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   @Before
@@ -84,15 +83,13 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
                 scratch.resolve("/base"),
                 scratch.resolve("/userRoot")),
             scratch.resolve("/workspace"),
-            /* defaultSystemJavabase= */ null,
             "mock-product-name");
-    binTools = BinTools.empty(directories);
   }
 
   private void createArtifacts(String template) throws Exception {
     ArtifactRoot workspace = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/workspace")));
     scratch.dir("/workspace/out");
-    outputRoot = ArtifactRoot.asDerivedRoot(scratch.dir("/workspace"), RootType.Output, "out");
+    outputRoot = ArtifactRoot.asDerivedRoot(scratch.dir("/workspace"), RootType.OUTPUT, "out");
     Path input = scratch.overwriteFile("/workspace/input.txt", StandardCharsets.UTF_8, template);
     inputArtifact = ActionsTestUtil.createArtifact(workspace, input);
     output = scratch.resolve("/workspace/out/destination.txt");
@@ -117,7 +114,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
 
   @Test
   public void testExpansion() throws Exception {
-    Executor executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
+    Executor executor = new TestExecutorBuilder(fileSystem, directories).build();
     ActionResult unused = create().execute(createContext(executor));
     String content = new String(FileSystemUtils.readContentAsLatin1(output));
     String expected = Joiner.on('\n').join("key=foo", "value=bar");
@@ -197,7 +194,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
   private ActionExecutionContext createContext(Executor executor) {
     return new ActionExecutionContext(
         executor,
-        /* actionInputFileCache= */ null,
+        /* inputMetadataProvider= */ null,
         ActionInputPrefetcher.NONE,
         actionKeyContext,
         /* outputMetadataStore= */ null,
@@ -206,10 +203,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
         new FileOutErr(),
         new StoredEventHandler(),
         /* clientEnv= */ ImmutableMap.of(),
-        /* topLevelFilesets= */ ImmutableMap.of(),
-        /* artifactExpander= */ null,
         /* actionFileSystem= */ null,
-        /* skyframeDepsResult= */ null,
         DiscoveredModulesPruner.DEFAULT,
         SyscallCache.NO_CACHE,
         ThreadStateReceiver.NULL_INSTANCE);
@@ -221,7 +215,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
 
   private void executeTemplateExpansion(String expected, List<Substitution> substitutions)
       throws Exception {
-    Executor executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
+    Executor executor = new TestExecutorBuilder(fileSystem, directories).build();
     ActionResult unused = createWithArtifact(substitutions).execute(createContext(executor));
     String actual = FileSystemUtils.readContent(output, StandardCharsets.UTF_8);
     assertThat(actual).isEqualTo(expected);
@@ -252,12 +246,16 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     // scratch.overwriteFile appends a newline, so we need an additional \n here
     String expected = String.format("%s%s\n", SPECIAL_CHARS, SPECIAL_CHARS);
 
-    executeTemplateExpansion(expected, ImmutableList.of(Substitution.of("%key%", SPECIAL_CHARS)));
+    executeTemplateExpansion(
+        expected,
+        ImmutableList.of(
+            Substitution.of("%key%", StringEncoding.unicodeToInternal(SPECIAL_CHARS))));
   }
 
-  private String computeKey(TemplateExpansionAction action) throws EvalException {
+  private String computeKey(TemplateExpansionAction action)
+      throws EvalException, InterruptedException {
     Fingerprint fp = new Fingerprint();
-    action.computeKey(actionKeyContext, /*artifactExpander=*/ null, fp);
+    action.computeKey(actionKeyContext, /* inputMetadataProvider= */ null, fp);
     return fp.hexDigestAndReset();
   }
 }

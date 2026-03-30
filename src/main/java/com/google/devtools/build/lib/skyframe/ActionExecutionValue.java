@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.RichArtifactData;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -38,6 +38,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.ClassName;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -46,6 +49,7 @@ import com.google.errorprone.annotations.FormatString;
 import java.util.Collection;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 
@@ -57,10 +61,10 @@ public abstract class ActionExecutionValue implements SkyValue {
   private ActionExecutionValue() {}
 
   @VisibleForTesting // All non-test usage should go through createFromOutputMetadataStore().
-  public static ActionExecutionValue createFromOutputMetadataStore(
+  public static ActionExecutionValue create(
       ImmutableMap<Artifact, FileArtifactValue> artifactData,
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData,
-      FilesetOutputTree filesetOutput,
+      RichArtifactData richArtifactData,
       NestedSet<Artifact> discoveredModules) {
     // Use forEach instead of entrySet to avoid instantiating an EntrySet in ImmutableMap.
     artifactData.forEach(
@@ -88,20 +92,23 @@ public abstract class ActionExecutionValue implements SkyValue {
                           tree));
         });
 
-    if (!filesetOutput.isEmpty()) {
+    if (richArtifactData != null) {
       checkArgument(
           artifactData.size() == 1,
-          "Fileset actions should have a single output file (the manifest): %s",
+          "actions with rich artifact data should have a single output file (the manifest): %s",
           artifactData);
       checkArgument(
           treeArtifactData.isEmpty(),
-          "Fileset actions do not output tree artifacts: %s",
+          "actions with rich artifact data do not output tree artifacts: %s",
           treeArtifactData);
       checkArgument(
           discoveredModules.isEmpty(),
-          "Fileset actions do not discover modules: %s",
+          "actions with rich artifact data do not discover modules: %s",
           discoveredModules);
-      return new Fileset(artifactData, filesetOutput);
+      return new WithRichData(
+          Iterables.getOnlyElement(artifactData.keySet()),
+          Iterables.getOnlyElement(artifactData.values()),
+          richArtifactData);
     }
 
     if (!discoveredModules.isEmpty()) {
@@ -113,29 +120,36 @@ public abstract class ActionExecutionValue implements SkyValue {
           treeArtifactData.isEmpty(),
           "Module-discovering actions do not output tree artifacts: %s",
           treeArtifactData);
-      return new ModuleDiscovering(artifactData, discoveredModules);
+      return new ModuleDiscovering(
+          Iterables.getOnlyElement(artifactData.keySet()),
+          Iterables.getOnlyElement(artifactData.values()),
+          discoveredModules);
     }
 
     if (!treeArtifactData.isEmpty()) {
       return treeArtifactData.size() == 1 && artifactData.isEmpty()
-          ? new SingleTree(treeArtifactData)
+          ? new SingleTree(
+              Iterables.getOnlyElement(treeArtifactData.keySet()),
+              Iterables.getOnlyElement(treeArtifactData.values()))
           : new MultiTree(artifactData, treeArtifactData);
     }
 
     checkArgument(!artifactData.isEmpty(), "No outputs");
     return artifactData.size() == 1
-        ? new SingleOutputFile(artifactData)
+        ? new SingleOutputFile(
+            Iterables.getOnlyElement(artifactData.keySet()),
+            Iterables.getOnlyElement(artifactData.values()))
         : new MultiOutputFile(artifactData);
   }
 
-  static ActionExecutionValue createFromOutputMetadataStore(
+  static ActionExecutionValue create(
       ActionOutputMetadataStore actionOutputMetadataStore,
-      FilesetOutputTree filesetOutput,
+      RichArtifactData richArtifactData,
       Action action) {
-    return createFromOutputMetadataStore(
+    return create(
         actionOutputMetadataStore.getAllArtifactData(),
         actionOutputMetadataStore.getAllTreeArtifactData(),
-        filesetOutput,
+        richArtifactData,
         action instanceof IncludeScannable includeScannable
             ? includeScannable.getDiscoveredModules()
             : NestedSetBuilder.emptySet(Order.STABLE_ORDER));
@@ -198,8 +212,8 @@ public abstract class ActionExecutionValue implements SkyValue {
     return ImmutableMap.of();
   }
 
-  public FilesetOutputTree getFilesetOutput() {
-    return FilesetOutputTree.EMPTY;
+  public RichArtifactData getRichArtifactData() {
+    return null;
   }
 
   public NestedSet<Artifact> getDiscoveredModules() {
@@ -224,7 +238,7 @@ public abstract class ActionExecutionValue implements SkyValue {
     }
     return getAllFileValues().equals(o.getAllFileValues())
         && getAllTreeArtifactValues().equals(o.getAllTreeArtifactValues())
-        && getFilesetOutput().equals(o.getFilesetOutput())
+        && Objects.equals(getRichArtifactData(), o.getRichArtifactData())
         // We use shallowEquals to avoid materializing the nested sets just for change-pruning. This
         // makes change-pruning potentially less effective, but never incorrect.
         && getDiscoveredModules().shallowEquals(o.getDiscoveredModules());
@@ -234,7 +248,7 @@ public abstract class ActionExecutionValue implements SkyValue {
   public final int hashCode() {
     return 31
             * HashCodes.hashObjects(
-                getAllFileValues(), getAllTreeArtifactValues(), getFilesetOutput())
+                getAllFileValues(), getAllTreeArtifactValues(), getRichArtifactData())
         + getDiscoveredModules().shallowHashCode();
   }
 
@@ -303,11 +317,11 @@ public abstract class ActionExecutionValue implements SkyValue {
     }
     ImmutableMap<OwnerlessArtifactWrapper, Artifact> newArtifactMap =
         Maps.uniqueIndex(outputs, OwnerlessArtifactWrapper::new);
-    return createFromOutputMetadataStore(
+    return create(
         transformMap(artifactData, newArtifactMap, action, (newArtifact, value) -> value),
         transformMap(
             treeArtifactData, newArtifactMap, action, ActionExecutionValue::transformSharedTree),
-        getFilesetOutput(),
+        getRichArtifactData(),
         // Discovered modules come from the action's inputs, and so don't need to be transformed.
         getDiscoveredModules());
   }
@@ -327,13 +341,15 @@ public abstract class ActionExecutionValue implements SkyValue {
    * The result of an action that outputs a single file (the common case). Optimizes for space by
    * storing the single artifact and value without the {@link ImmutableMap} wrapper.
    */
-  private static class SingleOutputFile extends ActionExecutionValue {
+  @AutoCodec(deserializedInterface = DeserializedSkyValue.class)
+  @VisibleForSerialization
+  static class SingleOutputFile extends ActionExecutionValue {
     private final Artifact artifact;
     private final FileArtifactValue value;
 
-    SingleOutputFile(ImmutableMap<Artifact, FileArtifactValue> artifactData) {
-      this.artifact = Iterables.getOnlyElement(artifactData.keySet());
-      this.value = artifactData.get(artifact);
+    SingleOutputFile(Artifact artifact, FileArtifactValue value) {
+      this.artifact = artifact;
+      this.value = value;
     }
 
     // Override to avoid creating an ImmutableMap in the common case that the requested artifact is
@@ -354,22 +370,20 @@ public abstract class ActionExecutionValue implements SkyValue {
     }
   }
 
-  /**
-   * The result of a {@link
-   * com.google.devtools.build.lib.view.fileset.SkyframeFilesetManifestAction}.
-   */
-  private static final class Fileset extends SingleOutputFile {
-    private final FilesetOutputTree filesetOutput;
+  /** The result of an action that produces rich data. */
+  @AutoCodec(deserializedInterface = DeserializedSkyValue.class)
+  @VisibleForSerialization
+  public static class WithRichData extends SingleOutputFile {
+    private final RichArtifactData richArtifactData;
 
-    Fileset(
-        ImmutableMap<Artifact, FileArtifactValue> artifactData, FilesetOutputTree filesetOutput) {
-      super(artifactData);
-      this.filesetOutput = filesetOutput;
+    WithRichData(Artifact artifact, FileArtifactValue value, RichArtifactData richArtifactData) {
+      super(artifact, value);
+      this.richArtifactData = richArtifactData;
     }
 
     @Override
-    public FilesetOutputTree getFilesetOutput() {
-      return filesetOutput;
+    public RichArtifactData getRichArtifactData() {
+      return richArtifactData;
     }
   }
 
@@ -377,13 +391,14 @@ public abstract class ActionExecutionValue implements SkyValue {
    * The result of a {@link com.google.devtools.build.lib.rules.cpp.CppCompileAction} that
    * {@linkplain IncludeScannable#getDiscoveredModules discovers modules}.
    */
-  private static final class ModuleDiscovering extends SingleOutputFile {
+  @AutoCodec(deserializedInterface = DeserializedSkyValue.class)
+  @VisibleForSerialization
+  static class ModuleDiscovering extends SingleOutputFile {
     private final NestedSet<Artifact> discoveredModules;
 
     ModuleDiscovering(
-        ImmutableMap<Artifact, FileArtifactValue> artifactData,
-        NestedSet<Artifact> discoveredModules) {
-      super(artifactData);
+        Artifact artifact, FileArtifactValue value, NestedSet<Artifact> discoveredModules) {
+      super(artifact, value);
       this.discoveredModules = discoveredModules;
     }
 
@@ -394,7 +409,9 @@ public abstract class ActionExecutionValue implements SkyValue {
   }
 
   /** The result of an action that outputs an arbitrary number of files. */
-  private static class MultiOutputFile extends ActionExecutionValue {
+  @AutoCodec(deserializedInterface = DeserializedSkyValue.class)
+  @VisibleForSerialization
+  static class MultiOutputFile extends ActionExecutionValue {
     private final ImmutableMap<Artifact, FileArtifactValue> artifactData;
 
     MultiOutputFile(ImmutableMap<Artifact, FileArtifactValue> artifactData) {
@@ -408,13 +425,15 @@ public abstract class ActionExecutionValue implements SkyValue {
   }
 
   /** The result of an action that outputs a single tree artifact and no other files. */
-  private static final class SingleTree extends ActionExecutionValue {
+  @AutoCodec(deserializedInterface = DeserializedSkyValue.class)
+  @VisibleForSerialization
+  static class SingleTree extends ActionExecutionValue {
     private final Artifact treeArtifact;
     private final TreeArtifactValue treeValue;
 
-    SingleTree(ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData) {
-      this.treeArtifact = Iterables.getOnlyElement(treeArtifactData.keySet());
-      this.treeValue = treeArtifactData.get(treeArtifact);
+    SingleTree(Artifact treeArtifact, TreeArtifactValue treeValue) {
+      this.treeArtifact = treeArtifact;
+      this.treeValue = treeValue;
     }
 
     @Override
@@ -439,7 +458,9 @@ public abstract class ActionExecutionValue implements SkyValue {
    * The result of an action that outputs multiple tree artifacts or a combination of tree artifacts
    * and files.
    */
-  private static final class MultiTree extends MultiOutputFile {
+  @AutoCodec(deserializedInterface = DeserializedSkyValue.class)
+  @VisibleForSerialization
+  static class MultiTree extends MultiOutputFile {
     private final ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData;
 
     MultiTree(

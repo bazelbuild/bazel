@@ -32,6 +32,11 @@ public class DelegatingWalkableGraph implements WalkableGraph {
     this.graph = graph;
   }
 
+  @Override
+  public void cancelLookups() {
+    graph.cancelLookups();
+  }
+
   @Nullable
   private NodeEntry getEntryForValue(SkyKey key) throws InterruptedException {
     NodeEntry entry = graph.get(null, Reason.WALKABLE_GRAPH_VALUE, key);

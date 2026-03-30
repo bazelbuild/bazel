@@ -13,14 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem.Errno;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem.InodeOrErrno;
-import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * This interface defines the function directly supported by the "files" stored in a
@@ -31,32 +31,30 @@ import javax.annotation.Nullable;
  * Subclasses must preserve this property.
  */
 @ThreadSafe
-public abstract class InMemoryContentInfo implements FileStatus, InodeOrErrno {
+public abstract non-sealed class InMemoryContentInfo implements FileStatus, InodeOrErrno {
 
   protected final Clock clock;
 
   /**
-   * Stores the time when the file was last modified. This is atomically updated
-   * whenever the file changes, so all accesses must be synchronized.
+   * Stores the time when the file was last modified. This is atomically updated whenever the file
+   * changes, so all accesses must be synchronized.
    */
+  @GuardedBy("this")
   private long lastModifiedTime;
 
   /**
-   * Stores the time when the file information was changed. This is atomically updated
-   * whenever the file changes, so all accesses must be synchronized.
+   * Stores the time when the file information was changed. This is atomically updated whenever the
+   * file changes, so all accesses must be synchronized.
    */
+  @GuardedBy("this")
   private long lastChangeTime;
 
-  /**
-   * Modifications to the isWritable field do not update the lastModifiedTime,
-   * so we don't need to synchronize; using volatile is enough.
-   */
-  private volatile boolean isWritable = true;
-  private volatile boolean isExecutable = false;
-  private volatile boolean isReadable = true;
+  /** Stores the file's permission bits. */
+  @GuardedBy("this")
+  private int permissions = 0644;
 
   protected InMemoryContentInfo(Clock clock) {
-    this.clock = clock;
+    this.clock = checkNotNull(clock, "clock");
     // When we create the file, it is modified.
     markModificationTime();
   }
@@ -121,35 +119,8 @@ public abstract class InMemoryContentInfo implements FileStatus, InodeOrErrno {
   }
 
   @Override
-  public final int getPermissions() {
-    int permissions = 0;
-    // Emulate the default umask of 022.
-    if (isReadable) {
-      permissions |= 0444;
-    }
-    if (isWritable) {
-      permissions |= 0200;
-    }
-    if (isExecutable) {
-      permissions |= 0111;
-    }
+  public final synchronized int getPermissions() {
     return permissions;
-  }
-
-  @Override
-  public final InMemoryContentInfo inode() {
-    return this;
-  }
-
-  @Nullable
-  @Override
-  public final Errno error() {
-    return null;
-  }
-
-  @Override
-  public final boolean isError() {
-    return false;
   }
 
   @Override
@@ -168,60 +139,57 @@ public abstract class InMemoryContentInfo implements FileStatus, InodeOrErrno {
 
   /** Sets the last modification and change times to the current time. */
   synchronized void markModificationTime() {
-    Preconditions.checkState(clock != null);
     lastModifiedTime = clock.currentTimeMillis();
     lastChangeTime = lastModifiedTime;
   }
 
   /** Sets the last change time to the current time. */
   private synchronized void markChangeTime() {
-    Preconditions.checkState(clock != null);
     lastChangeTime = clock.currentTimeMillis();
   }
 
-  /**
-   * Sets whether the current file is readable.
-   */
+  /** Returns whether the current file is readable. */
   boolean isReadable() {
-    return isReadable;
+    return checkPermissions(0400);
   }
 
-  /**
-   * Returns whether the current file is readable.
-   */
+  /** Sets whether the current file is readable. */
   void setReadable(boolean readable) {
-    isReadable = readable;
+    updatePermissions(0400, readable);
   }
 
-
-  /**
-   * Sets whether the current file is writable.
-   */
-  void setWritable(boolean writable) {
-    isWritable = writable;
-    markChangeTime();
-  }
-
-  /**
-   * Returns whether the current file is writable.
-   */
+  /** Returns whether the current file is writable. */
   boolean isWritable() {
-    return isWritable;
+    return checkPermissions(0200);
   }
 
-  /**
-   * Sets whether the current file is executable.
-   */
+  /** Sets whether the current file is writable. */
+  void setWritable(boolean writable) {
+    updatePermissions(0200, writable);
+  }
+
+  /** Returns whether the current file is executable. */
+  boolean isExecutable() {
+    return checkPermissions(0100);
+  }
+
+  /** Sets whether the current file is executable. */
   void setExecutable(boolean executable) {
-    isExecutable = executable;
+    updatePermissions(0111, executable);
+  }
+
+  /** Sets the permissions on the current file. */
+  synchronized void chmod(int permissions) {
+    this.permissions = permissions;
     markChangeTime();
   }
 
-  /**
-   * Returns whether the current file is executable.
-   */
-  boolean isExecutable() {
-    return isExecutable;
+  private synchronized boolean checkPermissions(int mask) {
+    return (permissions & mask) != 0;
+  }
+
+  private synchronized void updatePermissions(int mask, boolean set) {
+    chmod(set ? (permissions | mask) : (permissions & ~mask));
   }
 
   InMemoryDirectoryInfo asDirectory() {

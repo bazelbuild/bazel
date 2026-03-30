@@ -115,15 +115,16 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
     Rule actualRule = (Rule) getTarget("//foo:example");
     rule =
         new Rule(
-            actualRule.getPackage(),
+            actualRule.getPackageoid(),
             actualRule.getLabel(),
             actualRule.getRuleClassObject(),
             actualRule.getLocation(),
             actualRule.getInteriorCallStack());
 
-    firstCustomAttrIndex = rule.getRuleClassObject().getAttributeIndex("attr0");
+    firstCustomAttrIndex =
+        rule.getRuleClassObject().getAttributeProvider().getAttributeIndex("attr0");
     firstCustomAttr = attrAt(firstCustomAttrIndex);
-    lastCustomAttrIndex = rule.getRuleClassObject().getAttributeCount() - 1;
+    lastCustomAttrIndex = rule.getRuleClassObject().getAttributeProvider().getAttributeCount() - 1;
     lastCustomAttr = attrAt(lastCustomAttrIndex);
     computedDefaultIndex = firstCustomAttrIndex + COMPUTED_DEFAULT_OFFSET;
     computedDefaultAttr = attrAt(computedDefaultIndex);
@@ -196,7 +197,7 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
 
   @Test
   public void allAttributesSet(@TestParameter boolean frozen) {
-    int size = rule.getRuleClassObject().getAttributeCount();
+    int size = rule.getRuleClassObject().getAttributeProvider().getAttributeCount();
     rule.setAttributeValue(attrAt(0), rule.getName(), /* explicit= */ true);
     for (int i = 1; i < size; i++) {
       rule.setAttributeValue(attrAt(i), "value " + i, i % 2 == 0);
@@ -208,7 +209,7 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
 
     for (int i = 1; i < size; i++) { // Skip attribute 0 (name) which is never stored.
       assertThat(rule.getAttrIfStored(i)).isEqualTo("value " + i);
-      assertWithMessage("attribute " + i)
+      assertWithMessage("attribute %s", i)
           .that(rule.isAttributeValueExplicitlySpecified(attrAt(i)))
           .isEqualTo(i % 2 == 0);
     }
@@ -218,7 +219,8 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
   public void getRawAttrValues_mutable_nullSafe() {
     assertThat(rule.getRawAttrValues())
         .containsAtLeastElementsIn(
-            Collections.nCopies(rule.getRuleClassObject().getAttributeCount(), null));
+            Collections.nCopies(
+                rule.getRuleClassObject().getAttributeProvider().getAttributeCount(), null));
   }
 
   @Test
@@ -358,6 +360,8 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
         cc_binary(
             name = "simplifiable_single_select",
             srcs = select({"//conditions:default": ["unconditional.cc"]})
@@ -402,6 +406,8 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
         cc_binary(
             name = "simplifiable",
             srcs = select({"//conditions:default": ["unconditional.cc"]})
@@ -413,6 +419,6 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
   }
 
   private Attribute attrAt(int attrIndex) {
-    return rule.getRuleClassObject().getAttribute(attrIndex);
+    return rule.getRuleClassObject().getAttributeProvider().getAttribute(attrIndex);
   }
 }

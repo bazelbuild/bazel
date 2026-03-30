@@ -43,7 +43,13 @@ public final class SpawnStatsTest {
 
   @Test
   public void one() {
-    stats.countRunnerName("foo");
+    ArrayList<SpawnResult> spawns = new ArrayList<>();
+    spawns.add(
+        new SpawnResult.Builder()
+            .setStatus(SpawnResult.Status.SUCCESS)
+            .setRunnerName("foo")
+            .build());
+    stats.countActionResult(ActionResult.create(spawns));
     stats.incrementActionCount();
     assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
         .isEqualTo("1 process: 1 foo.");
@@ -51,7 +57,13 @@ public final class SpawnStatsTest {
 
   @Test
   public void oneRemote() {
-    stats.countRunnerName("remote cache hit");
+    ArrayList<SpawnResult> spawns = new ArrayList<>();
+    spawns.add(
+        new SpawnResult.Builder()
+            .setStatus(SpawnResult.Status.SUCCESS)
+            .setRunnerName("remote cache hit")
+            .build());
+    stats.countActionResult(ActionResult.create(spawns));
     stats.incrementActionCount();
     assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
         .isEqualTo("1 process: 1 remote cache hit.");
@@ -60,7 +72,13 @@ public final class SpawnStatsTest {
   @Test
   public void two() {
     for (int i = 0; i < 2; i++) {
-      stats.countRunnerName("foo");
+      ArrayList<SpawnResult> spawns = new ArrayList<>();
+      spawns.add(
+          new SpawnResult.Builder()
+              .setStatus(SpawnResult.Status.SUCCESS)
+              .setRunnerName("foo")
+              .build());
+      stats.countActionResult(ActionResult.create(spawns));
       stats.incrementActionCount();
     }
     assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
@@ -69,13 +87,31 @@ public final class SpawnStatsTest {
 
   @Test
   public void order() {
-    stats.countRunnerName("a");
-    stats.countRunnerName("b");
-    stats.countRunnerName("b");
-    stats.countRunnerName("c");
-    stats.countRunnerName("c");
-    stats.countRunnerName("c");
-    for (int i = 0; i < 6; i++) {
+    ArrayList<SpawnResult> spawns = new ArrayList<>();
+    spawns.add(
+        new SpawnResult.Builder().setStatus(SpawnResult.Status.SUCCESS).setRunnerName("a").build());
+    stats.countActionResult(ActionResult.create(spawns));
+    stats.incrementActionCount();
+
+    for (int i = 0; i < 2; i++) {
+      spawns = new ArrayList<>();
+      spawns.add(
+          new SpawnResult.Builder()
+              .setStatus(SpawnResult.Status.SUCCESS)
+              .setRunnerName("b")
+              .build());
+      stats.countActionResult(ActionResult.create(spawns));
+      stats.incrementActionCount();
+    }
+
+    for (int i = 0; i < 3; i++) {
+      spawns = new ArrayList<>();
+      spawns.add(
+          new SpawnResult.Builder()
+              .setStatus(SpawnResult.Status.SUCCESS)
+              .setRunnerName("c")
+              .build());
+      stats.countActionResult(ActionResult.create(spawns));
       stats.incrementActionCount();
     }
     assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
@@ -84,31 +120,77 @@ public final class SpawnStatsTest {
 
   @Test
   public void reverseOrder() {
-    stats.countRunnerName("a");
-    stats.countRunnerName("a");
-    stats.countRunnerName("a");
-    stats.countRunnerName("b");
-    stats.countRunnerName("b");
-    stats.countRunnerName("c");
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 3; i++) {
+      ArrayList<SpawnResult> spawns = new ArrayList<>();
+      spawns.add(
+          new SpawnResult.Builder()
+              .setStatus(SpawnResult.Status.SUCCESS)
+              .setRunnerName("a")
+              .build());
+      stats.countActionResult(ActionResult.create(spawns));
       stats.incrementActionCount();
     }
+
+    for (int i = 0; i < 2; i++) {
+      ArrayList<SpawnResult> spawns = new ArrayList<>();
+      spawns.add(
+          new SpawnResult.Builder()
+              .setStatus(SpawnResult.Status.SUCCESS)
+              .setRunnerName("b")
+              .build());
+      stats.countActionResult(ActionResult.create(spawns));
+      stats.incrementActionCount();
+    }
+
+    ArrayList<SpawnResult> spawns = new ArrayList<>();
+    spawns.add(
+        new SpawnResult.Builder().setStatus(SpawnResult.Status.SUCCESS).setRunnerName("c").build());
+    stats.countActionResult(ActionResult.create(spawns));
+    stats.incrementActionCount();
+
     assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
         .isEqualTo("6 processes: 3 a, 2 b, 1 c.");
   }
 
   @Test
   public void cacheFirst() {
-    stats.countRunnerName("a");
-    stats.countRunnerName("a");
-    stats.countRunnerName("a");
-    stats.countRunnerName("b");
-    stats.countRunnerName("remote cache hit");
-    stats.countRunnerName("b");
-    stats.countRunnerName("c");
-    for (int i = 0; i < 7; i++) {
+    for (int i = 0; i < 3; i++) {
+      ArrayList<SpawnResult> spawns = new ArrayList<>();
+      spawns.add(
+          new SpawnResult.Builder()
+              .setStatus(SpawnResult.Status.SUCCESS)
+              .setRunnerName("a")
+              .build());
+      stats.countActionResult(ActionResult.create(spawns));
       stats.incrementActionCount();
     }
+
+    for (int i = 0; i < 2; i++) {
+      ArrayList<SpawnResult> spawns = new ArrayList<>();
+      spawns.add(
+          new SpawnResult.Builder()
+              .setStatus(SpawnResult.Status.SUCCESS)
+              .setRunnerName("b")
+              .build());
+      stats.countActionResult(ActionResult.create(spawns));
+      stats.incrementActionCount();
+    }
+
+    ArrayList<SpawnResult> spawns = new ArrayList<>();
+    spawns.add(
+        new SpawnResult.Builder()
+            .setStatus(SpawnResult.Status.SUCCESS)
+            .setRunnerName("remote cache hit")
+            .build());
+    stats.countActionResult(ActionResult.create(spawns));
+    stats.incrementActionCount();
+
+    spawns = new ArrayList<>();
+    spawns.add(
+        new SpawnResult.Builder().setStatus(SpawnResult.Status.SUCCESS).setRunnerName("c").build());
+    stats.countActionResult(ActionResult.create(spawns));
+    stats.incrementActionCount();
+
     assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
         .isEqualTo("7 processes: 1 remote cache hit, 3 a, 2 b, 1 c.");
   }
@@ -132,7 +214,7 @@ public final class SpawnStatsTest {
 
   @Test
   public void actionManySpawn() {
-    // Different spawns with the same runner count as one action
+    // One action with multiple spawns - should count as 1 action with 3 spawns
 
     ArrayList<SpawnResult> spawns = new ArrayList<>();
     spawns.add(rA);
@@ -140,16 +222,14 @@ public final class SpawnStatsTest {
     spawns.add(rA);
 
     stats.countActionResult(ActionResult.create(spawns));
-    for (int i = 0; i < 3; i++) {
-      stats.incrementActionCount();
-    }
+    stats.incrementActionCount();
     assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
-        .isEqualTo("3 processes: 3 abc.");
+        .isEqualTo("1 process: 3 abc.");
   }
 
   @Test
   public void actionManySpawnMixed() {
-    // Different spawns mixed runners
+    // One action with multiple spawns of different runners
 
     ArrayList<SpawnResult> spawns = new ArrayList<>();
     spawns.add(rA);
@@ -157,39 +237,44 @@ public final class SpawnStatsTest {
     spawns.add(rB);
 
     stats.countActionResult(ActionResult.create(spawns));
-    for (int i = 0; i < 3; i++) {
-      stats.incrementActionCount();
-    }
+    stats.incrementActionCount();
     assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
-        .isEqualTo("3 processes: 2 abc, 1 cde.");
+        .isEqualTo("1 process: 2 abc, 1 cde.");
   }
 
   @Test
   public void actionManyActionsMixed() {
     // Five actions:
-    // abc
-    // abc, abc
-    // abc, abc, cde
-    // abc, abc, cde
-    // abc, abc, cde
+    // Action 1: 1 spawn (abc)
+    // Action 2: 2 spawns (abc, abc)
+    // Action 3: 3 spawns (abc, abc, cde)
+    // Action 4: 3 spawns (abc, abc, cde)
+    // Action 5: 3 spawns (abc, abc, cde)
 
     ArrayList<SpawnResult> spawns = new ArrayList<>();
     spawns.add(rA);
     stats.countActionResult(ActionResult.create(spawns));
+    stats.incrementActionCount();
 
+    spawns = new ArrayList<>();
+    spawns.add(rA);
     spawns.add(rA);
     stats.countActionResult(ActionResult.create(spawns));
+    stats.incrementActionCount();
 
+    spawns = new ArrayList<>();
+    spawns.add(rA);
+    spawns.add(rA);
     spawns.add(rB);
     stats.countActionResult(ActionResult.create(spawns));
+    stats.incrementActionCount();
     stats.countActionResult(ActionResult.create(spawns));
+    stats.incrementActionCount();
     stats.countActionResult(ActionResult.create(spawns));
+    stats.incrementActionCount();
 
-    for (int i = 0; i < 12; i++) {
-      stats.incrementActionCount();
-    }
     assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
-        .isEqualTo("12 processes: 9 abc, 3 cde.");
+        .isEqualTo("5 processes: 9 abc, 3 cde.");
   }
 
   @Test
@@ -201,18 +286,59 @@ public final class SpawnStatsTest {
 
   @Test
   public void orderCacheInternalRest() {
-    stats.countRunnerName("a");
-    stats.countRunnerName("a");
-    stats.countRunnerName("a");
-    stats.countRunnerName("b");
-    stats.countRunnerName("remote cache hit");
-    stats.countRunnerName("b");
-    stats.countRunnerName("c");
-    stats.countRunnerName("z");
-    stats.countRunnerName("z");
-    for (int i = 0; i < 11; i++) {
+    for (int i = 0; i < 3; i++) {
+      ArrayList<SpawnResult> spawns = new ArrayList<>();
+      spawns.add(
+          new SpawnResult.Builder()
+              .setStatus(SpawnResult.Status.SUCCESS)
+              .setRunnerName("a")
+              .build());
+      stats.countActionResult(ActionResult.create(spawns));
       stats.incrementActionCount();
     }
+
+    for (int i = 0; i < 2; i++) {
+      ArrayList<SpawnResult> spawns = new ArrayList<>();
+      spawns.add(
+          new SpawnResult.Builder()
+              .setStatus(SpawnResult.Status.SUCCESS)
+              .setRunnerName("b")
+              .build());
+      stats.countActionResult(ActionResult.create(spawns));
+      stats.incrementActionCount();
+    }
+
+    ArrayList<SpawnResult> spawns = new ArrayList<>();
+    spawns.add(
+        new SpawnResult.Builder()
+            .setStatus(SpawnResult.Status.SUCCESS)
+            .setRunnerName("remote cache hit")
+            .build());
+    stats.countActionResult(ActionResult.create(spawns));
+    stats.incrementActionCount();
+
+    spawns = new ArrayList<>();
+    spawns.add(
+        new SpawnResult.Builder().setStatus(SpawnResult.Status.SUCCESS).setRunnerName("c").build());
+    stats.countActionResult(ActionResult.create(spawns));
+    stats.incrementActionCount();
+
+    for (int i = 0; i < 2; i++) {
+      spawns = new ArrayList<>();
+      spawns.add(
+          new SpawnResult.Builder()
+              .setStatus(SpawnResult.Status.SUCCESS)
+              .setRunnerName("z")
+              .build());
+      stats.countActionResult(ActionResult.create(spawns));
+      stats.incrementActionCount();
+    }
+
+    // Add 2 internal actions (no spawns)
+    for (int i = 0; i < 2; i++) {
+      stats.incrementActionCount();
+    }
+
     assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
         .isEqualTo("11 processes: 1 remote cache hit, 2 internal, 3 a, 2 b, 1 c, 2 z.");
   }
@@ -237,5 +363,29 @@ public final class SpawnStatsTest {
     var unused = stats.getSummary();
     assertThat(stats.getExecKindFor("total")).isNull();
     assertThat(stats.getExecKindFor("internal")).isNull();
+  }
+
+  @Test
+  public void internalCountWithMultipleSpawnsPerAction() {
+    // Action 1: 3 spawns (counts as 1 non-internal action)
+    ArrayList<SpawnResult> spawnsA = new ArrayList<>();
+    spawnsA.add(rA);
+    spawnsA.add(rA);
+    spawnsA.add(rA);
+    stats.countActionResult(ActionResult.create(spawnsA));
+    stats.incrementActionCount();
+
+    // Action 2: 2 spawns (counts as 1 non-internal action)
+    ArrayList<SpawnResult> spawnsB = new ArrayList<>();
+    spawnsB.add(rB);
+    spawnsB.add(rB);
+    stats.countActionResult(ActionResult.create(spawnsB));
+    stats.incrementActionCount();
+
+    // Action 3: internal action (no spawns)
+    stats.incrementActionCount();
+
+    assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
+        .isEqualTo("3 processes: 1 internal, 3 abc, 2 cde.");
   }
 }

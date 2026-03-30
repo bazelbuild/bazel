@@ -24,6 +24,6 @@ public class ProbeExp implements CovExp {
 
   @Override
   public boolean eval(final boolean[] probes) {
-    return probes[probeId];
+    return probes != null && probes[probeId];
   }
 }

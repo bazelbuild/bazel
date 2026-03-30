@@ -60,7 +60,7 @@ import javax.annotation.Nullable;
  *
  * @see java.security.MessageDigest
  */
-public final class Fingerprint {
+public final class Fingerprint implements BytesSink {
 
   // Make novel use of a CodedOutputStream, which is good at efficiently serializing data. By
   // flushing at the end of each digest we can continue to use the stream.
@@ -163,6 +163,11 @@ public final class Fingerprint {
       throw new IllegalStateException("failed to write bytes", e);
     }
     return this;
+  }
+
+  @Override // implementation of BytesSink
+  public void acceptBytes(byte[] buf, int offset, int len) {
+    addBytes(buf, offset, len);
   }
 
   /** Updates the digest with a boolean value. */

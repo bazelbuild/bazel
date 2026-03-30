@@ -16,31 +16,44 @@
 
 package com.tonicsystems.jarjar.util;
 
-import java.io.*;
+import java.io.IOException;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 
 public abstract class JarTransformer implements JarProcessor {
+  @Override
   public boolean process(EntryStruct struct) throws IOException {
-        if (struct.isClass()) {
+    if (struct.isClass()) {
       ClassReader reader;
       try {
         reader = new ClassReader(struct.data);
-      } catch (Exception e) {
+      } catch (RuntimeException e) {
         return true; // TODO?
       }
       GetNameClassWriter w = new GetNameClassWriter(ClassWriter.COMPUTE_MAXS);
-      reader.accept(transform(w), ClassReader.EXPAND_FRAMES);
-      struct.data = w.toByteArray();
-      struct.name = pathFromName(w.getClassName());
+      ClassVisitor visitor = transform(w);
+      reader.accept(visitor, ClassReader.EXPAND_FRAMES);
+
+      boolean updateData = true;
+      if (visitor instanceof RemappingClassTransformer) {
+        updateData = ((RemappingClassTransformer) visitor).didRemap();
+      }
+      if (updateData) {
+        struct.data = w.toByteArray();
+        struct.name = replaceName(struct.name, w.getClassName());
+      }
     }
     return true;
   }
 
   protected abstract ClassVisitor transform(ClassVisitor v);
 
-  private static String pathFromName(String className) {
-    return className.replace('.', '/') + ".class";
+  private static String replaceName(String name, String className) {
+    String prefix =
+        name.startsWith("META-INF/versions/")
+            ? name.substring(0, name.indexOf('/', "META-INF/versions/".length()) + 1)
+            : "";
+    return prefix + className.replace('.', '/') + ".class";
   }
 }

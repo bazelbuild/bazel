@@ -15,6 +15,7 @@
 package net.starlark.java.syntax;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
 
 /**
  * FileOptions is a set of options that affect the static processing---scanning, parsing, validation
@@ -78,6 +79,37 @@ public abstract class FileOptions {
    */
   public abstract boolean stringLiteralsAreAsciiOnly();
 
+  /** Whether type annotations and related syntax are allowed in the source code. */
+  public abstract boolean allowTypeSyntax();
+
+  /**
+   * Whether type annotations are processed by the resolver.
+   *
+   * <p>This is required for static type checking, but will cause code to fail if it contains type
+   * annotations that are not understood by this version of Bazel.
+   */
+  public abstract boolean resolveTypeSyntax();
+
+  /**
+   * If true, type expressions in annotations and {@code type} declarations may be any valid
+   * expression (except for unparenthesized tuples, which are grammatically ambiguous). Otherwise
+   * type expressions must represent a valid type.
+   *
+   * <p>Enabling this boolean is helpful for backwards compatibility, but results in an AST that is
+   * not usable for type checking.
+   *
+   * <p>This has no effect if {@link #allowTypeSyntax} is false.
+   */
+  public abstract boolean tolerateInvalidTypeExpressions();
+
+  /**
+   * Whether to perform static type checking.
+   *
+   * <p>If this flag is set, then {@link #resolveTypeSyntax} must also be set, and {@link
+   * #tolerateInvalidTypeExpressions} must *not* be set.
+   */
+  public abstract boolean staticTypeChecking();
+
   public static Builder builder() {
     // These are the DEFAULT values.
     return new AutoValue_FileOptions.Builder()
@@ -85,7 +117,11 @@ public abstract class FileOptions {
         .allowToplevelRebinding(false)
         .loadBindsGlobally(false)
         .requireLoadStatementsFirst(true)
-        .stringLiteralsAreAsciiOnly(false);
+        .stringLiteralsAreAsciiOnly(false)
+        .allowTypeSyntax(false)
+        .resolveTypeSyntax(false)
+        .tolerateInvalidTypeExpressions(false)
+        .staticTypeChecking(false);
   }
 
   public abstract Builder toBuilder();
@@ -104,6 +140,27 @@ public abstract class FileOptions {
 
     public abstract Builder stringLiteralsAreAsciiOnly(boolean value);
 
-    public abstract FileOptions build();
+    public abstract Builder allowTypeSyntax(boolean value);
+
+    public abstract Builder resolveTypeSyntax(boolean value);
+
+    public abstract Builder tolerateInvalidTypeExpressions(boolean value);
+
+    public abstract Builder staticTypeChecking(boolean value);
+
+    abstract FileOptions autoBuild();
+
+    public FileOptions build() {
+      FileOptions options = autoBuild();
+      if (options.staticTypeChecking()) {
+        Preconditions.checkArgument(
+            options.resolveTypeSyntax(),
+            "staticTypeChecking requires that resolveTypeSyntax is set");
+        Preconditions.checkArgument(
+            !options.tolerateInvalidTypeExpressions(),
+            "staticTypeChecking requires that tolerateInvalidTypeExpressions is not set");
+      }
+      return options;
+    }
   }
 }

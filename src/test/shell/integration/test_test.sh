@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -40,27 +40,19 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# `tr` converts all upper case letters to lower case.
-# `case` matches the result if the `uname | tr` expression to string prefixes
-# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# starting with "msys", and "*" matches everything (it's the default case).
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  # As of 2018-08-14, Bazel on Windows only supports MSYS Bash.
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
+function set_up() {
+  add_rules_java MODULE.bazel
+}
 
 #### TESTS #############################################################
 
 function test_passing_test_is_reported_correctly() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg=$FUNCNAME
   mkdir -p $pkg || fail "mkdir -p $pkg failed"
   cat >$pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "success",
     size = "small",
@@ -82,9 +74,12 @@ EOF
 }
 
 function test_failing_test_is_reported_correctly() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg=$FUNCNAME
   mkdir -p $pkg || fail "mkdir -p $pkg failed"
   cat >$pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "fail",
     size = "small",
@@ -106,9 +101,12 @@ EOF
 }
 
 function test_build_fail_terse_summary() {
+    add_rules_shell "MODULE.bazel"
     local -r pkg=$FUNCNAME
     mkdir -p $pkg || fail "mkdir -p $pkg failed"
     cat > $pkg/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 genrule(
   name = "testsrc",
   outs = ["test.sh"],
@@ -150,6 +148,7 @@ function test_process_spawned_by_test_doesnt_block_test_from_completing() {
   mkdir -p $pkg || fail "mkdir -p $pkg failed"
 
   cat > $pkg/BUILD <<'EOF'
+load("@rules_java//java:java_test.bzl", "java_test")
 java_test(
     name = "my_test",
     main_class = "test.MyTest",
@@ -171,9 +170,12 @@ EOF
 }
 
 function test_test_suite_non_expansion() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg=$FUNCNAME
   mkdir -p $pkg || fail "mkdir -p $pkg failed"
   cat > $pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(name = 'test_a',
         srcs = [':a.sh'],
 )
@@ -201,9 +203,12 @@ EOF
 }
 
 function test_print_relative_test_log_paths() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg="$FUNCNAME"
   mkdir -p "$pkg" || fail "mkdir -p $pkg failed"
   cat > "$pkg"/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(name = 'fail', srcs = ['fail.sh'])
 EOF
   cat > "$pkg"/fail.sh <<'EOF'
@@ -229,6 +234,15 @@ EOF
     //"$pkg":fail &> $TEST_log \
     && fail "expected failure"
   expect_log "^  ${PRODUCT_NAME}-testlogs/$pkg/fail/test.log$"
+
+  # Confirm printed path is relative to the current working directory.
+  cd "$pkg"
+  bazel test --print_relative_test_log_paths=true \
+    --experimental_convenience_symlinks=log_only \
+    //"$pkg":fail &> $TEST_log \
+    && fail "expected failure"
+  # $pkg is just the test name, so we should only need to go up one directory.
+  expect_log "^  \.\./${PRODUCT_NAME}-testlogs/$pkg/fail/test.log$"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/pull/8322
@@ -237,11 +251,16 @@ EOF
 # See also test_run_a_test_and_a_binary_rule_with_input_from_stdin() in
 # //src/test/shell/integration:run_test
 function test_a_test_rule_with_input_from_stdin() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg="$FUNCNAME"
   mkdir -p "$pkg" || fail "mkdir -p $pkg failed"
-  echo 'sh_test(name = "x", srcs = ["x.sh"])' > "$pkg/BUILD"
+  cat > "$pkg/BUILD" <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(name = "x", srcs = ["x.sh"])
+EOF
   cat > "$pkg/x.sh" <<'eof'
-#!/bin/bash
+#!/usr/bin/env bash
 read -n5 FOO
 echo "foo=($FOO)"
 eof
@@ -284,12 +303,17 @@ function do_test_interrupt_streamed_output() {
   # progresse. This feature had been broken before (#7392) for subtle reasons
   # and there are no tests for it, so it might be broken again. Investigate and
   # enable this test.
-  [[ "$is_windows" == "true" ]] && return 0
+  if is_windows; then
+    return 0
+  fi
 
   local strategy="${1}"; shift
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p pkg
   cat >pkg/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
   name = "sleep",
   srcs = ["sleep.sh"],
@@ -340,8 +364,11 @@ function do_sigint_test() {
   local strategy="${1}"; shift
   local tags="${1}"; shift
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p pkg
   cat >pkg/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
   name = "test_with_cleanup",
   srcs = ["test_with_cleanup.sh"],
@@ -367,7 +394,9 @@ EOF
 }
 
 function test_sigint_not_graceful_by_default_local() {
-  [[ "$is_windows" == "true" ]] && return 0
+  if is_windows; then
+    return 0
+  fi
 
   do_sigint_test local '[]'
   expect_not_log 'Caught SIGTERM'
@@ -376,10 +405,12 @@ function test_sigint_not_graceful_by_default_local() {
 }
 
 function test_sigint_not_graceful_by_default_sandboxed() {
-  [[ "$is_windows" == "true" ]] && return 0
+if is_windows; then
+    return 0
+  fi
 
   do_sigint_test sandboxed '[]'
-  if [[ "$(uname -s)" == "Linux" ]]; then
+  if is_linux; then
     # TODO(jmmv): When using the linux-sandbox, interrupt termination is always
     # graceful. Should homogenize behavior with the process-wrapper.
     expect_log 'Caught SIGTERM'
@@ -391,9 +422,11 @@ function test_sigint_not_graceful_by_default_sandboxed() {
 }
 
 function do_test_sigint_with_graceful_termination() {
-  local strategy="${1}"; shift
+  if is_windows; then
+    return 0
+  fi
 
-  [[ "$is_windows" == "true" ]] && return 0
+  local strategy="${1}"; shift
 
   do_sigint_test "${strategy}" '["supports-graceful-termination"]'
   expect_log 'Caught SIGTERM'
@@ -410,9 +443,12 @@ function test_sigint_with_graceful_termination_sandboxed() {
 }
 
 function test_env_attribute() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg=$FUNCNAME
   mkdir -p $pkg || fail "mkdir -p $pkg failed"
   cat > $pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
   name = 't',
   srcs = [':t.sh'],
@@ -441,6 +477,112 @@ EOF
   expect_log "ENV_C=no_surprise"
   expect_not_log "ENV_D=surprise"
   expect_log "ENV_DATA=${pkg}/t.dat"
+}
+
+function run_test_executable_in_symlinks_only() {
+  add_platforms "MODULE.bazel"
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg || fail "mkdir -p $pkg failed"
+  cat > $pkg/BUILD <<'EOF'
+load(":defs.bzl", "my_test")
+
+my_test(
+  name = "t",
+)
+EOF
+  cat > $pkg/defs.bzl <<EOF
+def _my_test_impl(ctx):
+    if ctx.target_platform_has_constraint(ctx.attr._windows_constraint[platform_common.ConstraintValueInfo]):
+        bin = ctx.actions.declare_file("bin.bat")
+        ctx.actions.write(bin, "@REM hi", is_executable = True)
+    else:
+        bin = ctx.actions.declare_file("bin.sh")
+        ctx.actions.write(bin, "", is_executable = True)
+    return [
+        DefaultInfo(
+            executable = bin,
+            $1 = ctx.runfiles(
+                symlinks = {
+                    "custom_path": bin,
+                },
+            ),
+        ),
+    ]
+
+my_test = rule(
+    implementation = _my_test_impl,
+    test = True,
+    attrs = {
+        "_windows_constraint": attr.label(
+            default = "@platforms//os:windows",
+        ),
+    },
+)
+EOF
+
+  bazel test --test_output=streamed //$pkg:t &> $TEST_log \
+      || fail "expected test to pass"
+}
+
+function test_executable_in_symlinks_only_stateful_runfiles() {
+  run_test_executable_in_symlinks_only "default_runfiles"
+}
+
+function test_executable_in_symlinks_only_stateless_runfiles() {
+  run_test_executable_in_symlinks_only "runfiles"
+}
+
+function test_test_runner_does_not_crash_in_build_command() {
+  # ensure Bazel gracefully handles the test runner action failing even
+  # if it's not running via "bazel test".
+  # See https://github.com/bazelbuild/bazel/issues/28697
+  add_rules_shell "MODULE.bazel"
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg || fail "mkdir -p $pkg failed"
+
+  cat >$pkg/aspect.bzl <<'EOF'
+def _test_aspect_impl(target, ctx):
+    test_runner_action = [a for a in target.actions if a.mnemonic == "TestRunner"][0]
+    return [OutputGroupInfo(
+        test_files = test_runner_action.outputs,
+    )]
+
+test_aspect = aspect(
+    implementation = _test_aspect_impl,
+)
+EOF
+
+  cat >$pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(
+    name = "success",
+    srcs = ["success.sh"],
+)
+
+sh_test(
+    name = "fail",
+    srcs = ["fail.sh"],
+)
+EOF
+  cat >$pkg/success.sh <<'EOF'
+#!/bin/sh
+
+echo "success.sh is successful"
+exit 0
+EOF
+  chmod +x $pkg/success.sh
+
+  cat >$pkg/fail.sh <<'EOF'
+#!/bin/sh
+
+echo "fail.sh failed"
+exit 1
+EOF
+  chmod +x $pkg/fail.sh
+
+  bazel build --aspects //$pkg:aspect.bzl%test_aspect --output_groups=test_files //$pkg:all \
+      || fail "expected build to succeed"
 }
 
 run_suite "test tests"

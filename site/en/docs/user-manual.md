@@ -81,7 +81,7 @@ Example: Building from an empty client
   % bazel build --package_path /some/other/path //foo
 </pre>
 
-#### `--deleted_packages` {:flag--deleted_packages}
+#### `--deleted_packages` {:#flag--deleted_packages}
 
 This option specifies a comma-separated list of packages which Bazel
 should consider deleted, and not attempt to load from any directory
@@ -465,7 +465,7 @@ The `experimental_action_listener` option instructs Bazel to use
 details from the [`action_listener`](/reference/be/extra-actions#action_listener) rule specified by {{ "<var>" }}label{{ "</var>" }} to
 insert [`extra_actions`](/reference/be/extra-actions#extra_action) into the build graph.
 
-#### `--[no]experimental_extra_action_top_level_only` {:experimental-extra-action-top-level-only}
+#### `--[no]experimental_extra_action_top_level_only` {:#experimental-extra-action-top-level-only}
 
 Warning: Extra actions are deprecated. Use
 [aspects](/extending/aspects) instead.
@@ -745,9 +745,9 @@ by Bazel's scheduler, which tries to avoid running concurrent jobs
 that will use up more resources (RAM or CPU) than are available,
 based on some (very crude) estimates of the resource consumption
 of each job. The behavior of the scheduler can be controlled by
-the `--local_ram_resources` option.
+the `--local_resources` option.
 
-#### `--progress_report_interval={{ "<var>" }}n{{ "</var>" }}` {:progress-report-interval}
+#### `--progress_report_interval={{ "<var>" }}n{{ "</var>" }}` {:#progress-report-interval}
 
 Bazel periodically prints a progress report on jobs that are not
 finished yet (such as long running tests). This option sets the
@@ -761,13 +761,13 @@ that progress is reported once every minute.
 When bazel is using cursor control, as specified by
 [`--curses`](#curses), progress is reported every second.
 
-#### `--local_{ram,cpu}_resources {{ "<var>" }}resources or resource expression{{ "</var>" }}` {:#local-resources}
+#### `--local_resources {{ "<var>" }}resources or resource expression{{ "</var>" }}` {:#local-resources}
 
 These options specify the amount of local resources (RAM in MB and number of CPU logical cores)
 that Bazel can take into consideration when scheduling build and test activities to run locally. They take
-an integer, or a keyword (HOST_RAM or HOST_CPUS) optionally followed by `[-|*`float`]`
-(for example, `--local_cpu_resources=2`, `--local_ram_resources=HOST_RAM*.5`,
-`--local_cpu_resources=HOST_CPUS-1`).
+an float, or a keyword (HOST_RAM or HOST_CPUS) optionally followed by `[-|*`float`]`
+(for example, `--local_resources=cpu=2`, `--local_resources=memory=HOST_RAM*.5`,
+`--local_resources=cpu=HOST_CPUS-1`).
 The flags are independent; one or both may be set. By default, Bazel estimates
 the amount of RAM and number of CPU cores directly from the local system's configuration.
 
@@ -1418,7 +1418,7 @@ that perform a build. For more details, see
 are strongly recommended:
 
 *   [`--bazelrc=/dev/null`](/run/bazelrc)
-*   [`--nokeep_state_after_build`](/reference/command-line-reference#flag--keep_state_after_build)
+*   [`--nokeep_state_after_build`](/reference/command-line-reference#common_options-flag--keep_state_after_build)
 
 These options are also important:
 
@@ -2178,12 +2178,12 @@ Following options are supported:
 Some `dump` commands require memory tracking. To turn this on, you have to pass
 startup flags to Bazel:
 
-*   `--host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.0.jar`
+*   `--host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.4.jar`
 *   `--host_jvm_args=-DRULE_MEMORY_TRACKER=1`
 
 The java-agent is checked into Bazel at
-`third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.0.jar`, so make
-sure you adjust `$BAZEL` for where you keep your Bazel repository.
+`third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.4.jar`, so
+make sure you adjust `$BAZEL` for where you keep your Bazel repository.
 
 Do not forget to keep passing these options to Bazel for every command or the server will
 restart.
@@ -2191,17 +2191,17 @@ restart.
 Example:
 
 <pre>
-    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.0.jar \
+    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.4.jar \
     --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
     build --nobuild &lt;targets&gt;
 
     # Dump rules
-    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.0.jar \
+    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.4.jar \
     --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
     dump --rules
 
     # Dump Starlark heap and analyze it with pprof
-    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.0.jar \
+    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.4.jar \
     --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
     dump --skylark_memory=$HOME/prof.gz
     % pprof -flame $HOME/prof.gz
@@ -2402,6 +2402,8 @@ Bazel server process to persist indefinitely.
 
 Note: this flag is only read if Bazel needs
 to start a new server. Changing this option will not cause the server to restart.
+
+Note: system sleep time where a build is not running is counted as idle time.
 
 This option may be used by scripts that invoke Bazel to ensure that
 they do not leave Bazel server processes on a user's machine when they

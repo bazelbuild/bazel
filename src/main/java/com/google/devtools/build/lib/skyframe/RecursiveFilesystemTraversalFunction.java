@@ -112,6 +112,9 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
 
       /** The filesystem threw a {@link DetailedIOException}. */
       DETAILED_IO_EXCEPTION,
+
+      /** A traversal of a source directory was requested. */
+      CANNOT_TRAVERSE_SOURCE_DIRECTORY,
     }
 
     private final RecursiveFilesystemTraversalException.Type type;
@@ -184,9 +187,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         if (rootInfo.type.isSymlink()) {
           return RecursiveFilesystemTraversalValue.of(
               ResolvedFileFactory.danglingSymlink(
-                  traversal.root().asRootedPath(),
-                  rootInfo.unresolvedSymlinkTarget,
-                  rootInfo.metadata));
+                  traversal.root().asRootedPath(), rootInfo.unresolvedSymlinkTarget));
         } else {
           return RecursiveFilesystemTraversalValue.EMPTY;
         }

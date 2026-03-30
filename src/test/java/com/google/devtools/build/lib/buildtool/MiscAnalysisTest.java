@@ -144,6 +144,7 @@ public class MiscAnalysisTest extends BuildIntegrationTestCase {
     write(
         "fruit/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "apple",
             deps = [":banana"],
@@ -187,6 +188,7 @@ public class MiscAnalysisTest extends BuildIntegrationTestCase {
     write(
         "fruit/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "apple",
             deps = [":banana__hdrs__"],
@@ -267,6 +269,7 @@ public class MiscAnalysisTest extends BuildIntegrationTestCase {
     write(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "x",
             deps = [":z__hdrs__"],
@@ -315,7 +318,7 @@ public class MiscAnalysisTest extends BuildIntegrationTestCase {
   public void testNoTestTargetsFoundMessageForBuildCommand() throws Exception {
     write("pkg/BUILD");
     for (String option : ImmutableList.of("", "--nobuild", "--noanalyze")) {
-      resetOptions();
+      setupOptions();
       addOptions(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
       addOptions(option);
       buildTarget("//pkg:all");

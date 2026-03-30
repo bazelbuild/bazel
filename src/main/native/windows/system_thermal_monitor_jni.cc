@@ -21,25 +21,24 @@
 #include "src/main/native/jni.h"
 
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_SystemThermalModule
- * Method:    registerJNI
- * Signature: ()V
+ * Class: com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl
+ * Method:    registerThermalNative
+ * Signature: (Ljava/util/function/IntConsumer;)V
  */
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_platform_SystemThermalModule_registerJNI(
-    JNIEnv *env, jobject local_object) {
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerThermalNative(
+    JNIEnv* env, jobject local_object, jobject callback) {
   // Currently not implemented.
 }
 
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_SystemThermalModule
- * Method:    thermalLoad
+ * Class: com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl
+ * Method:    thermalLoadNative
  * Signature: ()I
  */
 extern "C" JNIEXPORT int JNICALL
-Java_com_google_devtools_build_lib_platform_SystemThermalModule_thermalLoad(
-    JNIEnv *env, jobject local_object) {
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_thermalLoadNative(
+    JNIEnv* env, jobject local_object) {
   // Currently not implemented.
   return 0;
 }
-

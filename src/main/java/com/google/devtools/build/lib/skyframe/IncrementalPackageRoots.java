@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.common.util.concurrent.Uninterruptibles.awaitTerminationUninterruptibly;
 
 import com.google.common.base.Ascii;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet.Node;
-import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -49,7 +48,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -180,7 +178,7 @@ public class IncrementalPackageRoots implements PackageRoots {
 
   /** There is currently no use case for this method, and it should not be called. */
   @Override
-  public Optional<ImmutableMap<PackageIdentifier, Root>> getPackageRootsMap() {
+  public ImmutableMap<PackageIdentifier, Root> getPackageRootsMap() {
     throw new UnsupportedOperationException(
         "IncrementalPackageRoots does not provide the package roots map directly.");
   }
@@ -237,7 +235,7 @@ public class IncrementalPackageRoots implements PackageRoots {
 
   @Subscribe
   public void analysisFinished(AnalysisPhaseCompleteEvent unused) {
-    dropIntermediateStatesAndUnregisterFromEventBus();
+    shutdown(false);
   }
 
   /**
@@ -247,7 +245,7 @@ public class IncrementalPackageRoots implements PackageRoots {
    * potentially conflicting symlinks detected.
    */
   private void recursiveRegisterAndPlantMissingSymlinks(
-      NestedSet<Package> packages,
+      NestedSet<Package.Metadata> packages,
       Set<Node> donePackagesRef,
       Set<Path> lazilyPlantedSymlinksRef,
       List<ListenableFuture<Void>> futures) {
@@ -262,28 +260,28 @@ public class IncrementalPackageRoots implements PackageRoots {
       if (symlinkPlantingPool.isShutdown()) {
         return;
       }
-      for (Package pkg : packages.getLeaves()) {
+      for (Package.Metadata pkg : packages.getLeaves()) {
         futures.add(
             symlinkPlantingPool.submit(
                 () -> plantSingleSymlinkForPackage(pkg, lazilyPlantedSymlinksRef)));
       }
     }
-    for (NestedSet<Package> transitive : packages.getNonLeaves()) {
+    for (NestedSet<Package.Metadata> transitive : packages.getNonLeaves()) {
       recursiveRegisterAndPlantMissingSymlinks(
           transitive, donePackagesRef, lazilyPlantedSymlinksRef, futures);
     }
   }
 
-  private Void plantSingleSymlinkForPackage(Package pkg, Set<Path> lazilyPlantedSymlinksRef)
-      throws AbruptExitException {
+  private Void plantSingleSymlinkForPackage(
+      Package.Metadata pkg, Set<Path> lazilyPlantedSymlinksRef) throws AbruptExitException {
     try {
-      PackageIdentifier pkgId = pkg.getPackageIdentifier();
-      if (isExternalRepository(pkgId) && pkg.getSourceRoot().isPresent()) {
+      PackageIdentifier pkgId = pkg.packageIdentifier();
+      if (isExternalRepository(pkgId)) {
         threadSafeExternalRepoPackageRootsMap.putIfAbsent(
-            pkg.getPackageIdentifier(), pkg.getSourceRoot().get());
+            pkg.packageIdentifier(), pkg.sourceRoot());
         SymlinkForest.plantSingleSymlinkForExternalRepo(
             pkgId.getRepository(),
-            pkg.getSourceRoot().get().asPath(),
+            pkg.sourceRoot().asPath(),
             execroot,
             useSiblingRepositoryLayout,
             lazilyPlantedSymlinksRef);
@@ -351,28 +349,36 @@ public class IncrementalPackageRoots implements PackageRoots {
     return !pkgId.getRepository().isMain();
   }
 
+  public void shutdown() {
+    shutdown(true);
+  }
+
   /**
    * Drops the intermediate states and stop receiving new events.
    *
    * <p>This essentially makes this instance read-only. Should be called when and only when all
    * analysis work is done in the build to free up some memory.
    */
-  private void dropIntermediateStatesAndUnregisterFromEventBus() {
+  private void shutdown(boolean now) {
     // This instance is retained after a build via ArtifactFactory, so it's important that we remove
     // the reference to the eventBus here for it to be GC'ed.
-    Preconditions.checkNotNull(eventBus).unregister(this);
-    eventBus = null;
-
+    if (eventBus != null) {
+      eventBus.unregister(this);
+      eventBus = null;
+    }
     synchronized (stateLock) {
       donePackages = null;
       lazilyPlantedSymlinks = null;
       maybeConflictingBaseNamesLowercase = ImmutableSet.of();
     }
     synchronized (symlinkPlantingPool) {
-      if (!symlinkPlantingPool.isShutdown()
-          && ExecutorUtil.interruptibleShutdown(symlinkPlantingPool)) {
-        // Preserve the interrupt status.
-        Thread.currentThread().interrupt();
+      if (!symlinkPlantingPool.isShutdown()) {
+        if (now) {
+          symlinkPlantingPool.shutdownNow();
+        } else {
+          symlinkPlantingPool.shutdown();
+        }
+        awaitTerminationUninterruptibly(symlinkPlantingPool);
       }
     }
   }

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.bazel.repository.downloader.DownloaderTestUtils.makeUrl;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -28,7 +27,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.RetryingInputStream.Reconnector;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -38,7 +37,7 @@ import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.SocketTimeoutException;
-import java.net.URL;
+import java.net.URI;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -73,13 +72,12 @@ public class HttpStreamTest {
       makeChecksum("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
   private static final Optional<Checksum> BAD_CHECKSUM =
       makeChecksum("0000000000000000000000000000000000000000000000000000000000000000");
-  private static final URL AURL = makeUrl("http://doodle.example");
+  private static final URI AURL = URI.create("http://doodle.example");
 
   @Rule
   public final ExpectedException thrown = ExpectedException.none();
 
-  @Rule
-  public final Timeout globalTimeout = new Timeout(10000);
+  @Rule public final Timeout globalTimeout = Timeout.seconds(10);
 
   private final HttpURLConnection connection = mock(HttpURLConnection.class);
   private final Reconnector reconnector = mock(Reconnector.class);
@@ -93,7 +91,8 @@ public class HttpStreamTest {
     nRetries = 0;
 
     when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(data));
-    when(progress.create(any(InputStream.class), any(), any(URL.class), any()))
+    when(connection.getURL()).thenReturn(AURL.toURL());
+    when(progress.create(any(InputStream.class), any(), any(URI.class), any()))
         .thenAnswer(
             new Answer<InputStream>() {
               @Override
@@ -260,7 +259,7 @@ public class HttpStreamTest {
 
   @Test
   public void httpServerSaidGzippedButNotGzipped_throwsZipExceptionInCreate() throws Exception {
-    when(connection.getURL()).thenReturn(AURL);
+    when(connection.getURL()).thenReturn(AURL.toURL());
     when(connection.getContentEncoding()).thenReturn("gzip");
     thrown.expect(ZipException.class);
     streamFactory.create(connection, AURL, Optional.empty(), reconnector);
@@ -268,7 +267,7 @@ public class HttpStreamTest {
 
   @Test
   public void javascriptGzippedInTransit_automaticallyGunzips() throws Exception {
-    when(connection.getURL()).thenReturn(AURL);
+    when(connection.getURL()).thenReturn(AURL.toURL());
     when(connection.getContentEncoding()).thenReturn("x-gzip");
     when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(gzipData(data)));
     try (HttpStream stream =
@@ -280,7 +279,7 @@ public class HttpStreamTest {
   @Test
   public void serverSaysTarballPathIsGzipped_doesntAutomaticallyGunzip() throws Exception {
     byte[] gzData = gzipData(data);
-    when(connection.getURL()).thenReturn(new URL("http://doodle.example/foo.tar.gz"));
+    when(connection.getURL()).thenReturn(URI.create("http://doodle.example/foo.tar.gz").toURL());
     when(connection.getContentEncoding()).thenReturn("gzip");
     when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(gzData));
     try (HttpStream stream =
@@ -327,7 +326,7 @@ public class HttpStreamTest {
   @Test
   public void tarballHasNoFormatAndTypeIsGzipped_doesntAutomaticallyGunzip() throws Exception {
     byte[] gzData = gzipData(data);
-    when(connection.getURL()).thenReturn(new URL("http://doodle.example/foo"));
+    when(connection.getURL()).thenReturn(URI.create("http://doodle.example/foo").toURL());
     when(connection.getContentEncoding()).thenReturn("gzip");
     when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(gzData));
     try (HttpStream stream =
@@ -342,7 +341,7 @@ public class HttpStreamTest {
     // Similar to tarballHasNoFormatAndTypeIsGzipped_doesntAutomaticallyGunzip but also
     // checks if the private method typeIsGZIP can handle separation of file extensions.
     byte[] gzData = gzipData(data);
-    when(connection.getURL()).thenReturn(new URL("http://doodle.example/foo"));
+    when(connection.getURL()).thenReturn(URI.create("http://doodle.example/foo").toURL());
     when(connection.getContentEncoding()).thenReturn("gzip");
     when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(gzData));
     try (HttpStream stream =
@@ -354,7 +353,7 @@ public class HttpStreamTest {
 
   @Test
   public void tarballHasNoFormatAndTypeIsNotGzipped_automaticallyGunzip() throws Exception {
-    when(connection.getURL()).thenReturn(new URL("http://doodle.example/foo"));
+    when(connection.getURL()).thenReturn(URI.create("http://doodle.example/foo").toURL());
     when(connection.getContentEncoding()).thenReturn("gzip");
     when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(gzipData(data)));
     try (HttpStream stream =

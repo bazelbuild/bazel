@@ -30,20 +30,24 @@ public abstract class Expression extends Node {
    */
   public enum Kind {
     BINARY_OPERATOR,
+    CALL,
+    CAST,
     COMPREHENSION,
     CONDITIONAL,
     DICT_EXPR,
     DOT,
-    CALL,
+    ELLIPSIS,
     FLOAT_LITERAL,
     IDENTIFIER,
     INDEX,
     INT_LITERAL,
+    ISINSTANCE,
     LAMBDA,
     LIST_EXPR,
     SLICE,
     STRING_LITERAL,
     UNARY_OPERATOR,
+    TYPE_APPLICATION,
   }
 
   // Materialize kind as a field so its accessor can be non-virtual.
@@ -72,5 +76,21 @@ public abstract class Expression extends Node {
   /** Parses an expression with default options. */
   public static Expression parse(ParserInput input) throws SyntaxError.Exception {
     return parse(input, FileOptions.DEFAULT);
+  }
+
+  /**
+   * Parses a type expression.
+   *
+   * @param options parsing options; note that {@link FileOptions#allowStarlarkTypeSyntax} doesn't
+   *     need to be set - this method supports Starlark types implicitly.
+   */
+  public static Expression parseTypeExpression(ParserInput input, FileOptions options)
+      throws SyntaxError.Exception {
+    return Parser.parseTypeExpression(input, options);
+  }
+
+  /** Parses a type expression with default options. */
+  public static Expression parseTypeExpression(ParserInput input) throws SyntaxError.Exception {
+    return parseTypeExpression(input, FileOptions.DEFAULT);
   }
 }

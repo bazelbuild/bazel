@@ -36,15 +36,19 @@ import java.util.Optional;
  */
 public class AuthAndTLSOptions extends OptionsBase {
   @Option(
-    name = "google_default_credentials",
-    oldName = "auth_enabled",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Whether to use 'Google Application Default Credentials' for authentication."
-            + " See https://cloud.google.com/docs/authentication for details. Disabled by default."
-  )
+      name = "google_default_credentials",
+      oldName = "auth_enabled",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          """
+          Whether to use 'Google Application Default Credentials' for authentication.
+          See [Authentication methods at Google - Google Cloud][gc-auth-methods] for details.
+          Disabled by default.
+
+          [gc-auth-methods]: https://cloud.google.com/docs/authentication
+          """)
   public boolean useGoogleDefaultCredentials;
 
   @Option(
@@ -112,18 +116,16 @@ public class AuthAndTLSOptions extends OptionsBase {
 
   @Option(
       name = "grpc_keepalive_time",
-      defaultValue = "null",
+      defaultValue = "60s",
       converter = DurationConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Configures keep-alive pings for outgoing gRPC connections. If this is set, then Bazel"
-              + " sends pings after this much time of no read operations on the connection, but"
-              + " only if there is at least one pending gRPC call. Times are treated as second"
-              + " granularity; it is an error to set a value less than one second. By default,"
-              + " keep-alive pings are disabled. You should coordinate with the service owner"
-              + " before enabling this setting. For example to set a value of 30 seconds to this"
-              + " flag, it should be done as this --grpc_keepalive_time=30s")
+          """
+          Configures keep-alive pings for outgoing gRPC connections. If this is set, then Bazel
+          sends pings after this much time of no read operations on the connection, but
+          only if there is at least one pending gRPC call. The value 0 disables the keep-alives.
+          """)
   public Duration grpcKeepaliveTime;
 
   @Option(
@@ -133,11 +135,13 @@ public class AuthAndTLSOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Configures a keep-alive timeout for outgoing gRPC connections. If keep-alive pings are "
-              + "enabled with --grpc_keepalive_time, then Bazel times out a connection if it does "
-              + "not receive a ping reply after this much time. Times are treated as second "
-              + "granularity; it is an error to set a value less than one second. If keep-alive "
-              + "pings are disabled, then this setting is ignored.")
+          """
+          Configures a keep-alive timeout for outgoing gRPC connections. If keep-alive pings are
+          enabled with `--grpc_keepalive_time`, then Bazel times out a connection if it does
+          not receive a ping reply after this much time. Times are treated as second
+          granularity; it is an error to set a value less than one second. If keep-alive
+          pings are disabled, then this setting is ignored.
+          """)
   public Duration grpcKeepaliveTimeout;
 
   @Option(
@@ -149,17 +153,29 @@ public class AuthAndTLSOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Configures a credential helper conforming to the <a"
-              + " href=\"https://github.com/EngFlow/credential-helper-spec\">Credential Helper"
-              + " Specification</a> to use for retrieving authorization credentials for  repository"
-              + " fetching, remote caching and execution, and the build event service.\n\n"
-              + "Credentials supplied by a helper take precedence over credentials supplied by"
-              + " `--google_default_credentials`, `--google_credentials`, a `.netrc` file, or the"
-              + " auth parameter to `repository_ctx.download()` and"
-              + " `repository_ctx.download_and_extract()`.\n\n"
-              + "May be specified multiple times to set up multiple helpers.\n\n"
-              + "See https://blog.engflow.com/2023/10/09/configuring-bazels-credential-helper/ for"
-              + " instructions.")
+          """
+          Configures a credential helper conforming to the [Credential Helper Specification][ch-spec]
+          to use for retrieving authorization credentials for repository
+          fetching, remote caching and execution, and the build event service.
+
+          The path to the credential helper may be absolute, relative to the PATH environment variable,
+          or %workspace%-relative. The path may be optionally prefixed by a scope followed by an '='.
+          The scope is a domain name, optionally with a single leading '*' wildcard component. A helper
+          applies to URIs matching its scope, with more specific scopes preferred. If a helper has no
+          scope, it applies to every URI.
+
+          Credentials supplied by a helper take precedence over credentials supplied by
+          `--google_default_credentials`, `--google_credentials`, a `.netrc` file, or the
+           auth parameter to `repository_ctx.download()` and
+          `repository_ctx.download_and_extract()`.
+
+          May be specified multiple times to set up multiple helpers.
+
+          See [Configuring Bazel's Credential Helper - Engflow Blog][ch-example] for instructions.
+
+          [ch-spec]: https://github.com/EngFlow/credential-helper-spec
+          [ch-example]: https://blog.engflow.com/2023/10/09/configuring-bazels-credential-helper/
+          """)
   public List<CredentialHelperOption> credentialHelpers;
 
   @Option(
@@ -170,9 +186,11 @@ public class AuthAndTLSOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Configures the timeout for a credential helper.\n\n"
-              + "Credential helpers failing to respond within this timeout will fail the"
-              + " invocation.")
+          """
+          Configures the timeout for a credential helper.
+
+          Credential helpers failing to respond within this timeout will fail the invocation.
+          """)
   public Duration credentialHelperTimeout;
 
   @Option(
@@ -183,8 +201,8 @@ public class AuthAndTLSOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "The default duration for which credentials supplied by a credential helper are cached if"
-              + " the helper does not provide when the credentials expire.")
+          "How long to cache credentials for if the credential helper doesn't return an expiration"
+              + " time. Changing the value of this flag clears the cache.")
   public Duration credentialHelperCacheTimeout;
 
   /**
@@ -210,11 +228,7 @@ public class AuthAndTLSOptions extends OptionsBase {
 
     @Override
     public String getTypeDescription() {
-      return "Path to a credential helper. It may be absolute, relative to the PATH environment"
-          + " variable, or %workspace%-relative. The path be optionally prefixed by a scope "
-          + " followed by an '='. The scope is a domain name, optionally with a single leading '*'"
-          + " wildcard component. A helper applies to URIs matching its scope, with more specific"
-          + " scopes preferred. If a helper has no scope, it applies to every URI.";
+      return "Path to a credential helper.";
     }
 
     @Override

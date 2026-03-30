@@ -129,6 +129,7 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
     write(
         "needsdata/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "needsdata",
             data = [":data_lib"],
@@ -155,7 +156,9 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
    */
   @Test
   public void testWithSaveTemps() throws Exception {
-    write("my_clib/BUILD",
+    write(
+        "my_clib/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name='my_clib', srcs=['myclib.cc'])\n");
     write("my_clib/myclib.cc",
           "void f() {}");
@@ -174,7 +177,9 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
    */
   @Test
   public void testSymlinkPrefix() throws Exception {
-    write("my_clib/BUILD",
+    write(
+        "my_clib/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name='my_clib', srcs=['myclib.cc'])\n");
     write("my_clib/myclib.cc",
           "void f() {}");
@@ -196,7 +201,9 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
    */
   @Test
   public void testFailedTargetWithSaveTemps() throws Exception {
-    write("bad_clib/BUILD",
+    write(
+        "bad_clib/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name='bad_clib', srcs=['badlib.cc'])\n");
     // trigger a warning to make the build fail:
     //   "control reaches end of non-void function [-Werror,-Wreturn-type]"

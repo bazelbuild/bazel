@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -201,6 +202,14 @@ public class ObjectCodecs {
         /* profileCollector= */ null);
   }
 
+  public ListenableFuture<SerializationResult<ByteString>> serializeMemoizedAsync(
+      FingerprintValueService fingerprintValueService,
+      Object subject,
+      @Nullable ProfileCollector profileCollector) {
+    return SharedValueSerializationContext.serializeToResultAsync(
+        getCodecRegistry(), getDependencies(), fingerprintValueService, subject, profileCollector);
+  }
+
   public Object deserialize(byte[] data) throws SerializationException {
     return deserialize(CodedInputStream.newInstance(data));
   }
@@ -252,8 +261,15 @@ public class ObjectCodecs {
   public Object deserializeWithSkyframe(
       FingerprintValueService fingerprintValueService, ByteString data)
       throws SerializationException {
+    return deserializeWithSkyframe(fingerprintValueService, data.newCodedInput());
+  }
+
+  @Nullable
+  public Object deserializeWithSkyframe(
+      FingerprintValueService fingerprintValueService, CodedInputStream codedIn)
+      throws SerializationException {
     return SharedValueDeserializationContext.deserializeWithSkyframe(
-        getCodecRegistry(), getDependencies(), fingerprintValueService, data);
+        getCodecRegistry(), getDependencies(), fingerprintValueService, codedIn);
   }
 
   static Object deserializeStreamFully(CodedInputStream codedIn, DeserializationContext context)

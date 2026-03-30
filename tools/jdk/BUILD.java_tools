@@ -20,6 +20,11 @@ SUPRESSED_WARNINGS = select({
 })
 
 filegroup(
+    name = "ImportDepsChecker",
+    srcs = ["java_tools/ImportDepsChecker_deploy.jar"],
+)
+
+filegroup(
     name = "GenClass",
     srcs = ["java_tools/GenClass_deploy.jar"],
 )
@@ -61,14 +66,14 @@ filegroup(
 
 java_import(
     name = "jacoco-agent",
-    jars = ["java_tools/third_party/java/jacoco/org.jacoco.agent-0.8.11.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.agent-0.8.11-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/org.jacoco.agent-0.8.14.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.agent-0.8.14-sources.jar",
 )
 
 java_import(
     name = "jacoco-core",
-    jars = ["java_tools/third_party/java/jacoco/org.jacoco.core-0.8.11.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.core-0.8.11-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/org.jacoco.core-0.8.14.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.core-0.8.14-sources.jar",
     exports = [
         ":asm",
         ":asm-commons",
@@ -78,13 +83,13 @@ java_import(
 
 filegroup(
     name = "jacoco-core-jars",
-    srcs = ["java_tools/third_party/java/jacoco/org.jacoco.core-0.8.11.jar"],
+    srcs = ["java_tools/third_party/java/jacoco/org.jacoco.core-0.8.14.jar"],
 )
 
 java_import(
     name = "jacoco-report",
-    jars = ["java_tools/third_party/java/jacoco/org.jacoco.report-0.8.11.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.report-0.8.11-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/org.jacoco.report-0.8.14.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.report-0.8.14-sources.jar",
     exports = [
         ":asm",
         ":jacoco-core",
@@ -93,32 +98,32 @@ java_import(
 
 java_import(
     name = "bazel-jacoco-agent",
-    jars = ["java_tools/third_party/java/jacoco/jacocoagent-0.8.11.jar"],
+    jars = ["java_tools/third_party/java/jacoco/jacocoagent-0.8.14.jar"],
 )
 
 java_import(
     name = "bazel-jacoco-agent-neverlink",
-    jars = ["java_tools/third_party/java/jacoco/jacocoagent-0.8.11.jar"],
+    jars = ["java_tools/third_party/java/jacoco/jacocoagent-0.8.14.jar"],
     neverlink = 1,
 )
 
 java_import(
     name = "asm",
-    jars = ["java_tools/third_party/java/jacoco/asm-9.6.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/asm-9.6-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/asm-9.9.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/asm-9.9-sources.jar",
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["java_tools/third_party/java/jacoco/asm-commons-9.6.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/asm-commons-9.6-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/asm-commons-9.9.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/asm-commons-9.9-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["java_tools/third_party/java/jacoco/asm-tree-9.6.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/asm-tree-9.6-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/asm-tree-9.9.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/asm-tree-9.9-sources.jar",
     runtime_deps = [":asm"],
 )
 
@@ -367,7 +372,7 @@ cc_library(
     copts = SUPRESSED_WARNINGS,
     include_prefix = "third_party",
     strip_include_prefix = "java_tools",
-    deps = ["//java_tools/zlib"],
+    deps = ["@zlib"],
 )
 
 ##################### singlejar
@@ -390,7 +395,8 @@ cc_library(
         ":diag",
         ":options",
         ":output_jar",
-        "//java_tools/zlib",
+        "@re2",
+        "@zlib",
     ],
     alwayslink = 1,
 )
@@ -420,7 +426,7 @@ cc_binary(
         ":desugar_checking",
         ":options",
         ":output_jar",
-        "//java_tools/zlib",
+        "@zlib",
     ],
 )
 
@@ -428,15 +434,17 @@ cc_library(
     name = "combiners",
     srcs = [
         "java_tools/src/tools/singlejar/combiners.cc",
+        "java_tools/src/tools/singlejar/log4j2_plugin_dat_combiner.cc",
     ],
     hdrs = [
         "java_tools/src/tools/singlejar/combiners.h",
+        "java_tools/src/tools/singlejar/log4j2_plugin_dat_combiner.h",
         ":transient_bytes",
     ],
     copts = SUPRESSED_WARNINGS,
     strip_include_prefix = "java_tools",
     deps = [
-        "//java_tools/zlib",
+        "@zlib",
     ],
 )
 
@@ -525,6 +533,7 @@ cc_library(
     deps = [
         ":diag",
         ":token_stream",
+        "@com_google_absl//absl/container:flat_hash_set",
     ],
 )
 
@@ -546,7 +555,10 @@ cc_library(
         ":mapped_file",
         ":options",
         ":singlejar_port",
-        "//java_tools/zlib",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/strings",
+        "@re2",
+        "@zlib",
     ],
 )
 
@@ -558,6 +570,8 @@ cc_library(
     deps = [
         ":diag",
         ":filesystem",
+        ":mapped_file",
+        "@com_google_absl//absl/container:flat_hash_set",
     ],
 )
 

@@ -19,18 +19,6 @@ java_library(
 )
 
 java_library(
-    name = "current_test",
-    srcs = [
-        "CurrentRunningTest.java",
-        "TestNameProvider.java",
-    ],
-    visibility = ["//testing/web:webtesting"],
-    deps = [
-        "//third_party:junit4",
-    ],
-)
-
-java_library(
     name = "util-android",
     srcs = [
         "TestPropertyExporter.java",
@@ -39,6 +27,29 @@ java_library(
     visibility = ["//visibility:public"],
     deps = [
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "current_test",
+    srcs = [
+        "CurrentRunningTest.java",
+        "TestNameProvider.java",
+    ],
+    deps = [
+        "//third_party:junit4",
+    ],
+)
+
+java_library(
+    name = "current_test-android",
+    srcs = [
+        "CurrentRunningTest.java",
+        "TestNameProvider.java",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//third_party:junit4",
     ],
 )
 

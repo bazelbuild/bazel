@@ -76,9 +76,6 @@ public enum PythonVersion {
    * <p>This should not be referenced by the user. But since we can't actually hide it from Starlark
    * ({@code native.existing_rules()}) or bazel query, we give it the scary "_internal" prefix
    * instead.
-   *
-   * <p>The logical meaning of this value is the same as {@link
-   * PythonOptions#getDefaultPythonVersion}.
    */
   _INTERNAL_SENTINEL;
 
@@ -167,4 +164,3 @@ public enum PythonVersion {
     return PythonVersion.valueOf(str);
   }
 }
-

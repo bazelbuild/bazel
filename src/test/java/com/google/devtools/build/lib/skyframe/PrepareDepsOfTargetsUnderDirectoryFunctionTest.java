@@ -62,8 +62,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
   protected FileSystem createFileSystem() {
     return new DelegateFileSystem(super.createFileSystem()) {
       @Override
-      protected FileStatus statIfFound(PathFragment path, boolean followSymlinks)
-          throws IOException {
+      public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
         @Nullable FileStatus injectedStat = injectedStats.remove(path);
         if (injectedStat != null) {
           return injectedStat;

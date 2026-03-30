@@ -15,11 +15,14 @@
 
 package com.google.devtools.build.lib.packages.semantics;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedNonEmptyOptionListConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionSetConverter;
@@ -28,7 +31,10 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.protobuf.ByteString;
 import java.util.List;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /**
@@ -45,7 +51,8 @@ import net.starlark.java.eval.StarlarkSemantics;
  *   <li>Add a new {@code @Option}-annotated field to this class. The field name and default value
  *       should be the same as in {@link StarlarkSemantics}, and the option name in the annotation
  *       should be that name written in snake_case. Add a line to set the new field in {@link
- *       #toStarlarkSemantics}.
+ *       #toStarlarkSemantics}. New options should always default to {@code false} and have no
+ *       observable effect when disabled.
  *   <li>Define a new {@code StarlarkSemantics.Key} or {@code StarlarkSemantics} boolean flag
  *       identifier.
  *   <li>Add a line to set the new field in both {@link ConsistencyTest#buildRandomOptions} and
@@ -60,15 +67,6 @@ import net.starlark.java.eval.StarlarkSemantics;
  * </ul>
  */
 public final class BuildLanguageOptions extends OptionsBase {
-  @Option(
-      name = "experimental_java_library_export",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If enabled, experimental_java_library_export_do_not_use module is available.")
-  public boolean experimentalJavaLibraryExport;
-
   @Option(
       name = "incompatible_stop_exporting_language_modules",
       defaultValue = "false",
@@ -100,60 +98,6 @@ public final class BuildLanguageOptions extends OptionsBase {
               + "Bazel within its own source tree. Finally, a value of the empty string disables "
               + "the builtins injection mechanism entirely.")
   public String experimentalBuiltinsBzlPath;
-
-  @Option(
-      name = "incompatible_autoload_externally",
-      converter = CommaSeparatedOptionSetConverter.class,
-      defaultValue = FlagConstants.DEFAULT_INCOMPATIBLE_AUTOLOAD_EXTERNALLY,
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "A comma-separated list of rules (or other symbols) that were previously part of Bazel"
-              + " and which are now to be retrieved from their respective external repositories."
-              + " This flag is intended to be used to facilitate migration of rules out of Bazel."
-              + " See also https://github.com/bazelbuild/bazel/issues/23043.\n"
-              + "A symbol that is autoloaded within a file behaves as if its built-into-Bazel"
-              + " definition were replaced by its canonical new definition in an external"
-              + " repository. For a BUILD file, this essentially means implicitly adding a load()"
-              + " statement. For a .bzl file, it's either a load() statement or a change to a field"
-              + " of the `native` object, depending on whether the autoloaded symbol is a rule.\n"
-              + "Bazel maintains a hardcoded list of all symbols that may be autoloaded; only those"
-              + " symbols may appear in this flag. For each symbol, Bazel knows the new definition"
-              + " location in an external repository, as well as a set of special-cased"
-              + " repositories that must not autoload it to avoid creating cycles.\n"
-              + "A list item of \"+foo\" in this flag causes symbol foo to be autoloaded, except in"
-              + " foo's exempt repositories, within which the Bazel-defined version of foo is still"
-              + " available.\n"
-              + "A list item of \"foo\" triggers autoloading as above, but the Bazel-defined"
-              + " version of foo is not made available to the excluded repositories. This ensures"
-              + " that foo's external repository does not depend on the old Bazel implementation of"
-              + " foo\n"
-              + "A list item of \"-foo\" does not trigger any autoloading, but makes the"
-              + " Bazel-defined version of foo inaccessible throughout the workspace. This is used"
-              + " to validate that the workspace is ready for foo's definition to be deleted from"
-              + " Bazel.\n"
-              + "If a symbol is not named in this flag then it continues to work as normal -- no"
-              + " autoloading is done, nor is the Bazel-defined version suppressed. For"
-              + " configuration see"
-              + " https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/packages/AutoloadSymbols.java"
-              + " As a shortcut also whole repository may be used, for example +@rules_python will"
-              + " autoload all Python rules.")
-  public List<String> incompatibleAutoloadExternally;
-
-  @Option(
-      name = "repositories_without_autoloads",
-      converter = CommaSeparatedOptionSetConverter.class,
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "A list of additional repositories (beyond the hardcoded ones Bazel knows about) where "
-              + "autoloads are not to be added. This should typically contain repositories that are"
-              + " transitively depended on by a repository that may be loaded automatically "
-              + "(and which can therefore potentially create a cycle).")
-  public List<String> repositoriesWithoutAutoloads;
 
   @Option(
       name = "experimental_builtins_dummy",
@@ -209,6 +153,15 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalSinglePackageToolchainBinding;
 
   @Option(
+      name = "allow_experimental_loads",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      defaultValue = "false",
+      help =
+          "If enabled, issue only a warning instead of an error for loads of experimental .bzls.")
+  public boolean allowExperimentalLoads;
+
+  @Option(
       name = "check_bzl_visibility",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
@@ -245,16 +198,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalEnableFirstClassMacros;
 
   @Option(
-      name = "experimental_enable_macro_inherit_attrs",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
-      help =
-          "If set to true, enables attribute inheritance in symbolic macros and the inherit_attrs"
-              + " parameter in the macro() built-in")
-  public boolean experimentalEnableMacroInheritAttrs;
-
-  @Option(
       name = "experimental_enable_scl_dialect",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -262,27 +205,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       // TODO(brandjon): point to more extensive user documentation somewhere
       help = "If set to true, .scl files may be used in load() statements.")
   public boolean experimentalEnableSclDialect;
-
-  @Option(
-      name = "enable_bzlmod",
-      oldName = "experimental_enable_bzlmod",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      help =
-          "If true, enables the Bzlmod dependency management system, taking precedence over"
-              + " WORKSPACE. See https://bazel.build/docs/bzlmod for more information.")
-  public boolean enableBzlmod;
-
-  @Option(
-      name = "enable_workspace",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      help =
-          "If true, enables the legacy WORKSPACE system for external dependencies. See"
-              + " https://bazel.build/external/overview for more information.")
-  public boolean enableWorkspace;
 
   @Option(
       name = "experimental_isolated_extension_usages",
@@ -356,31 +278,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalCcSharedLibrary;
 
   @Option(
-      name = "experimental_cc_static_library",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.EXPERIMENTAL,
-      },
-      help =
-          "If set to true, rule attributes and Starlark API methods needed for the rule "
-              + "cc_static_library will be available")
-  public boolean experimentalCcStaticLibrary;
-
-  @Option(
-      name = "incompatible_require_linker_input_cc_api",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, rule create_linking_context will require linker_inputs instead of "
-              + "libraries_to_link. The old getters of linking_context will also be disabled and "
-              + "just linker_inputs will be available.")
-  public boolean incompatibleRequireLinkerInputCcApi;
-
-  @Option(
       name = "experimental_repo_remote_exec",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -442,20 +339,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalAllowTagsPropagation;
 
   @Option(
-      name = "experimental_action_resource_set",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.EXPERIMENTAL,
-      },
-      help =
-          "If set to true, ctx.actions.run() and ctx.actions.run_shell() accept a resource_set"
-              + " parameter for local execution. Otherwise it will default to 250 MB for memory"
-              + " and 1 cpu.")
-  public boolean experimentalActionResourceSet;
-
-  @Option(
       name = "incompatible_always_check_depset_elements",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -469,7 +352,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleAlwaysCheckDepsetElements;
 
   @Option(
-      name = "incompatible_disable_target_provider_fields",
+      name = "incompatible_disable_target_default_provider_fields",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
@@ -479,20 +362,6 @@ public final class BuildLanguageOptions extends OptionsBase {
               + "syntax. Use provider-key syntax instead. For example, instead of using "
               + "`ctx.attr.dep.files` to access `files`, utilize `ctx.attr.dep[DefaultInfo].files "
               + "See "
-              + "https://github.com/bazelbuild/bazel/issues/9014 for details.")
-  public boolean incompatibleDisableTargetProviderFields;
-
-  @Option(
-      name = "incompatible_disable_target_default_provider_fields",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, disable the ability to access providers on 'target' objects via field "
-              + "syntax. Use provider-key syntax instead. For example, instead of using "
-              + "`ctx.attr.dep.my_info` to access `my_info` from inside a rule implementation "
-              + "function, use `ctx.attr.dep[MyInfo]`. See "
               + "https://github.com/bazelbuild/bazel/issues/9014 for details.")
   public boolean incompatibleDisableTargetDefaultProviderFields;
 
@@ -509,17 +378,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "If set to true, the default value of the `allow_empty` argument of glob() is False.")
   public boolean incompatibleDisallowEmptyGlob;
-
-  @Option(
-      name = "incompatible_disallow_struct_provider_syntax",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, rule implementation functions may not return a struct. They must "
-              + "instead return a list of provider instances.")
-  public boolean incompatibleDisallowStructProviderSyntax;
 
   @Option(
       name = "incompatible_package_group_has_public_syntax",
@@ -555,25 +413,14 @@ public final class BuildLanguageOptions extends OptionsBase {
       help = "If set to true, disables the function `attr.license`.")
   public boolean incompatibleNoAttrLicense;
 
-  // TODO(aiuto): Short lived flag to guard removal of package(distribs)
-  // The code base cleanup should be quick, then this can go to graveyard quickly.
-  @Option(
-      name = "incompatible_no_package_distribs",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If set to true, disables the `package(distribs=...)`.")
-  public boolean incompatibleNoPackageDistribs;
-
   @Option(
       name = "incompatible_no_implicit_file_export",
-      defaultValue = "false",
+      defaultValue = FlagConstants.DEFAULT_INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT,
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
-          "If set, (used) source files are are package private unless exported explicitly. See "
+          "If set, (used) source files are package private unless exported explicitly. See "
               + "https://github.com/bazelbuild/proposals/blob/master/designs/"
               + "2019-10-24-file-visibility.md")
   public boolean incompatibleNoImplicitFileExport;
@@ -595,6 +442,17 @@ public final class BuildLanguageOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "If set to true, the command parameter of actions.run_shell will only accept string")
   public boolean incompatibleRunShellCommandString;
+
+  @Option(
+      name = "incompatible_require_mnemonic_for_run_actions",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If set to true, ctx.actions.run and ctx.actions.run_shell will require an explicit"
+              + " mnemonic")
+  public boolean incompatibleRequireMnemonicForRunActions;
 
   /** Used in an integration test to confirm that flags are visible to the interpreter. */
   @Option(
@@ -642,28 +500,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleUnambiguousLabelStringification;
 
   @Option(
-      name = "incompatible_depset_for_libraries_to_link_getter",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "When true, Bazel no longer returns a list from linking_context.libraries_to_link but "
-              + "returns a depset instead.")
-  public boolean incompatibleDepsetForLibrariesToLinkGetter;
-
-  @Option(
-      name = "incompatible_java_common_parameters",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, the output_jar, and host_javabase parameters in pack_sources and "
-              + "host_javabase in compile will all be removed.")
-  public boolean incompatibleJavaCommonParameters;
-
-  @Option(
       name = "incompatible_java_info_merge_runtime_module_flags",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -695,18 +531,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public int nestedSetDepthLimit;
 
   @Option(
-      name = "incompatible_top_level_aspects_require_providers",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      help =
-          "If set to true, the top level aspect will honor its required providers and only run on"
-              + " top level targets whose rules' advertised providers satisfy the required"
-              + " providers of the aspect.")
-  public boolean incompatibleTopLevelAspectsRequireProviders;
-
-  @Option(
       name = "incompatible_disable_starlark_host_transitions",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -718,19 +542,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleDisableStarlarkHostTransitions;
 
   @Option(
-      name = "incompatible_merge_fixed_and_default_shell_env",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If enabled, actions registered with ctx.actions.run and ctx.actions.run_shell with both"
-              + " 'env' and 'use_default_shell_env = True' specified will use an environment"
-              + " obtained from the default shell environment by overriding with the values passed"
-              + " in to 'env'. If disabled, the value of 'env' is completely ignored in this case.")
-  public boolean incompatibleMergeFixedAndDefaultShellEnv;
-
-  @Option(
       name = "incompatible_disable_objc_library_transition",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -740,6 +551,27 @@ public final class BuildLanguageOptions extends OptionsBase {
           "Disable objc_library's custom transition and inherit "
               + "from the top level target instead (No-op in Bazel)")
   public boolean incompatibleDisableObjcLibraryTransition;
+
+  @Option(
+      name = "incompatible_disable_transitions_on",
+      converter = CommaSeparatedOptionSetConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.NON_CONFIGURABLE},
+      help =
+          "A comma-separated list of flags that cannot be used in transitions inputs or outputs.")
+  public ImmutableList<String> incompatibleDisableTransitionsOn;
+
+  @Option(
+      name = "add_go_exec_groups_to_binary_rules",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
+      help =
+          "When enabled, 'go_build' and 'go_link' execution groups are added to binary rules like"
+              + " 'cc_binary'.")
+  public boolean addGoExecGroupsToBinaryRules;
 
   // remove after Bazel LTS in Nov 2023
   @Option(
@@ -754,7 +586,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   // Flip when dependencies to rules_* repos are upgraded and protobuf registers toolchains
   @Option(
       name = "incompatible_enable_proto_toolchain_resolution",
-      defaultValue = "false",
+      defaultValue = FlagConstants.DEFAULT_INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION,
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -793,6 +625,83 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalDormantDeps;
 
   @Option(
+      name = "experimental_starlark_type_syntax",
+      defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_STARLARK_TYPE_SYNTAX,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          """
+          Enables type annotations and related syntax in .bzl files. Locations of files where \
+          these are allowed is further restricted by `--experimental_starlark_types_allowed_paths`.
+          Type syntax is never permitted in .scl files regardless of this flag.
+          """)
+  public boolean experimentalStarlarkTypeSyntax;
+
+  @Option(
+      name = "experimental_starlark_static_type_checking",
+      defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_STARLARK_TYPE_CHECKING,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Enables static type checking in files and functions that contain type annotations or "
+              + "related syntax.")
+  public boolean experimentalStarlarkStaticTypeChecking;
+
+  @Option(
+      name = "experimental_starlark_dynamic_type_checking",
+      defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_STARLARK_TYPE_CHECKING,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Enables dynamic type checking of arguments and return values for functions that contain "
+              + "type annotations or related syntax.")
+  public boolean experimentalStarlarkDynamicTypeChecking;
+
+  @Option(
+      name = "experimental_starlark_type_checking",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      expansion = {
+        "--experimental_starlark_static_type_checking",
+        "--experimental_starlark_dynamic_type_checking",
+      },
+      help =
+          "Enables both static and dynamic type checking in files and functions that contain type"
+              + " annotations or related syntax. This is an expansion flag for"
+              + " --experimental_starlark_static_type_checking and "
+              + "--experimental_starlark_dynamic_type_checking."
+              + " (When both flags are disabled, Bazel is more forgiving of invalid types in type"
+              + " annotations.)")
+  public Void experimentalStarlarkTypeChecking;
+
+  // TODO: b/350661266 - Delete this flag.
+  @Option(
+      name = "experimental_starlark_types",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "No-op. Previously used as --experimental_starlark_type_syntax +"
+              + " --experimental_starlark_type_checking")
+  public boolean experimentalStarlarkTypes;
+
+  @Option(
+      name = "experimental_starlark_types_allowed_paths",
+      converter = CommaSeparatedOptionListConverter.class,
+      defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "List of canonical Label prefixes under which Starlark type annotations are allowed.")
+  public List<String> experimentalStarlarkTypesAllowedPaths;
+
+  @Option(
       name = "incompatible_enable_deprecated_label_apis",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -829,12 +738,99 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "experimental_enable_starlark_set",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "If true, enable the set data type and set() constructor in Starlark.")
   public boolean experimentalEnableStarlarkSet;
+
+  @Option(
+      name = "incompatible_locations_prefers_executable",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "Whether a target that provides an executable expands to the executable rather than the"
+              + " files in <code>DefaultInfo.files</code> under $(locations ...) expansion if the"
+              + " number of files is not 1.")
+  public boolean incompatibleLocationsPrefersExecutable;
+
+  @Option(
+      name = "internal_starlark_utf_8_byte_strings",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      help =
+          "Internal use only. Forces the Starlark implementation to operate on strings as raw"
+              + " UTF-8 byte arrays, matching Bazel's internal string encoding.")
+  public boolean internalStarlarkUtf8ByteStrings;
+
+  /** An enum for specifying different modes for UTF-8 checking of Starlark files. */
+  public enum Utf8EnforcementMode {
+    OFF,
+    WARNING,
+    ERROR;
+
+    /** Converts to {@link Utf8EnforcementMode}. */
+    public static class Converter extends BoolOrEnumConverter<Utf8EnforcementMode> {
+      public Converter() {
+        super(
+            Utf8EnforcementMode.class,
+            "UTF-8 enforcement mode",
+            Utf8EnforcementMode.ERROR,
+            Utf8EnforcementMode.OFF);
+      }
+    }
+  }
+
+  @Option(
+      name = "incompatible_enforce_starlark_utf8",
+      defaultValue = "warning",
+      converter = Utf8EnforcementMode.Converter.class,
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled (or set to 'error'), fail if Starlark files are not UTF-8 encoded. If set to"
+              + " 'warning', emit a warning instead. If set to 'off', Bazel assumes that Starlark"
+              + " files are UTF-8 encoded but does not verify this assumption. Note that Starlark"
+              + " files which are not UTF-8 encoded can cause Bazel to behave inconsistently.")
+  public Utf8EnforcementMode incompatibleEnforceStarlarkUtf8;
+
+  @Option(
+      name = "experimental_repository_ctx_execute_wasm",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If true enables the repository_ctx `load_wasm` and `execute_wasm` methods.")
+  public boolean repositoryCtxExecuteWasm;
+
+  @Option(
+      name = "incompatible_resolve_select_keys_eagerly",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled, string keys in dicts passed to select() in .bzl files are immediately"
+              + " resolved to Labels relative to the file instead of being interpreted relative to"
+              + " the BUILD file they are ultimately loaded from.")
+  public boolean incompatibleResolveSelectKeysEagerly;
+
+  @Option(
+      name = "force_starlark_stack_trace",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If --force_starlark_stack_trace=true, Starlark stace traces will always be printed from"
+              + " calls to fail(), including those normally supressed with fail(..., stack_trace ="
+              + " False)")
+  public boolean forceStarlarkStackTrace;
 
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
@@ -844,22 +840,24 @@ public final class BuildLanguageOptions extends OptionsBase {
    */
   private static final Interner<StarlarkSemantics> INTERNER = BlazeInterners.newWeakInterner();
 
-  /** Constructs a {@link StarlarkSemantics} object corresponding to this set of option values. */
-  public StarlarkSemantics toStarlarkSemantics() {
-    // This function connects command-line flags to their corresponding StarlarkSemantics keys.
-    StarlarkSemantics semantics =
-        StarlarkSemantics.builder()
-            .setBool(EXPERIMENTAL_JAVA_LIBRARY_EXPORT, experimentalJavaLibraryExport)
+  private interface FlagConsumer {
+    <T> FlagConsumer set(StarlarkSemantics.Key<T> key, T value);
+
+    FlagConsumer setBool(String key, boolean enabled);
+  }
+
+  private void setFlags(FlagConsumer consumer) {
+    var unused =
+        consumer
             .setBool(
                 INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
                 incompatibleStopExportingLanguageModules)
             .setBool(INCOMPATIBLE_ALLOW_TAGS_PROPAGATION, experimentalAllowTagsPropagation)
             .set(EXPERIMENTAL_BUILTINS_BZL_PATH, experimentalBuiltinsBzlPath)
-            .set(INCOMPATIBLE_AUTOLOAD_EXTERNALLY, incompatibleAutoloadExternally)
-            .set(REPOSITORIES_WITHOUT_AUTOLOAD, repositoriesWithoutAutoloads)
             .setBool(EXPERIMENTAL_BUILTINS_DUMMY, experimentalBuiltinsDummy)
             .set(EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE, experimentalBuiltinsInjectionOverride)
             .setBool(EXPERIMENTAL_BZL_VISIBILITY, experimentalBzlVisibility)
+            .setBool(ALLOW_EXPERIMENTAL_LOADS, allowExperimentalLoads)
             .setBool(CHECK_BZL_VISIBILITY, checkBzlVisibility)
             .setBool(
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
@@ -867,70 +865,53 @@ public final class BuildLanguageOptions extends OptionsBase {
                 EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING,
                 experimentalSinglePackageToolchainBinding)
             .setBool(EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS, experimentalEnableFirstClassMacros)
-            .setBool(EXPERIMENTAL_ENABLE_MACRO_INHERIT_ATTRS, experimentalEnableMacroInheritAttrs)
             .setBool(EXPERIMENTAL_ENABLE_SCL_DIALECT, experimentalEnableSclDialect)
-            .setBool(ENABLE_BZLMOD, enableBzlmod)
-            .setBool(ENABLE_WORKSPACE, enableWorkspace)
             .setBool(EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, experimentalIsolatedExtensionUsages)
             .setBool(INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL, incompatibleNoImplicitWatchLabel)
-            .setBool(EXPERIMENTAL_ACTION_RESOURCE_SET, experimentalActionResourceSet)
             .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, experimentalGoogleLegacyApi)
             .setBool(EXPERIMENTAL_PLATFORMS_API, experimentalPlatformsApi)
             .setBool(EXPERIMENTAL_CC_SHARED_LIBRARY, experimentalCcSharedLibrary)
-            .setBool(EXPERIMENTAL_CC_STATIC_LIBRARY, experimentalCcStaticLibrary)
             .setBool(EXPERIMENTAL_REPO_REMOTE_EXEC, experimentalRepoRemoteExec)
             .setBool(EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE, experimentalDisableExternalPackage)
             .setBool(EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, experimentalSiblingRepositoryLayout)
             .setBool(
-                INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS,
-                incompatibleDisableTargetProviderFields)
-            .setBool(
                 INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS, incompatibleAlwaysCheckDepsetElements)
             .setBool(INCOMPATIBLE_DISALLOW_EMPTY_GLOB, incompatibleDisallowEmptyGlob)
-            .setBool(
-                INCOMPATIBLE_DISALLOW_STRUCT_PROVIDER_SYNTAX,
-                incompatibleDisallowStructProviderSyntax)
             .setBool(
                 INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX,
                 incompatiblePackageGroupHasPublicSyntax)
             .setBool(
                 INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX,
                 incompatibleFixPackageGroupReporootSyntax)
-            .setBool(INCOMPATIBLE_JAVA_COMMON_PARAMETERS, incompatibleJavaCommonParameters)
             .setBool(
                 INCOMPATIBLE_JAVA_INFO_MERGE_RUNTIME_MODULE_FLAGS,
                 incompatibleJavaInfoMergeRuntimeModuleFlags)
             .setBool(INCOMPATIBLE_NO_ATTR_LICENSE, incompatibleNoAttrLicense)
             .setBool(INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT, incompatibleNoImplicitFileExport)
-            .setBool(INCOMPATIBLE_NO_PACKAGE_DISTRIBS, incompatibleNoPackageDistribs)
             .setBool(INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM, incompatibleNoRuleOutputsParam)
             .setBool(INCOMPATIBLE_RUN_SHELL_COMMAND_STRING, incompatibleRunShellCommandString)
+            .setBool(
+                INCOMPATIBLE_REQUIRE_MNEMONIC_FOR_RUN_ACTIONS,
+                incompatibleRequireMnemonicForRunActions)
             .setBool(StarlarkSemantics.PRINT_TEST_MARKER, internalStarlarkFlagTestCanary)
             .setBool(
                 INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE, incompatibleDoNotSplitLinkingCmdline)
+            .set(INCOMPATIBLE_ENFORCE_STARLARK_UTF8, incompatibleEnforceStarlarkUtf8)
             .setBool(
                 INCOMPATIBLE_USE_CC_CONFIGURE_FROM_RULES_CC, incompatibleUseCcConfigureFromRulesCc)
             .setBool(
                 INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION,
                 incompatibleUnambiguousLabelStringification)
-            .setBool(
-                INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER,
-                incompatibleDepsetForLibrariesToLinkGetter)
-            .setBool(INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API, incompatibleRequireLinkerInputCcApi)
             .set(MAX_COMPUTATION_STEPS, maxComputationSteps)
             .set(NESTED_SET_DEPTH_LIMIT, nestedSetDepthLimit)
-            .setBool(
-                INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS,
-                incompatibleTopLevelAspectsRequireProviders)
             .setBool(
                 INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS,
                 incompatibleDisableStarlarkHostTransitions)
             .setBool(
-                INCOMPATIBLE_MERGE_FIXED_AND_DEFAULT_SHELL_ENV,
-                incompatibleMergeFixedAndDefaultShellEnv)
-            .setBool(
                 INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION,
                 incompatibleDisableObjcLibraryTransition)
+            .set(INCOMPATIBLE_DISABLE_TRANSITIONS_OPTIONS, incompatibleDisableTransitionsOn)
+            .setBool(ADD_GO_EXEC_GROUPS_TO_BINARY_RULES, addGoExecGroupsToBinaryRules)
             .setBool(INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES, incompatibleFailOnUnknownAttributes)
             .setBool(
                 INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION,
@@ -943,6 +924,14 @@ public final class BuildLanguageOptions extends OptionsBase {
                 incompatibleDisableTargetDefaultProviderFields)
             .setBool(EXPERIMENTAL_RULE_EXTENSION_API, experimentalRuleExtensionApi)
             .setBool(EXPERIMENTAL_DORMANT_DEPS, experimentalDormantDeps)
+            .setBool(EXPERIMENTAL_STARLARK_TYPE_SYNTAX, experimentalStarlarkTypeSyntax)
+            .setBool(
+                StarlarkSemantics.EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING,
+                experimentalStarlarkStaticTypeChecking)
+            .setBool(
+                StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING,
+                experimentalStarlarkDynamicTypeChecking)
+            .set(EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS, experimentalStarlarkTypesAllowedPaths)
             .setBool(INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS, enableDeprecatedLabelApis)
             .setBool(
                 INCOMPATIBLE_STOP_EXPORTING_BUILD_FILE_PATH, incompatibleStopExportingBuildFilePath)
@@ -951,9 +940,88 @@ public final class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS,
                 incompatibleSimplifyUnconditionalSelectsInRuleAttrs)
             .setBool(
+                INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE, incompatibleLocationsPrefersExecutable)
+            .setBool(INCOMPATIBLE_RESOLVE_SELECT_KEYS_EAGERLY, incompatibleResolveSelectKeysEagerly)
+            .setBool(
                 StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET, experimentalEnableStarlarkSet)
-            .build();
-    return INTERNER.intern(semantics);
+            .setBool(
+                StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS,
+                internalStarlarkUtf8ByteStrings)
+            .setBool(EXPERIMENTAL_REPOSITORY_CTX_EXECUTE_WASM, repositoryCtxExecuteWasm)
+            .setBool(StarlarkSemantics.FORCE_STARLARK_STACK_TRACE, forceStarlarkStackTrace);
+  }
+
+  /** Constructs a {@link StarlarkSemantics} object corresponding to this set of option values. */
+  public StarlarkSemantics toStarlarkSemantics() {
+    // This function connects command-line flags to their corresponding StarlarkSemantics keys.
+    var builder = StarlarkSemantics.builder();
+    setFlags(
+        new FlagConsumer() {
+          @Override
+          public <T> FlagConsumer set(StarlarkSemantics.Key<T> key, T value) {
+            builder.set(key, value);
+            return this;
+          }
+
+          @Override
+          public FlagConsumer setBool(String key, boolean enabled) {
+            builder.setBool(key, enabled);
+            return this;
+          }
+        });
+    return INTERNER.intern(builder.build());
+  }
+
+  /**
+   * Returns a fingerprint of the given {@link StarlarkSemantics} object that can be compared across
+   * Bazel versions.
+   */
+  public static ByteString stableFingerprint(StarlarkSemantics semantics) {
+    return FINGERPRINT_CACHE.getUnchecked(semantics);
+  }
+
+  // See the comment on INTERNER above, this cache should be very small.
+  private static final LoadingCache<StarlarkSemantics, ByteString> FINGERPRINT_CACHE =
+      CacheBuilder.newBuilder()
+          .weakKeys()
+          .build(
+              new CacheLoader<>() {
+                @Override
+                public ByteString load(StarlarkSemantics key) {
+                  return computeFingerprint(key);
+                }
+              });
+
+  private static ByteString computeFingerprint(StarlarkSemantics semantics) {
+    var enabledBoolFlags = new TreeSet<String>();
+    var otherFlags = new TreeMap<String, String>();
+    // We only care about the keys of the map, so the BuildLanguageOptions instance doesn't matter.
+    new BuildLanguageOptions()
+        .setFlags(
+            new FlagConsumer() {
+              @Override
+              public <T> FlagConsumer set(StarlarkSemantics.Key<T> key, T ignored) {
+                // This assumes that all non-boolean values have a stable and unique string
+                // representation, which seems likely to remain true over time.
+                otherFlags.put(key.name, semantics.get(key).toString());
+                return this;
+              }
+
+              @Override
+              public FlagConsumer setBool(String key, boolean ignored) {
+                // Only fingerprint enabled options so that the fingerprint is stable across Bazel
+                // versions that only add new options (e.g., minor and patch versions). This relies
+                // on the assumption that disabled new options have no observable effect.
+                if (semantics.getBool(key)) {
+                  // Trim the leading '+' or '-' from the flag names - the default value doesn't
+                  // matter for the current value, which is what we need to fingerprint.
+                  enabledBoolFlags.add(key.substring(1));
+                }
+                return this;
+              }
+            });
+    return ByteString.copyFrom(
+        new Fingerprint().addStrings(enabledBoolFlags).addStringMap(otherFlags).digestAndReset());
   }
 
   // StarlarkSemantics keys used by Bazel
@@ -965,16 +1033,15 @@ public final class BuildLanguageOptions extends OptionsBase {
   // (In principle, a key not associated with a command-line flag may be declared anywhere.)
 
   // booleans: the +/- prefix indicates the default value (true/false).
-  public static final String EXPERIMENTAL_JAVA_LIBRARY_EXPORT = "-experimental_java_library_export";
   public static final String INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES =
       "-incompatible_stop_exporting_language_modules";
   public static final String INCOMPATIBLE_ALLOW_TAGS_PROPAGATION =
       "+incompatible_allow_tags_propagation";
   public static final String EXPERIMENTAL_BUILTINS_DUMMY = "-experimental_builtins_dummy";
   public static final String EXPERIMENTAL_BZL_VISIBILITY = "+experimental_bzl_visibility";
+  public static final String ALLOW_EXPERIMENTAL_LOADS = "-allow_experimental_loads";
   public static final String CHECK_BZL_VISIBILITY = "+check_bzl_visibility";
   public static final String EXPERIMENTAL_CC_SHARED_LIBRARY = "-experimental_cc_shared_library";
-  public static final String EXPERIMENTAL_CC_STATIC_LIBRARY = "-experimental_cc_static_library";
   public static final String EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE =
       "-experimental_disable_external_package";
   public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
@@ -983,11 +1050,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_single_package_toolchain_binding";
   public static final String EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS =
       "+experimental_enable_first_class_macros";
-  public static final String EXPERIMENTAL_ENABLE_MACRO_INHERIT_ATTRS =
-      "-experimental_enable_macro_inherit_attrs";
   public static final String EXPERIMENTAL_ENABLE_SCL_DIALECT = "+experimental_enable_scl_dialect";
-  public static final String ENABLE_BZLMOD = "+enable_bzlmod";
-  public static final String ENABLE_WORKSPACE = "-enable_workspace";
   public static final String EXPERIMENTAL_ISOLATED_EXTENSION_USAGES =
       "-experimental_isolated_extension_usages";
   public static final String INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL =
@@ -997,55 +1060,43 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_REPO_REMOTE_EXEC = "-experimental_repo_remote_exec";
   public static final String EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT =
       "-experimental_sibling_repository_layout";
-  public static final String EXPERIMENTAL_ACTION_RESOURCE_SET = "+experimental_action_resource_set";
   public static final String INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS =
       "+incompatible_always_check_depset_elements";
-  public static final String INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER =
-      "+incompatible_depset_for_libraries_to_link_getter";
-  public static final String INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS =
-      "-incompatible_disable_target_provider_fields";
+
   // Note that INCOMPATIBLE_DISALLOW_EMPTY_GLOB differs in Google and in OSS Bazel.
   public static final String INCOMPATIBLE_DISALLOW_EMPTY_GLOB = "+incompatible_disallow_empty_glob";
-  public static final String INCOMPATIBLE_DISALLOW_STRUCT_PROVIDER_SYNTAX =
-      "+incompatible_disallow_struct_provider_syntax";
   public static final String INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX =
       FlagConstants.INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX;
   public static final String INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX =
       FlagConstants.INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX;
   public static final String INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE =
       "+incompatible_do_not_split_linking_cmdline";
-  public static final String INCOMPATIBLE_JAVA_COMMON_PARAMETERS =
-      "+incompatible_java_common_parameters";
   public static final String INCOMPATIBLE_JAVA_INFO_MERGE_RUNTIME_MODULE_FLAGS =
       "-incompatible_java_info_merge_runtime_module_flags";
   public static final String INCOMPATIBLE_NO_ATTR_LICENSE = "+incompatible_no_attr_license";
-  public static final String INCOMPATIBLE_NO_PACKAGE_DISTRIBS = "-incompatible_no_package_distribs";
   public static final String INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT =
-      "-incompatible_no_implicit_file_export";
+      FlagConstants.DEFAULT_INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT_NAME;
   public static final String INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM =
       "-incompatible_no_rule_outputs_param";
-  public static final String INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API =
-      "+incompatible_require_linker_input_cc_api";
   public static final String INCOMPATIBLE_RUN_SHELL_COMMAND_STRING =
       "+incompatible_run_shell_command_string";
-  public static final String INCOMPATIBLE_STRUCT_HAS_NO_METHODS =
-      "+incompatible_struct_has_no_methods";
+  public static final String INCOMPATIBLE_REQUIRE_MNEMONIC_FOR_RUN_ACTIONS =
+      "-incompatible_require_mnemonic_for_run_actions";
+
   public static final String INCOMPATIBLE_USE_CC_CONFIGURE_FROM_RULES_CC =
       "-incompatible_use_cc_configure_from_rules";
   public static final String INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION =
       "+incompatible_unambiguous_label_stringification";
-  public static final String INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS =
-      "+incompatible_top_level_aspects_require_providers";
   public static final String INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS =
       "-incompatible_disable_starlark_host_transitions";
-  public static final String INCOMPATIBLE_MERGE_FIXED_AND_DEFAULT_SHELL_ENV =
-      "+experimental_merge_fixed_and_default_shell_env";
   public static final String INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION =
       "+incompatible_disable_objc_library_transition";
+  public static final String ADD_GO_EXEC_GROUPS_TO_BINARY_RULES =
+      "-add_go_exec_groups_to_binary_rules";
   public static final String INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES =
       "+incompatible_fail_on_unknown_attributes";
   public static final String INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION =
-      "-incompatible_enable_proto_toolchain_resolution";
+      FlagConstants.DEFAULT_INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION_NAME;
   public static final String INCOMPATIBLE_DISABLE_NON_EXECUTABLE_JAVA_BINARY =
       "-incompatible_disable_non_executable_java_binary";
   public static final String INCOMPATIBLE_DISABLE_TARGET_DEFAULT_PROVIDER_FIELDS =
@@ -1053,6 +1104,9 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_RULE_EXTENSION_API =
       FlagConstants.DEFAULT_EXPERIMENTAL_RULE_EXTENSION_API_NAME;
   public static final String EXPERIMENTAL_DORMANT_DEPS = "-experimental_dormant_deps";
+
+  public static final String EXPERIMENTAL_STARLARK_TYPE_SYNTAX =
+      FlagConstants.EXPERIMENTAL_STARLARK_TYPE_SYNTAX_FLAG_NAME;
   public static final String INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS =
       "+incompatible_enable_deprecated_label_apis";
   public static final String INCOMPATIBLE_STOP_EXPORTING_BUILD_FILE_PATH =
@@ -1061,24 +1115,33 @@ public final class BuildLanguageOptions extends OptionsBase {
       "+incompatible_disallow_ctx_resolve_tools";
   public static final String INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS =
       "+incompatible_simplify_unconditional_selects_in_rule_attrs";
+  public static final String INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE =
+      "+incompatible_locations_prefers_executable";
+  public static final String EXPERIMENTAL_REPOSITORY_CTX_EXECUTE_WASM =
+      "-experimental_repository_ctx_execute_wasm";
+  public static final String INCOMPATIBLE_RESOLVE_SELECT_KEYS_EAGERLY =
+      "-incompatible_resolve_select_keys_eagerly";
+
   // non-booleans
+  public static final StarlarkSemantics.Key<List<String>> INCOMPATIBLE_DISABLE_TRANSITIONS_OPTIONS =
+      new StarlarkSemantics.Key<>("incompatible_disable_transitions_on", ImmutableList.of());
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =
       new StarlarkSemantics.Key<>("experimental_builtins_bzl_path", "%bundled%");
-  public static final StarlarkSemantics.Key<List<String>> INCOMPATIBLE_AUTOLOAD_EXTERNALLY =
-      new StarlarkSemantics.Key<>(
-          "incompatible_autoload_externally",
-          FlagConstants.DEFAULT_INCOMPATIBLE_AUTOLOAD_EXTERNALLY.isEmpty()
-              ? ImmutableList.of()
-              : ImmutableList.copyOf(
-                      FlagConstants.DEFAULT_INCOMPATIBLE_AUTOLOAD_EXTERNALLY.split(","))
-                  .stream()
-                  .distinct()
-                  .sorted()
-                  .collect(toImmutableList()));
-  public static final StarlarkSemantics.Key<List<String>> REPOSITORIES_WITHOUT_AUTOLOAD =
-      new StarlarkSemantics.Key<>("repositories_without_autoloads", ImmutableList.of());
   public static final StarlarkSemantics.Key<List<String>> EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE =
       new StarlarkSemantics.Key<>("experimental_builtins_injection_override", ImmutableList.of());
+  public static final StarlarkSemantics.Key<Utf8EnforcementMode>
+      INCOMPATIBLE_ENFORCE_STARLARK_UTF8 =
+          new StarlarkSemantics.Key<>(
+              "incompatible_enforce_starlark_utf8", Utf8EnforcementMode.WARNING);
+  public static final StarlarkSemantics.Key<List<String>>
+      EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS =
+          new StarlarkSemantics.Key<>(
+              "experimental_starlark_types",
+              FlagConstants.DEFAULT_EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS.isEmpty()
+                  ? ImmutableList.of()
+                  : ImmutableList.copyOf(
+                      FlagConstants.DEFAULT_EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS.split(",")));
+
   public static final StarlarkSemantics.Key<Long> MAX_COMPUTATION_STEPS =
       new StarlarkSemantics.Key<>("max_computation_steps", 0L);
   public static final StarlarkSemantics.Key<Integer> NESTED_SET_DEPTH_LIMIT =

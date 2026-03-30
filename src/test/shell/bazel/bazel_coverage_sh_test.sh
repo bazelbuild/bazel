@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -23,9 +23,14 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 source "${CURRENT_DIR}/coverage_helpers.sh" \
   || { echo "coverage_helpers.sh not found!" >&2; exit 1; }
 
-
 function set_up_sh_test_coverage() {
+  add_rules_shell "MODULE.bazel"
+  add_rules_java "MODULE.bazel"
+
   cat <<EOF > BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+
 sh_test(
     name = "orange-sh",
     srcs = ["orange-test.sh"],
@@ -47,7 +52,7 @@ sh_library(
 )
 EOF
   cat <<EOF > orange-test.sh
-#!/bin/bash
+#!/usr/bin/env bash
 
 java/com/google/orange/orange-bin
 EOF
@@ -56,6 +61,9 @@ EOF
   mkdir -p java/com/google/orange
 
   cat <<EOF > java/com/google/orange/BUILD
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_library.bzl", "java_library")
+
 package(default_visibility = ["//visibility:public"])
 
 java_binary(
@@ -145,8 +153,13 @@ function test_sh_test_coverage_cc_binary() {
     echo "Skipping test." && return
   fi
 
+  add_rules_cc "MODULE.bazel"
+  add_rules_shell "MODULE.bazel"
+
   ########### Setup source files and BUILD file ###########
   cat <<EOF > BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "num-sh",
     srcs = ["num-test.sh"],
@@ -154,7 +167,7 @@ sh_test(
 )
 EOF
   cat <<EOF > num-test.sh
-#!/bin/bash
+#!/usr/bin/env bash
 
 examples/cpp/num-world
 EOF
@@ -163,6 +176,9 @@ EOF
   mkdir -p examples/cpp
 
   cat <<EOF > examples/cpp/BUILD
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 package(default_visibility = ["//visibility:public"])
 
 cc_binary(
@@ -282,8 +298,14 @@ function test_sh_test_coverage_cc_binary_and_java_binary() {
     echo "Skipping test." && return
   fi
 
+  add_rules_shell "MODULE.bazel"
+  add_rules_java "MODULE.bazel"
+  add_rules_cc "MODULE.bazel"
+
   ########### Setup source files and BUILD file ###########
   cat <<EOF > BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "num-sh",
     srcs = ["num-test.sh"],
@@ -294,7 +316,7 @@ sh_test(
 )
 EOF
   cat <<EOF > num-test.sh
-#!/bin/bash
+#!/usr/bin/env bash
 
 examples/cpp/num-world
 java/com/google/orange/orange-bin
@@ -304,6 +326,9 @@ EOF
   mkdir -p examples/cpp
 
   cat <<EOF > examples/cpp/BUILD
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 package(default_visibility = ["//visibility:public"])
 
 cc_binary(
@@ -375,6 +400,9 @@ EOF
   mkdir -p java/com/google/orange
 
   cat <<EOF > java/com/google/orange/BUILD
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_library.bzl", "java_library")
+
 package(default_visibility = ["//visibility:public"])
 java_binary(
     name = "orange-bin",
@@ -490,14 +518,17 @@ end_of_record"
 }
 
 function test_coverage_as_tree_artifact() {
+  add_rules_shell "MODULE.bazel"
   cat <<'EOF' > BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "pull",
     srcs = ["pull-test.sh"],
 )
 EOF
   cat <<'EOF' > pull-test.sh
-#!/bin/bash
+#!/usr/bin/env bash
 touch $COVERAGE_DIR/foo.txt
 # We need a non-empty coverage.dat file for the checks below to work.
 echo "FN:2,com/google/orange/orangeLib::<init> ()V" > $COVERAGE_OUTPUT_FILE

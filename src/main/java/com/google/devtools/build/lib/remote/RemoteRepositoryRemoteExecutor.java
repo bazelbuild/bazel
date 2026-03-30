@@ -29,16 +29,15 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.CombinedCache.CachedActionResult;
+import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
-import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -59,10 +58,10 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
   private final DigestUtil digestUtil;
   private final String buildRequestId;
   private final String commandId;
+  private final String workspaceName;
 
   private final String remoteInstanceName;
   private final boolean acceptCached;
-  private final Reporter reporter;
 
   public RemoteRepositoryRemoteExecutor(
       RemoteExecutionCache remoteCache,
@@ -70,17 +69,17 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
       DigestUtil digestUtil,
       String buildRequestId,
       String commandId,
+      String workspaceName,
       String remoteInstanceName,
-      boolean acceptCached,
-      Reporter reporter) {
+      boolean acceptCached) {
     this.remoteCache = remoteCache;
     this.remoteExecutor = remoteExecutor;
     this.digestUtil = digestUtil;
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
+    this.workspaceName = workspaceName;
     this.remoteInstanceName = remoteInstanceName;
     this.acceptCached = acceptCached;
-    this.reporter = reporter;
   }
 
   private ExecutionResult downloadOutErr(RemoteActionExecutionContext context, ActionResult result)
@@ -93,7 +92,8 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
       } else if (result.hasStdoutDigest()) {
         stdout =
             Utils.getFromFuture(
-                remoteCache.downloadBlob(context, "<stdout>", result.getStdoutDigest()));
+                remoteCache.downloadBlob(
+                    context, "<stdout>", /* execPath= */ null, result.getStdoutDigest()));
       }
 
       byte[] stderr = new byte[0];
@@ -102,7 +102,8 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
       } else if (result.hasStderrDigest()) {
         stderr =
             Utils.getFromFuture(
-                remoteCache.downloadBlob(context, "<stderr>", result.getStderrDigest()));
+                remoteCache.downloadBlob(
+                    context, "<stderr>", /* execPath= */ null, result.getStderrDigest()));
       }
 
       return new ExecutionResult(result.getExitCode(), stdout, stderr);
@@ -139,15 +140,17 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
 
     Command command = commandBuilder.build();
     Digest commandHash = digestUtil.compute(command);
-    MerkleTree merkleTree = MerkleTree.build(inputFiles, digestUtil);
+    var merkleTree =
+        new MerkleTreeComputer(
+                digestUtil,
+                /* remoteExecutionCache= */ null,
+                buildRequestId,
+                commandId,
+                workspaceName)
+            .buildForFiles(inputFiles);
     Action action =
         buildAction(
-            commandHash,
-            merkleTree.getRootDigest(),
-            platform,
-            timeout,
-            acceptCached,
-            /* salt= */ null);
+            commandHash, merkleTree.digest(), platform, timeout, acceptCached, /* salt= */ null);
     Digest actionDigest = digestUtil.compute(action);
     ActionKey actionKey = new ActionKey(actionDigest);
     CachedActionResult cachedActionResult;
@@ -172,7 +175,11 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
         additionalInputs.put(commandHash, command);
 
         remoteCache.ensureInputsPresent(
-            context, merkleTree, additionalInputs, /* force= */ true, reporter);
+            context,
+            merkleTree,
+            additionalInputs,
+            /* force= */ true,
+            /* remotePathResolver= */ null);
       }
 
       try (SilentCloseable c =

@@ -23,7 +23,7 @@ java_library(
         # Generated classes have the following dependencies.
         ":registered-singleton",
         ":runtime-helpers",
-        "@protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_java",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
     ],
@@ -112,6 +112,7 @@ java_plugin(
 java_library(
     name = "autocodec-processor",
     srcs = [
+        "AutoCodecAnnotation.java",
         "AutoCodecProcessor.java",
         "CodecGenerator.java",
         "DeferredObjectCodecConstants.java",
@@ -132,10 +133,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//third_party:auto_service",
-        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/java/javapoet",
-        "@protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )

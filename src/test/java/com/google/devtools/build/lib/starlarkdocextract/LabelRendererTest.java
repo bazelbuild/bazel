@@ -42,10 +42,10 @@ public final class LabelRendererTest {
         .isEqualTo("\"//foo:bar\"");
     assertThat(LabelRenderer.DEFAULT.repr(mainRepoLabel)).isEqualTo("Label(\"//foo:bar\")");
 
-    assertThat(LabelRenderer.DEFAULT.render(depRepoLabel)).isEqualTo("@dep//foo:baz");
+    assertThat(LabelRenderer.DEFAULT.render(depRepoLabel)).isEqualTo("@@dep//foo:baz");
     assertThat(LabelRenderer.DEFAULT.reprWithoutLabelConstructor(depRepoLabel))
-        .isEqualTo("\"@dep//foo:baz\"");
-    assertThat(LabelRenderer.DEFAULT.repr(depRepoLabel)).isEqualTo("Label(\"@dep//foo:baz\")");
+        .isEqualTo("\"@@dep//foo:baz\"");
+    assertThat(LabelRenderer.DEFAULT.repr(depRepoLabel)).isEqualTo("Label(\"@@dep//foo:baz\")");
   }
 
   @Test
@@ -54,7 +54,7 @@ public final class LabelRendererTest {
     Label shorthandLabel = Label.parseCanonicalUnchecked("//foo");
     Object dict = Dict.immutableCopyOf(ImmutableMap.of(label, shorthandLabel));
 
-    RepositoryMapping repositoryMapping = RepositoryMapping.ALWAYS_FALLBACK;
+    RepositoryMapping repositoryMapping = RepositoryMapping.EMPTY;
     LabelRenderer labelRenderer = new LabelRenderer(repositoryMapping, Optional.empty());
 
     assertThat(labelRenderer.render(label)).isEqualTo("//foo:bar");
@@ -73,7 +73,7 @@ public final class LabelRendererTest {
     Object list =
         StarlarkList.immutableCopyOf(ImmutableList.of(label, shorthandLabel, ultraShorthandLabel));
 
-    RepositoryMapping repositoryMapping = RepositoryMapping.ALWAYS_FALLBACK;
+    RepositoryMapping repositoryMapping = RepositoryMapping.EMPTY;
     LabelRenderer labelRenderer = new LabelRenderer(repositoryMapping, Optional.of("my_main"));
 
     assertThat(labelRenderer.render(label)).isEqualTo("@my_main//foo:bar");

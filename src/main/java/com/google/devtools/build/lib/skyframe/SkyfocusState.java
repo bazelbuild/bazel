@@ -29,18 +29,18 @@ import javax.annotation.Nullable;
  * SkyframeExecutor}.
  *
  * @param enabled If true, Skyfocus may run at the end of the build, depending on the state of the
- *     graph and working set conditions.
+ *     graph and active directories conditions.
  * @param forcedRerun If true, Skyfocus will always run at the end of the build, regardless of the
- *     state of working set or the graph.
+ *     state of active directories or the graph.
  * @param focusedTargetLabels The set of targets focused in this server instance
- * @param workingSet Files/dirs representing the working set. Can be empty, specified by the command
- *     line flag, or automatically derived. Although the working set is represented as {@link
- *     FileStateKey}, the presence of a directory path's {@code FileStateKey} is sufficient to
- *     represent the corresponding directory listing state node.
- * @param frontierSet {@link SkyKey}s for nodes that are in the DIRECT deps of the UTC of the
- *     working set. The values of these nodes are sufficient to build the working set.
- * @param verificationSet The set of files/dirs that are not in the working set, but is in the
- *     transitive closure of focusedTargetLabels.
+ * @param activeDirectories Files/dirs representing the active directories. Can be empty, specified
+ *     by the command line flag, or automatically derived. Although the active directories is
+ *     represented as {@link FileStateKey}, the presence of a directory path's {@code FileStateKey}
+ *     is sufficient to represent the corresponding directory listing state node.
+ * @param frontierSet {@link SkyKey}s for nodes that are in the DIRECT deps of the UTC of the active
+ *     directories. The values of these nodes are sufficient to build the active directories.
+ * @param verificationSet The set of files/dirs that are not in the active directories, but is in
+ *     the transitive closure of focusedTargetLabels.
  * @param options The latest instance of {@link SkyfocusOptions}.
  * @param buildConfiguration The latest top level build configuration.
  */
@@ -48,15 +48,15 @@ public record SkyfocusState(
     boolean enabled,
     boolean forcedRerun,
     ImmutableSet<Label> focusedTargetLabels,
-    WorkingSetType workingSetType,
-    ImmutableSet<FileStateKey> workingSet,
+    ActiveDirectoriesType activeDirectoriesType,
+    ImmutableSet<FileStateKey> activeDirectories,
     ImmutableSet<SkyKey> frontierSet,
     ImmutableSet<SkyKey> verificationSet,
     @Nullable SkyfocusOptions options,
     @Nullable BuildConfigurationValue buildConfiguration) {
 
-  public void dumpWorkingSet(PrintStream out) {
-    workingSet.forEach(key -> out.println(key.getCanonicalName()));
+  public void dumpActiveDirectories(PrintStream out) {
+    activeDirectories.forEach(key -> out.println(key.getCanonicalName()));
   }
 
   public void dumpFrontierSet(PrintStream out) {
@@ -76,9 +76,9 @@ public record SkyfocusState(
 
     Builder focusedTargetLabels(ImmutableSet<Label> focusedTargetLabels);
 
-    Builder workingSetType(WorkingSetType workingSetType);
+    Builder activeDirectoriesType(ActiveDirectoriesType activeDirectoriesType);
 
-    Builder workingSet(ImmutableSet<FileStateKey> workingSet);
+    Builder activeDirectories(ImmutableSet<FileStateKey> activeDirectories);
 
     Builder frontierSet(ImmutableSet<SkyKey> frontierSet);
 
@@ -95,12 +95,12 @@ public record SkyfocusState(
     return new AutoBuilder_SkyfocusState_Builder(this);
   }
 
-  /** Describes how the working set was constructed. */
-  public enum WorkingSetType {
+  /** Describes how the active directories was constructed. */
+  public enum ActiveDirectoriesType {
     /** Automatically derived by the source state and the command line (e.g. focused targets) */
     DERIVED,
 
-    /** The value of --experimental_working_set. Will override derived sets if used. */
+    /** The value of --experimental_active_directories. Will override derived sets if used. */
     USER_DEFINED
   }
 
@@ -110,15 +110,15 @@ public record SkyfocusState(
           false,
           false,
           /* focusedTargetLabels= */ ImmutableSet.of(),
-          WorkingSetType.DERIVED,
-          /* workingSet= */ ImmutableSet.of(),
+          ActiveDirectoriesType.DERIVED,
+          /* activeDirectories= */ ImmutableSet.of(),
           /* frontierSet= */ ImmutableSet.of(),
           /* verificationSet= */ ImmutableSet.of(),
           null,
           null);
 
-  public ImmutableSet<String> workingSetStrings() {
-    return workingSet.stream()
+  public ImmutableSet<String> activeDirectoriesStrings() {
+    return activeDirectories.stream()
         .map(fsk -> fsk.argument().getRootRelativePath().toString())
         .collect(toImmutableSet());
   }

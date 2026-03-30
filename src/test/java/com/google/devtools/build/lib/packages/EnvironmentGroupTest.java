@@ -95,11 +95,11 @@ public class EnvironmentGroupTest extends PackageLoadingTestCase {
   @Test
   public void fulfillers() throws Exception {
     EnvironmentLabels unpackedGroup = group.getEnvironmentLabels();
-    assertThat(unpackedGroup.getFulfillers(Label.parseCanonical("//pkg:baz")).toList())
+    assertThat(unpackedGroup.getFulfillers(Label.parseCanonical("//pkg:baz")))
         .containsExactly(Label.parseCanonical("//pkg:foo"), Label.parseCanonical("//pkg:bar"));
-    assertThat(unpackedGroup.getFulfillers(Label.parseCanonical("//pkg:bar")).toList())
+    assertThat(unpackedGroup.getFulfillers(Label.parseCanonical("//pkg:bar")))
         .containsExactly(Label.parseCanonical("//pkg:foo"));
-    assertThat(unpackedGroup.getFulfillers(Label.parseCanonical("//pkg:foo")).toList()).isEmpty();
+    assertThat(unpackedGroup.getFulfillers(Label.parseCanonical("//pkg:foo"))).isEmpty();
   }
 
   @Test
@@ -107,7 +107,7 @@ public class EnvironmentGroupTest extends PackageLoadingTestCase {
     scratch.file(
         "a/BUILD", "environment_group(name = 'empty_group', environments = [], defaults = [])");
     reporter.removeHandler(failFastHandler);
-    Package pkg = getTarget("//a:BUILD").getPackage();
+    Packageoid pkg = getTarget("//a:BUILD").getPackageoid();
     assertThat(pkg.containsErrors()).isTrue();
     assertContainsEvent(
         "environment group empty_group must contain at least one environment");

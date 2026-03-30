@@ -34,9 +34,13 @@ class TestWrapperTest(test_base.TestBase):
 
   def _CreateMockWorkspace(self):
     self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name = "rules_python", version = "0.40.0")']
+    )
+    self.ScratchFile(
         'foo/BUILD',
         [
             'load(":native_test.bzl", "bat_test", "exe_test")',
+            'load("@rules_python//python:py_test.bzl", "py_test")',
             'bat_test(',
             '    name = "passing_test",',
             '    content = ["@exit /B 0"],',
@@ -599,7 +603,7 @@ class TestWrapperTest(test_base.TestBase):
 
     self.assertListEqual(annot_content, ['Hello aHello c'])
 
-  def _AssertXmlGeneration(self, flags, split_xml=False):
+  def _AssertXmlGeneration(self, flags):
     _, bazel_testlogs, _ = self.RunBazel(['info', 'bazel-testlogs'])
     bazel_testlogs = bazel_testlogs[0]
 
@@ -609,8 +613,6 @@ class TestWrapperTest(test_base.TestBase):
             '//foo:xml_test',
             '-t-',
             '--test_output=errors',
-            '--%sexperimental_split_xml_generation'
-            % ('' if split_xml else 'no'),
         ]
         + flags
     )
@@ -649,7 +651,7 @@ class TestWrapperTest(test_base.TestBase):
         'stderr_line_2' not in stderr_lines[1]):
       self._FailWithOutput(xml_contents)
 
-  def _AssertXmlGeneratedByTestIsRetained(self, flags, split_xml=False):
+  def _AssertXmlGeneratedByTestIsRetained(self, flags):
     _, bazel_testlogs, _ = self.RunBazel(['info', 'bazel-testlogs'])
     bazel_testlogs = bazel_testlogs[0]
 
@@ -659,8 +661,6 @@ class TestWrapperTest(test_base.TestBase):
             '//foo:xml2_test',
             '-t-',
             '--test_output=errors',
-            '--%sexperimental_split_xml_generation'
-            % ('' if split_xml else 'no'),
         ]
         + flags
     )
@@ -676,41 +676,56 @@ class TestWrapperTest(test_base.TestBase):
   # See https://github.com/bazelbuild/bazel/issues/8088
   def testRunningTestFromExternalRepo(self):
     rule_definition = [
+        'bazel_dep(name = "rules_python", version = "0.40.0")',
+        'local_repository = use_repo_rule(',
         (
-            'local_repository ='
-            ' use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl",'
+            '   "@bazel_tools//tools/build_defs/repo:local.bzl",'
             ' "local_repository")'
         ),
         'local_repository(name = "a", path = "a")',
     ]
     self.ScratchFile('MODULE.bazel', rule_definition)
-    self.ScratchFile('BUILD', ['py_test(name = "x", srcs = ["x.py"])'])
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_python//python:py_test.bzl", "py_test")',
+            'py_test(name = "x", srcs = ["x.py"])',
+        ],
+    )
     self.ScratchFile('a/REPO.bazel')
-    self.ScratchFile('a/BUILD', ['py_test(name = "x", srcs = ["x.py"])'])
+    self.ScratchFile(
+        'a/BUILD',
+        [
+            'load("@rules_python//python:py_test.bzl", "py_test")',
+            'py_test(name = "x", srcs = ["x.py"])',
+        ],
+    )
     self.ScratchFile('x.py')
     self.ScratchFile('a/x.py')
 
-    for flag in ['--legacy_external_runfiles', '--nolegacy_external_runfiles']:
-      for layout in [
-          '--experimental_sibling_repository_layout',
-          '--noexperimental_sibling_repository_layout',
-      ]:
-        for target in ['//:x', '@a//:x']:
-          exit_code, _, stderr = self.RunBazel([
-              'test',
-              '-t-',
-              '--shell_executable=',
-              '--test_output=errors',
-              '--verbose_failures',
-              flag,
-              layout,
-              target,
-          ])
-          self.AssertExitCode(exit_code, 0, [
-              'flag=%s' % flag,
-              'layout=%s' % layout,
-              'target=%s' % target,
-          ] + stderr)
+    for layout in [
+        '--experimental_sibling_repository_layout',
+        '--noexperimental_sibling_repository_layout',
+    ]:
+      for target in ['//:x', '@a//:x']:
+        exit_code, _, stderr = self.RunBazel([
+            'test',
+            '-t-',
+            '--shell_executable=',
+            '--test_output=errors',
+            '--verbose_failures',
+            layout,
+            target,
+        ])
+        self.AssertExitCode(
+            exit_code,
+            0,
+            [
+                'layout=%s' % layout,
+                'target=%s' % target,
+            ]
+            + stderr,
+        )
 
   def _AssertAddCurrentDirectoryToPathTest(self, flags):
     self.RunBazel(
@@ -736,10 +751,8 @@ class TestWrapperTest(test_base.TestBase):
     self._AssertTestArgs(flags)
     self._AssertUndeclaredOutputs(flags)
     self._AssertUndeclaredOutputsAnnotations(flags)
-    self._AssertXmlGeneration(flags, split_xml=False)
-    self._AssertXmlGeneration(flags, split_xml=True)
-    self._AssertXmlGeneratedByTestIsRetained(flags, split_xml=False)
-    self._AssertXmlGeneratedByTestIsRetained(flags, split_xml=True)
+    self._AssertXmlGeneration(flags)
+    self._AssertXmlGeneratedByTestIsRetained(flags)
     self._AssertAddCurrentDirectoryToPathTest(flags)
 
 

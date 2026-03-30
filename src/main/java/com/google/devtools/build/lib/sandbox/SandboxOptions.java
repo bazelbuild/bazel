@@ -31,7 +31,6 @@ import com.google.devtools.common.options.Converters.TriStateConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.RegexPatternOption;
@@ -84,14 +83,6 @@ public class SandboxOptions extends OptionsBase {
       return "a single path or a 'source:target' pair";
     }
   }
-
-  @Option(
-      name = "ignore_unsupported_sandboxing",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help = "Do not print a warning when sandboxed execution is not supported on this system.")
-  public boolean ignoreUnsupportedSandboxing;
 
   @Option(
       name = "sandbox_debug",
@@ -251,9 +242,9 @@ public class SandboxOptions extends OptionsBase {
       help =
           "Specify a Docker image name (e.g. \"ubuntu:latest\") that should be used to execute a"
               + " sandboxed action when using the docker strategy and the action itself doesn't"
-              + " already have a container-image attribute in its remote_execution_properties in"
-              + " the platform description. The value of this flag is passed verbatim to 'docker"
-              + " run', so it supports the same syntax and mechanisms as Docker itself.")
+              + " already have a container-image attribute in its exec_properties in the platform"
+              + " description. The value of this flag is passed verbatim to 'docker run', so it"
+              + " supports the same syntax and mechanisms as Docker itself.")
   public String dockerImage;
 
   @Option(
@@ -307,24 +298,13 @@ public class SandboxOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
       help =
-          "If 0, delete sandbox trees as soon as an action completes (causing completion of the "
-              + "action to be delayed). If greater than zero, execute the deletion of such threes"
-              + " on an asynchronous thread pool that has size 1 when the build is running and"
-              + " grows to the size specified by this flag when the server is idle.")
+          "If 0, sandboxes are deleted as soon as actions finish, blocking action completion. If"
+              + " greater than 0, sandboxes are deleted asynchronously in the background without"
+              + " blocking action completion. Asynchronous deletion uses a single thread while a"
+              + " command is running, but ramps up to as many threads as the value of this flag"
+              + " once the server becomes idle. Set to `auto` to use as many threads as the number"
+              + " of CPUs. A server shutdown blocks on any pending asynchronous deletions.")
   public int asyncTreeDeleteIdleThreads;
-
-  @Option(
-      name = "incompatible_legacy_local_fallback",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, enables the legacy implicit fallback from sandboxed to local strategy."
-              + " This flag will eventually default to false and then become a no-op. Use"
-              + " --strategy, --spawn_strategy, or --dynamic_local_strategy to configure fallbacks"
-              + " instead.")
-  public boolean legacyLocalFallback;
 
   @Option(
       name = "reuse_sandbox_directories",
@@ -364,17 +344,6 @@ public class SandboxOptions extends OptionsBase {
   public boolean useHermetic;
 
   @Option(
-      name = "incompatible_sandbox_hermetic_tmp",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "If set to true, each Linux sandbox will have its own dedicated empty directory mounted"
-              + " as /tmp rather than sharing /tmp with the host filesystem. Use"
-              + " --sandbox_add_mount_pair=/tmp to keep seeing the host's /tmp in all sandboxes.")
-  public boolean sandboxHermeticTmp;
-
-  @Option(
       name = "experimental_sandbox_memory_limit_mb",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
@@ -408,7 +377,7 @@ public class SandboxOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_use_new_cgroup_implementation",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       converter = BooleanConverter.class,
@@ -430,6 +399,17 @@ public class SandboxOptions extends OptionsBase {
               + " test that declares cpu:3 and resources:memory:10, will run with at most 3 cpus"
               + " and 10 megabytes of memory.")
   public RegexPatternOption enforceResources;
+
+  @Option(
+      name = "sandbox_enable_loopback_device",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      converter = BooleanConverter.class,
+      help =
+          "If true, a loopback device will be set up in the linux-sandbox network namespace for"
+              + " local actions.")
+  public boolean sandboxEnableLoopbackDevice;
 
   /** Converter for the number of threads used for asynchronous tree deletion. */
   public static final class AsyncTreeDeletesConverter extends ResourceConverter.IntegerConverter {

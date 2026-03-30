@@ -115,7 +115,6 @@ public class PackageIdentifierTest {
     PackageIdentifier pkg =
         PackageIdentifier.create(RepositoryName.MAIN, PathFragment.create("some/pkg"));
 
-    assertThat(pkg.getDisplayForm(RepositoryMapping.ALWAYS_FALLBACK)).isEqualTo("//some/pkg");
     assertThat(
             pkg.getDisplayForm(
                 RepositoryMapping.create(
@@ -129,8 +128,6 @@ public class PackageIdentifierTest {
     RepositoryName repo = RepositoryName.create("canonical");
     PackageIdentifier pkg = PackageIdentifier.create(repo, PathFragment.create("some/pkg"));
 
-    assertThat(pkg.getDisplayForm(RepositoryMapping.ALWAYS_FALLBACK))
-        .isEqualTo("@canonical//some/pkg");
     assertThat(
             pkg.getDisplayForm(
                 RepositoryMapping.create(ImmutableMap.of("local", repo), RepositoryName.MAIN)))

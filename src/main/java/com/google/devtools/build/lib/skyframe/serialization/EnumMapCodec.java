@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
 import static sun.misc.Unsafe.ARRAY_OBJECT_BASE_OFFSET;
 import static sun.misc.Unsafe.ARRAY_OBJECT_INDEX_SCALE;
 
+
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -31,6 +32,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * there are no "benign" subclasses of {@link EnumMap} in the Bazel codebase that can be used where
  * an {@link EnumMap} was expected.
  */
+// TODO: b/386384684 - remove Unsafe usage
 @SuppressWarnings({"rawtypes", "unchecked"})
 class EnumMapCodec extends AsyncObjectCodec<EnumMap> {
   /** Used to retrieve the hidden {@link EnumMap#keyType} field. */
@@ -49,6 +51,7 @@ class EnumMapCodec extends AsyncObjectCodec<EnumMap> {
     return EnumMap.class;
   }
 
+  // TODO: b/386384684 - remove Unsafe usage
   @Override
   public void serialize(SerializationContext context, EnumMap obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
@@ -71,6 +74,7 @@ class EnumMapCodec extends AsyncObjectCodec<EnumMap> {
     }
   }
 
+  // TODO: b/386384684 - remove Unsafe usage
   @Override
   public EnumMap deserializeAsync(AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
@@ -81,7 +85,7 @@ class EnumMapCodec extends AsyncObjectCodec<EnumMap> {
 
     MapBuffer buffer = new MapBuffer(result, size);
 
-    Object[] enums = clazz.getEnumConstants();
+    Enum[] enums = (Enum[]) clazz.getEnumConstants();
     for (int i = 0; i < size; i++) {
       int ordinal = codedIn.readInt32();
       buffer.setEnum(i, enums[ordinal]);
@@ -97,14 +101,14 @@ class EnumMapCodec extends AsyncObjectCodec<EnumMap> {
   /** Buffers the entry elements and populates the map once all values are done. */
   private static class MapBuffer implements Runnable {
     private final EnumMap result;
-    private final Object[] enums;
+    private final Enum[] enums;
     private final Object[] values;
 
     private final AtomicInteger remaining;
 
     private MapBuffer(EnumMap result, int size) {
       this.result = result;
-      this.enums = new Object[size];
+      this.enums = new Enum[size];
       this.values = new Object[size];
       this.remaining = new AtomicInteger(size);
     }
@@ -118,7 +122,7 @@ class EnumMapCodec extends AsyncObjectCodec<EnumMap> {
       }
     }
 
-    private void setEnum(int index, Object enumKey) {
+    private void setEnum(int index, Enum enumKey) {
       enums[index] = enumKey;
     }
   }

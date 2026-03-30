@@ -15,7 +15,7 @@ java_library(
     name = "grpc",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:netty",

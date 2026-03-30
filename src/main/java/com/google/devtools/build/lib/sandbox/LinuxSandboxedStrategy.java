@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import com.google.common.base.Joiner;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnRunner;
@@ -25,9 +27,8 @@ import java.time.Duration;
 
 /** Strategy that uses sandboxing to execute a process. */
 public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
-  LinuxSandboxedStrategy(
-      Path execRoot, SpawnRunner spawnRunner, ExecutionOptions executionOptions) {
-    super(execRoot, spawnRunner, executionOptions);
+  LinuxSandboxedStrategy(SpawnRunner spawnRunner, ExecutionOptions executionOptions) {
+    super(spawnRunner, executionOptions);
   }
 
   @Override
@@ -38,23 +39,31 @@ public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
   /**
    * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool.
    *
-   * @param helpers common tools and state across all spawns during sandboxed execution
    * @param cmdEnv the command environment to use
    * @param sandboxBase path to the sandbox base directory
    * @param timeoutKillDelay additional grace period before killing timing out commands
    */
   static LinuxSandboxedSpawnRunner create(
-      SandboxHelpers helpers,
       CommandEnvironment cmdEnv,
       Path sandboxBase,
       Duration timeoutKillDelay,
-      TreeDeleter treeDeleter)
-      throws IOException {
-    Path inaccessibleHelperFile = LinuxSandboxUtil.getInaccessibleHelperFile(sandboxBase);
-    Path inaccessibleHelperDir = LinuxSandboxUtil.getInaccessibleHelperDir(sandboxBase);
-
+      TreeDeleter treeDeleter,
+      SandboxOptions options) {
+    Path inaccessibleHelperFile = null;
+    Path inaccessibleHelperDir = null;
+    if (!options.sandboxBlockPath.isEmpty()) {
+      try {
+        inaccessibleHelperFile = LinuxSandboxUtil.getInaccessibleHelperFile(sandboxBase);
+        inaccessibleHelperDir = LinuxSandboxUtil.getInaccessibleHelperDir(sandboxBase);
+      } catch (IOException e) {
+        cmdEnv
+            .getReporter()
+            .handle(
+                Event.warn(
+                    "Could not block access to: " + Joiner.on(",").join(options.sandboxBlockPath)));
+      }
+    }
     return new LinuxSandboxedSpawnRunner(
-        helpers,
         cmdEnv,
         sandboxBase,
         inaccessibleHelperFile,

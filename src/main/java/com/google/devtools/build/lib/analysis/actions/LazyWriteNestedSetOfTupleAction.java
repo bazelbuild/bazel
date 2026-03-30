@@ -14,17 +14,18 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Tuple;
@@ -49,14 +50,14 @@ public final class LazyWriteNestedSetOfTupleAction extends AbstractFileWriteActi
 
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
-    return out -> out.write(getContents(delimiter).getBytes(UTF_8));
+    return out -> out.write(StringUnsafe.getInternalStringBytes(getContents(delimiter)));
   }
 
   /** Computes the Action key for this action by computing the fingerprint for the file contents. */
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     actionKeyContext.addNestedSetToFingerprint(fp, tuplesToWrite);
@@ -73,7 +74,7 @@ public final class LazyWriteNestedSetOfTupleAction extends AbstractFileWriteActi
         for (int i = 1; i < tuple.size(); i++) {
           stringBuilder.append(delimiter).append(tuple.get(i));
         }
-        stringBuilder.append(System.lineSeparator());
+        stringBuilder.append("\n");
       }
       fileContents = stringBuilder.toString();
     }

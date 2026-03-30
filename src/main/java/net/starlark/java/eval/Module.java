@@ -25,6 +25,8 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Resolver;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
 
 /**
  * A {@link Module} represents a Starlark module, a container of global variables populated by
@@ -232,8 +234,7 @@ public final class Module implements Resolver.Module {
     if (v != null) {
       if (v instanceof GuardedValue) {
         // Name is correctly spelled, but access is disabled by a flag or by client data.
-        throw new Undefined(
-            ((GuardedValue) v).getErrorFromAttemptingAccess(name), /*candidates=*/ null);
+        throw new Undefined(((GuardedValue) v).getErrorFromAttemptingAccess(name));
       }
       return Resolver.Scope.PREDECLARED;
     }
@@ -249,6 +250,52 @@ public final class Module implements Resolver.Module {
     candidates.addAll(predeclared.keySet());
     candidates.addAll(Starlark.UNIVERSE.keySet());
     throw new Undefined(String.format("name '%s' is not defined", name), candidates);
+  }
+
+  @Override
+  @Nullable
+  public TypeConstructor getTypeConstructor(String name) throws Undefined {
+    Resolver.Scope scope = resolve(name);
+    Object value;
+    switch (scope) {
+      case GLOBAL -> value = getGlobal(name);
+      case PREDECLARED -> value = getPredeclared(name);
+      case UNIVERSAL -> value = Starlark.UNIVERSE.get(name);
+      default -> throw new AssertionError(String.format("Unexpected scope: %s", scope));
+    }
+    return value instanceof TypeConstructor constructorValue ? constructorValue : null;
+  }
+
+  private ImmutableMap<String, MethodDescriptor> getMethods(Class<?> clazz) {
+    return CallUtils.getBuiltinManager(semantics).getAnnotatedMethods(clazz);
+  }
+
+  @Override
+  @Nullable
+  public StarlarkType getStrFieldType(String name) {
+    MethodDescriptor desc = getMethods(String.class).get(name);
+    return desc == null ? null : desc.getStarlarkType();
+  }
+
+  @Override
+  @Nullable
+  public StarlarkType getListFieldType(String name) {
+    MethodDescriptor desc = getMethods(StarlarkList.class).get(name);
+    return desc == null ? null : desc.getStarlarkType();
+  }
+
+  @Override
+  @Nullable
+  public StarlarkType getDictFieldType(String name) {
+    MethodDescriptor desc = getMethods(Dict.class).get(name);
+    return desc == null ? null : desc.getStarlarkType();
+  }
+
+  @Override
+  @Nullable
+  public StarlarkType getSetFieldType(String name) {
+    MethodDescriptor desc = getMethods(StarlarkSet.class).get(name);
+    return desc == null ? null : desc.getStarlarkType();
   }
 
   /**
@@ -298,9 +345,14 @@ public final class Module implements Resolver.Module {
     return i;
   }
 
+  private static final int[] EMPTY_INDICES = new int[0];
+
   /** Returns a list of indices of a list of globals; {@see getIndexOfGlobal}. */
   int[] getIndicesOfGlobals(List<String> globals) {
     int n = globals.size();
+    if (n == 0) {
+      return EMPTY_INDICES;
+    }
     int[] array = new int[n];
     for (int i = 0; i < n; i++) {
       array[i] = getIndexOfGlobal(globals.get(i));

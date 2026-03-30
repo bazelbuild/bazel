@@ -1,0 +1,25 @@
+# Tell the bazel-contrib/bazel-docs repo that new commits have been merged to Bazel.
+# It will do some pipeline logic and then update the Mintlify site.
+name: Trigger update to bazel-docs
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'docs/**'
+      - 'src/main/java/**/*.java'
+jobs:
+  trigger-docs-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger build of bazel-docs
+        uses: peter-evans/repository-dispatch@v4
+        with:
+          repository: bazel-contrib/bazel-docs
+          # Fine-grained PAT (https://github.com/settings/personal-access-tokens/new), which needs
+          # to be exchanged once a year.
+          # Scoped to the `bazel-contrib/bcr-ui` repository.
+          # Requires "Read and write" permissions for "Contents" to be able to do the workflow dispatch.
+          token: ${{ secrets.BAZEL_DOC_TRIGGER_TOKEN }}
+          event-type: on-bazel-trigger
+          client-payload: '{"commitHash": "${{ github.sha }}"}'

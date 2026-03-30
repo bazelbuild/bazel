@@ -20,9 +20,9 @@ import com.google.common.base.Verify;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
-import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -37,9 +37,17 @@ public final class StarlarkExecTransitionLoader {
   /** Thrown when the Starlark transition failed to load. */
   public static class StarlarkExecTransitionLoadingException extends Exception {
     public StarlarkExecTransitionLoadingException(String context, String ref, String message) {
-      super(
+      this(
           String.format(
               "Bad Starlark transition reference from %s: %s. %s.", context, ref, message));
+    }
+
+    public StarlarkExecTransitionLoadingException(String message) {
+      super(message);
+    }
+
+    public StarlarkExecTransitionLoadingException(Throwable cause) {
+      super(cause);
     }
   }
 
@@ -49,7 +57,8 @@ public final class StarlarkExecTransitionLoader {
      * Loads the given {@link BzlLoadValue.Key}. Returns null if not all Skyframe deps are ready.
      */
     @Nullable
-    BzlLoadValue getValue(BzlLoadValue.Key key) throws BzlLoadFailedException, InterruptedException;
+    BzlLoadValue getValue(BzlLoadValue.Key key)
+        throws BzlLoadFailedException, InterruptedException, StarlarkExecTransitionLoadingException;
   }
 
   /**
@@ -74,7 +83,7 @@ public final class StarlarkExecTransitionLoader {
     }
     String userRef =
         Verify.verifyNotNull(
-            options.get(CoreOptions.class).starlarkExecConfig,
+            options.get(CoreOptions.class).getStarlarkExecConfig(),
             "Cannot apply the exec transition since no transition is defined for this build.");
     final String flagName = "--experimental_exec_config";
     TransitionReference parsedRef = TransitionReference.create(userRef, flagName);
@@ -82,8 +91,7 @@ public final class StarlarkExecTransitionLoader {
     try {
       bzlValue =
           bzlFileLoader.getValue(
-              Objects.equals(
-                      parsedRef.bzlFile().getRepository(), StarlarkBuiltinsValue.BUILTINS_REPO)
+              Objects.equals(parsedRef.bzlFile().getRepository(), RepositoryName.BUILTINS)
                   ? BzlLoadValue.keyForBuiltins(parsedRef.bzlFile())
                   : BzlLoadValue.keyForBuild(parsedRef.bzlFile()));
     } catch (BzlLoadFailedException e) {
@@ -115,6 +123,11 @@ public final class StarlarkExecTransitionLoader {
     @Override
     public boolean allowImmutableFlagChanges() {
       // The exec transition must be allowed to change otherwise immutable flags.
+      return true;
+    }
+
+    @Override
+    public boolean isExecTransitionProvider() {
       return true;
     }
   }

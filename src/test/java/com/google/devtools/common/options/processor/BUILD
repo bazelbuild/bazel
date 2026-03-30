@@ -26,6 +26,20 @@ java_test(
     ],
 )
 
+java_test(
+    name = "OptionsClassProcessorTest",
+    srcs = ["OptionsClassProcessorTest.java"],
+    resources = [":OptionTestFiles"],
+    deps = [
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/com/google/devtools/common/options/processor:options_preprocessor_lib",
+        "//third_party:compile_testing",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
 filegroup(
     name = "OptionTestFiles",
     srcs = glob(["optiontestsources/*.java"]),

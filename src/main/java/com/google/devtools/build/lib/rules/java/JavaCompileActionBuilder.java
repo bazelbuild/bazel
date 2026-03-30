@@ -194,7 +194,7 @@ public final class JavaCompileActionBuilder {
     }
 
     NestedSetBuilder<Artifact> toolsBuilder = NestedSetBuilder.compileOrder();
-    javaBuilder.addInputs(toolchain, toolsBuilder);
+    javaBuilder.addInputs(toolsBuilder);
     toolsBuilder.addTransitive(toolsJars);
 
     NestedSetBuilder<Artifact> mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
@@ -234,7 +234,7 @@ public final class JavaCompileActionBuilder {
     mandatoryInputsBuilder.addTransitive(tools);
     NestedSet<Artifact> mandatoryInputs = mandatoryInputsBuilder.build();
 
-    CustomCommandLine executableLine = javaBuilder.getCommandLine(toolchain);
+    CustomCommandLine executableLine = javaBuilder.getCommandLine();
 
     ActionEnvironment actionEnvironment =
         ruleContext
@@ -268,9 +268,7 @@ public final class JavaCompileActionBuilder {
 
   private ImmutableSet<Artifact> allOutputs() {
     ImmutableSet.Builder<Artifact> result =
-        ImmutableSet.<Artifact>builder()
-            .add(outputs.output())
-            .addAll(additionalOutputs);
+        ImmutableSet.<Artifact>builder().add(outputs.output()).addAll(additionalOutputs);
     Stream.of(outputs.depsProto(), outputs.nativeHeader(), genSourceOutput, manifestOutput)
         .filter(Objects::nonNull)
         .forEachOrdered(result::add);
@@ -328,9 +326,6 @@ public final class JavaCompileActionBuilder {
     if (coverageArtifact != null) {
       result.add("--post_processor");
       result.addExecPath(JACOCO_INSTRUMENTATION_PROCESSOR, coverageArtifact);
-      result.addPath(ruleContext.getCoverageMetadataDirectory().getExecPath());
-      result.add("-*Test");
-      result.add("-*TestCase");
     }
     return result.build();
   }

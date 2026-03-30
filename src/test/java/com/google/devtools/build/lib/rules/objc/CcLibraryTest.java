@@ -27,7 +27,11 @@ import org.junit.runners.JUnit4;
 public class CcLibraryTest extends ObjcRuleTestCase {
   @Override
   protected ScratchAttributeWriter createLibraryTargetWriter(String labelString) {
-    return ScratchAttributeWriter.fromLabelString(this, "cc_library", labelString);
+    return ScratchAttributeWriter.fromLabelString(
+        this,
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library",
+        labelString);
   }
 
   @Test

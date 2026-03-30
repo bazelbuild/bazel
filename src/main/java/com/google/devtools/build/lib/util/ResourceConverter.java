@@ -60,8 +60,10 @@ public abstract class ResourceConverter<T extends Number & Comparable<T>>
     private static final ResourceConverter.DoubleConverter resource =
         new ResourceConverter.DoubleConverter(
             ImmutableMap.of(
-                HOST_CPUS_KEYWORD, () -> (double) HOST_CPUS_SUPPLIER.get(),
-                HOST_RAM_KEYWORD, () -> (double) HOST_RAM_SUPPLIER.get()),
+                HOST_CPUS_KEYWORD,
+                () -> (double) HOST_CPUS_SUPPLIER.get(),
+                HOST_RAM_KEYWORD,
+                () -> (double) HOST_RAM_SUPPLIER.get()),
             0.0,
             Double.MAX_VALUE);
 
@@ -240,6 +242,13 @@ public abstract class ResourceConverter<T extends Number & Comparable<T>>
 
   @Override
   public String getTypeDescription() {
-    return FLAG_SYNTAX;
+    String firstKeyword = keywords.keySet().iterator().next();
+    return "an integer, or a keyword (\""
+        + String.join("\", \"", keywords.keySet())
+        + "\"), optionally followed by an operation ([-|*]<float>) eg. \""
+        + firstKeyword
+        + "\", \""
+        + HOST_CPUS_KEYWORD
+        + "*.5\"";
   }
 }

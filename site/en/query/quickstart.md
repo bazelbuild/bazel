@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Query quickstart
 
+{% include "_buttons.html" %}
+
 This tutorial covers how to work with Bazel to trace dependencies in your code using a premade Bazel project.
 
 For language and `--output` flag details, see the [Bazel query reference](/query/language) and [Bazel cquery reference](/query/cquery) manuals. Get help in your IDE by typing `bazel help query` or `bazel help cquery` on the command line.
@@ -390,7 +392,7 @@ Lastly, you want to include the smoothie as a dependency in the Chef’s `BUILD`
 **`src/main/java/com/example/restaurant/BUILD`**
 
 ```
-java\_library(
+java_library(
     name = "chef",
     visibility = ["//visibility:public"],
     srcs = [
@@ -404,7 +406,7 @@ java\_library(
     ],
 )
 
-java\_library(
+java_library(
     name = "cafe",
     visibility = ["//visibility:public"],
     srcs = [

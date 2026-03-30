@@ -17,21 +17,26 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.concurrent.PaddedAddresses.createPaddedBaseAddress;
 import static com.google.devtools.build.lib.concurrent.PaddedAddresses.getAlignedAddress;
 import static java.lang.Math.min;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.unsafe.UnsafeProvider;
+
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.ref.Cleaner;
 import java.util.List;
 import java.util.concurrent.Executor;
+import javax.annotation.Nullable;
 import sun.misc.Unsafe;
 
 /**
@@ -41,12 +46,14 @@ import sun.misc.Unsafe;
  * operations.
  *
  * <p>This class is thread-safe.
+ *
+ * <p>Non-final for mockability.
  */
 @SuppressWarnings("SunApi") // TODO: b/359688989 - clean this up
-public final class RequestBatcher<RequestT, ResponseT> {
+public class RequestBatcher<RequestT, ResponseT> {
   /* This class employs concurrent workers that perform the following cycle:
    *
-   *   1. Collect all available request-response pairs from the queue up to `BATCH_SIZE`.
+   *   1. Collect all available request-response pairs from the queue up to `maxBatchSize`.
    *   2. Execute the collected pairs as a batch.
    *
    * We guarantee that every submitted request is handled. The following traces all possible paths a
@@ -60,8 +67,8 @@ public final class RequestBatcher<RequestT, ResponseT> {
    *
    * Step 1: Initial part of `submit`
    *
-   * A. We check the active-workers count. If it's less than `targetWorkerCount`, a new worker is
-   *    started and the pair is directly assigned to it.
+   * A. We check the active-workers count. If it's less than `maxConcurrentRequests`, a new worker
+   *    is started and the pair is directly assigned to it.
    *
    * B. Otherwise, we enqueue the pair. When the queue is full, we sleep and try again until
    *    enqueuing succeeds. After enqueuing, we proceed to Step 2.
@@ -73,7 +80,7 @@ public final class RequestBatcher<RequestT, ResponseT> {
    * Step 2 is not atomic with Step 1, so the counters might have changed. We re-check
    * active-workers count.
    *
-   * A. If it's already at `targetWorkerCount`, we attempt to increment request-responses count
+   * A. If it's already at `maxConcurrentRequests`, we attempt to increment request-responses count
    *    atomically, ensuring active-workers count remains unchanged during the increment. Success
    *    leads to Step 3.
    *
@@ -87,7 +94,7 @@ public final class RequestBatcher<RequestT, ResponseT> {
    *
    * The atomic request-responses count increment only happens in Step 2 if active-workers count is
    * already at the target. Workers only stop if request-responses count is 0. Since
-   * `targetWorkerCount` > 0, there's always at least one active worker to handle the
+   * `maxConcurrentRequests` > 0, there's always at least one active worker to handle the
    * request-response.
    */
 
@@ -101,18 +108,33 @@ public final class RequestBatcher<RequestT, ResponseT> {
   private static final long QUEUE_FULL_SLEEP_MS = 100;
 
   /**
+   * Executor dedicated to draining the queue, specifically the {@link
+   * #continueToNextBatchOrBecomeIdle} method.
+   *
+   * <p><b>Purpose of Isolation:</b> This executor is isolated to prevent potential deadlocks. The
+   * {@link #submit} method can block if the task queue is full. If all threads in the client's
+   * executor become blocked waiting to submit tasks, only {@link #continueToNextBatchOrBecomeIdle}
+   * can free up space in the queue. Scheduling this continuation logic on the same, potentially
+   * blocked, client executor would lead to a deadlock.
+   *
+   * <p><b>Deadlock Avoidance:</b> As long as {@link #continueToNextBatchOrBecomeIdle} does not
+   * contain blocking operations (which is true in the current implementation), using a separate
+   * executor is sufficient to prevent this specific deadlock scenario.
+   */
+  private final Executor queueDrainingExecutor;
+
+  private final BatchExecutionStrategy<RequestT, ResponseT> batchExecutionStrategy;
+
+  /**
    * Reads this many at a time when constructing a batch.
    *
    * <p>Note that since {@link #populateBatch} always begins with 1 pair, the resulting batch size
    * is one more than this.
    */
-  @VisibleForTesting static final int BATCH_SIZE = 4095;
-
-  private final Executor executor;
-  private final Multiplexer<RequestT, ResponseT> multiplexer;
+  private final int maxBatchSize;
 
   /** Number of active workers to target. */
-  private final int targetWorkerCount;
+  private final int maxConcurrentRequests;
 
   /**
    * Address of an integer containing two counters.
@@ -132,10 +154,11 @@ public final class RequestBatcher<RequestT, ResponseT> {
    */
   private final long countersAddress;
 
-  private final ConcurrentFifo<RequestResponse<RequestT, ResponseT>> queue;
+  private final ConcurrentFifo<Operation<RequestT, ResponseT>> queue;
 
   /** Injectable batching logic. */
-  @FunctionalInterface
+
+  /** Batching strategy where a single batch request returns a single batch future response. */
   public interface Multiplexer<RequestT, ResponseT> {
     /**
      * Evaluates {@code requests} as a batch.
@@ -145,21 +168,122 @@ public final class RequestBatcher<RequestT, ResponseT> {
     ListenableFuture<List<ResponseT>> execute(List<RequestT> requests);
   }
 
+  /**
+   * A callback for a single request within a batch, which must be completed exactly once.
+   *
+   * <p>Used with {@link CallbackMultiplexer}.
+   */
+  public interface ResponseSink<ResponseT> {
+    /**
+     * Fulfills the corresponding request with a successful response.
+     *
+     * @param response the result of the operation. A {@code null} value is permitted and will be
+     *     forwarded to the original caller as a successful result.
+     */
+    void acceptResponse(@Nullable ResponseT response);
+
+    /**
+     * Fails the corresponding request with the given {@link Throwable}.
+     *
+     * <p>A sink should only be completed once. Subsequent calls to this method after the sink has
+     * already been completed will be ignored.
+     */
+    void acceptFailure(Throwable t);
+  }
+
+  /**
+   * A batching strategy where the implementation provides concrete response values asynchronously
+   * via callbacks.
+   */
+  public interface CallbackMultiplexer<RequestT, ResponseT> {
+    /**
+     * Executes the batch of {@code requests}, pushing results directly to the corresponding {@link
+     * ResponseSink} instances in the {@code sinks} list.
+     *
+     * <p>The supplied {@code sinks} list is co-indexed with the {@code requests} list. The
+     * implementation of this method <strong>must</strong> ensure that for each request, the
+     * corresponding sink is completed exactly once by calling either {@link
+     * ResponseSink#acceptResponse} on success or {@link ResponseSink#acceptFailure} on failure.
+     *
+     * <p>The {@link RequestBatcher} internally monitors the completion of all sink operations for
+     * the batch.
+     *
+     * @return A non-null {@link Runnable} that the {@code RequestBatcher} will execute on behalf of
+     *     the client. The {@code RequestBatcher} guarantees it will run this callback after all
+     *     sinks for this specific batch have been completed, but <strong>before</strong> this
+     *     batch's concurrency slot is released. This provides a reliable mechanism for performing
+     *     batch-specific resource cleanup. For instance, if recycling identifiers used in the
+     *     requests, this guarantee ensures the identifiers are made available before a subsequent
+     *     batch could possibly use them. The callback should be lightweight.
+     */
+    Runnable execute(
+        List<RequestT> requests, ImmutableList<? extends ResponseSink<ResponseT>> sinks);
+  }
+
+  /**
+   * Accepts a future response value.
+   *
+   * <p>Used with {@link PerResponseMultiplexer}.
+   */
+  public interface FutureResponseSink<ResponseT> {
+    void acceptFutureResponse(ListenableFuture<ResponseT> futureResponse);
+  }
+
+  /** Batching strategy when a single batch request returns a response per future request. */
+  public interface PerResponseMultiplexer<RequestT, ResponseT> {
+    /** Executes {@code requests} in a batch and populates corresponding {@code responses}. */
+    void execute(
+        List<RequestT> requests, ImmutableList<? extends FutureResponseSink<ResponseT>> responses);
+  }
+
+  public static <RequestT, ResponseT>
+      BatchExecutionStrategy<RequestT, ResponseT> createBatchExecutionStrategy(
+          Multiplexer<RequestT, ResponseT> multiplexer, Executor responseDistributionExecutor) {
+    return new MultiplexerAdapter<>(multiplexer, responseDistributionExecutor);
+  }
+
+  public static <RequestT, ResponseT>
+      BatchExecutionStrategy<RequestT, ResponseT> createCallbackBatchExecutionStrategy(
+          CallbackMultiplexer<RequestT, ResponseT> multiplexer) {
+    return new CallbackMultiplexerAdapter<>(multiplexer);
+  }
+
+  public static <RequestT, ResponseT>
+      BatchExecutionStrategy<RequestT, ResponseT> createPerResponseBatchExecutionStrategy(
+          PerResponseMultiplexer<RequestT, ResponseT> multiplexer) {
+    return new PerResponseMultiplexerAdapter<>(multiplexer);
+  }
+
+  private interface BatchExecutionStrategy<RequestT, ResponseT> {
+    ListenableFuture<?> executeBatch(
+        List<RequestT> requests, ImmutableList<Operation<RequestT, ResponseT>> operations);
+  }
+
   public static <RequestT, ResponseT> RequestBatcher<RequestT, ResponseT> create(
-      Executor executor, Multiplexer<RequestT, ResponseT> multiplexer, int targetWorkerCount) {
+      BatchExecutionStrategy<RequestT, ResponseT> batchExecutionStrategy,
+      int maxBatchSize,
+      int maxConcurrentRequests) {
     long baseAddress = createPaddedBaseAddress(4);
     long countersAddress = getAlignedAddress(baseAddress, /* offset= */ 0);
 
     var queue =
-        new ConcurrentFifo<RequestResponse<RequestT, ResponseT>>(
-            RequestResponse.class,
+        new ConcurrentFifo<Operation<RequestT, ResponseT>>(
+            Operation.class,
             /* sizeAddress= */ getAlignedAddress(baseAddress, /* offset= */ 1),
             /* appendIndexAddress= */ getAlignedAddress(baseAddress, /* offset= */ 2),
             /* takeIndexAddress= */ getAlignedAddress(baseAddress, /* offset= */ 3));
 
     var batcher =
         new RequestBatcher<RequestT, ResponseT>(
-            executor, multiplexer, targetWorkerCount, countersAddress, queue);
+            // `maxConcurrentRequests` is the maximum level of invocation concurrency possible for
+            // the `queueDrainingExecutor`. It is possible for this to overrun, but the work is
+            // relatively lightweight and the batch round trip latency is expected to dominate.
+            /* queueDrainingExecutor= */ newFixedThreadPool(maxConcurrentRequests),
+            batchExecutionStrategy,
+            maxBatchSize,
+            maxConcurrentRequests,
+            countersAddress,
+            queue);
 
     cleaner.register(batcher, new AddressFreer(baseAddress));
 
@@ -172,22 +296,26 @@ public final class RequestBatcher<RequestT, ResponseT> {
    * <p>Caller owns memory addresses used by {@code queue} and cleanup of memory at {@code
    * countersAddress}.
    */
+  // TODO: b/386384684 - remove Unsafe usage
   @VisibleForTesting
   RequestBatcher(
-      Executor executor,
-      Multiplexer<RequestT, ResponseT> multiplexer,
-      int targetWorkerCount,
+      Executor queueDrainingExecutor,
+      BatchExecutionStrategy<RequestT, ResponseT> batchExecutionStrategy,
+      int maxBatchSize,
+      int maxConcurrentRequests,
       long countersAddress,
-      ConcurrentFifo<RequestResponse<RequestT, ResponseT>> queue) {
-    checkArgument(targetWorkerCount > 0, "targetWorkerCount=%s < 1", targetWorkerCount);
+      ConcurrentFifo<Operation<RequestT, ResponseT>> queue) {
+    checkArgument(maxConcurrentRequests > 0, "maxConcurrentRequests=%s < 1", maxConcurrentRequests);
     checkArgument(
-        targetWorkerCount <= ACTIVE_WORKERS_COUNT_MAX,
-        "targetWorkerCount=%s > %s",
-        targetWorkerCount,
+        maxConcurrentRequests <= ACTIVE_WORKERS_COUNT_MAX,
+        "maxConcurrentRequests=%s > %s",
+        maxConcurrentRequests,
         ACTIVE_WORKERS_COUNT_MAX);
-    this.executor = executor;
-    this.multiplexer = multiplexer;
-    this.targetWorkerCount = targetWorkerCount;
+    checkArgument(maxBatchSize > 0);
+    this.queueDrainingExecutor = queueDrainingExecutor;
+    this.batchExecutionStrategy = batchExecutionStrategy;
+    this.maxBatchSize = maxBatchSize;
+    this.maxConcurrentRequests = maxConcurrentRequests;
     this.countersAddress = countersAddress;
     this.queue = queue;
 
@@ -198,17 +326,21 @@ public final class RequestBatcher<RequestT, ResponseT> {
   /**
    * Submits a request, subject to batching.
    *
+   * <p>This method <em>blocks</em> when the queue is full.
+   *
    * <p>Callers should consider processing the response on a different executor if processing is
    * expensive to avoid delaying work pending other responses in the batch.
    */
+  // TODO: b/386384684 - remove Unsafe usage
   public ListenableFuture<ResponseT> submit(RequestT request) {
-    var requestResponse = new RequestResponse<RequestT, ResponseT>(request);
+    var requestResponse = new Operation<RequestT, ResponseT>(request);
 
-    // Tries to start a worker as long as the active worker count is less than `targetWorkerCount`.
+    // Tries to start a worker as long as the active worker count is less than
+    // `maxConcurrentRequests`.
     while (true) {
       int snapshot = UNSAFE.getIntVolatile(null, countersAddress);
       int activeWorkers = snapshot >>> ACTIVE_WORKERS_COUNT_BIT_OFFSET;
-      if (activeWorkers >= targetWorkerCount) {
+      if (activeWorkers >= maxConcurrentRequests) {
         break;
       }
       if (UNSAFE.compareAndSwapInt(null, countersAddress, snapshot, snapshot + ONE_ACTIVE_WORKER)) {
@@ -234,7 +366,7 @@ public final class RequestBatcher<RequestT, ResponseT> {
     while (true) {
       int snapshot = UNSAFE.getIntVolatile(null, countersAddress); // pessimistic read
       int activeWorkers = snapshot >>> ACTIVE_WORKERS_COUNT_BIT_OFFSET;
-      if (activeWorkers >= targetWorkerCount) {
+      if (activeWorkers >= maxConcurrentRequests) {
         // Increments the request-responses count.
         if (UNSAFE.compareAndSwapInt(null, countersAddress, snapshot, snapshot + ONE_REQUEST)) {
           // This must not be reached if `activeWorkers` is 0. Guaranteed by the enclosing check.
@@ -254,6 +386,7 @@ public final class RequestBatcher<RequestT, ResponseT> {
     }
   }
 
+  // TODO: b/386384684 - remove Unsafe usage
   @Override
   public String toString() {
     int snapshot = UNSAFE.getIntVolatile(null, countersAddress);
@@ -271,58 +404,29 @@ public final class RequestBatcher<RequestT, ResponseT> {
    * @param requestResponse a single element to be included in the batch. This ensures the batch is
    *     non-empty.
    */
-  private void executeBatch(RequestResponse<RequestT, ResponseT> requestResponse) {
-    ImmutableList<RequestResponse<RequestT, ResponseT>> batch = populateBatch(requestResponse);
-    ListenableFuture<List<ResponseT>> futureResponses =
-        multiplexer.execute(Lists.transform(batch, RequestResponse::request));
-
-    futureResponses.addListener(this::continueToNextBatchOrBecomeIdle, executor);
-
-    addCallback(
-        futureResponses,
-        new FutureCallback<List<ResponseT>>() {
-          @Override
-          public void onFailure(Throwable t) {
-            for (RequestResponse<RequestT, ResponseT> requestResponse : batch) {
-              requestResponse.setException(t);
-            }
-          }
-
-          @Override
-          public void onSuccess(List<ResponseT> responses) {
-            if (responses.size() != batch.size()) {
-              onFailure(
-                  new AssertionError(
-                      "RequestBatcher expected batch.size()="
-                          + batch.size()
-                          + " responses, but responses.size()="
-                          + responses.size()));
-              return;
-            }
-            for (int i = 0; i < responses.size(); ++i) {
-              batch.get(i).setResponse(responses.get(i));
-            }
-          }
-        },
-        executor);
+  private void executeBatch(Operation<RequestT, ResponseT> requestResponse) {
+    ImmutableList<Operation<RequestT, ResponseT>> batch = populateBatch(requestResponse);
+    batchExecutionStrategy
+        .executeBatch(Lists.transform(batch, Operation::request), batch)
+        .addListener(this::continueToNextBatchOrBecomeIdle, queueDrainingExecutor);
   }
 
   /**
-   * Polls at most {@link #BATCH_SIZE} elements from the {@link #queue} and creates a batch.
+   * Polls at most {@link #maxBatchSize} elements from the {@link #queue} and creates a batch.
    *
    * @param requestResponse an element to add to the batch.
    */
-  private ImmutableList<RequestResponse<RequestT, ResponseT>> populateBatch(
-      RequestResponse<RequestT, ResponseT> requestResponse) {
-    var accumulator =
-        ImmutableList.<RequestResponse<RequestT, ResponseT>>builder().add(requestResponse);
+  // TODO: b/386384684 - remove Unsafe usage
+  private ImmutableList<Operation<RequestT, ResponseT>> populateBatch(
+      Operation<RequestT, ResponseT> requestResponse) {
+    var accumulator = ImmutableList.<Operation<RequestT, ResponseT>>builder().add(requestResponse);
     while (true) {
       int snapshot = UNSAFE.getIntVolatile(null, countersAddress);
       int requestCount = snapshot & REQUEST_COUNT_MASK;
       if (requestCount == 0) {
         break;
       }
-      int toRead = min(BATCH_SIZE, requestCount);
+      int toRead = min(maxBatchSize, requestCount);
       if (!UNSAFE.compareAndSwapInt(null, countersAddress, snapshot, snapshot - toRead)) {
         continue;
       }
@@ -340,6 +444,7 @@ public final class RequestBatcher<RequestT, ResponseT> {
    * <p>Tries to process the next batch if enqueued requests are available. Otherwise, stops working
    * and decrements the active worker count.
    */
+  // TODO: b/386384684 - remove Unsafe usage
   private void continueToNextBatchOrBecomeIdle() {
     while (true) {
       int snapshot = UNSAFE.getIntVolatile(null, countersAddress);
@@ -360,10 +465,12 @@ public final class RequestBatcher<RequestT, ResponseT> {
   }
 
   @VisibleForTesting
-  static class RequestResponse<RequestT, ResponseT> extends AbstractFuture<ResponseT> {
+  static final class Operation<RequestT, ResponseT> extends AbstractFuture<ResponseT>
+      implements ResponseSink<ResponseT>, FutureResponseSink<ResponseT> {
     private final RequestT request;
+    private boolean isFutureSet = false;
 
-    private RequestResponse(RequestT request) {
+    private Operation(RequestT request) {
       this.request = request;
     }
 
@@ -371,14 +478,146 @@ public final class RequestBatcher<RequestT, ResponseT> {
       return request;
     }
 
-    private void setResponse(ResponseT response) {
-      set(response);
+    private void setResponse(@Nullable ResponseT response) {
+      // It's possible for the future to be cancelled by an external event (e.g., an interrupt).
+      // `set` will return false if the future has already been completed or cancelled.
+      // If `set` fails, we verify that the future was cancelled. This distinguishes
+      // graceful cancellation from a bug where we try to set the response more than once.
+      if (!set(response)) {
+        checkState(
+            isCancelled(),
+            "response already set for request=%s, %s while trying to set future response %s",
+            request,
+            this,
+            response);
+      }
+    }
+
+    @Override
+    public void acceptResponse(@Nullable ResponseT response) {
+      setResponse(response);
+    }
+
+    @Override
+    public void acceptFailure(Throwable t) {
+      setException(t);
+    }
+
+    @Override
+    public void acceptFutureResponse(ListenableFuture<ResponseT> futureResponse) {
+      setFuture(futureResponse);
+      isFutureSet = true;
+    }
+
+    private void errorIfFutureUnset() {
+      if (!isFutureSet) {
+        setException(
+            new IllegalStateException(
+                String.format(
+                    "Future for %s is unexpectedly not set. It should have been set by the"
+                        + " PerResponseMultiplexer.execute implementation",
+                    request)));
+      }
     }
 
     @Override
     @CanIgnoreReturnValue
     protected boolean setException(Throwable t) {
       return super.setException(t);
+    }
+  }
+
+  private static final class MultiplexerAdapter<RequestT, ResponseT>
+      implements BatchExecutionStrategy<RequestT, ResponseT> {
+    private final Multiplexer<RequestT, ResponseT> multiplexer;
+
+    /**
+     * Executor provided by the client to invoke callbacks for individual responses within a batched
+     * response.
+     *
+     * <p><b>Important:</b> For each batch, response callbacks are executed sequentially on a single
+     * thread. If a callback involves significant processing, the client should offload the work to
+     * separate threads to prevent delays in processing subsequent responses.
+     */
+    private final Executor responseDistributionExecutor;
+
+    private MultiplexerAdapter(
+        Multiplexer<RequestT, ResponseT> multiplexer, Executor responseDistributionExecutor) {
+      this.multiplexer = multiplexer;
+      this.responseDistributionExecutor = responseDistributionExecutor;
+    }
+
+    @Override
+    public ListenableFuture<?> executeBatch(
+        List<RequestT> requests, ImmutableList<Operation<RequestT, ResponseT>> operations) {
+      ListenableFuture<List<ResponseT>> futureResponses =
+          multiplexer.execute(Lists.transform(operations, Operation::request));
+
+      addCallback(
+          futureResponses,
+          new FutureCallback<List<ResponseT>>() {
+            @Override
+            public void onFailure(Throwable t) {
+              for (Operation<RequestT, ResponseT> operation : operations) {
+                operation.setException(t);
+              }
+            }
+
+            @Override
+            public void onSuccess(List<ResponseT> responses) {
+              if (responses.size() != operations.size()) {
+                onFailure(
+                    new AssertionError(
+                        "RequestBatcher expected operations.size()="
+                            + operations.size()
+                            + " responses, but responses.size()="
+                            + responses.size()));
+                return;
+              }
+              for (int i = 0; i < responses.size(); ++i) {
+                operations.get(i).setResponse(responses.get(i));
+              }
+            }
+          },
+          responseDistributionExecutor);
+
+      return futureResponses;
+    }
+  }
+
+  private static final class CallbackMultiplexerAdapter<RequestT, ResponseT>
+      implements BatchExecutionStrategy<RequestT, ResponseT> {
+    private final CallbackMultiplexer<RequestT, ResponseT> multiplexer;
+
+    private CallbackMultiplexerAdapter(CallbackMultiplexer<RequestT, ResponseT> multiplexer) {
+      this.multiplexer = multiplexer;
+    }
+
+    @Override
+    public ListenableFuture<?> executeBatch(
+        List<RequestT> requests, ImmutableList<Operation<RequestT, ResponseT>> operations) {
+      Runnable batchCompleteCallback =
+          multiplexer.execute(Lists.transform(operations, Operation::request), operations);
+      return Futures.whenAllComplete(operations).run(batchCompleteCallback, directExecutor());
+    }
+  }
+
+  private static final class PerResponseMultiplexerAdapter<RequestT, ResponseT>
+      implements BatchExecutionStrategy<RequestT, ResponseT> {
+    private final PerResponseMultiplexer<RequestT, ResponseT> multiplexer;
+
+    private PerResponseMultiplexerAdapter(PerResponseMultiplexer<RequestT, ResponseT> multiplexer) {
+      this.multiplexer = multiplexer;
+    }
+
+    @Override
+    public ListenableFuture<?> executeBatch(
+        List<RequestT> requests, ImmutableList<Operation<RequestT, ResponseT>> operations) {
+      multiplexer.execute(Lists.transform(operations, Operation::request), operations);
+      for (Operation<RequestT, ResponseT> operation : operations) {
+        operation.errorIfFutureUnset();
+      }
+      return Futures.whenAllComplete(operations).run(() -> {}, directExecutor());
     }
   }
 

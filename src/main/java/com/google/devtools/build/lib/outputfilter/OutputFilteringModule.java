@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.events.OutputFilter.RegexOutputFilter;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -58,8 +57,8 @@ public final class OutputFilteringModule extends BlazeModule {
   private AutoOutputFilter autoOutputFilter;
 
   @Override
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return "build".equals(command.name()) ? ImmutableList.of(Options.class) : ImmutableList.of();
+  public Iterable<Class<? extends OptionsBase>> getCommandOptions(String commandName) {
+    return commandName.equals("build") ? ImmutableList.of(Options.class) : ImmutableList.of();
   }
 
   @Override
@@ -79,8 +78,8 @@ public final class OutputFilteringModule extends BlazeModule {
   public void buildStarting(BuildStartingEvent event) {
     BuildRequestOptions requestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
     Pattern outputFilter =
-        (requestOptions != null) && (requestOptions.outputFilter != null)
-            ? requestOptions.outputFilter.regexPattern()
+        (requestOptions != null) && (requestOptions.getOutputFilter() != null)
+            ? requestOptions.getOutputFilter().regexPattern()
             : null;
     if (outputFilter != null) {
       // Coarse-grained initialization of the output filter. This only has an

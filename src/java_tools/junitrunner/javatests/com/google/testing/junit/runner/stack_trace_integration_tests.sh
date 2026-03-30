@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2010 The Bazel Authors. All Rights Reserved.
 #
@@ -22,18 +22,28 @@
 # and checking the output.
 #
 
-DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# Load the unit-testing framework
+source "$1" || \
+  { echo "Failed to load unit-testing framework $1" >&2; exit 1; }
+
+set +o errexit
+
 unset TEST_PREMATURE_EXIT_FILE
 
-TESTBED="${PWD}/$1"
-SUITE_PARAMETER="$2"
-JUNIT_VERSION="$3"
+TESTBED="${PWD}/$2"
+SUITE_PARAMETER="$3"
+JUNIT_VERSION="$4"
 SUITE="com.google.testing.junit.runner.testbed.StackTraceExercises"
 SUITE_FLAG="-D${SUITE_PARAMETER}=${SUITE}"
 SLOW_CREATION_SUITE_FLAG="-D${SUITE_PARAMETER}=com.google.testing.junit.runner.testbed.SuiteMethodTakesForever"
 
+if [[ "$SUITE_PARAMETER" == "bazel.test_suite" ]]; then
+  is_bazel=true
+else
+  is_bazel=false
+fi
+
 shift 3
-source ${DIR}/testenv.sh || { echo "testenv.sh not found!" >&2; exit 1; }
 
 # Usage: COUNT=count_in_log <regex>
 function count_in_log() {
@@ -60,6 +70,21 @@ function expect_thread_dumps_in_log() {
   check_le "$thread_dump_starts" "$1" "Thread dump generated at most $1 times"
   check_eq "$thread_dump_starts" "$thread_dump_ends" \
     "Thread dumps ended successfully"
+}
+
+# Usage: expect_thread_dumps_in_log <virtual thread dump content>
+function expect_json_thread_dumps() {
+  local thread_dump_starts=$(count_in_log "Starting full thread dump")
+  local json_thread_dump=$(count_in_log "Writing JSON thread dump to ")
+  check_eq "$thread_dump_starts" "$json_thread_dump" \
+    "JSON thread dumps generated as expected"
+  # Extract the path of the JSON thread dumps and check that they exist
+  local json_paths=$(grep -oE "Writing JSON thread dump to [^ ]+" $TEST_log | \
+    sed 's/Writing JSON thread dump to //')
+  for path in $json_paths; do
+    [ -f "$path" ] || fail "Expected JSON thread dump file $path to exist"
+    grep -q "$1" "$path" || fail "Expected virtual thread dump content not found in $path: $(cat "$path")"
+  done
 }
 
 #######################
@@ -90,7 +115,12 @@ function test_ShutdownHook() {
   kill -TERM $test_pid
   sleep 3
 
-  expect_log 'INTERRUPTED TEST: SIGTERM'
+  if $is_bazel; then
+    expect_log 'Received SIGTERM, dumping stack traces for all threads'
+    expect_json_thread_dumps '"name": "my-virtual-thread",'
+  else
+    expect_log 'INTERRUPTED TEST: SIGTERM'
+  fi
   expect_log 'Shutdown\.runHooks'
   expect_log 'StackTraceExercises\.handleHook'
   expect_log 'Thread\.sleep'
@@ -120,7 +150,12 @@ function test_SlowSuite() {
   kill -TERM $test_pid
   sleep 3
 
-  expect_log "Execution interrupted while running 'TestSuite creation'"
+  if $is_bazel; then
+    expect_log 'Received SIGTERM, dumping stack traces for all threads'
+    expect_json_thread_dumps '"name": "my-virtual-thread",'
+  else
+    expect_log "Execution interrupted while running 'TestSuite creation'"
+  fi
 
   # expect threads to be dumped exactly once
   expect_thread_dumps_in_log 1

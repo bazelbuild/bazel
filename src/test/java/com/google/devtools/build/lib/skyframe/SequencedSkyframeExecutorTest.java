@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -65,7 +64,9 @@ import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateValue;
-import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.OutputChecker;
+import com.google.devtools.build.lib.actions.ProxyMetadataFactory;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
@@ -91,11 +92,13 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
@@ -105,7 +108,9 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.query2.common.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.runtime.KeepStateAfterBuildOption;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
+import com.google.devtools.build.lib.runtime.UiOptions;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
@@ -126,7 +131,6 @@ import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.LocalOutputService;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -202,8 +206,11 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
               BuildLanguageOptions.class,
               BuildRequestOptions.class,
               CoreOptions.class,
+              ExecutionOptions.class,
+              KeepStateAfterBuildOption.class,
               KeepGoingOption.class,
-              PackageOptions.class)
+              PackageOptions.class,
+              UiOptions.class)
           .build();
   private final Map<SkyFunctionName, SkyFunction> extraSkyFunctions = new HashMap<>();
   private QueryTransitivePackagePreloader visitor;
@@ -468,12 +475,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
           }
 
           @Override
-          public ModifiedFileSet getDiffFromEvaluatingVersion(
-              OptionsProvider options, FileSystem fs) throws BrokenDiffAwarenessException {
-            throw new UnsupportedOperationException("not implemented");
-          }
-
-          @Override
           public String name() {
             return null;
           }
@@ -731,6 +732,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     scratch.file(
         "conflict/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "x",
             srcs = ["foo.cc"],
@@ -809,6 +812,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
           new ActionsTestUtil.FakeArtifactResolverBase(),
           new ActionKeyContext(),
           Predicates.alwaysTrue(),
+          ProxyMetadataFactory.NO_PROXIES,
           /* cacheConfig= */ null);
 
   private static final ProgressSupplier EMPTY_PROGRESS_SUPPLIER =
@@ -851,18 +855,18 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey lc1 = new InjectedActionLookupKey("lc1");
     Artifact output1 =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"), execPath, lc1);
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"), execPath, lc1);
     Action action1 =
         new MissingOutputAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), output1);
     ActionLookupValue ctValue1 = createActionLookupValue(action1, lc1);
     ActionLookupKey lc2 = new InjectedActionLookupKey("lc2");
     Artifact output2 =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"), execPath, lc2);
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"), execPath, lc2);
     Action action2 =
         new MissingOutputAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), output2);
     ActionLookupValue ctValue2 = createActionLookupValue(action2, lc2);
-    skyframeExecutor.configureActionExecutor(/* fileCache= */ null, ActionInputPrefetcher.NONE);
+    configureActionExecutor();
     // Inject the "configured targets" into the graph.
     skyframeExecutor
         .getDifferencerForTesting()
@@ -876,7 +880,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     var unused =
         skyframeExecutor.buildArtifacts(
             reporter,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             new DummyExecutor(fileSystem, rootDirectory),
             ImmutableSet.of(),
             ImmutableSet.of(),
@@ -920,7 +924,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey inputKey = new InjectedActionLookupKey("input");
     Artifact input =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             PathFragment.create("out").getRelative("input"),
             inputKey);
     Action baseAction = new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), input);
@@ -928,13 +932,13 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey lc1 = new InjectedActionLookupKey("lc1");
     Artifact output1 =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"), execPath, lc1);
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"), execPath, lc1);
     Action action1 = new DummyAction(NestedSetBuilder.create(Order.STABLE_ORDER, input), output1);
     ActionLookupValue ctValue1 = createActionLookupValue(action1, lc1);
     ActionLookupKey lc2 = new InjectedActionLookupKey("lc2");
     Artifact output2 =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"), execPath, lc2);
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"), execPath, lc2);
     Action action2 = new DummyAction(NestedSetBuilder.create(Order.STABLE_ORDER, input), output2);
     ActionLookupValue ctValue2 = createActionLookupValue(action2, lc2);
 
@@ -943,7 +947,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // is running. This way, both actions will check the action cache beforehand and try to update
     // the action cache post-build.
     final CountDownLatch inputsRequested = new CountDownLatch(2);
-    skyframeExecutor.configureActionExecutor(/* fileCache= */ null, ActionInputPrefetcher.NONE);
+    configureActionExecutor();
     skyframeExecutor
         .getEvaluator()
         .injectGraphTransformerForTesting(
@@ -984,7 +988,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     var unused =
         skyframeExecutor.buildArtifacts(
             reporter,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             new DummyExecutor(fileSystem, rootDirectory),
             ImmutableSet.of(),
             ImmutableSet.of(),
@@ -1030,7 +1034,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey lcA = new InjectedActionLookupKey("lcA");
     Artifact outputA =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"), execPath, lcA);
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"), execPath, lcA);
     CountDownLatch actionAStartedSoOthersCanProceed = new CountDownLatch(1);
     CountDownLatch actionCFinishedSoACanFinish = new CountDownLatch(1);
     Action actionA =
@@ -1055,13 +1059,13 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey lcB = new InjectedActionLookupKey("lcB");
     Artifact outputB =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"), execPath, lcB);
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"), execPath, lcB);
     Action actionB = new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), outputB);
     ActionLookupValue ctB = createActionLookupValue(actionB, lcB);
     ActionLookupKey lcC = new InjectedActionLookupKey("lcC");
     Artifact outputC =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"), execPath, lcC);
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"), execPath, lcC);
     Action actionC = new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), outputC);
     ActionLookupValue ctC = createActionLookupValue(actionC, lcC);
 
@@ -1073,7 +1077,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     Thread mainThread = Thread.currentThread();
     CountDownLatch cStarted = new CountDownLatch(1);
-    skyframeExecutor.configureActionExecutor(/* fileCache= */ null, ActionInputPrefetcher.NONE);
+    configureActionExecutor();
     skyframeExecutor
         .getEvaluator()
         .injectGraphTransformerForTesting(
@@ -1132,7 +1136,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     var unused =
         skyframeExecutor.buildArtifacts(
             reporter,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             new DummyExecutor(fileSystem, rootDirectory),
             ImmutableSet.of(),
             ImmutableSet.of(),
@@ -1191,7 +1195,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey lc1 = new InjectedActionLookupKey("lc1");
     SpecialArtifact output1 =
         SpecialArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath,
             lc1,
             Artifact.SpecialArtifactType.TREE);
@@ -1202,14 +1206,14 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey lc2 = new InjectedActionLookupKey("lc2");
     SpecialArtifact output2 =
         SpecialArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath,
             lc2,
             Artifact.SpecialArtifactType.TREE);
     Action action2 =
         new TreeArtifactAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), output2, children);
     ActionLookupValue ctValue2 = createActionLookupValue(action2, lc2);
-    skyframeExecutor.configureActionExecutor(/* fileCache= */ null, ActionInputPrefetcher.NONE);
+    configureActionExecutor();
     // Inject the "configured targets" into the graph.
     skyframeExecutor
         .getDifferencerForTesting()
@@ -1223,7 +1227,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     var unused =
         skyframeExecutor.buildArtifacts(
             reporter,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             new DummyExecutor(fileSystem, rootDirectory),
             ImmutableSet.of(),
             ImmutableSet.of(),
@@ -1294,7 +1298,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey baseKey = new InjectedActionLookupKey("base");
     SpecialArtifact baseOutput =
         SpecialArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath,
             baseKey,
             Artifact.SpecialArtifactType.TREE);
@@ -1306,7 +1310,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     PathFragment execPath2 = PathFragment.create("out").getRelative("treesShared");
     SpecialArtifact sharedOutput1 =
         SpecialArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath2,
             shared1,
             Artifact.SpecialArtifactType.TREE);
@@ -1316,14 +1320,14 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey shared2 = new InjectedActionLookupKey("shared2");
     SpecialArtifact sharedOutput2 =
         SpecialArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath2,
             shared2,
             Artifact.SpecialArtifactType.TREE);
     ActionTemplate<DummyAction> template2 =
         new DummyActionTemplate(baseOutput, sharedOutput2, ActionOwner.SYSTEM_ACTION_OWNER);
     ActionLookupValue shared2Ct = createActionLookupValue(template2, shared2);
-    skyframeExecutor.configureActionExecutor(/* fileCache= */ null, ActionInputPrefetcher.NONE);
+    configureActionExecutor();
     // Inject the "configured targets" into the graph.
     skyframeExecutor
         .getDifferencerForTesting()
@@ -1344,7 +1348,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     var unused =
         skyframeExecutor.buildArtifacts(
             reporter,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             new DummyExecutor(fileSystem, rootDirectory),
             ImmutableSet.of(),
             ImmutableSet.of(),
@@ -1367,13 +1371,13 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   }
 
   private static final class DummyActionTemplate implements ActionTemplate<DummyAction> {
-    private final SpecialArtifact inputArtifact;
+    private final ImmutableList<SpecialArtifact> inputArtifacts;
     private final SpecialArtifact outputArtifact;
     private final ActionOwner actionOwner;
 
     private DummyActionTemplate(
         SpecialArtifact inputArtifact, SpecialArtifact outputArtifact, ActionOwner actionOwner) {
-      this.inputArtifact = inputArtifact;
+      this.inputArtifacts = ImmutableList.of(inputArtifact);
       this.outputArtifact = outputArtifact;
       this.actionOwner = actionOwner;
     }
@@ -1385,7 +1389,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     @Override
     public ImmutableList<DummyAction> generateActionsForInputArtifacts(
-        ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner) {
+        ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+        ActionLookupKey artifactOwner,
+        EventHandler eventHandler) {
       return inputTreeFileArtifacts.stream()
           .map(
               input -> {
@@ -1399,21 +1405,23 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     @Override
     public String getKey(
-        ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander) {
+        ActionKeyContext actionKeyContext, @Nullable InputMetadataProvider inputMetadataProvider) {
       Fingerprint fp = new Fingerprint();
-      fp.addPath(inputArtifact.getPath());
+      for (SpecialArtifact inputArtifact : inputArtifacts) {
+        fp.addPath(inputArtifact.getPath());
+      }
       fp.addPath(outputArtifact.getPath());
       return fp.hexDigestAndReset();
     }
 
     @Override
-    public SpecialArtifact getInputTreeArtifact() {
-      return inputArtifact;
+    public ImmutableList<SpecialArtifact> getInputTreeArtifacts() {
+      return inputArtifacts;
     }
 
     @Override
-    public SpecialArtifact getOutputTreeArtifact() {
-      return outputArtifact;
+    public ImmutableSet<Artifact> getOutputs() {
+      return ImmutableSet.of(outputArtifact);
     }
 
     @Override
@@ -1443,7 +1451,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     @Override
     public NestedSet<Artifact> getInputs() {
-      return NestedSetBuilder.create(Order.STABLE_ORDER, inputArtifact);
+      return NestedSetBuilder.wrap(Order.STABLE_ORDER, inputArtifacts);
     }
 
     @Override
@@ -1476,7 +1484,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     public NestedSet<Artifact> getMandatoryInputs() {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
-
   }
 
   /**
@@ -1502,13 +1509,13 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey lc1 = new InjectedActionLookupKey("lc1");
     Artifact output1 =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"), execPath, lc1);
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"), execPath, lc1);
     Action action1 = new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), output1);
     ActionLookupValue ctValue1 = createActionLookupValue(action1, lc1);
     ActionLookupKey lc2 = new InjectedActionLookupKey("lc2");
     Artifact output2 =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"), execPath, lc2);
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"), execPath, lc2);
     CountDownLatch action2Running = new CountDownLatch(1);
     CountDownLatch topActionTestedOutput = new CountDownLatch(1);
     Action action2 =
@@ -1527,7 +1534,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey topLc = new InjectedActionLookupKey("top");
     Artifact top =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             relativeOut.getChild("top"),
             topLc);
     Action topAction =
@@ -1567,7 +1574,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     var unused =
         skyframeExecutor.buildArtifacts(
             reporter,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             new DummyExecutor(fileSystem, rootDirectory),
             ImmutableSet.of(),
             ImmutableSet.of(),
@@ -1615,7 +1622,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey lc1 = new InjectedActionLookupKey("lc1");
     Artifact output =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath.getRelative("cycleOutput"),
             lc1);
     Action action1 = new DummyAction(cycleArtifact, output);
@@ -1627,7 +1634,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey lc2 = new InjectedActionLookupKey("lc2");
     Artifact output2 =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath.getRelative("bar"),
             lc2);
     CountDownLatch startedSleep = new CountDownLatch(1);
@@ -1647,7 +1654,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             createActionLookupValue(slowAction, lc2),
             null,
             NestedSetBuilder.emptySet(Order.STABLE_ORDER));
-    skyframeExecutor.configureActionExecutor(/* fileCache= */ null, ActionInputPrefetcher.NONE);
+    configureActionExecutor();
     skyframeExecutor
         .getEvaluator()
         .injectGraphTransformerForTesting(
@@ -1671,7 +1678,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     var unused =
         skyframeExecutor.buildArtifacts(
             reporter,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             new DummyExecutor(fileSystem, rootDirectory),
             ImmutableSet.of(),
             ImmutableSet.of(),
@@ -1757,7 +1764,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey lc1 = new InjectedActionLookupKey("lc1");
     Artifact output =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath.getRelative("foo"),
             lc1);
     Action action1 = new WarningAction(ImmutableList.of(), output, "action 1");
@@ -1769,7 +1776,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey lc2 = new InjectedActionLookupKey("lc2");
     Artifact output2 =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath.getRelative("bar"),
             lc2);
     Action action2 = new WarningAction(ImmutableList.of(output), output2, "action 2");
@@ -1778,7 +1785,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             createActionLookupValue(action2, lc2),
             null,
             NestedSetBuilder.create(Order.STABLE_ORDER, Event.warn("analysis warning 2")));
-    skyframeExecutor.configureActionExecutor(/* fileCache= */ null, ActionInputPrefetcher.NONE);
+    configureActionExecutor();
     skyframeExecutor
         .getDifferencerForTesting()
         .inject(ImmutableMap.of(lc1, Delta.justNew(ctValue1), lc2, Delta.justNew(ctValue2)));
@@ -1791,7 +1798,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     var unused =
         skyframeExecutor.buildArtifacts(
             reporter,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             new DummyExecutor(fileSystem, rootDirectory),
             ImmutableSet.of(),
             ImmutableSet.of(),
@@ -1864,7 +1871,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     @Override
     protected void computeKey(
         ActionKeyContext actionKeyContext,
-        @Nullable ArtifactExpander artifactExpander,
+        @Nullable InputMetadataProvider inputMetadataProvider,
         Fingerprint fp) {
       fp.addString(warningText);
       fp.addPath(getPrimaryOutput().getExecPath());
@@ -1943,7 +1950,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey lc1 = new InjectedActionLookupKey("lc1");
     Artifact output =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath.getRelative("foo"),
             lc1);
     Action action1 = new CatastrophicAction(output);
@@ -1951,7 +1958,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey lc2 = new InjectedActionLookupKey("lc2");
     Artifact output2 =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath.getRelative("bar"),
             lc2);
     AtomicBoolean markerRan = new AtomicBoolean(false);
@@ -1976,8 +1983,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Builder builder =
         new SkyframeBuilder(
             skyframeExecutor,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             NULL_CHECKER,
+            /* actionExecutionSalt= */ "",
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
@@ -2004,7 +2012,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                       options,
                       null,
                       null,
-                      RemoteArtifactChecker.IGNORE_ALL));
+                      OutputChecker.TRUST_LOCAL_ONLY));
       // The catastrophic exception should be propagated into the BuildFailedException whether or
       // not --keep_going is set.
       assertThat(e.getDetailedExitCode()).isEqualTo(CatastrophicAction.expectedDetailedExitCode);
@@ -2050,7 +2058,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey catastropheCTK = new InjectedActionLookupKey("catastrophe");
     Artifact catastropheArtifact =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath.getRelative("zcatas"),
             catastropheCTK);
     CountDownLatch failureHappened = new CountDownLatch(1);
@@ -2068,7 +2076,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey failureCTK = new InjectedActionLookupKey("failure");
     Artifact failureArtifact =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath.getRelative("fail"),
             failureCTK);
     Action failureAction = new FailedExecAction(failureArtifact, USER_DETAILED_EXIT_CODE);
@@ -2076,7 +2084,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey topCTK = new InjectedActionLookupKey("top");
     Artifact topArtifact =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath.getRelative("top"),
             topCTK);
     Action topAction =
@@ -2116,8 +2124,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Builder builder =
         new SkyframeBuilder(
             skyframeExecutor,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             NULL_CHECKER,
+            /* actionExecutionSalt= */ "",
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
@@ -2141,7 +2150,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                       options,
                       null,
                       null,
-                      RemoteArtifactChecker.IGNORE_ALL));
+                      OutputChecker.TRUST_LOCAL_ONLY));
       // The catastrophic exception should be propagated into the BuildFailedException whether or
       // not --keep_going is set.
       assertThat(e.getDetailedExitCode()).isEqualTo(CatastrophicAction.expectedDetailedExitCode);
@@ -2164,7 +2173,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey configuredTargetKey = new InjectedActionLookupKey("key");
     Artifact catastropheArtifact =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath.getRelative("catas"),
             configuredTargetKey);
     int failedSize = 100;
@@ -2188,7 +2197,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
       String failString = HashCode.fromBytes(("fail" + i).getBytes(UTF_8)).toString();
       Artifact failureArtifact =
           DerivedArtifact.create(
-              ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+              ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
               execPath.getRelative(failString),
               configuredTargetKey);
       failedArtifacts.add(failureArtifact);
@@ -2240,8 +2249,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Builder builder =
         new SkyframeBuilder(
             skyframeExecutor,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             NULL_CHECKER,
+            /* actionExecutionSalt= */ "",
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
@@ -2269,12 +2279,11 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                       new TopLevelArtifactContext(
                           /* runTestsExclusively= */ false,
                           false,
-                          false,
                           OutputGroupInfo.determineOutputGroups(
                               ImmutableList.of(),
                               OutputGroupInfo.ValidationMode.OUTPUT_GROUP,
                               /* shouldRunTests= */ false)),
-                      RemoteArtifactChecker.IGNORE_ALL));
+                      OutputChecker.TRUST_LOCAL_ONLY));
       // The catastrophic exception should be propagated into the BuildFailedException whether or
       // not --keep_going is set.
       assertThat(e.getDetailedExitCode()).isEqualTo(CatastrophicAction.expectedDetailedExitCode);
@@ -2308,7 +2317,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey failedKey = new InjectedActionLookupKey("failed");
     Artifact failedOutput =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath.getRelative("failed"),
             failedKey);
     AtomicReference<Action> failedActionReference = new AtomicReference<>();
@@ -2333,7 +2342,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey catastrophicKey = new InjectedActionLookupKey("catastrophic");
     Artifact catastrophicOutput =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath.getRelative("catastrophic"),
             catastrophicKey);
     Action catastrophicAction = new CatastrophicAction(catastrophicOutput);
@@ -2362,8 +2371,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Builder builder =
         new SkyframeBuilder(
             skyframeExecutor,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             NULL_CHECKER,
+            /* actionExecutionSalt= */ "",
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
@@ -2390,7 +2400,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                       options,
                       null,
                       null,
-                      RemoteArtifactChecker.IGNORE_ALL));
+                      OutputChecker.TRUST_LOCAL_ONLY));
       // The catastrophic exception should be propagated into the BuildFailedException whether or
       // not --keep_going is set.
       assertThat(e.getDetailedExitCode()).isEqualTo(CatastrophicAction.expectedDetailedExitCode);
@@ -2435,14 +2445,14 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey succeededKey = new InjectedActionLookupKey("succeeded");
     Artifact succeededOutput =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath.getRelative("succeeded"),
             succeededKey);
 
     ActionLookupKey failedKey = new InjectedActionLookupKey("failed");
     Artifact failedOutput =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath.getRelative("failed"),
             failedKey);
 
@@ -2473,8 +2483,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Builder builder =
         new SkyframeBuilder(
             skyframeExecutor,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             NULL_CHECKER,
+            /* actionExecutionSalt= */ "",
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
@@ -2497,7 +2508,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     options,
                     null,
                     null,
-                    RemoteArtifactChecker.IGNORE_ALL));
+                    OutputChecker.TRUST_LOCAL_ONLY));
     // The exit code should be propagated into the BuildFailedException whether or not --keep_going
     // is set.
     assertThat(e.getDetailedExitCode()).isEqualTo(USER_DETAILED_EXIT_CODE);
@@ -2520,21 +2531,21 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey succeededKey = new InjectedActionLookupKey("succeeded");
     Artifact succeededOutput =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath.getRelative("succeeded"),
             succeededKey);
 
     ActionLookupKey failedKey1 = new InjectedActionLookupKey("failed1");
     Artifact failedOutput1 =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath.getRelative("failed1"),
             failedKey1);
 
     ActionLookupKey failedKey2 = new InjectedActionLookupKey("failed2");
     Artifact failedOutput2 =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath.getRelative("failed2"),
             failedKey2);
 
@@ -2570,8 +2581,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Builder builder =
         new SkyframeBuilder(
             skyframeExecutor,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             NULL_CHECKER,
+            /* actionExecutionSalt= */ "",
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
@@ -2594,7 +2606,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     options,
                     null,
                     null,
-                    RemoteArtifactChecker.IGNORE_ALL));
+                    OutputChecker.TRUST_LOCAL_ONLY));
     // The exit code should be propagated into the BuildFailedException whether or not --keep_going
     // is set.
     assertThat(e.getDetailedExitCode()).isEqualTo(INFRA_DETAILED_EXIT_CODE);
@@ -2617,7 +2629,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey topKey = new InjectedActionLookupKey("top");
     Artifact topOutput =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath.getRelative("top"),
             topKey);
 
@@ -2652,8 +2664,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Builder builder =
         new SkyframeBuilder(
             skyframeExecutor,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             NULL_CHECKER,
+            /* actionExecutionSalt= */ "",
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
@@ -2671,7 +2684,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         options,
         null,
         null,
-        RemoteArtifactChecker.IGNORE_ALL);
+        OutputChecker.TRUST_LOCAL_ONLY);
     MoreAsserts.assertContainsEvent(
         eventCollector, Pattern.compile(".*during scanning.*\n.*Scanning.*\n.*Test dir/top.*"));
     MoreAsserts.assertNotContainsEvent(
@@ -2701,13 +2714,21 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     var unused =
         skyframeExecutor.sync(
             reporter,
-            skyframeExecutor.getPackageLocator().get(),
+            createPackageLocator(),
             UUID.randomUUID(),
             /* clientEnv= */ ImmutableMap.of(),
-            /* repoEnvOption= */ ImmutableMap.of(),
             tsgm,
             QuiescingExecutorsImpl.forTesting(),
             options,
-            /* commandName= */ "build");
+            /* commandName= */ "build",
+            /* commandExecutes= */ true);
+  }
+
+  private void configureActionExecutor() {
+    skyframeExecutor.configureActionExecutor(
+        /* fileCache= */ null,
+        ActionInputPrefetcher.NONE,
+        /* actionExecutionSalt= */ "",
+        /* maxStdoutErrBytes= */ 999);
   }
 }

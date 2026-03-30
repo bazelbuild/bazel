@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -34,6 +34,7 @@ add_to_bazelrc "build --package_path=%workspace%"
 
 
 function test_java_launcher_classpath_limit() {
+  add_rules_java "MODULE.bazel"
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/hello || fail "Expected success"
   cat > $pkg/java/hello/HelloLib.java <<EOF
@@ -53,6 +54,9 @@ public class Hello {
 }
 EOF
   cat > $pkg/java/hello/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_library(
     name = "hellolib",
     srcs = ["HelloLib.java"],

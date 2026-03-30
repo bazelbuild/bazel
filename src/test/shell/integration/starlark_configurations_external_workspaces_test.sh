@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -45,15 +45,6 @@ fi
 
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
 
 add_to_bazelrc "build --package_path=%workspace%"
 
@@ -121,19 +112,6 @@ EOF
 
 #### TESTS #############################################################
 
-
-function test_set_flag_with_workspace_name() {
-  echo "workspace(name = '${WORKSPACE_NAME}')" > WORKSPACE
-  local -r pkg=$FUNCNAME
-  mkdir -p $pkg
-
-  write_build_setting_bzl "@${WORKSPACE_NAME}"
-
-  bazel build --enable_workspace //$pkg:my_drink --@//$pkg:type="coffee" \
-    > output 2>"$TEST_log" || fail "Expected success"
-
-  expect_log "type=coffee"
-}
 
 function test_reference_inner_repository_flags() {
   local -r pkg=$FUNCNAME
@@ -239,5 +217,128 @@ EOF
   expect_log "value after transition: prickly-pear"
 }
 
+function test_rc_flag_alias_external_repo() {
+  local -r pkg=$FUNCNAME
+  local -r subpkg="$pkg/sub"
+  mkdir -p $subpkg
+
+  ## set up outer repo
+  cat > $(setup_module_dot_bazel "$pkg/MODULE.bazel") <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(
+  name = "sub",
+  path = "./sub")
+EOF
+
+  cat > $pkg/BUILD <<EOF
+load("@sub//:rules.bzl", "flag_reader")
+flag_reader(
+    name = "reader",
+    flag = "@sub//:my_flag",
+)
+EOF
+
+  ## set up inner repo with a flag and a rule that reads it
+  cat > $subpkg/BUILD <<EOF
+load(":rules.bzl", "my_flag")
+my_flag(
+    name = "my_flag",
+    build_setting_default = "default_value",
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > $subpkg/rules.bzl <<EOF
+BuildSettingInfo = provider(fields = ['value'])
+
+def _flag_impl(ctx):
+    return BuildSettingInfo(value = ctx.build_setting_value)
+
+my_flag = rule(
+    implementation = _flag_impl,
+    build_setting = config.string(flag = True),
+)
+
+def _flag_reader_impl(ctx):
+    print("flag value: " + ctx.attr.flag[BuildSettingInfo].value)
+    return []
+
+flag_reader = rule(
+    implementation = _flag_reader_impl,
+    attrs = {
+        "flag": attr.label(),
+    },
+)
+EOF
+
+  cat > $(setup_module_dot_bazel "$subpkg/MODULE.bazel") <<EOF
+module(name = "sub")
+EOF
+
+  cd $pkg
+
+  # Test that flag alias for external repo flag works correctly.
+  bazel build :reader --flag_alias=myflag=@sub//:my_flag --myflag=custom_value \
+      >& "$TEST_log" || fail "Expected success"
+  expect_log "flag value: custom_value"
+}
+
+function test_bzl_module_flag_alias_function() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  # Set up rule, flag definitions.
+  cat > $pkg/rules.bzl <<EOF
+BuildSettingInfo = provider(fields = ['value'])
+simple_flag = rule(
+  implementation = lambda ctx: BuildSettingInfo(value = ctx.build_setting_value),
+  build_setting = config.string(flag = True),
+)
+simple_rule = rule(
+    implementation = lambda ctx: [],
+    attrs = {}
+)
+EOF
+
+  # Set up rule, flag instances.
+  cat > $pkg/BUILD <<EOF
+load(":rules.bzl", "simple_rule", "simple_flag")
+simple_flag(
+  name = "my_flag",
+  build_setting_default = "default",
+)
+simple_rule(name = "buildme")
+EOF
+
+  # Set up root workspace's MODULE.bazel.
+  cat > $(setup_module_dot_bazel "$pkg/MODULE.bazel") <<EOF
+flag_alias(name = "compilation_mode", starlark_flag = "//:my_flag")
+EOF
+
+  cd $pkg
+  # cquery a target with the alias-mapped flag.
+  bazel cquery :buildme --compilation_mode=opt \
+      --flag_alias=user_set=//:fake_flag > cquery_output 2>"$TEST_log" \
+      || fail "Expected success"
+  # Find the cquery target's configuration hash.
+  config_hash=$(cat cquery_output  | grep -o '([a-zA-Z0-9]\+)' | tr -d '()')
+  # Get the configuration.
+  bazel config $config_hash > "$TEST_log" 2>&1 || fail "Expected success"
+  expect_log "//:my_flag: opt" "Expected Starlark flag to have user value"
+  expect_log "compilation_mode: fastbuild" \
+      "Expected native flag to have default value"
+  # This is important because select() and transitions read --flag_alias to
+  # correctly map aliases.
+  # This regex checks that the line starts with "flag_alias:" and contains
+  # both "compilation_mode=//:my_flag" and "user_set=//:fake_flag" in any order.
+  local flag_alias_regex="flag_alias:.*\\("
+  flag_alias_regex+="compilation_mode=//:my_flag.*user_set=//:fake_flag"
+  flag_alias_regex+="\\|"
+  flag_alias_regex+="user_set=//:fake_flag.*compilation_mode=//:my_flag"
+  flag_alias_regex+="\\)"
+
+  expect_log "$flag_alias_regex" \
+      "Expected both aliases to be in --flag_alias option value list"
+}
 
 run_suite "${PRODUCT_NAME} starlark configurations tests"

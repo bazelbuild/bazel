@@ -16,14 +16,17 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeTrue;
 
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.http.HttpCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -31,7 +34,6 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import java.io.IOException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.junit.Before;
 import org.junit.Test;
@@ -43,8 +45,6 @@ import org.junit.runners.JUnit4;
 public class CombinedCacheClientFactoryTest {
   private final DigestUtil digestUtil =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
-  private static final ExecutorService executorService =
-      MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(1));
 
   private RemoteOptions remoteOptions;
   private final AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
@@ -55,7 +55,7 @@ public class CombinedCacheClientFactoryTest {
   private RemoteRetrier retrier =
       new RemoteRetrier(
           () -> RemoteRetrier.RETRIES_DISABLED,
-          (e) -> false,
+          (e) -> Result.SUCCESS,
           retryScheduler,
           Retrier.ALLOW_ALL_CALLS);
 
@@ -75,11 +75,11 @@ public class CombinedCacheClientFactoryTest {
     var blobStore =
         CombinedCacheClientFactory.create(
             remoteOptions,
+            remoteOptions.getDiskCachePath(workingDirectory),
             /* creds= */ null,
             authAndTlsOptions,
             workingDirectory,
             digestUtil,
-            executorService,
             retrier);
 
     assertThat(blobStore.remoteCacheClient()).isInstanceOf(HttpCacheClient.class);
@@ -95,11 +95,11 @@ public class CombinedCacheClientFactoryTest {
     var blobStore =
         CombinedCacheClientFactory.create(
             remoteOptions,
+            remoteOptions.getDiskCachePath(workingDirectory),
             /* creds= */ null,
             authAndTlsOptions,
             workingDirectory,
             digestUtil,
-            executorService,
             retrier);
 
     assertThat(blobStore.remoteCacheClient()).isInstanceOf(HttpCacheClient.class);
@@ -118,27 +118,32 @@ public class CombinedCacheClientFactoryTest {
         () ->
             CombinedCacheClientFactory.create(
                 remoteOptions,
+                remoteOptions.diskCache != null
+                    ? remoteOptions.getDiskCachePath(/* outputUserRoot= */ null)
+                    : null,
                 /* creds= */ null,
                 authAndTlsOptions,
                 /* workingDirectory= */ null,
                 digestUtil,
-                executorService,
                 retrier));
   }
 
   @Test
   public void createHttpCacheWithProxy() throws IOException {
+    // Unix domain sockets are not supported on Windows.
+    assumeTrue(OS.getCurrent() != OS.WINDOWS);
+
     remoteOptions.remoteCache = "http://doesnotexist.com";
     remoteOptions.remoteProxy = "unix://some-proxy";
 
     var blobStore =
         CombinedCacheClientFactory.create(
             remoteOptions,
+            remoteOptions.getDiskCachePath(workingDirectory),
             /* creds= */ null,
             authAndTlsOptions,
             workingDirectory,
             digestUtil,
-            executorService,
             retrier);
 
     assertThat(blobStore.remoteCacheClient()).isInstanceOf(HttpCacheClient.class);
@@ -156,11 +161,11 @@ public class CombinedCacheClientFactoryTest {
                 () ->
                     CombinedCacheClientFactory.create(
                         remoteOptions,
+                        remoteOptions.getDiskCachePath(workingDirectory),
                         /* creds= */ null,
                         authAndTlsOptions,
                         workingDirectory,
                         digestUtil,
-                        executorService,
                         retrier)))
         .hasMessageThat()
         .contains("Remote cache proxy unsupported: bad-proxy");
@@ -173,11 +178,11 @@ public class CombinedCacheClientFactoryTest {
     var blobStore =
         CombinedCacheClientFactory.create(
             remoteOptions,
+            remoteOptions.getDiskCachePath(workingDirectory),
             /* creds= */ null,
             authAndTlsOptions,
             workingDirectory,
             digestUtil,
-            executorService,
             retrier);
 
     assertThat(blobStore.remoteCacheClient()).isInstanceOf(HttpCacheClient.class);
@@ -191,11 +196,11 @@ public class CombinedCacheClientFactoryTest {
     var blobStore =
         CombinedCacheClientFactory.create(
             remoteOptions,
+            remoteOptions.getDiskCachePath(workingDirectory),
             /* creds= */ null,
             authAndTlsOptions,
             workingDirectory,
             digestUtil,
-            executorService,
             retrier);
 
     assertThat(blobStore.remoteCacheClient()).isNull();
@@ -263,8 +268,8 @@ public class CombinedCacheClientFactoryTest {
   }
 
   @Test
-  public void isRemoteCacheOptions_diskCacheOptionEmpty() {
-    remoteOptions.diskCache = PathFragment.EMPTY_FRAGMENT;
+  public void isRemoteCacheOptions_diskCacheOptionNull() {
+    remoteOptions.diskCache = null;
     assertThat(CombinedCacheClientFactory.isRemoteCacheOptions(remoteOptions)).isFalse();
   }
 

@@ -72,13 +72,10 @@ public final class BlazeDirectories {
   private static final String DEFAULT_EXEC_ROOT = "default-exec-root";
 
   private final ServerDirectories serverDirectories;
+
   /** Workspace root and server CWD. */
   private final Path workspace;
-  /**
-   * The root of the user's local JDK install, to be used as the default target javabase and as a
-   * fall-back host_javabase. This is not the embedded JDK.
-   */
-  private final Path defaultSystemJavabase;
+
   private final Path blazeExecRoot;
 
   // These two are kept to avoid creating new objects every time they are accessed. This showed up
@@ -87,14 +84,9 @@ public final class BlazeDirectories {
   private final Path localOutputPath;
   private final String productName;
 
-  public BlazeDirectories(
-      ServerDirectories serverDirectories,
-      Path workspace,
-      Path defaultSystemJavabase,
-      String productName) {
+  public BlazeDirectories(ServerDirectories serverDirectories, Path workspace, String productName) {
     this.serverDirectories = serverDirectories;
     this.workspace = workspace;
-    this.defaultSystemJavabase = defaultSystemJavabase;
     this.productName = productName;
     Path outputBase = serverDirectories.getOutputBase();
     if (Ascii.equalsIgnoreCase(productName, "blaze")) {
@@ -141,14 +133,11 @@ public final class BlazeDirectories {
   }
 
   /** Returns working directory of the server. */
+  @Nullable
   public Path getWorkingDirectory() {
     return workspace;
   }
 
-  /** Returns the root of the user's local JDK install (not the embedded JDK). */
-  public Path getLocalJavabase() {
-    return defaultSystemJavabase;
-  }
 
   /** Returns if the workspace directory is a valid workspace. */
   public boolean inWorkspace() {
@@ -163,13 +152,13 @@ public final class BlazeDirectories {
     return serverDirectories.getOutputBase();
   }
 
-  /** Returns the effective execution root, which may be virtualized. */
+  /** Returns the execution root base path with no workspace name fragment. */
   public Path getExecRootBase() {
     return serverDirectories.getExecRootBase();
   }
 
   /**
-   * Returns the local execution root of Google-internal Blaze. Virtualization is not respected.
+   * Returns the local execution root of Google-internal Blaze.
    *
    * <p>This method throws {@link NullPointerException} in Bazel. Use {@link #getExecRoot} instead.
    */
@@ -187,7 +176,7 @@ public final class BlazeDirectories {
   }
 
   /**
-   * Returns the local output path of Google-internal Blaze. Virtualization is not respected.
+   * Returns the local output path of Google-internal Blaze.
    *
    * <p>This method throws {@link NullPointerException} in Bazel. Use {@link #getOutputPath}
    * instead.
@@ -222,10 +211,13 @@ public final class BlazeDirectories {
   /**
    * Returns the configuration-independent root where the build-data should be placed, given the
    * {@link BlazeDirectories} of this server instance. Nothing else should be placed here.
+   *
+   * <p>Note that, for historic reasons, this method is also used to determine where coverage data
+   * ("_coverage") should be stored.
    */
   public ArtifactRoot getBuildDataDirectory(String workspaceName) {
     return ArtifactRoot.asDerivedRoot(
-        getExecRoot(workspaceName), RootType.Output, getRelativeOutputPath(productName));
+        getExecRoot(workspaceName), RootType.OUTPUT, getRelativeOutputPath(productName));
   }
 
   /**

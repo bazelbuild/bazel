@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 
+#include "src/main/cpp/sem_ver.h"
 #include "src/main/cpp/workspace_layout.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/functional/function_ref.h"
@@ -40,12 +41,37 @@ class RcFile {
   using ReadFileFn =
       absl::FunctionRef<bool(const std::string&, std::string*, std::string*)>;
   using CanonicalizePathFn = absl::FunctionRef<std::string(const std::string&)>;
-  enum class ParseError { NONE, UNREADABLE_FILE, INVALID_FORMAT, IMPORT_LOOP };
+  enum class ParseError {
+    NONE,
+    UNREADABLE_FILE,
+    INVALID_FORMAT,
+    IMPORT_LOOP,
+    IMPORT_DEPTH_EXCEEDED
+  };
+  static constexpr int MaxImportDepth = 512;
+  static std::unique_ptr<RcFile> Parse(
+      const std::string& filename, const WorkspaceLayout* workspace_layout,
+      const std::string& workspace, const std::string& build_label,
+      const std::optional<SemVer>& sem_ver, ParseError* error,
+      std::string* error_text, int max_import_depth = MaxImportDepth,
+      ReadFileFn read_file = &ReadFileDefault,
+      CanonicalizePathFn canonicalize_path = &CanonicalizePathDefault);
+
   static std::unique_ptr<RcFile> Parse(
       const std::string& filename, const WorkspaceLayout* workspace_layout,
       const std::string& workspace, ParseError* error, std::string* error_text,
       ReadFileFn read_file = &ReadFileDefault,
       CanonicalizePathFn canonicalize_path = &CanonicalizePathDefault);
+
+  // Command -> all options for that command (in order of appearance).
+  using OptionMap = absl::flat_hash_map<std::string, std::vector<RcOption>>;
+
+  static bool ReadFileDefault(const std::string& filename,
+                              std::string* contents, std::string* error_msg);
+  static std::string CanonicalizePathDefault(const std::string& filename);
+
+  static std::unique_ptr<RcFile> Create(
+      std::vector<std::string> canonical_rcfile_paths, OptionMap options);
 
   // Movable and copyable.
   RcFile(const RcFile&) = default;
@@ -58,25 +84,25 @@ class RcFile {
     return canonical_rcfile_paths_;
   }
 
-  // Command -> all options for that command (in order of appearance).
-  using OptionMap = absl::flat_hash_map<std::string, std::vector<RcOption>>;
   const OptionMap& options() const { return options_; }
 
  private:
   RcFile() = default;
 
   // Recursive call to parse a file and its imports.
-  ParseError ParseFile(const std::string& filename,
-                       const std::string& workspace,
-                       const WorkspaceLayout& workspace_layout,
-                       ReadFileFn read_file,
-                       CanonicalizePathFn canonicalize_path,
-                       std::vector<std::string>& import_stack,
-                       std::string* error_text);
+  ParseError ParseFile(
+      const std::string& filename, const std::string& workspace,
+      const WorkspaceLayout& workspace_layout, const std::string& build_label,
+      const std::optional<SemVer>& sem_ver, ReadFileFn read_file,
+      CanonicalizePathFn canonicalize_path,
+      std::vector<std::string>& import_stack, std::string* error_text,
+      int max_import_depth, int current_depth);
 
-  static bool ReadFileDefault(const std::string& filename,
-                              std::string* contents, std::string* error_msg);
-  static std::string CanonicalizePathDefault(const std::string& filename);
+  ParseError ParseFile(
+      const std::string& filename, const std::string& workspace,
+      const WorkspaceLayout& workspace_layout, ReadFileFn read_file,
+      CanonicalizePathFn canonicalize_path,
+      std::vector<std::string>& import_stack, std::string* error_text);
 
   // Full closure of rcfile paths imported from this file (including itself).
   // These are all canonical paths, created with blaze_util::MakeCanonical.
@@ -85,6 +111,18 @@ class RcFile {
   // All options parsed from the file.
   OptionMap options_;
 };
+
+// Checks if the build label passes the given comparison operation and
+// condition. An empty return (nullopt) indicates a failure and error_text will
+// be filled.
+//
+// Eg. The following values would evaluate to true since 8.4.5 >= 5.4.0
+//  - build_label=8.4.5
+//  - op='>='
+//  - compare_version=5.4.0
+std::optional<bool> BazelVersionMatchesCondition(
+    const SemVer& build_label, absl::string_view op,
+    const std::string& compare_version, std::string* error_text);
 
 }  // namespace blaze
 

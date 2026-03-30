@@ -33,11 +33,15 @@ import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SymlinkTargetType;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +54,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   protected abstract void setDownloadToplevel();
 
   protected abstract void setDownloadAll();
+
+  protected abstract void enableActionRewinding();
 
   protected abstract void assertOutputEquals(Path path, String expectedContent) throws Exception;
 
@@ -271,9 +277,27 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     waitDownloads();
 
     assertThat(getOutputPath("foo").exists()).isTrue();
-    assertOutputDoesNotExist("foo/file-1");
-    assertOutputDoesNotExist("foo/file-2");
-    assertOutputDoesNotExist("foo/file-3");
+    assertOutputEquals(getOutputPath("foo/file-1"), "1");
+    assertOutputEquals(getOutputPath("foo/file-2"), "2");
+    assertOutputEquals(getOutputPath("foo/file-3"), "3");
+  }
+
+  @Test
+  public void downloadOutputsWithRegex_treeOutput_regexMatchesEmptyTreeRoot() throws Exception {
+    writeOutputDirRule();
+    write(
+        "BUILD",
+        "load(':output_dir.bzl', 'output_dir')",
+        "output_dir(",
+        "  name = 'foo',",
+        "  content_map = {},",
+        ")");
+    addOptions("--remote_download_regex=.*foo$");
+
+    buildTarget("//:foo");
+    waitDownloads();
+
+    assertThat(getOutputPath("foo").exists()).isTrue();
   }
 
   @Test
@@ -604,9 +628,9 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     buildTarget("//:foobar");
     waitDownloads();
 
-    assertValidOutputFile("foobar.out", "foo" + lineSeparator() + "bar\n");
+    assertValidOutputFile("foobar.out", "foo\nbar\n");
     assertOutputDoesNotExist("foo.in.copy");
-    assertValidOutputFile("foo.out.copy", "foo" + lineSeparator());
+    assertValidOutputFile("foo.out.copy", "foo\n");
   }
 
   @Test
@@ -633,9 +657,9 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     buildTarget("//:foobar");
     waitDownloads();
 
-    assertValidOutputFile("foobar.out", "foo" + lineSeparator() + "bar\n");
-    assertValidOutputFile("foo.in.copy", "foo" + lineSeparator());
-    assertValidOutputFile("foo.out.copy", "foo" + lineSeparator());
+    assertValidOutputFile("foobar.out", "foo\nbar\n");
+    assertValidOutputFile("foo.in.copy", "foo\n");
+    assertValidOutputFile("foo.out.copy", "foo\n");
   }
 
   @Test
@@ -662,7 +686,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     buildTarget("//:foobar");
     waitDownloads();
 
-    assertValidOutputFile("foobar.out", "foo" + lineSeparator() + "bar\n");
+    assertValidOutputFile("foobar.out", "foo\nbar\n");
     assertOutputDoesNotExist("foo.in.copy");
     assertOutputDoesNotExist("foo.out.copy");
   }
@@ -975,13 +999,13 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     buildTarget("//:foo-link");
 
     assertSymlink("foo-link", getSourcePath("foo.txt").asFragment());
-    assertOnlyOutputContent("//:foo-link", "foo-link", "foo" + lineSeparator());
+    assertOnlyOutputContent("//:foo-link", "foo-link", "foo\n");
 
     // Delete link, re-plant symlink
     getOutputPath("foo-link").delete();
     buildTarget("//:foo-link");
 
-    assertOnlyOutputContent("//:foo-link", "foo-link", "foo" + lineSeparator());
+    assertOnlyOutputContent("//:foo-link", "foo-link", "foo\n");
   }
 
   @Test
@@ -1030,38 +1054,63 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
-  public void downloadToplevel_unresolvedSymlink() throws Exception {
-    // Dangling symlink would require developer mode to be enabled in the CI environment.
-    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+  public void downloadToplevel_unresolvedSymlink(@TestParameter SymlinkTargetType targetType)
+      throws Exception {
+    Path targetPath = TestUtils.createUniqueTmpDir(null).getChild("target");
+
+    String targetPathArg = targetPath.getPathString();
+    String targetTypeArg =
+        switch (targetType) {
+          case FILE -> "file";
+          case DIRECTORY -> "directory";
+          case UNSPECIFIED -> "";
+        };
 
     setDownloadToplevel();
     writeSymlinkRule();
     write(
         "BUILD",
-        "load(':symlink.bzl', 'symlink')",
-        "symlink(",
-        "  name = 'foo-link',",
-        "  target_path = '/some/path',",
-        ")");
+        """
+        load(':symlink.bzl', 'symlink')
+        symlink(
+          name = 'foo-link',
+          target_path = '%s',
+          target_type = '%s',
+        )
+        """
+            .formatted(targetPathArg, targetTypeArg));
 
     buildTarget("//:foo-link");
 
-    assertSymlink("foo-link", PathFragment.create("/some/path"));
+    assertSymlink("foo-link", targetPath.asFragment());
 
     // Delete link, re-plant symlink
     getOutputPath("foo-link").delete();
     buildTarget("//:foo-link");
 
-    assertSymlink("foo-link", PathFragment.create("/some/path"));
+    assertSymlink("foo-link", targetPath.asFragment());
+
+    // Assert that the symlink works after planting the target.
+    if (targetType == SymlinkTargetType.FILE) {
+      FileSystemUtils.writeContent(targetPath, UTF_8, "hello world");
+      assertThat(FileSystemUtils.readContent(getOutputPath("foo-link"), UTF_8))
+          .isEqualTo("hello world");
+    } else if (targetType == SymlinkTargetType.DIRECTORY) {
+      targetPath.createDirectory();
+      FileSystemUtils.writeContent(targetPath.getChild("file.txt"), UTF_8, "hello world");
+      assertThat(FileSystemUtils.readContent(getOutputPath("foo-link/file.txt"), UTF_8))
+          .isEqualTo("hello world");
+    }
   }
 
   @Test
-  public void treeOutputsFromLocalFileSystem_works() throws Exception {
+  public void treeOutputsFromLocalFileSystem_works(
+      @TestParameter({"no-remote-exec", "local"}) String executionInfo) throws Exception {
     // Test that tree artifact generated locally can be consumed by other actions.
     // See https://github.com/bazelbuild/bazel/issues/16789
 
     // Disable remote execution so tree outputs are generated locally
-    addOptions("--modify_execution_info=OutputDir=+no-remote-exec");
+    addOptions("--modify_execution_info=OutputDir=+" + executionInfo);
     setDownloadToplevel();
     writeOutputDirRule();
     write(
@@ -1273,8 +1322,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         ")");
 
     buildTarget("//:foobar");
-    assertValidOutputFile("out/foo.txt", "foo" + lineSeparator());
-    assertValidOutputFile("out/foobar.txt", "foo" + lineSeparator() + "bar\n");
+    assertValidOutputFile("out/foo.txt", "foo\n");
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
 
     // Act: Modify source file and run an incremental build
     write("foo.in", "modified");
@@ -1285,8 +1334,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
     // Assert: All actions transitively depend on the source file are re-executed and outputs are
     // correct.
-    assertValidOutputFile("out/foo.txt", "modified" + lineSeparator());
-    assertValidOutputFile("out/foobar.txt", "modified" + lineSeparator() + "bar\n");
+    assertValidOutputFile("out/foo.txt", "modified\n");
+    assertValidOutputFile("out/foobar.txt", "modified\nbar\n");
     assertThat(actionEventCollector.getNumActionNodesEvaluated()).isEqualTo(2);
   }
 
@@ -1329,8 +1378,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
-  public void incrementalBuild_remoteFileMetadataIsReplacedWithLocalFileMetadata()
-      throws Exception {
+  public void incrementalBuild_fileOutputIsPrefetched_noRuns() throws Exception {
     // We need to download the intermediate output
     if (!hasAccessToRemoteOutputs()) {
       return;
@@ -1363,13 +1411,58 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     getRuntimeWrapper().registerSubscriber(actionEventCollector);
     buildTarget("//:foobar");
 
-    // Assert: remote file metadata is replaced with local file metadata
+    // Assert: remote file metadata has contents proxy and action node is not marked as dirty.
     assertValidOutputFile("out/foo.txt", "foo\n");
     assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
     assertThat(actionEventCollector.getActionExecutedEvents()).isEmpty();
-    // Two actions are invalidated but were able to hit the action cache
-    assertThat(actionEventCollector.getCachedActionEvents()).hasSize(2);
-    assertThat(getOnlyElement(getMetadata("//:foo").values()).isRemote()).isFalse();
+    assertThat(actionEventCollector.getCachedActionEvents()).isEmpty();
+    var metadata = getOnlyElement(getMetadata("//:foo").values());
+    assertThat(metadata.isRemote()).isTrue();
+    assertThat(metadata.getContentsProxy()).isNotNull();
+  }
+
+  @Test
+  public void incrementalBuild_treeOutputIsPrefetched_noRuns() throws Exception {
+    // We need to download the intermediate output
+    if (!hasAccessToRemoteOutputs()) {
+      return;
+    }
+
+    // Arrange: Prepare workspace and run a clean build
+    writeOutputDirRule();
+    write(
+        "BUILD",
+        "load(':output_dir.bzl', 'output_dir')",
+        "output_dir(",
+        "  name = 'foo',",
+        "  content_map = {'file-1': '1', 'file-2': '2', 'file-3': '3'},",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['out/foobar.txt'],",
+        "  cmd = 'echo bar >> $@',",
+        "  tags = ['no-remote'],",
+        ")");
+
+    buildTarget("//:foobar");
+    assertValidOutputFile("foo/file-1", "1");
+    assertValidOutputFile("foo/file-2", "2");
+    assertValidOutputFile("foo/file-3", "3");
+    assertValidOutputFile("out/foobar.txt", "bar\n");
+    assertThat(getOnlyElement(getTreeMetadata("//:foo").values()).isEntirelyRemote()).isTrue();
+
+    // Act: Do an incremental build without any modifications
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//:foobar");
+
+    // Assert: action node is not marked as dirty.
+    assertValidOutputFile("foo/file-1", "1");
+    assertValidOutputFile("foo/file-2", "2");
+    assertValidOutputFile("foo/file-3", "3");
+    assertThat(actionEventCollector.getActionExecutedEvents()).isEmpty();
+    assertThat(actionEventCollector.getCachedActionEvents()).isEmpty();
   }
 
   protected ImmutableMap<Artifact, FileArtifactValue> getMetadata(String target) throws Exception {
@@ -1381,6 +1474,21 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         result.putAll(actionExecutionValue.getAllFileValues());
       } else if (value instanceof TreeArtifactValue treeArtifactValue) {
         result.putAll(treeArtifactValue.getChildValues());
+      }
+    }
+    return result.buildOrThrow();
+  }
+
+  protected ImmutableMap<Artifact, TreeArtifactValue> getTreeMetadata(String target)
+      throws Exception {
+    var result = ImmutableMap.<Artifact, TreeArtifactValue>builder();
+    var evaluator = getRuntimeWrapper().getSkyframeExecutor().getEvaluator();
+    for (var artifact : getArtifacts(target)) {
+      var value = evaluator.getExistingValue(Artifact.key(artifact));
+      if (value instanceof ActionExecutionValue actionExecutionValue) {
+        result.putAll(actionExecutionValue.getAllTreeArtifactValues());
+      } else if (value instanceof TreeArtifactValue treeArtifactValue) {
+        result.put(artifact, treeArtifactValue);
       }
     }
     return result.buildOrThrow();
@@ -1493,7 +1601,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     buildTarget("//a:bar");
 
     // Assert: target was successfully built
-    assertValidOutputFile("a/bar.out", "foo" + lineSeparator() + "updated bar" + lineSeparator());
+    assertValidOutputFile("a/bar.out", "foo\nupdated bar\n");
   }
 
   @Test
@@ -1548,112 +1656,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     buildTarget("//a:bar");
 
     // Assert: target was successfully built
-    assertValidOutputFile("a/bar.out", "file-inside\nupdated bar" + lineSeparator());
-  }
-
-  @Test
-  public void remoteFilesExpiredBetweenBuilds_rerunGeneratingActions() throws Exception {
-    // Arrange: Prepare workspace and populate remote cache
-    write(
-        "a/BUILD",
-        """
-        genrule(
-            name = "foo",
-            srcs = ["foo.in"],
-            outs = ["foo.out"],
-            cmd = "cat $(SRCS) > $@",
-        )
-
-        genrule(
-            name = "bar",
-            srcs = [
-                "foo.out",
-                "bar.in",
-            ],
-            outs = ["bar.out"],
-            cmd = "cat $(SRCS) > $@",
-        )
-        """);
-    write("a/foo.in", "foo");
-    write("a/bar.in", "bar");
-
-    // Populate remote cache
-    buildTarget("//a:bar");
-    getOutputPath("a/foo.out").delete();
-    getOutputPath("a/bar.out").delete();
-    getOutputBase().getRelative("action_cache").deleteTreesBelow();
-    restartServer();
-
-    // Clean build, foo.out isn't downloaded
-    setDownloadToplevel();
-    addOptions("--experimental_remote_cache_ttl=0s");
-    buildTarget("//a:bar");
-    assertOutputDoesNotExist("a/foo.out");
-
-    // Evict blobs from remote cache
-    evictAllBlobs();
-
-    // Act: Do an incremental build
-    write("a/bar.in", "updated bar");
-    addOptions("--strategy_regexp=.*bar=local");
-    buildTarget("//a:bar");
-    waitDownloads();
-
-    // Assert: target was successfully built
-    assertValidOutputFile("a/bar.out", "foo" + lineSeparator() + "updated bar" + lineSeparator());
-  }
-
-  @Test
-  public void remoteTreeFilesExpiredBetweenBuilds_rerunGeneratingActions() throws Exception {
-    // Arrange: Prepare workspace and populate remote cache
-    write("BUILD");
-    writeOutputDirRule();
-    write(
-        "a/BUILD",
-        """
-        load("//:output_dir.bzl", "output_dir")
-
-        output_dir(
-            name = "foo.out",
-            content_map = {"file-inside": "hello world"},
-        )
-
-        genrule(
-            name = "bar",
-            srcs = [
-                "foo.out",
-                "bar.in",
-            ],
-            outs = ["bar.out"],
-            cmd = "( ls $(location :foo.out); cat $(location :bar.in) ) > $@",
-        )
-        """);
-    write("a/bar.in", "bar");
-
-    // Populate remote cache
-    buildTarget("//a:bar");
-    getOutputPath("a/foo.out").deleteTreesBelow();
-    getOutputPath("a/bar.out").delete();
-    getOutputBase().getRelative("action_cache").deleteTreesBelow();
-    restartServer();
-
-    // Clean build, foo.out isn't downloaded
-    setDownloadToplevel();
-    addOptions("--experimental_remote_cache_ttl=0s");
-    buildTarget("//a:bar");
-    assertOutputDoesNotExist("a/foo.out/file-inside");
-
-    // Evict blobs from remote cache
-    evictAllBlobs();
-
-    // Act: Do an incremental build
-    write("a/bar.in", "updated bar");
-    addOptions("--strategy_regexp=.*bar=local");
-    buildTarget("//a:bar");
-    waitDownloads();
-
-    // Assert: target was successfully built
-    assertValidOutputFile("a/bar.out", "file-inside\nupdated bar" + lineSeparator());
+    assertValidOutputFile("a/bar.out", "file-inside\nupdated bar\n");
   }
 
   @Test
@@ -1704,7 +1707,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     // Only write the content of slow/BUILD after //:proxy is built, so we can artificially delay
     // the analysis of //:top
     var unused =
-        new CommandBuilder()
+        new CommandBuilder(System.getenv())
             .addArgs("mkfifo", "slow/BUILD")
             .setWorkingDir(getWorkspace())
             .build()
@@ -1760,7 +1763,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     // Only write the content of slow/BUILD after //:proxy is built, so we can artificially delay
     // the analysis of //:top
     var unused =
-        new CommandBuilder()
+        new CommandBuilder(System.getenv())
             .addArgs("mkfifo", "slow/BUILD")
             .setWorkingDir(getWorkspace())
             .build()
@@ -1794,6 +1797,42 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     assertValidOutputFile("actual/file-3", "3");
   }
 
+  @Test
+  public void testShareableActionOutputsAsInputs() throws Exception {
+    write(
+        "defs.bzl",
+        """
+        def _generate_shared_file(ctx):
+            output = ctx.actions.declare_file("shared.txt")
+            ctx.actions.run_shell(
+                outputs = [output],
+                command = "echo -n 'shared content' > %s" % output.path,
+            )
+            return [DefaultInfo(files=depset([output]))]
+        generate_shared_file = rule(_generate_shared_file)
+        """);
+    write(
+        "BUILD",
+        """
+        load(":defs.bzl", "generate_shared_file")
+        generate_shared_file(name = "gen1")
+        generate_shared_file(name = "gen2")
+        genrule(
+            name = "consume_outputs",
+            srcs = [":gen1", ":gen2"],
+            outs = ["combined_output.txt"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    buildTarget("//:consume_outputs");
+
+    assertOnlyOutputRemoteContent(
+        "//:consume_outputs", "combined_output.txt", "shared contentshared content");
+    assertOnlyOutputRemoteContent("//:gen1", "shared.txt", "shared content");
+    assertOnlyOutputRemoteContent("//:gen2", "shared.txt", "shared content");
+  }
+
   protected void assertOutputsDoNotExist(String target) throws Exception {
     for (Artifact output : getArtifacts(target)) {
       assertWithMessage(
@@ -1824,6 +1863,18 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     assertOutputEquals(output.getPath(), content);
   }
 
+  protected void assertOnlyOutputRemoteContent(String target, String filename, String content)
+      throws Exception {
+    Artifact output = getOnlyElement(getArtifacts(target));
+    assertThat(output.getFilename()).isEqualTo(filename);
+    assertThat(output.getPath().exists()).isFalse();
+    var metadata = getOnlyElement(getMetadata(target).values());
+    assertThat(metadata.isRemote()).isTrue();
+    assertThat(metadata.getSize()).isEqualTo(content.length());
+    assertThat(metadata.getDigest())
+        .isEqualTo(getDigestHashFunction().getHashFunction().hashString(content, UTF_8).asBytes());
+  }
+
   protected void assertValidOutputFile(String binRelativePath, String content) throws Exception {
     Path output = getOutputPath(binRelativePath);
     assertOutputEquals(getOutputPath(binRelativePath), content);
@@ -1834,15 +1885,21 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   protected void assertSymlink(String binRelativeLinkPath, PathFragment targetPath)
       throws Exception {
-    // On Windows, symlinks might be implemented as a file copy.
-    if (OS.getCurrent() != OS.WINDOWS) {
-      Path output = getOutputPath(binRelativeLinkPath);
-      assertThat(output.isSymbolicLink()).isTrue();
-      assertThat(output.readSymbolicLink()).isEqualTo(targetPath);
+    // On Windows, readSymbolicLink() always returns an absolute path.
+    if (OS.getCurrent() == OS.WINDOWS && !targetPath.isAbsolute()) {
+      targetPath =
+          getOutputPath(binRelativeLinkPath)
+              .getParentDirectory()
+              .getRelative(targetPath)
+              .asFragment();
     }
+    Path output = getOutputPath(binRelativeLinkPath);
+    assertThat(output.isSymbolicLink()).isTrue();
+    assertThat(output.readSymbolicLink()).isEqualTo(targetPath);
   }
 
   protected void writeSymlinkRule() throws IOException {
+    FileSystemUtils.touchFile(getWorkspace().getRelative("BUILD"));
     write(
         "symlink.bzl",
         """
@@ -1855,7 +1912,11 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
                 ctx.actions.symlink(output = link, target_file = ctx.file.target_artifact)
             elif ctx.attr.target_path and not ctx.file.target_artifact:
                 link = ctx.actions.declare_symlink(ctx.attr.name)
-                ctx.actions.symlink(output = link, target_path = ctx.attr.target_path)
+                ctx.actions.symlink(
+                    output = link,
+                    target_path = ctx.attr.target_path,
+                    target_type = ctx.attr.target_type or None,
+                )
             else:
                 fail("exactly one of target_artifact or target_path must be set")
 
@@ -1866,6 +1927,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
             attrs = {
                 "target_artifact": attr.label(allow_single_file = True),
                 "target_path": attr.string(),
+                "target_type": attr.string(),
             },
         )
         """);
@@ -1971,9 +2033,5 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   protected void restartServer() throws Exception {
     // Simulates a server restart
     createRuntimeWrapper();
-  }
-
-  protected static String lineSeparator() {
-    return System.getProperty("line.separator");
   }
 }

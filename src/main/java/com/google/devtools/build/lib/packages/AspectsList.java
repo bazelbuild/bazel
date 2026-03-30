@@ -104,7 +104,7 @@ public final class AspectsList {
         // Required aspect parameters must be specified by the rule propagating the aspect with
         // the same parameter type.
         if (requiredAspectParameters.contains(aspectAttrName)) {
-          if (!ruleClass.hasAttr(aspectAttrName, aspectAttrType)) {
+          if (!ruleClass.getAttributeProvider().hasAttr(aspectAttrName, aspectAttrType)) {
             throw Starlark.errorf(
                 "Aspect %s requires rule %s to specify attribute '%s' with type %s.",
                 aspect.getName(), ruleClass.getName(), aspectAttrName, aspectAttrType);
@@ -327,12 +327,7 @@ public final class AspectsList {
      */
     public void addAspect(NativeAspectClass aspect, Function<Rule, AspectParameters> evaluator) {
       NativeAspectDetails nativeAspectDetails = new NativeAspectDetails(aspect, evaluator);
-      AspectDetails<?> oldAspect =
-          this.aspects.put(nativeAspectDetails.getName(), nativeAspectDetails);
-      if (oldAspect != null) {
-        throw new AssertionError(
-            String.format("Aspect %s has already been added", oldAspect.getName()));
-      }
+      this.aspects.put(nativeAspectDetails.getName(), nativeAspectDetails);
     }
 
     /**
@@ -385,12 +380,7 @@ public final class AspectsList {
     /** Should only be used for deserialization. */
     public void addAspect(final Aspect aspect) {
       PredefinedAspectDetails predefinedAspectDetails = new PredefinedAspectDetails(aspect);
-      AspectDetails<?> oldAspect =
-          this.aspects.put(predefinedAspectDetails.getName(), predefinedAspectDetails);
-      if (oldAspect != null) {
-        throw new AssertionError(
-            String.format("Aspect %s has already been added", oldAspect.getName()));
-      }
+      this.aspects.put(predefinedAspectDetails.getName(), predefinedAspectDetails);
     }
 
     /**

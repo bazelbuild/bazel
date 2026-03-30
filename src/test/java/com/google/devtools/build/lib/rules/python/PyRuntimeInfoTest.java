@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -29,9 +30,6 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link PyRuntimeInfo}. */
 @RunWith(JUnit4.class)
 public class PyRuntimeInfoTest extends BuildViewTestCase {
-
-  // Copied from providers.bzl for ease of reference.
-  private static final String EXPECTED_DEFAULT_STUB_SHEBANG = "#!/usr/bin/env python3";
 
   private Artifact dummyInterpreter;
   private Artifact dummyFile;
@@ -49,6 +47,7 @@ public class PyRuntimeInfoTest extends BuildViewTestCase {
     }
     scratch.overwriteFile(
         "defs.bzl",
+        getPyLoad("PyRuntimeInfo"),
         "def _impl(ctx):",
         "    dummy_file = ctx.file.dummy_file",
         "    dummy_interpreter = ctx.file.dummy_interpreter",
@@ -94,8 +93,7 @@ public class PyRuntimeInfoTest extends BuildViewTestCase {
     writeCreatePyRuntimeInfo(
         "interpreter = dummy_interpreter",
         "files = depset([dummy_file])",
-        "python_version = 'PY3'",
-        "bootstrap_template = dummy_file");
+        "python_version = 'PY3'");
 
     PyRuntimeInfo info = getPyRuntimeInfo();
 
@@ -103,16 +101,11 @@ public class PyRuntimeInfoTest extends BuildViewTestCase {
     assertThat(info.getInterpreter()).isEqualTo(dummyInterpreter);
     assertHasOrderAndContainsExactly(info.getFiles(), Order.STABLE_ORDER, dummyFile);
     assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY3);
-    assertThat(info.getStubShebang()).isEqualTo(EXPECTED_DEFAULT_STUB_SHEBANG);
-    assertThat(info.getBootstrapTemplate()).isEqualTo(dummyFile);
   }
 
   @Test
   public void starlarkConstructor_platformRuntime() throws Exception {
-    writeCreatePyRuntimeInfo(
-        "interpreter_path = '/system/interpreter'",
-        "python_version = 'PY3'",
-        "bootstrap_template = dummy_file");
+    writeCreatePyRuntimeInfo("interpreter_path = '/system/interpreter'", "python_version = 'PY3'");
 
     PyRuntimeInfo info = getPyRuntimeInfo();
 
@@ -120,28 +113,11 @@ public class PyRuntimeInfoTest extends BuildViewTestCase {
     assertThat(info.getInterpreter()).isNull();
     assertThat(info.getFiles()).isNull();
     assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY3);
-    assertThat(info.getStubShebang()).isEqualTo(EXPECTED_DEFAULT_STUB_SHEBANG);
-  }
-
-  @Test
-  public void starlarkConstructor_customShebang() throws Exception {
-    writeCreatePyRuntimeInfo(
-        "interpreter_path = '/system/interpreter'",
-        "python_version = 'PY2'",
-        "stub_shebang = '#!/usr/bin/custom'",
-        "bootstrap_template = dummy_file");
-
-    PyRuntimeInfo info = getPyRuntimeInfo();
-
-    assertThat(info.getStubShebang()).isEqualTo("#!/usr/bin/custom");
   }
 
   @Test
   public void starlarkConstructor_filesDefaultsToEmpty() throws Exception {
-    writeCreatePyRuntimeInfo(
-        "    interpreter = dummy_interpreter",
-        "    python_version = 'PY2'",
-        "    bootstrap_template = dummy_file");
+    writeCreatePyRuntimeInfo("    interpreter = dummy_interpreter", "    python_version = 'PY3'");
 
     PyRuntimeInfo info = getPyRuntimeInfo();
 
@@ -160,7 +136,7 @@ public class PyRuntimeInfoTest extends BuildViewTestCase {
     writeCreatePyRuntimeInfo(
         "interpreter_path = '/system/interpreter'",
         "interpreter = dummy_interpreter",
-        "python_version = 'PY2'");
+        "python_version = 'PY3'");
 
     assertContainsError("exactly one of.*interpreter.*interpreter_path.*must be specified");
   }
@@ -170,7 +146,7 @@ public class PyRuntimeInfoTest extends BuildViewTestCase {
     writeCreatePyRuntimeInfo(
         "interpreter = dummy_interpreter", //
         "files = 'abc'",
-        "python_version = 'PY2'");
+        "python_version = 'PY3'");
 
     assertContainsError("invalid files:.*got.*string.*want.*depset");
   }
@@ -180,7 +156,7 @@ public class PyRuntimeInfoTest extends BuildViewTestCase {
     writeCreatePyRuntimeInfo(
         "interpreter_path = '/system/interpreter'",
         "files = depset([dummy_file])",
-        "python_version = 'PY2'");
+        "python_version = 'PY3'");
 
     assertContainsError("cannot specify 'files' if 'interpreter_path' is given");
   }

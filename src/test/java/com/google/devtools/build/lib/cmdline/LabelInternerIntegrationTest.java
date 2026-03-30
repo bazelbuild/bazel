@@ -60,6 +60,7 @@ public final class LabelInternerIntegrationTest extends SkyframeIntegrationTestB
     // dep 2.
     write(
         "hello/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
         "cc_binary(name = 'foo', srcs = ['foo.cc'], deps = ['//dep1:bar', '//dep2:baz'])");
     write(
         "hello/foo.cc",
@@ -71,6 +72,7 @@ public final class LabelInternerIntegrationTest extends SkyframeIntegrationTestB
         "}");
     write(
         "dep1/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name = 'bar', hdrs = ['bar.h'], srcs = ['bar.cc'], deps = ['//dep2:baz'])");
     write(
         "dep1/bar.cc",
@@ -81,7 +83,10 @@ public final class LabelInternerIntegrationTest extends SkyframeIntegrationTestB
         "  return 0;",
         "}");
     write("dep1/bar.h", "int f();");
-    write("dep2/BUILD", "cc_library(name = 'baz', hdrs = ['baz.h'], srcs = ['baz.cc'])");
+    write(
+        "dep2/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'baz', hdrs = ['baz.h'], srcs = ['baz.cc'])");
     write("dep2/baz.cc", "#include \"baz.h\"", "void g() { }");
     write("dep2/baz.h", "void g();");
     buildTarget("//hello:foo");
@@ -123,7 +128,10 @@ public final class LabelInternerIntegrationTest extends SkyframeIntegrationTestB
 
   @Test
   public void labelInterner_dirtyPackageStillPoolInternLabel() throws Exception {
-    write("hello/BUILD", "cc_binary(name = 'foo', srcs = ['foo.cc'])");
+    write(
+        "hello/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'foo', srcs = ['foo.cc'])");
     write("hello/foo.cc", "int main() {", "  return 0;", "}");
     buildTarget("//hello:foo");
 
@@ -149,7 +157,10 @@ public final class LabelInternerIntegrationTest extends SkyframeIntegrationTestB
 
   @Test
   public void labelInterner_removeDirtyPackageStillWeakInternItsLabels() throws Exception {
-    write("hello/BUILD", "cc_binary(name = 'foo', srcs = ['foo.cc'])");
+    write(
+        "hello/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name = 'foo', srcs = ['foo.cc'])");
     write("hello/foo.cc", "int main() {", "  return 0;", "}");
     buildTarget("//hello:foo");
 

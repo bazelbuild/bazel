@@ -34,49 +34,6 @@ pkg_tar(
 
 """
 
-def _distdir_tar_impl(ctx):
-    for name in ctx.attr.archives:
-        ctx.download(ctx.attr.urls[name], name, ctx.attr.sha256[name], False)
-    ctx.file("WORKSPACE", "")
-    ctx.file(
-        "BUILD",
-        _BUILD.format(srcs = ctx.attr.archives, strip_prefix = "", dirname = ctx.attr.dirname),
-    )
-
-_distdir_tar_attrs = {
-    "archives": attr.string_list(),
-    "sha256": attr.string_dict(),
-    "urls": attr.string_list_dict(),
-    "dirname": attr.string(default = "distdir"),
-}
-
-_distdir_tar = repository_rule(
-    implementation = _distdir_tar_impl,
-    attrs = _distdir_tar_attrs,
-)
-
-def distdir_tar(name, dist_deps):
-    """Creates a repository whose content is a set of tar files.
-
-    Args:
-      name: repo name.
-      dist_deps: map of repo names to dict of archive, sha256, and urls.
-    """
-    archives = []
-    sha256 = {}
-    urls = {}
-    for _, info in dist_deps.items():
-        archive_file = info["archive"]
-        archives.append(archive_file)
-        sha256[archive_file] = info["sha256"]
-        urls[archive_file] = info["urls"]
-    _distdir_tar(
-        name = name,
-        archives = archives,
-        sha256 = sha256,
-        urls = urls,
-    )
-
 def _repo_cache_tar_impl(ctx):
     """Generate a repository cache as a tar file.
 
@@ -90,18 +47,29 @@ def _repo_cache_tar_impl(ctx):
     registry_files = parse_registry_files(ctx, lockfile_path, ctx.attr.module_files)
 
     archive_files = []
+    integrity_to_sha256 = {}
+    seen_sha256 = {}
     readme_content = "This directory contains repository cache artifacts for the following URLs:\n\n"
     for artifact in http_artifacts + registry_files:
         url = artifact["url"]
         if "integrity" in artifact:
+            integrity = artifact["integrity"]
+            if integrity in integrity_to_sha256:
+                artifact["sha256"] = integrity_to_sha256[integrity]
+                continue
+
             # ./tempfile could be a hard link if --experimental_repository_cache_hardlinks is used,
             # therefore we must delete it before creating or writing it again.
             ctx.delete("./tempfile")
-            checksum = ctx.download(url, "./tempfile", executable = False, integrity = artifact["integrity"])
+            checksum = ctx.download(url, "./tempfile", executable = False, integrity = integrity)
+            integrity_to_sha256[integrity] = checksum.sha256
             artifact["sha256"] = checksum.sha256
 
         if "sha256" in artifact:
             sha256 = artifact["sha256"]
+            if sha256 in seen_sha256:
+                continue
+            seen_sha256[sha256] = True
             output_file = "content_addressable/sha256/%s/file" % sha256
             ctx.download(url, output_file, sha256, executable = False)
             archive_files.append(output_file)

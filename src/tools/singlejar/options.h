@@ -15,10 +15,13 @@
 #ifndef THIRD_PARTY_BAZEL_SRC_TOOLS_SINGLEJAR_OPTIONS_H_
 #define THIRD_PARTY_BAZEL_SRC_TOOLS_SINGLEJAR_OPTIONS_H_
 
+#include <cstddef>
+#include <set>
 #include <string>
 #include <vector>
 
 #include "src/tools/singlejar/token_stream.h"
+#include "absl/container/flat_hash_set.h"
 
 /* Command line options. */
 class Options {
@@ -36,12 +39,19 @@ class Options {
         verbose(false),
         warn_duplicate_resources(false),
         check_desugar_deps(false),
-        multi_release(false) {}
+        multi_release(false),
+        no_strip_module_info(false),
+        exclude_pattern("") {}
 
   virtual ~Options() {}
 
+  // Guesses at the total number of entries in the resulting jar.
+  // The estimate is based on the current value of input_jars.
+  // This is useful for pre-sizing maps to reduce the need for later resizing.
+  size_t EstimateFileCount() const { return input_jars.size() * 30; }
+
   // Parses command line arguments into the fields of this instance.
-  void ParseCommandLine(int argc, const char *const argv[]);
+  void ParseCommandLine(int argc, const char* const argv[]);
 
   std::string output_jar;
   std::string output_jar_creator;
@@ -57,6 +67,7 @@ class Options {
   std::vector<std::string> build_info_files;
   std::vector<std::string> build_info_lines;
   std::vector<std::string> include_prefixes;
+  absl::flat_hash_set<std::string> exclude_zip_entries;
   std::vector<std::string> nocompress_suffixes;
   bool exclude_build_data;
   bool force_compression;
@@ -69,9 +80,11 @@ class Options {
   bool warn_duplicate_resources;
   bool check_desugar_deps;
   bool multi_release;
+  bool no_strip_module_info;
   std::string hermetic_java_home;
   std::vector<std::string> add_exports;
   std::vector<std::string> add_opens;
+  std::string exclude_pattern;
 
  protected:
   /*
@@ -80,7 +93,7 @@ class Options {
    * flag may result in many tokens being consumed, as flags like --inputs ends
    * up consuming many future tokens: --inputs a b c d e --some_other_flag
    */
-  virtual bool ParseToken(ArgTokenStream *tokens);
+  virtual bool ParseToken(ArgTokenStream* tokens);
 
   /*
    * After all of the command line options are consumed, validate that the

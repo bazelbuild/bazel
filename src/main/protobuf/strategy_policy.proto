@@ -29,19 +29,20 @@ option java_package = "com.google.devtools.build.lib.runtime.proto";
 // unexpectedly hard-coded defaults.
 //
 // Sample usage to allow everything to execute remotely, while only allowing
-// genrules to execute locally:
+// genrules to execute both remotely and locally:
 //
 //   strategy_policy {
 //     mnemonic_policy {
 //       default_allowlist: ["remote"]
 //       strategy_allowlist: [
-//         { mnemonic: "Genrule" strategy: ["local"] }
+//         { mnemonic: "Genrule" strategy: ["remote", "local"] }
 //       ]
 //     }
 //   }
 message StrategyPolicy {
   // Controls per-mnemonic policies for regular spawn/action execution. Relevant
-  // command-line flags this controls include --strategy and --genrule_strategy.
+  // command-line flags this controls include --spawn_strategy, --strategy and
+  // --genrule_strategy.
   optional MnemonicPolicy mnemonic_policy = 1;
 
   // Controls per-mnemonic policies for the remote execution leg of dynamic
@@ -57,6 +58,7 @@ message MnemonicPolicy {
   // Default allowed strategies for mnemonics not present in `strategy` list.
   repeated string default_allowlist = 1;
 
+  // Later entries overwrite previous ones for the same mnemonic.
   repeated StrategiesForMnemonic strategy_allowlist = 2;
 }
 

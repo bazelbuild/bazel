@@ -49,7 +49,15 @@ public class PackageCallable {
       useStarlarkThread = true)
   public Object packageCallable(Map<String, Object> kwargs, StarlarkThread thread)
       throws EvalException {
-    Package.Builder pkgBuilder = Package.Builder.fromOrFailAllowBuildOnly(thread, "package()");
+    // TODO(bazel-team): we should properly ban package() in legacy macros
+    Package.AbstractBuilder pkgBuilder;
+    try {
+      pkgBuilder = Package.AbstractBuilder.fromOrFailAllowBuildOnly(thread, "package()");
+    } catch (EvalException unused) {
+      // The eval exception thrown by fromOrFailAllowBuildOnly() advises the user that using
+      // package() in legacy macros is ok. We don't want to give that advice.
+      throw Starlark.errorf("package() can only be used while evaluating a BUILD file");
+    }
     if (pkgBuilder.isPackageFunctionUsed()) {
       throw new EvalException("'package' can only be used once per BUILD file");
     }
@@ -74,7 +82,10 @@ public class PackageCallable {
    * back on the super method when the parameter does not match.
    */
   protected void processParam(
-      String name, Object rawValue, Package.Builder pkgBuilder, PackageArgs.Builder pkgArgsBuilder)
+      String name,
+      Object rawValue,
+      Package.AbstractBuilder pkgBuilder,
+      PackageArgs.Builder pkgArgsBuilder)
       throws EvalException {
 
     PackageArgs.processParam(

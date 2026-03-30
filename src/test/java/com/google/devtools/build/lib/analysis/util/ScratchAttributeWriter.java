@@ -122,13 +122,19 @@ public class ScratchAttributeWriter {
    * provided rule name will determine the type of the target written.
    */
   private ScratchAttributeWriter(
-      BuildViewTestCase testCase, String ruleName, String packageName, String targetName) {
+      BuildViewTestCase testCase,
+      String buildFilePreamble,
+      String ruleName,
+      String packageName,
+      String targetName) {
     this.testCase = checkNotNull(testCase);
     this.ruleName = checkNotNull(ruleName);
     this.packageName = checkNotNull(packageName);
     this.targetName = checkNotNull(targetName);
     this.buildString =
         new StringBuilder()
+            .append(buildFilePreamble)
+            .append("\n")
             .append(String.format("%s(", this.ruleName))
             .append(String.format("name='%s',", this.targetName));
   }
@@ -139,7 +145,19 @@ public class ScratchAttributeWriter {
    */
   public static ScratchAttributeWriter fromLabel(
       BuildViewTestCase testCase, String ruleName, Label label) {
-    return new ScratchAttributeWriter(testCase, ruleName, label.getPackageName(), label.getName());
+    return new ScratchAttributeWriter(
+        testCase, "", ruleName, label.getPackageName(), label.getName());
+  }
+
+  /**
+   * Creates a ScratchAttributeWriter for a given test case and label string. The provided rule name
+   * will determine the type of the target written.
+   */
+  public static ScratchAttributeWriter fromLabelString(
+      BuildViewTestCase testCase, String buildFilePreamble, String ruleName, String labelString) {
+    Label label = Label.parseCanonicalUnchecked(labelString);
+    return new ScratchAttributeWriter(
+        testCase, buildFilePreamble, ruleName, label.getPackageName(), label.getName());
   }
 
   /**

@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 # Description:
 #   The Bazel launcher.
 package(
@@ -103,7 +106,7 @@ cc_binary(
         "//conditions:default": [],
     }),
     copts = select({
-        "//src/conditions:windows": ["/wd4018"],
+        "//src/conditions:windows_msvc_like": ["/wd4018"],
         "//conditions:default": ["-Wno-sign-compare"],
     }),
     linkopts = select({
@@ -127,7 +130,9 @@ cc_binary(
         ":archive_utils",
         ":bazel_startup_options",
         ":blaze_util",
+        ":command_extension_adder",
         ":option_processor",
+        ":startup_interceptor",
         ":startup_options",
         ":workspace_layout",
         "//src/main/cpp/util",
@@ -163,8 +168,11 @@ cc_library(
         # and the double % get reduced down to 1 by the compiler. A
         # forward slash is used because \b is a special character,
         # backspace.
-        "//src/conditions:windows": [
+        "//src/conditions:windows_msvc_like": [
             "/DBAZEL_SYSTEM_BAZELRC_PATH#\\\"%%ProgramData%%/bazel.bazelrc\\\"",
+        ],
+        "@platforms//os:windows": [
+            "-DBAZEL_SYSTEM_BAZELRC_PATH=\\\"%%ProgramData%%/bazel.bazelrc\\\"",
         ],
         # For posix platforms, this can include environment variables in the
         # form ${var_name}. Braces are required.
@@ -179,6 +187,7 @@ cc_library(
     deps = [
         ":blaze_util",
         ":rc_file",
+        ":sem_ver",
         ":startup_options",
         ":workspace_layout",
         "//src/main/cpp/util",
@@ -186,6 +195,22 @@ cc_library(
         "//src/main/cpp/util:logging",
         "@abseil-cpp//absl/strings",
     ],
+)
+
+genrule(
+    name = "jvm_module_options_h",
+    srcs = [
+        "generate_jvm_module_options.sh",
+        "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
+    ],
+    outs = ["jvm_module_options.h"],
+    cmd = "$(location generate_jvm_module_options.sh) $(location //src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar) $(OUTS)",
+)
+
+cc_library(
+    name = "jvm_module_options",
+    hdrs = [":jvm_module_options_h"],
+    includes = ["."],
 )
 
 cc_library(
@@ -198,6 +223,7 @@ cc_library(
     ],
     deps = [
         ":blaze_util",
+        ":jvm_module_options",
         ":workspace_layout",
         "//src/main/cpp/util",
         "//src/main/cpp/util:blaze_exit_code",
@@ -245,6 +271,7 @@ cc_library(
     ],
     deps = [
         ":blaze_util",
+        ":sem_ver",
         ":workspace_layout",
         "//src/main/cpp/util",
         "//src/main/cpp/util:logging",
@@ -256,7 +283,38 @@ cc_library(
         "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/strings:string_view",
         "@abseil-cpp//absl/types:span",
+        "@re2",
     ],
+)
+
+cc_library(
+    name = "sem_ver",
+    srcs = ["sem_ver.cc"],
+    hdrs = ["sem_ver.h"],
+    visibility = [
+        "//src:__pkg__",
+        "//src/test/cpp:__pkg__",
+    ],
+    deps = [
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:string_view",
+        "@re2",
+    ],
+)
+
+cc_library(
+    name = "startup_interceptor",
+    hdrs = ["startup_interceptor.h"],
+    visibility = [
+        "//src:__pkg__",
+        "//src/test/cpp:__pkg__",
+    ],
+)
+
+cc_library(
+    name = "command_extension_adder",
+    hdrs = ["command_extension_adder.h"],
+    deps = ["//src/main/protobuf:command_server_cc_proto"],
 )
 
 filegroup(

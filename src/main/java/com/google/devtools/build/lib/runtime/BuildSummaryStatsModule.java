@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.actions.cache.PostableActionCacheStats;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.CriticalPathEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -168,6 +169,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
         try (SilentCloseable c =
             Profiler.instance().profile(ProfilerTask.CRITICAL_PATH, "Critical path")) {
           criticalPath = criticalPathComputer.aggregate();
+          reporter.post(new CriticalPathEvent(criticalPath));
           items.add(criticalPath.toStringSummaryNoRemote());
           event
               .getResult()
@@ -192,9 +194,16 @@ public class BuildSummaryStatsModule extends BlazeModule {
         }
       }
       if (profileEvent != null && profileEvent.getProfile() != null) {
-        // This leads to missing the afterCommand profiles of the other modules in the profile.
-        // Since the BEP currently shuts down at the BuildCompleteEvent, we cannot just move posting
-        // the BuildToolLogs to afterCommand of this module.
+        // The profiler has to be stopped before `BuildEventServiceModule#afterCommand` is called,
+        // especially when it is a bep artifact. An unstopped bep artifact could lead to a deadlock
+        // in `BuildEventServiceModule#afterCommand`.
+        //
+        // We choose to stop profiler here instead of in `BuildSummaryStatsModule#afterCommand` so
+        // that no ordering between GoogleBuildSummaryStatsModule and BuildEventServiceModule's
+        // `afterCommand`s needs to be assumed. See b/253394502.
+        //
+        // Stopping the profiler here leads to missing the afterCommand profiles of the other
+        // modules in the profile, which is a compromise we are willing to make.
         try {
           Profiler.instance().stop();
           profileEvent.getProfile().publish(event.getResult().getBuildToolLogCollection());

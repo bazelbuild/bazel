@@ -16,34 +16,116 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.AvailableFileDependencies;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.MissingFileDependencies;
 import java.util.Arrays;
+import java.util.Collection;
 
 /**
  * A representation of a recursively composable set of {@link FileSystemDependencies}.
  *
  * <p>This corresponds to a previously serialized {@link
- * com.google.devtools.build.lib.skyframe.NestedFileSystemOperationNodes} instance, but this
+ * com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes} instance, but this
  * implementation is mostly decoupled from Bazel code.
  */
-final class NestedDependencies
-    implements FileSystemDependencies, FileDependencyDeserializer.GetNestedDependenciesResult {
-  private final FileSystemDependencies[] elements;
+abstract sealed class NestedDependencies
+    implements FileSystemDependencies, FileDependencyDeserializer.NestedDependenciesOrFuture
+    permits NestedDependencies.AvailableNestedDependencies,
+        NestedDependencies.MissingNestedDependencies {
+  // While formally possible, we don't anticipate analysisDependencies being empty often.
+  // `sources` could be frequently empty.
+  static final FileDependencies[] EMPTY_SOURCES = new FileDependencies[0];
 
-  NestedDependencies(FileSystemDependencies[] elements) {
-    checkArgument(elements.length > 1, "expected at least length 2, was %s", elements.length);
-    this.elements = elements;
+  static NestedDependencies from(
+      FileSystemDependencies[] analysisDependencies, FileDependencies[] sources) {
+    for (FileSystemDependencies dep : analysisDependencies) {
+      if (dep.isMissingData()) {
+        return new MissingNestedDependencies();
+      }
+    }
+    int size = sources.length;
+    var availableSources = new AvailableFileDependencies[size];
+    for (int i = 0; i < size; i++) {
+      switch (sources[i]) {
+        case AvailableFileDependencies available:
+          availableSources[i] = available;
+          break;
+        case MissingFileDependencies unused:
+          return new MissingNestedDependencies();
+      }
+    }
+    return new AvailableNestedDependencies(analysisDependencies, availableSources);
   }
 
-  int count() {
-    return elements.length;
+  @VisibleForTesting
+  static NestedDependencies from(
+      Collection<? extends FileSystemDependencies> analysisDependencies,
+      Collection<FileDependencies> sources) {
+    return from(
+        analysisDependencies.toArray(FileSystemDependencies[]::new),
+        sources.toArray(FileDependencies[]::new));
   }
 
-  FileSystemDependencies getElement(int index) {
-    return elements[index];
+  static NestedDependencies newMissingInstance() {
+    return new MissingNestedDependencies();
   }
 
-  @Override
-  public String toString() {
-    return toStringHelper(this).add("elements", Arrays.asList(elements)).toString();
+  static final class AvailableNestedDependencies extends NestedDependencies {
+    private final FileSystemDependencies[] analysisDependencies;
+    private final AvailableFileDependencies[] sources;
+
+    private AvailableNestedDependencies(
+        FileSystemDependencies[] analysisDependencies, AvailableFileDependencies[] sources) {
+      checkArgument(
+          analysisDependencies.length >= 1 || sources.length >= 1,
+          "analysisDependencies and sources both empty");
+      this.analysisDependencies = analysisDependencies;
+      this.sources = sources;
+    }
+
+    @Override
+    public boolean isMissingData() {
+      return false;
+    }
+
+    int analysisDependenciesCount() {
+      return analysisDependencies.length;
+    }
+
+    FileSystemDependencies getAnalysisDependency(int index) {
+      return analysisDependencies[index];
+    }
+
+    int sourcesCount() {
+      return sources.length;
+    }
+
+    AvailableFileDependencies getSource(int index) {
+      return sources[index];
+    }
+
+    @Override
+    public String toString() {
+      return toStringHelper(this)
+          .add("analysisDependencies", Arrays.asList(analysisDependencies))
+          .add("sources", Arrays.asList(sources))
+          .toString();
+    }
+  }
+
+  /**
+   * Signals missing data in the nested set of dependencies.
+   *
+   * <p>This is deliberately not a singleton to avoid a memory leak in the weak-value caches in
+   * {@link FileDependencyDeserializer}.
+   */
+  static final class MissingNestedDependencies extends NestedDependencies {
+    private MissingNestedDependencies() {}
+
+    @Override
+    public boolean isMissingData() {
+      return true;
+    }
   }
 }

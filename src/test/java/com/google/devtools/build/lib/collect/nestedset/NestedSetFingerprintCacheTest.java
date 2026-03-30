@@ -21,7 +21,6 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
-import com.google.devtools.build.lib.actions.CommandLineItem.CapturingMapFn;
 import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.function.Consumer;
@@ -142,12 +141,6 @@ public class NestedSetFingerprintCacheTest {
           (s, args) -> args.accept(s + "_mapped"), new Fingerprint(), nestedSet);
     }
 
-    // Make sure a CapturingMapFn doesn't get denied
-    for (int i = 0; i < 2; ++i) {
-      cache.addNestedSetToFingerprint(
-          (CapturingMapFn<String>) (s, args) -> args.accept(s + 1), new Fingerprint(), nestedSet);
-    }
-
     // Make sure a ParametrizedMapFn doesn't get denied until it exceeds its instance count
     cache.addNestedSetToFingerprint(new IntParametrizedMapFn(1), new Fingerprint(), nestedSet);
     cache.addNestedSetToFingerprint(new IntParametrizedMapFn(2), new Fingerprint(), nestedSet);
@@ -235,5 +228,62 @@ public class NestedSetFingerprintCacheTest {
 
   private static void simpleExpand2(String o, Consumer<String> args) {
     args.accept(o + "_mapped2");
+  }
+
+  @Test
+  public void testFingerprintDeduplicationOfIdenticalTransitiveSets() throws Exception {
+    NestedSet<String> a = NestedSetBuilder.<String>stableOrder().add("a").add("b").build();
+    NestedSet<String> b = NestedSetBuilder.<String>stableOrder().add("a").add("b").build();
+
+    // Verify assumption that a and b are distinct objects (otherwise this test is trivial)
+    assertThat(a).isNotSameInstanceAs(b);
+    // Verify assumption that they have the same content
+    assertThat(a.toList()).containsExactly("a", "b").inOrder();
+    assertThat(b.toList()).containsExactly("a", "b").inOrder();
+
+    // Verify fingerprints of transitive sets are identical
+    Fingerprint fA = new Fingerprint();
+    cache.addNestedSetToFingerprint(fA, a);
+    String hexA = fA.hexDigestAndReset();
+
+    Fingerprint fB = new Fingerprint();
+    cache.addNestedSetToFingerprint(fB, b);
+    String hexB = fB.hexDigestAndReset();
+
+    assertThat(hexA).isEqualTo(hexB);
+
+    // Add a leaf to ensure that the NestedSet is not optimized to just return the transitive set.
+    NestedSet<String> includesBoth =
+        NestedSetBuilder.<String>stableOrder()
+            .add("leaf")
+            .addTransitive(a)
+            .addTransitive(b)
+            .build();
+    NestedSet<String> includesOne =
+        NestedSetBuilder.<String>stableOrder().add("leaf").addTransitive(a).build();
+
+    Fingerprint fingerprintOne = new Fingerprint();
+    cache.addNestedSetToFingerprint(fingerprintOne, includesOne);
+    String digestOne = fingerprintOne.hexDigestAndReset();
+
+    Fingerprint fingerprintBoth = new Fingerprint();
+    cache.addNestedSetToFingerprint(fingerprintBoth, includesBoth);
+    String digestBoth = fingerprintBoth.hexDigestAndReset();
+
+    assertThat(digestBoth).isEqualTo(digestOne);
+
+    NestedSet<String> c = NestedSetBuilder.<String>stableOrder().add("a").add("c").build();
+    NestedSet<String> includesDifferent =
+        NestedSetBuilder.<String>stableOrder()
+            .add("leaf")
+            .addTransitive(a)
+            .addTransitive(c)
+            .build();
+
+    Fingerprint fingerprintDifferent = new Fingerprint();
+    cache.addNestedSetToFingerprint(fingerprintDifferent, includesDifferent);
+    String digestDifferent = fingerprintDifferent.hexDigestAndReset();
+
+    assertThat(digestBoth).isNotEqualTo(digestDifferent);
   }
 }

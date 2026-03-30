@@ -31,14 +31,13 @@ class BzlmodCredentialsTest(test_base.TestBase):
     self.registries_work_dir = tempfile.mkdtemp(dir=self._test_cwd)
     self.registry_root = os.path.join(self.registries_work_dir, 'main')
     self.main_registry = BazelRegistry(self.registry_root)
-    self.main_registry.createCcModule('aaa', '1.0')
+    self.main_registry.createShModule('aaa', '1.0')
 
     self.ScratchFile(
         '.bazelrc',
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'common --noenable_workspace',
             # Disable yanked version check so we are not affected BCR changes.
             'common --allow_yanked_versions=all',
         ],
@@ -49,24 +48,26 @@ class BzlmodCredentialsTest(test_base.TestBase):
             'bazel_dep(name = "aaa", version = "1.0")',
         ],
     )
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@aaa//:lib_aaa"],',
+            '  use_bash_launcher = True,',
             ')',
         ],
     )
     self.ScratchFile(
-        'main.cc',
+        'main.sh',
         [
-            '#include "aaa.h"',
-            'int main() {',
-            '    hello_aaa("main function");',
-            '}',
+            'source $(rlocation aaa/aaa.sh)',
+            'hello_aaa "main function"',
         ],
+        executable=True,
     )
     self.ScratchFile(
         'credhelper',

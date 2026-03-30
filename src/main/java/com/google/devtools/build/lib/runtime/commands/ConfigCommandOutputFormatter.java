@@ -65,10 +65,16 @@ abstract class ConfigCommandOutputFormatter {
       configurations.forEach(
           config ->
               writer.printf(
-                  "%s %s%s%n",
-                  config.getConfigHash(),
-                  config.getMnemonic(),
-                  (config.isExec() ? " (exec)" : "")));
+                  "%s %s%s%n", config.getConfigHash(), config.getMnemonic(), getSuffix(config)));
+    }
+
+    private static String getSuffix(ConfigurationForOutput config) {
+      if (config.isExec()) {
+        return " (exec)";
+      } else if (!config.hasTestConfig()) {
+        return " (test-trimmed)";
+      }
+      return "";
     }
 
     @Override

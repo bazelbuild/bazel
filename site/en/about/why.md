@@ -32,7 +32,7 @@ commands when it needs to. This keeps your binaries up-to-date so that the
 [same source code always results in the same binary](/basics/hermeticity), bit
 by bit.
 
-Say goodbyte to endless `make clean` invocations and to chasing phantom bugs
+Say goodbye to endless `make clean` invocations and to chasing phantom bugs
 that were in fact resolved in source code that never got built.
 
 ## Bazel is extensible {:#extensible}

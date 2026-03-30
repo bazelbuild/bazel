@@ -1,4 +1,4 @@
-#!/bin/bash -eu
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,16 +15,29 @@
 # TODO(bazel-team) test that modifying the source in a non-interface
 #   changing way results in the same -interface.jar.
 
+# --- begin runfiles.bash initialization v3 ---
+# Copy-pasted from the Bazel Bash runfiles library v3.
+set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+# shellcheck disable=SC1090
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v3 ---
+
 DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 ## Inputs
-JAVAC=$1
-shift
-JAVA=$1
-shift
-JAR=$1
-shift
-JAVAP=$1
+JAVABASE="$1"
+if [[ "$TEST_WORKSPACE" == "_main" ]]; then
+  # For Bazel
+  RUNFILES_JAVABASE=${JAVABASE#external/}
+else
+  # For Blaze
+  RUNFILES_JAVABASE=${TEST_WORKSPACE}/${JAVABASE}
+fi
 shift
 IJAR=$1
 shift
@@ -43,6 +56,11 @@ function cleanup() {
 }
 
 trap cleanup EXIT
+
+JAVAC=$(rlocation "$RUNFILES_JAVABASE/bin/javac")
+JAVA=$(rlocation "$RUNFILES_JAVABASE/bin/java")
+JAR=$(rlocation "$RUNFILES_JAVABASE/bin/jar")
+JAVAP=$(rlocation "$RUNFILES_JAVABASE/bin/javap")
 
 ## Tools
 # Ensure that tooling path is absolute if not in PATH.
@@ -89,6 +107,7 @@ CENTRAL_DIR_ZIP64=$IJAR_SRCDIR/test/definitely_zip64.jar
 KEEP_FOR_COMPILE=$IJAR_SRCDIR/test/keep_for_compile_lib.jar
 DYNAMICCONSTANT_JAR=$IJAR_SRCDIR/test/dynamic_constant.jar
 DYNAMICCONSTANT_IJAR=$TEST_TMPDIR/dynamic_constant_interface.jar
+CORRUPT_ZIP=$IJAR_SRCDIR/test/corrupt_zip.jar
 
 #### Setup
 
@@ -607,5 +626,12 @@ function test_central_dir_zip64() {
   $IJAR $CENTRAL_DIR_ZIP64 $TEST_TMPDIR/ijar.jar || fail "ijar failed"
   $ZIP_COUNT $TEST_TMPDIR/ijar.jar 70000 || fail
 }
+
+function test_corrupt_eocd_zip() {
+  ! $IJAR $CORRUPT_ZIP
+  original_code=${PIPESTATUS[0]}
+  check_eq 134 $original_code "ijar should have aborted"
+}
+
 
 run_suite "ijar tests"

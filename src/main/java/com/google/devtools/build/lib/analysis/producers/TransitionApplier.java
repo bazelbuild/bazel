@@ -15,18 +15,21 @@ package com.google.devtools.build.lib.analysis.producers;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.StarlarkTransitionVisitor;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
 /**
@@ -42,6 +45,7 @@ final class TransitionApplier
   }
 
   // -------------------- Input --------------------
+  private final Label label;
   private final BuildConfigurationKey fromConfiguration;
   private final ConfigurationTransition transition;
   private final StarlarkTransitionCache transitionCache;
@@ -57,6 +61,7 @@ final class TransitionApplier
   private StarlarkBuildSettingsDetailsValue buildSettingsDetailsValue;
 
   TransitionApplier(
+      Label label,
       BuildConfigurationKey fromConfiguration,
       ConfigurationTransition transition,
       StarlarkTransitionCache transitionCache,
@@ -69,28 +74,52 @@ final class TransitionApplier
     this.sink = sink;
     this.eventHandler = eventHandler;
     this.runAfter = runAfter;
+    this.label = label;
   }
 
   @Override
   public StateMachine step(Tasks tasks) throws InterruptedException {
-    boolean doesStarlarkTransition;
+    AtomicBoolean doesStarlarkTransition = new AtomicBoolean(false);
+    AtomicBoolean readsStampSetting = new AtomicBoolean(false);
     try {
-      doesStarlarkTransition = StarlarkTransition.doesStarlarkTransition(transition);
+      transition.visit(
+          (StarlarkTransitionVisitor)
+              t -> {
+                doesStarlarkTransition.set(true);
+                if (t.readsStampSetting()) {
+                  readsStampSetting.set(true);
+                }
+              });
     } catch (TransitionException e) {
       sink.acceptTransitionError(e);
       return runAfter;
     }
-    if (!doesStarlarkTransition) {
+    if (!doesStarlarkTransition.get()) {
       return new BuildConfigurationKeyMapProducer(
           this.sink,
           this.runAfter,
           transition.apply(
-              TransitionUtil.restrict(transition, fromConfiguration.getOptions()), eventHandler));
+              TransitionUtil.restrict(transition, fromConfiguration.getOptions()), eventHandler),
+          this.label);
     }
+    if (readsStampSetting.get()
+        && fromConfiguration.getOptions().get(CoreOptions.class).getStampBinaries()) {
+      // Request the STAMP_SETTING_MARKER dep. It's a precomputed value so should already be done,
+      // but return a reference to the next step anyway as a state machine best practice.
+      tasks.lookUp(PrecomputedValue.STAMP_SETTING_MARKER.getKey(), val -> {});
+      return this::handleStarlarkTransition;
+    }
+    return handleStarlarkTransition(tasks);
+  }
 
+  private StateMachine handleStarlarkTransition(Tasks tasks) throws InterruptedException {
     ImmutableSet<Label> starlarkBuildSettings =
-        StarlarkTransition.getAllStarlarkBuildSettings(transition);
-    if (starlarkBuildSettings.isEmpty()) {
+        transitionCache.getAllStarlarkBuildSettings(
+            transition,
+            fromConfiguration.getOptions().get(CoreOptions.class).getCommandLineFlagAliasesMap());
+    if (transition.getName().equals("exec")) {
+      // TODO: fill out this code for cl/859390339 (to support --foo=--exec_foo flag scoping).
+    } else if (starlarkBuildSettings.isEmpty()) {
       // Quick escape if transition doesn't use any Starlark build settings.
       buildSettingsDetailsValue = StarlarkBuildSettingsDetailsValue.EMPTY;
       return applyStarlarkTransition(tasks);
@@ -128,7 +157,13 @@ final class TransitionApplier
     } catch (TransitionException e) {
       sink.acceptTransitionError(e);
       return runAfter;
+    } catch (InterruptedException e) {
+      // Workaround for https://github.com/bazelbuild/bazel/issues/29132. Is there some way for
+      // Skfyrame to handle this automaticaly without needing special checking here?
+      return runAfter;
     }
-    return new BuildConfigurationKeyMapProducer(this.sink, this.runAfter, transitionedOptions);
+
+    return new BuildConfigurationKeyMapProducer(
+        this.sink, this.runAfter, transitionedOptions, this.label);
   }
 }

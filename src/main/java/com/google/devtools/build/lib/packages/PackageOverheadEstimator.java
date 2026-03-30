@@ -17,7 +17,7 @@ import java.util.OptionalLong;
 
 /**
  * Estimates "package overhead", which is a rough approximation of the memory and general accounting
- * costs associated with a loaded package.
+ * costs associated with a loaded package or package piece.
  *
  * <p>Estimates are not intended to be perfect but should be reproducible. Some things may be
  * over-accounted, some things under, with the expectation that it all comes out roughly even in the
@@ -25,8 +25,8 @@ import java.util.OptionalLong;
  */
 public interface PackageOverheadEstimator {
 
-  PackageOverheadEstimator NOOP_ESTIMATOR = pkg -> OptionalLong.empty();
+  PackageOverheadEstimator NOOP_ESTIMATOR = (pkg) -> OptionalLong.empty();
 
   /** Returns the estimated package overhead, or empty if not calculated. */
-  OptionalLong estimatePackageOverhead(Package pkg);
+  OptionalLong estimatePackageOverhead(Packageoid pkg);
 }

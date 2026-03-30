@@ -19,15 +19,16 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.config.RunUnder.CommandRunUnder;
@@ -36,7 +37,6 @@ import com.google.devtools.build.lib.analysis.test.TestRunnerAction.ResolvedPath
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.StreamedTestOutput;
 import com.google.devtools.build.lib.exec.TestLogHelper;
@@ -58,7 +58,6 @@ import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -121,7 +120,11 @@ public abstract class TestStrategy implements TestActionContext {
    * Ensures that all directories used to run test are in the correct state and their content will
    * not result in stale files.
    */
-  protected void prepareFileSystem(TestRunnerAction testAction, Path execRoot, Path tmpDir)
+  protected void prepareFileSystem(
+      TestRunnerAction testAction,
+      Path execRoot,
+      @Nullable Path tmpDir,
+      @Nullable ActionExecutionContext actionExecutionContext)
       throws IOException {
     if (tmpDir != null) {
       recreateDirectory(tmpDir);
@@ -136,18 +139,15 @@ public abstract class TestStrategy implements TestActionContext {
     resolvedPaths.getUndeclaredOutputsDir().createDirectoryAndParents();
     resolvedPaths.getUndeclaredOutputsAnnotationsDir().createDirectoryAndParents();
     resolvedPaths.getSplitLogsDir().createDirectoryAndParents();
-  }
 
-  /**
-   * Ensures that all directories used to run test are in the correct state and their content will
-   * not result in stale files. Only use this if no local tmp and working directory are required.
-   */
-  protected void prepareFileSystem(TestRunnerAction testAction, Path execRoot) throws IOException {
-    prepareFileSystem(testAction, execRoot, null);
+    if (actionExecutionContext != null && actionExecutionContext.getOutputMetadataStore() != null) {
+      // Reset output metadata to avoid stale information from previous attempts.
+      actionExecutionContext.getOutputMetadataStore().resetOutputs(testAction.getOutputs());
+    }
   }
 
   /** Removes directory if it exists and recreates it. */
-  private void recreateDirectory(Path directory) throws IOException {
+  private static void recreateDirectory(Path directory) throws IOException {
     directory.deleteTree();
     directory.createDirectoryAndParents();
   }
@@ -159,13 +159,10 @@ public abstract class TestStrategy implements TestActionContext {
   private final Map<String, Integer> tmpIndex = new HashMap<>();
   protected final ExecutionOptions executionOptions;
   protected final TestSummaryOptions testSummaryOptions;
-  protected final BinTools binTools;
 
-  public TestStrategy(
-      ExecutionOptions executionOptions, TestSummaryOptions testSummaryOptions, BinTools binTools) {
+  public TestStrategy(ExecutionOptions executionOptions, TestSummaryOptions testSummaryOptions) {
     this.executionOptions = executionOptions;
     this.testSummaryOptions = testSummaryOptions;
-    this.binTools = binTools;
   }
 
   @Override
@@ -224,6 +221,7 @@ public abstract class TestStrategy implements TestActionContext {
       args.add(
           testAction
               .getCollectCoverageScript()
+              .getExecutable()
               .getExecPath()
               .getCallablePathStringForOs(executionOs));
     }
@@ -309,19 +307,6 @@ public abstract class TestStrategy implements TestActionContext {
     return defaultTestAttempts;
   }
 
-  /**
-   * Returns timeout value in seconds that should be used for the given test action. We always use
-   * the "categorical timeouts" which are based on the --test_timeout flag. A rule picks its timeout
-   * but ends up with the same effective value as all other rules in that bucket.
-   */
-  protected static final Duration getTimeout(TestRunnerAction testAction) {
-    BuildConfigurationValue configuration = testAction.getConfiguration();
-    return configuration
-        .getFragment(TestConfiguration.class)
-        .getTestTimeout()
-        .get(testAction.getTestProperties().getTimeout());
-  }
-
   /*
    * Finalize test run: persist the result, and post on the event bus.
    */
@@ -358,13 +343,18 @@ public abstract class TestStrategy implements TestActionContext {
     return digest.hexDigestAndReset().substring(0, 32);
   }
 
+  private static final ImmutableSet<ExecutionOptions.TestSummaryFormat> PARSE_TEST_RESULT_FORMATS =
+      Sets.immutableEnumSet(
+          ExecutionOptions.TestSummaryFormat.DETAILED,
+          ExecutionOptions.TestSummaryFormat.DETAILED_UNCACHED,
+          ExecutionOptions.TestSummaryFormat.TESTCASE);
+
   /** Parse a test result XML file into a {@link TestCase}. */
   @Nullable
   protected TestCase parseTestResult(Path resultFile) {
     /* xml files. We avoid parsing it unnecessarily, since test results can potentially consume
     a large amount of memory. */
-    if ((executionOptions.testSummary != ExecutionOptions.TestSummaryFormat.DETAILED)
-        && (executionOptions.testSummary != ExecutionOptions.TestSummaryFormat.TESTCASE)) {
+    if (!PARSE_TEST_RESULT_FORMATS.contains(executionOptions.testSummary)) {
       return null;
     }
 
@@ -459,8 +449,8 @@ public abstract class TestStrategy implements TestActionContext {
   }
 
   /**
-   * For an given environment, returns a subset containing all variables in the given list if they
-   * are defined in the given environment.
+   * Returns a subset containing all variables in the given list if they are defined in the given
+   * environment.
    */
   @VisibleForTesting
   public static Map<String, String> getMapping(

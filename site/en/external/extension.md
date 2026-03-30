@@ -7,11 +7,11 @@ Book: /_book.yaml
 
 Module extensions allow users to extend the module system by reading input data
 from modules across the dependency graph, performing necessary logic to resolve
-dependencies, and finally creating repos by calling repo rules. These extensions
-have capabilities similar to repo rules, which enables them to perform file I/O,
-send network requests, and so on. Among other things, they allow Bazel to
-interact with other package management systems while also respecting the
-dependency graph built out of Bazel modules.
+dependencies, and finally creating repos by calling [repo
+rules](/external/repo). These extensions have capabilities similar to repo
+rules, which enables them to perform file I/O, send network requests, and so on.
+Among other things, they allow Bazel to interact with other package management
+systems while also respecting the dependency graph built out of Bazel modules.
 
 You can define module extensions in `.bzl` files, just like repo rules. They're
 not invoked directly; rather, each module specifies pieces of data called *tags*
@@ -69,12 +69,12 @@ unconditionally evaluates all module extensions.
 
 ## Extension definition
 
-You can define module extensions similarly to repo rules, using the
-[`module_extension`](/rules/lib/globals/bzl#module_extension) function. However,
-while repo rules have a number of attributes, module extensions have
-[`tag_class`es](/rules/lib/globals/bzl#tag_class), each of which has a number of
-attributes. The tag classes define schemas for tags used by this extension. For
-example, the "maven" extension above might be defined like this:
+You can define module extensions similarly to [repo rules](/external/repo),
+using the [`module_extension`](/rules/lib/globals/bzl#module_extension)
+function. However, while repo rules have a number of attributes, module
+extensions have [`tag_class`es](/rules/lib/globals/bzl#tag_class), each of which
+has a number of attributes. The tag classes define schemas for tags used by this
+extension. For example, the "maven" extension above might be defined like this:
 
 ```python
 # @rules_jvm_external//:extensions.bzl
@@ -245,7 +245,7 @@ later. This is because the extension's identify is based on its file, so moving
 the extension into another file later changes your public API and is a backwards
 incompatible change for your users.
 
-### Specify reproducibility
+### Specify reproducibility and use facts
 
 If your extension always defines the same repositories given the same inputs
 (extension tags, files it reads, etc.) and in particular doesn't rely on
@@ -253,9 +253,36 @@ any [downloads](/rules/lib/builtins/module_ctx#download) that aren't guarded by
 a checksum, consider returning
 [`extension_metadata`](/rules/lib/builtins/module_ctx#extension_metadata) with
 `reproducible = True`. This allows Bazel to skip this extension when writing to
-the lockfile.
+the `MODULE.bazel` lockfile, which helps keep the lockfile small and reduces
+the chance of merge conflicts. Note that Bazel still caches the results of
+reproducible extensions in a way that persists across server restarts, so even
+a long-running extension can be marked as reproducible without a performance
+penalty.
 
-### Specify the operating system and architecture
+If your extension relies on effectively immutable data obtained from outside
+the build, most commonly from the network, but you don't have a checksum
+available to guard the download, consider using the `facts` parameter of
+[`extension_metadata`](/rules/lib/builtins/module_ctx#extension_metadata) to
+persistently record such data and thus allow your extension to become
+reproducible. `facts` is expected to be a dictionary with string keys and
+arbitrary JSON-like Starlark values that is always persisted in the lockfile and
+available to future evaluations of the extension via the
+[`facts`](/rules/lib/builtins/module_ctx#facts) field of `module_ctx`.
+
+`facts` are not invalidated even when the code of your module extension changes,
+so be prepared to handle the case where the structure of `facts` changes.
+Bazel also assumes that two different `facts` dicts produced by two different
+evaluations of the same extension can be shallowly merged (i.e., as if by using
+the `|` operator on two dicts). This is partially enforced by `module_ctx.facts`
+not supporting enumeration of its entries, just lookups by key.
+
+An example of using `facts` would be to record a mapping from version numbers of
+some SDK to the an object containing the download URL and checksum of that
+version. The first time the extension is evaluated, it can fetch this mapping
+from the network, but on later evaluations it can use the mapping from `facts`
+to avoid the network requests.
+
+### Specify dependence on operating system and architecture
 
 If your extension relies on the operating system or its architecture type,
 ensure to indicate this in the extension definition using the `os_dependent`

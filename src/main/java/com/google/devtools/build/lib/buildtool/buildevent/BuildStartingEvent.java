@@ -17,17 +17,25 @@ package com.google.devtools.build.lib.buildtool.buildevent;
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.JavaVersionInfo;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandLineEvent;
+import com.google.devtools.build.lib.util.NetUtil;
+import com.google.devtools.build.lib.util.UserUtils;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.protobuf.util.Timestamps;
 import javax.annotation.Nullable;
 
@@ -59,19 +67,18 @@ public abstract class BuildStartingEvent implements BuildEvent {
   /**
    * Construct the BuildStartingEvent
    *
-   * @param request the build request.
-   * @param env the environment of the request invocation.
+   * @param directories the server directories
+   * @param outputService the output service
+   * @param request the build request
    */
-  public static BuildStartingEvent create(CommandEnvironment env, BuildRequest request) {
+  public static BuildStartingEvent create(
+      BlazeDirectories directories, OutputService outputService, BuildRequest request) {
     return create(
-        env.determineOutputFileSystem(),
-        env.getOutputService() != null
-            && env.getOutputService().actionFileSystemType().inMemoryFileSystem(),
+        getOutputFileSystemName(directories, outputService),
+        outputService != null && outputService.actionFileSystemType().inMemoryFileSystem(),
         request,
-        env.getDirectories().getWorkspace() != null
-            ? env.getDirectories().getWorkspace().toString()
-            : null,
-        env.getWorkingDirectory().toString());
+        directories.getWorkspace() != null ? directories.getWorkspace().toString() : null,
+        directories.getWorkingDirectory().toString());
   }
 
   @VisibleForTesting
@@ -107,6 +114,13 @@ public abstract class BuildStartingEvent implements BuildEvent {
 
   @Override
   public final BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
+    Runtime.Version version = Runtime.version();
+    JavaVersionInfo javaVersionInfo =
+        JavaVersionInfo.newBuilder()
+            .setJavaVersion(version.toString())
+            .setJavaMajorVersion(version.feature())
+            .setJavaMinorVersion(version.interim())
+            .build();
     BuildEventStreamProtos.BuildStarted.Builder started =
         BuildEventStreamProtos.BuildStarted.newBuilder()
             .setUuid(request().getId().toString())
@@ -116,10 +130,27 @@ public abstract class BuildStartingEvent implements BuildEvent {
             .setOptionsDescription(request().getOptionsDescription())
             .setCommand(request().getCommandName())
             .setServerPid(ProcessHandle.current().pid())
-            .setWorkingDirectory(pwd());
+            .setWorkingDirectory(pwd())
+            .setHost(NetUtil.getCachedShortHostName())
+            .setUser(UserUtils.getUserName())
+            .setJavaVersionInfo(javaVersionInfo);
     if (workspace() != null) {
       started.setWorkspaceDirectory(workspace());
     }
     return GenericBuildEvent.protoChaining(this).setStarted(started.build()).build();
+  }
+
+  /** Returns the name of the file system we are writing output to. */
+  public static String getOutputFileSystemName(
+      BlazeDirectories directories, @Nullable OutputService outputService) {
+    if (outputService == null) {
+      return "";
+    }
+    String outputBaseFileSystemName;
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.INFO, "Finding output file system")) {
+      outputBaseFileSystemName = FileSystemUtils.getFileSystem(directories.getOutputBase());
+    }
+    return outputService.getFileSystemName(outputBaseFileSystemName);
   }
 }

@@ -47,6 +47,8 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
             "foo",
             "myrule",
             """
+            load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
             # Needed to avoid select() being eliminated as trivial.
             config_setting(
                 name = "config",

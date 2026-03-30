@@ -17,6 +17,7 @@
 import json
 import os
 import tempfile
+from typing import Dict, List, Optional, Union
 from absl.testing import absltest
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
@@ -42,7 +43,6 @@ class ModCommandTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'mod --noenable_workspace',
             'mod --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
@@ -74,7 +74,7 @@ class ModCommandTest(test_base.TestBase):
             'use_repo(ext2, myrepo2="repo1")',
         ],
     )
-    self.main_registry.createCcModule(
+    self.main_registry.createShModule(
         'foo',
         '1.0',
         {'bar': '1.0', 'ext': '1.0'},
@@ -87,7 +87,7 @@ class ModCommandTest(test_base.TestBase):
             'use_repo(my_ext, my_repo1="repo1")',
         ],
     )
-    self.main_registry.createCcModule(
+    self.main_registry.createShModule(
         'foo',
         '2.0',
         {'bar': '2.0', 'ext': '1.0'},
@@ -98,8 +98,8 @@ class ModCommandTest(test_base.TestBase):
             'use_repo(my_ext, my_repo3="repo3", my_repo4="repo4")',
         ],
     )
-    self.main_registry.createCcModule('bar', '1.0', {'ext': '1.0'})
-    self.main_registry.createCcModule(
+    self.main_registry.createShModule('bar', '1.0', {'ext': '1.0'})
+    self.main_registry.createShModule(
         'bar',
         '2.0',
         {'ext': '1.0', 'ext2': '1.0'},
@@ -110,6 +110,15 @@ class ModCommandTest(test_base.TestBase):
             'my_ext2 = use_extension("@ext2//:ext.bzl", "ext")',
             'my_ext2.dep(name="repo3")',
             'use_repo(my_ext2, my_repo2="repo3")',
+            (
+                'http_file ='
+                ' use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl",'
+                ' "http_file")'
+            ),
+            (
+                'http_file(name="file", url="https://example.com/",'
+                ' integrity="sha256-abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMN/20=")'
+            ),
         ],
     )
 
@@ -139,16 +148,6 @@ class ModCommandTest(test_base.TestBase):
   def tearDown(self):
     self.main_registry.stop()
     test_base.TestBase.tearDown(self)
-
-  def testFailWithoutBzlmod(self):
-    _, _, stderr = self.RunBazel(
-        ['mod', 'graph', '--noenable_bzlmod'], allow_failure=True
-    )
-    self.assertIn(
-        'ERROR: Bzlmod has to be enabled for mod command to work, run with '
-        "--enable_bzlmod. Type 'bazel help mod' for syntax and help.",
-        stderr,
-    )
 
   def testGraph(self):
     _, stdout, _ = self.RunBazel(['mod', 'graph'], rstrip=True)
@@ -192,6 +191,12 @@ class ModCommandTest(test_base.TestBase):
             '|   |   |___repo1',
             '|   |___ext@1.0 (*)',
             '|   |___bar@2.0',
+            (
+                '|      '
+                ' |___$@@bar+//:MODULE.bazel%@bazel_tools//tools/build_defs/repo:http.bzl'
+                ' http_file'
+            ),
+            '|       |   |___file',
             '|       |___$@@ext+//:ext.bzl%ext ...',
             '|       |   |___repo3',
             '|       |___$@@ext2+//:ext.bzl%ext ...',
@@ -235,7 +240,9 @@ class ModCommandTest(test_base.TestBase):
             '    |___$@@ext+//:ext.bzl%ext',
             '    |   |___repo3',
             '    |   |___repo4',
-            '    |___bar@2.0 (*)',
+            '    |___bar@2.0 #',
+            '        |___$@@ext+//:ext.bzl%ext',
+            '            |___repo3',
             '',
         ],
         'wrong output in graph query with extension filter specified',
@@ -275,6 +282,12 @@ class ModCommandTest(test_base.TestBase):
             '|   |   |___repo1',
             '|   |___ext@1.0 (*)',
             '|   |___bar@2.0',
+            (
+                '|      '
+                ' |___$@@bar+//:MODULE.bazel%@bazel_tools//tools/build_defs/repo:http.bzl'
+                ' http_file'
+            ),
+            '|       |   |___file',
             '|       |___$@@ext+//:ext.bzl%ext ...',
             '|       |   |___repo3',
             '|       |___$@@ext2+//:ext.bzl%ext ...',
@@ -300,13 +313,13 @@ class ModCommandTest(test_base.TestBase):
         stdout.pop(9), r'^## Usage in <root> from .*MODULE\.bazel:11$'
     )
     self.assertRegex(
-        stdout.pop(14), r'^## Usage in foo@1.0 from .*MODULE\.bazel:8$'
+        stdout.pop(14), r'^## Usage in foo@1.0 from .*MODULE\.bazel:7$'
     )
     self.assertRegex(
-        stdout.pop(22), r'^## Usage in foo@2.0 from .*MODULE\.bazel:8$'
+        stdout.pop(22), r'^## Usage in foo@2.0 from .*MODULE\.bazel:7$'
     )
     self.assertRegex(
-        stdout.pop(29), r'^## Usage in bar@2.0 from .*MODULE\.bazel:8$'
+        stdout.pop(29), r'^## Usage in bar@2.0 from .*MODULE\.bazel:7$'
     )
     self.assertListEqual(
         stdout,
@@ -366,13 +379,13 @@ class ModCommandTest(test_base.TestBase):
         rstrip=True,
     )
     self.assertRegex(
-        stdout.pop(9), r'^## Usage in foo@2.0 from .*MODULE\.bazel:8$'
+        stdout.pop(9), r'^## Usage in foo@2.0 from .*MODULE\.bazel:7$'
     )
     self.assertRegex(
-        stdout.pop(16), r'^## Usage in bar@2.0 from .*MODULE\.bazel:8$'
+        stdout.pop(16), r'^## Usage in bar@2.0 from .*MODULE\.bazel:7$'
     )
     self.assertRegex(
-        stdout.pop(28), r'^## Usage in bar@2.0 from .*MODULE\.bazel:11$'
+        stdout.pop(28), r'^## Usage in bar@2.0 from .*MODULE\.bazel:10$'
     )
     self.assertListEqual(
         stdout,
@@ -449,6 +462,190 @@ class ModCommandTest(test_base.TestBase):
         '\n'.join(stderr),
     )
 
+  def testShowExtensionUseRepoRule(self):
+    _, stdout, _ = self.RunBazel(
+        [
+            'mod',
+            'show_extension',
+            (
+                '@@bar+//:MODULE.bazel%@bazel_tools//tools/build_defs/repo:http.bzl'
+                ' http_file'
+            ),
+        ],
+        rstrip=True,
+    )
+    self.assertRegex(
+        stdout.pop(5),
+        r'^## Usage in bar@2\.0 from .*MODULE\.bazel:14$',
+    )
+    self.assertListEqual(
+        stdout,
+        [
+            (
+                '## @@bar+//:MODULE.bazel%@bazel_tools//tools/build_defs/repo:http.bzl'
+                ' http_file:'
+            ),
+            '',
+            'Fetched repositories:',
+            '  - file (imported by bar@2.0)',
+            '',
+            # pop(5)
+            (
+                'http_file ='
+                ' use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl",'
+                ' "http_file")'
+            ),
+            (
+                'http_file(name="file",'
+                ' integrity="sha256-abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMN/20=",'
+                ' url="https://example.com/")'
+            ),
+            '',
+        ],
+    )
+
+  def testShowModuleAndExtensionReposFromBaseModuleJson(self):
+    _, stdout, _ = self.RunBazel(
+        [
+            'mod',
+            'show_repo',
+            '--base_module=foo@2.0',
+            '--output=streamed_jsonproto',
+            '@bar_from_foo2',
+            'ext@1.0',
+            '@my_repo3',
+            'bar',
+        ],
+        rstrip=True,
+    )
+    repos = [json.loads(line) for line in stdout]
+
+    ignored_attrs = {
+        'integrity',
+        'path',
+        'remote_module_file_urls',
+        'remote_module_file_integrity',
+        'urls',
+    }
+    for repo in repos:
+      attrs = repo.get('attribute')
+      if attrs:
+        repo['attribute'] = [
+            attr
+            for attr in attrs
+            if attr.get('explicitlySpecified', False)
+            and attr['name'] not in ignored_attrs
+        ]
+
+    self.assertListEqual(
+        repos,
+        [
+            {
+                'canonicalName': 'bar+',
+                'repoRuleName': 'http_archive',
+                'repoRuleBzlLabel': (
+                    '@@bazel_tools//tools/build_defs/repo:http.bzl'
+                ),
+                'apparentName': '@bar_from_foo2',
+                'attribute': [
+                    {
+                        'name': 'strip_prefix',
+                        'type': 'STRING',
+                        'stringValue': '',
+                        'explicitlySpecified': True,
+                        'nodep': False,
+                    },
+                    {
+                        'name': 'remote_file_urls',
+                        'type': 'STRING_LIST_DICT',
+                        'explicitlySpecified': True,
+                    },
+                    {
+                        'name': 'remote_file_integrity',
+                        'type': 'STRING_DICT',
+                        'explicitlySpecified': True,
+                    },
+                    {
+                        'name': 'remote_patches',
+                        'type': 'STRING_DICT',
+                        'explicitlySpecified': True,
+                    },
+                    {
+                        'name': 'remote_patch_strip',
+                        'type': 'INTEGER',
+                        'intValue': 0,
+                        'explicitlySpecified': True,
+                    },
+                ],
+            },
+            {
+                'canonicalName': 'ext+',
+                'repoRuleName': 'local_repository',
+                'repoRuleBzlLabel': (
+                    '@@bazel_tools//tools/build_defs/repo:local.bzl'
+                ),
+                'moduleKey': 'ext@1.0',
+                'attribute': [],
+            },
+            {
+                'canonicalName': 'ext++ext+repo3',
+                'repoRuleName': 'data_repo',
+                'repoRuleBzlLabel': '@@ext+//:ext.bzl',
+                'apparentName': '@my_repo3',
+                'originalName': 'repo3',
+                'attribute': [
+                    {
+                        'name': 'data',
+                        'type': 'STRING',
+                        'stringValue': 'requested repo',
+                        'nodep': False,
+                        'explicitlySpecified': True,
+                    },
+                ],
+            },
+            {
+                'canonicalName': 'bar+',
+                'repoRuleName': 'http_archive',
+                'repoRuleBzlLabel': (
+                    '@@bazel_tools//tools/build_defs/repo:http.bzl'
+                ),
+                'moduleKey': 'bar@2.0',
+                'attribute': [
+                    {
+                        'name': 'strip_prefix',
+                        'type': 'STRING',
+                        'stringValue': '',
+                        'explicitlySpecified': True,
+                        'nodep': False,
+                    },
+                    {
+                        'name': 'remote_file_urls',
+                        'type': 'STRING_LIST_DICT',
+                        'explicitlySpecified': True,
+                    },
+                    {
+                        'name': 'remote_file_integrity',
+                        'type': 'STRING_DICT',
+                        'explicitlySpecified': True,
+                    },
+                    {
+                        'name': 'remote_patches',
+                        'type': 'STRING_DICT',
+                        'explicitlySpecified': True,
+                    },
+                    {
+                        'name': 'remote_patch_strip',
+                        'type': 'INTEGER',
+                        'intValue': 0,
+                        'explicitlySpecified': True,
+                    },
+                ],
+            },
+        ],
+        'wrong output in the show query for module and extension-generated'
+        ' repos',
+    )
+
   def testShowModuleAndExtensionReposFromBaseModule(self):
     _, stdout, _ = self.RunBazel(
         [
@@ -465,87 +662,241 @@ class ModCommandTest(test_base.TestBase):
     )
     self.assertRegex(stdout.pop(4), r'^  urls = \[".*"\],$')
     self.assertRegex(stdout.pop(4), r'^  integrity = ".*",$')
-    self.assertRegex(stdout.pop(19), r'^  path = ".*",$')
-    # lines after 'Rule data_repo defined at (most recent call last):'
-    stdout.pop(32)
-    stdout.pop(42)
-    self.assertRegex(stdout.pop(47), r'^  urls = \[".*"\],$')
-    self.assertRegex(stdout.pop(47), r'^  integrity = ".*",$')
-    # lines after '# Rule http_archive defined at (most recent call last):'
-    stdout.pop(13)
-    stdout.pop(55)
+    self.assertRegex(
+        stdout.pop(8),
+        r'^  remote_module_file_urls = \[".*/modules/bar/2.0/MODULE.bazel"\],$',
+    )
+    self.assertRegex(stdout.pop(8), r'^  remote_module_file_integrity = ".*",$')
+    self.assertRegex(stdout.pop(15), r'^  path = ".*",$')
+    self.assertRegex(stdout.pop(37), r'^  urls = \[".*"\],$')
+    self.assertRegex(stdout.pop(37), r'^  integrity = ".*",$')
+    self.assertRegex(stdout.pop(41), r'^  remote_module_file_urls = \[".*"\],$')
+    self.assertRegex(
+        stdout.pop(41), r'^  remote_module_file_integrity = ".*",$'
+    )
     self.assertListEqual(
         stdout,
         [
             '## @bar_from_foo2:',
-            '# <builtin>',
+            (
+                'load("@@bazel_tools//tools/build_defs/repo:http.bzl",'
+                ' "http_archive")'
+            ),
             'http_archive(',
             '  name = "bar+",',
             # pop(4) -- urls=[...]
             # pop(4) -- integrity=...
             '  strip_prefix = "",',
+            '  remote_patches = {},',
             '  remote_file_urls = {},',
             '  remote_file_integrity = {},',
-            '  remote_patches = {},',
+            # pop(8) -- remote_module_file_urls
+            # pop(8) -- remote_module_file_integrity
             '  remote_patch_strip = 0,',
             ')',
-            '# Rule bar+ instantiated at (most recent call last):',
-            '#   <builtin> in <toplevel>',
-            '# Rule http_archive defined at (most recent call last):',
-            # pop(13)
             '',
             '## ext@1.0:',
-            '# <builtin>',
+            (
+                'load("@@bazel_tools//tools/build_defs/repo:local.bzl",'
+                ' "local_repository")'
+            ),
             'local_repository(',
             '  name = "ext+",',
-            # pop(19) -- path=...
+            # pop(15) -- path=...
             ')',
-            '# Rule ext+ instantiated at (most recent call last):',
-            '#   <builtin> in <toplevel>',
             '',
             '## @my_repo3:',
-            '# <builtin>',
+            'load("@@ext+//:ext.bzl", "data_repo")',
             'data_repo(',
             '  name = "ext++ext+repo3",',
+            '  _original_name = "repo3",',
             '  data = "requested repo",',
             ')',
-            '# Rule ext++ext+repo3 instantiated at (most recent call last):',
-            '#   <builtin> in <toplevel>',
-            '# Rule data_repo defined at (most recent call last):',
-            # pop(32)
             '',
             '## @my_repo4:',
-            '# <builtin>',
+            'load("@@ext+//:ext.bzl", "data_repo")',
             'data_repo(',
             '  name = "ext++ext+repo4",',
+            '  _original_name = "repo4",',
             '  data = "requested repo",',
             ')',
-            '# Rule ext++ext+repo4 instantiated at (most recent call last):',
-            '#   <builtin> in <toplevel>',
-            '# Rule data_repo defined at (most recent call last):',
-            # pop(42)
             '',
             '## bar@2.0:',
-            '# <builtin>',
+            (
+                'load("@@bazel_tools//tools/build_defs/repo:http.bzl",'
+                ' "http_archive")'
+            ),
             'http_archive(',
             '  name = "bar+",',
-            # pop(47) -- urls=[...]
-            # pop(47) -- integrity=...
+            # pop(37) -- urls=[...]
+            # pop(37) -- integrity=...
             '  strip_prefix = "",',
+            '  remote_patches = {},',
             '  remote_file_urls = {},',
             '  remote_file_integrity = {},',
-            '  remote_patches = {},',
+            # pop(41) -- remote_module_file_urls=[...]
+            # pop(41) -- remote_module_file_integrity=...
             '  remote_patch_strip = 0,',
             ')',
-            '# Rule bar+ instantiated at (most recent call last):',
-            '#   <builtin> in <toplevel>',
-            '# Rule http_archive defined at (most recent call last):',
-            # pop(55)
             '',
         ],
         'wrong output in the show query for module and extension-generated'
         ' repos',
     )
+
+  def _parseShowRepoOutput(
+      self, stdout: List[str]
+  ) -> Dict[str, Union[str, List[str]]]:
+    key_to_repo: Dict[str, Union[str, List[str]]] = {}
+    current_key: Optional[str] = None
+    for line in stdout:
+      if line.startswith('## '):
+        current_key = line[3:-1]  # Remove '## ' prefix and ':' suffix.
+
+      elif line.startswith('  name = "') or line.startswith(
+          'Builtin or overridden repo located at:'
+      ):
+        if current_key is None:
+          self.fail(f'Found repo without key: {line}')
+
+        if line.startswith('  name = "'):
+          repo_name = line[
+              len('  name = "') : -2
+          ]  # Remove prefix and '",' suffix.
+        else:
+          repo_name = 'builtin or overridden repo'
+
+        if current_key in key_to_repo:
+          if isinstance(key_to_repo[current_key], str):
+            key_to_repo[current_key] = [key_to_repo[current_key], repo_name]
+          else:
+            key_to_repo[current_key].append(repo_name)
+        else:
+          key_to_repo[current_key] = repo_name
+
+    return key_to_repo
+
+  def testShowRepoAllRepos(self):
+    _, stdout, _ = self.RunBazel(
+        ['mod', 'show_repo', '--all_repos'],
+        rstrip=True,
+    )
+    parsed = self._parseShowRepoOutput(stdout)
+
+    # Only has canonical repo names
+    for name in parsed:
+      self.assertTrue(
+          name.startswith('@@'),
+          f'Found non-canonical {name} -> {parsed[name]} in output',
+      )
+      if parsed[name] != 'builtin or overridden repo':
+        self.assertEqual(
+            name,
+            '@@' + parsed[name],
+            f'Found non-canonical {name} -> {parsed[name]} in output',
+        )
+        self.assertIsInstance(
+            parsed[name],
+            str,
+            f'Found duplicate name in output: {name} -> {parsed[name]}',
+        )
+
+    self.assertContainsSubset(
+        [
+            # Built in
+            '@@bazel_tools',
+            # Has both versions of direct dependencies
+            '@@foo+1.0',
+            '@@foo+2.0',
+            # Has transitive dependencies
+            '@@bar+',
+            # Has module repos
+            '@@ext++ext+repo1',
+            '@@ext++ext+repo3',
+        ],
+        parsed.keys(),
+    )
+
+    self.assertNoCommonElements(
+        ['@@', '@@<root>', '@@my_project'],
+        parsed.keys(),
+        'Found main repo in output',
+    )
+    self.assertNoCommonElements(
+        ['@@foo1', '@@foo2', '@@myrepo2'],
+        parsed.keys(),
+        'Found apparent repo names in output',
+    )
+
+  def testShowRepoAllVisibleRepos(self):
+    _, stdout, _ = self.RunBazel(
+        ['mod', 'show_repo', '--all_visible_repos'],
+        rstrip=True,
+    )
+    parsed = self._parseShowRepoOutput(stdout)
+
+    self.assertDictEqual(
+        {
+            '@bazel_tools': 'builtin or overridden repo',
+            '@foo1': 'foo+1.0',
+            '@foo2': 'foo+2.0',
+            '@ext': 'ext+',
+            '@ext2': 'ext2+',
+            '@myrepo': 'ext++ext+repo1',
+            '@myrepo2': 'ext2++ext+repo1',
+        },
+        parsed,
+    )
+
+  def testShowRepoAllVisibleReposFromBaseModule(self):
+    _, stdout, _ = self.RunBazel(
+        ['mod', 'show_repo', '--all_visible_repos', '--base_module=foo@2.0'],
+        rstrip=True,
+    )
+    parsed = self._parseShowRepoOutput(stdout)
+
+    self.assertDictEqual(
+        {
+            '@bazel_tools': 'builtin or overridden repo',
+            '@foo': 'foo+2.0',
+            '@bar_from_foo2': 'bar+',
+            '@ext_mod': 'ext+',
+            '@my_repo3': 'ext++ext+repo3',
+            '@my_repo4': 'ext++ext+repo4',
+        },
+        parsed,
+    )
+
+  def testShowRepoThrowsConflictingRepoSpecs(self):
+    expected_msg = (
+        "ERROR: the 'show_repo' command requires exactly one of --all_repos,"
+        " --all_visible_repos, or a list of repo arguments. Type 'bazel help"
+        " mod' for syntax and help."
+    )
+
+    exit_code, _, stderr = self.RunBazel(
+        ['mod', 'show_repo', '--all_repos', '@foo1'],
+        rstrip=True,
+        allow_failure=True,
+    )
+    self.assertEqual(exit_code, 2, '--all_repos args')
+    self.assertIn(expected_msg, stderr, '--all_repos args')
+
+    exit_code, _, stderr = self.RunBazel(
+        ['mod', 'show_repo', '@foo1', '--all_visible_repos'],
+        rstrip=True,
+        allow_failure=True,
+    )
+    self.assertEqual(exit_code, 2, 'args --all_visible_repos')
+    self.assertIn(expected_msg, stderr, 'args --all_visible_repos')
+
+    exit_code, _, stderr = self.RunBazel(
+        ['mod', 'show_repo', '--all_visible_repos', '--all_repos'],
+        rstrip=True,
+        allow_failure=True,
+    )
+    self.assertEqual(exit_code, 2, '--all_visible_repos --all_repos')
+    self.assertIn(expected_msg, stderr, '--all_visible_repos --all_repos')
 
   def testShowRepoThrowsUnusedModule(self):
     _, _, stderr = self.RunBazel(
@@ -572,6 +923,28 @@ class ModCommandTest(test_base.TestBase):
         'for syntax and help.',
         stderr,
     )
+
+  # fix for https://github.com/bazelbuild/bazel/issues/27233
+  def testShowRepoBazelTools(self):
+    exit_code, stdout, stderr = self.RunBazel(
+        ['mod', 'show_repo', '@bazel_tools'],
+        rstrip=True,
+    )
+    self.AssertExitCode(exit_code, 0, stderr)
+    stdout = '\n'.join(stdout)
+    self.assertIn('## @bazel_tools:', stdout)
+    self.assertIn('Builtin or overridden repo located at: ', stdout)
+    self.assertIn('/embedded_tools', stdout)
+
+  def testShowRepoBazelToolsJson(self):
+    # @bazel_tools should be omitted from proto outputs
+    exit_code, stdout, stderr = self.RunBazel(
+        ['mod', 'show_repo', '--output=streamed_jsonproto', '@bazel_tools'],
+        rstrip=True,
+    )
+    self.AssertExitCode(exit_code, 0, stderr)
+    stdout = '\n'.join(stdout)
+    self.assertEqual('', stdout)
 
   def testDumpRepoMapping(self):
     _, stdout, _ = self.RunBazel(
@@ -667,11 +1040,11 @@ class ModCommandTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext1_impl(ctx):',
             '    print("ext1 is being evaluated")',
@@ -735,13 +1108,13 @@ class ModCommandTest(test_base.TestBase):
     # The extensions should not be reevaluated by the command.
     self.assertNotIn('ext1 is being evaluated', stderr)
     self.assertNotIn('ext2 is being evaluated', stderr)
-    # The fixup warnings should be shown again due to Skyframe replaying.
-    self.assertIn(
+    # bazel mod tidy doesn't show fixup warnings.
+    self.assertNotIn(
         'Not imported, but reported as direct dependencies by the extension'
         ' (may cause the build to fail):\nmissing_dep',
         stderr,
     )
-    self.assertIn(
+    self.assertNotIn(
         'Imported, but reported as indirect dependencies by the'
         ' extension:\nindirect_dep',
         stderr,
@@ -821,11 +1194,11 @@ class ModCommandTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
             '    repo_rule(name="dep")',
@@ -865,11 +1238,11 @@ class ModCommandTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
             '    repo_rule(name="dep")',
@@ -1018,11 +1391,11 @@ class ModCommandTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext1_impl(ctx):',
             '    print("ext1 is being evaluated")',
@@ -1085,13 +1458,13 @@ class ModCommandTest(test_base.TestBase):
     # The passing extension should not be reevaluated by the command.
     self.assertNotIn('ext1 is being evaluated', stderr)
     self.assertIn('ext2 is being evaluated', stderr)
-    # The fixup warnings should be shown again due to Skyframe replaying.
-    self.assertIn(
+    # baze mod tidy doesn't show fixup warnings.
+    self.assertNotIn(
         'Not imported, but reported as direct dependencies by the extension'
         ' (may cause the build to fail):\nmissing_dep',
         stderr,
     )
-    self.assertIn(
+    self.assertNotIn(
         'Imported, but reported as indirect dependencies by the'
         ' extension:\nindirect_dep',
         stderr,
@@ -1157,11 +1530,11 @@ class ModCommandTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
             '    repo_rule(name="dep")',
@@ -1178,10 +1551,6 @@ class ModCommandTest(test_base.TestBase):
     # extension fails after evaluation.
     _, _, stderr = self.RunBazel(['mod', 'tidy'])
     stderr = '\n'.join(stderr)
-    self.assertIn(
-        'ext defined in @//:extension.bzl reported incorrect imports', stderr
-    )
-    self.assertIn('invalid_dep', stderr)
     self.assertIn(
         'INFO: Updated use_repo calls for @//:extension.bzl%ext', stderr
     )
@@ -1201,7 +1570,7 @@ class ModCommandTest(test_base.TestBase):
         'MODULE.bazel',
         [
             'include("//:firstProd.MODULE.bazel")',
-            'include("//:second.MODULE.bazel")',
+            'include("//:secondäöüÄÖÜß🌱.MODULE.bazel")',
         ],
     )
     self.ScratchFile(
@@ -1223,7 +1592,7 @@ class ModCommandTest(test_base.TestBase):
         ],
     )
     self.ScratchFile(
-        'second.MODULE.bazel',
+        'secondäöüÄÖÜß🌱.MODULE.bazel',
         [
             'ext = use_extension("//:extension.bzl", "ext")',
             'use_repo(ext, "blad_dep")',
@@ -1240,11 +1609,11 @@ class ModCommandTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
             '    repo_rule(name="dep")',
@@ -1275,12 +1644,11 @@ class ModCommandTest(test_base.TestBase):
         'INFO: Updated use_repo calls for @//:extension.bzl%ext', stderr
     )
 
-    with open('MODULE.bazel', 'r') as module_file:
+    with open('MODULE.bazel', 'r', encoding='utf-8') as module_file:
       self.assertEqual(
           [
               'include("//:firstProd.MODULE.bazel")',
-              '',  # formatted despite no extension usages!
-              'include("//:second.MODULE.bazel")',
+              'include("//:secondäöüÄÖÜß🌱.MODULE.bazel")',
               '',
           ],
           module_file.read().split('\n'),
@@ -1308,7 +1676,7 @@ class ModCommandTest(test_base.TestBase):
           ],
           module_file.read().split('\n'),
       )
-    with open('second.MODULE.bazel', 'r') as module_file:
+    with open('secondäöüÄÖÜß🌱.MODULE.bazel', 'r') as module_file:
       self.assertEqual(
           [
               'ext = use_extension("//:extension.bzl", "ext")',

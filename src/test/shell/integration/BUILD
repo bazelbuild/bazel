@@ -1,4 +1,6 @@
-load("//:workspace_deps.bzl", "gen_workspace_stanza")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -8,7 +10,7 @@ filegroup(
     visibility = ["//src/test/shell:__pkg__"],
 )
 
-filegroup(
+sh_library(
     name = "test-deps",
     testonly = 1,
     srcs = [
@@ -16,7 +18,7 @@ filegroup(
     ],
 )
 
-filegroup(
+sh_library(
     name = "test-deps-minimal-bazel",
     testonly = 1,
     srcs = [
@@ -26,21 +28,13 @@ filegroup(
     ],
 )
 
-filegroup(
+sh_library(
     name = "test-deps-nojdk",
     testonly = 1,
     srcs = [
         "//src:bazel-bin_nojdk",
         "//src/test/shell:bin/bazel_nojdk",
         "//src/test/shell/bazel:test-deps-wo-bazel",
-    ],
-)
-
-gen_workspace_stanza(
-    name = "protobuf_stanza",
-    out = "protobuf_stanza.txt",
-    repos = [
-        "rules_python",
     ],
 )
 
@@ -194,7 +188,7 @@ sh_test(
     tags = [
         "no_windows",
     ],
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    toolchains = ["@rules_java//toolchains:current_java_runtime"],
 )
 
 sh_test(
@@ -250,7 +244,7 @@ sh_test(
     tags = [
         "no_windows",
     ],
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    toolchains = ["@rules_java//toolchains:current_java_runtime"],
 )
 
 sh_test(
@@ -373,10 +367,9 @@ sh_test(
     name = "modify_execution_info_test",
     srcs = ["modify_execution_info_test.sh"],
     data = [
-        ":protobuf_stanza.txt",
         ":test-deps",
-        "//third_party/zlib",
         "@bazel_tools//tools/bash/runfiles",
+        "@zlib",
     ],
     tags = ["requires-network"],  # Allow this test to access internet to fetch protobuf dependencies.
 )
@@ -474,7 +467,7 @@ sh_test(
     ],
     shard_count = 8,
     tags = ["no_windows"],
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    toolchains = ["@rules_java//toolchains:current_java_runtime"],
 )
 
 sh_test(
@@ -487,7 +480,7 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    toolchains = ["@rules_java//toolchains:current_java_runtime"],
 )
 
 sh_test(
@@ -496,7 +489,7 @@ sh_test(
     timeout = "long",
     srcs = ["build_event_stream_test.sh"],
     data = [":test-deps"],
-    shard_count = 2,
+    shard_count = 10,
     tags = ["no_windows"],
 )
 
@@ -653,6 +646,7 @@ sh_test(
     size = "large",
     srcs = ["client_test.sh"],
     data = [":test-deps"],
+    shard_count = 8,
     tags = ["no_windows"],
 )
 
@@ -682,6 +676,7 @@ sh_test(
     srcs = ["flagset_test.sh"],
     data = [
         ":test-deps",
+        "//src/main/protobuf/project:project_proto_scl_filegroup",
         "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 3,
@@ -776,33 +771,6 @@ sh_test(
 )
 
 sh_test(
-    name = "incompatible_autoload_externally_bzlmod_test",
-    size = "medium",
-    srcs = ["incompatible_autoload_externally_test.sh"],
-    args = ["--enable_bzlmod"],
-    data = [":test-deps"],
-    tags = [
-        "no_windows",
-        "requires-network",
-    ],
-)
-
-sh_test(
-    name = "incompatible_autoload_externally_workspace_test",
-    size = "medium",
-    srcs = ["incompatible_autoload_externally_test.sh"],
-    args = [
-        "--noenable_bzlmod",
-        "--enable_workspace",
-    ],
-    data = [":test-deps"],
-    tags = [
-        "no_windows",
-        "requires-network",
-    ],
-)
-
-sh_test(
     name = "bazel_java_test",
     size = "medium",
     srcs = ["bazel_java_test.sh"],
@@ -862,6 +830,7 @@ sh_test(
     timeout = "long",
     srcs = ["target_compatible_with_test.sh"],
     data = [":test-deps"],
+    shard_count = 10,
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
@@ -997,6 +966,8 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 3,
+    # See discussion in https://github.com/bazelbuild/bazel/pull/27498#issuecomment-3487656941
+    tags = ["manual"],
 )
 
 sh_test(
@@ -1025,6 +996,16 @@ sh_test(
     srcs = ["platform_based_flags_test.sh"],
     data = [
         ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "flags_scoping_integration_tests",
+    srcs = ["flags_scoping_integration_tests.sh"],
+    data = [
+        ":test-deps",
+        "//src/main/protobuf/project:project_proto_scl_filegroup",
         "@bazel_tools//tools/bash/runfiles",
     ],
 )

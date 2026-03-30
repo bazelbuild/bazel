@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.devtools.build.skyframe.NotifyingHelper.Order;
 import java.util.Collection;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -46,6 +47,16 @@ class NotifyingInMemoryGraph extends NotifyingHelper.NotifyingProcessableGraph
   }
 
   @Override
+  public NodeBatch getBatch(
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
+    try {
+      return super.getBatch(requestor, reason, keys);
+    } catch (InterruptedException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  @Override
   public Map<SkyKey, ? extends NodeEntry> getBatchMap(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
     try {
@@ -64,6 +75,13 @@ class NotifyingInMemoryGraph extends NotifyingHelper.NotifyingProcessableGraph
         NotifyingHelper.Order.BEFORE,
         /* context= */ null);
     return ((InMemoryGraph) delegate).getValues();
+  }
+
+  @Override
+  public void remove(SkyKey key) {
+    notifyingHelper.graphListener.accept(
+        key, NotifyingHelper.EventType.REMOVE, Order.BEFORE, /* context= */ null);
+    delegate.remove(key);
   }
 
   @Override

@@ -361,6 +361,32 @@ message Rule {
   optional stardoc_output.RuleInfo rule_class_info = 17;
 }
 
+// A Bazel repository, either representing a module, or created by a module
+// extension.
+message Repository {
+  // The canonical name of the repository.
+  optional string canonical_name = 1;
+
+  // The name of the repository rule (e.g., http_archive).
+  optional string repo_rule_name = 2;
+
+  // The canonical label of the bzl file that defined the repository rule.
+  optional string repo_rule_bzl_label = 3;
+
+  // The apparent name of the repository, as visible to --base_module.
+  optional string apparent_name = 4;
+
+  // If this repository is a module (not created by a module extension),
+  // this is the module key.
+  optional string module_key = 5;
+
+  // Original name in the repo as created by a module extension.
+  optional string original_name = 6;
+
+  // All of the attributes that describe the repository rule.
+  repeated Attribute attribute = 7;
+}
+
 // Direct dependencies of a rule in <depLabel, depConfiguration> form.
 message ConfiguredRuleInput {
   // Dep's target label.

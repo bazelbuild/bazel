@@ -20,6 +20,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import java.net.URISyntaxException;
 import java.util.Optional;
@@ -44,7 +45,8 @@ public class RegistryFactoryTest {
                     LockfileMode.UPDATE,
                     ImmutableMap.of(),
                     ImmutableMap.of(),
-                    Optional.empty()));
+                    Optional.empty(),
+                    ImmutableSet.of()));
     assertThat(exception).hasMessageThat().contains("Registry URL has no scheme");
     exception =
         assertThrows(
@@ -55,7 +57,8 @@ public class RegistryFactoryTest {
                     LockfileMode.UPDATE,
                     ImmutableMap.of(),
                     ImmutableMap.of(),
-                    Optional.empty()));
+                    Optional.empty(),
+                    ImmutableSet.of()));
     assertThat(exception).hasMessageThat().contains("Unrecognized registry URL protocol");
   }
 
@@ -72,7 +75,8 @@ public class RegistryFactoryTest {
                     LockfileMode.UPDATE,
                     ImmutableMap.of(),
                     ImmutableMap.of(),
-                    Optional.empty()));
+                    Optional.empty(),
+                    ImmutableSet.of()));
     assertThat(exception).hasMessageThat().contains("Registry URL path is not valid");
   }
 }

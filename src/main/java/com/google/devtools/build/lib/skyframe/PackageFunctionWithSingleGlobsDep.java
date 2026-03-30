@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.GlobberUtils;
 import com.google.devtools.build.lib.packages.NonSkyframeGlobber;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageLoadingListener.Metrics;
 import com.google.devtools.build.lib.skyframe.GlobsValue.GlobRequest;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -84,8 +85,8 @@ final class PackageFunctionWithSingleGlobsDep extends PackageFunction {
     private final ImmutableSet<GlobRequest> globRequests;
 
     private LoadedPackageWithGlobRequests(
-        Package.Builder builder, long loadTimeNanos, ImmutableSet<GlobRequest> globRequests) {
-      super(builder, loadTimeNanos);
+        Package.AbstractBuilder builder, Metrics metrics, ImmutableSet<GlobRequest> globRequests) {
+      super(builder, metrics);
       this.globRequests = globRequests;
     }
   }
@@ -211,8 +212,8 @@ final class PackageFunctionWithSingleGlobsDep extends PackageFunction {
 
   @Override
   protected LoadedPackage newLoadedPackage(
-      Package.Builder packageBuilder, @Nullable Globber globber, long loadTimeNanos) {
+      Package.AbstractBuilder packageBuilder, @Nullable Globber globber, Metrics metrics) {
     return new LoadedPackageWithGlobRequests(
-        packageBuilder, loadTimeNanos, ((GlobsGlobber) globber).getGlobRequests());
+        packageBuilder, metrics, ((GlobsGlobber) globber).getGlobRequests());
   }
 }

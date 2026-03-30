@@ -186,6 +186,7 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
             getTarget("//a:gen")
                 .getAssociatedRule()
                 .getRuleClassObject()
+                .getAttributeProvider()
                 .getAttributeByName("tools")
                 .getTransitionFactory()
                 .isTool())
@@ -294,7 +295,9 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
   @Test
   public void testNoneValueOnDefaultConditionWithNullDefault() throws Exception {
     writeConfigRules();
-    scratch.file("a/BUILD",
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(",
         "    name = 'lib',",
         "    srcs = ['lib.cc'],",

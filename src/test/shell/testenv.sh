@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -19,17 +19,8 @@
 # TODO(bazel-team): This file is currently an append of the old testenv.sh and
 # test-setup.sh files. This must be cleaned up eventually.
 
-# TODO(bazel-team): Factor each test suite's is-this-windows setup check to use
-# this var instead, or better yet a common $IS_WINDOWS var.
-PLATFORM="$(uname -s | tr [:upper:] [:lower:])"
-
-function is_darwin() {
-  [[ "${PLATFORM}" =~ darwin ]]
-}
-
-function is_windows() {
-  [[ "${PLATFORM}" =~ msys ]]
-}
+source "$(rlocation "io_bazel/src/test/shell/platform_utils.sh")" \
+  || { echo "platform_utils.sh not found!" >&2; exit 1; }
 
 function _log_base() {
   prefix=$1
@@ -59,6 +50,9 @@ if is_windows; then
   export JAVA_HOME="${JAVA_HOME:-$(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)}"
   export BAZEL_SH="$(cygpath -m /usr/bin/bash)"
 
+  # Make sure /usr/bin is first in the PATH for tools like `find`.
+  export PATH="/usr/bin:$PATH"
+
   # Disable MSYS path conversion that converts path-looking command arguments to
   # Windows paths (even if they arguments are not in fact paths).
   export MSYS_NO_PATHCONV=1
@@ -79,10 +73,9 @@ fi
 # Convert PATH_TO_BAZEL_WRAPPER to Unix path style on Windows, because it will be
 # added into PATH. There's problem if PATH=C:/msys64/usr/bin:/usr/local,
 # because ':' is used as both path separator and in C:/msys64/...
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
+if is_windows; then
   PATH_TO_BAZEL_WRAPPER="$(cygpath -u "$PATH_TO_BAZEL_WRAPPER")"
-esac
+fi
 [ ! -f "${PATH_TO_BAZEL_WRAPPER}/bazel" ] \
   && log_fatal "Unable to find the Bazel binary at $PATH_TO_BAZEL_WRAPPER/bazel"
 export PATH="$PATH_TO_BAZEL_WRAPPER:$PATH"
@@ -270,16 +263,15 @@ function try_with_timeout() {
   done
 }
 
-function setup_localjdk_javabase() {
-  if is_windows; then
-    jdk_binary=local_jdk/bin/java.exe
-  else
-    jdk_binary=local_jdk/bin/java
+function setup_javabase() {
+  if [[ -z "${JAVA_ROOTPATH:-}" ]]; then
+    log_fatal "set JAVA_ROOTPATH to the rootpath of a java binary to use setup_javabase"
   fi
-  jdk_binary_rlocation=$(rlocation ${jdk_binary})
+  jdk_binary_rlocation=$(rlocation ${JAVA_ROOTPATH#../}) || {
+    log_fatal "error: failed to find $JAVA_ROOTPATH, make sure you have added it to data" >&2
+  }
   if [[ -z "${jdk_binary_rlocation}" ]]; then
-    echo "error: failed to find $jdk_binary, make sure you have java \
-installed or pass --java_runtime_verison=XX with the correct version" >&2
+    log_fatal "error: failed to find $JAVA_ROOTPATH, make sure you have added it to data" >&2
   fi
   if is_windows; then
     jdk_dir="$(cygpath -m $(cd ${jdk_binary_rlocation}/../..; pwd))"
@@ -306,15 +298,6 @@ build --sandbox_tmpfs_path=/tmp
 build --incompatible_skip_genfiles_symlink=false
 
 build --incompatible_use_toolchain_resolution_for_java_rules
-
-# Enable Bzlmod in all shell integration tests
-common --enable_bzlmod
-
-# Disable WORKSPACE in all shell integration tests
-common --noenable_workspace
-
-# Verify compatibility before the flip (https://github.com/bazelbuild/bazel/issues/12821)
-common --nolegacy_external_runfiles
 
 # Support JDK 21, data dependencies that get compiled and used tools need to be
 # run with 21 runtime.
@@ -354,15 +337,32 @@ EOF
     echo "startup --install_base=$TEST_INSTALL_BASE" >> $TEST_TMPDIR/bazelrc
   fi
 
-  if is_darwin; then
+  if is_darwin && has_ipv6_default_route; then
     echo "Add flags to prefer ipv6 network"
     echo "startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true" >> $TEST_TMPDIR/bazelrc
     echo "build --jvmopt=-Djava.net.preferIPv6Addresses" >> $TEST_TMPDIR/bazelrc
   fi
 }
 
+# Returns 0 on macOS if an IPv6 default route is present according to netstat.
+function has_ipv6_default_route() {
+  if ! is_darwin; then
+    return 1
+  fi
+  if netstat -rn -f inet6 2>/dev/null | grep -q '^default'; then
+    return 0
+  fi
+  return 1
+}
+
 function enable_disk_cache() {
   echo "common --disk_cache=$TEST_TMPDIR/disk_cache" >> $TEST_TMPDIR/bazelrc
+}
+
+function use_prebuilt_protoc() {
+  echo "common --@com_google_protobuf//bazel/toolchains:prefer_prebuilt_protoc" >> $TEST_TMPDIR/bazelrc
+  echo "common --per_file_copt=external/.*protobuf.*/src/google/protobuf/compiler/main.cc@--DO_NOT_COMPILE_PROTOC" >> $TEST_TMPDIR/bazelrc
+  echo "common --host_per_file_copt=external/.*protobuf.*/src/google/protobuf/compiler/main.cc@--DO_NOT_COMPILE_PROTOC" >> $TEST_TMPDIR/bazelrc
 }
 
 function setup_android_sdk_support() {
@@ -476,6 +476,8 @@ function setup_javatest_support() {
   setup_javatest_common
   grep -q 'name = "junit4"' third_party/BUILD \
     || cat <<EOF >>third_party/BUILD
+load("@rules_java//java:java_import.bzl", "java_import")
+
 java_import(
     name = "junit4",
     jars = [
@@ -499,7 +501,7 @@ EOF
 # TODO(#7844): Delete this custom (and machine-specific) test setup once we have
 # an autodetecting Python toolchain for Windows.
 function maybe_setup_python_windows_tools() {
-  if [[ ! $PLATFORM =~ msys ]]; then
+  if ! is_windows; then
     return
   fi
 
@@ -579,6 +581,10 @@ function add_rules_cc() {
   add_bazel_dep "rules_cc" "$1"
 }
 
+function add_rules_shell() {
+  add_bazel_dep "rules_shell" "$1"
+}
+
 function add_rules_java() {
   add_bazel_dep "rules_java" "$1"
 }
@@ -591,10 +597,21 @@ function add_rules_license() {
   add_bazel_dep "rules_license" "$1"
 }
 
+function add_zlib() {
+  add_bazel_dep "zlib" "$1"
+}
+
+function add_re2() {
+  add_bazel_dep "re2" "$1"
+}
+
 function add_protobuf() {
-  version=$(get_version_from_default_lock_file "protobuf")
+  protobuf_version=$(get_version_from_default_lock_file "protobuf")
+  abseil_version=$(get_version_from_default_lock_file "abseil-cpp")
   cat >> "$1" <<EOF
-bazel_dep(name = "protobuf", version = "$version", repo_name = "com_google_protobuf")
+bazel_dep(name = "protobuf", version = "$protobuf_version", repo_name = "com_google_protobuf")
+# Fixes compilation errors with old C++ compiler versions.
+bazel_dep(name = "abseil-cpp", version = "$abseil_version", repo_name = None)
 EOF
 }
 
@@ -774,11 +791,6 @@ create_and_cd_client
 
 # Optional environment changes.
 
-function disable_bzlmod() {
-  add_to_bazelrc "common --noenable_bzlmod"
-  add_to_bazelrc "common --enable_workspace"
-}
-
 # Creates a fake Python default runtime that just outputs a marker string
 # indicating which version was used, without executing any Python code.
 function use_fake_python_runtimes_for_testsuite() {
@@ -797,6 +809,7 @@ function use_fake_python_runtimes_for_testsuite() {
   cat > tools/python/BUILD << EOF
 load("@rules_python//python:py_runtime.bzl", "py_runtime")
 load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 package(default_visibility=["//visibility:public"])
 
@@ -837,42 +850,6 @@ EOF
   fi
 }
 
-function mock_rules_java_to_avoid_downloading() {
-  rules_java_workspace="${TEST_TMPDIR}/rules_java_workspace"
-  mkdir -p "${rules_java_workspace}/java"
-  mkdir -p "${rules_java_workspace}/toolchains"
-  touch "${rules_java_workspace}/WORKSPACE"
-  touch "${rules_java_workspace}/toolchains/BUILD"
-  cat > "${rules_java_workspace}/toolchains/local_java_repository.bzl" <<EOF
-def local_java_repository(**attrs):
-    pass
-EOF
-  cat > "${rules_java_workspace}/toolchains/jdk_build_file.bzl" <<EOF
-JDK_BUILD_TEMPLATE = ''
-EOF
-  touch "${rules_java_workspace}/java/BUILD"
-  cat > "${rules_java_workspace}/java/repositories.bzl" <<EOF
-def rules_java_dependencies():
-    pass
-def rules_java_toolchains():
-    pass
-EOF
-  cat > "${rules_java_workspace}/java/defs.bzl" <<EOF
-def java_binary(**attrs):
-    native.java_binary(**attrs)
-def java_library(**attrs):
-    native.java_library(**attrs)
-def java_import(**attrs):
-    native.java_import(**attrs)
-def java_test(**attrs):
-    native.java_test(**attrs)
-EOF
-  # Disable autoloads, because the Java mock isn't complete enough to support it
-  add_to_bazelrc "common --incompatible_autoload_externally="
-  add_to_bazelrc "common --override_repository=rules_java=${rules_java_workspace}"
-  add_to_bazelrc "common --override_repository=rules_java_builtin=${rules_java_workspace}"
-}
-
 # overrides remote_java_tools repositories if not using "released"
 function override_java_tools() {
   RULES_JAVA_REPO_NAME="$1"; shift
@@ -895,8 +872,18 @@ function override_java_tools() {
     unzip -q "${JAVA_TOOLS_PREBUILT_ZIP_FILE}" -d "$JAVA_TOOLS_PREBUILT_DIR"
     touch "$JAVA_TOOLS_PREBUILT_DIR/WORKSPACE"
     add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_linux=${JAVA_TOOLS_PREBUILT_DIR}"
+    add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_linux_aarch64=${JAVA_TOOLS_PREBUILT_DIR}"
     add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_windows=${JAVA_TOOLS_PREBUILT_DIR}"
     add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_darwin_x86_64=${JAVA_TOOLS_PREBUILT_DIR}"
     add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_darwin_arm64=${JAVA_TOOLS_PREBUILT_DIR}"
   fi
+}
+
+# Copies the PROJECT.scl schema definition into a test directory so test
+# PROJECT.scl files can load it.
+function write_project_scl_definition() {
+  local TEST_DIR=third_party/bazel/src/main/protobuf/project
+  mkdir -p ${TEST_DIR}
+  cp "$(rlocation "io_bazel/src/main/protobuf/project/project_proto.scl")" "${TEST_DIR}"
+  touch "${TEST_DIR}/BUILD"
 }

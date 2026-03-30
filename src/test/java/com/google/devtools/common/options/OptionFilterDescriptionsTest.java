@@ -42,7 +42,7 @@ public class OptionFilterDescriptionsTest {
   public void optionDocumentationCategoryDescriptionsContainsAllCategories() {
     // Check that we have a description for all valid option categories.
     ImmutableMap<OptionDocumentationCategory, String> optionCategoryDescriptions =
-        OptionFilterDescriptions.getOptionCategoriesEnumDescription("blaze");
+        OptionFilterDescriptions.getOptionCategoriesEnumDescription();
 
     assertThat(OptionDocumentationCategory.values())
         .asList()

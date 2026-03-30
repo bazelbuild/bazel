@@ -16,9 +16,13 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -27,6 +31,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetData;
 import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.errorprone.annotations.Keep;
@@ -43,7 +48,8 @@ import javax.annotation.Nullable;
  * ConfiguredTargetAndData}, containing everything needed by dependents of the {@link
  * ConfiguredTargetValue} in analysis.
  */
-public final class RemoteConfiguredTargetValue implements ConfiguredTargetValue {
+public sealed class RemoteConfiguredTargetValue
+    implements ConfiguredTargetValue, DeserializedSkyValue {
 
   @Nullable // Null after clearing.
   private ConfiguredTarget configuredTarget;
@@ -58,35 +64,52 @@ public final class RemoteConfiguredTargetValue implements ConfiguredTargetValue 
 
   @Nullable // Null after clearing everything.
   @Override
-  public ConfiguredTarget getConfiguredTarget() {
+  public final ConfiguredTarget getConfiguredTarget() {
     return configuredTarget;
   }
 
   @Nullable // Never serialized.
   @Override
-  public NestedSet<Package> getTransitivePackages() {
+  public final NestedSet<Package.Metadata> getTransitivePackages() {
     return null;
   }
 
   @Override
-  public void clear(boolean clearEverything) {
+  public final void clear(boolean clearEverything) {
     if (clearEverything) {
       configuredTarget = null;
       targetData = null;
     }
   }
 
+  @Override
   @Nullable // Null after clearing everything.
-  public TargetData getTargetData() {
+  public final TargetData getTargetData() {
     return targetData;
   }
 
   @Override
-  public String toString() {
+  public final String toString() {
     return toStringHelper(this)
         .add("configuredTarget", configuredTarget)
         .add("targetData", targetData)
         .toString();
+  }
+
+  private static final class RemoteRuleConfiguredTargetValue extends RemoteConfiguredTargetValue
+      implements ActionLookupValue {
+    private final ImmutableList<ActionAnalysisMetadata> actions;
+
+    RemoteRuleConfiguredTargetValue(
+        RuleConfiguredTarget ruleConfiguredTarget, TargetData targetData) {
+      super(ruleConfiguredTarget, targetData);
+      this.actions = ruleConfiguredTarget.getActions();
+    }
+
+    @Override
+    public ImmutableList<ActionAnalysisMetadata> getActions() {
+      return actions;
+    }
   }
 
   public static ConfiguredTargetValueCodec codec() {
@@ -177,25 +200,24 @@ public final class RemoteConfiguredTargetValue implements ConfiguredTargetValue 
 
     private static class DeserializationBuilder
         implements DeferredValue<RemoteConfiguredTargetValue> {
-
-      private final RemoteConfiguredTargetValue value;
-
-      private DeserializationBuilder() {
-        this.value =
-            new RemoteConfiguredTargetValue(/* configuredTarget= */ null, /* targetData= */ null);
-      }
+      private ConfiguredTarget configuredTarget;
+      private TargetData targetData;
 
       @Override
       public RemoteConfiguredTargetValue call() {
-        return value;
+        checkNotNull(configuredTarget);
+        checkNotNull(targetData);
+        return configuredTarget instanceof RuleConfiguredTarget ruleConfiguredTarget
+            ? new RemoteRuleConfiguredTargetValue(ruleConfiguredTarget, targetData)
+            : new RemoteConfiguredTargetValue(configuredTarget, targetData);
       }
 
       private static void setConfiguredTarget(DeserializationBuilder builder, Object value) {
-        builder.value.configuredTarget = (ConfiguredTarget) value;
+        builder.configuredTarget = (ConfiguredTarget) value;
       }
 
       private static void setTargetData(DeserializationBuilder builder, Object value) {
-        builder.value.targetData = (TargetData) value;
+        builder.targetData = (TargetData) value;
       }
     }
   }

@@ -24,6 +24,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <jni.h>
 #include <stdlib.h>
 #include <string.h>
 #if defined(HAVE_EXTATTR)
@@ -52,11 +53,6 @@ string ErrorMessage(int error_number) {
   return string(buf);
 }
 
-int portable_fstatat(int dirfd, char *name, portable_stat_struct *statbuf,
-                     int flags) {
-  return fstatat(dirfd, name, statbuf, flags);
-}
-
 uint64_t StatEpochMilliseconds(const portable_stat_struct &statbuf,
                                StatTimes t) {
   switch (t) {
@@ -67,7 +63,7 @@ uint64_t StatEpochMilliseconds(const portable_stat_struct &statbuf,
       return statbuf.st_ctimespec.tv_sec * 1000L +
              statbuf.st_ctimespec.tv_nsec / 1000000;
     case STAT_MTIME:
-      return statbuf.st_mtime.tv_sec * 1000L +
+      return statbuf.st_mtimespec.tv_sec * 1000L +
              statbuf.st_mtimespec.tv_nsec / 1000000;
   }
 }
@@ -152,6 +148,12 @@ void portable_start_cpu_speed_monitoring() {
 int portable_cpu_speed() {
   // Currently not implemented.
   return -1;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_profiler_SystemNetworkStatsServiceImpl_getNetIoCountersNative(
+    JNIEnv* env, jclass clazz, jobject counters_map) {
+  // Currently not implemented.
 }
 
 }  // namespace blaze_jni

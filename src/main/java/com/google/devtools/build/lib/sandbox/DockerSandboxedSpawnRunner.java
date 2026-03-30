@@ -23,7 +23,6 @@ import com.google.common.collect.MoreCollectors;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -41,8 +40,8 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.unix.ProcessUtilsService;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.ByteArrayInputStream;
@@ -54,7 +53,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -95,17 +93,18 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // create files as 'root' and we can't move them to the execRoot.
     if (OS.getCurrent() == OS.LINUX) {
       try {
-        ProcessUtils.getuid();
-        ProcessUtils.getgid();
+        var unused = ProcessUtilsService.getService().getuid();
+        unused = ProcessUtilsService.getService().getgid();
       } catch (UnsatisfiedLinkError e) {
         if (verbose) {
           cmdEnv
               .getReporter()
               .handle(
                   Event.error(
-                      "Docker sandboxing is disabled, because ProcessUtils.getuid/getgid threw an "
-                          + "UnsatisfiedLinkError. This means that you're running a Bazel version "
-                          + "that doesn't have JNI libraries - did you build it correctly?\n"
+                      "Docker sandboxing is disabled, because"
+                          + " ProcessUtilsService.getService().getuid/getgid threw an"
+                          + " UnsatisfiedLinkError. This means that you're running a Bazel version"
+                          + " that doesn't have JNI libraries - did you build it correctly?\n"
                           + Throwables.getStackTraceAsString(e)));
         }
         return false;
@@ -114,9 +113,10 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     Command cmd =
         new Command(
-            new String[] {dockerClient.getPathString(), "info"},
+            ImmutableList.of(dockerClient.getPathString(), "info"),
             cmdEnv.getClientEnv(),
-            cmdEnv.getExecRoot().getPathFile());
+            cmdEnv.getExecRoot().getPathFile(),
+            cmdEnv.getClientEnv());
     try {
       cmd.execute(ByteStreams.nullOutputStream(), ByteStreams.nullOutputStream());
     } catch (CommandException e) {
@@ -140,7 +140,6 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   private static final ConcurrentHashMap<String, String> imageMap = new ConcurrentHashMap<>();
 
-  private final SandboxHelpers helpers;
   private final Path execRoot;
   private final boolean allowNetwork;
   private final Path dockerClient;
@@ -160,7 +159,6 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   /**
    * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool.
    *
-   * @param helpers common tools and state across all spawns during sandboxed execution
    * @param cmdEnv the command environment to use
    * @param dockerClient path to the `docker` executable
    * @param sandboxBase path to the sandbox base directory
@@ -169,7 +167,6 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * @param treeDeleter scheduler for tree deletions
    */
   DockerSandboxedSpawnRunner(
-      SandboxHelpers helpers,
       CommandEnvironment cmdEnv,
       Path dockerClient,
       Path sandboxBase,
@@ -177,9 +174,8 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       boolean useCustomizedImages,
       TreeDeleter treeDeleter) {
     super(cmdEnv);
-    this.helpers = helpers;
     this.execRoot = cmdEnv.getExecRoot();
-    this.allowNetwork = helpers.shouldAllowNetwork(cmdEnv.getOptions());
+    this.allowNetwork = SandboxHelpers.shouldAllowNetwork(cmdEnv.getOptions());
     this.dockerClient = dockerClient;
     this.processWrapper = ProcessWrapper.fromCommandEnvironment(cmdEnv);
     this.sandboxBase = sandboxBase;
@@ -191,8 +187,8 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.treeDeleter = treeDeleter;
     this.cmdEnv = cmdEnv;
     if (OS.getCurrent() == OS.LINUX) {
-      this.uid = ProcessUtils.getuid();
-      this.gid = ProcessUtils.getgid();
+      this.uid = ProcessUtilsService.getService().getuid();
+      this.gid = ProcessUtilsService.getService().getgid();
     } else {
       this.uid = -1;
       this.gid = -1;
@@ -204,7 +200,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   @Override
   protected SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, ExecException, InterruptedException, ForbiddenActionInputException {
+      throws IOException, ExecException, InterruptedException {
     // Each invocation of "exec" gets its own sandbox base, execroot and temporary directory.
     Path sandboxPath =
         sandboxBase.getRelative(getName()).getRelative(Integer.toString(context.getId()));
@@ -221,10 +217,10 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
 
     SandboxInputs inputs =
-        helpers.processInputFiles(
+        SandboxHelpers.processInputFiles(
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
             execRoot);
-    SandboxOutputs outputs = helpers.getOutputs(spawn);
+    SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 
     Duration timeout = context.getTimeout();
 
@@ -236,8 +232,8 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           SandboxHelpers.createFailureDetail(
               String.format(
                   "Cannot execute %s mnemonic with Docker, because no image could be found in the"
-                      + " remote_execution_properties of the platform and no default image was set"
-                      + " via --experimental_docker_image",
+                      + " exec_properties of the platform and no default image was set via"
+                      + " --experimental_docker_image",
                   spawn.getMnemonic()),
               Code.NO_DOCKER_IMAGE));
     }
@@ -391,7 +387,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     return result;
   }
 
-  private String executeCommand(List<String> cmdLine, InputStream stdIn)
+  private String executeCommand(ImmutableList<String> cmdLine, InputStream stdIn)
       throws UserExecException, InterruptedException {
     ByteArrayOutputStream stdOut = new ByteArrayOutputStream();
     ByteArrayOutputStream stdErr = new ByteArrayOutputStream();
@@ -399,7 +395,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // Docker might need the $HOME and $PATH variables in order to be able to use advanced
     // authentication mechanisms (e.g. for Google Cloud), thus we pass in the client env.
     Command cmd =
-        new Command(cmdLine.toArray(new String[0]), cmdEnv.getClientEnv(), execRoot.getPathFile());
+        new Command(cmdLine, cmdEnv.getClientEnv(), execRoot.getPathFile(), cmdEnv.getClientEnv());
     try {
       cmd.executeAsync(stdIn, stdOut, stdErr, Command.KILL_SUBPROCESS_ON_INTERRUPT).get();
     } catch (CommandException e) {
@@ -416,9 +412,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     if (platform != null) {
       try {
-        return platform
-            .getPropertiesList()
-            .stream()
+        return platform.getPropertiesList().stream()
             .filter(p -> p.getName().equals(CONTAINER_IMAGE_ENTRY_NAME))
             .map(p -> p.getValue())
             .filter(r -> r.startsWith(DOCKER_IMAGE_PREFIX))
@@ -452,7 +446,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     }
 
     Command cmd =
-        new Command(cmdLine.toArray(new String[0]), cmdEnv.getClientEnv(), execRoot.getPathFile());
+        new Command(cmdLine, cmdEnv.getClientEnv(), execRoot.getPathFile(), cmdEnv.getClientEnv());
 
     try {
       cmd.execute();

@@ -32,8 +32,11 @@ public final class MetadataDigestUtils {
    * @param source the byte buffer source.
    * @return the digest from the given buffer.
    */
-  public static byte[] read(ByteBuffer source) {
+  public static byte[] read(ByteBuffer source) throws IOException {
     int size = VarInt.getVarInt(source);
+    if (size < 0) {
+      throw new IOException("Negative digest size: " + size);
+    }
     byte[] bytes = new byte[size];
     source.get(bytes);
     return bytes;

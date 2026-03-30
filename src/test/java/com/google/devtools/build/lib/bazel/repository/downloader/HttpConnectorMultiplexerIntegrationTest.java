@@ -25,16 +25,15 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.Sleeper;
 import java.io.IOException;
 import java.net.InetAddress;
-import java.net.Proxy;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.URL;
+import java.net.URI;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.CyclicBarrier;
@@ -53,7 +52,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class HttpConnectorMultiplexerIntegrationTest {
 
-  @Rule public final Timeout globalTimeout = new Timeout(20000);
+  @Rule public final Timeout globalTimeout = Timeout.seconds(20);
 
   private final ExecutorService executor = Executors.newSingleThreadExecutor();
   private final ProxyHelper proxyHelper = mock(ProxyHelper.class);
@@ -83,7 +82,7 @@ public class HttpConnectorMultiplexerIntegrationTest {
 
   @Before
   public void before() throws Exception {
-    when(proxyHelper.createProxyIfNeeded(any(URL.class))).thenReturn(Proxy.NO_PROXY);
+    when(proxyHelper.createProxyIfNeeded(any(URI.class))).thenReturn(ProxyInfo.NO_PROXY);
   }
 
   @After
@@ -117,7 +116,8 @@ public class HttpConnectorMultiplexerIntegrationTest {
       barrier.await();
       try (HttpStream stream =
           multiplexer.connect(
-              new URL(String.format("http://localhost:%d", server.getLocalPort())), HELLO_SHA256)) {
+              URI.create(String.format("http://localhost:%d", server.getLocalPort())),
+              HELLO_SHA256)) {
         assertThat(toByteArray(stream)).isEqualTo("hello".getBytes(US_ASCII));
       }
     }
@@ -150,7 +150,7 @@ public class HttpConnectorMultiplexerIntegrationTest {
               IOException.class,
               () ->
                   multiplexer.connect(
-                      new URL(String.format("http://localhost:%d", server.getLocalPort())),
+                      URI.create(String.format("http://localhost:%d", server.getLocalPort())),
                       HELLO_SHA256));
       assertThat(e).hasMessageThat().containsMatch("Checksum was .+ but wanted");
     }
@@ -184,7 +184,7 @@ public class HttpConnectorMultiplexerIntegrationTest {
               IOException.class,
               () ->
                   multiplexer.connect(
-                      new URL(String.format("http://localhost:%d", server.getLocalPort())),
+                      URI.create(String.format("http://localhost:%d", server.getLocalPort())),
                       HELLO_SHA256));
       assertThat(e).hasMessageThat().contains("GET returned 503 MELTDOWN");
     }

@@ -19,6 +19,14 @@
 
 ${ruleFamily.summary}
 
+#if($ruleFamily.flags.size() > 0)
+  <h2 id="${ruleFamily.name.toLowerCase()}.flags">${ruleFamily.name}-related build flags</h2>
+  #foreach ($flag in $ruleFamily.flags)
+    <h4>${flag.getAttribute("docname").defaultValue}</h4>
+    <div>${flag.htmlDocumentation}</div>
+  #end
+#end
+
 #if (!$singlePage)
 <h2>Rules</h2>
 <ul>

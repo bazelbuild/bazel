@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -141,7 +142,7 @@ public final class ImportDepsChecker implements Closeable {
     ImmutableMultimap<Path, String> indirectJars = resultCollector.getSortedIndirectDeps();
     if (!indirectJars.isEmpty()) {
       Set<String> labels = new LinkedHashSet<>();
-      for (var e : indirectJars.asMap().entrySet()) {
+      for (Map.Entry<Path, Collection<String>> e : indirectJars.asMap().entrySet()) {
         Path jar = e.getKey();
         String label = extractLabel(jar);
         builder.append("Indirect reference to classes from ");

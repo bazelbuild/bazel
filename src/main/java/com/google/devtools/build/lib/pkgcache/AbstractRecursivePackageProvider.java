@@ -28,6 +28,8 @@ public abstract class AbstractRecursivePackageProvider implements RecursivePacka
   @Override
   public Target getTarget(ExtendedEventHandler eventHandler, Label label)
       throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): don't expand the full package if lazy
+    // macro expansion is enabled.
     return getPackage(eventHandler, label.getPackageIdentifier()).getTarget(label.getName());
   }
 

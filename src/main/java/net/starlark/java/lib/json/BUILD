@@ -19,6 +19,7 @@ java_library(
     deps = [
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
-        "//src/main/java/net/starlark/java/syntax",
+        "//src/main/java/net/starlark/java/lib",
+        "//third_party:guava",
     ],
 )

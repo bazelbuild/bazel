@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSetMultimap.flatteningToImmutableSetMultimap;
 import static java.util.Objects.requireNonNull;
 
@@ -59,6 +60,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -73,7 +75,6 @@ final class TargetPatternPhaseFunction implements SkyFunction {
   @Nullable
   public TargetPatternPhaseValue compute(SkyKey key, Environment env) throws InterruptedException {
     TargetPatternPhaseKey options = (TargetPatternPhaseKey) key.argument();
-    WorkspaceNameValue workspaceName = (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
     RepositoryMappingValue repositoryMappingValue =
         (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
     if (repositoryMappingValue == null) {
@@ -88,6 +89,13 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         env.valuesMissing()
             ? null
             : mergeAll(expandedPatterns, !failedPatterns.isEmpty(), env, options);
+
+    // Record labels before they're expanded. For example, if the build requests a test_suite //foo,
+    // record //foo here instead of the tests the suite expands to.
+    ImmutableSet<Label> nonExpandedLabels =
+        targets == null
+            ? ImmutableSet.of()
+            : targets.getTargets().stream().map(Target::getLabel).collect(toImmutableSet());
 
     // If the --build_tests_only option was specified or we want to run tests, we need to determine
     // the list of targets to test. For that, we remove manual tests and apply the command-line
@@ -214,14 +222,15 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     }
     ImmutableSet<Label> removedTargetLabels =
         testSuiteTargets.stream().map(Target::getLabel).collect(ImmutableSet.toImmutableSet());
-
     TargetPatternPhaseValue result =
         new TargetPatternPhaseValue(
             targetLabels.getTargets(),
             testsToRunLabels,
+            Objects.equals(nonExpandedLabels, targetLabels.getTargets())
+                ? targetLabels.getTargets()
+                : nonExpandedLabels,
             targets.hasError(),
-            expandedTargets.hasError(),
-            workspaceName.getName());
+            expandedTargets.hasError());
 
     env.getListener()
         .post(

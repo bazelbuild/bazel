@@ -22,6 +22,9 @@ import java.util.AbstractList;
 import java.util.Arrays;
 import java.util.Iterator;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.Types;
 
 /** A Tuple is an immutable finite sequence of values. */
 @StarlarkBuiltin(
@@ -43,6 +46,10 @@ import net.starlark.java.annot.StarlarkBuiltin;
             + "Tuples are immutable, therefore <code>x[1] = \"a\"</code> is not supported.")
 public abstract class Tuple extends AbstractList<Object>
     implements Sequence<Object>, Comparable<Tuple> {
+
+  public static TypeConstructor getAssociatedTypeConstructor() {
+    return Types.TUPLE_CONSTRUCTOR;
+  }
 
   // Prohibit instantiation outside of package.
   Tuple() {}
@@ -75,6 +82,16 @@ public abstract class Tuple extends AbstractList<Object>
   /** Returns a tuple containing the given elements. */
   public static Tuple of(Object... elems) {
     return wrap(Arrays.copyOf(elems, elems.length));
+  }
+
+  @Override
+  public StarlarkType getStarlarkType() {
+    ImmutableList.Builder<StarlarkType> elementTypes =
+        ImmutableList.builderWithExpectedSize(size());
+    for (Object elem : this) {
+      elementTypes.add(Starlark.getStarlarkType(elem));
+    }
+    return Types.tuple(elementTypes.build());
   }
 
   /** Returns a two-element tuple. */
@@ -125,7 +142,7 @@ public abstract class Tuple extends AbstractList<Object>
   // TODO(adonovan): StarlarkValue has 3 String methods yet still we need this fourth. Why?
   @Override
   public String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 
   /**

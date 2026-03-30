@@ -265,14 +265,6 @@ public class ActionOutputDirectoryHelperTest {
       }
 
       @Override
-      public boolean createWritableDirectory(PathFragment path) throws IOException {
-        if (path.equals(failingPath)) {
-          throw injectedException;
-        }
-        return super.createWritableDirectory(path);
-      }
-
-      @Override
       public void createDirectoryAndParents(PathFragment path) throws IOException {
         if (path.equals(failingPath)) {
           throw injectedException;
@@ -297,7 +289,7 @@ public class ActionOutputDirectoryHelperTest {
   }
 
   private static ArtifactRoot createOutputRoot(Path execRoot) {
-    return ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
+    return ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "out");
   }
 
   private static ActionOutputDirectoryHelper createActionOutputDirectoryHelper() {

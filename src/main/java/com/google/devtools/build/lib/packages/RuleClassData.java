@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.devtools.build.lib.cmdline.Label;
+import javax.annotation.Nullable;
+
 /**
  * Subset of {@link RuleClass} fields needed by dependents of {@link Rule} instances.
  *
@@ -34,9 +37,18 @@ interface RuleClassData {
   /** Returns whether rules of this class can be made available during dependency resolution. */
   boolean isDependencyResolutionRule();
 
+  /** Whether this RuleClass represents a materializer rule. */
+  boolean isMaterializerRule();
+
+  /** Whether this materializer rule allows real deps. */
+  boolean materializerRuleAllowsRealDeps();
+
   /** Returns the set of advertised transitive info providers. */
   AdvertisedProviderSet getAdvertisedProviders();
 
   /** Returns true if corresponding {@link RuleClass} is Starlark-defined. */
   boolean isStarlark();
+
+  @Nullable // null if the rule is native
+  Label getRuleDefinitionEnvironmentLabel();
 }

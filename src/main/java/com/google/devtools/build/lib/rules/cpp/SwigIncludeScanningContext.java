@@ -21,9 +21,11 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Context for actions that do swig include scanning.
@@ -44,6 +46,7 @@ public interface SwigIncludeScanningContext extends ActionContext {
       Artifact source,
       ImmutableSet<Artifact> legalOutputPaths,
       ImmutableList<PathFragment> swigIncludePaths,
-      Artifact grepIncludes)
+      Artifact grepIncludes,
+      @Nullable PlatformInfo grepIncludesExecutionPlatform)
       throws IOException, ExecException, InterruptedException;
 }

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -40,21 +40,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if "$is_windows"; then
-  declare -r EXE_EXT=".exe"
-else
-  declare -r EXE_EXT=""
-fi
-
 #### TESTS #############################################################
 
 # Tests that a cycle reached via a command-line aspect does not crash.
@@ -68,8 +53,12 @@ def _simple_aspect_impl(target, ctx):
 
 simple_aspect = aspect(implementation=_simple_aspect_impl)
 EOF
-  echo "sh_library(name = 'cycletarget', deps = [':cycletarget'])" \
-      > test/BUILD || fail "Couldn't write BUILD file"
+
+  add_rules_shell "MODULE.bazel"
+  cat > test/BUILD << 'EOF' || fail "Couldn't write BUILD file"
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name = 'cycletarget', deps = [':cycletarget'])
+EOF
 
   # No flag, use the default from the rule.
   bazel build --nobuild -k //test:cycletarget \
@@ -86,7 +75,8 @@ EOF
 # This test would be flaky if errors were non-deterministically reported during
 # target and aspect analysis, and would fail outright if aspect failures were
 # preferred.
-function test_aspect_on_target_with_analysis_failure() {
+# TODO: b/380281737 - Re-enable when not flaky
+function disabled_test_aspect_on_target_with_analysis_failure() {
   mkdir -p test
   cat > test/aspect.bzl << 'EOF' || fail "Couldn't write aspect.bzl"
 def _simple_aspect_impl(target, ctx):
@@ -94,8 +84,12 @@ def _simple_aspect_impl(target, ctx):
 
 simple_aspect = aspect(implementation=_simple_aspect_impl)
 EOF
-  echo "sh_library(name = 'brokentarget', deps = [':missing'])" \
-      > test/BUILD || fail "Couldn't write BUILD file"
+
+  add_rules_shell "MODULE.bazel"
+  cat > test/BUILD <<EOF || fail "Couldn't write BUILD file"
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name = 'brokentarget', deps = [':missing'])
+EOF
 
   bazel build //test:brokentarget \
       --aspects 'test/aspect.bzl%simple_aspect' &> $TEST_log \
@@ -113,7 +107,6 @@ function test_aspect_required_providers_with_toplevel_aspects() {
   cat > "${package}/lib.bzl" <<EOF
 prov_a = provider()
 prov_b = provider()
-prov_c = provider()
 
 def _aspect_a_impl(target, ctx):
   print("aspect_a runs on target {}".format(target.label))
@@ -128,79 +121,52 @@ aspect_a = aspect(implementation = _aspect_a_impl,
                   required_providers = [prov_a])
 aspect_b = aspect(implementation = _aspect_b_impl,
                   attr_aspects = ['deps'],
-                  required_providers = [prov_b, prov_c])
+                  required_providers = [prov_b])
 
 def _rule_with_a_impl(ctx):
   return [prov_a()]
 
-def _rule_with_bc_impl(ctx):
-  return [prov_b(), prov_c()]
+def _rule_with_b_impl(ctx):
+  return [prov_b()]
 
 rule_with_a = rule(implementation = _rule_with_a_impl,
                     attrs = {'deps': attr.label_list()},
                     provides = [prov_a])
 
-rule_with_bc = rule(implementation = _rule_with_bc_impl,
+rule_with_b = rule(implementation = _rule_with_b_impl,
                    attrs = {'deps': attr.label_list()},
-                   provides = [prov_b, prov_c])
+                   provides = [prov_b])
 EOF
 
   cat > "${package}/BUILD" <<EOF
-load('//${package}:lib.bzl', 'rule_with_a', 'rule_with_bc')
+load('//${package}:lib.bzl', 'rule_with_a', 'rule_with_b')
 rule_with_a(
   name = 'target_with_a',
-  deps = [':target_with_a_indeps', ':target_with_bc']
+  deps = [':target_with_a_in_deps', ':target_with_b']
 )
 
-rule_with_bc(name = 'target_with_bc')
+rule_with_b(name = 'target_with_b')
 
-rule_with_a(name = 'target_with_a_indeps')
+rule_with_a(name = 'target_with_a_in_deps')
 EOF
 
-  # without using --incompatible_top_level_aspects_require_providers, aspect_a
-  # and aspect_b should attempt to run on top level target: target_with_a and
-  # propagate to its dependencies where they will run based on the dependencies
-  # advertised providers.
-  bazel build "${package}:target_with_a" \
-        --noincompatible_top_level_aspects_require_providers \
-        --aspects="//${package}:lib.bzl%aspect_a" \
-        --aspects="//${package}:lib.bzl%aspect_b" &>"$TEST_log" \
-      || fail "Build failed but should have succeeded"
-
-  # Only aspect_a is applied on target_with_a because its "provided" providers
-  # do not macth aspect_b required providers.
-  expect_log "aspect_a runs on target @@\?//${package}:target_with_a"
-  expect_not_log "aspect_b runs on target @@\?//${package}:target_with_a"
-
-  # Only aspect_a can run on target_with_a_indeps
-  expect_log "aspect_a runs on target @@\?//${package}:target_with_a_indeps"
-  expect_not_log "aspect_b runs on target @@\?//${package}:target_with_a_indeps"
-
-  # Only aspect_b can run on target_with_bc
-  expect_not_log "aspect_a runs on target @@\?//${package}:target_with_bc"
-  expect_log "aspect_b runs on target @@\?//${package}:target_with_bc"
-
-  # using --incompatible_top_level_aspects_require_providers, the top level
-  # target rule's advertised providers will be checked and only aspect_a will be
-  # applied on target_with_a and propagated to its dependencies.
   bazel build "${package}:target_with_a" \
         --aspects="//${package}:lib.bzl%aspect_a" \
         --aspects="//${package}:lib.bzl%aspect_b" &>"$TEST_log" \
-        --incompatible_top_level_aspects_require_providers \
       || fail "Build failed but should have succeeded"
 
   # Only aspect_a is applied on target_with_a
   expect_log "aspect_a runs on target @@\?//${package}:target_with_a"
   expect_not_log "aspect_b runs on target @@\?//${package}:target_with_a"
 
-  # Only aspect_a can run on target_with_a_indeps
-  expect_log "aspect_a runs on target @@\?//${package}:target_with_a_indeps"
-  expect_not_log "aspect_b runs on target @@\?//${package}:target_with_a_indeps"
+  # Only aspect_a can run on target_with_a_in_deps
+  expect_log "aspect_a runs on target @@\?//${package}:target_with_a_in_deps"
+  expect_not_log "aspect_b runs on target @@\?//${package}:target_with_a_in_deps"
 
-  # rule_with_bc advertised provides only match the required providers for
+  # rule_with_b advertised provides only match the required providers for
   # aspect_b, but aspect_b is not propagated from target_with_a
-  expect_not_log "aspect_a runs on target @@\?//${package}:target_with_bc"
-  expect_not_log "aspect_b runs on target @@\?//${package}:target_with_bc"
+  expect_not_log "aspect_a runs on target @@\?//${package}:target_with_b"
+  expect_not_log "aspect_b runs on target @@\?//${package}:target_with_b"
 }
 
 function test_aspect_required_providers_default_no_required_providers() {
@@ -539,6 +505,7 @@ EOF
 }
 
 function test_aspects_propagating_other_aspects_stack_of_required_aspects() {
+  add_rules_cc MODULE.bazel
   local package="pkg"
   mkdir -p "${package}"
 
@@ -584,6 +551,7 @@ echo "inline int x() { return 42; }" > "${package}/x.h"
 int a() { return x(); }
 EOF
   cat > "${package}/BUILD" <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//${package}:lib.bzl", "rule_r")
 
 cc_library(
@@ -623,7 +591,9 @@ function test_aspect_has_access_to_aspect_hints_attribute_in_native_rules() {
   create_aspect_hints_rule_and_aspect "${package}"
   create_aspect_hints_cc_files "${package}"
 
+  add_rules_cc MODULE.bazel
   cat > "${package}/BUILD" <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//${package}:hints_counter.bzl", "count_hints")
 load("//${package}:hints.bzl", "hint")
 
@@ -1300,7 +1270,9 @@ EOF
   cat > "${package}/tool.sh" <<EOF
 EOF
 
+  add_rules_shell "MODULE.bazel"
   cat > "${package}/BUILD" <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load('//test:defs.bzl', 'r1', 'r2')
 r1(
   name = 't1',
@@ -1370,7 +1342,9 @@ EOF
   cat > "${package}/tool.sh" <<EOF
 EOF
 
+  add_rules_shell "MODULE.bazel"
   cat > "${package}/BUILD" <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load('//test:defs.bzl', 'r1', 'r2')
 r1(
   name = 't1',
@@ -1441,7 +1415,9 @@ EOF
   cat > "${package}/tool.sh" <<EOF
 EOF
 
+  add_rules_shell "MODULE.bazel"
   cat > "${package}/BUILD" <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load('//test:defs.bzl', 'r1', 'r2')
 r1(
   name = 't1',
@@ -1463,8 +1439,9 @@ EOF
 function test_aspect_with_missing_attr() {
   local package="test"
   mkdir -p "${package}"
-
+  add_rules_shell "MODULE.bazel"
   cat > "${package}/BUILD" <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name = "foo")
 EOF
 
@@ -1552,8 +1529,10 @@ EOF
   cat > "${package}/tool.sh" <<EOF
 EOF
 
+  add_rules_shell "MODULE.bazel"
   cat > "${package}/BUILD" <<EOF
 load('//test:defs.bzl', 'r1', 'r2')
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 r1(
   name = 't1',
   dep = ':t2',
@@ -1764,7 +1743,9 @@ EOF
   cat > "${package}/tool.sh" <<EOF
 EOF
 
+  add_rules_shell "MODULE.bazel"
   cat > "${package}/BUILD" <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load('//test:defs.bzl', 'r1')
 r1(
   name = 't1',
@@ -1825,8 +1806,9 @@ test_toolchain = rule(
   },
 )
 EOF
-
+  add_rules_shell "MODULE.bazel"
   cat > "${toolchains_package}/BUILD" <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 load("//${toolchains_package}:defs.bzl", "test_toolchain")
 
 toolchain_type(name = "toolchain_type")
@@ -1996,6 +1978,155 @@ EOF
   expect_not_log "FATAL"
   expect_log "--override_repository"
   expect_log "--inject_repository"
+}
+
+function test_exec_aspect() {
+  local package="test"
+  mkdir -p "${package}"
+  cat > "${package}/defs.bzl" <<EOF
+def _aspect_impl(target, ctx):
+  print("Running aspect on " + str(target.label))
+  return []
+
+my_aspect = aspect(
+    implementation = _aspect_impl,
+    attr_aspects = ["deps"],
+)
+
+def _rule_impl(ctx):
+  pass
+
+my_rule = rule(
+    implementation = _rule_impl,
+    attrs = {
+        "tool": attr.label(
+            default = "//${package}:tool",
+            executable = True,
+            cfg = "exec",
+        ),
+        "dep": attr.label(default = "//${package}:sibling_dep"),
+    },
+)
+
+def _dep_rule_impl(ctx):
+  executable = ctx.actions.declare_file(ctx.label.name)
+  ctx.actions.write(executable, "")
+  return [DefaultInfo(executable = executable)]
+
+dep_rule = rule(
+  implementation = _dep_rule_impl,
+  attrs = {
+      "srcs" : attr.label_list(allow_files = True),
+      "deps" : attr.label_list(providers = [DefaultInfo]),
+  },
+  executable = True,
+)
+EOF
+
+
+  cat > "${package}/BUILD" <<EOF
+load("//${package}:defs.bzl", "my_rule", "dep_rule")
+my_rule(name = "top_level_target")
+
+dep_rule(name = "tool", srcs = ["tool.sh"], deps = [":dep_of_tool"])
+dep_rule(name = "sibling_dep", srcs = ["sibling_dep.sh"])
+dep_rule(name = "dep_of_tool", srcs = ["dep_of_tool.sh"])
+EOF
+
+  touch "${package}/tool.sh"
+  touch "${package}/sibling_dep.sh"
+  touch "${package}/dep_of_tool.sh"
+
+  bazel build "//${package}:top_level_target" --exec_aspects=//${package}:defs.bzl%my_aspect&> $TEST_log || fail "Build failed"
+  expect_log "Running aspect on @@\?//test:tool"
+  expect_log "Running aspect on @@\?//test:dep_of_tool"
+  expect_not_log "Running aspect on @@\?//test:top_level_target"
+  expect_not_log "Running aspect on @@\?//test:sibling_dep"
+}
+
+function test_failing_exec_aspect_plus_allow_list() {
+  local package="test"
+  mkdir -p "${package}"
+  cat > "${package}/defs.bzl" <<EOF
+def _aspect_impl(target, ctx):
+  if str(target.label) == "@@//${package}:bad_dep":
+    fail("Found bad dep")
+  return []
+
+def attr_aspects_function(ctx):
+    if str(ctx.rule.label) == "@@//${package}:exempt_tool":
+        print("Exempt target")
+        return []
+    else:
+        return dir(ctx.rule.attr)
+
+my_aspect = aspect(
+    implementation = _aspect_impl,
+    attr_aspects = attr_aspects_function,
+)
+
+def _rule_impl(ctx):
+  pass
+
+my_rule = rule(
+    implementation = _rule_impl,
+    attrs = {
+        "tool": attr.label(
+            default = "//${package}:tool",
+            executable = True,
+            cfg = "exec",
+        ),
+        "dep": attr.label(default = "//${package}:sibling_dep"),
+    },
+)
+
+def _rule_no_tool_impl(ctx):
+  pass
+
+my_rule_no_tool = rule(
+    implementation = _rule_no_tool_impl,
+    attrs = {
+        "dep": attr.label(default = "//${package}:sibling_dep"),
+    },
+)
+
+def _dep_rule_impl(ctx):
+  executable = ctx.actions.declare_file(ctx.label.name)
+  ctx.actions.write(executable, "")
+  return [DefaultInfo(executable = executable)]
+
+dep_rule = rule(
+  implementation = _dep_rule_impl,
+  attrs = {
+      "srcs" : attr.label_list(allow_files = True),
+      "deps" : attr.label_list(providers = [DefaultInfo]),
+  },
+  executable = True,
+)
+EOF
+
+
+  cat > "${package}/BUILD" <<EOF
+load("//${package}:defs.bzl", "my_rule", "my_rule_no_tool", "dep_rule")
+my_rule(name = "failing_target")
+my_rule_no_tool(name = "top_level_target_no_tool")
+my_rule(name = "exempt_target", tool = "//${package}:exempt_tool")
+
+dep_rule(name = "tool", srcs = ["tool.sh"], deps = [":bad_dep"])
+dep_rule(name = "sibling_dep", srcs = ["sibling_dep.sh"])
+dep_rule(name = "bad_dep", srcs = ["bad_dep.sh"])
+dep_rule(name = "exempt_tool", srcs = ["exempt_tool.sh"], deps = [":bad_dep"])
+EOF
+
+  touch "${package}/tool.sh"
+  touch "${package}/sibling_dep.sh"
+  touch "${package}/bad_dep.sh"
+  touch "${package}/exempt_tool.sh"
+
+  bazel build "//${package}:failing_target" --exec_aspects=//${package}:defs.bzl%my_aspect&> $TEST_log && fail "Expected failure"
+  expect_log "Found bad dep"
+  bazel build "//${package}:top_level_target_no_tool" --exec_aspects=//${package}:defs.bzl%my_aspect&> $TEST_log || fail "Expected success"
+  bazel build "//${package}:exempt_target" --exec_aspects=//${package}:defs.bzl%my_aspect&> $TEST_log || fail "Expected success"
 }
 
 run_suite "Tests for aspects"

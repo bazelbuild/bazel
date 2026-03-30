@@ -186,9 +186,11 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
   /** The object available as the {@code ctx} argument of materializers. */
   private static class StarlarkMaterializerContext implements StarlarkValue {
+    private final Label label;
     private final StructImpl attrs;
 
-    private StarlarkMaterializerContext(Map<String, Object> attributeMap) {
+    private StarlarkMaterializerContext(Label label, Map<String, Object> attributeMap) {
+      this.label = label;
       attrs =
           StructProvider.STRUCT.create(
               attributeMap,
@@ -202,6 +204,14 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         doc = "A struct to access the attributes of the rule in a materializer function.")
     public StructApi getAttr() {
       return attrs;
+    }
+
+    @StarlarkMethod(
+        name = "label",
+        structField = true,
+        doc = "The label of the rule whose attribute the materializer is computing.")
+    public Label getLabel() {
+      return label;
     }
   }
 
@@ -245,7 +255,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         result.put(attribute.getPublicName(), starlarkValue);
       }
 
-      return new StarlarkMaterializerContext(ImmutableMap.copyOf(result));
+      return new StarlarkMaterializerContext(rule.getLabel(), ImmutableMap.copyOf(result));
     }
 
     @Override
@@ -290,7 +300,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         thread.setPrintHandler(Event.makeDebugPrintHandler(eventHandler));
 
         new MaterializationContext().storeInThread(thread);
-        return Starlark.fastcall(thread, implementation, new Object[] {ctx}, new Object[0]);
+        return Starlark.positionalOnlyCall(thread, implementation, ctx);
       }
     }
   }
@@ -562,68 +572,43 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     }
     boolean isListOfProviders = true;
     for (Object o : obj) {
-      if (!isProvider(o)) {
+      if (!(o instanceof Provider)) {
         isListOfProviders = false;
         break;
       }
     }
     if (isListOfProviders) {
-      return ImmutableList.of(getStarlarkProviderIdentifiers(obj));
+      return ImmutableList.of(getStarlarkProviderIdentifiers(obj, argumentName));
     } else {
-      return getProvidersList(obj, argumentName);
+      @SuppressWarnings("unchecked") // safe
+      Sequence<Sequence<?>> listOfLists =
+          (Sequence) Sequence.cast(obj, Sequence.class, argumentName);
+      return getProvidersList(listOfLists, argumentName);
     }
   }
 
-  /**
-   * Returns true if {@code o} is a Starlark provider (either a declared provider or a legacy
-   * provider name.
-   */
-  static boolean isProvider(Object o) {
-    return o instanceof String || o instanceof Provider;
-  }
+  /** Converts Starlark identifiers of providers to their internal representations. */
+  static ImmutableSet<StarlarkProviderIdentifier> getStarlarkProviderIdentifiers(
+      Sequence<?> listArg, String argumentName) throws EvalException {
+    Sequence<Provider> list = Sequence.cast(listArg, Provider.class, argumentName);
 
-  /**
-   * Converts Starlark identifiers of providers (either a string or a provider value) to their
-   * internal representations.
-   */
-  static ImmutableSet<StarlarkProviderIdentifier> getStarlarkProviderIdentifiers(Sequence<?> list)
-      throws EvalException {
     ImmutableList.Builder<StarlarkProviderIdentifier> result = ImmutableList.builder();
-
-    for (Object obj : list) {
-      if (obj instanceof String string) {
-        result.add(StarlarkProviderIdentifier.forLegacy(string));
-      } else if (obj instanceof Provider constructor) {
-        if (!constructor.isExported()) {
-          throw Starlark.errorf(
-              "Providers should be top-level values in extension files that define them.");
-        }
-        result.add(StarlarkProviderIdentifier.forKey(constructor.getKey()));
+    for (Provider constructor : list) {
+      if (!constructor.isExported()) {
+        throw Starlark.errorf(
+            "Providers should be top-level values in extension files that define them.");
       }
+      result.add(StarlarkProviderIdentifier.forKey(constructor.getKey()));
     }
     return ImmutableSet.copyOf(result.build());
   }
 
   private static ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> getProvidersList(
-      Sequence<?> starlarkList, String argumentName) throws EvalException {
+      Sequence<Sequence<?>> starlarkList, String argumentName) throws EvalException {
     ImmutableList.Builder<ImmutableSet<StarlarkProviderIdentifier>> providersList =
         ImmutableList.builder();
-    String errorMsg =
-        "Illegal argument: element in '%s' is of unexpected type. "
-            + "Either all elements should be providers, "
-            + "or all elements should be lists of providers, but got %s.";
-
-    for (Object o : starlarkList) {
-      if (!(o instanceof Sequence)) {
-        throw Starlark.errorf(errorMsg, argumentName, "an element of type " + Starlark.type(o));
-      }
-      for (Object value : (Sequence) o) {
-        if (!isProvider(value)) {
-          throw Starlark.errorf(
-              errorMsg, argumentName, "list with an element of type " + Starlark.type(value));
-        }
-      }
-      providersList.add(getStarlarkProviderIdentifiers((Sequence<?>) o));
+    for (Sequence<?> sublist : starlarkList) {
+      providersList.add(getStarlarkProviderIdentifiers(sublist, argumentName));
     }
     return providersList.build();
   }
@@ -665,7 +650,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<attr>");
   }
 
@@ -939,7 +924,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Sequence<?> aspects,
       StarlarkThread thread)
       throws EvalException {
-    checkContext(thread, "attr.label_keyed_string_dict()");
+    checkContext(thread, "attr.string_keyed_label_dict()");
     Map<String, Object> kwargs =
         optionMap(
             CONFIGURABLE_ARG,
@@ -986,6 +971,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Object forDependencyResolution,
       Sequence<?> flags,
       Boolean mandatory,
+      Boolean skipValidations,
       Object cfg,
       Sequence<?> aspects,
       StarlarkThread thread)
@@ -1009,6 +995,8 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
             flags,
             MANDATORY_ARG,
             mandatory,
+            SKIP_VALIDATIONS_ARG,
+            skipValidations,
             ALLOW_EMPTY_ARG,
             allowEmpty,
             CONFIGURATION_ARG,
@@ -1023,6 +1011,60 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
             thread,
             "label_keyed_string_dict");
     return new Descriptor("label_keyed_string_dict", attribute);
+  }
+
+  @Override
+  public Descriptor labelListDictAttribute(
+      Boolean allowEmpty,
+      Object configurable,
+      Dict<?, ?> defaultValue,
+      Object doc,
+      Object allowFiles,
+      Object allowRules,
+      Sequence<?> providers,
+      Object forDependencyResolution,
+      Sequence<?> flags,
+      Boolean mandatory,
+      Boolean skipValidations,
+      Object cfg,
+      Sequence<?> aspects,
+      StarlarkThread thread)
+      throws EvalException {
+    checkContext(thread, "attr.label_list_dict()");
+    Map<String, Object> kwargs =
+        optionMap(
+            CONFIGURABLE_ARG,
+            configurable,
+            DEFAULT_ARG,
+            defaultValue,
+            ALLOW_FILES_ARG,
+            allowFiles,
+            ALLOW_RULES_ARG,
+            allowRules,
+            PROVIDERS_ARG,
+            providers,
+            FOR_DEPENDENCY_RESOLUTION_ARG,
+            forDependencyResolution,
+            FLAGS_ARG,
+            flags,
+            MANDATORY_ARG,
+            mandatory,
+            SKIP_VALIDATIONS_ARG,
+            skipValidations,
+            ALLOW_EMPTY_ARG,
+            allowEmpty,
+            CONFIGURATION_ARG,
+            cfg,
+            ASPECTS_ARG,
+            aspects);
+    ImmutableAttributeFactory attribute =
+        createAttributeFactory(
+            BuildType.LABEL_LIST_DICT,
+            Starlark.toJavaOptional(doc, String.class),
+            kwargs,
+            thread,
+            "label_list_dict");
+    return new Descriptor("label_list_dict", attribute);
   }
 
   @Override
@@ -1166,7 +1208,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append("<attr." + name + ">");
     }
 

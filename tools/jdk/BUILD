@@ -22,7 +22,6 @@ filegroup(
         "proguard_allowlister_test_input.pgcfg",
         "remote_java_repository.bzl",
         "toolchain_utils.bzl",
-        ":java_stub_template.txt",
     ],
 )
 
@@ -37,15 +36,10 @@ filegroup(
     srcs = glob(["**"]),
 )
 
-genrule(
-    name = "copy_java_stub_template",
-    srcs = [
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:java_stub_template.txt",
+exports_files(
+    [
+        "BUILD.java_tools",
+        "BUILD.java_tools_prebuilt",
     ],
-    outs = ["java_stub_template.txt"],
-    cmd = "cp $< $@",
-    visibility = [
-        "//tools:__pkg__",
-        "//tools/jdk:__pkg__",
-    ],
+    visibility = ["//src:__pkg__"],
 )

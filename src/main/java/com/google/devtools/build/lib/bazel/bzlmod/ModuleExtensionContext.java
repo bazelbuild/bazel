@@ -15,20 +15,24 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkBaseExternalContext;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
@@ -47,13 +51,15 @@ import net.starlark.java.eval.StarlarkSemantics;
 public class ModuleExtensionContext extends StarlarkBaseExternalContext {
   private final ModuleExtensionId extensionId;
   private final StarlarkList<StarlarkBazelModule> modules;
+  private final Facts facts;
   private final boolean rootModuleHasNonDevDependency;
 
   protected ModuleExtensionContext(
       Path workingDirectory,
       BlazeDirectories directories,
       Environment env,
-      Map<String, String> envVariables,
+      ImmutableMap<String, String> repoEnv,
+      ImmutableMap<String, String> nonstrictRepoEnv,
       DownloadManager downloadManager,
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
@@ -61,12 +67,16 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       @Nullable RepositoryRemoteExecutor remoteExecutor,
       ModuleExtensionId extensionId,
       StarlarkList<StarlarkBazelModule> modules,
-      boolean rootModuleHasNonDevDependency) {
+      Facts facts,
+      boolean rootModuleHasNonDevDependency,
+      ImmutableMap<String, Optional<String>> staticEnvVars,
+      ImmutableTable<RepositoryName, String, RepositoryName> staticRepoMappingEntries) {
     super(
         workingDirectory,
         directories,
         env,
-        envVariables,
+        repoEnv,
+        nonstrictRepoEnv,
         downloadManager,
         timeoutScaling,
         processWrapper,
@@ -76,11 +86,12 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
         /* allowWatchingPathsOutsideWorkspace= */ false);
     this.extensionId = extensionId;
     this.modules = modules;
+    this.facts = facts;
     this.rootModuleHasNonDevDependency = rootModuleHasNonDevDependency;
-  }
-
-  public Path getWorkingDirectory() {
-    return workingDirectory;
+    // Record inputs to the extension that are known prior to evaluation.
+    RepoRecordedInput.EnvVar.wrap(staticEnvVars)
+        .forEach((input, value) -> recordInputWithValue(input, value.orElse(null)));
+    repoMappingRecorder.record(staticRepoMappingEntries);
   }
 
   @Override
@@ -91,13 +102,13 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
   }
 
   @Override
-  protected boolean isRemotable() {
+  public boolean isRemotable() {
     // Maybe we can some day support remote execution, but not today.
     return false;
   }
 
   @Override
-  protected ImmutableMap<String, String> getRemoteExecProperties() throws EvalException {
+  protected ImmutableMap<String, String> getRemoteExecProperties() {
     return ImmutableMap.of();
   }
 
@@ -112,6 +123,23 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
               + " breadth-first search starting from the root module.")
   public StarlarkList<StarlarkBazelModule> getModules() {
     return modules;
+  }
+
+  @StarlarkMethod(
+      name = "facts",
+      structField = true,
+      doc =
+          """
+          The JSON-like dict returned by a previous execution of this extension in the `facts`
+          parameter of [`extension_metadata`](../builtins/module_ctx#extension_metadata) or else
+          `{}`.
+          This is useful for extensions that want to preserve universally true facts such as the
+          hashes of artifacts in an immutable repository.
+          Note that the returned value may have been created by a different version of the
+          extension, which may have used a different schema.
+          """)
+  public Facts getFacts() {
+    return facts;
   }
 
   @StarlarkMethod(
@@ -224,13 +252,44 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
             allowedTypes = {
               @ParamType(type = Boolean.class),
             }),
+        @Param(
+            name = "facts",
+            doc =
+                """
+                A JSON-like dict that is made available to future executions of this extension via
+                the `module_ctx.facts` property.
+                This is useful for extensions that want to preserve universally true facts such as
+                the hashes of artifacts in an immutable repository.
+
+                Bazel may shallowly merge multiple facts dicts returned by different versions of the
+                extension in order to resolve merge conflicts on the MODULE.bazel.lock file, as if
+                by applying the `dict.update()` method or the `|` operator in Starlark. Extensions
+                should use facts for key-value storage only and ensure that the key uniquely
+                determines the value, although perhaps only via additional information and network
+                access. An extension can opt out of this merging by providing a dict with a single,
+                fixed top-level key and an arbitrary value.
+
+                Note that the value provided here may be read back by a different version of the
+                extension, so either include a version number or use a schema that is unlikely to
+                result in ambiguities.
+                """,
+            positional = false,
+            named = true,
+            defaultValue = "{}",
+            allowedTypes = {
+              @ParamType(type = Dict.class, generic1 = String.class),
+            }),
       })
   public ModuleExtensionMetadata extensionMetadata(
       Object rootModuleDirectDepsUnchecked,
       Object rootModuleDirectDevDepsUnchecked,
-      boolean reproducible)
+      boolean reproducible,
+      Object facts)
       throws EvalException {
     return ModuleExtensionMetadata.create(
-        rootModuleDirectDepsUnchecked, rootModuleDirectDevDepsUnchecked, reproducible);
+        rootModuleDirectDepsUnchecked,
+        rootModuleDirectDevDepsUnchecked,
+        reproducible,
+        Dict.cast(facts, String.class, Object.class, "facts"));
   }
 }

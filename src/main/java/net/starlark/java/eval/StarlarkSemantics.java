@@ -174,6 +174,9 @@ public class StarlarkSemantics {
 
     /** Returns an immutable StarlarkSemantics. */
     public StarlarkSemantics build() {
+      if (map.isEmpty()) {
+        return DEFAULT;
+      }
       return new StarlarkSemantics(ImmutableMap.copyOf(map));
     }
   }
@@ -208,7 +211,7 @@ public class StarlarkSemantics {
    * Returns a possibly different {@link StarlarkSemantics} instance that is equivalent to this one
    * for the purpose of caching the methods available on any given Starlark class.
    */
-  public StarlarkSemantics getStarlarkClassDescriptorCacheKey() {
+  public StarlarkSemantics getBuiltinManagerCacheKey() {
     return this;
   }
 
@@ -258,5 +261,25 @@ public class StarlarkSemantics {
   public static final String ALLOW_RECURSION = "-allow_recursion";
 
   /** Whether StarlarkSet objects may be constructed by the interpreter. */
-  public static final String EXPERIMENTAL_ENABLE_STARLARK_SET = "-experimental_enable_starlark_set";
+  public static final String EXPERIMENTAL_ENABLE_STARLARK_SET = "+experimental_enable_starlark_set";
+
+  /** Whether the Starlark interpreter uses UTF-8 byte strings instead of UTF-16 strings. */
+  public static final String INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS =
+      "-internal_bazel_only_utf_8_byte_strings";
+
+  /**
+   * Whether static type checking should be performed.
+   *
+   * <p>Static type checking is not really relevant to evaluation per se, but we store it here in
+   * order to thread it through to {@link FileOptions}.
+   */
+  public static final String EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING =
+      "-experimental_starlark_static_type_checking";
+
+  /** Whether dynamic type checking should be performed. */
+  public static final String EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING =
+      "-experimental_starlark_dynamic_type_checking";
+
+  /** Globally Override fail(stack_trace=) to true. Flag default is false. */
+  public static final String FORCE_STARLARK_STACK_TRACE = "-force_starlark_stack_trace";
 }

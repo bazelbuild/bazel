@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
@@ -301,6 +302,45 @@ public class SpawnStrategyRegistryTest {
   }
 
   @Test
+  public void testPlatformFilter() throws Exception {
+    NoopStrategy strategy1 = new NoopStrategy("1");
+    NoopStrategy strategy2 = new NoopStrategy("2");
+    SpawnStrategyRegistry strategyRegistry =
+        SpawnStrategyRegistry.builder()
+            .registerStrategy(strategy1, "foo")
+            .registerStrategy(strategy2, "bar")
+            .addExecPlatformFilter(
+                PlatformInfo.EMPTY_PLATFORM_INFO.label(), ImmutableList.of("foo"))
+            .build();
+
+    assertThat(
+            strategyRegistry.getStrategies(
+                createSpawnWithMnemonicAndDescription("", ""),
+                SpawnStrategyRegistryTest::noopEventHandler))
+        .containsExactly(strategy1);
+  }
+
+  /** Tests that platform filters not affect the strategy ordering. */
+  @Test
+  public void testPlatformFilterOrder() throws Exception {
+    NoopStrategy strategy1 = new NoopStrategy("1");
+    NoopStrategy strategy2 = new NoopStrategy("2");
+    SpawnStrategyRegistry strategyRegistry =
+        SpawnStrategyRegistry.builder()
+            .registerStrategy(strategy1, "foo")
+            .registerStrategy(strategy2, "bar")
+            .addExecPlatformFilter(
+                PlatformInfo.EMPTY_PLATFORM_INFO.label(), ImmutableList.of("bar", "foo"))
+            .build();
+
+    assertThat(
+            strategyRegistry.getStrategies(
+                createSpawnWithMnemonicAndDescription("", ""),
+                SpawnStrategyRegistryTest::noopEventHandler))
+        .containsExactly(strategy1, strategy2);
+  }
+
+  @Test
   public void testMultipleDefaultStrategies() throws Exception {
     NoopStrategy strategy1 = new NoopStrategy("1");
     NoopStrategy strategy2 = new NoopStrategy("2");
@@ -399,7 +439,7 @@ public class SpawnStrategyRegistryTest {
 
   /** Throw error when some of strategies were not registered. */
   @Test
-  public void testDescriptionStrategyNotPresent() throws Exception {
+  public void testDescriptionStrategyNotPresent() {
     NoopStrategy strategy1 = new NoopStrategy("1");
     AbruptExitException exception =
         assertThrows(
@@ -537,7 +577,10 @@ public class SpawnStrategyRegistryTest {
             .setRemoteLocalFallbackStrategyIdentifier("bar")
             .build();
 
-    assertThat(strategyRegistry.getRemoteLocalFallbackStrategy()).isEqualTo(strategy2);
+    assertThat(
+            strategyRegistry.getRemoteLocalFallbackStrategy(
+                createSpawnWithMnemonicAndDescription("", "")))
+        .isEqualTo(strategy2);
   }
 
   @Test
@@ -561,7 +604,10 @@ public class SpawnStrategyRegistryTest {
     SpawnStrategyRegistry strategyRegistry =
         SpawnStrategyRegistry.builder().registerStrategy(strategy1, "foo").build();
 
-    assertThat(strategyRegistry.getRemoteLocalFallbackStrategy()).isNull();
+    assertThat(
+            strategyRegistry.getRemoteLocalFallbackStrategy(
+                createSpawnWithMnemonicAndDescription("", "")))
+        .isNull();
   }
 
   @Test
@@ -649,7 +695,7 @@ public class SpawnStrategyRegistryTest {
     assertThat(strategy7.usedCalled).isEqualTo(0);
   }
 
-  private Spawn createSpawnWithMnemonicAndDescription(String mnemonic, String description) {
+  private static Spawn createSpawnWithMnemonicAndDescription(String mnemonic, String description) {
     return new SimpleSpawn(
         new FakeOwner(mnemonic, description, "//dummy:label"),
         ImmutableList.of(),
@@ -712,8 +758,8 @@ public class SpawnStrategyRegistryTest {
     private final String name;
     private int usedCalled = 0;
 
-    public NoopAbstractStrategy(String name) {
-      super(null, null, null);
+    NoopAbstractStrategy(String name) {
+      super(null, null);
       this.name = name;
     }
 

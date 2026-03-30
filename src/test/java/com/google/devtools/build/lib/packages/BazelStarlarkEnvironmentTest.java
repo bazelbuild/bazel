@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment.Injection
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import net.starlark.java.eval.Structure;
 import org.junit.Before;
 import org.junit.Test;
@@ -60,27 +59,26 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
     return builder.build();
   }
 
-  // TODO(#11954): We want BUILD- and WORKSPACE-loaded bzl files to have the exact same environment.
+  // TODO(#11954): We want BUILD- and MODULE-loaded bzl files to have the exact same environment.
   // In the meantime these two tests help avoid regressions.
 
   // This property is important for BzlCompileFunction, which relies on the symbol names in the env
   // matching even if the symbols themselves differ.
   @Test
-  public void buildAndWorkspaceBzlEnvsDeclareSameNames() throws Exception {
-    Set<String> buildBzlNames = starlarkEnv.getUninjectedBuildBzlEnv().keySet();
-    Set<String> workspaceBzlNames = starlarkEnv.getUninjectedWorkspaceBzlEnv().keySet();
-    assertThat(buildBzlNames).isEqualTo(workspaceBzlNames);
+  public void buildAndModuleBzlEnvsDeclareSameNames() throws Exception {
+    assertThat(starlarkEnv.getUninjectedBuildBzlEnv().keySet())
+        .containsExactlyElementsIn(starlarkEnv.getUninjectedModuleBzlEnv().keySet());
   }
 
   @Test
-  public void buildAndWorkspaceBzlEnvsAreSameExceptForNative() throws Exception {
+  public void buildAndModuleBzlEnvsAreSameExceptForNative() throws Exception {
     Map<String, Object> buildBzlEnv = new HashMap<>();
     buildBzlEnv.putAll(starlarkEnv.getUninjectedBuildBzlEnv());
     buildBzlEnv.remove("native");
-    Map<String, Object> workspaceBzlEnv = new HashMap<>();
-    workspaceBzlEnv.putAll(starlarkEnv.getUninjectedWorkspaceBzlEnv());
-    workspaceBzlEnv.remove("native");
-    assertThat(buildBzlEnv).isEqualTo(workspaceBzlEnv);
+    Map<String, Object> moduleBzlEnv = new HashMap<>();
+    moduleBzlEnv.putAll(starlarkEnv.getUninjectedModuleBzlEnv());
+    moduleBzlEnv.remove("native");
+    assertThat(buildBzlEnv).isEqualTo(moduleBzlEnv);
   }
 
   @Test
@@ -105,7 +103,7 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
             InjectionException.class,
             () ->
                 starlarkEnv.createBuildBzlEnvUsingInjection(
-                    exportedToplevels, exportedRules, /*overridesList=*/ ImmutableList.of()));
+                    exportedToplevels, exportedRules, /* overridesList= */ ImmutableList.of()));
     assertThat(ex).hasMessageThat().contains(message);
   }
 
@@ -119,7 +117,7 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
             InjectionException.class,
             () ->
                 starlarkEnv.createBuildEnvUsingInjection(
-                    exportedRules, /*overridesList=*/ ImmutableList.of()));
+                    exportedRules, /* overridesList= */ ImmutableList.of()));
     assertThat(ex).hasMessageThat().contains(message);
   }
 
@@ -129,7 +127,7 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
         starlarkEnv.createBuildBzlEnvUsingInjection(
             ImmutableMap.of("overridable_symbol", "new_value"),
             ImmutableMap.of("overridable_rule", "new_rule"),
-            /*overridesList=*/ ImmutableList.of());
+            /* overridesList= */ ImmutableList.of());
     assertThat(env).containsEntry("overridable_symbol", "new_value");
     assertThat(((Structure) env.get("native")).getValue("overridable_rule")).isEqualTo("new_rule");
   }
@@ -138,7 +136,8 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
   public void buildInjection() throws Exception {
     Map<String, Object> env =
         starlarkEnv.createBuildEnvUsingInjection(
-            ImmutableMap.of("overridable_rule", "new_rule"), /*overridesList=*/ ImmutableList.of());
+            ImmutableMap.of("overridable_rule", "new_rule"),
+            /* overridesList= */ ImmutableList.of());
     assertThat(env).containsEntry("overridable_rule", "new_rule");
   }
 
@@ -209,7 +208,7 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
                 "-another_overridable_symbol",
                 "another_new_value"),
             ImmutableMap.of("-overridable_rule", "new_rule"),
-            /*overridesList=*/ ImmutableList.of());
+            /* overridesList= */ ImmutableList.of());
     assertThat(env).containsEntry("overridable_symbol", "new_value");
     assertThat(env).containsEntry("another_overridable_symbol", "another_original_value");
     // Match the original rule's toString since the actual specific object is not easily accessible.

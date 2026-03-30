@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.skyframe.KeyToConsolidate.Op;
@@ -30,6 +31,7 @@ import javax.annotation.Nullable;
 
 /** An {@link InMemoryNodeEntry} that {@link #keepsEdges} for use in incremental evaluations. */
 public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<DirtyBuildingState> {
+  public static final EmptySkyValue CLEARED_SKY_VALUE = new EmptySkyValue();
 
   protected volatile NodeVersion version = Version.minimal();
 
@@ -81,6 +83,22 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
 
   public IncrementalInMemoryNodeEntry(SkyKey key) {
     super(key);
+  }
+
+  /**
+   * Replaces the SkyValue with a placeholder value indicating that it has been cleared.
+   *
+   * <p>Almost all SkyFunctions will break if they receive a cleared value and it should only be
+   * used in situations where that is known to be impossible. It should never be used in cases where
+   * a Bazel server instance will be kept running for incremental builds since the graph would be
+   * mutilated.
+   *
+   * <p>One appropriate use case is an optimization for Skycache primer builds (which are always
+   * cold) that reduces peak heap by discarding unneeded values before serialization.
+   */
+  public void clearSkyValue() {
+    Preconditions.checkState(isDone());
+    this.value = CLEARED_SKY_VALUE;
   }
 
   @Override

@@ -22,12 +22,14 @@ java_library(
     name = "AbstractBuildEventServiceTransportTest",
     srcs = ABSTRACT_TEST_SRCS,
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice",
-        "//src/main/java/com/google/devtools/build/lib/buildeventservice:buildeventservice-options",
-        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice:build_event_service_options",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_client",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_proto_util",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
+        "//src/main/java/com/google/devtools/build/lib/buildtool/buildevent",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
@@ -46,9 +48,8 @@ java_library(
         "//third_party:netty",
         "//third_party:truth",
         "//third_party/grpc-java:grpc-jar",
+        "@com_google_protobuf//:protobuf_java",
         "@googleapis//google/devtools/build/v1:build_java_proto",
-        "@protobuf//:protobuf_java",
-        "@protobuf//:protobuf_java_util",
     ],
 )
 
@@ -61,35 +62,44 @@ java_test(
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = ["//src/test/java/com/google/devtools/build/lib:test_runner"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/buildeventservice",
-        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_client",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_grpc_client",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_proto_util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
         "//third_party/grpc-java:grpc-jar",
+        "@com_google_protobuf//:protobuf_java",
         "@googleapis//google/devtools/build/v1:build_java_grpc",
         "@googleapis//google/devtools/build/v1:build_java_proto",
-        "@protobuf//:protobuf_java",
-        "@protobuf//:protobuf_java_util",
     ],
 )
 
-java_test(
-    name = "BuildEventServiceTransportGrpcTest",
+java_library(
+    name = "BuildEventServiceTransportGrpcTestLib",
     srcs = ["BuildEventServiceTransportGrpcTest.java"],
     deps = [
         ":AbstractBuildEventServiceTransportTest",
-        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_client",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_grpc_client",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib/remote/util:free_port_finder",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party/grpc-java:grpc-jar",
+        "@com_google_protobuf//:protobuf_java",
         "@googleapis//google/devtools/build/v1:build_java_grpc",
         "@googleapis//google/devtools/build/v1:build_java_proto",
-        "@protobuf//:protobuf_java",
+    ],
+)
+
+java_test(
+    name = "BuildEventServiceTransportGrpcTest",
+    test_class = "com.google.devtools.build.lib.buildeventservice.BuildEventServiceTransportGrpcTest",
+    runtime_deps = [
+        ":BuildEventServiceTransportGrpcTestLib",
     ],
 )
 
@@ -101,22 +111,25 @@ java_test(
         "no_windows",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
+        ":build_event_service_test_utils",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice",
-        "//src/main/java/com/google/devtools/build/lib/buildeventservice:buildeventservice-options",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice:build_event_service_options",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream:build_event_service_upload_complete_event",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/transports",
         "//src/main/java/com/google/devtools/build/lib/network:connectivity_status",
         "//src/main/java/com/google/devtools/build/lib/network:noop_connectivity",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/runtime:no_spawn_cache_module",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/main/protobuf:command_line_java_proto",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//src/test/java/com/google/devtools/build/skyframe:testutil",
@@ -125,10 +138,24 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
         "//third_party/grpc-java:grpc-jar",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+    ],
+)
+
+java_library(
+    name = "build_event_service_test_utils",
+    srcs = [
+        "DelayingPublishBuildEventService.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/remote/util",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:truth",
+        "//third_party/grpc-java:grpc-jar",
+        "@com_google_protobuf//:protobuf_java",
         "@googleapis//google/devtools/build/v1:build_java_grpc",
         "@googleapis//google/devtools/build/v1:build_java_proto",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
-        "@protobuf//:protobuf_java",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )

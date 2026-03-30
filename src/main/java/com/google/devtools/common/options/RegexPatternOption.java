@@ -15,6 +15,8 @@ package com.google.devtools.common.options;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.util.regex.RegexUtil;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 /**
@@ -29,10 +31,25 @@ import java.util.regex.Pattern;
 @AutoValue
 public abstract class RegexPatternOption {
   static RegexPatternOption create(Pattern regexPattern) {
-    return new AutoValue_RegexPatternOption(Preconditions.checkNotNull(regexPattern));
+    return new AutoValue_RegexPatternOption(
+        Preconditions.checkNotNull(regexPattern),
+        RegexUtil.asOptimizedMatchingPredicate(regexPattern));
   }
 
+  /**
+   * The original regex pattern.
+   *
+   * <p>Note: Strings passed to the {@link Pattern} and {@link java.util.regex.Matcher} API have to
+   * be converted to "Unicode" form first (see {@link
+   * com.google.devtools.build.lib.util.StringEncoding#internalToUnicode}.
+   */
   public abstract Pattern regexPattern();
+
+  /**
+   * A potentially optimized {@link Predicate} that matches the entire input string against the
+   * regex pattern.
+   */
+  public abstract Predicate<String> matcher();
 
   @Override
   public final boolean equals(Object other) {

@@ -16,19 +16,23 @@
 
 #include <string>
 
+#include "src/main/cpp/command_extension_adder.h"
 #include "src/main/cpp/option_processor.h"
-#include "src/main/cpp/workspace_layout.h"
+#include "src/main/cpp/startup_interceptor.h"
 #include "src/main/cpp/util/logging.h"
+#include "src/main/cpp/workspace_layout.h"
 
 namespace blaze {
 
 // Prints client version information to standard output, e.g. when invoking the
 // client with "--version".
-void PrintVersionInfo(const std::string& self_path,
+void PrintVersionInfo(const std::string& build_label,
                       const std::string& product_name);
 
-int Main(int argc, const char *const *argv, WorkspaceLayout* workspace_layout,
-         OptionProcessor* option_processor, uint64_t start_time);
+int Main(int argc, const char* const* argv, WorkspaceLayout* workspace_layout,
+         OptionProcessor* option_processor, StartupInterceptor* interceptor,
+         CommandExtensionAdder* command_extension_adder,
+         uint64_t start_time);
 
 }  // namespace blaze
 

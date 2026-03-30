@@ -95,9 +95,11 @@ public final class PathPackageLocator {
         }
       }
     } else {
-      Verify.verify(outputBase != null, String.format(
+      Verify.verify(
+          outputBase != null,
           "External package '%s' needs to be loaded but this PathPackageLocator instance does not "
-              + "support external packages", packageIdentifier));
+              + "support external packages",
+          packageIdentifier);
       // This works only to some degree, because it relies on the presence of the repository under
       // $OUTPUT_BASE/external, which is created by the appropriate RepositoryDirectoryValue. This
       // is true for the invocation in GlobCache, but not for the locator.getBuildFileForPackage()

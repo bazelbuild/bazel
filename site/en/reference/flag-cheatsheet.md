@@ -157,7 +157,7 @@ builds by default and what gets sandboxed, see our
   <b>Tip:</b> If you think the error might be caused by sandboxing,
   try turning sandboxing off temporarily.
 
-  <p>To do this, add <code>--spawn_strategy=<strong>standalone</strong></code>
+  <p>To do this, add <code>--spawn_strategy=<strong>local</strong></code>
   to your command.</p>
 
 </aside>
@@ -523,7 +523,7 @@ The value to pass as <code>instance_name</code> in the remote execution API.
 
   <tr>
     <td>
-    <h3 id="flag-show-timestamps" data-text="show-timestamps"><code><a href="https://bazel.build/docs/user-manual#show-timestamps">--show-timestamps</a></code></h3>
+    <h3 id="flag-show-timestamps" data-text="show-timestamps"><code><a href="https://bazel.build/docs/user-manual#show-timestamps">--show_timestamps</a></code></h3>
     </td>
     <td>
 

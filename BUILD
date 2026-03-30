@@ -1,9 +1,12 @@
 # Bazel - Google's Build System
 
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 load("@rules_license//rules:license.bzl", "license")
+load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load("@rules_python//python:defs.bzl", "py_binary")
+load("//src:release_archive.bzl", "MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION", "MINIMUM_JAVA_RUNTIME_VERSION")
 load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup")
 
@@ -29,7 +32,6 @@ filegroup(
     srcs = glob(
         ["*"],
         exclude = [
-            "MODULE.bazel.lock",  # Use MODULE.bazel.lock.dist instead
             "bazel-*",  # convenience symlinks
             "out",  # IntelliJ with setup-intellij.sh
             "output",  # output of compile.sh
@@ -37,6 +39,7 @@ filegroup(
         ],
     ) + [
         "//:MODULE.bazel.lock.dist",
+        "//docs:srcs",
         "//examples:srcs",
         "//scripts:srcs",
         "//site:srcs",
@@ -45,10 +48,17 @@ filegroup(
         "//src/main/starlark/tests/builtins_bzl:srcs",
         "//third_party:srcs",
         "//tools:srcs",
-    ] + glob([".bazelci/*"]) + [
+    ] + glob(
+        [".bazelci/*"],
+        # allow_empty = True is needed in bootstrap.
+        allow_empty = True,
+    ) + [
         ".bazelrc",
         ".bazelversion",
-    ],
+    ] + glob(
+        [".gemini/*"],
+        allow_empty = True,
+    ),
     applicable_licenses = ["@io_bazel//:license"],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
@@ -56,16 +66,6 @@ filegroup(
 filegroup(
     name = "dummy",
     visibility = ["//visibility:public"],
-)
-
-filegroup(
-    name = "workspace-deps-bzl",
-    srcs = [
-        ":workspace_deps.bzl",
-    ],
-    visibility = [
-        "//src/test/shell/bazel:__subpackages__",
-    ],
 )
 
 filegroup(
@@ -80,10 +80,9 @@ genrule(
     name = "generate_dist_lockfile",
     srcs = [
         "MODULE.bazel",
-        "//third_party/remoteapis:MODULE.bazel",
+        "//third_party:remoteapis/MODULE.bazel",
         "//third_party:BUILD",
-        "//third_party:rules_jvm_external_6.0.patch",
-        "//third_party:rules_graalvm_fix.patch",
+        "//third_party:patches",
     ],
     outs = ["MODULE.bazel.lock.dist"],
     cmd = " && ".join([
@@ -107,11 +106,14 @@ genrule(
 pkg_tar(
     name = "bootstrap-jars",
     srcs = [
+        "//third_party/chicory:dist_jars",
         "//third_party/googleapis:dist_jars",
         "//third_party/grpc-java:grpc_jars",
-        "@protobuf//:protobuf_java",
-        "@protobuf//:protobuf_java_util",
-        "@protobuf//:protobuf_javalite",
+        "@async_profiler//file",
+        "@com_google_protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_java_util",
+        "@com_google_protobuf//:protobuf_javalite",
+        "@com_google_protobuf//java/core:lite_runtime_only",
         "@zstd-jni//:zstd-jni",
     ],
     package_dir = "derived/jars",
@@ -149,22 +151,40 @@ filegroup(
     name = "generated_resources",
     srcs = [
         "//src/main/java/com/google/devtools/build/lib/bazel/rules:builtins_bzl.zip",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules:coverage.WORKSPACE",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules:rules_suffix.WORKSPACE",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp:cc_configure.WORKSPACE",
     ],
+)
+
+# Bazel sources excluding files that are not needed in the distfile.
+pkg_files(
+    name = "dist-srcs",
+    srcs = ["//:srcs"],
+    attributes = pkg_attributes(mode = "0755"),
+    excludes = [
+        "MODULE.bazel.lock",  # Use MODULE.bazel.lock.dist instead
+        "//examples:srcs",
+        "//site:srcs",
+        "//docs:srcs",
+        "//src:srcs-to-exclude-in-distfile",
+    ] + glob(
+        [".bazelci/*"],
+        # allow_empty = True is needed in bootstrap.
+        allow_empty = True,
+    ) + glob(
+        [".gemini/*"],
+        allow_empty = True,
+    ),
+    renames = {
+        "MODULE.bazel.lock.dist": "MODULE.bazel.lock",
+    },
+    strip_prefix = "/",  # Ensure paths are relative to the workspace root.
 )
 
 pkg_tar(
     name = "bazel-srcs",
     srcs = [
+        ":dist-srcs",
         ":generated_resources",
-        ":srcs",
     ],
-    # TODO(aiuto): Replace with pkg_filegroup when that is available.
-    remap_paths = {
-        "MODULE.bazel.lock.dist": "MODULE.bazel.lock",
-    },
     strip_prefix = ".",
     # Public but bazel-only visibility.
     visibility = ["//:__subpackages__"],
@@ -301,3 +321,21 @@ REMOTE_PLATFORMS = ("rbe_ubuntu2004",)
     )
     for platform_name in REMOTE_PLATFORMS
 ]
+
+# LINT.IfChange
+[
+    default_java_toolchain(
+        name = "java_toolchain_%s" % language_version,
+        java_runtime = "@rules_java//toolchains:remotejdk_25",
+        oneversion_allowlist = ":oneversion_allowlist.csv",
+        oneversion_allowlist_for_tests = ":oneversion_allowlist_for_tests.csv",
+        source_version = str(language_version),
+        target_version = str(language_version),
+    )
+    for language_version in set([
+        MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION,
+        MINIMUM_JAVA_RUNTIME_VERSION,
+        21,
+    ])
+]
+# LINT.ThenChange(//.bazelrc)

@@ -17,6 +17,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <sys/types.h>
+#include <cstdio>
 
 #ifndef _WIN32
 #include <unistd.h>
@@ -28,7 +29,6 @@
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/strings.h"
-
 #include "googletest/include/gtest/gtest.h"
 
 #ifdef _WIN32
@@ -38,7 +38,7 @@
 
 namespace singlejar_test_util {
 
-bool AllocateFile(const string &name, size_t size) {
+bool AllocateFile(const string& name, size_t size) {
 #ifdef _WIN32
   int fd = _sopen(name.c_str(), _O_RDWR | _O_CREAT | _O_BINARY, _SH_DENYNO,
                   _S_IREAD | _S_IWRITE);
@@ -70,12 +70,12 @@ bool AllocateFile(const string &name, size_t size) {
 #endif
 }
 
-int RunCommand(const char *cmd, ...) {
+int RunCommand(const char* cmd, ...) {
   string args_string(cmd);
   va_list ap;
   va_start(ap, cmd);
-  for (const char *arg = va_arg(ap, const char *); arg;
-       arg = va_arg(ap, const char *)) {
+  for (const char* arg = va_arg(ap, const char*); arg;
+       arg = va_arg(ap, const char*)) {
     args_string += ' ';
     args_string += arg;
   }
@@ -85,25 +85,25 @@ int RunCommand(const char *cmd, ...) {
 }
 
 // List zip file contents.
-void LsZip(const char *zip_name) {
+void LsZip(const char* zip_name) {
 #if !defined(__APPLE__)
   RunCommand("unzip", "-v", zip_name, nullptr);
 #endif
 }
 
-string OutputFilePath(const string &relpath) {
-  const char *out_dir = getenv("TEST_TMPDIR");
+string OutputFilePath(const string& relpath) {
+  const char* out_dir = getenv("TEST_TMPDIR");
   return blaze_util::JoinPath((nullptr == out_dir) ? "." : out_dir,
                               relpath.c_str());
 }
 
-int VerifyZip(const string &zip_path) {
+int VerifyZip(const string& zip_path) {
   string verify_command;
   blaze_util::StringPrintf(&verify_command, "zip -Tv %s", zip_path.c_str());
   return system(verify_command.c_str());
 }
 
-string GetEntryContents(const string &zip_path, const string &entry_name) {
+string GetEntryContents(const string& zip_path, const string& entry_name) {
   string contents;
   string command;
   blaze_util::StringPrintf(&command, "unzip -p %s %s", zip_path.c_str(),
@@ -111,9 +111,9 @@ string GetEntryContents(const string &zip_path, const string &entry_name) {
 #ifdef _WIN32
   // "b" is Microsoft-specific. It's necessary, because without it the popen
   // implementation will strip "\r\n" to "\n" and make many tests fail.
-  FILE *fp = popen(command.c_str(), "rb");
+  FILE* fp = popen(command.c_str(), "rb");
 #else
-  FILE *fp = popen(command.c_str(), "r");
+  FILE* fp = popen(command.c_str(), "r");
 #endif
   if (!fp) {
     ADD_FAILURE() << "Command " << command << " failed.";
@@ -121,8 +121,9 @@ string GetEntryContents(const string &zip_path, const string &entry_name) {
   }
 
   char buf[1024];
-  while (fgets(buf, sizeof(buf), fp)) {
-    contents.append(buf);
+  size_t nread;
+  while ((nread = fread(buf, 1, sizeof(buf), fp)) > 0) {
+    contents.append(buf, nread);
   }
   if (feof(fp) && !ferror(fp) && !pclose(fp)) {
     return contents;
@@ -131,7 +132,7 @@ string GetEntryContents(const string &zip_path, const string &entry_name) {
   return string("");
 }
 
-string CreateTextFile(const string& relpath, const char *contents) {
+string CreateTextFile(const string& relpath, const char* contents) {
   string out_path = OutputFilePath(relpath);
   blaze_util::MakeDirectories(blaze_util::Dirname(out_path), 0777);
   if (blaze_util::WriteFile(contents, out_path)) {

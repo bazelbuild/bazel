@@ -23,13 +23,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.common.eventbus.AllowConcurrentEvents;
+import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionChangePrunedEvent;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
@@ -42,7 +45,6 @@ import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileCompression;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
@@ -61,12 +63,14 @@ import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory.I
 import com.google.devtools.build.lib.server.FailureDetails.BuildReport;
 import com.google.devtools.build.lib.server.FailureDetails.BuildReport.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -79,13 +83,14 @@ import java.io.OutputStream;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.annotation.Nullable;
 
 /**
  * Blaze module that writes a partial execution graph with performance data. The file will be zstd
@@ -148,12 +153,31 @@ public class ExecutionGraphModule extends BlazeModule {
     public int queueSize;
 
     @Option(
+        name = "execution_graph_log_queued_bytes_limit",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        defaultValue = "-1",
+        help =
+            "The maximum number of bytes that can be enqueued at a time in the action dump queue."
+                + " -1 means unbounded. Setting this can limit peak memory at the cost of stalling"
+                + " execution threads.")
+    public int queuedBytesLimit;
+
+    @Option(
         name = "experimental_execution_graph_enable_edges_from_filewrite_actions",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
         defaultValue = "true",
         help = "Handle edges from filewrite actions to their inputs correctly.")
     public boolean logFileWriteEdges;
+
+    @Option(
+        name = "experimental_execution_graph_include_change_pruned_actions",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        defaultValue = "false",
+        help = "Whether to include change pruned actions in execution graph.")
+    public boolean includeChangePrunedActions;
   }
 
   /** What level of dependency information to include in the dump. */
@@ -170,16 +194,18 @@ public class ExecutionGraphModule extends BlazeModule {
     }
   }
 
+  private boolean includeChangePrunedActions;
   private ActionDumpWriter writer;
   private CommandEnvironment env;
+  private WalkableGraph graph;
   private NanosToMillisSinceEpochConverter nanosToMillis =
       BlazeClock.createNanosToMillisSinceEpochConverter();
   // Only relevant for Skymeld: there may be multiple events and we only count the first one.
   private final AtomicBoolean executionStarted = new AtomicBoolean();
 
   @Override
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return "build".equals(command.name())
+  public Iterable<Class<? extends OptionsBase>> getCommandOptions(String commandName) {
+    return commandName.equals("build")
         ? ImmutableList.of(ExecutionGraphOptions.class)
         : ImmutableList.of();
   }
@@ -187,6 +213,11 @@ public class ExecutionGraphModule extends BlazeModule {
   @VisibleForTesting
   void setWriter(ActionDumpWriter writer) {
     this.writer = writer;
+  }
+
+  @VisibleForTesting
+  void setGraph(WalkableGraph graph) {
+    this.graph = graph;
   }
 
   @VisibleForTesting
@@ -219,6 +250,8 @@ public class ExecutionGraphModule extends BlazeModule {
                                 BuildReport.newBuilder().setCode(Code.BUILD_REPORT_WRITE_FAILED))
                             .build())));
       }
+
+      includeChangePrunedActions = options.includeChangePrunedActions;
     }
   }
 
@@ -235,6 +268,9 @@ public class ExecutionGraphModule extends BlazeModule {
   }
 
   private void handleExecutionBegin() {
+    if (includeChangePrunedActions) {
+      graph = SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
+    }
     try {
       // Defer creation of writer until the start of the execution phase. This is done for two
       // reasons:
@@ -297,6 +333,25 @@ public class ExecutionGraphModule extends BlazeModule {
         event.getFinishTimeNanos());
   }
 
+  @Subscribe
+  @AllowConcurrentEvents
+  public void actionChangePruned(ActionChangePrunedEvent event) throws InterruptedException {
+    if (graph == null) {
+      return;
+    }
+
+    if (!(Actions.getAction(graph, event.actionLookupData()) instanceof Action action)) {
+      return;
+    }
+
+    // TODO(chiwang): Handle runfiles for change-pruned actions.
+    actionEvent(
+        action,
+        /* inputMetadataProvider= */ null,
+        event.finishTimeNanos(),
+        event.finishTimeNanos());
+  }
+
   /**
    * Record an action that was not executed because it was in the (disk) cache. This is needed so
    * that we can calculate correctly the dependencies tree if we have some cached actions in the
@@ -314,7 +369,7 @@ public class ExecutionGraphModule extends BlazeModule {
 
   private void actionEvent(
       Action action,
-      InputMetadataProvider inputMetadataProvider,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       long nanoTimeStart,
       long nanoTimeFinish) {
     ActionDumpWriter localWriter = writer;
@@ -371,6 +426,7 @@ public class ExecutionGraphModule extends BlazeModule {
     } finally {
       writer = null;
       env = null;
+      graph = null;
       executionStarted.set(false);
     }
   }
@@ -381,7 +437,7 @@ public class ExecutionGraphModule extends BlazeModule {
 
     private ExecutionGraph.Node actionToNode(
         Action action,
-        InputMetadataProvider inputMetadataProvider,
+        @Nullable InputMetadataProvider inputMetadataProvider,
         long startMillis,
         long finishMillis) {
       int index = nextIndex.getAndIncrement();
@@ -412,7 +468,7 @@ public class ExecutionGraphModule extends BlazeModule {
       return node.build();
     }
 
-    private void setFieldsFromOwner(ExecutionGraph.Node.Builder node, ActionOwner owner) {
+    private static void setFieldsFromOwner(ExecutionGraph.Node.Builder node, ActionOwner owner) {
       if (owner != null) {
         if (owner.getTargetKind() != null) {
           node.setRuleClass(owner.getTargetKind());
@@ -435,6 +491,9 @@ public class ExecutionGraphModule extends BlazeModule {
           .setMnemonic(spawn.getMnemonic())
           .setRunner(spawnResult.getRunnerName())
           .setRunnerSubtype(spawnResult.getRunnerSubtype());
+      if (event.getSpawnIdentifier() != null) {
+        nodeBuilder.setIdentifier(event.getSpawnIdentifier());
+      }
 
       if (depType != DependencyInfo.NONE) {
         nodeBuilder.setIndex(index);
@@ -497,7 +556,7 @@ public class ExecutionGraphModule extends BlazeModule {
       return nodeBuilder.setMetrics(metricsBuilder).build();
     }
 
-    private ActionInput getFirstOutput(
+    private static ActionInput getFirstOutput(
         ActionExecutionMetadata metadata, Iterable<? extends ActionInput> outputs) {
       // Spawn.getOutputFiles can be empty. For example, SpawnAction can be made to not report
       // outputs, and ExtraAction uses that. In that case, fall back to the owner's primary output.
@@ -515,7 +574,7 @@ public class ExecutionGraphModule extends BlazeModule {
         Iterable<? extends ActionInput> outputs,
         NestedSet<? extends ActionInput> inputs,
         ActionExecutionMetadata metadata,
-        InputMetadataProvider inputMetadataProvider,
+        @Nullable InputMetadataProvider inputMetadataProvider,
         long startMillis,
         long totalMillis,
         int index) {
@@ -583,7 +642,9 @@ public class ExecutionGraphModule extends BlazeModule {
         // We don't use inputMetadataProvider.getRunfilesTrees() because this method is called both
         // for Spawns and Actions and the runfiles on a Spawn can be a subset of the runfiles of the
         // action during whose execution it was created.
-        if ((input instanceof Artifact) && ((Artifact) input).isRunfilesTree()) {
+        if ((input instanceof Artifact)
+            && ((Artifact) input).isRunfilesTree()
+            && inputMetadataProvider != null) {
           // This is a runfiles tree. Collect the artifacts in it into
           // runfilesArtifactsBuilder.
           RunfilesTree runfilesTree =
@@ -592,21 +653,22 @@ public class ExecutionGraphModule extends BlazeModule {
         }
 
         if (depType == DependencyInfo.ALL) {
-          NodeInfo dep = outputToNode.get(input);
-          if (dep != null) {
-            deps.add(dep.index);
-          }
+          maybeAddArtifactDependency(deps, input);
         }
       }
 
       for (Artifact runfilesInput : runfilesArtifactsBuilder.build().toList()) {
-        NodeInfo dep = outputToNode.get(runfilesInput);
-        if (dep != null) {
-          deps.add(dep.index);
-        }
+        maybeAddArtifactDependency(deps, runfilesInput);
       }
 
       nodeBuilder.addAllDependentIndex(deps);
+    }
+
+    private void maybeAddArtifactDependency(Set<Integer> deps, ActionInput input) {
+      NodeInfo dep = outputToNode.get(input);
+      if (dep != null) {
+        deps.add(dep.index);
+      }
     }
 
     private static final class NodeInfo {
@@ -620,6 +682,7 @@ public class ExecutionGraphModule extends BlazeModule {
     }
 
     private final BugReporter bugReporter;
+    private final EventBus eventBus;
     private final boolean localLockFreeOutputEnabled;
     private final boolean logFileWriteEdges;
     private final Map<ActionInput, NodeInfo> outputToNode = new ConcurrentHashMap<>();
@@ -637,6 +700,10 @@ public class ExecutionGraphModule extends BlazeModule {
     // but the vast majority of builds don't have that many actions.
     private final BlockingQueue<byte[]> queue;
     private final AtomicLong blockedMillis = new AtomicLong(0);
+    private final AtomicLong currentQueuedBytes = new AtomicLong(0);
+    private final AtomicLong maxQueuedBytes = new AtomicLong(0);
+    private final int queuedBytesLimit;
+    @Nullable private final Semaphore queuedBytesSemaphore;
     private final OutputStream outStream;
     private final Thread thread;
 
@@ -649,13 +716,15 @@ public class ExecutionGraphModule extends BlazeModule {
 
     ActionDumpWriter(
         BugReporter bugReporter,
+        EventBus eventBus,
         boolean localLockFreeOutputEnabled,
         boolean logFileWriteEdges,
         OutputStream outStream,
-        UUID commandId,
         DependencyInfo depType,
-        int queueSize) {
+        int queueSize,
+        int queuedBytesLimit) {
       this.bugReporter = bugReporter;
+      this.eventBus = eventBus;
       this.localLockFreeOutputEnabled = localLockFreeOutputEnabled;
       this.logFileWriteEdges = logFileWriteEdges;
       this.outStream = outStream;
@@ -665,17 +734,39 @@ public class ExecutionGraphModule extends BlazeModule {
       } else {
         queue = new LinkedBlockingQueue<>(queueSize);
       }
+      if (queuedBytesLimit < 0) {
+        queuedBytesSemaphore = null;
+      } else {
+        queuedBytesSemaphore = new Semaphore(queuedBytesLimit);
+      }
+      this.queuedBytesLimit = queuedBytesLimit;
       this.thread = new Thread(this, "action-graph-writer");
       this.thread.start();
     }
 
-    private static final class ActionDumpQueueFullException extends RuntimeException {
-      ActionDumpQueueFullException(long blockedMs) {
-        super("Action dump queue was full and put() blocked for " + blockedMs + "ms.");
+    void enqueueBytes(byte[] entry) {
+      if (queuedBytesSemaphore != null && entry.length > 0) {
+        int permits = numPermits(entry);
+        if (!queuedBytesSemaphore.tryAcquire(permits)) {
+          Stopwatch sw = Stopwatch.createStarted();
+          try {
+            queuedBytesSemaphore.acquire(permits);
+          } catch (InterruptedException e) {
+            logger.atWarning().atMostEvery(10, SECONDS).withCause(e).log(
+                "Interrupted while trying to acquire queued bytes semaphore");
+            Thread.currentThread().interrupt();
+            return;
+          } finally {
+            blockedMillis.addAndGet(sw.elapsed().toMillis());
+          }
+        }
       }
-    }
 
-    void enqueue(byte[] entry) {
+      long current = currentQueuedBytes.addAndGet(entry.length);
+      // Avoid expensive CAS operations in accumulateAndGet() once a high peak is established.
+      if (current > maxQueuedBytes.get()) {
+        maxQueuedBytes.accumulateAndGet(current, Math::max);
+      }
       if (queue.offer(entry)) {
         return;
       }
@@ -685,9 +776,24 @@ public class ExecutionGraphModule extends BlazeModule {
       } catch (InterruptedException e) {
         logger.atWarning().atMostEvery(10, SECONDS).withCause(e).log(
             "Interrupted while trying to put to queue");
+        releaseQueuedBytes(entry);
         Thread.currentThread().interrupt();
       }
       blockedMillis.addAndGet(sw.elapsed().toMillis());
+    }
+
+    private void releaseQueuedBytes(byte[] entry) {
+      currentQueuedBytes.addAndGet(-entry.length);
+      if (queuedBytesSemaphore != null) {
+        queuedBytesSemaphore.release(numPermits(entry));
+      }
+    }
+
+    private int numPermits(byte[] entry) {
+      // Clamp to queuedBytesLimit. This is intentional to prevent deadlocks when a single entry is
+      // larger than the total limit, even though it allows the memory limit to be exceeded for that
+      // specific entry.
+      return Math.min(entry.length, queuedBytesLimit);
     }
 
     void enqueue(DiscoveredInputsEvent event) {
@@ -702,7 +808,7 @@ public class ExecutionGraphModule extends BlazeModule {
 
     void enqueue(
         Action action,
-        InputMetadataProvider inputMetadataProvider,
+        @Nullable InputMetadataProvider inputMetadataProvider,
         long startMillis,
         long finishMillis) {
       // This is here just to capture actions which don't have spawns. If we already know about
@@ -716,23 +822,25 @@ public class ExecutionGraphModule extends BlazeModule {
         // spawns, we can just skip them here.
         return;
       }
-      enqueue(actionToNode(action, inputMetadataProvider, startMillis, finishMillis).toByteArray());
+      enqueueBytes(
+          actionToNode(action, inputMetadataProvider, startMillis, finishMillis).toByteArray());
     }
 
     void enqueue(SpawnExecutedEvent event) {
-      enqueue(toProto(event).toByteArray());
+      enqueueBytes(toProto(event).toByteArray());
     }
 
     void shutdown(BuildToolLogCollection logs) throws InterruptedException {
-      enqueue(INVOCATION_COMPLETED);
-      long blockedMs = blockedMillis.get();
-      if (blockedMs > 100) {
-        BugReport.sendBugReport(new ActionDumpQueueFullException(blockedMs));
-      }
+      enqueueBytes(INVOCATION_COMPLETED);
       thread.join();
       if (logs != null) {
         updateLogs(logs);
       }
+      eventBus.post(
+          ExecutionGraphWriterStats.newBuilder()
+              .setBlockedMillis(blockedMillis.get())
+              .setMaxQueuedBytes(maxQueuedBytes.get())
+              .build());
     }
 
     void actionShared(SharedActionEvent event) {
@@ -786,6 +894,7 @@ public class ExecutionGraphModule extends BlazeModule {
           byte[] data;
           while ((data = queue.take()) != INVOCATION_COMPLETED) {
             codedOut.writeByteArrayNoTag(data);
+            releaseQueuedBytes(data);
           }
           receivedLastEntry = true;
           codedOut.flush();
@@ -793,8 +902,9 @@ public class ExecutionGraphModule extends BlazeModule {
           // Fixing b/117951060 should mitigate, but may happen regardless.
           logger.atWarning().withCause(e).log("Failure writing action dump");
           if (!receivedLastEntry) {
-            while (queue.take() != INVOCATION_COMPLETED) {
-              // We keep emptying the queue to avoid OOMs or blocking, but we can't write anything.
+            byte[] data;
+            while ((data = queue.take()) != INVOCATION_COMPLETED) {
+              releaseQueuedBytes(data);
             }
           }
         }
@@ -814,7 +924,7 @@ public class ExecutionGraphModule extends BlazeModule {
         .create(env);
   }
 
-  private ActionDumpWriter createActionDumpWriter(CommandEnvironment env)
+  private static ActionDumpWriter createActionDumpWriter(CommandEnvironment env)
       throws InvalidPackagePathSymlinkException, ActionDumpFileCreationException {
     OptionsParsingResult parsingResult = env.getOptions();
     BuildEventProtocolOptions bepOptions =
@@ -825,12 +935,13 @@ public class ExecutionGraphModule extends BlazeModule {
         && executionGraphOptions.executionGraphLogPath.isBlank()) {
       return new StreamingActionDumpWriter(
           env.getRuntime().getBugReporter(),
+          env.getEventBus(),
           env.getOptions().getOptions(LocalExecutionOptions.class).localLockfreeOutput,
           executionGraphOptions.logFileWriteEdges,
           newUploader(env, bepOptions).startUpload(LocalFileType.PERFORMANCE_LOG, null),
-          env.getCommandId(),
           executionGraphOptions.depType,
-          executionGraphOptions.queueSize);
+          executionGraphOptions.queueSize,
+          executionGraphOptions.queuedBytesLimit);
     }
 
     String path = executionGraphOptions.executionGraphLogPath;
@@ -841,12 +952,13 @@ public class ExecutionGraphModule extends BlazeModule {
     try {
       return new FilesystemActionDumpWriter(
           env.getRuntime().getBugReporter(),
+          env.getEventBus(),
           env.getOptions().getOptions(LocalExecutionOptions.class).localLockfreeOutput,
           executionGraphOptions.logFileWriteEdges,
           actionGraphFile,
-          env.getCommandId(),
           executionGraphOptions.depType,
-          executionGraphOptions.queueSize);
+          executionGraphOptions.queueSize,
+          executionGraphOptions.queuedBytesLimit);
     } catch (IOException e) {
       throw new ActionDumpFileCreationException(actionGraphFile, e);
     }
@@ -855,23 +967,25 @@ public class ExecutionGraphModule extends BlazeModule {
   private static final class FilesystemActionDumpWriter extends ActionDumpWriter {
     private final Path actionGraphFile;
 
-    public FilesystemActionDumpWriter(
+    FilesystemActionDumpWriter(
         BugReporter bugReporter,
+        EventBus eventBus,
         boolean localLockFreeOutputEnabled,
         boolean logFileWriteEdges,
         Path actionGraphFile,
-        UUID uuid,
         DependencyInfo depType,
-        int queueSize)
+        int queueSize,
+        int queuedBytesLimit)
         throws IOException {
       super(
           bugReporter,
+          eventBus,
           localLockFreeOutputEnabled,
           logFileWriteEdges,
           actionGraphFile.getOutputStream(),
-          uuid,
           depType,
-          queueSize);
+          queueSize,
+          queuedBytesLimit);
       this.actionGraphFile = actionGraphFile;
     }
 
@@ -905,20 +1019,22 @@ public class ExecutionGraphModule extends BlazeModule {
 
     public StreamingActionDumpWriter(
         BugReporter bugReporter,
+        EventBus eventBus,
         boolean localLockFreeOutputEnabled,
         boolean logFileWriteEdges,
         UploadContext uploadContext,
-        UUID commandId,
         DependencyInfo depType,
-        int queueSize) {
+        int queueSize,
+        int queuedBytesLimit) {
       super(
           bugReporter,
+          eventBus,
           localLockFreeOutputEnabled,
           logFileWriteEdges,
           uploadContext.getOutputStream(),
-          commandId,
           depType,
-          queueSize);
+          queueSize,
+          queuedBytesLimit);
       this.uploadContext = uploadContext;
     }
 

@@ -15,16 +15,19 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -37,13 +40,18 @@ public final class CqueryProcessor extends PostAnalysisQueryProcessor<CqueryNode
   }
 
   @Override
+  protected CommonQueryOptions getQueryOptions(CommandEnvironment env) {
+    return env.getOptions().getOptions(CqueryOptions.class);
+  }
+
+  @Override
   protected ConfiguredTargetQueryEnvironment getQueryEnvironment(
       BuildRequest request,
       CommandEnvironment env,
       TopLevelConfigurations configurations,
       ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
-      WalkableGraph walkableGraph)
-      throws InterruptedException {
+      ImmutableMap<AspectKeyCreator.AspectKey, ConfiguredAspect> topLevelAspects,
+      WalkableGraph walkableGraph) {
     ImmutableList<QueryFunction> extraFunctions =
         new ImmutableList.Builder<QueryFunction>()
             .addAll(ConfiguredTargetQueryEnvironment.CQUERY_FUNCTIONS)
@@ -59,6 +67,7 @@ public final class CqueryProcessor extends PostAnalysisQueryProcessor<CqueryNode
         extraFunctions,
         configurations,
         transitiveConfigurations,
+        topLevelAspects,
         mainRepoTargetParser,
         env.getPackageManager().getPackagePath(),
         () -> walkableGraph,

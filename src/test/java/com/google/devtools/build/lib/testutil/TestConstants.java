@@ -14,22 +14,22 @@
 
 package com.google.devtools.build.lib.testutil;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 
 /**
  * Various constants required by the tests.
  */
 public class TestConstants {
-
-  public static final String PROTO_TOOLCHAIN = "@com_google_protobuf//bazel/private:proto_toolchain_type";
+  private TestConstants() {}
 
   public static final String LOAD_PROTO_LANG_TOOLCHAIN =
-      "load('@com_google_protobuf//bazel/toolchains:proto_lang_toolchain.bzl', 'proto_lang_toolchain')";
-
-  private TestConstants() {
-  }
+      "load('@com_google_protobuf//bazel/toolchains:proto_lang_toolchain.bzl',"
+          + " 'proto_lang_toolchain')";
 
   public static final String PRODUCT_NAME = "bazel";
 
@@ -37,7 +37,6 @@ public class TestConstants {
    * A list of all embedded binaries that go into the regular Bazel binary.
    */
   public static final ImmutableList<String> EMBEDDED_TOOLS = ImmutableList.of(
-      "build-runfiles",
       "linux-sandbox",
       "process-wrapper",
       "xcode-locator");
@@ -53,10 +52,8 @@ public class TestConstants {
    */
   public static final String WORKSPACE_NAME = "_main";
 
-  /**
-   * Legacy default workspace name.
-   */
-  public static final String LEGACY_WORKSPACE_NAME = "__main__";
+  public static final BzlLoadValue.Key OBJC_INFO_LOAD_KEY =
+      keyForBuild(Label.parseCanonicalUnchecked("@rules_cc+//cc/private:objc_info.bzl"));
 
   /**
    * Name of a class with an INSTANCE field of type AnalysisMock to be used for analysis tests.
@@ -88,6 +85,13 @@ public class TestConstants {
       "_main/src/test/shell/integration/spend_cpu_time";
 
   /**
+   * Relative path to the protolark-created {@code project_proto.scl} file that {@code PROJECT.scl}
+   * files load to define configuration.
+   */
+  public static final String PROJECT_SCL_DEFINITION_PATH =
+      "src/main/protobuf/project/project_proto.scl";
+
+  /**
    * Directory where we can find Bazel's own bootstrapping rules relative to a test's runfiles
    * directory, i.e. when //tools/build_rules:srcs is in a test's data.
    */
@@ -99,9 +103,6 @@ public class TestConstants {
       "com.google.devtools.build.lib.bazel.rules.BazelRulesModule";
   public static final String TEST_STRATEGY_MODULE =
       "com.google.devtools.build.lib.bazel.rules.BazelStrategyModule";
-  public static final String TEST_REAL_UNIX_FILE_SYSTEM =
-      "com.google.devtools.build.lib.unix.UnixFileSystem";
-  public static final String TEST_UNIX_HASH_ATTRIBUTE = "";
 
   public static final ImmutableList<String> IGNORED_MESSAGE_PREFIXES = ImmutableList.<String>of();
 
@@ -116,21 +117,24 @@ public class TestConstants {
   /** The file path in which to create files so that they end up under {@link #TOOLS_REPOSITORY}. */
   public static final String TOOLS_REPOSITORY_SCRATCH = "embedded_tools/";
 
-  /** The output file path prefix for tool file dependencies. */
-  public static final String TOOLS_REPOSITORY_PATH_PREFIX = "external/bazel_tools/";
-
   /** The directory in which rules_cc repo resides in execroot. */
-  public static final String RULES_CC_REPOSITORY_EXECROOT = "external/" + RulesCcRepoName.CANONICAL_REPO_NAME + "/";
+  public static final String RULES_CC_REPOSITORY_EXECROOT =
+      "external/" + RulesCcRepoName.CANONICAL_REPO_NAME + "/";
+
   /* Prefix for loads from rules_cc */
   public static final String RULES_CC = "@rules_cc//cc";
+  public static final String RULES_CC_CANNONICAL = "@@rules_cc+//cc";
+  public static final String MOCK_CC_SUPPORT_CLASS = "com.google.devtools.build.lib.packages.util.BazelMockCcSupport";
 
   /**
    * The repo/package rules_python is rooted at. If empty, builtin rules are used.
    */
   public static final String RULES_PYTHON_PACKAGE_ROOT = "@@rules_python+/";
 
-  public static final ImmutableList<String> DOCS_RULES_PATHS = ImmutableList.of(
-      "src/main/java/com/google/devtools/build/lib/rules");
+  public static final String PYINFO_BZL = "@@rules_python+//python/private:py_info.bzl";
+
+  public static final String PYRUNTIMEINFO_BZL =
+      "@@rules_python+//python/private:py_runtime_info.bzl";
 
   // Constants used to determine how genrule pulls in the setup script.
   public static final String GENRULE_SETUP = "@bazel_tools//tools/genrule:genrule-setup.sh";
@@ -145,15 +149,14 @@ public class TestConstants {
    */
   public static final ImmutableList<String> PRODUCT_SPECIFIC_FLAGS =
       ImmutableList.of(
-          "--platforms=@bazel_tools//tools:host_platform",
-          "--host_platform=@bazel_tools//tools:host_platform",
+          "--platforms=@platforms//host",
+          "--host_platform=@platforms//host",
           // TODO(#7849): Remove after flag flip.
-          "--incompatible_use_toolchain_resolution_for_java_rules");
+          "--incompatible_use_toolchain_resolution_for_java_rules",
+          "--incompatible_disable_select_on=cpu,crosstool_top,host_cpu");
 
   public static final ImmutableList<String> PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS =
-      ImmutableList.of(
-          // Don't apply autoloads in unit tests, because not all repos are available
-          "--incompatible_autoload_externally=");
+      ImmutableList.of();
 
   /** Partial query to filter out implicit dependencies of C/C++ rules. */
   public static final String CC_DEPENDENCY_CORRECTION =
@@ -161,29 +164,15 @@ public class TestConstants {
       + " - deps(" + TOOLS_REPOSITORY + "//tools/cpp:grep-includes)";
 
   public static final String APPLE_PLATFORM_PATH = "build_bazel_apple_support/platforms";
-  public static final String APPLE_PLATFORM_PACKAGE_ROOT = "@@build_bazel_apple_support+//platforms";
+  public static final String APPLE_PLATFORM_PACKAGE_ROOT =
+      "@@build_bazel_apple_support+//platforms";
   public static final String CONSTRAINTS_PACKAGE_ROOT = "@platforms//";
 
   public static final String PLATFORMS_PATH = "embedded_tools/platforms";
   public static final String CONSTRAINTS_PATH = "platforms_workspace";
 
   public static final String PLATFORM_LABEL = "@platforms//host";
-  public static final String PLATFORM_LABEL_ALIAS = "@bazel_tools//tools:host_platform";
   public static final String PIII_PLATFORM_LABEL = "@platforms//host:piii";
-
-  public static final Label ANDROID_DEFAULT_SDK =
-     Label.parseCanonicalUnchecked("@bazel_tools//tools/android:sdk");
-
-  /** What toolchain type do Android rules use for platform-based toolchain resolution? */
-  public static final String ANDROID_TOOLCHAIN_TYPE_LABEL =
-      TOOLS_REPOSITORY + "//tools/android:sdk_toolchain_type";
-
-  /** The launcher used by Bazel. */
-  public static final String LAUNCHER_PATH = "@bazel_tools//tools/launcher:launcher";
-
-  /** The target name for ProGuard's allowlister. */
-  public static final String PROGUARD_ALLOWLISTER_TARGET =
-      "@bazel_tools//tools/jdk:proguard_whitelister";
 
   /** The java toolchain type. */
   public static final String JAVA_TOOLCHAIN_TYPE = "@@bazel_tools//tools/jdk:toolchain_type";

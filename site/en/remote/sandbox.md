@@ -71,7 +71,6 @@ build:docker-sandbox --javabase=<...>
 build:docker-sandbox --crosstool_top=<...>
 build:docker-sandbox --experimental_docker_image=<...>
 build:docker-sandbox --spawn_strategy=docker --strategy=Javac=docker --genrule_strategy=docker
-build:docker-sandbox --define=EXECUTOR=remote
 build:docker-sandbox --experimental_docker_verbose
 build:docker-sandbox --experimental_enable_docker_sandbox
 ```

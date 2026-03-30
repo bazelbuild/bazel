@@ -26,8 +26,6 @@ import com.google.devtools.build.lib.rules.filegroup.FilegroupRule;
 import com.google.devtools.build.lib.rules.genquery.GenQueryRule;
 import com.google.devtools.build.lib.rules.starlarkdocextract.StarlarkDocExtractRule;
 import com.google.devtools.build.lib.rules.test.TestSuiteRule;
-import com.google.devtools.build.lib.util.ResourceFileLoader;
-import java.io.IOException;
 import net.starlark.java.eval.FlagGuardedValue;
 
 /**
@@ -51,13 +49,6 @@ public class GenericRules implements RuleSet {
     builder.addRuleDefinition(new LabelBuildSettingRule());
     builder.addRuleDefinition(new LabelBuildFlagRule());
     builder.addRuleDefinition(new StarlarkDocExtractRule());
-
-    try {
-      builder.addWorkspaceFilePrefix(
-          ResourceFileLoader.loadResource(BazelRuleClassProvider.class, "tools.WORKSPACE"));
-    } catch (IOException e) {
-      throw new IllegalStateException(e);
-    }
 
     // TODO(#11437): It'd be nice to hide this definition behind a static helper, but the most apt
     // place would be as a static method of InternalModule.java in lib.packages, and that package

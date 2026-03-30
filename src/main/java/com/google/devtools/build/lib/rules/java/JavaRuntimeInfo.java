@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
-import com.google.common.annotations.VisibleForTesting;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -26,15 +26,12 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
-import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -46,13 +43,13 @@ import net.starlark.java.eval.StarlarkInt;
 @Immutable
 public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
 
-  public static final StarlarkProviderWrapper<JavaRuntimeInfo> LEGACY_BUILTINS_PROVIDER =
-      new BuiltinsProvider();
   public static final StarlarkProviderWrapper<JavaRuntimeInfo> RULES_JAVA_PROVIDER =
       new RulesJavaProvider();
-  public static final StarlarkProviderWrapper<JavaRuntimeInfo> WORKSPACE_PROVIDER =
-      new WorkspaceProvider();
   public static final StarlarkProviderWrapper<JavaRuntimeInfo> PROVIDER = new Provider();
+
+  // Ensures that we use a canonical PathFragment instance per java binary exec path to save memory.
+  private static final LoadingCache<String, PathFragment> javaBinaryExecPathCache =
+      Caffeine.newBuilder().weakKeys().build(PathFragment::create);
 
   // Helper methods to access an instance of JavaRuntimeInfo.
 
@@ -83,7 +80,8 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
   private static JavaRuntimeInfo from(RuleContext ruleContext, ToolchainInfo toolchainInfo) {
     if (toolchainInfo != null) {
       try {
-        JavaRuntimeInfo result = wrap(toolchainInfo.getValue("java_runtime", Info.class));
+        JavaRuntimeInfo result =
+            wrap(toolchainInfo.getValue("java_runtime", Info.class), "java_runtime");
         if (result != null) {
           return result;
         }
@@ -100,16 +98,15 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
     super(underlying);
   }
 
-  public static JavaRuntimeInfo wrap(Info info) throws RuleErrorException {
+  public static JavaRuntimeInfo wrap(Info info, String what) throws RuleErrorException {
+    if (info == null) {
+      throw new RuleErrorException("expected a JavaRuntimeInfo, but " + what + " was unset.");
+    }
     com.google.devtools.build.lib.packages.Provider.Key key = info.getProvider().getKey();
     if (key.equals(PROVIDER.getKey())) {
       return PROVIDER.wrap(info);
-    } else if (key.equals(LEGACY_BUILTINS_PROVIDER.getKey())) {
-      return LEGACY_BUILTINS_PROVIDER.wrap(info);
     } else if (key.equals(RULES_JAVA_PROVIDER.getKey())) {
       return RULES_JAVA_PROVIDER.wrap(info);
-    } else if (key.equals(WORKSPACE_PROVIDER.getKey())) {
-      return WORKSPACE_PROVIDER.wrap(info);
     } else {
       throw new RuleErrorException("expected JavaRuntimeInfo, got: " + key);
     }
@@ -125,50 +122,22 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
     return getUnderlyingValue("java_home", String.class);
   }
 
-  public PathFragment javaBinaryExecPathFragment() throws RuleErrorException {
-    return PathFragment.create(getUnderlyingValue("java_executable_exec_path", String.class));
+  PathFragment javaBinaryExecPathFragment() throws RuleErrorException {
+    return javaBinaryExecPathCache.get(
+        getUnderlyingValue("java_executable_exec_path", String.class));
   }
 
-  public PathFragment javaBinaryRunfilesPathFragment() throws RuleErrorException {
-    return PathFragment.create(getUnderlyingValue("java_executable_runfiles_path", String.class));
-  }
-
-  public ImmutableList<CcInfo> hermeticStaticLibs() throws RuleErrorException {
-    return getUnderlyingSequence("hermetic_static_libs", CcInfo.class).getImmutableList();
-  }
-
-  @VisibleForTesting
-  NestedSet<LibraryToLink> collectHermeticStaticLibrariesToLink() throws RuleErrorException {
-    NestedSetBuilder<LibraryToLink> result = NestedSetBuilder.stableOrder();
-    for (CcInfo lib : hermeticStaticLibs()) {
-      result.addTransitive(lib.getCcLinkingContext().getLibraries());
-    }
-    return result.build();
+  public ImmutableList<StarlarkInfo> hermeticStaticLibs() throws RuleErrorException {
+    return getUnderlyingSequence("hermetic_static_libs", StarlarkInfo.class).getImmutableList();
   }
 
   public int version() throws RuleErrorException {
     return getUnderlyingValue("version", StarlarkInt.class).toIntUnchecked();
   }
 
-  private static class BuiltinsProvider extends Provider {
-    private BuiltinsProvider() {
-      super(
-          keyForBuiltins(
-              Label.parseCanonicalUnchecked("@_builtins//:common/java/java_runtime.bzl")));
-    }
-  }
-
   private static class RulesJavaProvider extends Provider {
     private RulesJavaProvider() {
       super(keyForBuild(Label.parseCanonicalUnchecked("//java/common/rules:java_runtime.bzl")));
-    }
-  }
-
-  private static class WorkspaceProvider extends Provider {
-    private WorkspaceProvider() {
-      super(
-          keyForBuild(
-              Label.parseCanonicalUnchecked("@@rules_java//java/common/rules:java_runtime.bzl")));
     }
   }
 

@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.starlark;
 
-import static com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.COMMAND_LINE_OPTION_PREFIX;
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -28,18 +26,22 @@ import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransi
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.Settings;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /** A marker class for configuration transitions that are defined in Starlark. */
 public abstract class StarlarkTransition implements ConfigurationTransition {
+
+  private static final Label STAMP_SETTING =
+      Label.createUnvalidated(LabelConstants.COMMAND_LINE_OPTION_PACKAGE_IDENTIFIER, "stamp");
 
   private final StarlarkDefinedConfigTransition starlarkDefinedConfigTransition;
 
@@ -52,24 +54,34 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
     return "Starlark transition:" + starlarkDefinedConfigTransition.getLocation();
   }
 
-  // Get the inputs of the starlark transition as a list of canonicalized labels strings.
-  private ImmutableSet<String> getInputs() {
+  /** Whether this transition has {@code //command_line_option:stamp} on its inputs. */
+  public boolean readsStampSetting() {
+    return getInputs().contains(STAMP_SETTING);
+  }
+
+  /** Returns true if the transition is an exec transition. */
+  public abstract boolean isExecTransition();
+
+  // Get the inputs of the starlark transition as a set of canonicalized Labels.
+  private ImmutableSet<Label> getInputs() {
     return starlarkDefinedConfigTransition.getInputsCanonicalizedToGiven().keySet();
   }
 
-  // Get the outputs of the starlark transition as a list of canonicalized labels strings.
-  private ImmutableSet<String> getOutputs() {
+  // Get the outputs of the starlark transition as a set of canonicalized Labels.
+  private ImmutableSet<Label> getOutputs() {
     return starlarkDefinedConfigTransition.getOutputsCanonicalizedToGiven().keySet();
   }
 
   @Override
   public void addRequiredFragments(
       RequiredConfigFragmentsProvider.Builder requiredFragments, BuildOptionDetails optionDetails) {
-    for (String optionStarlarkName : Iterables.concat(getInputs(), getOutputs())) {
-      if (!optionStarlarkName.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
-        requiredFragments.addStarlarkOption(Label.parseCanonicalUnchecked(optionStarlarkName));
+    for (Label option : Iterables.concat(getInputs(), getOutputs())) {
+      if (!option
+          .getPackageIdentifier()
+          .equals(LabelConstants.COMMAND_LINE_OPTION_PACKAGE_IDENTIFIER)) {
+        requiredFragments.addStarlarkOption(option);
       } else {
-        String optionNativeName = optionStarlarkName.substring(COMMAND_LINE_OPTION_PREFIX.length());
+        String optionNativeName = option.getName();
         // A null optionsClass means the flag is invalid. Starlark transitions independently catch
         // and report that (search the code for "do not correspond to valid settings").
         Class<? extends FragmentOptions> optionsClass =
@@ -99,29 +111,6 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   }
 
   /**
-   * Given a {@link ConfigurationTransition}, decompose (if possible) and find all referenced
-   * Starlark build settings.
-   *
-   * <p>If a transition references a build setting via an alias, this set includes the alias' label
-   * and *does not* include the actual label i.e. this method returns all referenced labels exactly
-   * as they are.
-   */
-  public static ImmutableSet<Label> getAllStarlarkBuildSettings(ConfigurationTransition root) {
-    ImmutableSet.Builder<Label> keyBuilder = new ImmutableSet.Builder<>();
-    try {
-      root.visit(
-          (StarlarkTransitionVisitor)
-              transition ->
-                  keyBuilder.addAll(
-                      getRelevantStarlarkSettingsFromTransition(
-                          transition, Settings.INPUTS_AND_OUTPUTS)));
-    } catch (TransitionException e) {
-      // Not actually thrown in the visitor, but declared.
-    }
-    return keyBuilder.build();
-  }
-
-  /**
    * Method to be called after Starlark-transitions are applied. Checks outputs.
    *
    * <p>We only do validation on Starlark-defined build settings. Native options (designated with
@@ -138,6 +127,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
    *     here.
    * @param details a StarlarkBuildSettingsDetailsValue whose corresponding key was all the input
    *     and output settings of root. Use {@link getAllStarlarkBuildSettings}.
+   * @param flagsAliases a list of starlark flag aliases defined via --flag_alias.
    * @param toOptions result of applying {@code root}
    * @return validated toOptions with default values filtered out
    * @throws TransitionException if an error occurred during Starlark transition application.
@@ -149,6 +139,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   public static Map<String, BuildOptions> validate(
       ConfigurationTransition root,
       StarlarkBuildSettingsDetailsValue details,
+      ImmutableMap<String, Label> flagsAliases,
       Map<String, BuildOptions> toOptions)
       throws TransitionException {
     // Collect settings that are inputs or outputs of the transition together with their types.
@@ -164,9 +155,10 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
             transition -> {
               ImmutableSet<Label> inputAndOutputSettings =
                   getRelevantStarlarkSettingsFromTransition(
-                      transition, Settings.INPUTS_AND_OUTPUTS);
+                      transition, flagsAliases, Settings.INPUTS_AND_OUTPUTS);
               ImmutableSet<Label> outputSettings =
-                  getRelevantStarlarkSettingsFromTransition(transition, Settings.OUTPUTS);
+                  getRelevantStarlarkSettingsFromTransition(
+                      transition, flagsAliases, Settings.OUTPUTS);
               for (Label setting : inputAndOutputSettings) {
                 rawInputAndOutputSettingsBuilder.add(setting);
                 if (!outputSettings.contains(setting)) {
@@ -186,7 +178,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
     // Verify changed settings were changed to something reasonable for their type and filter out
     // default values.
     ImmutableMap.Builder<String, BuildOptions> cleanedOptionMap = ImmutableMap.builder();
-    for (Map.Entry<String, BuildOptions> entry : toOptions.entrySet()) {
+    for (Entry<String, BuildOptions> entry : toOptions.entrySet()) {
       // Lazily initialized to optimize for the common case where we don't modify anything.
       BuildOptions.Builder cleanedOptions = null;
       // Clean up aliased values.
@@ -289,18 +281,17 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
     }
   }
 
-  /*
+  /**
    * Resolve aliased build setting issues
    *
    * <p>If a build setting is transitioned upon via an alias, the resulting {@link
    * BuildOptions#getStarlarkOptions()} map will look like this:
    *
-   * <entry1>alias-label -> new-value
-   * <entry2>actual-label -> old-value
+   * <p><entry1>alias-label -> new-value <entry2>actual-label -> old-value
    *
-   * <p>we need to collapse this to the correct single entry: actual-label -> new-value.
-   * By the end of this method, the starlark options map in the returned {@link BuildOptions}
-   * contains only keys that are actual build settings, no aliases.
+   * <p>we need to collapse this to the correct single entry: actual-label -> new-value. By the end
+   * of this method, the starlark options map in the returned {@link BuildOptions} contains only
+   * keys that are actual build settings, no aliases.
    */
   private static BuildOptions unalias(
       BuildOptions options, ImmutableMap<Label, Label> aliasToActual) {
@@ -310,7 +301,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
     Collection<Label> aliases = aliasToActual.keySet();
     Collection<Label> actuals = aliasToActual.values();
     BuildOptions.Builder toReturn = options.toBuilder();
-    for (Map.Entry<Label, Object> entry : options.getStarlarkOptions().entrySet()) {
+    for (Entry<Label, Object> entry : options.getStarlarkOptions().entrySet()) {
       Label setting = entry.getKey();
       if (actuals.contains(setting)) {
         // if entry is keyed by an actual (e.g. <entry2> in javadoc), don't care about its value
@@ -331,51 +322,40 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
     return toReturn.build();
   }
 
-  /** Adds the default values for a transition's input build settings to its input build options. */
-  public static BuildOptions addDefaultStarlarkOptions(
-      BuildOptions fromOptions,
-      ConfigurationTransition transition,
-      StarlarkBuildSettingsDetailsValue details)
-      throws TransitionException {
-    if (details.buildSettingToDefault().isEmpty()) {
-      // No need to traverse the transition to find its Starlark flag inputs. There are none.
-      return fromOptions;
+  public static ImmutableSet<Label> getRelevantStarlarkSettingsFromTransition(
+      StarlarkTransition transition, ImmutableMap<String, Label> flagsAliases, Settings settings) {
+    if (transition.isExecTransition()) {
+      // Ignore flag aliases for exec transitions. Starlark flags will provide their exec
+      // transition semantics in the flag definition.
+      flagsAliases = ImmutableMap.of();
     }
-
-    BuildOptions.Builder optionsWithDefaults = null;
-    for (Label maybeAliasSetting : getAllStarlarkBuildSettings(transition)) {
-      // details will only have the defaults of the actual setting so must unalias
-      Label setting = details.aliasToActual().getOrDefault(maybeAliasSetting, maybeAliasSetting);
-      if (!fromOptions.getStarlarkOptions().containsKey(maybeAliasSetting)) {
-        if (optionsWithDefaults == null) {
-          optionsWithDefaults = fromOptions.toBuilder();
-        }
-        optionsWithDefaults.addStarlarkOption(
-            maybeAliasSetting, details.buildSettingToDefault().get(setting));
-      }
-    }
-    return optionsWithDefaults == null ? fromOptions : optionsWithDefaults.build();
-  }
-
-  private static ImmutableSet<Label> getRelevantStarlarkSettingsFromTransition(
-      StarlarkTransition transition, Settings settings) {
     ImmutableSet.Builder<Label> result = ImmutableSet.builder();
     switch (settings) {
-      case INPUTS -> addLabelIfRelevant(result, transition.getInputs());
-      case OUTPUTS -> addLabelIfRelevant(result, transition.getOutputs());
+      case INPUTS -> addLabelIfRelevant(result, flagsAliases, transition.getInputs());
+      case OUTPUTS -> addLabelIfRelevant(result, flagsAliases, transition.getOutputs());
       case INPUTS_AND_OUTPUTS -> {
-        addLabelIfRelevant(result, transition.getInputs());
-        addLabelIfRelevant(result, transition.getOutputs());
+        addLabelIfRelevant(result, flagsAliases, transition.getInputs());
+        addLabelIfRelevant(result, flagsAliases, transition.getOutputs());
       }
     }
     return result.build();
   }
 
   private static void addLabelIfRelevant(
-      ImmutableSet.Builder<Label> builder, Iterable<String> entries) {
-    for (String entry : entries) {
-      if (!entry.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
-        builder.add(Label.parseCanonicalUnchecked(entry));
+      ImmutableSet.Builder<Label> builder,
+      ImmutableMap<String, Label> flagsAliases,
+      Iterable<Label> entries) {
+    for (Label entry : entries) {
+      if (!entry
+          .getPackageIdentifier()
+          .equals(LabelConstants.COMMAND_LINE_OPTION_PACKAGE_IDENTIFIER)) {
+        builder.add(entry);
+      } else {
+        String flagName = entry.getName();
+        Label aliasTarget = flagsAliases.get(flagName);
+        if (aliasTarget != null) {
+          builder.add(aliasTarget);
+        }
       }
     }
   }
@@ -398,18 +378,10 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
     return Objects.hashCode(starlarkDefinedConfigTransition);
   }
 
-  /** Given a transition, figures out if it composes any Starlark transitions. */
-  public static boolean doesStarlarkTransition(ConfigurationTransition root)
-      throws TransitionException {
-    AtomicBoolean doesStarlarkTransition = new AtomicBoolean(false);
-    root.visit((StarlarkTransitionVisitor) transition -> doesStarlarkTransition.set(true));
-    return doesStarlarkTransition.get();
-  }
-
   @FunctionalInterface
-  // This is only used in this class to handle the cast and the exception
+  // This is only used to handle the cast and the exception
   @SuppressWarnings("FunctionalInterfaceMethodChanged")
-  private interface StarlarkTransitionVisitor
+  public interface StarlarkTransitionVisitor
       extends ConfigurationTransition.Visitor<TransitionException> {
     @Override
     default void accept(ConfigurationTransition transition) throws TransitionException {

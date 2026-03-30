@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
-import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -39,9 +39,8 @@ import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.Globber;
 import com.google.devtools.build.lib.packages.Globber.Operation;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.testutil.ManualClock;
@@ -58,6 +57,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemOps;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -123,9 +123,7 @@ public abstract class GlobTestBase {
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
-    RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
-        differencer, Optional.empty());
-    RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
+    RepositoryDirectoryValue.VENDOR_DIRECTORY.set(differencer, Optional.empty());
 
     createTestFiles();
   }
@@ -135,10 +133,7 @@ public abstract class GlobTestBase {
         new AtomicReference<>(ImmutableSet.of());
     BlazeDirectories directories =
         new BlazeDirectories(
-            new ServerDirectories(root, root, root),
-            root,
-            /* defaultSystemJavabase= */ null,
-            TestConstants.PRODUCT_NAME);
+            new ServerDirectories(root, root, root), root, TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper =
         ExternalFilesHelper.createForTesting(
             pkgLocator,
@@ -158,12 +153,12 @@ public abstract class GlobTestBase {
         new PackageLookupFunction(
             deletedPackages,
             CrossRepositoryLabelViolationStrategy.ERROR,
-            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
-            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     skyFunctions.put(
         SkyFunctions.REPO_FILE,
         new RepoFileFunction(
-            ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace()));
+            ruleClassProvider.getBazelStarlarkEnvironment(),
+            Root.fromPath(directories.getWorkspace())));
     skyFunctions.put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.INSTANCE);
     skyFunctions.put(
         FileStateKey.FILE_STATE,
@@ -177,35 +172,21 @@ public abstract class GlobTestBase {
     skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator, directories));
     skyFunctions.put(
         FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
-    skyFunctions.put(
-        WorkspaceFileValue.WORKSPACE_FILE,
-        new WorkspaceFileFunction(
-            ruleClassProvider,
-            analysisMock
-                .getPackageFactoryBuilderForTesting(directories)
-                .build(ruleClassProvider, fs),
-            directories,
-            /* bzlLoadFunctionForInlining= */ null));
-    skyFunctions.put(
-        SkyFunctions.EXTERNAL_PACKAGE,
-        new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
-    skyFunctions.put(
-        SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
-        new LocalRepositoryLookupFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
+    skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
     skyFunctions.put(
         SkyFunctions.REPOSITORY_MAPPING,
         new SkyFunction() {
           @Override
           public SkyValue compute(SkyKey skyKey, Environment env) {
-            return RepositoryMappingValue.VALUE_FOR_ROOT_MODULE_WITHOUT_REPOS;
+            return RepositoryMappingValue.VALUE_FOR_EMPTY_ROOT_MODULE;
           }
         });
     skyFunctions.put(
-        BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
+        RepoDefinitionValue.REPO_DEFINITION,
         new SkyFunction() {
           @Override
           public SkyValue compute(SkyKey skyKey, Environment env) {
-            return BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE;
+            return RepoDefinitionValue.NOT_FOUND;
           }
         });
     return skyFunctions;
@@ -394,51 +375,6 @@ public abstract class GlobTestBase {
     assertSingleGlobMatches("foo/**", /* => */ "foo/barnacle/wiz", "foo/barnacle", "foo");
   }
 
-  @Test
-  public void testGlobDoesNotCrossRepositoryBoundary() throws Exception {
-    FileSystemUtils.appendIsoLatin1(
-        root.getRelative("WORKSPACE"), "local_repository(name='local', path='pkg/foo')");
-    FileSystemUtils.createEmptyFile(pkgPath.getRelative("foo/WORKSPACE"));
-    FileSystemUtils.createEmptyFile(pkgPath.getRelative("foo/BUILD"));
-    // "foo/bar" should not be in the results because foo is a separate repository.
-    assertSingleGlobMatches("f*/*", /* => */ "food/barnacle", "fool/barnacle");
-  }
-
-  @Test
-  public void testGlobDirectoryMatchDoesNotCrossRepositoryBoundary() throws Exception {
-    FileSystemUtils.appendIsoLatin1(
-        root.getRelative("WORKSPACE"), "local_repository(name='local', path='pkg/foo/bar')");
-    FileSystemUtils.createEmptyFile(pkgPath.getRelative("foo/bar/WORKSPACE"));
-    FileSystemUtils.createEmptyFile(pkgPath.getRelative("foo/bar/BUILD"));
-    // "foo/bar" should not be in the results because foo/bar is a separate repository.
-    assertSingleGlobMatches("foo/*", /* => */ "foo/barnacle");
-  }
-
-  @Test
-  public void testStarStarDoesNotCrossRepositoryBoundary() throws Exception {
-    FileSystemUtils.appendIsoLatin1(
-        root.getRelative("WORKSPACE"), "local_repository(name='local', path='pkg/foo/bar')");
-    FileSystemUtils.createEmptyFile(pkgPath.getRelative("foo/bar/WORKSPACE"));
-    FileSystemUtils.createEmptyFile(pkgPath.getRelative("foo/bar/BUILD"));
-    // "foo/bar" should not be in the results because foo/bar is a separate repository.
-    assertSingleGlobMatches("foo/**", /* => */ "foo/barnacle/wiz", "foo/barnacle", "foo");
-  }
-
-  @Test
-  public void testGlobDoesNotCrossRepositoryBoundaryUnderOtherPackagePath() throws Exception {
-    FileSystemUtils.appendIsoLatin1(
-        root.getRelative("WORKSPACE"),
-        "local_repository(name='local', path='"
-            + writableRoot.getRelative("pkg/foo/bar").getPathString()
-            + "')");
-    writableRoot.getRelative("pkg/foo/bar").createDirectoryAndParents();
-    FileSystemUtils.createEmptyFile(writableRoot.getRelative("pkg/foo/bar/WORKSPACE"));
-    FileSystemUtils.createEmptyFile(writableRoot.getRelative("pkg/foo/bar/BUILD"));
-    // "foo/bar" should not be in the results because foo/bar is detected as a separate package,
-    // even though it is under a different package path.
-    assertSingleGlobMatches("foo/**", /* => */ "foo/barnacle/wiz", "foo/barnacle", "foo");
-  }
-
   /**
    * For {@link GlobFunctionTest}, creates a {@link GlobDescriptor} using the input pattern.
    *
@@ -550,7 +486,7 @@ public abstract class GlobTestBase {
     // Note: this contains two asterisks because otherwise a RE is not built,
     // as an optimization.
     assertThat(
-            new UnixGlob.Builder(pkgPath, SyscallCache.NO_CACHE)
+            new UnixGlob.Builder(pkgPath, FilesystemOps.DIRECT)
                 .addPattern("*a.b*")
                 .globInterruptible())
         .containsExactly(aDotB);
@@ -986,16 +922,16 @@ public abstract class GlobTestBase {
     root.getRelative("targets").createDirectoryAndParents();
     pkgPath.getRelative("symlinks").createDirectoryAndParents();
     for (char c = 'a'; c <= 'z'; ++c) {
-      FileSystemUtils.createEmptyFile(root.getRelative("targets/" + c + ".bzl"));
+      FileSystemUtils.createEmptyFile(root.getRelative("targets/" + c + ".ext"));
       FileSystemUtils.ensureSymbolicLink(
-          pkgPath.getRelative("symlinks/" + c + ".bzl"), root.getRelative("targets/" + c + ".bzl"));
+          pkgPath.getRelative("symlinks/" + c + ".ext"), root.getRelative("targets/" + c + ".ext"));
     }
 
     String[] allExpectedPathsInStr = new String[26];
     for (int i = 0; i < 26; ++i) {
-      allExpectedPathsInStr[i] = "symlinks/" + (char) ('a' + i) + ".bzl";
+      allExpectedPathsInStr[i] = "symlinks/" + (char) ('a' + i) + ".ext";
     }
-    assertSingleGlobMatches("symlinks/*.bzl", Operation.FILES_AND_DIRS, allExpectedPathsInStr);
+    assertSingleGlobMatches("symlinks/*.ext", Operation.FILES_AND_DIRS, allExpectedPathsInStr);
   }
 
   static final class CustomInMemoryFs extends InMemoryFileSystem {

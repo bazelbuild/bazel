@@ -48,6 +48,9 @@ public abstract class ProducerTestCase extends BuildViewTestCase {
           StateMachineEvaluatorForTesting.run(
               producer, getSkyframeExecutor().getEvaluator(), context);
       if (result != null) {
+        if (result.hasError() && !result.getError().getCycleInfo().isEmpty()) {
+          throw new IllegalStateException("Cycle detected: " + result.getError().getCycleInfo());
+        }
         return !result.hasError();
       }
     } finally {

@@ -46,8 +46,6 @@ public record ModuleKey(String name, Version version) {
       ImmutableMap.of(
           "bazel_tools",
           RepositoryName.BAZEL_TOOLS,
-          "local_config_platform",
-          RepositoryName.createUnvalidated("local_config_platform"),
           // Ensures that references to "@platforms" in WORKSPACE files resolve to the repository of
           // the "platforms" module. Without this, constraints on toolchains registered in WORKSPACE
           // would reference the "platforms" repository defined in the WORKSPACE suffix, whereas

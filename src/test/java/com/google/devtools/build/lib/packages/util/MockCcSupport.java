@@ -29,8 +29,8 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.Arrays;
-import java.util.List;
 
 /**
  * Creates mock BUILD files required for the C/C++ rules.
@@ -95,6 +95,9 @@ public abstract class MockCcSupport {
   public static final String EMPTY_CC_TOOLCHAIN =
       Joiner.on("\n")
           .join(
+              "load(\"@rules_cc//cc/toolchains:cc_toolchain_config_info.bzl\","
+                  + " \"CcToolchainConfigInfo\")",
+              "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
               "def _impl(ctx):",
               "    return cc_common.create_cc_toolchain_config_info(",
               "                ctx = ctx,",
@@ -161,6 +164,16 @@ public abstract class MockCcSupport {
           return labelNameFilter().apply("//" + label.getPackageName());
         }
       };
+
+  public static MockCcSupport get() {
+    try {
+      Class<?> providerClass = Class.forName(TestConstants.MOCK_CC_SUPPORT_CLASS);
+      Field instanceField = providerClass.getField("INSTANCE");
+      return ((MockCcSupport) instanceField.get(null));
+    } catch (Exception e) {
+      throw new IllegalStateException(e);
+    }
+  }
 
   public abstract Predicate<String> labelNameFilter();
 
@@ -241,7 +254,6 @@ public abstract class MockCcSupport {
         "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:android',",
         "    ],",
         ")");
-    config.append("WORKSPACE", "register_toolchains('//toolchains:all')");
     config.append("MODULE.bazel", "register_toolchains('//toolchains:all')");
   }
 
@@ -251,17 +263,46 @@ public abstract class MockCcSupport {
             "cc/BUILD",
             "cc/defs.bzl",
             "cc/action_names.bzl",
+            "cc/cc_binary.bzl",
+            "cc/cc_import.bzl",
+            "cc/cc_library.bzl",
+            "cc/cc_test.bzl",
             "cc/cc_toolchain_config_lib.bzl",
+            "cc/objc_import.bzl",
+            "cc/objc_library.bzl",
+            "cc/common/BUILD",
+            "cc/common/cc_common.bzl",
             "cc/find_cc_toolchain.bzl",
+            "cc/toolchains/BUILD",
+            "cc/toolchains/cc_toolchain.bzl",
+            "cc/toolchains/cc_toolchain_alias.bzl",
+            "cc/toolchains/cc_toolchain_config_info.bzl",
             "cc/toolchain_utils.bzl",
-            "cc/private/rules_impl/BUILD",
-            "cc/private/rules_impl/native.bzl")) {
+            "cc/private/rules_impl/BUILD")) {
       try {
         config.overwrite(
             "third_party/bazel_rules/rules_cc/" + path,
             ResourceLoader.readFromResources(TestConstants.RULES_CC_REPOSITORY_EXECROOT + path));
       } catch (Exception e) {
         throw new RuntimeException("Couldn't read rules_cc file from " + path, e);
+      }
+    }
+    // We handle these files separately and ignore errors since only native.bzl will be found for
+    // bazel, but the other two for blaze
+    // TODO: once rules_cc is released and updated in bazel, move this into the set above
+    for (String path :
+        ImmutableList.of(
+            "cc/private/rules_impl/native.bzl",
+            "cc/private/rules_impl/native_cc_common.bzl",
+            "cc/private/rules_impl/native_providers.bzl",
+            // New files, not yet visible to bazel.
+            "cc/private/rules_impl/wrappers/BUILD")) {
+      try {
+        config.overwrite(
+            "third_party/bazel_rules/rules_cc/" + path,
+            ResourceLoader.readFromResources(TestConstants.RULES_CC_REPOSITORY_EXECROOT + path));
+      } catch (Exception e) {
+        // ignore
       }
     }
 
@@ -274,15 +315,14 @@ public abstract class MockCcSupport {
         ResourceLoader.readFromResources(
             TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/action_names.bzl"));
     config.create(
-        TestConstants.RULES_CC_REPOSITORY_EXECROOT + "BUILD",
-        "genrule(name='license', cmd='exit 0', outs=['dummy_license'])");
+        TestConstants.RULES_CC_REPOSITORY_EXECROOT + "BUILD", "filegroup(name='license')");
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/BUILD");
     config.append(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD", "");
 
     // These could be a distinct method
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + TestConstants.MOCK_LICENSE_SCRATCH + "BUILD",
-        "genrule(name='license', cmd='exit 0', outs=['dummy_license'])");
+        "filegroup(name='license')");
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH
             + TestConstants.MOCK_LICENSE_SCRATCH
@@ -354,21 +394,30 @@ public abstract class MockCcSupport {
   }
 
   public void writeMacroFile(MockToolsConfig config) throws IOException {
-    List<String> ruleNames =
-        ImmutableList.of(
-            "cc_library",
-            "cc_binary",
-            "cc_test",
-            "cc_import",
-            "objc_import",
-            "objc_library",
-            "cc_toolchain",
-            "fdo_profile",
-            "fdo_prefetch_hints",
-            "cc_proto_library");
+    ImmutableList.Builder<String> ruleNamesBuilder =
+        ImmutableList.<String>builder()
+            .add(
+                "cc_library",
+                "cc_binary",
+                "cc_test",
+                "cc_import",
+                "objc_import",
+                "objc_library",
+                "cc_toolchain",
+                "fdo_profile",
+                "fdo_prefetch_hints");
+    if (TestConstants.PRODUCT_NAME.equals("bazel")) {
+      ruleNamesBuilder.add("cc_proto_library");
+    }
+    ImmutableList<String> ruleNames = ruleNamesBuilder.build();
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "third_party/cc_rules/macros/BUILD", "");
 
     StringBuilder macros = new StringBuilder();
+    macros.append("load('@rules_cc//cc:defs.bzl'");
+    for (String ruleName : ruleNames) {
+      macros.append(", _").append(ruleName).append("='").append(ruleName).append("'");
+    }
+    macros.append(")\n");
     for (String ruleName : ruleNames) {
       Joiner.on("\n")
           .appendTo(
@@ -379,7 +428,7 @@ public abstract class MockCcSupport {
                   + " ['__CC_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__']",
               "    else:",
               "        attrs['tags'] = ['__CC_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__']",
-              "    native." + ruleName + "(**attrs)");
+              "    _" + ruleName + "(**attrs)");
       macros.append("\n");
     }
     config.create(
@@ -451,6 +500,7 @@ public abstract class MockCcSupport {
         "runtimes/BUILD",
         """
         load("//runtimes:toolchain.bzl", "bool_flag", "cc_runtimes_toolchain")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
         bool_flag(
             name = "include_runtimes",

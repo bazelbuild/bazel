@@ -107,8 +107,12 @@ abstract class MemoizingDeserializationContext extends DeserializationContext {
   }
 
   @Override
-  final Object getMemoizedBackReference(int memoIndex) {
-    Object value = checkNotNull(memoTable.get(memoIndex), memoIndex);
+  final Object getMemoizedBackReference(int memoIndex) throws SerializationException {
+    Object value = memoTable.get(memoIndex);
+    if (value == null) {
+      throw new SerializationException(
+          "got backreference " + memoIndex + " without corresponding entry");
+    }
     checkState(
         value != INITIAL_VALUE_PLACEHOLDER,
         "Backreference prior to registerInitialValue: %s",
@@ -124,13 +128,10 @@ abstract class MemoizingDeserializationContext extends DeserializationContext {
         "non-null memoized-before tag %s (%s)",
         tagForMemoizedBefore,
         codec);
-    switch (codec.getStrategy()) {
-      case MEMOIZE_BEFORE:
-        return deserializeMemoBeforeContent(codec, codedIn);
-      case MEMOIZE_AFTER:
-        return deserializeMemoAfterContent(codec, codedIn);
-    }
-    throw new AssertionError("Unreachable (strategy=" + codec.getStrategy() + ")");
+    return switch (codec.getStrategy()) {
+      case MEMOIZE_BEFORE -> deserializeMemoBeforeContent(codec, codedIn);
+      case MEMOIZE_AFTER -> deserializeMemoAfterContent(codec, codedIn);
+    };
   }
 
   /**

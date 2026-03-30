@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import org.junit.Before;
 import org.junit.Test;
@@ -71,6 +72,7 @@ public class UnresolvedSymlinkActionTest extends BuildViewTestCase {
             NULL_ACTION_OWNER,
             outputArtifact,
             "../some/relative/path",
+            SymlinkTargetType.UNSPECIFIED,
             "Creating unresolved symlink");
   }
 
@@ -88,22 +90,58 @@ public class UnresolvedSymlinkActionTest extends BuildViewTestCase {
   public void testTargetAffectsKey() {
     UnresolvedSymlinkAction action1 =
         UnresolvedSymlinkAction.create(
-            NULL_ACTION_OWNER, outputArtifact, "some/path", "Creating unresolved symlink");
+            NULL_ACTION_OWNER,
+            outputArtifact,
+            "some/path",
+            SymlinkTargetType.UNSPECIFIED,
+            "Creating unresolved symlink");
     UnresolvedSymlinkAction action2 =
         UnresolvedSymlinkAction.create(
-            NULL_ACTION_OWNER, outputArtifact, "some/other/path", "Creating unresolved symlink");
+            NULL_ACTION_OWNER,
+            outputArtifact,
+            "some/other/path",
+            SymlinkTargetType.UNSPECIFIED,
+            "Creating unresolved symlink");
 
     assertThat(computeKey(action1)).isNotEqualTo(computeKey(action2));
   }
 
   @Test
+  public void testTargetTypeAffectsKey() {
+    UnresolvedSymlinkAction action1 =
+        UnresolvedSymlinkAction.create(
+            NULL_ACTION_OWNER,
+            outputArtifact,
+            "some/path",
+            SymlinkTargetType.UNSPECIFIED,
+            "Creating unresolved symlink");
+    UnresolvedSymlinkAction action2 =
+        UnresolvedSymlinkAction.create(
+            NULL_ACTION_OWNER,
+            outputArtifact,
+            "some/path",
+            SymlinkTargetType.FILE,
+            "Creating unresolved symlink");
+    UnresolvedSymlinkAction action3 =
+        UnresolvedSymlinkAction.create(
+            NULL_ACTION_OWNER,
+            outputArtifact,
+            "some/path",
+            SymlinkTargetType.DIRECTORY,
+            "Creating unresolved symlink");
+
+    assertThat(computeKey(action1)).isNotEqualTo(computeKey(action2));
+    assertThat(computeKey(action2)).isNotEqualTo(computeKey(action3));
+  }
+
+  @Test
   public void testSymlink() throws Exception {
-    Executor executor = new TestExecutorBuilder(fileSystem, directories, null).build();
+    Executor executor = new TestExecutorBuilder(fileSystem, directories).build();
     ActionResult actionResult =
         action.execute(
             new ActionExecutionContext(
                 executor,
-                /* actionInputFileCache= */ null,
+                /* inputMetadataProvider= */ null,
                 ActionInputPrefetcher.NONE,
                 actionKeyContext,
                 /* outputMetadataStore= */ null,
@@ -112,10 +150,7 @@ public class UnresolvedSymlinkActionTest extends BuildViewTestCase {
                 /* fileOutErr= */ null,
                 new StoredEventHandler(),
                 /* clientEnv= */ ImmutableMap.of(),
-                /* topLevelFilesets= */ ImmutableMap.of(),
-                /* artifactExpander= */ null,
                 /* actionFileSystem= */ null,
-                /* skyframeDepsResult= */ null,
                 DiscoveredModulesPruner.DEFAULT,
                 SyscallCache.NO_CACHE,
                 ThreadStateReceiver.NULL_INSTANCE));
@@ -147,7 +182,7 @@ public class UnresolvedSymlinkActionTest extends BuildViewTestCase {
 
   private String computeKey(UnresolvedSymlinkAction action) {
     Fingerprint fp = new Fingerprint();
-    action.computeKey(actionKeyContext, /*artifactExpander=*/ null, fp);
+    action.computeKey(actionKeyContext, /* inputMetadataProvider= */ null, fp);
     return fp.hexDigestAndReset();
   }
 }

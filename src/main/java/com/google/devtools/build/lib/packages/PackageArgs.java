@@ -84,6 +84,10 @@ public abstract class PackageArgs {
   @Nullable
   public abstract ImmutableList<Label> defaultPackageMetadata();
 
+  /** The transitive visibility settings this package says it belongs to. */
+  @Nullable
+  public abstract Label transitiveVisibility();
+
   // TODO(blaze-team): this should just act like other attributes in that
   //   it is public and does not have getters defined
   /** The default (C/C++) header strictness checking mode for the package. */
@@ -138,6 +142,8 @@ public abstract class PackageArgs {
     /** Note that we don't check dupes in this method. Check beforehand! */
     public abstract Builder setDefaultPackageMetadata(List<Label> x);
 
+    public abstract Builder setTransitiveVisibility(Label x);
+
     public abstract Builder setDefaultHdrsCheck(String x);
 
     public abstract PackageArgs build();
@@ -188,6 +194,10 @@ public abstract class PackageArgs {
       }
       case "default_hdrs_check" ->
           builder.setDefaultHdrsCheck(Type.STRING.convert(rawValue, what, labelConverter));
+      case "transitive_visibility" -> {
+        Label transitiveVisibility = BuildType.LABEL.convert(rawValue, what, labelConverter);
+        builder.setTransitiveVisibility(transitiveVisibility);
+      }
       default -> throw Starlark.errorf("unexpected keyword argument: %s", name);
     }
   }
@@ -221,6 +231,9 @@ public abstract class PackageArgs {
     }
     if (other.defaultPackageMetadata() != null) {
       builder.setDefaultPackageMetadata(other.defaultPackageMetadata());
+    }
+    if (other.transitiveVisibility() != null) {
+      builder.setTransitiveVisibility(other.transitiveVisibility());
     }
     if (other.defaultHdrsCheck() != null) {
       builder.setDefaultHdrsCheck(other.defaultHdrsCheck());

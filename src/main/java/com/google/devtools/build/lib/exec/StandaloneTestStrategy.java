@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.exec;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
@@ -21,11 +23,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -65,7 +69,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -73,6 +76,7 @@ import java.util.TreeMap;
 /** Runs TestRunnerAction actions. */
 // TODO(bazel-team): add tests for this strategy.
 public class StandaloneTestStrategy extends TestStrategy {
+  private static final String TEST_NAME_ENV = "TEST_NAME";
   private static final ImmutableMap<String, String> ENV_VARS =
       ImmutableMap.<String, String>builder()
           .put("TZ", "UTC")
@@ -83,18 +87,15 @@ public class StandaloneTestStrategy extends TestStrategy {
           .put("RUNFILES_DIR", TestPolicy.RUNFILES_DIR)
           .put("TEST_TMPDIR", TestPolicy.TEST_TMP_DIR)
           .put("RUN_UNDER_RUNFILES", "1")
-          .build();
+          .buildOrThrow();
 
   public static final TestPolicy DEFAULT_LOCAL_POLICY = new TestPolicy(ENV_VARS);
 
-  protected final Path tmpDirRoot;
+  private final Path tmpDirRoot;
 
   public StandaloneTestStrategy(
-      ExecutionOptions executionOptions,
-      TestSummaryOptions testSummaryOptions,
-      BinTools binTools,
-      Path tmpDirRoot) {
-    super(executionOptions, testSummaryOptions, binTools);
+      ExecutionOptions executionOptions, TestSummaryOptions testSummaryOptions, Path tmpDirRoot) {
+    super(executionOptions, testSummaryOptions);
     this.tmpDirRoot = tmpDirRoot;
   }
 
@@ -102,24 +103,26 @@ public class StandaloneTestStrategy extends TestStrategy {
   public TestRunnerSpawn createTestRunnerSpawn(
       TestRunnerAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
-    if (action.getExecutionSettings().getInputManifest() == null) {
+    Map<String, String> testEnvironment =
+        createEnvironment(actionExecutionContext, action, tmpDirRoot);
+
+    if (testEnvironment.containsKey(TEST_NAME_ENV)) {
       throw createTestExecException(
           TestAction.Code.LOCAL_TEST_PREREQ_UNMET,
-          "cannot run local tests with --nobuild_runfile_manifests");
+          String.format(
+              "cannot set env variable TEST_NAME=%s because TEST_NAME is reserved",
+              testEnvironment.get(TEST_NAME_ENV)));
     }
-    Map<String, String> testEnvironment =
-        createEnvironment(
-            actionExecutionContext, action, tmpDirRoot, executionOptions.splitXmlGeneration);
 
-    Map<String, String> executionInfo =
-        new TreeMap<>(action.getTestProperties().getExecutionInfo());
+    Map<String, String> executionInfo = new TreeMap<>(action.getExecutionInfo());
     if (!action.shouldAcceptCachedResult()) {
       // TODO(tjgq): We want to reject a previously cached result, but not prevent the result of the
       // current execution from being uploaded. We should introduce a separate execution requirement
       // for this.
       executionInfo.put(ExecutionRequirements.NO_CACHE, "");
     }
-    executionInfo.put("timeout", "" + getTimeout(action).toSeconds());
+    executionInfo.put(
+        ExecutionRequirements.TIMEOUT, Long.toString(action.getTimeout().toSeconds()));
 
     SimpleSpawn.LocalResourcesSupplier localResourcesSupplier =
         () ->
@@ -134,7 +137,6 @@ public class StandaloneTestStrategy extends TestStrategy {
             getArgs(action),
             ImmutableMap.copyOf(testEnvironment),
             ImmutableMap.copyOf(executionInfo),
-            ImmutableMap.of(),
             /* inputs= */ action.getInputs(),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             ImmutableSet.copyOf(action.getSpawnOutputs()),
@@ -182,7 +184,7 @@ public class StandaloneTestStrategy extends TestStrategy {
 
         // e.g. /attemptsDir/attempt_1.dir/file
         destinationPath = attemptsDir.getRelative(destinationPathFragment);
-        destinationPath.getParentDirectory().createDirectory();
+        destinationPath.getParentDirectory().createDirectoryAndParents();
       }
 
       // Move to the destination.
@@ -200,7 +202,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       StandaloneTestResult result)
       throws IOException {
     return processTestAttempt(
-        attemptId, /*isLastAttempt=*/ false, actionExecutionContext, action, result);
+        attemptId, /* isLastAttempt= */ false, actionExecutionContext, action, result);
   }
 
   private void finalizeTest(
@@ -302,7 +304,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       relativeTmpDir = tmpDir.asFragment();
     }
     return DEFAULT_LOCAL_POLICY.computeTestEnvironment(
-        action, clientEnv, getTimeout(action), runfilesDir.relativeTo(execRoot), relativeTmpDir);
+        action, clientEnv, runfilesDir.relativeTo(execRoot), relativeTmpDir);
   }
 
   private TestAttemptResult beginTestAttempt(
@@ -365,6 +367,12 @@ public class StandaloneTestStrategy extends TestStrategy {
       SpawnResult spawnResult, TestResultData.Builder result) {
     BuildEventStreamProtos.TestResult.ExecutionInfo.Builder executionInfo =
         BuildEventStreamProtos.TestResult.ExecutionInfo.newBuilder();
+
+    // The return of `SpawnResult#exitCode()` is noted to only be meaningful if the subprocess
+    // actually executed. In this position, `spawnResult.exitCode()` is always meaningful,
+    // because the code only runs if `spawnResult.setupSuccess()` is previously verified to
+    // be `true`.
+    executionInfo.setExitCode(spawnResult.exitCode());
 
     if (spawnResult.isCacheHit()) {
       result.setRemotelyCached(true);
@@ -448,14 +456,14 @@ public class StandaloneTestStrategy extends TestStrategy {
                 .getExecPath()
                 .getCallablePathStringForOs(action.getExecutionSettings().getExecutionOs()),
             action.getTestLog().getExecPathString(),
-            action.getXmlOutputPath().getPathString(),
+            action.getTestXml().getExecPathString(),
             Integer.toString(result.getWallTimeInMs() / 1000),
             Integer.toString(result.exitCode()));
     ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
     // "PATH" and "TEST_BINARY" are also required, they should always be set in testEnv.
     Preconditions.checkArgument(testEnv.containsKey("PATH"));
     Preconditions.checkArgument(testEnv.containsKey("TEST_BINARY"));
-    envBuilder.putAll(testEnv).put("TEST_NAME", action.getTestName());
+    envBuilder.putAll(testEnv).put(TEST_NAME_ENV, action.getTestName());
     // testEnv only contains TEST_SHARD_INDEX and TEST_TOTAL_SHARDS if the test action is sharded,
     // we need to set the default value when the action isn't sharded.
     if (!action.isSharded()) {
@@ -469,11 +477,10 @@ public class StandaloneTestStrategy extends TestStrategy {
         // Pass the execution info of the action which is identical to the supported tags set on the
         // test target. In particular, this does not set the test timeout on the spawn.
         action.getExecutionInfo(),
-        ImmutableMap.of(),
         /* inputs= */ NestedSetBuilder.create(
             Order.STABLE_ORDER, action.getTestXmlGeneratorScript(), action.getTestLog()),
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /* outputs= */ ImmutableSet.of(ActionInputHelper.fromPath(action.getXmlOutputPath())),
+        /* outputs= */ ImmutableSet.of(action.getTestXml()),
         /* mandatoryOutputs= */ null,
         SpawnAction.DEFAULT_RESOURCE_SET);
   }
@@ -482,56 +489,48 @@ public class StandaloneTestStrategy extends TestStrategy {
       ActionExecutionContext actionExecutionContext,
       TestRunnerAction action,
       List<ActionInput> expandedCoverageDir,
-      Path tmpDirRoot,
-      boolean splitXmlGeneration) {
+      Path tmpDirRoot) {
     ImmutableList<String> args =
-        ImmutableList.of(action.getCollectCoverageScript().getExecPathString());
+        ImmutableList.of(action.getCollectCoverageScript().getExecutable().getExecPathString());
 
     Map<String, String> testEnvironment =
-        createEnvironment(actionExecutionContext, action, tmpDirRoot, splitXmlGeneration);
+        createEnvironment(actionExecutionContext, action, tmpDirRoot);
 
     testEnvironment.put("TEST_SHARD_INDEX", Integer.toString(action.getShardNum()));
     testEnvironment.put(
         "TEST_TOTAL_SHARDS", Integer.toString(action.getExecutionSettings().getTotalShards()));
-    testEnvironment.put("TEST_NAME", action.getTestName());
+    testEnvironment.put(TEST_NAME_ENV, action.getTestName());
     testEnvironment.put("IS_COVERAGE_SPAWN", "1");
+    // Let the coverage script locate its own runfiles tree, which is separate from the test
+    // runfiles.
+    testEnvironment.remove("RUNFILES_DIR");
+    testEnvironment.remove("JAVA_RUNFILES");
+    testEnvironment.remove("PYTHON_RUNFILES");
 
     return new SimpleSpawn(
         action,
         args,
         ImmutableMap.copyOf(testEnvironment),
         action.getExecutionInfo(),
-        /* filesetMappings= */ ImmutableMap.of(),
         /* inputs= */ NestedSetBuilder.<ActionInput>compileOrder()
             .addTransitive(action.getInputs())
             .addAll(expandedCoverageDir)
-            .add(action.getCollectCoverageScript())
             .add(action.getCoverageManifest())
-            .addTransitive(action.getLcovMergerFilesToRun().build())
             .build(),
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /* outputs= */ ImmutableSet.of(
-            ActionInputHelper.fromPath(action.getCoverageData().getExecPath())),
+        /* outputs= */ ImmutableSet.of(action.getCoverageData()),
         /* mandatoryOutputs= */ null,
         SpawnAction.DEFAULT_RESOURCE_SET);
   }
 
   private static Map<String, String> createEnvironment(
-      ActionExecutionContext actionExecutionContext,
-      TestRunnerAction action,
-      Path tmpDirRoot,
-      boolean splitXmlGeneration) {
+      ActionExecutionContext actionExecutionContext, TestRunnerAction action, Path tmpDirRoot) {
     Path execRoot = actionExecutionContext.getExecRoot();
     ArtifactPathResolver pathResolver = actionExecutionContext.getPathResolver();
     Path runfilesDir = pathResolver.convertPath(action.getExecutionSettings().getRunfilesDir());
     Path tmpDir = pathResolver.convertPath(tmpDirRoot.getChild(TestStrategy.getTmpDirName(action)));
-    Map<String, String> testEnvironment =
-        setupEnvironment(
-            action, actionExecutionContext.getClientEnv(), execRoot, runfilesDir, tmpDir);
-    if (splitXmlGeneration) {
-      testEnvironment.put("EXPERIMENTAL_SPLIT_XML_GENERATION", "1");
-    }
-    return testEnvironment;
+    return setupEnvironment(
+        action, actionExecutionContext.getClientEnv(), execRoot, runfilesDir, tmpDir);
   }
 
   @Override
@@ -576,7 +575,7 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     @Override
     public TestAttemptResult execute() throws InterruptedException, IOException, ExecException {
-      prepareFileSystem(testAction, execRoot, tmpDir);
+      prepareFileSystem(testAction, execRoot, tmpDir, actionExecutionContext);
       return beginTestAttempt(testAction, spawn, actionExecutionContext, execRoot);
     }
 
@@ -615,6 +614,12 @@ public class StandaloneTestStrategy extends TestStrategy {
               .setExecutionInfo(ExecutionInfo.getDefaultInstance())
               .build();
       finalizeTest(standaloneTestResult, failedAttempts);
+    }
+
+    @Override
+    public TestRunnerSpawn getFlakyRetryRunner(List<SpawnResult> previousAttemptResults)
+        throws ExecException, InterruptedException {
+      return createTestRunnerSpawn(testAction, actionExecutionContext);
     }
   }
 
@@ -655,25 +660,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     try {
       spawnResults = resolver.exec(spawn, actionExecutionContext.withFileOutErr(fileOutErr));
       testResultDataBuilder = TestResultData.newBuilder();
-      if (actionExecutionContext
-          .getPathResolver()
-          .convertPath(resolvedPaths.getExitSafeFile())
-          .exists()) {
-        testResultDataBuilder
-            .setCachable(false)
-            .setTestPassed(false)
-            .setStatus(BlazeTestStatus.FAILED);
-        fileOutErr
-            .getErrorStream()
-            .write(
-                "-- Test exited prematurely (TEST_PREMATURE_EXIT_FILE exists) --\n"
-                    .getBytes(StandardCharsets.UTF_8));
-      } else {
-        testResultDataBuilder
-            .setCachable(true)
-            .setTestPassed(true)
-            .setStatus(BlazeTestStatus.PASSED);
-      }
+      testResultDataBuilder.setCachable(true).setTestPassed(true).setStatus(BlazeTestStatus.PASSED);
     } catch (SpawnExecException e) {
       if (e.isCatastrophic()) {
         closeSuppressed(e, streamed);
@@ -699,26 +686,42 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
     long endTimeMillis = actionExecutionContext.getClock().currentTimeMillis();
 
+    // Check TEST_PREMATURE_EXIT_FILE file (and always delete it)
+    if (actionExecutionContext
+            .getPathResolver()
+            .convertPath(resolvedPaths.getExitSafeFile())
+            .delete()
+        && testResultDataBuilder.getTestPassed()) {
+      testResultDataBuilder
+          .setCachable(false)
+          .setTestPassed(false)
+          .setStatus(BlazeTestStatus.FAILED);
+      fileOutErr
+          .getErrorStream()
+          .write(
+              "-- Test exited prematurely (TEST_PREMATURE_EXIT_FILE exists) --\n".getBytes(UTF_8));
+    }
+
     // Do not override a more informative test failure with a generic failure due to the missing
     // shard file, which may have been caused by the test failing before the runner had a chance to
     // touch the file
-    if (testResultDataBuilder.getTestPassed() && testAction.isSharded()) {
-      if (testAction.checkShardingSupport()
-          && !actionExecutionContext
-              .getPathResolver()
-              .convertPath(resolvedPaths.getTestShard())
-              .exists()) {
-        TestExecException e =
-            createTestExecException(
-                TestAction.Code.LOCAL_TEST_PREREQ_UNMET,
-                "Sharding requested, but the test runner did not advertise support for it by "
-                    + "touching TEST_SHARD_STATUS_FILE. Either remove the 'shard_count' attribute, "
-                    + "use a test runner that supports sharding or temporarily disable this check "
-                    + "via --noincompatible_check_sharding_support.");
-        closeSuppressed(e, streamed);
-        closeSuppressed(e, fileOutErr);
-        throw e;
-      }
+    if (testResultDataBuilder.getTestPassed()
+        && testAction.isSharded()
+        && !actionExecutionContext
+            .getPathResolver()
+            .convertPath(resolvedPaths.getTestShard())
+            .exists()) {
+      TestExecException e =
+          createTestExecException(
+              TestAction.Code.LOCAL_TEST_PREREQ_UNMET,
+              """
+              Sharding requested, but the test runner did not advertise support for it by touching \
+              TEST_SHARD_STATUS_FILE. Either remove the 'shard_count' attribute or use a test \
+              runner that supports sharding.\
+              """);
+      closeSuppressed(e, streamed);
+      closeSuppressed(e, fileOutErr);
+      throw e;
     }
 
     // SpawnActionContext guarantees the first entry to correspond to the spawn passed in (there
@@ -739,79 +742,88 @@ public class StandaloneTestStrategy extends TestStrategy {
         .setHasCoverage(testAction.isCoverageMode());
 
     if (testAction.isCoverageMode() && testAction.getSplitCoveragePostProcessing()) {
-      if (testAction.getCoverageDirectoryTreeArtifact() == null) {
-        // Otherwise we'll get a NPE https://github.com/bazelbuild/bazel/issues/13185
-        TestExecException e =
-            createTestExecException(
-                TestAction.Code.LOCAL_TEST_PREREQ_UNMET,
-                "coverageDirectoryTreeArtifact is null:"
-                    + " --experimental_split_coverage_postprocessing depends on"
-                    + " --experimental_fetch_all_coverage_outputs being enabled");
-        closeSuppressed(e, streamed);
-        closeSuppressed(e, fileOutErr);
-        throw e;
-      }
-      var unused =
-          actionExecutionContext
-              .getOutputMetadataStore()
-              .getOutputMetadata(testAction.getCoverageDirectoryTreeArtifact());
-
-      ImmutableSet<? extends ActionInput> expandedCoverageDir =
-          actionExecutionContext
-              .getOutputMetadataStore()
-              .getTreeArtifactValue((SpecialArtifact) testAction.getCoverageDirectoryTreeArtifact())
-              .getChildren();
-      ImmutableSet<ActionInput> coverageSpawnMetadata =
-          ImmutableSet.<ActionInput>builder()
-              .addAll(expandedCoverageDir)
-              .add(testAction.getCoverageDirectoryTreeArtifact())
-              .build();
-
-      Spawn coveragePostProcessingSpawn =
-          createCoveragePostProcessingSpawn(
-              actionExecutionContext,
-              testAction,
-              ImmutableList.copyOf(expandedCoverageDir),
-              tmpDirRoot,
-              executionOptions.splitXmlGeneration);
-      SpawnStrategyResolver spawnStrategyResolver =
-          actionExecutionContext.getContext(SpawnStrategyResolver.class);
-
-      Path testRoot =
-          actionExecutionContext.getInputPath(testAction.getTestLog()).getParentDirectory();
-
-      Path out = testRoot.getChild("coverage.log");
-      Path err = testRoot.getChild("coverage.err");
-      FileOutErr coverageOutErr = new FileOutErr(out, err);
-      ActionExecutionContext coverageActionExecutionContext =
-          actionExecutionContext
-              .withFileOutErr(coverageOutErr)
-              .withOutputsAsInputs(coverageSpawnMetadata);
-
-      writeOutFile(coverageOutErr.getErrorPath(), coverageOutErr.getOutputPath());
-      appendCoverageLog(coverageOutErr, fileOutErr);
-      try {
-        spawnStrategyResolver.exec(coveragePostProcessingSpawn, coverageActionExecutionContext);
-      } catch (SpawnExecException e) {
-        if (e.isCatastrophic()) {
+      if (testResultDataBuilder.getTestPassed()) {
+        if (testAction.getCoverageDirectoryTreeArtifact() == null) {
+          // Otherwise we'll get a NPE https://github.com/bazelbuild/bazel/issues/13185
+          TestExecException e =
+              createTestExecException(
+                  TestAction.Code.LOCAL_TEST_PREREQ_UNMET,
+                  "coverageDirectoryTreeArtifact is null:"
+                      + " --experimental_split_coverage_postprocessing depends on"
+                      + " --experimental_fetch_all_coverage_outputs being enabled");
           closeSuppressed(e, streamed);
           closeSuppressed(e, fileOutErr);
           throw e;
         }
-        if (!e.getSpawnResult().setupSuccess()) {
+        var unused =
+            actionExecutionContext
+                .getOutputMetadataStore()
+                .getOutputMetadata(testAction.getCoverageDirectoryTreeArtifact());
+
+        ImmutableSortedSet<TreeFileArtifact> expandedCoverageDir =
+            actionExecutionContext
+                .getOutputMetadataStore()
+                .getTreeArtifactValue(
+                    (SpecialArtifact) testAction.getCoverageDirectoryTreeArtifact())
+                .getChildren();
+        ImmutableSet<Artifact> coverageSpawnMetadata =
+            ImmutableSet.<Artifact>builder()
+                .addAll(expandedCoverageDir)
+                .add(testAction.getCoverageDirectoryTreeArtifact())
+                .build();
+
+        Spawn coveragePostProcessingSpawn =
+            createCoveragePostProcessingSpawn(
+                actionExecutionContext,
+                testAction,
+                ImmutableList.copyOf(expandedCoverageDir),
+                tmpDirRoot);
+        SpawnStrategyResolver spawnStrategyResolver =
+            actionExecutionContext.getContext(SpawnStrategyResolver.class);
+
+        Path testRoot =
+            actionExecutionContext.getInputPath(testAction.getTestLog()).getParentDirectory();
+
+        Path out = testRoot.getChild("coverage.log");
+        Path err = testRoot.getChild("coverage.err");
+        FileOutErr coverageOutErr = new FileOutErr(out, err);
+        ActionExecutionContext coverageActionExecutionContext =
+            actionExecutionContext
+                .withFileOutErr(coverageOutErr)
+                .withOutputsAsInputs(coverageSpawnMetadata);
+
+        try {
+          spawnStrategyResolver.exec(coveragePostProcessingSpawn, coverageActionExecutionContext);
+        } catch (SpawnExecException e) {
+          if (e.isCatastrophic()) {
+            closeSuppressed(e, streamed);
+            closeSuppressed(e, fileOutErr);
+            throw e;
+          }
+          if (!e.getSpawnResult().setupSuccess()) {
+            closeSuppressed(e, streamed);
+            closeSuppressed(e, fileOutErr);
+            // Rethrow as the test could not be run and thus there's no point in retrying.
+            throw e;
+          }
+          testResultDataBuilder
+              .setCachable(e.getSpawnResult().status().isConsideredUserError())
+              .setTestPassed(false)
+              .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED);
+        } catch (ExecException | InterruptedException e) {
           closeSuppressed(e, streamed);
           closeSuppressed(e, fileOutErr);
-          // Rethrow as the test could not be run and thus there's no point in retrying.
           throw e;
         }
-        testResultDataBuilder
-            .setCachable(e.getSpawnResult().status().isConsideredUserError())
-            .setTestPassed(false)
-            .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED);
-      } catch (ExecException | InterruptedException e) {
-        closeSuppressed(e, streamed);
-        closeSuppressed(e, fileOutErr);
-        throw e;
+
+        // Append all output from the coverage spawn to the test log.
+        appendCoverageLog(coverageOutErr, fileOutErr);
+      } else {
+        Artifact coverageData = testAction.getCoverageData();
+        if (coverageData != null) {
+          FileSystemUtils.touchFile(
+              actionExecutionContext.getPathResolver().convertPath(coverageData.getPath()));
+        }
       }
     }
 
@@ -844,13 +856,11 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     Path xmlOutputPath = resolvedPaths.getXmlOutputPath();
 
-    // If the test did not create a test.xml, and --experimental_split_xml_generation is enabled,
-    // then we run a separate action to create a test.xml from test.log. We do this as a spawn
-    // rather than doing it locally in-process, as the test.log file may only exist remotely (when
-    // remote execution is enabled), and we do not want to have to download it.
-    if (executionOptions.splitXmlGeneration
-        && fileOutErr.getOutputPath().exists()
-        && !xmlOutputPath.exists()) {
+    // If the test did not create a test.xml, then we run a separate action to create a test.xml
+    // from test.log. We do this as a spawn rather than doing it locally in-process, as the test.log
+    // file may only exist remotely (when remote execution is enabled), and we do not want to have
+    // to download it.
+    if (fileOutErr.getOutputPath().exists() && !xmlOutputPath.exists()) {
       Spawn xmlGeneratingSpawn =
           createXmlGeneratingSpawn(testAction, spawn.getEnvironment(), spawnResults.get(0));
       SpawnStrategyResolver spawnStrategyResolver =

@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "src/main/cpp/blaze_util_platform.h"
-
+#include <CoreFoundation/CoreFoundation.h>
 #include <libproc.h>
 #include <pthread/spawn.h>
+#include <pwd.h>
 #include <signal.h>
 #include <spawn.h>
 #include <stdlib.h>
@@ -28,13 +28,12 @@
 #include <time.h>
 #include <unistd.h>
 
-#include <CoreFoundation/CoreFoundation.h>
-
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
 
 #include "src/main/cpp/blaze_util.h"
+#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
@@ -96,8 +95,42 @@ static string DescriptionFromCFError(CFErrorRef cf_err) {
   return UTF8StringFromCFStringRef(cf_err_string);
 }
 
-string GetOutputRoot() {
-  return "/var/tmp";
+// ${XDG_CACHE_HOME}/bazel, falling back to ~/Library/Caches/bazel if
+// ${XDG_CACHE_HOME} is empty.
+//
+// Historically, Bazel 8.x and earlier used /private/var/tmp by default, due to
+// path length limitations stemming from use of Unix domain sockets. However,
+// these limitations are no longer relevant as we do not create Unix domain
+// sockets under the output base. The standard location for application caches
+// on macOS is $HOME/Library/Caches.
+//
+// See also:
+// https://stackoverflow.com/questions/3373948/equivalents-of-xdg-config-home-and-xdg-data-home-on-mac-os-x
+string GetCacheDir() {
+  string xdg_cache_home = GetPathEnv("XDG_CACHE_HOME");
+  if (xdg_cache_home.empty()) {
+    string home = GetHomeDir();  // via $HOME env variable
+    if (home.empty()) {
+      // Fall back to home dir from password database
+      struct passwd pwbuf;
+      struct passwd* pw = nullptr;
+      uid_t uid = getuid();
+      int strbufsize;
+      if ((strbufsize = sysconf(_SC_GETPW_R_SIZE_MAX)) == -1) {
+        return "/var/tmp";
+      }
+      string strbuf(strbufsize, 0);
+      int r = getpwuid_r(uid, &pwbuf, &strbuf[0], strbufsize, &pw);
+      if (r == 0 && pw != nullptr) {
+        home = pw->pw_dir;
+      } else {
+        return "/var/tmp";
+      }
+    }
+    xdg_cache_home = blaze_util::JoinPath(home, "Library/Caches");
+  }
+
+  return blaze_util::JoinPath(xdg_cache_home, "bazel");
 }
 
 void WarnFilesystemType(const blaze_util::Path &output_base) {

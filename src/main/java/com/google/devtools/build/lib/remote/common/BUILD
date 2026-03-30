@@ -12,10 +12,23 @@ filegroup(
 )
 
 java_library(
+    name = "action_key",
+    srcs = ["ActionKey.java"],
+    deps = [
+        "//third_party:guava",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)
+
+java_library(
     name = "bulk_transfer_exception",
     srcs = ["BulkTransferException.java"],
     deps = [
         ":cache_not_found_exception",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:important_output_handler",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:digest_utils",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
     ],
 )
@@ -24,7 +37,7 @@ java_library(
     name = "cache_not_found_exception",
     srcs = ["CacheNotFoundException.java"],
     deps = [
-        "//third_party:guava",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:jsr305",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
@@ -35,7 +48,7 @@ java_library(
     srcs = ["LostInputsEvent.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
-        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+        "//third_party:guava",
     ],
 )
 
@@ -44,24 +57,24 @@ java_library(
     srcs = glob(
         ["*.java"],
         exclude = [
+            "ActionKey.java",
             "BulkTransferException.java",
             "CacheNotFoundException.java",
             "LostInputsEvent.java",
         ],
     ),
     deps = [
+        ":action_key",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:forbidden_action_input_exception",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/exec:spawn_input_expander",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
         "//third_party:jsr305",
+        "@com_google_protobuf//:protobuf_java",
         "@googleapis//google/longrunning:longrunning_java_proto",
-        "@protobuf//:protobuf_java",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )

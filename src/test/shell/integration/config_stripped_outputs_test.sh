@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2023 The Bazel Authors. All rights reserved.
 #
@@ -63,6 +63,10 @@ add_to_bazelrc "build --package_path=%workspace%"
 # This is what triggers config path stripping.
 add_to_bazelrc "build --experimental_output_paths=strip"
 
+function set_up() {
+  add_rules_java MODULE.bazel
+}
+
 function is_bazel() {
   output_path=$(bazel info | grep '^output_path:')
   bazel_out="${output_path##*/}"
@@ -90,6 +94,8 @@ function test_builtin_java_support() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg"
   cat > "$pkg/BUILD" <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_library.bzl", "java_library")
 java_library(
   name = "mylib",
   srcs = ["MyLib.java"],
@@ -161,6 +167,7 @@ package hello;
 public class D {}
 EOF
   cat > "$pkg/java/hello/BUILD" <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
 java_library(name='a', srcs=['A.java'], deps = [':b'])
 java_library(name='b', srcs=['B.java'], deps = [':c'])
 java_library(name='c', srcs=['C.java'], deps = [':d'])
@@ -173,9 +180,7 @@ function test_inmemory_jdeps_support() {
   write_java_classpath_reduction_files "$pkg"
 
   bazel clean
-  bazel build --experimental_java_classpath=bazel  \
-    --experimental_output_paths=strip \
-    --experimental_inmemory_jdeps_files \
+  bazel build --experimental_output_paths=strip \
     //"$pkg"/java/hello:a -s 2>"$TEST_log" \
     || fail "Expected success"
 
@@ -258,6 +263,8 @@ EOF
   mkdir -p $pkg/java
   cat > $pkg/java/BUILD <<EOF
 load("//$pkg/rules:defs.bzl", "bazelcon_greeting")
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_library.bzl", "java_library")
 java_binary(
     name = "Main",
     srcs = ["Main.java"],
@@ -303,9 +310,7 @@ public class BaseLib {
 EOF
 
   bazel clean
-  bazel build --experimental_java_classpath=bazel  \
-    --experimental_output_paths=strip \
-    --experimental_inmemory_jdeps_files \
+  bazel build --experimental_output_paths=strip \
     //$pkg/java:Main -s 2>"$TEST_log" \
     || fail "Expected success"
 
@@ -353,14 +358,14 @@ package hello;
 public class D {}
 EOF
   cat > "$pkg/java/hello/BUILD" <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
 java_library(name='a', srcs=['A.java'], deps = [':b'])
 java_library(name='b', srcs=['B.java'], deps = [':c'])
 java_library(name='c', srcs=['C.java'], deps = [':d'])
 java_library(name='d', srcs=['D.java'])
 EOF
 
-  bazel build --experimental_java_classpath=bazel  \
-    --experimental_output_paths=strip \
+  bazel build --experimental_output_paths=strip \
     //"$pkg"/java/hello:a -s 2>"$TEST_log" \
     || fail "Expected success"
 
@@ -380,9 +385,11 @@ EOF
 }
 
 function test_builtin_cc_support() {
+  add_rules_cc MODULE.bazel
   local -r pkg="third_party/${FUNCNAME[0]}"
   mkdir -p "$pkg"
   cat > "$pkg/BUILD" <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
     name = "main",
     srcs = ["main.cc"],
@@ -406,6 +413,7 @@ EOF
 
   mkdir -p "$pkg"/lib1
   cat > "$pkg/lib1/BUILD" <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "lib1",
     srcs = ["lib1.cc"],
@@ -435,6 +443,7 @@ EOF
 
   mkdir -p "$pkg"/lib2
   cat > "$pkg/lib2/BUILD" <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 genrule(
     name = "gen_header",
     srcs = ["lib2.h.tpl"],
@@ -477,6 +486,7 @@ EOF
 
   mkdir -p "$pkg"/common/utils
   cat > "$pkg/common/utils/BUILD" <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 genrule(
     name = "gen_header",
     srcs = ["utils.h.tpl"],

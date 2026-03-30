@@ -21,26 +21,26 @@
 #include "src/main/native/jni.h"
 
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_SystemCPUSpeedModule
- * Method:    registerJNI
- * Signature: ()V
+ * Class: com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl
+ * Method:    registerCPUSpeedNative
+ * Signature: (Ljava/util/function/IntConsumer;)V
  */
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_platform_SystemCPUSpeedModule_registerJNI(
-    JNIEnv *env, jobject local_object) {
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerCPUSpeedNative(
+    JNIEnv* env, jobject local_object, jobject callback) {
   // Currently not implemented.
 }
 
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_SystemCPUSpeedModule
- * Method:    cpuSpeed
+ * Class: com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl
+ * Method:    cpuSpeedNative
  * Signature: ()I
  *
  * Returns 1-100 to represent CPU speed. Returns -1 in case of error.
  */
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_SystemCPUSpeedModule_cpuSpeed(
-    JNIEnv *env, jclass) {
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_cpuSpeedNative(
+    JNIEnv* env, jclass) {
   // Currently not implemented.
   return -1;
 }

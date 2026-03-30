@@ -87,7 +87,7 @@ public final class TestTargetUtilsTest extends PackageLoadingTestCase {
             srcs = ["notest.sh"],
         )
 
-        cc_library(name = "xUnit")
+        filegroup(name = "xUnit")
 
         test_suite(
             name = "smallTests",
@@ -126,6 +126,7 @@ public final class TestTargetUtilsTest extends PackageLoadingTestCase {
     RuleClass ruleClass = mock(RuleClass.class);
     when(ruleClass.getDefaultImplicitOutputsFunction())
         .thenReturn(SafeImplicitOutputsFunction.NONE);
+    when(ruleClass.getAttributeProvider()).thenReturn(mock(AttributeProvider.class));
     Rule mockRule =
         new Rule(
             pkg,

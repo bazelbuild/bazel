@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemOps;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.lib.vfs.util.TestUnixGlobPathDiscriminator;
 import java.io.File;
@@ -126,7 +127,7 @@ public class NativePathTest {
   @Test
   public void testGlob() throws Exception {
     Collection<Path> textFiles =
-        new UnixGlob.Builder(fs.getPath(tmpDir.getPath()), SyscallCache.NO_CACHE)
+        new UnixGlob.Builder(fs.getPath(tmpDir.getPath()), FilesystemOps.DIRECT)
             .addPattern("*/*.txt")
             .globInterruptible();
     assertThat(textFiles).hasSize(1);
@@ -134,7 +135,7 @@ public class NativePathTest {
     assertThat(onlyFile).isEqualTo(fs.getPath(anotherFile.getPath()));
 
     Collection<Path> onlyFiles =
-        new UnixGlob.Builder(fs.getPath(tmpDir.getPath()), SyscallCache.NO_CACHE)
+        new UnixGlob.Builder(fs.getPath(tmpDir.getPath()), FilesystemOps.DIRECT)
             .addPattern("*")
             .setPathDiscriminator(
                 new TestUnixGlobPathDiscriminator(p -> true, (p, isDir) -> !isDir))
@@ -142,7 +143,7 @@ public class NativePathTest {
     assertPathSet(onlyFiles, aFile.getPath());
 
     Collection<Path> directoriesToo =
-        new UnixGlob.Builder(fs.getPath(tmpDir.getPath()), SyscallCache.NO_CACHE)
+        new UnixGlob.Builder(fs.getPath(tmpDir.getPath()), FilesystemOps.DIRECT)
             .addPattern("*")
             .setPathDiscriminator(new TestUnixGlobPathDiscriminator(p -> true, (p, isDir) -> true))
             .globInterruptible();

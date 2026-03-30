@@ -150,8 +150,9 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
                 interactiveDebugArguments,
                 getEnvironment(),
                 /* environmentVariablesToClear= */ null,
-                /* cwd= */ null,
+                /* cwd= */ sandboxExecRoot.getPathString(),
                 /* configurationChecksum= */ null,
-                /* executionPlatformLabel= */ null));
+                /* executionPlatformLabel= */ null,
+                /* spawnRunner= */ null));
   }
 }

@@ -25,9 +25,9 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -169,22 +169,22 @@ public final class TemplateExpansionAction extends AbstractAction {
   }
 
   @VisibleForTesting
-  public String getFileContents() throws IOException, EvalException {
+  public String getFileContents() throws IOException, EvalException, InterruptedException {
     return LocalTemplateExpansionStrategy.INSTANCE.getExpandedTemplateUnsafe(
         template, substitutions, ArtifactPathResolver.IDENTITY);
   }
 
   @Override
-  public String getStarlarkContent() throws IOException, EvalException {
+  public String getStarlarkContent() throws IOException, EvalException, InterruptedException {
     return getFileContents();
   }
 
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     fp.addString(GUID);
     fp.addString(String.valueOf(makeExecutable));
     fp.addString(template.getKey());
@@ -225,7 +225,8 @@ public final class TemplateExpansionAction extends AbstractAction {
   }
 
   @Override
-  public Dict<String, String> getStarlarkSubstitutions() throws EvalException {
+  public Dict<String, String> getStarlarkSubstitutions()
+      throws EvalException, InterruptedException {
     Dict.Builder<String, String> builder = Dict.builder();
     for (Substitution entry : substitutions) {
       builder.put(entry.getKey(), entry.getValue());

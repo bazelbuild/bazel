@@ -13,38 +13,43 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-
 import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.packages.TargetData;
 import javax.annotation.Nullable;
 
 /** A non-rule configured target in the context of a Skyframe graph. */
 @Immutable
 @ThreadSafe
-// Reached via OutputFileConfiguredTarget.
-@AutoCodec(explicitlyAllowClass = RuleConfiguredTarget.class)
 public final class NonRuleConfiguredTargetValue
-    extends BaseRuleConfiguredTargetValue<ConfiguredTarget> implements ConfiguredTargetValue {
+    extends AbstractConfiguredTargetValue<ConfiguredTarget> implements ConfiguredTargetValue {
 
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
+  @Nullable // Non-null when this is an alias of a remotely fetched ConfiguredTarget.
+  private final TargetData targetData;
+
   NonRuleConfiguredTargetValue(
-      ConfiguredTarget configuredTarget) {
-    // Transitive packages are not serialized.
-    this(configuredTarget, null);
+      ConfiguredTarget configuredTarget, @Nullable NestedSet<Package.Metadata> transitivePackages) {
+    super(configuredTarget, transitivePackages);
+    this.targetData = null;
   }
 
   NonRuleConfiguredTargetValue(
-      ConfiguredTarget configuredTarget, @Nullable NestedSet<Package> transitivePackages) {
+      ConfiguredTarget configuredTarget,
+      @Nullable NestedSet<Package.Metadata> transitivePackages,
+      TargetData targetData) {
     super(configuredTarget, transitivePackages);
+    this.targetData = targetData;
+  }
+
+  @Nullable
+  @Override
+  public TargetData getTargetData() {
+    return targetData;
   }
 
   @Override

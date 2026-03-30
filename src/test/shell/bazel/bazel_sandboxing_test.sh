@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -68,17 +68,14 @@ function test_sandbox_block_filesystem() {
   # /var/log is an arbitrary choice of directory that should exist on all
   # Unix-like systems.
   local block_path
-  case "$(uname -s)" in
-    Darwin)
-      # TODO(jmmv): sandbox-exec does not resolve symlinks, so attempting
-      # to block /var/log does not work. Unsure if we should make this work
-      # by resolving symlinks or documenting the expected behavior.
-      block_path=/private/var/log
-      ;;
-    *)
-      block_path=/var/log
-      ;;
-  esac
+  if is_darwin; then
+    # TODO(jmmv): sandbox-exec does not resolve symlinks, so attempting
+    # to block /var/log does not work. Unsure if we should make this work
+    # by resolving symlinks or documenting the expected behavior.
+    block_path=/private/var/log
+  else
+    block_path=/var/log
+  fi
 
   mkdir pkg
   cat >pkg/BUILD <<EOF
@@ -127,16 +124,19 @@ EOF
 
 # Tests that a pseudoterminal can be opened in linux when --sandbox_explicit_pseudoterminal is active
 function test_can_enable_pseudoterminals() {
-  if [[ "$(uname -s)" != Linux ]]; then
+  if ! is_linux; then
     echo "Skipping test: flag intended for linux systems"
     return 0
   fi
 
+  add_rules_python "MODULE.bazel"
   cat > test.py <<'EOF'
 import pty
 pty.openpty()
 EOF
   cat > BUILD <<'EOF'
+load("@rules_python//python:py_test.bzl", "py_test")
+
 py_test(
   name = "test",
   srcs = ["test.py"],
@@ -146,7 +146,7 @@ EOF
 }
 
 function test_sandbox_debug() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if is_darwin; then
     # The process wrapper sandbox used in MacOS doesn't emit debug output.
     return 0
   fi
@@ -173,13 +173,13 @@ EOF
     && fail "build should have failed with hermetic sandbox" || true
   expect_log "child exited normally with code 1"
 
-  bazel build --verbose_failures --sandbox_debug --incompatible_sandbox_hermetic_tmp :broken &> $TEST_log \
+  bazel build --verbose_failures --sandbox_debug :broken &> $TEST_log \
     && fail "build should have failed with hermetic sandbox /tmp" || true
   expect_log "child exited normally with code 1"
 }
 
 function test_sandbox_expands_tree_artifacts_in_runfiles_tree() {
-
+  add_rules_shell "MODULE.bazel"
   cat > def.bzl <<'EOF'
 def _mkdata_impl(ctx):
     out = ctx.actions.declare_directory(ctx.label.name + ".d")
@@ -200,7 +200,7 @@ mkdata = rule(
 EOF
 
   cat > mkdata_test.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 
@@ -217,6 +217,7 @@ EOF
 
   cat > BUILD <<'EOF'
 load("//:def.bzl", "mkdata")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 mkdata(name = "mkdata")
 
@@ -315,6 +316,57 @@ EOF
   bazel build //pkg:a &>$TEST_log || fail "expected build to succeed"
 }
 
+function test_empty_tree_artifact_in_runfiles() {
+  # Test that when an empty tree artifact is in runfiles, an empty directory is
+  # created in the sandbox for action to read.
+
+  mkdir -p pkg
+
+  cat > pkg/def.bzl <<'EOF'
+def _r(ctx):
+    empty_d = ctx.actions.declare_directory("%s/empty_dir" % ctx.label.name)
+    ctx.actions.run_shell(
+        outputs = [empty_d],
+        command = "mkdir -p %s" % empty_d.path,
+    )
+    executable = ctx.actions.declare_file("%s/executable" % ctx.label.name)
+    ctx.actions.write(
+        output = executable,
+        content = """
+#!/bin/sh
+if [ ! -d "$0.runfiles/_main/{empty_dir}" ]; then
+  echo "Expected $0.runfiles/_main/{empty_dir} to be a directory" >&2
+  exit 1
+fi
+        """.format(empty_dir = empty_d.short_path),
+        is_executable = True,
+    )
+    return [
+        DefaultInfo(
+            executable = executable,
+            runfiles = ctx.runfiles([empty_d]),
+        ),
+    ]
+
+r = rule(implementation = _r, executable = True)
+EOF
+
+cat > pkg/BUILD <<'EOF'
+load(":def.bzl", "r")
+
+r(name = "a")
+
+genrule(
+    name = "b",
+    outs = ["b.txt"],
+    tools = [":a"],
+    cmd = "$(location :a) && echo 'Runfiles check passed' > $@",
+)
+EOF
+
+  bazel build //pkg:b &>$TEST_log || fail "expected build to succeed"
+}
+
 # Sets up targets under //test that, when building //test:all, verify that the
 # sandbox setup ensures that /tmp contents written by one action are not visible
 # to another action.
@@ -325,8 +377,11 @@ EOF
 function setup_tmp_hermeticity_check() {
   local -r tmpdir=$1
 
+  add_rules_cc "MODULE.bazel"
   mkdir -p test
   cat > test/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 cc_binary(
     name = "create_file",
     srcs = ["create_file.cc"],
@@ -378,7 +433,7 @@ EOF
 }
 
 function test_add_mount_pair_tmp_source() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if ! is_linux; then
     # Tests Linux-specific functionality
     return 0
   fi
@@ -411,7 +466,7 @@ EOF
 }
 
 function test_add_mount_pair_tmp_target() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if ! is_linux; then
     # Tests Linux-specific functionality
     return 0
   fi
@@ -446,7 +501,7 @@ EOF
 }
 
 function test_add_mount_pair_tmp_target_and_source() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if ! is_linux; then
     # Tests Linux-specific functionality
     return 0
   fi
@@ -478,7 +533,7 @@ EOF
 }
 
 function test_symlink_with_output_base_under_tmp() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if ! is_linux; then
     # Tests Linux-specific functionality
     return 0
   fi
@@ -554,7 +609,7 @@ EOF
 }
 
 function test_symlink_to_directory_absolute_path() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if ! is_linux; then
     # Tests Linux-specific functionality
     return 0
   fi
@@ -600,7 +655,7 @@ EOF
 }
 
 function test_symlink_to_directory_with_output_base_under_tmp() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if ! is_linux; then
     # Tests Linux-specific functionality
     return 0
   fi
@@ -648,7 +703,7 @@ EOF
 }
 
 function test_tmpfs_path_under_tmp() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
+  if ! is_linux; then
     # Tests Linux-specific functionality
     return 0
   fi
@@ -688,8 +743,8 @@ EOF
 }
 
 function test_hermetic_tmp_under_tmp {
-  if [[ "$(uname -s)" != Linux ]]; then
-    echo "Skipping test: --incompatible_sandbox_hermetic_tmp is only supported in Linux" 1>&2
+  if ! is_linux; then
+    echo "Skipping test: hermetic /tmp is only supported in Linux" 1>&2
     return 0
   fi
 
@@ -706,8 +761,11 @@ function test_hermetic_tmp_under_tmp {
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name="repo", path="${temp_dir}/repo")
 EOF
+  add_rules_shell "MODULE.bazel"
 
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 genrule(
   name = "g",
   outs = ["go"],
@@ -733,7 +791,7 @@ genrule(
     "  echo reading $$i",
     "  cat $$i >> $@",
     "done",
-    "for i in a/s a/go b/s b/go ../+_repo_rules+repo/c/s ../+_repo_rules+repo/c/go; do",
+    "for i in a/s a/go b/s b/go ../+local_repository+repo/c/s ../+local_repository+repo/c/go; do",
     "  echo reading $$RUNFILES/$$i",
     "  cat $$RUNFILES/$$i >> $@",
     "done",
@@ -772,7 +830,6 @@ EOF
   bazel \
     --output_base="${temp_dir}/output-base" \
     build \
-    --incompatible_sandbox_hermetic_tmp \
     --package_path="%workspace%:${temp_dir}/package-path" \
     //a:t || fail "build failed"
 }

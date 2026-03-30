@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.LabelConverter;
@@ -51,15 +52,23 @@ public class StarlarkBazelModule implements StarlarkValue {
       name = "bazel_module_tags",
       category = DocCategory.BUILTIN,
       doc =
-          "Contains the tags in a module for the module extension currently being processed. This"
-              + " object has a field for each tag class of the extension, and the value of the"
-              + " field is a list containing an object for each tag instance. This \"tag instance\""
-              + " object in turn has a field for each attribute of the tag class.\n\n"
-              + "When passed as positional arguments to <code>print()</code> or <code>fail()"
-              + "</code>, tag instance objects turn into a meaningful string representation of the"
-              + " form \"'install' tag at /home/user/workspace/MODULE.bazel:3:4\". This can be used"
-              + " to construct error messages that point to the location of the tag in the module"
-              + " file, e.g. <code>fail(\"Conflict between\", tag1, \"and\", tag2)</code>.")
+          """
+          Contains the tags in a module for the module extension currently being processed. This \
+          object has a field for each tag class of the extension, and the value of the field is a \
+          list containing an object for each tag instance. This "tag instance" object in turn has \
+          a field for each attribute of the tag class.
+          <p>Tag instance objects have a <code>_sort_key</code> field that returns an opaque value \
+          that can be compared with other sort keys to determine the relative order of tags, even \
+          across tag classes. Tags are ordered by their position within a module file and by the \
+          BFS ordering of modules in the dependency graph. This can be used with \
+          <code>sorted()</code> to recover the original order of tags: \
+          <code>sorted(tags, key=lambda tag: tag._sort_key)</code>.
+          <p>When passed as positional arguments to <code>print()</code> or <code>fail()</code>, \
+          tag instance objects turn into a meaningful string representation of the form "'install' \
+          tag at /home/user/workspace/MODULE.bazel:3:4". This can be used to construct error \
+          messages that point to the location of the tag in the module file, e.g. \
+          <code>fail("Conflict between", tag1, "and", tag2)</code>.\
+          """)
   static class Tags implements Structure {
     private final ImmutableMap<String, StarlarkList<TypeCheckedTag>> typeCheckedTags;
 
@@ -107,18 +116,22 @@ public class StarlarkBazelModule implements StarlarkValue {
       AbridgedModule module,
       ModuleExtension extension,
       RepositoryMapping repoMapping,
-      @Nullable ModuleExtensionUsage usage)
+      @Nullable ModuleExtensionUsage usage,
+      Label.RepoMappingRecorder repoMappingRecorder,
+      int moduleIndex)
       throws ExternalDepsException {
     LabelConverter labelConverter =
         new LabelConverter(
-            PackageIdentifier.create(repoMapping.ownerRepo(), PathFragment.EMPTY_FRAGMENT),
-            repoMapping);
+            PackageIdentifier.create(repoMapping.contextRepo(), PathFragment.EMPTY_FRAGMENT),
+            repoMapping,
+            repoMappingRecorder);
     ImmutableList<Tag> tags = usage == null ? ImmutableList.of() : usage.getTags();
     HashMap<String, ArrayList<TypeCheckedTag>> typeCheckedTags = new HashMap<>();
     for (String tagClassName : extension.tagClasses().keySet()) {
       typeCheckedTags.put(tagClassName, new ArrayList<>());
     }
-    for (Tag tag : tags) {
+    for (int tagIndex = 0; tagIndex < tags.size(); tagIndex++) {
+      Tag tag = tags.get(tagIndex);
       TagClass tagClass = extension.tagClasses().get(tag.getTagName());
       if (tagClass == null) {
         throw ExternalDepsException.withMessage(
@@ -137,7 +150,12 @@ public class StarlarkBazelModule implements StarlarkValue {
           .get(tag.getTagName())
           .add(
               TypeCheckedTag.create(
-                  tagClass, tag, labelConverter, module.getKey().toDisplayString()));
+                  tagClass,
+                  tag,
+                  labelConverter,
+                  module.getKey().toDisplayString(),
+                  moduleIndex,
+                  tagIndex));
     }
     return new StarlarkBazelModule(
         module.getName(),

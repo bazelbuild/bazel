@@ -16,6 +16,7 @@ filegroup(
 
 java_test(
     name = "credentialhelper",
+    timeout = "long",
     srcs = glob(["*.java"]),
     data = [
         ":test_credential_helper",
@@ -25,18 +26,26 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib:test_runner",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper",
+        "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/shell:windows_subprocess_factory",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//src/main/java/com/google/devtools/common/options:options_internal",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
+        "//third_party:caffeine",
         "//third_party:gson",
         "//third_party:guava",
         "//third_party:junit4",
+        "//third_party:mockito",
         "//third_party:truth",
-        "@bazel_tools//tools/java/runfiles",
+        "@rules_java//java/runfiles",
     ],
 )
 

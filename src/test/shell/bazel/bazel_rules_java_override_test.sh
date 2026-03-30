@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -38,19 +38,12 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 RULES_JAVA_REPO_NAME=$(cat "$(rlocation io_bazel/src/test/shell/bazel/RULES_JAVA_REPO_NAME)")
 
 function setup_java_library_target() {
     cat > BUILD <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(
     name = "math",
     srcs = ["src/main/com/example/Math.java"],
@@ -72,7 +65,7 @@ EOF
 }
 
 function test_override_with_empty_java_tools_fails() {
-
+  add_rules_java "MODULE.bazel"
   touch emptyfile
   zip -q "${RUNFILES_DIR}/empty.zip" emptyfile
 
@@ -86,6 +79,7 @@ function test_override_with_empty_java_tools_fails() {
 }
 
 function test_build_without_override_succeeds() {
+  add_rules_java "MODULE.bazel"
   override_java_tools "${RULES_JAVA_REPO_NAME}" "released" "released"
 
   setup_java_library_target

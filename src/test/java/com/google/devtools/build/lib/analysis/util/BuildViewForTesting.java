@@ -27,7 +27,6 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
@@ -79,7 +78,8 @@ import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheDeps;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheManager;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -256,7 +256,9 @@ public class BuildViewForTesting {
         /* buildConfigurationsCreatedCallback= */ null,
         /* buildDriverKeyTestContext= */ null,
         /* additionalConfigurationChangeEvent= */ Optional.empty(),
-        /* remoteAnalysisCachingDependenciesProvider= */ DisabledDependenciesProvider.INSTANCE);
+        /* remoteAnalysisCachingDependenciesProvider= */ RemoteAnalysisCacheManager
+            .createDisabled(),
+        RemoteAnalysisCacheDeps.createDisabled());
   }
 
   /** Sets the configuration. Not thread-safe. */
@@ -266,14 +268,6 @@ public class BuildViewForTesting {
 
   public ArtifactFactory getArtifactFactory() {
     return skyframeBuildView.getArtifactFactory();
-  }
-
-  /**
-   * Sets the possible artifact roots in the artifact factory. This allows the factory to resolve
-   * paths with unknown roots to artifacts.
-   */
-  public void setArtifactRoots(PackageRoots packageRoots) {
-    getArtifactFactory().setPackageRoots(packageRoots.getPackageRootLookup());
   }
 
   public Collection<ConfiguredTarget> getDirectPrerequisitesForTesting(

@@ -36,16 +36,26 @@ class EvaluationTestCase {
   private StarlarkThread thread = null; // created lazily by getStarlarkThread
   private Module module = null; // created lazily by getModule
 
+  private FileOptions fileOptions = FileOptions.DEFAULT;
+
   /**
    * Updates the semantics used to filter predeclared bindings, and carried by subsequently created
    * threads. Causes a new StarlarkThread and Module to be created when next needed.
    */
-  private final void setSemantics(StarlarkSemantics semantics) {
+  public final void setSemantics(StarlarkSemantics semantics) {
     this.semantics = semantics;
 
     // Re-initialize the thread and module with the new semantics when needed.
     this.thread = null;
     this.module = null;
+  }
+
+  public FileOptions getFileOptions() {
+    return fileOptions;
+  }
+
+  public void setFileOptions(FileOptions fileOptions) {
+    this.fileOptions = fileOptions;
   }
 
   // TODO(adonovan): don't let subclasses inherit vaguely specified "helpers".
@@ -69,23 +79,20 @@ class EvaluationTestCase {
   /** Joins the lines, parses them as an expression, and evaluates it. */
   final Object eval(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
-    return Starlark.eval(input, FileOptions.DEFAULT, getModule(), getStarlarkThread());
+    return Starlark.eval(input, getFileOptions(), getModule(), getStarlarkThread());
   }
 
   /** Joins the lines, parses them as a file, and executes it. */
   final void exec(String... lines)
       throws SyntaxError.Exception, EvalException, InterruptedException {
     ParserInput input = ParserInput.fromLines(lines);
-    Starlark.execFile(input, FileOptions.DEFAULT, getModule(), getStarlarkThread());
+    Starlark.execFile(input, getFileOptions(), getModule(), getStarlarkThread());
   }
 
   // A hook for subclasses to alter the created module.
-  // Implementations may add to the predeclared environment,
-  // and return the module's client data value.
+  // Implementations may add to the predeclared environment.
   // TODO(adonovan): only used in StarlarkFlagGuardingTest; move there.
-  protected Object newModuleHook(ImmutableMap.Builder<String, Object> predeclared) {
-    return null; // no client data
-  }
+  protected void newModuleHook(ImmutableMap.Builder<String, Object> predeclared) {}
 
   StarlarkThread getStarlarkThread() {
     if (this.thread == null) {
@@ -94,7 +101,7 @@ class EvaluationTestCase {
           StarlarkThread.create(
               mu, semantics, /* contextDescription= */ "", SymbolGenerator.create("test"));
       // Sets a post-assign hook to enable global export of StarlarkFunction Symbols.
-      this.thread.setPostAssignHook((unusedName, unusedValue) -> {});
+      this.thread.setPostAssignHook((unusedName, unusedLocation, unusedValue) -> {});
     }
     return this.thread;
   }
@@ -102,7 +109,7 @@ class EvaluationTestCase {
   private Module getModule() {
     if (this.module == null) {
       ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
-      newModuleHook(predeclared); // see StarlarkFlagGuardingTest
+      newModuleHook(predeclared);
       this.module = Module.withPredeclared(semantics, predeclared.buildOrThrow());
     }
     return this.module;

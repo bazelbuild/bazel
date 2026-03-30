@@ -18,7 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 import static com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType.UNQUOTED;
-import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
+import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -41,7 +41,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptionsFields.OutputPathsMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -136,7 +136,8 @@ public final class JavaHeaderCompileAction extends SpawnAction {
   @Override
   protected void afterExecute(
       ActionExecutionContext context, List<SpawnResult> spawnResults, PathMapper pathMapper) {
-    SpawnResult spawnResult = Iterables.getOnlyElement(spawnResults);
+    // The first entry represents the successful execution, see SpawnStrategy#exec
+    SpawnResult spawnResult = spawnResults.get(0);
     Artifact outputDepsProto = Iterables.get(getOutputs(), 1);
     try {
       Deps.Dependencies fullOutputDeps =
@@ -177,6 +178,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
     private final RuleContext ruleContext;
 
     private Artifact outputJar;
+    @Nullable private Artifact headerCompilationOutputJar;
     // Only non-null before set.
     private Artifact outputDepsProto;
     @Nullable private Artifact manifestOutput;
@@ -193,10 +195,11 @@ public final class JavaHeaderCompileAction extends SpawnAction {
     @Nullable private String injectingRuleKind;
     private StrictDepsMode strictJavaDeps = StrictDepsMode.OFF;
     private NestedSet<Artifact> directJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
+    private NestedSet<Artifact> headerCompilationDirectJars =
+        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     private NestedSet<Artifact> compileTimeDependencyArtifacts =
         NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     private ImmutableList<String> javacOpts = ImmutableList.of();
-    private boolean addTurbineHjarJavacOpt = false;
     private JavaPluginData plugins = JavaPluginData.empty();
 
     private ImmutableList<Artifact> additionalInputs = ImmutableList.of();
@@ -247,6 +250,13 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder setHeaderCompilationDirectJars(NestedSet<Artifact> headerCompilationDirectJars) {
+      checkNotNull(headerCompilationDirectJars, "headerCompilationDirectJars must not be null");
+      this.headerCompilationDirectJars = headerCompilationDirectJars;
+      return this;
+    }
+
     /** Sets the .jdeps artifacts for direct dependencies. */
     @CanIgnoreReturnValue
     public Builder setCompileTimeDependencyArtifacts(NestedSet<Artifact> dependencyArtifacts) {
@@ -262,21 +272,18 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       return this;
     }
 
-    /**
-     * Adds {@code -Aexperimental_turbine_hjar} to Java compiler flags without creating an entirely
-     * new list.
-     */
-    @CanIgnoreReturnValue
-    public Builder addTurbineHjarJavacOpt() {
-      this.addTurbineHjarJavacOpt = true;
-      return this;
-    }
-
     /** Sets the output jar. */
     @CanIgnoreReturnValue
     public Builder setOutputJar(Artifact outputJar) {
       checkNotNull(outputJar, "outputJar must not be null");
       this.outputJar = outputJar;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setHeaderCompilationOutputJar(Artifact headerCompilationOutputJar) {
+      checkNotNull(headerCompilationOutputJar, "headerCompilationOutputJar must not be null");
+      this.headerCompilationOutputJar = headerCompilationOutputJar;
       return this;
     }
 
@@ -403,6 +410,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       checkNotNull(bootclasspathEntries, "bootclasspathEntries must not be null");
       checkNotNull(strictJavaDeps, "strictJavaDeps must not be null");
       checkNotNull(directJars, "directJars must not be null");
+      checkNotNull(headerCompilationDirectJars, "headerCompilationDirectJars must not be null");
       checkNotNull(
           compileTimeDependencyArtifacts, "compileTimeDependencyArtifacts must not be null");
       checkNotNull(utf8Environment, "utf8Environment must not be null");
@@ -455,7 +463,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
               .add(outputJar)
               .add(outputDepsProto)
               .addAll(additionalOutputs);
-      Stream.of(gensrcOutputJar, resourceOutputJar, manifestOutput)
+      Stream.of(gensrcOutputJar, resourceOutputJar, manifestOutput, headerCompilationOutputJar)
           .filter(Objects::nonNull)
           .forEachOrdered(outputs::add);
 
@@ -473,10 +481,11 @@ public final class JavaHeaderCompileAction extends SpawnAction {
               : javaToolchain.getHeaderCompiler();
       // The header compiler is either a jar file that needs to be executed using
       // `java -jar <path>`, or an executable that can be run directly.
-      headerCompiler.addInputs(javaToolchain, mandatoryInputsBuilder);
+      headerCompiler.addInputs(mandatoryInputsBuilder);
       CustomCommandLine.Builder commandLine =
           CustomCommandLine.builder()
               .addExecPath("--output", outputJar)
+              .addExecPath("--header_compilation_output", headerCompilationOutputJar)
               .addExecPath("--gensrc_output", gensrcOutputJar)
               .addExecPath("--resource_output", resourceOutputJar)
               .addExecPath("--output_manifest_proto", manifestOutput)
@@ -486,17 +495,14 @@ public final class JavaHeaderCompileAction extends SpawnAction {
               .addExecPaths("--source_jars", sourceJars)
               .add("--injecting_rule_kind", injectingRuleKind);
 
-      if (!javacOpts.isEmpty() || addTurbineHjarJavacOpt) {
-        commandLine.add("--javacopts");
-        if (!javacOpts.isEmpty()) {
-          commandLine.addObject(javacOpts);
-        }
-        if (addTurbineHjarJavacOpt) {
-          commandLine.add("-Aexperimental_turbine_hjar");
-        }
-        // terminate --javacopts with `--` to support javac flags that start with `--`
-        commandLine.add("--");
+      commandLine.add("--javacopts");
+      if (!javacOpts.isEmpty()) {
+        commandLine.addObject(javacOpts);
       }
+      // See b/31371210, b/142059842, and b/464431616.
+      commandLine.add("-Aexperimental_turbine_hjar");
+      // terminate --javacopts with `--` to support javac flags that start with `--`
+      commandLine.add("--");
 
       if (targetLabel != null) {
         commandLine.add("--target_label");
@@ -529,8 +535,8 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       if (useDirectClasspath) {
         NestedSet<Artifact> classpath;
         NestedSet<Artifact> additionalArtifactsForPathMapping;
-        if (!directJars.isEmpty() || classpathEntries.isEmpty()) {
-          classpath = directJars;
+        if (!headerCompilationDirectJars.isEmpty() || classpathEntries.isEmpty()) {
+          classpath = headerCompilationDirectJars;
           // When using the direct classpath optimization, Turbine generates .jdeps entries based on
           // the transitive dependency information packages into META-INF/TRANSITIVE. When path
           // mapping is used, these entries may have been subject to it when they were generated.
@@ -549,7 +555,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
         commandLine.add("--reduce_classpath_mode", "NONE");
 
         NestedSet<Artifact> allInputs = mandatoryInputsBuilder.build();
-        CustomCommandLine executableLine = headerCompiler.getCommandLine(javaToolchain);
+        CustomCommandLine executableLine = headerCompiler.getCommandLine();
 
         ruleContext.registerAction(
             new JavaHeaderCompileAction(
@@ -574,7 +580,8 @@ public final class JavaHeaderCompileAction extends SpawnAction {
                 // If classPathMode == BAZEL, also make sure to inject the dependencies to be
                 // available to downstream actions. Else just do enough work to locally create the
                 // full .jdeps from the .stripped .jdeps produced on the executor.
-                /* insertDependencies= */ classpathMode == JavaClasspathMode.BAZEL,
+                /* insertDependencies= */ classpathMode == JavaClasspathMode.BAZEL
+                    || classpathMode == JavaClasspathMode.BAZEL_NO_FALLBACK,
                 javaConfiguration.inmemoryJdepsFiles(),
                 additionalArtifactsForPathMapping));
         return;
@@ -604,7 +611,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
 
       NestedSet<Artifact> mandatoryInputs = mandatoryInputsBuilder.build();
 
-      CustomCommandLine executableLine = headerCompiler.getCommandLine(javaToolchain);
+      CustomCommandLine executableLine = headerCompiler.getCommandLine();
 
       ruleContext.registerAction(
           new JavaCompileAction(

@@ -17,14 +17,20 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.MoreObjects.ToStringHelper;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 
 /** An aspect in the context of the Skyframe graph. */
+@AutoCodec(deserializedInterface = DeserializedSkyValue.class)
 public class AspectValue extends BasicActionLookupValue
     implements ConfiguredAspect, RuleConfiguredObjectValue {
 
@@ -32,7 +38,7 @@ public class AspectValue extends BasicActionLookupValue
       AspectKey key,
       Aspect aspect,
       ConfiguredAspect configuredAspect,
-      @Nullable NestedSet<Package> transitivePackages) {
+      @Nullable NestedSet<Package.Metadata> transitivePackages) {
     return transitivePackages == null
         ? new AspectValue(aspect, configuredAspect)
         : new AspectValueWithTransitivePackages(key, aspect, configuredAspect, transitivePackages);
@@ -42,7 +48,7 @@ public class AspectValue extends BasicActionLookupValue
       AspectKey key,
       Aspect aspect,
       ConfiguredAspect configuredAspect,
-      @Nullable NestedSet<Package> transitivePackages) {
+      @Nullable NestedSet<Package.Metadata> transitivePackages) {
     return transitivePackages == null
         ? new AspectValueForAlias(aspect, configuredAspect)
         : new AspectValueWithTransitivePackagesForAlias(
@@ -54,14 +60,28 @@ public class AspectValue extends BasicActionLookupValue
   @Nullable private Aspect aspect;
   @Nullable private TransitiveInfoProviderMap providers;
 
+  // We store this in a boolean because the aspect variable from which it comes may be cleared to
+  // save memory.
   private final boolean writesOutputToMasterLog;
 
   private AspectValue(Aspect aspect, ConfiguredAspect configuredAspect) {
-    super(configuredAspect.getActions());
-    this.aspect = checkNotNull(aspect);
-    this.providers = configuredAspect.getProviders();
-    this.writesOutputToMasterLog =
-        aspect.getDefinition().getAttributes().containsKey("$print_to_master_log");
+    this(
+        configuredAspect.getActions(),
+        checkNotNull(aspect),
+        configuredAspect.getProviders(),
+        aspect.getDefinition().getAttributes().containsKey("$print_to_master_log"));
+  }
+
+  @AutoCodec.Instantiator
+  AspectValue(
+      ImmutableList<ActionAnalysisMetadata> actions,
+      Aspect aspect,
+      TransitiveInfoProviderMap providers,
+      boolean writesOutputToMasterLog) {
+    super(actions);
+    this.aspect = aspect;
+    this.providers = providers;
+    this.writesOutputToMasterLog = writesOutputToMasterLog;
   }
 
   public AspectKey getKeyForTransitivePackageTracking() {
@@ -101,7 +121,7 @@ public class AspectValue extends BasicActionLookupValue
 
   @Nullable
   @Override
-  public NestedSet<Package> getTransitivePackages() {
+  public NestedSet<Package.Metadata> getTransitivePackages() {
     return null;
   }
 
@@ -121,21 +141,23 @@ public class AspectValue extends BasicActionLookupValue
   }
 
   private static class AspectValueWithTransitivePackages extends AspectValue {
-    @Nullable private transient NestedSet<Package> transitivePackages; // Null after clear().
+    @Nullable
+    private transient NestedSet<Package.Metadata> transitivePackages; // Null after clear().
+
     @Nullable private AspectKey key;
 
     private AspectValueWithTransitivePackages(
         AspectKey key,
         Aspect aspect,
         ConfiguredAspect configuredAspect,
-        NestedSet<Package> transitivePackages) {
+        NestedSet<Package.Metadata> transitivePackages) {
       super(aspect, configuredAspect);
       this.transitivePackages = checkNotNull(transitivePackages);
       this.key = checkNotNull(key);
     }
 
     @Override
-    public NestedSet<Package> getTransitivePackages() {
+    public NestedSet<Package.Metadata> getTransitivePackages() {
       return transitivePackages;
     }
 
@@ -157,9 +179,20 @@ public class AspectValue extends BasicActionLookupValue
     }
   }
 
-  private static final class AspectValueForAlias extends AspectValue {
+  @AutoCodec(deserializedInterface = DeserializedSkyValue.class)
+  @VisibleForSerialization
+  static class AspectValueForAlias extends AspectValue {
     private AspectValueForAlias(Aspect aspect, ConfiguredAspect configuredAspect) {
       super(aspect, configuredAspect);
+    }
+
+    @AutoCodec.Instantiator
+    AspectValueForAlias(
+        ImmutableList<ActionAnalysisMetadata> actions,
+        Aspect aspect,
+        TransitiveInfoProviderMap providers,
+        boolean writesOutputToMasterLog) {
+      super(actions, aspect, providers, writesOutputToMasterLog);
     }
   }
 
@@ -169,7 +202,7 @@ public class AspectValue extends BasicActionLookupValue
         AspectKey key,
         Aspect aspect,
         ConfiguredAspect configuredAspect,
-        NestedSet<Package> transitivePackages) {
+        NestedSet<Package.Metadata> transitivePackages) {
       super(key, aspect, configuredAspect, transitivePackages);
     }
   }

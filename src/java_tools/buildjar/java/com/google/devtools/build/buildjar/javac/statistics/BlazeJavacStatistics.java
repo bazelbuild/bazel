@@ -38,13 +38,14 @@ public abstract class BlazeJavacStatistics {
       Caffeine.newBuilder().weakKeys().build();
 
   public static void preRegister(Context context) {
-    contextsInitialized.get(
-        context,
-        unused -> {
-          Builder instance = newBuilder();
-          context.put(Builder.class, instance);
-          return instance;
-        });
+    var unused =
+        contextsInitialized.get(
+            context,
+            c -> {
+              Builder instance = newBuilder();
+              c.put(Builder.class, instance);
+              return instance;
+            });
   }
 
   public static BlazeJavacStatistics empty() {

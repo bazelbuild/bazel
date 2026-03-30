@@ -14,10 +14,17 @@ filegroup(
 # Library of concurrency utilities.
 java_library(
     name = "concurrent",
-    srcs = glob(["*.java"]),
+    srcs = glob(
+        ["*.java"],
+        exclude = [
+            "SettableFutureKeyedValue.java",
+            "TaskDeduplicator.java",
+            "ThreadSafety.java",
+        ],
+    ),
     deps = [
+        ":thread_safety",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
-        "//third_party:caffeine",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -27,4 +34,20 @@ java_library(
 java_library(
     name = "thread_safety",
     srcs = ["ThreadSafety.java"],
+)
+
+java_library(
+    name = "settable_future_keyed_value",
+    srcs = ["SettableFutureKeyedValue.java"],
+    deps = ["//third_party:guava"],
+)
+
+java_library(
+    name = "task_deduplicator",
+    srcs = ["TaskDeduplicator.java"],
+    deps = [
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
 )

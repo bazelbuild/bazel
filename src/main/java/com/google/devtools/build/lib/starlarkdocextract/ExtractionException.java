@@ -14,17 +14,39 @@
 
 package com.google.devtools.build.lib.starlarkdocextract;
 
+import static com.google.common.base.Strings.nullToEmpty;
+
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
+import javax.annotation.Nullable;
+import net.starlark.java.eval.Module;
+
 /** An exception indicating that Starlark API documentation could not be extracted. */
 public final class ExtractionException extends Exception {
   public ExtractionException(String message) {
     super(message);
   }
 
-  public ExtractionException(Throwable cause) {
-    super(cause);
+  public ExtractionException(Module module, String message) {
+    super(prefixWithModuleFilename(module, message, null));
   }
 
-  public ExtractionException(String message, Throwable cause) {
-    super(message, cause);
+  public ExtractionException(Module module, Throwable cause) {
+    super(prefixWithModuleFilename(module, null, cause), cause);
+  }
+
+  public ExtractionException(Module module, String message, Throwable cause) {
+    super(prefixWithModuleFilename(module, message, cause), cause);
+  }
+
+  private static String prefixWithModuleFilename(
+      Module module, @Nullable String message, @Nullable Throwable cause) {
+    BazelModuleContext bazelModuleContext = BazelModuleContext.of(module);
+    if (bazelModuleContext == null) {
+      return message;
+    }
+    if (message == null) {
+      message = cause.getMessage();
+    }
+    return String.format("in %s: %s", bazelModuleContext.filename(), nullToEmpty(message));
   }
 }

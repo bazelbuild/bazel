@@ -13,19 +13,30 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.TruthJUnit.assume;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.Keep;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -39,6 +50,19 @@ public final class UnusedInputsFailureIntegrationTest extends BuildIntegrationTe
   @Before
   public void setOptions() {
     addOptions("--keep_going=" + keepGoing);
+  }
+
+  private List<TargetCompleteEvent> listenForTargetCompleteEvents() {
+    List<TargetCompleteEvent> events = new ArrayList<>();
+    runtimeWrapper.registerSubscriber(
+        new Object() {
+          @Subscribe
+          @Keep
+          private void targetComplete(TargetCompleteEvent event) {
+            events.add(event);
+          }
+        });
+    return events;
   }
 
   @Test
@@ -94,13 +118,20 @@ public final class UnusedInputsFailureIntegrationTest extends BuildIntegrationTe
             tools = [":gen_run.sh"],
         )
         """);
+
     buildTarget("//foo:foo");
     bugReporter.assertNoExceptions();
 
     write("foo/gen_run.sh", "false");
+
+    List<TargetCompleteEvent> targetCompleteEvents = listenForTargetCompleteEvents();
     if (keepGoing) {
       buildTarget("//foo:foo");
       bugReporter.assertNoExceptions();
+
+      TargetCompleteEvent targetCompleteEvent = Iterables.getOnlyElement(targetCompleteEvents);
+      assertThat(getAllReportedArtifacts(targetCompleteEvent)).containsExactly("foo/foo.out");
+      assertThat(getRootCauseLabels(targetCompleteEvent)).isEmpty();
     } else {
       RecordingOutErr outErr = new RecordingOutErr();
       this.outErr = outErr;
@@ -118,6 +149,93 @@ public final class UnusedInputsFailureIntegrationTest extends BuildIntegrationTe
       Throwable cause = bugReporter.getFirstCause();
       assertThat(cause).hasMessageThat().contains("Error evaluating artifact nested set");
       assertThat(cause).hasMessageThat().contains("foo/gen_run.sh");
+
+      // TODO: b/414856090 - There should be a failed TargetCompleteEvent posted.
+      assertThat(targetCompleteEvents).isEmpty();
+    }
+  }
+
+  /**
+   * Regression test for b/218911068.
+   *
+   * <p>Doesn't reproduce the exact crash since that requires BEP infrastructure to be set up, but
+   * asserts that the {@link TargetCompleteEvent} does not report the fileset artifact in the broken
+   * build.
+   */
+  @Test
+  public void incrementalFailureOnUnusedInput_topLevelFileset() throws Exception {
+    assume().that(AnalysisMock.get().isThisBazel()).isFalse(); // No Filesets in bazel.
+    write(
+        "foo/pruning.bzl",
+        """
+        def _impl(ctx):
+            inputs = ctx.attr.inputs.files
+            output = ctx.actions.declare_file(ctx.label.name + ".out")
+            unused_file = ctx.actions.declare_file(ctx.label.name + ".unused")
+            ctx.actions.run(
+                # Make sure original inputs are one level down,
+                # so 'leaf unrolling' doesn't get them
+                inputs = depset(transitive = [ctx.attr.filler.files, inputs]),
+                outputs = [output, unused_file],
+                arguments = [output.path, unused_file.path] + [f.path for f in inputs.to_list()],
+                executable = ctx.executable.executable,
+                unused_inputs_list = unused_file,
+            )
+            return DefaultInfo(files = depset([output]))
+
+        build_rule = rule(
+            attrs = {
+                "inputs": attr.label(allow_files = True),
+                "filler": attr.label(allow_files = True),
+                "executable": attr.label(executable = True, allow_files = True, cfg = "exec"),
+            },
+            implementation = _impl,
+        )
+        """);
+    write("foo/unused.sh", "touch $1", "shift", "unused=$1", "shift", "echo $@ > $unused")
+        .setExecutable(true);
+    write("foo/gen_run.sh", "true").setExecutable(true);
+    write("foo/filler");
+    write(
+        "foo/BUILD",
+        """
+        load("//foo:pruning.bzl", "build_rule")
+
+        Fileset(name = "fs", entries = [FilesetEntry(files = [":foo"])])
+
+        build_rule(
+            name = "foo",
+            executable = ":unused.sh",
+            filler = ":filler",
+            inputs = ":in",
+        )
+
+        genrule(
+            name = "gen",
+            outs = ["in"],
+            cmd = "$(location :gen_run.sh) && touch $@",
+            tools = [":gen_run.sh"],
+        )
+        """);
+
+    buildTarget("//foo:fs");
+
+    write("foo/gen_run.sh", "false");
+
+    List<TargetCompleteEvent> targetCompleteEvents = listenForTargetCompleteEvents();
+    if (keepGoing) {
+      buildTarget("//foo:fs");
+
+      TargetCompleteEvent targetCompleteEvent = Iterables.getOnlyElement(targetCompleteEvents);
+      assertThat(getAllReportedArtifacts(targetCompleteEvent)).containsExactly("foo/fs");
+      assertThat(getRootCauseLabels(targetCompleteEvent)).isEmpty();
+    } else {
+      assertThrows(BuildFailedException.class, () -> buildTarget("//foo:fs"));
+      assertContainsError("Executing genrule //foo:gen failed");
+
+      TargetCompleteEvent targetCompleteEvent = Iterables.getOnlyElement(targetCompleteEvents);
+      assertThat(getAllReportedArtifacts(targetCompleteEvent)).isEmpty();
+      assertThat(getRootCauseLabels(targetCompleteEvent)).containsExactly("//foo:gen");
     }
   }
 
@@ -216,17 +334,27 @@ public final class UnusedInputsFailureIntegrationTest extends BuildIntegrationTe
     write("foo/bad.sh", "#!/bin/bash", "touch $1").setExecutable(true);
     write("foo/prune.sh", "#!/bin/bash", "touch $1 && echo $3 > $2").setExecutable(true);
     write("foo/consume.sh", "#!/bin/bash", "exit 1").setExecutable(true);
+
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:example"));
     assertContainsError("Action foo/consume.out failed");
 
     write("foo/bad.sh", "#!/bin/bash", "exit 1").setExecutable(true);
     write("foo/consume.sh", "#!/bin/bash", "touch $@").setExecutable(true);
 
+    List<TargetCompleteEvent> targetCompleteEvents = listenForTargetCompleteEvents();
     if (keepGoing) {
       buildTarget("//foo:example");
+
+      TargetCompleteEvent targetCompleteEvent = Iterables.getOnlyElement(targetCompleteEvents);
+      assertThat(getAllReportedArtifacts(targetCompleteEvent)).containsExactly("foo/top.out");
+      assertThat(getRootCauseLabels(targetCompleteEvent)).isEmpty();
     } else {
       assertThrows(BuildFailedException.class, () -> buildTarget("//foo:example"));
       assertContainsError("Action foo/bad.out failed");
+
+      TargetCompleteEvent targetCompleteEvent = Iterables.getOnlyElement(targetCompleteEvents);
+      assertThat(getAllReportedArtifacts(targetCompleteEvent)).isEmpty();
+      assertThat(getRootCauseLabels(targetCompleteEvent)).containsExactly("//foo:example");
     }
   }
 
@@ -275,14 +403,21 @@ public final class UnusedInputsFailureIntegrationTest extends BuildIntegrationTe
             inputs = ":in",
         )
         """);
+
     buildTarget("//foo:prune");
     bugReporter.assertNoExceptions();
 
     inPath.delete();
     inPath.createSymbolicLink(PathFragment.create("in"));
+
+    List<TargetCompleteEvent> targetCompleteEvents = listenForTargetCompleteEvents();
     if (keepGoing) {
       buildTarget("//foo:prune");
       bugReporter.assertNoExceptions();
+
+      TargetCompleteEvent targetCompleteEvent = Iterables.getOnlyElement(targetCompleteEvents);
+      assertThat(getAllReportedArtifacts(targetCompleteEvent)).containsExactly("foo/prune.out");
+      assertThat(getRootCauseLabels(targetCompleteEvent)).isEmpty();
     } else {
       RecordingOutErr outErr = new RecordingOutErr();
       this.outErr = outErr;
@@ -293,6 +428,10 @@ public final class UnusedInputsFailureIntegrationTest extends BuildIntegrationTe
       assertDetailedExitCodeIsSourceIOFailure(cause);
       assertThat(cause).hasMessageThat().isEqualTo("error reading file '//foo:in': Symlink cycle");
       assertThat(outErr.errAsLatin1()).contains("error reading file '//foo:in': Symlink cycle");
+
+      TargetCompleteEvent targetCompleteEvent = Iterables.getOnlyElement(targetCompleteEvents);
+      assertThat(getAllReportedArtifacts(targetCompleteEvent)).isEmpty();
+      assertThat(getRootCauseLabels(targetCompleteEvent)).containsExactly("//foo:prune");
     }
   }
 
@@ -354,9 +493,30 @@ public final class UnusedInputsFailureIntegrationTest extends BuildIntegrationTe
             inputs = ":in",
         )
         """);
+
     buildTarget("//foo:prune");
+
     inPath.delete();
     inPath.createSymbolicLink(PathFragment.create("nope"));
+
+    List<TargetCompleteEvent> targetCompleteEvents = listenForTargetCompleteEvents();
     buildTarget("//foo:prune");
+
+    TargetCompleteEvent targetCompleteEvent = Iterables.getOnlyElement(targetCompleteEvents);
+    assertThat(getAllReportedArtifacts(targetCompleteEvent)).containsExactly("foo/prune.out");
+    assertThat(getRootCauseLabels(targetCompleteEvent)).isEmpty();
+  }
+
+  private static ImmutableSet<String> getAllReportedArtifacts(TargetCompleteEvent event) {
+    return event.reportedArtifacts(OutputGroupFileModes.DEFAULT).artifacts.stream()
+        .flatMap(set -> set.toList().stream())
+        .map(artifact -> artifact.getRootRelativePath().getPathString())
+        .collect(toImmutableSet());
+  }
+
+  private static ImmutableSet<String> getRootCauseLabels(TargetCompleteEvent event) {
+    return event.getRootCauses().toList().stream()
+        .map(cause -> cause.getLabel().toString())
+        .collect(toImmutableSet());
   }
 }

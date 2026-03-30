@@ -117,7 +117,8 @@ public abstract class Argument extends Node {
   }
 
   @Override
-  public void accept(NodeVisitor visitor) {
+  public final void accept(NodeVisitor visitor) {
+    // All Argument subclasses dispatch to NodeVisitor#visit(Argument).
     visitor.visit(this);
   }
 }

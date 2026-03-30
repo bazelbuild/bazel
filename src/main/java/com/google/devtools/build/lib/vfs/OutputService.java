@@ -15,24 +15,22 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
-import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
+import com.google.devtools.build.lib.actions.OutputChecker;
+import com.google.devtools.build.lib.actions.ProxyMetadataFactory;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
@@ -69,6 +67,12 @@ public interface OutputService {
     STAGE_REMOTE_FILES_FILE_SYSTEM,
 
     /**
+     * Similar to STAGE_REMOTE_FILES_FILES_SYSTEM, but only constructs output directories as needed
+     * by local actions. Used by Blaze.
+     */
+    STAGE_REMOTE_FILES_ON_DEMAND_FILE_SYSTEM,
+
+    /**
      * The action file system implementation mixes an in-memory and a local file system. It uses the
      * in-memory filesystem for in-process and remote actions, but is also aware of outputs from
      * local actions. It's able to stage remote outputs accessed as inputs by local actions, but
@@ -80,6 +84,20 @@ public interface OutputService {
       return this != DISABLED;
     }
 
+    /**
+     * Returns true if this service should early prepare the underlying filesystem for every action.
+     * This involves deleting old output files and creating directories for the newly-created output
+     * files. If false, the output service must handle such tasks itself as needed.
+     */
+    public boolean shouldDoEagerActionPrep() {
+      return this != IN_MEMORY_ONLY_FILE_SYSTEM && this != STAGE_REMOTE_FILES_ON_DEMAND_FILE_SYSTEM;
+    }
+
+    /**
+     * Returns true if this service supports execution of local actions. This is used to determine
+     * whether to create {@link
+     * com.google.devtools.build.lib.runtime.CommandEnvironment#getActionTempsDirectory}.
+     */
     public boolean supportsLocalActions() {
       return this != IN_MEMORY_ONLY_FILE_SYSTEM;
     }
@@ -112,8 +130,12 @@ public interface OutputService {
     return false;
   }
 
-  default RemoteArtifactChecker getRemoteArtifactChecker() {
-    return RemoteArtifactChecker.TRUST_ALL;
+  default OutputChecker getOutputChecker() {
+    return OutputChecker.TRUST_ALL;
+  }
+
+  default ProxyMetadataFactory getProxyMetadataFactory() {
+    return ProxyMetadataFactory.NO_PROXIES;
   }
 
   /**
@@ -195,7 +217,7 @@ public interface OutputService {
       PathFragment execRootFragment,
       String relativeOutputPath,
       ImmutableList<Root> sourceRoots,
-      ActionInputMap inputArtifactData,
+      InputMetadataProvider inputArtifactData,
       Iterable<Artifact> outputArtifacts,
       boolean rewindingEnabled) {
     return null;
@@ -207,14 +229,11 @@ public interface OutputService {
    * <p>Should be called as context changes throughout action execution.
    *
    * @param actionFileSystem must be a filesystem returned by {@link #createActionFileSystem}.
-   * @param filesets The Fileset symlinks known for this action.
    */
   default void updateActionFileSystemContext(
       ActionExecutionMetadata action,
       FileSystem actionFileSystem,
-      Environment env,
-      OutputMetadataStore outputMetadataStore,
-      ImmutableMap<Artifact, FilesetOutputTree> filesets) {}
+      OutputMetadataStore outputMetadataStore) {}
 
   /**
    * Checks the filesystem returned by {@link #createActionFileSystem} for errors attributable to
@@ -232,9 +251,7 @@ public interface OutputService {
       String relativeOutputPath,
       FileSystem fileSystem,
       ImmutableList<Root> pathEntries,
-      ActionInputMap actionInputMap,
-      Map<Artifact, ImmutableSortedSet<TreeFileArtifact>> treeArtifacts,
-      Map<Artifact, FilesetOutputTree> filesets) {
+      ActionInputMap actionInputMap) {
     throw new IllegalStateException("Path resolver not supported by this class");
   }
 
@@ -245,5 +262,53 @@ public interface OutputService {
 
   default XattrProvider getXattrProvider(XattrProvider delegate) {
     return delegate;
+  }
+
+  default boolean stagesTopLevelRunfiles() {
+    return false;
+  }
+
+  default RewoundActionSynchronizer getRewoundActionSynchronizer() {
+    return RewoundActionSynchronizer.NOOP;
+  }
+
+  /**
+   * Provides synchronization for actions in the presence of action rewinding.
+   *
+   * <p>If an action discovers that some of its inputs have been lost, action rewinding will select
+   * actions that need to be re-executed to recover the lost inputs. Without synchronization, such
+   * actions may run concurrently with actions that consume their non-lost outputs. Depending on the
+   * particular output service and action filesystem implementation, this may lead to races, which
+   * this interface aims to prevent.
+   */
+  interface RewoundActionSynchronizer {
+    /**
+     * Guards an action from the beginning of its {@link Action#prepare preparation} until the end
+     * of its {@link Action#execute execution}.
+     */
+    SilentCloseable enterActionPreparation(Action action, boolean wasRewound)
+        throws InterruptedException;
+
+    /** Guards an action from the beginning to the end of its {@link Action#execute execution}. */
+    SilentCloseable enterActionExecution(Action action, InputMetadataProvider metadataProvider)
+        throws InterruptedException;
+
+    /**
+     * A no-op implementation of {@link RewoundActionSynchronizer}, suitable for action filesystems
+     * that support racy access to action outputs.
+     */
+    RewoundActionSynchronizer NOOP =
+        new RewoundActionSynchronizer() {
+          @Override
+          public SilentCloseable enterActionPreparation(Action action, boolean wasRewound) {
+            return () -> {};
+          }
+
+          @Override
+          public SilentCloseable enterActionExecution(
+              Action action, InputMetadataProvider metadataProvider) {
+            return () -> {};
+          }
+        };
   }
 }

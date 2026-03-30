@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2024 The Bazel Authors. All rights reserved.
 #
@@ -42,15 +42,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 function set_up() {
   # So that each test starts with a clean slate. Important so that the output of
   # dumping various things is predictable.
@@ -58,8 +49,10 @@ function set_up() {
 }
 
 function test_memory_summary() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name='a')
 EOF
 
@@ -123,13 +116,16 @@ EOF
 }
 
 function test_memory_transitive() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name="a", srcs=["a.sh"], deps=["//b"])
 EOF
 
   mkdir -p b
   cat > b/BUILD <<'EOF'
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name="b", srcs=["b.sh"], visibility=["//visibility:public"])
 EOF
 

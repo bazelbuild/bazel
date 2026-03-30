@@ -311,17 +311,6 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
             entryConsumer.accept(
                 runfilesTreeRelativePath,
                 reconstructRunfilesSymlinkTarget(path, pathAndInputId.getValue()));
-            if (runfilesTree.getLegacyExternalRunfiles()
-                && !rootSymlinks
-                && !runfilesTreeRelativePath.startsWith(workspaceRunfilesDirectory + "/")) {
-              String runfilesTreeLegacyRelativePath =
-                  workspaceRunfilesDirectory + "/external/" + runfilesTreeRelativePath;
-              entryConsumer.accept(
-                  runfilesTreeLegacyRelativePath,
-                  reconstructRunfilesSymlinkTarget(
-                      runfilesTree.getPath() + "/" + runfilesTreeLegacyRelativePath,
-                      pathAndInputId.getValue()));
-            }
           }
         }
         default ->
@@ -381,7 +370,7 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
     // the transitive sets are visited before the direct children). This is important to resolve
     // conflicts in the same order as the real Runfiles implementation.
     LinkedHashMap<String, File> runfiles = new LinkedHashMap<>();
-    final boolean[] hasWorkspaceRunfilesDirectory = {runfilesTree.getLegacyExternalRunfiles()};
+    final boolean[] hasWorkspaceRunfilesDirectory = {false};
 
     visitSymlinkEntries(
         runfilesTree,
@@ -405,7 +394,7 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
     flattenedArtifacts.stream()
         .flatMap(
             file ->
-                getRunfilesPaths(file.getPath(), runfilesTree.getLegacyExternalRunfiles())
+                getRunfilesPaths(file.getPath())
                     .map(
                         relativePath ->
                             file.toBuilder()
@@ -445,7 +434,7 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
               .build());
     }
 
-    if (!runfilesTree.getLegacyExternalRunfiles() && !hasWorkspaceRunfilesDirectory[0]) {
+    if (!hasWorkspaceRunfilesDirectory[0]) {
       String dotRunfilePath =
           "%s/%s/.runfile".formatted(runfilesTree.getPath(), workspaceRunfilesDirectory);
       runfiles.put(dotRunfilePath, File.newBuilder().setPath(dotRunfilePath).build());
@@ -477,7 +466,7 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
     return extractRunfilesPath(path, siblingRepositoryLayout).group("repo") == null;
   }
 
-  private Stream<String> getRunfilesPaths(String execPath, boolean legacyExternalRunfiles) {
+  private Stream<String> getRunfilesPaths(String execPath) {
     MatchResult matchResult = extractRunfilesPath(execPath, siblingRepositoryLayout);
     String repo = matchResult.group("repo");
     String repoRelativePath = matchResult.group("path");
@@ -486,10 +475,6 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
     } else {
       Stream.Builder<String> paths = Stream.builder();
       paths.add(repo + "/" + repoRelativePath);
-      if (legacyExternalRunfiles) {
-        paths.add(
-            "%s/external/%s/%s".formatted(workspaceRunfilesDirectory, repo, repoRelativePath));
-      }
       return paths.build();
     }
   }

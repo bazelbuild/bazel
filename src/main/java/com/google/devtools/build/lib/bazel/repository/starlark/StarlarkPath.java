@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.bazel.repository.starlark;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkBaseExternalContext.ShouldWatch;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -206,7 +206,7 @@ public final class StarlarkPath implements StarlarkValue {
   }
 
   @Override
-  public void repr(Printer printer) {
-    printer.repr(path.toString());
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    printer.repr(path.toString(), semantics);
   }
 }

@@ -37,9 +37,7 @@ public final class ServerBuilder {
       ImmutableList.builder();
   private final BuildEventArtifactUploaderFactoryMap.Builder buildEventArtifactUploaderFactories =
       new BuildEventArtifactUploaderFactoryMap.Builder();
-  private final ImmutableMap.Builder<String, AuthHeadersProvider> authHeadersProvidersMap =
-      ImmutableMap.builder();
-  private RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory;
+  private RepositoryRemoteHelpersFactory repositoryRemoteHelpersFactory;
   private final InstrumentationOutputFactory.Builder instrumentationOutputFactoryBuilder =
       new InstrumentationOutputFactory.Builder();
 
@@ -77,8 +75,8 @@ public final class ServerBuilder {
     return buildEventArtifactUploaderFactories.build();
   }
 
-  public RepositoryRemoteExecutorFactory getRepositoryRemoteExecutorFactory() {
-    return repositoryRemoteExecutorFactory;
+  public RepositoryRemoteHelpersFactory getRepositoryHelpersFactory() {
+    return repositoryRemoteHelpersFactory;
   }
 
   /**
@@ -166,26 +164,10 @@ public final class ServerBuilder {
   }
 
   @CanIgnoreReturnValue
-  public ServerBuilder setRepositoryRemoteExecutorFactory(
-      RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory) {
-    this.repositoryRemoteExecutorFactory = repositoryRemoteExecutorFactory;
+  public ServerBuilder setRepositoryHelpersFactory(
+      RepositoryRemoteHelpersFactory repositoryRemoteHelpersFactory) {
+    this.repositoryRemoteHelpersFactory = repositoryRemoteHelpersFactory;
     return this;
-  }
-
-  /**
-   * Register a provider of authentication headers that blaze modules can use. See {@link
-   * AuthHeadersProvider} for more details.
-   */
-  @CanIgnoreReturnValue
-  public ServerBuilder addAuthHeadersProvider(
-      String name, AuthHeadersProvider authHeadersProvider) {
-    authHeadersProvidersMap.put(name, authHeadersProvider);
-    return this;
-  }
-
-  /** Returns a map of all registered {@link AuthHeadersProvider}s. */
-  public ImmutableMap<String, AuthHeadersProvider> getAuthHeadersProvidersMap() {
-    return authHeadersProvidersMap.buildOrThrow();
   }
 
   /**

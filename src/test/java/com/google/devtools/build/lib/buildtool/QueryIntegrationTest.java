@@ -39,8 +39,8 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.DefaultSyscallCache;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -114,7 +114,10 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     final Map<PathFragment, Runnable> watchedPaths = Maps.newConcurrentMap();
 
     CustomFileSystem() {
-      super(DigestHashFunction.SHA256, "");
+      super(
+          DigestHashFunction.SHA256,
+          /* hashAttributeName= */ "",
+          new NativePosixFilesServiceImpl());
     }
 
     void stubStat(Path path, @Nullable FileStatus stubbedResult) {
@@ -347,12 +350,13 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         "donut/BUILD",
         """
         load('//test_defs:foo_binary.bzl', 'foo_binary')
+        load('//test_defs:foo_test.bzl', 'foo_test')
         foo_binary(
             name = "thief",
             srcs = ["thief.sh"],
         )
 
-        cc_test(
+        foo_test(
             name = "shop",
             srcs = ["shop.cc"],
         )
@@ -589,23 +593,6 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         "--experimental_graphless_query requires --order_output=no or --order_output=auto");
     assertCommandLineErrorExitCode(result);
     assertThat(result.getStdout()).isEmpty();
-  }
-
-  @Test
-  public void graphlessQueryWithLexicographicalOutput() throws Exception {
-    write(
-        "foo/BUILD",
-        "load('//test_defs:foo_library.bzl', 'foo_library')",
-        "foo_library(name='foo', srcs=['foo.sh'])");
-
-    QueryOutput result =
-        getQueryResult(
-            "//foo",
-            "--experimental_graphless_query",
-            "--order_output=auto",
-            "--incompatible_lexicographical_output");
-    assertSuccessfulExitCode(result);
-    assertThat(result.getStdout()).isNotEmpty();
   }
 
   @Test
@@ -1081,6 +1068,38 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     assertDoesNotContainEvent("deppackage");
   }
 
+  // Regression test for b/454393488.
+  @Test
+  public void crossPackageWithValidOutputFile() throws Exception {
+    write("package/subpkg/BUILD");
+
+    // Add a rule with an implicit output file with a name which has a prefix. This facilitates a
+    // target with name "subpkg/foo", which incorrectly crosses package boundary "subpkg/", but its
+    // output file is "prefixsubpkg/foo", which is a valid name.
+    write(
+        "package/rule.bzl",
+        """
+        def _impl(ctx): pass
+        my_rule = rule(implementation = _impl,
+                      outputs = {"o": "prefix%{name}.out"})
+        """);
+    write(
+        "package/BUILD",
+        """
+        load("//package:rule.bzl", "my_rule")
+        my_rule(name = "valid_lib")
+        my_rule(name = "subpkg/invalid_lib")
+        """);
+
+    QueryOutput result =
+        getQueryResult("visible(//package:valid_lib, //package:prefixsubpkg/invalid_lib.out)");
+    // Expect an analysis failure and not a complete crash.
+    assertExitCode(result, ExitCode.ANALYSIS_FAILURE);
+    assertThat(result.getBlazeCommandResult().getFailureDetail().getMessage())
+        .contains(
+            "'//package:subpkg/invalid_lib' is invalid because 'package/subpkg' is a subpackage");
+  }
+
   private void assertExitCode(QueryOutput result, ExitCode expected) {
     assertThat(result.getBlazeCommandResult().getExitCode()).isEqualTo(expected);
   }
@@ -1109,8 +1128,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
 
   private QueryOutput getQueryResult(String queryString, String... flags) throws Exception {
     Collections.addAll(options, flags);
-    runtimeWrapper.resetOptions();
-    runtimeWrapper.addOptions(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
+    setupOptions();
     runtimeWrapper.addOptions(options);
     runtimeWrapper.addOptions(queryString);
     CommandEnvironment env = runtimeWrapper.newCommand(QueryCommand.class);
@@ -1152,6 +1170,9 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
               }
             });
     BlazeCommandResult lastBlazeCommandResult = new QueryCommand().exec(env, options);
+    for (BlazeModule module : getRuntime().getBlazeModules()) {
+      module.afterCommand();
+    }
     return new QueryOutput(lastBlazeCommandResult, stdout.toByteArray());
   }
 

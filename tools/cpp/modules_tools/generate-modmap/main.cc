@@ -18,17 +18,17 @@
 
 int main(int argc, char *argv[]) {
   if (argc != 5) {
-    std::cerr << "Usage: generate-modmap <ddi-file> <cpp20modules-info-file> "
-                 "<output> <compiler>"
+    std::cerr << "Usage: generate-modmap <compiler> <ddi-file> "
+                 "<cpp20modules-info-file> <output>"
               << std::endl;
     std::exit(1);
   }
 
   // Retrieve the values of the flags
-  std::string ddi_filename = argv[1];
-  std::string info_filename = argv[2];
-  std::string output = argv[3];
-  std::string compiler = argv[4];
+  std::string compiler = argv[1];
+  std::string ddi_filename = argv[2];
+  std::string info_filename = argv[3];
+  std::string output = argv[4];
 
   std::ifstream info_stream(info_filename);
   if (!info_stream.is_open()) {

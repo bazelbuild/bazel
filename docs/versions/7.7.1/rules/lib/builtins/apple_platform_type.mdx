@@ -1,0 +1,16 @@
+---
+title: 'apple\_platform\_type'
+---
+
+Describes an Apple "platform type", such as iOS, macOS, tvOS, visionOS, or watchOS. This is distinct from a "platform", which is the platform type combined with one or more CPU architectures.
+
+Specific instances of this type can be retrieved by accessing the fields of the [apple\_common.platform\_type](../toplevel/apple_common#platform_type):
+
+* `apple_common.platform_type.ios`
+* `apple_common.platform_type.macos`
+* `apple_common.platform_type.tvos`
+* `apple_common.platform_type.watchos`
+
+Likewise, the platform type of an existing platform value can be retrieved using its `platform_type` field.
+
+Platform types can be converted to a lowercase string (e.g., `ios` or `macos`) using the [str](../globals/all#str) function.

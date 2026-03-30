@@ -7,12 +7,12 @@ Book: /_book.yaml
 
 This is a guide for the maintainers of the Bazel open source project.
 
-If you are looking to contribute to Bazel, please read [Contributing to
+If you are looking to contribute to Bazel, read [Contributing to
 Bazel](/contribute) instead.
 
 The objectives of this page are to:
 
-1. Serve as the maintainers' source of truth for the project’s contribution
+1. Serve as the maintainers' source of truth for the project's contribution
    process.
 1. Set expectations between the community contributors and the project
    maintainers.
@@ -21,7 +21,7 @@ Bazel's [core group of contributors](/contribute/policy) has dedicated
 subteams to manage aspects of the open source project. These are:
 
 * **Release Process**: Manage Bazel's release process.
-* **Green Team**: Grow a healthy ecosystem of rules and tools.
+* **Green Team**: Monitor Bazel CI health and report breakages.
 * **Developer Experience Gardeners**: Encourage external contributions, review
   issues and pull requests, and make our development workflow more open.
 
@@ -120,17 +120,44 @@ organization](https://github.com/bazelbuild){: .external} to be able to add or r
 
 ### Pull Requests {:#pull-requests}
 
-1. Filter the list of pull requests by your team label.
-1. Review open pull requests.
-  1. **Optional**: If you are assigned for the review but is not the right fit
-  for it, re-assign the appropriate reviewer to perform a code review.
-1. Work with the pull request creator to complete a code review.
-1. Approve the PR.
-1. Ensure that all tests pass.
-1. Import the patch to the internal version control system and run the internal
-   presubmits.
-1. Submit the internal patch. If the patch submits and exports successfully, the
-   PR will be closed automatically by GitHub.
+Pull requests (PRs) are a primary way that external contributors add value to
+Bazel. As an open source project, it is important to ensure that PRs are
+reviewed and handled in a timely and efficient manner.
+
+*   **Triage**
+
+    Regularly review incoming PRs with the `awaiting-review` label and your team
+    label. This can be done either with a rotation or a regular triage meeting.
+    We expect each PR receives an initial response within 7 business days.
+
+*   **Response**
+
+    -   If the PR looks good, approve it and apply the `awaiting-PR-merge`
+        label. The gTech team will import the PR as a CL.
+    -   Otherwise, leave your feedback and replace the `awaiting-review` label
+        with the `awaiting-user-response` label. The DevEx subteam will
+        regularly update the label if the PR author responds.
+    -   For PRs with major changes, consider asking for a design doc or a
+        prior discussion in an issue.
+
+*  **Closure**
+
+    Due to limited resources, it's important to close PRs that don't meet
+    Bazel's standards or that we don't have the capacity to review or maintain.
+
+    -   If the PR is not aligned with Bazel's goals, close it with an
+        explanation.
+    -   If the PR is too large and complex, close it with a request to break it
+        down into smaller pieces.
+    -   If the PR code quality doesn't meet our standards, close it with an
+        explanation.
+    -   If the future maintenance cost of the code is too high, close it with an
+        explanation.
+    -   If the PR has been awaiting user response for a long time and the
+        contributor hasn't responded, the PR will be automatically marked as
+        stale after 30 days and closed after another 30 days.
+
+    When closing a PR, be polite and explain the reason for closure.
 
 ## Priority {:#priority}
 
@@ -160,13 +187,6 @@ issues.
 * [**P4**](https://github.com/bazelbuild/bazel/labels/P4){: .external} - Low priority defect
   or feature request that is unlikely to get closed. Can also be kept open for a
   potential re-prioritization if more users are impacted.
-* [**ice-box**](https://github.com/bazelbuild/bazel/issues?q=label%3Aice-box+is%3Aclosed){: .external}
-  - Issues that we currently don't have time to deal with nor the
-  time to accept contributions. We will close these issues to indicate that
-  nobody is working on them, but will continue to monitor their validity over
-  time and revive them if enough people are impacted and if we happen to have
-  resources to deal with them. As always, feel free to comment or add reactions
-  to these issues even when closed.
 
 ## Team labels {:#team-labels}
 
@@ -194,15 +214,15 @@ issues.
 *   [`team-Remote-Exec`](https://github.com/bazelbuild/bazel/labels/team-Remote-Exec){: .external}: Issues for Execution (Remote) team
     * Contact: [coeuvre](https://github.com/coeuvre){: .external}
 *   [`team-Rules-API`](https://github.com/bazelbuild/bazel/labels/team-Rules-API){: .external}: API for writing rules/aspects: providers, runfiles, actions, artifacts
-    * Contact: [comius](https://github.com/comius){: .external}
+    * Contact: [pzembrod](https://github.com/pzembrod){: .external}
 *   [`team-Rules-CPP`](https://github.com/bazelbuild/bazel/labels/team-Rules-CPP){: .external} / [`team-Rules-ObjC`](https://github.com/bazelbuild/bazel/labels/team-Rules-ObjC){: .external}: Issues for C++/Objective-C rules, including native Apple rule logic
-    * Contact: [buildbreaker2021](https://github.com/buildbreaker2021){: .external}
+    * Contact: [pzembrod](https://github.com/pzembrod){: .external}
 *   [`team-Rules-Java`](https://github.com/bazelbuild/bazel/labels/team-Rules-Java){: .external}: Issues for Java rules
     * Contact: [hvadehra](https://github.com/hvadehra){: .external}
 *   [`team-Rules-Python`](https://github.com/bazelbuild/bazel/labels/team-Rules-Python){: .external}: Issues for the native Python rules
     * Contact: [rickeylev](https://github.com/rickeylev){: .external}
 *   [`team-Rules-Server`](https://github.com/bazelbuild/bazel/labels/team-Rules-Server){: .external}: Issues for server-side rules included with Bazel
-    * Contact: [comius](https://github.com/comius){: .external}
+    * Contact: [pzembrod](https://github.com/pzembrod){: .external}
 *   [`team-Starlark-Integration`](https://github.com/bazelbuild/bazel/labels/team-Starlark-Integration){: .external}: Non-API Bazel + Starlark integration. Includes: how Bazel triggers the Starlark interpreter, Stardoc, builtins injection, character encoding.  Does *not* include: BUILD or .bzl language issues.
     * Contact: [brandjon](https://github.com/brandjon){: .external}
 *   [`team-Starlark-Interpreter`](https://github.com/bazelbuild/bazel/labels/team-Starlark-Interpreter){: .external}: Issues for the Starlark interpreter (anything in [java.net.starlark](https://github.com/bazelbuild/bazel/tree/master/src/main/java/net/starlark/java)). BUILD and .bzl API issues (which represent Bazel's *integration* with Starlark) go in `team-Build-Language`.

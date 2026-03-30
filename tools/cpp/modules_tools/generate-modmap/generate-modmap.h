@@ -16,7 +16,7 @@
 #define BAZEL_TOOLS_CPP_MODULE_TOOLS_GENERATE_MODMAP_GENERATE_MODMAP_H_
 
 #include <iostream>
-#include <unordered_set>
+#include <set>
 
 #include "common/common.h"
 
@@ -25,6 +25,11 @@ struct ModmapItem {
   std::string path;
   bool operator==(const ModmapItem &other) const {
     return name == other.name && path == other.path;
+  }
+  bool operator<(const ModmapItem &other) const {
+    if (name < other.name) return true;
+    if (name > other.name) return false;
+    return path < other.path;
   }
   friend std::ostream &operator<<(std::ostream &os, const ModmapItem &item) {
     os << "ModmapItem{name: " << item.name << ", path: " << item.path << "}";
@@ -40,11 +45,11 @@ struct hash<ModmapItem> {
   }
 };
 }  // namespace std
-std::unordered_set<ModmapItem> process(const ModuleDep &dep,
-                                       const Cpp20ModulesInfo &info);
+std::set<ModmapItem> process(const ModuleDep &dep,
+                             const Cpp20ModulesInfo &info);
 void write_modmap(std::ostream &modmap_file_stream,
                   std::ostream &modmap_file_dot_input_stream,
-                  const std::unordered_set<ModmapItem> &modmap,
+                  const std::set<ModmapItem> &modmap,
                   const std::string &compiler,
                   const std::optional<ModmapItem> &generated);
 

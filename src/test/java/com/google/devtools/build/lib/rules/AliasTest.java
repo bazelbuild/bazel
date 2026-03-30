@@ -24,21 +24,17 @@ import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.LicensesProvider;
-import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.License.LicenseType;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -51,6 +47,7 @@ public class AliasTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "a",
             srcs = ["a.cc"],
@@ -63,7 +60,7 @@ public class AliasTest extends BuildViewTestCase {
         """);
 
     ConfiguredTarget b = getConfiguredTarget("//a:b");
-    assertThat(b.get(CcInfo.PROVIDER).getCcCompilationContext()).isNotNull();
+    assertThat(CcInfo.get(b).getCcCompilationContext()).isNotNull();
   }
 
   @Test
@@ -186,6 +183,7 @@ public class AliasTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "a",
             deps = [":b"],
@@ -383,6 +381,7 @@ public class AliasTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//test/starlark:my_rule.bzl", "my_rule")
 
         my_rule(
@@ -407,53 +406,6 @@ public class AliasTest extends BuildViewTestCase {
   }
 
   @Test
-  public void licensesAreCollected() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        """
-        filegroup(
-            name = "a",
-            licenses = ["restricted"],
-            output_licenses = ["unencumbered"],
-        )
-
-        alias(
-            name = "b",
-            actual = ":a",
-        )
-
-        filegroup(
-            name = "c",
-            srcs = [":b"],
-        )
-
-        genrule(
-            name = "d",
-            outs = ["do"],
-            cmd = "cmd",
-            tools = [":b"],
-        )
-
-        genrule(
-            name = "e",
-            srcs = [":b"],
-            outs = ["eo"],
-            cmd = "cmd",
-        )
-        """);
-    useConfiguration("--check_licenses");
-    assertThat(getLicenses("//a:d", "//a:a")).containsExactly(LicenseType.UNENCUMBERED);
-    assertThat(getLicenses("//a:e", "//a:a")).containsExactly(LicenseType.RESTRICTED);
-    assertThat(getLicenses("//a:b", "//a:a")).containsExactly(LicenseType.RESTRICTED);
-    assertThat(
-            getConfiguredTarget("//a:b")
-                .get(LicensesProvider.PROVIDER)
-                .getTransitiveLicenses()
-                .toList())
-        .hasSize(1);
-  }
-
-  @Test
   public void assertNoLicensesAttribute() throws Exception {
     scratch.file(
         "a/BUILD",
@@ -472,24 +424,12 @@ public class AliasTest extends BuildViewTestCase {
     assertContainsEvent("no such attribute 'licenses' in 'alias' rule");
   }
 
-  private Set<LicenseType> getLicenses(String topLevelTarget, String licenseTarget)
-      throws Exception {
-    LicensesProvider licenses = getConfiguredTarget(topLevelTarget).get(LicensesProvider.PROVIDER);
-    for (TargetLicense license : licenses.getTransitiveLicenses().toList()) {
-      if (license.getLabel().toString().equals(licenseTarget)) {
-        return license.getLicense().getLicenseTypes();
-      }
-    }
-
-    throw new IllegalStateException("License for '" + licenseTarget
-        + "' not found in the transitive closure of '" + topLevelTarget + "'");
-  }
-
   @Test
   public void passesTargetTypeCheck() throws Exception {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "a",
             srcs = ["a.cc"],
@@ -620,6 +560,7 @@ public class AliasTest extends BuildViewTestCase {
   public void testRedirectChasing() throws Exception {
     scratch.file(
         "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "alias(name='cc', actual='" + TestConstants.PLATFORM_LABEL + "')",
         "cc_library(name='a', srcs=['a.cc'])");
 

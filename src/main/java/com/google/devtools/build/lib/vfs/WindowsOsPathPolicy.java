@@ -17,14 +17,17 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.windows.WindowsFileOperations;
-import com.google.devtools.build.lib.windows.WindowsShortPath;
+import com.google.devtools.build.lib.windows.WindowsPathOperations;
 import java.io.IOException;
 
 @VisibleForTesting
 class WindowsOsPathPolicy implements OsPathPolicy {
 
-  static final WindowsOsPathPolicy INSTANCE = new WindowsOsPathPolicy();
+  static final WindowsOsPathPolicy INSTANCE =
+      new WindowsOsPathPolicy(new DefaultShortPathResolver());
+
+  static final WindowsOsPathPolicy CROSS_PLATFORM_INSTANCE =
+      new WindowsOsPathPolicy(new CrossPlatformShortPathResolver());
 
   static final int NEEDS_SHORT_PATH_NORMALIZATION = NEEDS_NORMALIZE + 1;
 
@@ -45,17 +48,28 @@ class WindowsOsPathPolicy implements OsPathPolicy {
         return path;
       }
       try {
-        return WindowsFileOperations.getLongPath(path);
+        return WindowsPathOperations.getLongPath(path);
       } catch (IOException e) {
         return path;
       }
     }
   }
 
-  WindowsOsPathPolicy() {
-    this(new DefaultShortPathResolver());
+  static class CrossPlatformShortPathResolver implements ShortPathResolver {
+    @Override
+    public String resolveShortPath(String path) {
+      // Short paths can only be resolved on a Windows host.
+      // Skipping short path resolution when running on a non-Windows host can
+      // result in paths considered different that are actually the same.
+      // TODO: Consider failing when a short path is detected on a non-Windows
+      //  host. Since short path segments can arise from most operations on
+      //  PathFragment, this would however require exception handling in many
+      //  places.
+      return path;
+    }
   }
 
+  @VisibleForTesting
   WindowsOsPathPolicy(ShortPathResolver shortPathResolver) {
     this.shortPathResolver = shortPathResolver;
   }
@@ -82,7 +96,7 @@ class WindowsOsPathPolicy implements OsPathPolicy {
           normalizationLevel = Math.max(normalizationLevel, NEEDS_NORMALIZE);
         }
         if (segmentHasShortPathChar) {
-          if (WindowsShortPath.isShortPath(path.substring(segmentBeginIndex, i))) {
+          if (WindowsPathOperations.isShortPath(path.substring(segmentBeginIndex, i))) {
             normalizationLevel = Math.max(normalizationLevel, NEEDS_SHORT_PATH_NORMALIZATION);
           }
         }
@@ -96,7 +110,7 @@ class WindowsOsPathPolicy implements OsPathPolicy {
       prevChar = c;
     }
     if (segmentHasShortPathChar) {
-      if (WindowsShortPath.isShortPath(path.substring(segmentBeginIndex))) {
+      if (WindowsPathOperations.isShortPath(path.substring(segmentBeginIndex))) {
         normalizationLevel = Math.max(normalizationLevel, NEEDS_SHORT_PATH_NORMALIZATION);
       }
     }
@@ -175,63 +189,6 @@ class WindowsOsPathPolicy implements OsPathPolicy {
   }
 
   @Override
-  public int compare(String s1, String s2) {
-    // Windows is case-insensitive
-    return s1.compareToIgnoreCase(s2);
-  }
-
-  @Override
-  public int compare(char c1, char c2) {
-    return Character.compare(Character.toLowerCase(c1), Character.toLowerCase(c2));
-  }
-
-  @Override
-  public boolean equals(String s1, String s2) {
-    return (s1 == null && s2 == null) || (s1 != null && s1.equalsIgnoreCase(s2));
-  }
-
-  @Override
-  public int hash(String s) {
-    // Windows is case-insensitive
-    if (s == null) {
-      return 0;
-    }
-    return s.toLowerCase().hashCode();
-  }
-
-  @Override
-  public boolean startsWith(String path, String prefix) {
-    int pathn = path.length();
-    int prefixn = prefix.length();
-    if (pathn < prefixn) {
-      return false;
-    }
-    for (int i = 0; i < prefixn; ++i) {
-      if (Character.toLowerCase(path.charAt(i)) != Character.toLowerCase(prefix.charAt(i))) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  @Override
-  public boolean endsWith(String path, String suffix) {
-    int pathn = path.length();
-    int suffixLength = suffix.length();
-    if (pathn < suffixLength) {
-      return false;
-    }
-    int offset = pathn - suffixLength;
-    for (int i = 0; i < suffixLength; ++i) {
-      if (Character.toLowerCase(path.charAt(i + offset))
-          != Character.toLowerCase(suffix.charAt(i))) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  @Override
   public boolean isSeparator(char c) {
     return c == '/' || c == '\\';
   }
@@ -239,11 +196,6 @@ class WindowsOsPathPolicy implements OsPathPolicy {
   @Override
   public char additionalSeparator() {
     return '\\';
-  }
-
-  @Override
-  public boolean isCaseSensitive() {
-    return false;
   }
 
   @Override

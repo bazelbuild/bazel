@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -49,11 +49,14 @@ export MSYS_NO_PATHCONV=1
 export MSYS2_ARG_CONV_EXCL="*"
 
 function basic_glob_scenario_test_template() {
+  add_rules_java MODULE.bazel
   local chars="$1"
   local pkg="pkg${chars}"
   echo "chars = ${chars}, pkg = ${pkg}"
   mkdir -p "${pkg}/resources"
   cat >"${pkg}/BUILD" <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(name = 'main',
     resources = glob(["resources/**"]),
     srcs = ['Main.java'])

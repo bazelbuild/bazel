@@ -36,9 +36,11 @@ public final class StampTest extends BuildViewTestCase {
         analysisMock.createRuleClassProvider().getRuleClassMap().entrySet()) {
       String name = e.getKey();
       RuleClass ruleClass = e.getValue();
-      if (TargetUtils.isTestRuleName(name) && ruleClass.hasAttr("stamp", BuildType.TRISTATE)) {
+      if (TargetUtils.isTestRuleName(name)
+          && ruleClass.getAttributeProvider().hasAttr("stamp", BuildType.TRISTATE)) {
         assertWithMessage(name)
-            .that(ruleClass.getAttributeByName("stamp").getDefaultValue(null))
+            .that(
+                ruleClass.getAttributeProvider().getAttributeByName("stamp").getDefaultValue(null))
             .isEqualTo(TriState.NO);
       }
     }

@@ -283,11 +283,16 @@ public final class TargetAndConfigurationProducer
   }
 
   @Override
-  public void acceptErrorMessage(String message, Location location, DetailedExitCode exitCode) {
+  public void acceptErrorMessage(
+      String message, Location location, @Nullable DetailedExitCode exitCode) {
     emitError(message, location, exitCode);
   }
 
   public StateMachine computeTargetAndConfigurationOrDelegatedValue(Tasks tasks) {
+    if (idempotencyState == null) {
+      return DONE; // An error was encountered.
+    }
+
     if (idempotencyState == IdempotencyState.IDENTITY) {
       tasks.lookUp(
           configurationKey,

@@ -14,15 +14,28 @@
 
 package com.google.devtools.build.docgen.starlark;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.devtools.build.docgen.RuleLinkExpander;
+import javax.annotation.Nullable;
 
 /** A utility class for replacing variables in documentation strings with their actual values. */
 public class StarlarkDocExpander {
 
   public final RuleLinkExpander ruleExpander;
+  // Set by setTypeParser().
+  @Nullable private TypeParser typeParser;
 
   public StarlarkDocExpander(RuleLinkExpander ruleExpander) {
     this.ruleExpander = ruleExpander;
+  }
+
+  public void setTypeParser(TypeParser typeParser) {
+    this.typeParser = typeParser;
+  }
+
+  public TypeParser getTypeParser() {
+    return checkNotNull(typeParser, "StarlarkDocExpander.setTypeParser() has not been called");
   }
 
   public String expand(String docString) {

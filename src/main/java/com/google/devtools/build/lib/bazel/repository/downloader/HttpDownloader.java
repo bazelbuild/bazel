@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.FetchId;
 import com.google.devtools.build.lib.buildeventstream.FetchEvent;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.clock.JavaClock;
@@ -32,7 +33,7 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.SocketTimeoutException;
-import java.net.URL;
+import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -73,7 +74,7 @@ public class HttpDownloader implements Downloader {
 
   @Override
   public void download(
-      List<URL> urls,
+      List<URI> urls,
       Map<String, List<String>> headers,
       Credentials credentials,
       Optional<Checksum> checksum,
@@ -81,7 +82,8 @@ public class HttpDownloader implements Downloader {
       Path destination,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      Optional<String> type)
+      Optional<String> type,
+      String context)
       throws IOException, InterruptedException {
     HttpConnectorMultiplexer multiplexer = setUpConnectorMultiplexer(eventHandler, clientEnv);
 
@@ -91,7 +93,7 @@ public class HttpDownloader implements Downloader {
 
     List<IOException> ioExceptions = ImmutableList.of();
 
-    for (URL url : urls) {
+    for (URI url : urls) {
       semaphore.acquire();
 
       try (HttpStream payload = multiplexer.connect(url, checksum, headers, credentials, type);
@@ -118,7 +120,7 @@ public class HttpDownloader implements Downloader {
         continue;
       } finally {
         semaphore.release();
-        eventHandler.post(new FetchEvent(url.toString(), success));
+        eventHandler.post(new FetchEvent(url.toString(), FetchId.Downloader.HTTP, success));
       }
     }
 
@@ -143,7 +145,7 @@ public class HttpDownloader implements Downloader {
 
   /** Downloads the contents of one URL and reads it into a byte array. */
   public byte[] downloadAndReadOneUrl(
-      URL url,
+      URI url,
       Credentials credentials,
       Optional<Checksum> checksum,
       ExtendedEventHandler eventHandler,

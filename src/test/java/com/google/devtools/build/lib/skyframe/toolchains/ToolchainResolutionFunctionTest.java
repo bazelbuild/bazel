@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
@@ -30,6 +32,7 @@ import com.google.devtools.build.lib.skyframe.toolchains.ToolchainTypeLookupUtil
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.LinkedHashSet;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -387,7 +390,73 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
         .hasMessageThat()
-        .contains("No matching toolchains found for types //toolchain:test_toolchain");
+        .isEqualTo(
+"""
+No matching toolchains found for types:
+  //toolchain:test_toolchain
+To debug, rerun with --toolchain_resolution_debug='//toolchain:test_toolchain'
+For more information on platforms or toolchains see https://bazel.build/concepts/platforms-intro.\
+""");
+  }
+
+  @Test
+  public void unresolved_toolchain_message_regex_quotes() throws Exception {
+    PlatformInfo platformInfo =
+        PlatformInfo.builder()
+            .setLabel(Label.parseCanonicalUnchecked("//platforms:test_platform"))
+            .build();
+    ToolchainTypeInfo toolchainTypeInfo =
+        ToolchainTypeInfo.create(
+            Label.parseCanonicalUnchecked("@@repo+//toolchain:test_toolchain"));
+    LinkedHashSet<ToolchainTypeInfo> missingToolchainTypes = new LinkedHashSet<>();
+    missingToolchainTypes.add(toolchainTypeInfo);
+
+    var exception =
+        new ToolchainResolutionFunction.UnresolvedToolchainsException(
+            platformInfo, missingToolchainTypes);
+
+    assertThat(exception)
+        .hasMessageThat()
+        .isEqualTo(
+"""
+No matching toolchains found for types:
+  @@repo+//toolchain:test_toolchain
+To debug, rerun with --toolchain_resolution_debug='\\Q@@repo+//toolchain:test_toolchain\\E'
+""");
+  }
+
+  @Test
+  public void resolve_mandatory_missing_customPlatformMessage() throws Exception {
+    scratch.appendFile(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "linux_custom_message",
+            parents = [":linux"],
+            missing_toolchain_error = "Check custom docs for setup instructions",
+        )
+        """);
+
+    // There is no toolchain for the requested type.
+    useConfiguration("--platforms=//platforms:linux_custom_message");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(testToolchainType)
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains("Check custom docs for setup instructions");
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .doesNotContain("see https://bazel.build/concepts/platforms-intro");
   }
 
   @Test
@@ -1289,7 +1358,6 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
 
         my_rule(
             name = "me",
-            transitive_configs = [":flag"],
         )
         """);
     // Need this so the feature flag actually gone from the configuration.
@@ -1298,7 +1366,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     assertThat(getConfiguredTarget("//rule:me")).isNull();
     assertContainsEvent(
         "Unrecoverable errors resolving config_setting associated with"
-            + " //strange:strange_test_toolchain: For config_setting flagged, Feature flag"
+            + " //strange:strange_toolchain: For config_setting flagged: Feature flag"
             + " //strange:flag was accessed in a configuration it is not present in.");
   }
 

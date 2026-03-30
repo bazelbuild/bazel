@@ -41,10 +41,6 @@ public class ObjcRules implements RuleSet {
 
     builder.addRuleDefinition(new EmptyRule("objc_import") {});
     builder.addRuleDefinition(new EmptyRule("objc_library") {});
-    builder.addRuleDefinition(new EmptyRule("available_xcodes") {});
-    builder.addRuleDefinition(new EmptyRule("xcode_config") {});
-    builder.addRuleDefinition(new EmptyRule("xcode_config_alias") {});
-    builder.addRuleDefinition(new EmptyRule("xcode_version") {});
 
     builder.addStarlarkBuiltinsInternal("apple_common", new AppleStarlarkCommon());
     builder.addStarlarkBootstrap(new AppleBootstrap());

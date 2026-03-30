@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <optional>
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -19,15 +20,15 @@
 #include <windows.h>
 #endif
 
-#include "src/main/cpp/rc_file.h"
-
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "src/main/cpp/bazel_startup_options.h"
-#include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
-#include "src/main/cpp/option_processor-internal.h"
 #include "src/main/cpp/option_processor.h"
+#include "src/main/cpp/rc_file.h"
+#include "src/main/cpp/sem_ver.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path.h"
@@ -35,14 +36,21 @@
 #include "src/main/cpp/workspace_layout.h"
 #include "googlemock/include/gmock/gmock.h"
 #include "googletest/include/gtest/gtest.h"
+#include "absl/strings/str_cat.h"
 
 namespace blaze {
+using ::testing::AllOf;
 using ::testing::ContainsRegex;
 using ::testing::ElementsAre;
+using ::testing::Eq;
+using ::testing::Field;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 using ::testing::MatchesRegex;
+using ::testing::Optional;
+using ::testing::Pair;
 using ::testing::Pointee;
+using ::testing::UnorderedElementsAre;
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 constexpr const char* kNullDevice = "NUL";
@@ -91,34 +99,15 @@ class RcFileTest : public ::testing::Test {
 
     ASSERT_TRUE(blaze_util::MakeDirectories(binary_dir_, 0755));
     option_processor_.reset(new OptionProcessor(
-        workspace_layout_.get(),
-        std::unique_ptr<StartupOptions>(
-            new BazelStartupOptions(workspace_layout_.get())),
+        workspace_layout_.get(), std::make_unique<BazelStartupOptions>(),
         "bazel.bazelrc"));
   }
 
   void TearDown() override {
-    // TODO(bazel-team): The code below deletes all the files in the workspace
-    // and other rc-related directories, but it intentionally skips directories.
-    // As a consequence, there may be empty directories from test to test.
-    // Remove this once blaze_util::DeleteDirectories(path) exists.
-    std::vector<std::string> files;
-    blaze_util::GetAllFilesUnder(workspace_, &files);
-    for (const std::string& file : files) {
-      blaze_util::UnlinkPath(file);
-    }
-    blaze_util::GetAllFilesUnder(cwd_, &files);
-    for (const std::string& file : files) {
-      blaze_util::UnlinkPath(file);
-    }
-    blaze_util::GetAllFilesUnder(home_, &files);
-    for (const std::string& file : files) {
-      blaze_util::UnlinkPath(file);
-    }
-    blaze_util::GetAllFilesUnder(binary_dir_, &files);
-    for (const std::string& file : files) {
-      blaze_util::UnlinkPath(file);
-    }
+    blaze_util::RemoveRecursively(blaze_util::Path(workspace_));
+    blaze_util::RemoveRecursively(blaze_util::Path(cwd_));
+    blaze_util::RemoveRecursively(blaze_util::Path(home_));
+    blaze_util::RemoveRecursively(blaze_util::Path(binary_dir_));
   }
 
   bool SetUpSystemRcFile(const std::string& contents,
@@ -637,7 +626,7 @@ class BlazercImportTest : public ParseOptionsTest {
           "startup --io_nice_level=4",
         imported_rc_path, 0755));
 
-    // Add startup flags the imported bazelrc.
+    // Add startup flags to the imported bazelrc.
     std::string workspace_rc;
     ASSERT_TRUE(SetUpWorkspaceRcFile(
         "startup --max_idle_secs=42\n" +
@@ -817,13 +806,213 @@ TEST_F(BlazercImportTest, BazelRcTryImportDoesNotFailForUnreadableFile) {
   const std::string unreadable_rc_path =
       blaze_util::JoinPath(workspace_, "tryimported.bazelrc");
   ASSERT_TRUE(blaze_util::WriteFile("startup --max_idle_secs=123",
-                                    unreadable_rc_path, 222));
+                                    unreadable_rc_path, 0222));
   std::string workspace_rc;
   ASSERT_TRUE(
       SetUpWorkspaceRcFile("try-import " + unreadable_rc_path, &workspace_rc));
 
   const std::vector<std::string> args = {"bazel", "build"};
   ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
+}
+
+TEST_F(BlazercImportTest, BazelRcImportDoesNotFallBackToLiteralPlaceholder) {
+  // Check that we don't fall back to interpreting the %workspace% placeholder
+  // literally if an import statement cannot be resolved against it.
+
+  const std::string literal_placeholder_rc_path =
+      blaze_util::JoinPath(cwd_, "%workspace%/tryimported.bazelrc");
+  ASSERT_TRUE(blaze_util::MakeDirectories(
+      blaze_util::Dirname(literal_placeholder_rc_path), 0755));
+  ASSERT_TRUE(blaze_util::WriteFile("import syntax error",
+                                    literal_placeholder_rc_path, 0755));
+
+  std::string workspace_rc;
+  ASSERT_TRUE(SetUpWorkspaceRcFile("import %workspace%/tryimported.bazelrc",
+                                   &workspace_rc));
+
+  const std::vector<std::string> args = {"bazel", "build"};
+  ParseOptionsAndCheckOutput(args, blaze_exit_code::BAD_ARGV,
+                             "Nonexistent path in import declaration in config "
+                             "file.*'import %workspace%/tryimported.bazelrc'",
+                             "");
+}
+
+TEST_F(BlazercImportTest, BazelRcTryImportDoesNotFallBackToLiteralPlaceholder) {
+  // Check that we don't fall back to interpreting the %workspace% placeholder
+  // literally if a try-import statement cannot be resolved against it.
+
+  const std::string literal_placeholder_rc_path =
+      blaze_util::JoinPath(cwd_, "%workspace%/tryimported.bazelrc");
+  ASSERT_TRUE(blaze_util::MakeDirectories(
+      blaze_util::Dirname(literal_placeholder_rc_path), 0755));
+  ASSERT_TRUE(blaze_util::WriteFile("import syntax error",
+                                    literal_placeholder_rc_path, 0755));
+
+  std::string workspace_rc;
+  ASSERT_TRUE(SetUpWorkspaceRcFile("try-import %workspace%/tryimported.bazelrc",
+                                   &workspace_rc));
+
+  const std::vector<std::string> args = {"bazel", "build"};
+  ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
+}
+
+TEST_F(BlazercImportTest, SuccessfulTryImportIfBazelVersion) {
+  const std::string imported_rc_path =
+      blaze_util::JoinPath(workspace_, "myimportedbazelrc");
+  ASSERT_TRUE(
+      blaze_util::MakeDirectories(blaze_util::Dirname(imported_rc_path), 0755));
+  ASSERT_TRUE(blaze_util::WriteFile("startup --max_idle_secs=123\n",
+                                    imported_rc_path, 0755));
+
+  option_processor_->SetBuildLabel("8.4.2");
+  // Add startup flags to the imported bazelrc.
+  std::string workspace_rc;
+  ASSERT_TRUE(
+      SetUpWorkspaceRcFile("startup --max_idle_secs=42\n"
+                           "try-import-if-bazel-version >=8.4.2 " +
+                               imported_rc_path + "\n",
+                           &workspace_rc));
+
+  const std::vector<std::string> args = {"bazel", "build"};
+  ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
+
+  EXPECT_EQ(123, option_processor_->GetParsedStartupOptions()->max_idle_secs);
+}
+
+TEST_F(BlazercImportTest, TryImportVersionSkippedIfBuildVersionInvalid) {
+  const std::string imported_rc_path =
+      blaze_util::JoinPath(workspace_, "myimportedbazelrc");
+  ASSERT_TRUE(
+      blaze_util::MakeDirectories(blaze_util::Dirname(imported_rc_path), 0755));
+  ASSERT_TRUE(blaze_util::WriteFile("startup --max_idle_secs=123\n",
+                                    imported_rc_path, 0755));
+
+  // On dev builds, no_version is the build label.
+  option_processor_->SetBuildLabel("no_version");
+  // Add startup flags to the imported bazelrc.
+  std::string workspace_rc;
+  ASSERT_TRUE(
+      SetUpWorkspaceRcFile("startup --max_idle_secs=42\n"
+                           "try-import-if-bazel-version >=8.4.2 " +
+                               imported_rc_path + "\n",
+                           &workspace_rc));
+
+  const std::vector<std::string> args = {"bazel", "build"};
+  ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
+
+  // The try-import-if-bazel-version does NOT get processed.
+  EXPECT_EQ(42, option_processor_->GetParsedStartupOptions()->max_idle_secs);
+}
+
+TEST_F(BlazercImportTest, TryImportVersionSkippedIfComparisonFails) {
+  const std::string imported_rc_path =
+      blaze_util::JoinPath(workspace_, "myimportedbazelrc");
+  ASSERT_TRUE(
+      blaze_util::MakeDirectories(blaze_util::Dirname(imported_rc_path), 0755));
+  ASSERT_TRUE(blaze_util::WriteFile("startup --max_idle_secs=123\n",
+                                    imported_rc_path, 0755));
+
+  // Old version that does not pass the condition >=8.4.2
+  option_processor_->SetBuildLabel("5.4.0");
+  // Add startup flags to the imported bazelrc.
+  std::string workspace_rc;
+  ASSERT_TRUE(
+      SetUpWorkspaceRcFile("startup --max_idle_secs=42\n"
+                           "try-import-if-bazel-version >=8.4.2 " +
+                               imported_rc_path + "\n",
+                           &workspace_rc));
+
+  const std::vector<std::string> args = {"bazel", "build"};
+  ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
+
+  // The try-import-if-bazel-version does NOT get processed.
+  EXPECT_EQ(42, option_processor_->GetParsedStartupOptions()->max_idle_secs);
+}
+
+TEST_F(BlazercImportTest, TryImportVersionSkippedIfFileDoesNotExist) {
+  option_processor_->SetBuildLabel("8.4.2");
+  // Add startup flags to the imported bazelrc.
+  std::string workspace_rc;
+  ASSERT_TRUE(
+      SetUpWorkspaceRcFile("startup --max_idle_secs=42\n"
+                           "try-import-if-bazel-version >=8.4.2 "
+                           "non-existent/file.rc\n",
+                           &workspace_rc));
+
+  const std::vector<std::string> args = {"bazel", "build"};
+  // The Parse does NOT fail if the file is missing.
+  ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
+}
+
+TEST_F(BlazercImportTest, TryImportVersionInvalidCondition) {
+  option_processor_->SetBuildLabel("8.4.2");
+  std::string workspace_rc;
+  ASSERT_TRUE(SetUpWorkspaceRcFile(
+      "try-import-if-bazel-version ^8.4.2 /unused/path\n", &workspace_rc));
+
+  const std::vector<std::string> args = {"bazel", "build"};
+  ParseOptionsAndCheckOutput(
+      args, blaze_exit_code::BAD_ARGV,
+      "Invalid version condition in config file.*Condition '\\^8.4.2'", "");
+}
+
+TEST_F(BlazercImportTest, TryImportVersionInvalidConditionSemanticVersion) {
+  option_processor_->SetBuildLabel("8.4.2");
+  std::string workspace_rc;
+  ASSERT_TRUE(SetUpWorkspaceRcFile(
+      "try-import-if-bazel-version ==no_version /unused/path\n",
+      &workspace_rc));
+
+  const std::vector<std::string> args = {"bazel", "build"};
+  ParseOptionsAndCheckOutput(
+      args, blaze_exit_code::BAD_ARGV,
+      "Invalid import declaration in config file.*Could not parse version "
+      "'no_version' as a valid semantic version",
+      "");
+}
+
+TEST_F(BlazercImportTest, ImportDepthExceeded) {
+  // Create a chain of rc files, each importing the next one.
+  const int import_depth = 5;
+  for (int i = 0; i < import_depth; ++i) {
+    const std::string imported_rc_path =
+        blaze_util::JoinPath(workspace_, absl::StrCat("import_", i, ".rc"));
+    std::string contents;
+    if (i < import_depth - 1) {
+      const std::string next_imported_rc_path = blaze_util::JoinPath(
+          workspace_, absl::StrCat("import_", i + 1, ".rc"));
+      contents = absl::StrCat("import ", next_imported_rc_path);
+    } else {
+      contents = "startup --max_idle_secs=123";
+    }
+    ASSERT_TRUE(blaze_util::WriteFile(contents, imported_rc_path, 0755));
+  }
+
+  const std::string base_rc_path =
+      blaze_util::JoinPath(workspace_, "import_0.rc");
+
+  // Test with a limit that is too small.
+  RcFile::ParseError error;
+  std::string error_text;
+  std::unique_ptr<RcFile> rc_file =
+      RcFile::Parse(base_rc_path, workspace_layout_.get(), workspace_,
+                    /*build_label=*/"", /*sem_ver=*/std::nullopt, &error,
+                    &error_text, /*max_import_depth=*/2,
+                    RcFile::ReadFileDefault, RcFile::CanonicalizePathDefault);
+
+  EXPECT_EQ(error, RcFile::ParseError::IMPORT_DEPTH_EXCEEDED);
+  EXPECT_THAT(error_text, HasSubstr("Maximum import depth exceeded"));
+  EXPECT_EQ(rc_file, nullptr);
+
+  // Test with a limit that is large enough.
+  rc_file =
+      RcFile::Parse(base_rc_path, workspace_layout_.get(), workspace_,
+                    /*build_label=*/"", /*sem_ver=*/std::nullopt, &error,
+                    &error_text, /*max_import_depth=*/10,
+                    RcFile::ReadFileDefault, RcFile::CanonicalizePathDefault);
+
+  EXPECT_EQ(error, RcFile::ParseError::NONE);
+  EXPECT_NE(rc_file, nullptr);
 }
 
 #if defined(_WIN32)
@@ -949,5 +1138,169 @@ TEST_F(ParseOptionsTest, ImportingStandardRcBeforeItIsLoadedCausesAWarning) {
       "unnecessarily imported earlier.\n");
 }
 #endif  // !defined(_WIN32) && !defined(__CYGWIN__)
+
+TEST(RcFileCreateTest, CreatesRcFileSuccessfully) {
+  std::vector<std::string> paths = {"/path/to/rc1", "/path/to/rc2"};
+  RcFile::OptionMap options;
+  options["build"].push_back({"--foo", 0});
+  options["test"].push_back({"--bar", 1});
+
+  std::unique_ptr<RcFile> rc_file = RcFile::Create(paths, options);
+
+  ASSERT_NE(rc_file, nullptr);
+  EXPECT_EQ(rc_file->canonical_source_paths(), paths);
+  EXPECT_THAT(
+      rc_file->options(),
+      UnorderedElementsAre(
+          Pair("build", ElementsAre(AllOf(Field(&RcOption::option, "--foo"),
+                                          Field(&RcOption::source_index, 0)))),
+          Pair("test", ElementsAre(AllOf(Field(&RcOption::option, "--bar"),
+                                         Field(&RcOption::source_index, 1))))));
+}
+
+TEST(BazelVersionMatchesCondition_Tilde, VersionFullSemanticVersion) {
+  std::string error_text;
+  // ~1.2.3 => >=1.2.3 <1.3.0
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse("1.2.4").value(), "~",
+                                           "1.2.3", &error_text),
+              Optional(true));
+  EXPECT_THAT(
+      BazelVersionMatchesCondition(SemVer::Parse("1.2.3-prerelease").value(),
+                                   "~", "1.2.3", &error_text),
+      Optional(false));
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse("1.2.2").value(), "~",
+                                           "1.2.3", &error_text),
+              Optional(false));
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse("1.3.0").value(), "~",
+                                           "1.2.3", &error_text),
+              Optional(false));
+}
+
+TEST(BazelVersionMatchesCondition_Tilde, VersionMajorMinorVersion) {
+  std::string error_text;
+  // ~1.2 => >=1.2.0 <1.3.0
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse("1.2.4").value(), "~",
+                                           "1.2", &error_text),
+              Optional(true));
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse("1.2.0").value(), "~",
+                                           "1.2", &error_text),
+              Optional(true));
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse("1.1.9").value(), "~",
+                                           "1.2", &error_text),
+              Optional(false));
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse("1.3.0").value(), "~",
+                                           "1.2", &error_text),
+              Optional(false));
+}
+
+TEST(BazelVersionMatchesCondition_Tilde, VersionMajorVersion) {
+  std::string unused_error_text;
+  // ~1 => >=1.0.0 <2.0.0
+  const std::string compare_version = "1";
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse("1.0.0").value(), "~",
+                                           compare_version, &unused_error_text),
+              Optional(true));
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse("1.2.4").value(), "~",
+                                           compare_version, &unused_error_text),
+              Optional(true));
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse("1.9.9").value(), "~",
+                                           compare_version, &unused_error_text),
+              Optional(true));
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse("2.0.0").value(), "~",
+                                           compare_version, &unused_error_text),
+              Optional(false));
+}
+
+TEST(BazelVersionMatchesCondition_Tilde, VersionPrerelease) {
+  std::string unused_error_text;
+  const std::string compare_version = "1.2.3-beta.2";
+  // ~1.2.3-beta.2 => >=1.2.3-beta.2 <1.3.0
+  EXPECT_THAT(
+      BazelVersionMatchesCondition(SemVer::Parse("1.2.3-beta.2").value(), "~",
+                                   compare_version, &unused_error_text),
+      Optional(true));
+  EXPECT_THAT(
+      BazelVersionMatchesCondition(SemVer::Parse("1.2.3-beta.3").value(), "~",
+                                   compare_version, &unused_error_text),
+      Optional(true));
+  EXPECT_THAT(
+      BazelVersionMatchesCondition(SemVer::Parse("1.2.3-alpha.42").value(), "~",
+                                   compare_version, &unused_error_text),
+      Optional(false));
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse("1.3.0").value(), "~",
+                                           compare_version, &unused_error_text),
+              Optional(false));
+}
+
+TEST(BazelVersionMatchesCondition_Tilde, VersionInvalid) {
+  std::string error_text;
+  // Invalid because prefixed with 'v'.
+  const std::string compare_version = "v1.2.3";
+  EXPECT_THAT(
+      BazelVersionMatchesCondition(SemVer::Parse("1.2.3-beta.2").value(), "~",
+                                   compare_version, &error_text),
+      Eq(std::nullopt));
+  EXPECT_THAT(error_text, HasSubstr("Could not parse the tilde range version"));
+}
+
+TEST(BazelVersionMatchesCondition, AllComparisonOperators) {
+  std::string unused_error_text;
+  std::string build_label = "8.4.2";
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse(build_label).value(),
+                                           ">", "8.4.0", &unused_error_text),
+              Optional(true));
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse(build_label).value(),
+                                           ">", "8.5.0", &unused_error_text),
+              Optional(false));
+
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse(build_label).value(),
+                                           ">=", "8.4.2", &unused_error_text),
+              Optional(true));
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse(build_label).value(),
+                                           ">=", "8.5.0", &unused_error_text),
+              Optional(false));
+
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse(build_label).value(),
+                                           "<", "8.5.0", &unused_error_text),
+              Optional(true));
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse(build_label).value(),
+                                           "<", "1.0.0", &unused_error_text),
+              Optional(false));
+
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse(build_label).value(),
+                                           "<=", "8.4.2", &unused_error_text),
+              Optional(true));
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse(build_label).value(),
+                                           "<=", "8.4.1", &unused_error_text),
+              Optional(false));
+
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse(build_label).value(),
+                                           "==", "8.4.2", &unused_error_text),
+              Optional(true));
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse(build_label).value(),
+                                           "==", "8.4.2-prerelease",
+                                           &unused_error_text),
+              Optional(false));
+
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse(build_label).value(),
+                                           "!=", "8.4.2-prerelease",
+                                           &unused_error_text),
+              Optional(true));
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse(build_label).value(),
+                                           "!=", "8.4.2", &unused_error_text),
+              Optional(false));
+}
+
+TEST(BazelVersionMatchesCondition, InvalidCompareVersion) {
+  std::string error_text;
+  // Invalid because of 'v' prefix (not a valid semantic version).
+  EXPECT_THAT(BazelVersionMatchesCondition(SemVer::Parse("8.4.2").value(), ">",
+                                           "v8.4.2", &error_text),
+              Eq(std::nullopt));
+  EXPECT_THAT(
+      error_text,
+      HasSubstr(
+          "Could not parse version 'v8.4.2' as a valid semantic version."));
+}
 
 }  // namespace blaze

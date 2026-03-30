@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
+
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -24,6 +26,7 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -44,12 +47,6 @@ import javax.annotation.Nullable;
  * entire check is performed by hash lookups.
  */
 final class HeaderDiscovery {
-
-  /** Indicates if a compile should perform dotd pruning. */
-  public enum DotdPruningMode {
-    USE,
-    DO_NOT_USE
-  }
 
   private HeaderDiscovery() {}
 
@@ -153,12 +150,22 @@ final class HeaderDiscovery {
     // Check inclusions.
     IncludeProblems absolutePathProblems = new IncludeProblems();
     IncludeProblems unresolvablePathProblems = new IncludeProblems();
+    // Absolute includes from system paths are ignored. On Windows, which has a case-insensitive
+    // file system by default, the paths as reported by the compiler may differ in casing from
+    // those listed by the toolchain.
+    boolean caseInsensitiveSystemIncludes =
+        getOsFromConstraintsOrHost(action.getExecutionPlatform()) == OS.WINDOWS;
     for (Path execPath : dependencies) {
       PathFragment execPathFragment = execPath.asFragment();
       if (execPathFragment.isAbsolute()) {
-        // Absolute includes from system paths are ignored.
-        if (FileSystemUtils.startsWithAny(execPath, permittedSystemIncludePrefixes)) {
-          continue;
+        if (caseInsensitiveSystemIncludes) {
+          if (FileSystemUtils.startsWithAnyIgnoringCase(execPath, permittedSystemIncludePrefixes)) {
+            continue;
+          }
+        } else {
+          if (FileSystemUtils.startsWithAny(execPath, permittedSystemIncludePrefixes)) {
+            continue;
+          }
         }
         if (execPath.startsWith(execRoot)
             && (!ignoreMainRepository

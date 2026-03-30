@@ -1093,6 +1093,13 @@ conditions.
        features below.
      </td>
     </tr>
+  <tr>
+     <td><strong><code>shorten_virtual_includes</code></strong>
+     </td>
+     <td>
+       If enabled, virtual include header files are linked under <code>bin/_virtual_includes/&lt;hash of target path&gt;</code> instead of <code>bin/&lt;target package path&gt;/_virtual_includes/&lt;target name&gt;</code>. Useful on Windows to avoid long path issue with MSVC.
+     </td>
+    </tr>
 </table>
 
 #### Legacy features patching logic {:#legacy-features-patching-logic}

@@ -93,6 +93,8 @@ public final class BuildFileContentsGenerator implements FileContentsGenerator {
       current = new BuildRuleBuilder(ruleClass, uniqueRuleName());
       if (ruleClass.equals("java_library") || ruleClass.equals("android_library")) {
         current.dependsVia("exports").on(previous);
+      } else if (ruleClass.equals("filegroup")) {
+        current.dependsVia("srcs").on(previous);
       } else {
         current.dependsVia("deps").on(previous);
       }

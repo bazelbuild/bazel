@@ -51,7 +51,10 @@ public class StubbableFSBuildViewTest extends BuildViewTestBase {
     // We're expecting failures.
     reporter.removeHandler(failFastHandler);
     Path pathToBuildB = scratch.file("b/BUILD", "cc_library(name='b')");
-    scratch.file("a/BUILD", "cc_library(name='a', srcs = ['a.cc'], deps = ['//b:b'])");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='a', srcs = ['a.cc'], deps = ['//b:b'])");
     scratch.file("a/a.cc", "");
     scratch.file(
         "a/aspect.bzl",
@@ -97,7 +100,10 @@ public class StubbableFSBuildViewTest extends BuildViewTestBase {
     // We're expecting failures.
     reporter.removeHandler(failFastHandler);
     Path pathToBuildB = scratch.file("b/BUILD", "cc_library(name='b')");
-    scratch.file("a/BUILD", "cc_library(name='a', srcs = ['a.cc'], deps = ['//b:b'])");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='a', srcs = ['a.cc'], deps = ['//b:b'])");
     scratch.file("a/a.cc", "");
     getStubbableFS().stubFastDigestError(pathToBuildB, new IOException("testExeception"));
     AnalysisFailureRecorder recorder = new AnalysisFailureRecorder();
@@ -136,7 +142,7 @@ public class StubbableFSBuildViewTest extends BuildViewTestBase {
 
     @Override
     @SuppressWarnings("UnsynchronizedOverridesSynchronized")
-    protected byte[] getFastDigest(PathFragment path) throws IOException {
+    public byte[] getFastDigest(PathFragment path) throws IOException {
       if (stubbedFastDigestErrors.containsKey(path)) {
         throw stubbedFastDigestErrors.get(path);
       }

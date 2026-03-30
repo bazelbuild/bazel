@@ -55,10 +55,6 @@ extern void PostException(JNIEnv *env, int error_number,
 // Returns the standard error message for a given UNIX error number.
 extern std::string ErrorMessage(int error_number);
 
-// Runs fstatat(2), if available, or sets errno to ENOSYS if not.
-int portable_fstatat(int dirfd, char *name, portable_stat_struct *statbuf,
-                     int flags);
-
 // Encoding for different timestamps in a struct stat.
 enum StatTimes {
   STAT_ATIME,  // access

@@ -150,7 +150,6 @@ public class DynamicExecutionModuleTest {
         new BlazeDirectories(
             serverDirectories,
             scratch.dir(TestConstants.WORKSPACE_NAME),
-            null,
             TestConstants.PRODUCT_NAME),
         binTools);
   }

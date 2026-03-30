@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.bazel.BazelServices.BAZEL_SERVICES;
 
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
@@ -43,33 +44,28 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class BlazeCommandDispatcherRcoptionsTest {
 
-  /**
-   * Example options to be used by the tests.
-   */
+  /** Example options to be used by the tests. */
   public static class FooOptions extends OptionsBase {
     @Option(
-      name = "numoption",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "0"
-    )
+        name = "numoption",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "0")
     public int numOption;
 
     @Option(
-      name = "stringoption",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "[unspecified]"
-    )
+        name = "stringoption",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "[unspecified]")
     public String stringOption;
   }
 
   @Command(
-    name = "reportnum",
-    options = {FooOptions.class},
-    shortDescription = "",
-    help = ""
-  )
+      name = "reportnum",
+      options = {FooOptions.class},
+      shortDescription = "",
+      help = "")
   private static class ReportNumCommand implements BlazeCommand {
 
     @Override
@@ -81,11 +77,10 @@ public class BlazeCommandDispatcherRcoptionsTest {
   }
 
   @Command(
-    name = "reportall",
-    options = {FooOptions.class},
-    shortDescription = "",
-    help = ""
-  )
+      name = "reportall",
+      options = {FooOptions.class},
+      shortDescription = "",
+      help = "")
   private static class ReportAllCommand implements BlazeCommand {
 
     @Override
@@ -114,6 +109,11 @@ public class BlazeCommandDispatcherRcoptionsTest {
   @Before
   public final void initializeRuntime() throws Exception {
     String productName = TestConstants.PRODUCT_NAME;
+    OptionsParsingResult startupOptionsProvider =
+        OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
+    for (var service : BAZEL_SERVICES) {
+      service.globalInit(startupOptionsProvider);
+    }
     ServerDirectories serverDirectories =
         new ServerDirectories(
             scratch.dir("install_base"),
@@ -124,8 +124,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
             .setFileSystem(scratch.getFileSystem())
             .setProductName(productName)
             .setServerDirectories(serverDirectories)
-            .setStartupOptionsProvider(
-                OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
+            .setStartupOptionsProvider(startupOptionsProvider)
             .addBlazeModule(
                 new BlazeModule() {
                   @Override
@@ -141,9 +140,8 @@ public class BlazeCommandDispatcherRcoptionsTest {
             .build();
 
     BlazeDirectories directories =
-        new BlazeDirectories(
-            serverDirectories, scratch.dir("pkg"), /* defaultSystemJavabase= */ null, productName);
-    this.runtime.initWorkspace(directories, /*binTools=*/null);
+        new BlazeDirectories(serverDirectories, scratch.dir("pkg"), productName);
+    this.runtime.initWorkspace(directories, /* binTools= */ null);
   }
 
   @Test
@@ -286,9 +284,9 @@ public class BlazeCommandDispatcherRcoptionsTest {
 
       dispatch.exec(cmdLine, "test", outErr);
       String out = outErr.outAsLatin1();
-      assertWithMessage(String.format(
+      assertWithMessage(
               "The more specific option should override, irrespective of source file or order. %s",
-              orderedOpts))
+              orderedOpts)
           .that(out)
           .isEqualTo("42 reportallinherited");
     }
@@ -299,11 +297,10 @@ public class BlazeCommandDispatcherRcoptionsTest {
     public MockFragmentOptions() {}
 
     @Option(
-      name = "fake_opt",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false"
-    )
+        name = "fake_opt",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false")
     public boolean fakeOpt;
   }
 }

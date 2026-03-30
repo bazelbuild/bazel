@@ -35,10 +35,10 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Success;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
@@ -67,7 +67,6 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.net.URI;
-import java.net.URL;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -111,12 +110,12 @@ import javax.annotation.Nullable;
 public final class VendorCommand implements BlazeCommand {
   public static final String NAME = "vendor";
 
-  private final Supplier<Map<String, String>> clientEnvironmentSupplier;
+  private final Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier;
   @Nullable private VendorManager vendorManager = null;
   @Nullable private DownloadManager downloadManager;
 
-  public VendorCommand(Supplier<Map<String, String>> clientEnvironmentSupplier) {
-    this.clientEnvironmentSupplier = clientEnvironmentSupplier;
+  public VendorCommand(Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier) {
+    this.nonstrictRepoEnvSupplier = nonstrictRepoEnvSupplier;
   }
 
   public void setDownloadManager(DownloadManager downloadManager) {
@@ -149,7 +148,7 @@ public final class VendorCommand implements BlazeCommand {
     env.getSkyframeExecutor()
         .injectExtraPrecomputedValues(
             ImmutableList.of(
-                PrecomputedValue.injected(RepositoryDelegatorFunction.IS_VENDOR_COMMAND, true)));
+                PrecomputedValue.injected(RepositoryDirectoryValue.IS_VENDOR_COMMAND, true)));
 
     BlazeCommandResult result;
     VendorOptions vendorOptions = options.getOptions(VendorOptions.class);
@@ -193,11 +192,6 @@ public final class VendorCommand implements BlazeCommand {
 
   @Nullable
   private BlazeCommandResult validateOptions(CommandEnvironment env, OptionsParsingResult options) {
-    if (!options.getOptions(BuildLanguageOptions.class).enableBzlmod) {
-      return createFailedBlazeCommandResult(
-          env.getReporter(),
-          "Bzlmod has to be enabled for vendoring to work, run with --enable_bzlmod");
-    }
     if (options.getOptions(RepositoryOptions.class).vendorDirectory == null) {
       return createFailedBlazeCommandResult(
           env.getReporter(),
@@ -257,12 +251,13 @@ public final class VendorCommand implements BlazeCommand {
     List<String> notFoundRepoErrors = new ArrayList<>();
     for (Entry<RepositoryName, RepositoryDirectoryValue> entry :
         repositoryNamesAndValues.entrySet()) {
-      if (entry.getValue().repositoryExists()) {
-        if (!entry.getValue().excludeFromVendoring()) {
-          reposToVendor.add(entry.getKey());
+      switch (entry.getValue()) {
+        case Success s -> {
+          if (!s.excludeFromVendoring()) {
+            reposToVendor.add(entry.getKey());
+          }
         }
-      } else {
-        notFoundRepoErrors.add(entry.getValue().getErrorMsg());
+        case Failure(String errorMsg) -> notFoundRepoErrors.add(errorMsg);
       }
     }
 
@@ -314,8 +309,7 @@ public final class VendorCommand implements BlazeCommand {
       SkyKey key = nodes.remove();
       visited.add(key);
       NodeEntry nodeEntry = inMemoryGraph.get(null, Reason.VENDOR_EXTERNAL_REPOS, key);
-      if (nodeEntry.getValue() instanceof RepositoryDirectoryValue repoDirValue
-          && repoDirValue.repositoryExists()
+      if (nodeEntry.getValue() instanceof RepositoryDirectoryValue.Success repoDirValue
           && !repoDirValue.excludeFromVendoring()) {
         repos.add((RepositoryName) key.argument());
       }
@@ -356,8 +350,8 @@ public final class VendorCommand implements BlazeCommand {
     // The user has to update the Bazel registries this if such conflicts occur.
     Map<String, String> vendorPathToUrl = new HashMap<>();
     for (Entry<String, Optional<Checksum>> entry : registryFiles.entrySet()) {
-      URL url = URI.create(entry.getKey()).toURL();
-      if (url.getProtocol().equals("file")) {
+      URI url = URI.create(entry.getKey());
+      if (Objects.equals(url.getScheme(), "file")) {
         continue;
       }
 
@@ -374,7 +368,7 @@ public final class VendorCommand implements BlazeCommand {
                     + " cause conflict on case insensitive file systems, please fix by changing the"
                     + " registry URLs!",
                 previousUrl,
-                vendorManager.getVendorPathForUrl(URI.create(previousUrl).toURL()).getPathString(),
+                vendorManager.getVendorPathForUrl(URI.create(previousUrl)).getPathString(),
                 entry.getKey(),
                 outputPath));
       }
@@ -388,7 +382,7 @@ public final class VendorCommand implements BlazeCommand {
           vendorManager.vendorRegistryUrl(
               url,
               downloadManager.downloadAndReadOneUrlForBzlmod(
-                  url, env.getReporter(), clientEnvironmentSupplier.get(), checksum));
+                  url, nonstrictRepoEnvSupplier.get(), checksum));
         } catch (IOException e) {
           throw new IOException(
               String.format(
@@ -405,7 +399,7 @@ public final class VendorCommand implements BlazeCommand {
         env.getDirectories()
             .getOutputBase()
             .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
-    vendorManager.vendorRepos(externalPath, reposToVendor);
+    vendorManager.vendorRepos(externalPath, env.getDirectories().getWorkspace(), reposToVendor);
 
     // 3. Invalidate RepositoryDirectoryValue for vendored repos.
     env.getSkyframeExecutor()

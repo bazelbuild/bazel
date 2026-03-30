@@ -30,12 +30,12 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
-import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.testing.vfs.SpiedFileSystem;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -63,7 +63,7 @@ public final class FileWriteStrategyTest {
   @Before
   public void createOutputRoot() throws IOException {
     execRoot = scratch.dir("/execroot");
-    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "bazel-out");
+    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "bazel-out");
     outputRoot.getRoot().asPath().createDirectory();
   }
 
@@ -94,7 +94,7 @@ public final class FileWriteStrategyTest {
     },
     WRITE_FAILURE {
       @Override
-      public void writeOutputFile(OutputStream out) throws IOException {
+      public void writeTo(OutputStream out) throws IOException {
         throw INJECTED_EXCEPTION;
       }
     },
@@ -111,7 +111,7 @@ public final class FileWriteStrategyTest {
     void setupFileSystem(SpiedFileSystem fileSystem, PathFragment outputPath) throws IOException {}
 
     @Override
-    public void writeOutputFile(OutputStream out) throws IOException {}
+    public void writeTo(OutputStream out) throws IOException {}
   }
 
   @Test

@@ -18,7 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
-import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
+import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLine;
@@ -51,7 +50,7 @@ import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.CommandLines.ExpandedCommandLines;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
@@ -63,7 +62,7 @@ import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptionsFields.OutputPathsMode;
 import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -74,6 +73,7 @@ import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -111,7 +111,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   private final String mnemonic;
 
   private final ResourceSetOrBuilder resourceSetOrBuilder;
-  private final ImmutableMap<String, String> executionInfo;
+  @VisibleForSerialization // protected access required due to b/32473060
+  protected final ImmutableSortedMap<String, String> sortedExecutionInfo;
   private final OutputPathsMode outputPathsMode;
 
   /**
@@ -145,13 +146,41 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       CharSequence progressMessage,
       String mnemonic,
       OutputPathsMode outputPathsMode) {
-    super(owner, inputs, outputs);
+    super(owner, inputs, /* outputs= */ outputs);
     this.tools = tools;
     this.resourceSetOrBuilder = resourceSetOrBuilder;
-    this.executionInfo =
+    this.sortedExecutionInfo =
         executionInfo.isEmpty()
             ? ImmutableSortedMap.of()
             : executionInfoInterner.intern(ImmutableSortedMap.copyOf(executionInfo));
+    this.commandLines = commandLines;
+    this.env = env;
+    this.progressMessage = progressMessage;
+    this.mnemonic = mnemonic;
+    this.outputPathsMode = outputPathsMode;
+  }
+
+  /** Constructor for serialization. */
+  @SuppressWarnings("TooManyParameters") // Follows the production constructor.
+  public SpawnAction(
+      ActionOwner owner,
+      NestedSet<Artifact> tools,
+      NestedSet<Artifact> inputs,
+      Object rawOutputs,
+      ResourceSetOrBuilder resourceSetOrBuilder,
+      CommandLines commandLines,
+      ActionEnvironment env,
+      ImmutableSortedMap<String, String> sortedExecutionInfo,
+      CharSequence progressMessage,
+      String mnemonic,
+      OutputPathsMode outputPathsMode) {
+    super(owner, inputs, /* rawOutputs= */ rawOutputs);
+    this.tools = tools;
+    this.resourceSetOrBuilder = resourceSetOrBuilder;
+    this.sortedExecutionInfo =
+        sortedExecutionInfo.isEmpty()
+            ? ImmutableSortedMap.of()
+            : executionInfoInterner.intern(sortedExecutionInfo);
     this.commandLines = commandLines;
     this.env = env;
     this.progressMessage = progressMessage;
@@ -309,7 +338,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         // SpawnInfo doesn't report the runfiles trees of the Spawn, so it's fine to just pass in
         // an empty list here.
         /* additionalInputs= */ ImmutableList.of(),
-        /* filesetMappings= */ ImmutableMap.of(),
         /* reportOutputs= */ true,
         PathMapper.NOOP);
   }
@@ -345,10 +373,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         PathMappers.create(this, outputPathsMode, this instanceof StarlarkAction);
     ExpandedCommandLines expandedCommandLines =
         commandLines.expand(
-            actionExecutionContext.getArtifactExpander(),
+            actionExecutionContext.getInputMetadataProvider(),
             getPrimaryOutput().getExecPath(),
             pathMapper,
             getCommandLineLimits());
+
     return new ActionSpawn(
         expandedCommandLines.arguments(),
         this,
@@ -356,7 +385,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         envResolved,
         getInputs(),
         expandedCommandLines.getParamFiles(),
-        actionExecutionContext.getTopLevelFilesets(),
         reportOutputs,
         pathMapper);
   }
@@ -369,11 +397,15 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     fp.addString(GUID);
-    commandLines.addToFingerprint(actionKeyContext, artifactExpander, outputPathsMode, fp);
+    commandLines.addToFingerprint(
+        actionKeyContext,
+        inputMetadataProvider,
+        PathMappers.getEffectiveOutputPathsMode(outputPathsMode, getMnemonic(), getExecutionInfo()),
+        fp);
     fp.addString(mnemonic);
     env.addTo(fp);
     fp.addStringMap(getExecutionInfo());
@@ -489,13 +521,12 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   /** Returns the out-of-band execution data for this action. */
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
-    return mergeMaps(super.getExecutionInfo(), executionInfo);
+    return mergeMaps(super.getExecutionInfo(), sortedExecutionInfo);
   }
 
   /** A spawn instance that is tied to a specific SpawnAction. */
   private static final class ActionSpawn extends BaseSpawn {
     private final NestedSet<ActionInput> inputs;
-    private final Map<Artifact, FilesetOutputTree> filesetMappings;
     private final ImmutableMap<String, String> effectiveEnvironment;
     private final boolean reportOutputs;
     private final PathMapper pathMapper;
@@ -513,7 +544,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         boolean envResolved,
         NestedSet<Artifact> inputs,
         Iterable<? extends ActionInput> additionalInputs,
-        Map<Artifact, FilesetOutputTree> filesetMappings,
         boolean reportOutputs,
         PathMapper pathMapper)
         throws CommandLineExpansionException {
@@ -523,12 +553,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           parent.getExecutionInfo(),
           parent,
           parent.resourceSetOrBuilder);
-      NestedSetBuilder<ActionInput> inputsBuilder = NestedSetBuilder.stableOrder();
-      addNonFilesetInputs(inputsBuilder, inputs, filesetMappings);
-      inputsBuilder.addAll(additionalInputs);
-
-      this.inputs = inputsBuilder.build();
-      this.filesetMappings = filesetMappings;
+      this.inputs =
+          NestedSetBuilder.<ActionInput>stableOrder()
+              .addTransitive(inputs)
+              .addAll(additionalInputs)
+              .build();
       this.pathMapper = pathMapper;
 
       // If the action environment is already resolved using the client environment, the given
@@ -542,23 +571,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.reportOutputs = reportOutputs;
     }
 
-    private static void addNonFilesetInputs(
-        NestedSetBuilder<ActionInput> builder,
-        NestedSet<Artifact> inputs,
-        Map<Artifact, FilesetOutputTree> filesetMappings) {
-      if (filesetMappings.isEmpty()) {
-        // Keep the original nested set intact. This aids callers that exploit the nested set
-        // structure to perform optimizations (see SpawnInputExpander#walkInputs and its callers).
-        builder.addTransitive(inputs);
-        return;
-      }
-      for (Artifact input : inputs.toList()) {
-        if (!input.isFileset()) {
-          builder.add(input);
-        }
-      }
-    }
-
     @Override
     public PathMapper getPathMapper() {
       return pathMapper;
@@ -570,19 +582,47 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     }
 
     @Override
-    public ImmutableMap<Artifact, FilesetOutputTree> getFilesetMappings() {
-      return ImmutableMap.copyOf(filesetMappings);
-    }
-
-    @Override
     public NestedSet<? extends ActionInput> getInputFiles() {
       return inputs;
     }
 
     @Override
-    public Collection<Artifact> getOutputFiles() {
+    public Collection<? extends ActionInput> getOutputFiles() {
       return reportOutputs ? super.getOutputFiles() : ImmutableSet.of();
     }
+  }
+
+  public static ActionEnvironment createActionEnvironment(
+      BuildConfigurationValue configuration,
+      boolean useDefaultShellEnvironment,
+      ImmutableMap<String, String> environment) {
+    ActionEnvironment env;
+    if (useDefaultShellEnvironment && !environment.isEmpty()) {
+      // Inherited variables override fixed variables in ActionEnvironment. Since we want the
+      // fixed part of the action-provided environment to override the inherited part of the
+      // user-provided environment, we have to explicitly filter the inherited part.
+      var userFilteredInheritedEnv =
+          Sets.difference(
+                  configuration.getActionEnvironment().getInheritedEnv(), environment.keySet())
+              .immutableCopy();
+      // Do not create a new ActionEnvironment in the common case where no vars have been filtered
+      // out.
+      if (userFilteredInheritedEnv.size()
+          == configuration.getActionEnvironment().getInheritedEnv().size()) {
+        env = configuration.getActionEnvironment();
+      } else {
+        env =
+            ActionEnvironment.create(
+                configuration.getActionEnvironment().getFixedEnv(), userFilteredInheritedEnv);
+      }
+      env = env.withAdditionalFixedVariables(environment);
+    } else if (useDefaultShellEnvironment) {
+      // This produces the same result as the previous case, but without the overhead.
+      env = configuration.getActionEnvironment();
+    } else {
+      env = ActionEnvironment.create(environment);
+    }
+    return env;
   }
 
   /**
@@ -595,6 +635,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private final List<Artifact> outputs = new ArrayList<>();
     private ResourceSetOrBuilder resourceSetOrBuilder = AbstractAction.DEFAULT_RESOURCE_SET;
     private ImmutableMap<String, String> environment = ImmutableMap.of();
+    @Nullable private ActionEnvironment actionEnvironment = null;
+    @Nullable private OutputPathsMode outputPathsMode = null;
     private ImmutableMap<String, String> executionInfo = ImmutableMap.of();
     private boolean useDefaultShellEnvironment = false;
     protected boolean executeUnconditionally;
@@ -616,6 +658,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.outputs.addAll(other.outputs);
       this.resourceSetOrBuilder = other.resourceSetOrBuilder;
       this.environment = other.environment;
+      this.actionEnvironment = other.actionEnvironment;
+      this.outputPathsMode = other.outputPathsMode;
       this.executionInfo = other.executionInfo;
       this.useDefaultShellEnvironment = other.useDefaultShellEnvironment;
       this.executableArg = other.executableArg;
@@ -657,36 +701,36 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         result.addCommandLine(pair);
       }
       CommandLines commandLines = result.build();
-      ActionEnvironment env;
-      if (useDefaultShellEnvironment && environment != null) {
-        // Inherited variables override fixed variables in ActionEnvironment. Since we want the
-        // fixed part of the action-provided environment to override the inherited part of the
-        // user-provided environment, we have to explicitly filter the inherited part.
-        var userFilteredInheritedEnv =
-            ImmutableSet.copyOf(
-                Sets.difference(
-                    configuration.getActionEnvironment().getInheritedEnv(), environment.keySet()));
-        // Do not create a new ActionEnvironment in the common case where no vars have been filtered
-        // out.
-        if (userFilteredInheritedEnv.equals(
-            configuration.getActionEnvironment().getInheritedEnv())) {
-          env = configuration.getActionEnvironment();
-        } else {
-          env =
-              ActionEnvironment.create(
-                  configuration.getActionEnvironment().getFixedEnv(), userFilteredInheritedEnv);
-        }
-        env = env.withAdditionalFixedVariables(environment);
-      } else if (useDefaultShellEnvironment) {
-        env = configuration.getActionEnvironment();
-      } else {
-        env = ActionEnvironment.create(environment);
-      }
+      ActionEnvironment env =
+          createActionEnvironment(configuration, useDefaultShellEnvironment, environment);
       return buildSpawnAction(owner, commandLines, configuration, env);
     }
 
     @CheckReturnValue
     public SpawnAction buildForActionTemplate(ActionOwner owner) {
+      return buildSpawnAction(
+          owner, buildCommandLines(), null, ActionEnvironment.create(environment));
+    }
+
+    @CheckReturnValue
+    public SpawnAction buildForStarlarkActionTemplate(ActionOwner owner) {
+      NestedSet<Artifact> tools = toolsBuilder.build();
+      NestedSet<Artifact> inputs = inputsBuilder.addTransitive(tools).build();
+      return new SpawnAction(
+          owner,
+          tools,
+          inputs,
+          outputs,
+          resourceSetOrBuilder,
+          buildCommandLines(),
+          checkNotNull(actionEnvironment),
+          executionInfo,
+          progressMessage,
+          mnemonic,
+          checkNotNull(outputPathsMode));
+    }
+
+    private CommandLines buildCommandLines() {
       CommandLines.Builder result = CommandLines.builder();
       if (executableArg != null) {
         result.addSingleArgument(executableArg);
@@ -696,7 +740,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       for (CommandLineAndParamFileInfo pair : commandLines) {
         result.addCommandLine(pair.commandLine);
       }
-      return buildSpawnAction(owner, result.build(), null, ActionEnvironment.create(environment));
+      return result.build();
     }
 
     /**
@@ -857,14 +901,41 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       return this;
     }
 
+    private static final Interner<ImmutableMap<String, String>> envInterner =
+        BlazeInterners.newWeakInterner();
+
     /**
      * Sets the map of environment variables. Do not use! This makes the builder ignore the 'default
      * shell environment', which is computed from the --action_env command line option.
      */
     @CanIgnoreReturnValue
     public Builder setEnvironment(Map<String, String> environment) {
-      this.environment = ImmutableMap.copyOf(environment);
+      this.environment = envInterner.intern(ImmutableMap.copyOf(environment));
       this.useDefaultShellEnvironment = false;
+      return this;
+    }
+
+    /**
+     * Sets the action environment, for when we want to already have created an ActionEnvironment
+     * before .build() is called. This is used for Starlark action templates
+     * .buildForStarlarkActionTemplate(), where we do not have access to the configuration upon
+     * action creation time which is required to create the ActionEnvironment.
+     */
+    @CanIgnoreReturnValue
+    public Builder setActionEnvironment(ActionEnvironment actionEnvironment) {
+      this.actionEnvironment = actionEnvironment;
+      return this;
+    }
+
+    /**
+     * Sets the output paths mode, for when we want to already have it before .build() is called.
+     * This is used for Starlark action templates .buildForStarlarkActionTemplate(), where we do not
+     * have access to the configuration upon action creation time which is required to create the
+     * ActionEnvironment.
+     */
+    @CanIgnoreReturnValue
+    public Builder setOutputPathsMode(OutputPathsMode outputPathsMode) {
+      this.outputPathsMode = outputPathsMode;
       return this;
     }
 
@@ -880,7 +951,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      *
      * <p><b>All actions should set this if possible and avoid using {@link #setEnvironment}.</b>
      *
-     * <p>When this property is set, the action will use a minimal, standardized environment map.
+     * <p>When this property is set, the action will use a minimal, standardized environment map,
+     * overridden with the specified environment variables (if any).
      *
      * <p>The list of envvars available to the action (the keys in this map) comes from two places:
      * from the rule class provider and from the command line or rc-files via {@code --action_env}
@@ -907,19 +979,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * @see BuildConfigurationValue#getLocalShellEnvironment
      */
     @CanIgnoreReturnValue
-    public Builder useDefaultShellEnvironment() {
-      this.environment = null;
-      this.useDefaultShellEnvironment = true;
-      return this;
-    }
-
-    /**
-     * Same as {@link #useDefaultShellEnvironment()}, but additionally sets the provided fixed
-     * environment variables, which take precedence over the variables contained in the default
-     * shell environment.
-     */
-    @CanIgnoreReturnValue
-    public Builder useDefaultShellEnvironmentWithOverrides(Map<String, String> environment) {
+    public Builder useDefaultShellEnvironment(Map<String, String> environment) {
       this.environment = ImmutableMap.copyOf(environment);
       this.useDefaultShellEnvironment = true;
       return this;

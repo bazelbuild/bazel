@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.genrule;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -186,7 +187,6 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
         break;
       case BASH:
       default:
-        // TODO(b/234923262): Take exec_group into consideration when selecting sh tools
         PathFragment shExecutable =
             ShToolchain.getPathForPlatform(
                 ruleContext.getConfiguration(), ruleContext.getExecutionPlatform());
@@ -194,7 +194,12 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
             CommandHelper.buildBashCommandConstructor(
                 executionInfo, shExecutable, ".genrule_script.sh");
     }
-    ImmutableList<String> argv = commandHelper.buildCommandLine(command, inputs, constructor);
+    ImmutableList<String> argv =
+        commandHelper.buildCommandLine(
+            command,
+            inputs,
+            constructor,
+            getOsFromConstraintsOrHost(ruleContext.getExecutionPlatform()));
 
     if (isStampingEnabled(ruleContext)) {
       inputs.add(ruleContext.getAnalysisEnvironment().getStableWorkspaceStatusArtifact());
@@ -219,9 +224,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
             // We only need to consider the outputs of a genrule. No need to visit the dependencies
             // of a genrule. They cross from the target into the exec configuration, because the
             // dependencies of a genrule are always built for the exec configuration.
-            new Runfiles.Builder(
-                    ruleContext.getWorkspaceName(),
-                    ruleContext.getConfiguration().legacyExternalRunfiles())
+            new Runfiles.Builder(ruleContext.getWorkspaceName())
                 .addTransitiveArtifacts(filesToBuild)
                 .build());
 
@@ -260,7 +263,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
   private static Pair<CommandType, String> determineCommandTypeAndAttribute(
       RuleContext ruleContext) {
     AttributeMap attributeMap = ruleContext.attributes();
-    if (ruleContext.isExecutedOnWindows()) {
+    if (ruleContext.isDefaultExecGroupExecutingOnWindows()) {
       if (attributeMap.isAttributeValueExplicitlySpecified("cmd_ps")) {
         return Pair.of(CommandType.WINDOWS_POWERSHELL, "cmd_ps");
       }
@@ -311,9 +314,9 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
         Iterable<? extends MakeVariableSupplier> makeVariableSuppliers,
         boolean windowsPath) {
       super(
-          ruleContext,
-          ruleContext.getRule().getPackage(),
+          ruleContext.getRule().getPackageDeclarations(),
           ruleContext.getConfiguration(),
+          ruleContext.getDefaultTemplateVariableProviders(),
           makeVariableSuppliers);
       this.ruleContext = ruleContext;
       this.resolvedSrcs = resolvedSrcs;
@@ -322,8 +325,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     }
 
     @Override
-    public String lookupVariable(String variableName)
-        throws ExpansionException, InterruptedException {
+    public String lookupVariable(String variableName) throws ExpansionException {
       String val = lookupVariableImpl(variableName);
       if (windowsPath) {
         return val.replace('/', '\\');
@@ -331,8 +333,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
       return val;
     }
 
-    private String lookupVariableImpl(String variableName)
-        throws ExpansionException, InterruptedException {
+    private String lookupVariableImpl(String variableName) throws ExpansionException {
       if (variableName.equals("SRCS")) {
         return Artifact.joinExecPaths(" ", resolvedSrcs.toList());
       }

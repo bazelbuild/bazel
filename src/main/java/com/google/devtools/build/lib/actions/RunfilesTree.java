@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.Run
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Map;
+import java.util.SortedMap;
 import javax.annotation.Nullable;
 
 /** Lazy wrapper for a single runfiles tree. */
@@ -30,7 +30,7 @@ public interface RunfilesTree {
   PathFragment getExecPath();
 
   /** Returns the mapping from the location in the runfiles tree to the artifact that's there. */
-  Map<PathFragment, Artifact> getMapping();
+  SortedMap<PathFragment, Artifact> getMapping();
 
   /**
    * Returns artifacts the runfiles tree contain symlinks to.
@@ -74,12 +74,17 @@ public interface RunfilesTree {
   @Nullable
   Artifact getRepoMappingManifestForLogging();
 
-  /** Whether this runfiles tree materializes external runfiles also at their legacy locations. */
-  boolean isLegacyExternalRunfiles();
-
   /** Whether {@link #getMapping()} is cached due to potential reuse within a single build. */
   boolean isMappingCached();
 
   /** Fingerprints this runfiles tree. */
   void fingerprint(ActionKeyContext actionKeyContext, Fingerprint fp, boolean digestAbsolutePaths);
+
+  /**
+   * Whether the runfiles tree contains any {@link Artifact.SpecialArtifactType#CONSTANT_METADATA}
+   * artifacts.
+   */
+  default boolean containsConstantMetadata() {
+    return getArtifacts().toList().stream().anyMatch(Artifact::isConstantMetadata);
+  }
 }

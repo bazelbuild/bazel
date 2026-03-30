@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider.MatchResult;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueIn
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Objects;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** Provider for a platform constraint value that fulfills a {@link ConstraintSettingInfo}. */
 @Immutable
@@ -73,18 +75,29 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
    * method.
    */
   public ConfigMatchingProvider configMatchingProvider(PlatformInfo platformInfo) {
+    ConstraintValueInfo platformValue = platformInfo.constraints().get(this.constraint());
     return ConfigMatchingProvider.create(
         label,
         ImmutableMultimap.of(),
         ImmutableMap.of(),
         ImmutableSet.of(),
-        ConfigMatchingProvider.MatchResult.create(
-            platformInfo.constraints().hasConstraintValue(this)));
+        computeMatchResult(platformValue));
+  }
+
+  private MatchResult computeMatchResult(ConstraintValueInfo platformValue) {
+    return this.equals(platformValue)
+        ? MatchResult.MATCH
+        : new MatchResult.NoMatch(
+            MatchResult.NoMatch.Diff.what(constraint().label())
+                .want(label().getName())
+                .got(platformValue != null ? platformValue.label().getName() : "<unset>")
+                .build());
   }
 
   @Override
-  public void repr(Printer printer) {
-    printer.append(String.format("ConstraintValueInfo(setting=%s, %s)", constraint.label(), label));
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    Printer.format(
+        printer, semantics, "ConstraintValueInfo(setting=%s, %s)", constraint.label(), label);
   }
 
   /** Returns a new {@link ConstraintValueInfo} with the given data. */
@@ -103,8 +116,7 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
     if (!(o instanceof ConstraintValueInfo that)) {
       return false;
     }
-    return Objects.equals(constraint, that.constraint)
-        && Objects.equals(label, that.label);
+    return Objects.equals(constraint, that.constraint) && Objects.equals(label, that.label);
   }
 
   @Override

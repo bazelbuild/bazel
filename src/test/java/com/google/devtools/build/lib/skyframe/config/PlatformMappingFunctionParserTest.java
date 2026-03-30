@@ -441,7 +441,7 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
   }
 
   private ParsedFlagsValue createFlags(String... nativeFlags) throws OptionsParsingException {
-    return createFlags(RepositoryMapping.ALWAYS_FALLBACK, nativeFlags);
+    return createFlags(RepositoryMapping.EMPTY, nativeFlags);
   }
 
   private ParsedFlagsValue createFlags(RepositoryMapping mainRepoMapping, String... nativeFlags)
@@ -457,7 +457,7 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
 
   private PlatformMappingFunction.Mappings parse(String... lines)
       throws PlatformMappingParsingException, InterruptedException {
-    return parse(RepositoryMapping.ALWAYS_FALLBACK, lines);
+    return parse(RepositoryMapping.EMPTY, lines);
   }
 
   private PlatformMappingFunction.Mappings parse(RepositoryMapping mainRepoMapping, String... lines)

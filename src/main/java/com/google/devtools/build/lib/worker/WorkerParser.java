@@ -97,8 +97,7 @@ public class WorkerParser {
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
 
     SortedMap<PathFragment, byte[]> workerFiles =
-        WorkerFilesHash.getWorkerFilesWithDigests(
-            spawn, context.getArtifactExpander(), context.getInputMetadataProvider());
+        WorkerFilesHash.getWorkerFilesWithDigests(spawn, context.getInputMetadataProvider());
 
     HashCode workerFilesCombinedHash = WorkerFilesHash.getCombinedHash(workerFiles);
 
@@ -132,16 +131,21 @@ public class WorkerParser {
       boolean dynamic,
       WorkerProtocolFormat protocolFormat) {
     String workerKeyMnemonic = Spawns.getWorkerKeyMnemonic(spawn);
-    boolean multiplex = options.workerMultiplex && Spawns.supportsMultiplexWorkers(spawn);
-    if (dynamic && !(Spawns.supportsMultiplexSandboxing(spawn) && options.multiplexSandboxing)) {
-      multiplex = false;
-    }
+    boolean mustSandbox = dynamic || Spawns.usesPathMapping(spawn);
+    boolean shouldMultiplex = options.workerMultiplex && Spawns.supportsMultiplexWorkers(spawn);
+    boolean canSandboxMultiplex =
+        options.multiplexSandboxing && Spawns.supportsMultiplexSandboxing(spawn);
     boolean sandboxed;
-    if (multiplex) {
-      sandboxed =
-          Spawns.supportsMultiplexSandboxing(spawn) && (options.multiplexSandboxing || dynamic);
+    boolean multiplex;
+    if (mustSandbox) {
+      sandboxed = true;
+      multiplex = shouldMultiplex && canSandboxMultiplex;
+    } else if (shouldMultiplex) {
+      sandboxed = canSandboxMultiplex;
+      multiplex = true;
     } else {
-      sandboxed = options.workerSandboxing || dynamic;
+      sandboxed = options.workerSandboxing;
+      multiplex = false;
     }
     boolean useInMemoryTracking = false;
     if (sandboxed) {

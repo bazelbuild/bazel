@@ -87,10 +87,11 @@ public final class WorkerMetricsInfoItem extends InfoItem {
                 .map(e -> e.toString())
                 .collect(joining(", "));
         if (workerMetrics.getWorkerIdsList().size() == 1) {
-          stringBuilder.append("id ").append(workerIds).append("\n");
+          stringBuilder.append("id ").append(workerIds);
         } else {
-          stringBuilder.append("ids [").append(workerIds).append("]\n");
+          stringBuilder.append("ids [").append(workerIds).append("]");
         }
+        stringBuilder.append("\n");
       }
       return print(stringBuilder.toString());
     }

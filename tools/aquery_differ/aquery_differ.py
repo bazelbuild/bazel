@@ -38,7 +38,6 @@ import difflib
 import os
 import sys
 
-# Do not edit this line. Copybara replaces it with PY2 migration helper.
 from absl import app
 from absl import flags
 from google.protobuf import text_format
@@ -152,14 +151,14 @@ def _map_output_files_to_input_artifacts(action_graph_container,
 
   output_files_to_input_artifacts = {}
   for i, action in enumerate(actions):
-    input_artifacts = []
+    input_artifacts = set()
 
     for dep_set_id in action.input_dep_set_ids:
-      input_artifacts.extend(
+      input_artifacts.update(
           dep_set_resolver.resolve(id_to_dep_set[dep_set_id]))
 
-    output_files_to_input_artifacts[action_index_to_output_files[i]] = list(
-        sorted(input_artifacts))
+    output_files_to_input_artifacts[action_index_to_output_files[i]] = sorted(
+        list(input_artifacts))
 
   return output_files_to_input_artifacts
 

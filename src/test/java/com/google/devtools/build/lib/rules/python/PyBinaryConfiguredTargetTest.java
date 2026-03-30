@@ -50,26 +50,6 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
   }
 
   @Test
-  public void srcsIsMandatory() throws Exception {
-    // This case is somewhat dominated by the test that the default main must be in srcs, but the
-    // error message is different here.
-    checkError(
-        "pkg",
-        "foo",
-        // error:
-        "missing value for mandatory attribute 'srcs'",
-        // build file:
-        getPyLoad("py_binary"),
-        getPyLoad("py_library"),
-        "py_binary(",
-        "    name = 'foo',",
-        "    deps = [':bar'])",
-        "py_library(",
-        "    name = 'bar',",
-        "    srcs = ['bar.py'])");
-  }
-
-  @Test
   public void defaultMainMustBeInSrcs() throws Exception {
     checkError(
         "pkg",
@@ -115,6 +95,7 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
     scratch.file(
         "pkg1/BUILD",
         getPyLoad("py_binary"),
+        "exports_files(['bar.py'])",
         "py_binary(",
         "    name = 'foo',",
         "    srcs = ['bar.py'])");
@@ -135,6 +116,7 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
     scratch.file(
         "pkg1/BUILD",
         getPyLoad("py_binary"),
+        "exports_files(['bar.py'])",
         "py_binary(",
         "    name = 'foo',",
         "    srcs = ['bar.py'])");

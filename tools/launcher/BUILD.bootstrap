@@ -1,0 +1,21 @@
+load("//tools:build_defs.bzl", "single_binary_toolchain")
+
+package(default_visibility = ["//visibility:public"])
+
+alias(
+   name = "launcher",
+   actual = "//src/tools/launcher:launcher",
+)
+
+alias(
+   name = "launcher_maker",
+   actual = "//src/tools/launcher:launcher_maker",
+)
+
+toolchain_type(name = "launcher_maker_toolchain_type")
+
+single_binary_toolchain(
+   name = "foo",
+   binary = ":launcher_maker",
+   toolchain_type = "launcher_maker_toolchain_type",
+)

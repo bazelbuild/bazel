@@ -16,9 +16,7 @@ package com.google.devtools.build.skyframe;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.util.HashSet;
@@ -31,60 +29,37 @@ import javax.annotation.Nullable;
  * head of path to the cycle should be the value itself, or, if the value is actually in the cycle,
  * the cycle should start with the value.
  */
-public class CycleInfo {
-  private final ImmutableList<SkyKey> cycle;
-  private final ImmutableList<SkyKey> pathToCycle;
+public abstract class CycleInfo {
+  public abstract ImmutableList<SkyKey> getCycle();
+
+  public abstract ImmutableList<SkyKey> getPathToCycle();
+
+  public abstract SkyKey getTopKey();
+
+  public abstract boolean hasCycleDetails();
 
   @VisibleForTesting
-  public CycleInfo(Iterable<SkyKey> cycle) {
-    this(ImmutableList.<SkyKey>of(), cycle);
+  public static CycleInfo createCycleInfo(Iterable<SkyKey> cycle) {
+    return new CycleInfoWithDetails(ImmutableList.of(), cycle);
   }
 
-  public CycleInfo(Iterable<SkyKey> pathToCycle, Iterable<SkyKey> cycle) {
-    this.pathToCycle = ImmutableList.copyOf(pathToCycle);
-    this.cycle = ImmutableList.copyOf(cycle);
-    checkArgument(!this.cycle.isEmpty(), "Cycle cannot be empty: %s", this);
+  public static CycleInfo createCycleInfo(Iterable<SkyKey> pathToCycle, Iterable<SkyKey> cycle) {
+    return new CycleInfoWithDetails(pathToCycle, cycle);
   }
 
-  // If a cycle is already known, but we are processing a value in the middle of the cycle, we need
-  // to shift the cycle so that the value is at the head.
-  private CycleInfo(Iterable<SkyKey> cycle, int cycleStart) {
-    Preconditions.checkState(cycleStart >= 0, cycleStart);
-    ImmutableList.Builder<SkyKey> cycleTail = ImmutableList.builder();
-    ImmutableList.Builder<SkyKey> cycleHead = ImmutableList.builder();
-    int index = 0;
-    for (SkyKey key : cycle) {
-      if (index >= cycleStart) {
-        cycleHead.add(key);
-      } else {
-        cycleTail.add(key);
-      }
-      index++;
-    }
-    Preconditions.checkState(cycleStart < index, "%s >= %s ??", cycleStart, index);
-    this.cycle = cycleHead.addAll(cycleTail.build()).build();
-    this.pathToCycle = ImmutableList.of();
-  }
+  private static final CycleInfoNoDetails NO_DETAILS_INSTANCE = new CycleInfoNoDetails();
 
-  public ImmutableList<SkyKey> getCycle() {
-    return cycle;
-  }
-
-  public ImmutableList<SkyKey> getPathToCycle() {
-    return pathToCycle;
-  }
-
-  public SkyKey getTopKey() {
-    return pathToCycle.isEmpty() ? cycle.get(0) : pathToCycle.get(0);
+  public static CycleInfo cycleInfoNoDetails() {
+    return NO_DETAILS_INSTANCE;
   }
 
   // Given a cycle and a value, if the value is part of the cycle, shift the cycle. Otherwise,
   // prepend the value to the head of pathToCycle.
   @Nullable
   private static CycleInfo normalizeCycle(final SkyKey value, CycleInfo cycle) {
-    int index = cycle.cycle.indexOf(value);
+    int index = cycle.getCycle().indexOf(value);
     if (index > -1) {
-      if (!cycle.pathToCycle.isEmpty()) {
+      if (!cycle.getPathToCycle().isEmpty()) {
         // The head value we are considering is already part of a cycle, but we have reached it by a
         // roundabout way. Since we should have reached it directly as well, filter this roundabout
         // way out. Example (c has a dependence on top):
@@ -99,56 +74,132 @@ public class CycleInfo {
         // it via the path through b.
         return null;
       }
-      return new CycleInfo(cycle.cycle, index);
+      return new CycleInfoWithDetails(cycle.getCycle(), index);
     }
-    return new CycleInfo(Iterables.concat(ImmutableList.of(value), cycle.pathToCycle),
-        cycle.cycle);
+    return createCycleInfo(
+        ImmutableList.<SkyKey>builderWithExpectedSize(cycle.getPathToCycle().size() + 1)
+            .add(value)
+            .addAll(cycle.getPathToCycle())
+            .build(),
+        cycle.getCycle());
   }
 
   /**
-   * Normalize multiple cycles. This includes removing multiple paths to the same cycle, so that
-   * a value does not depend on the same cycle multiple ways through the same child value. Note that
-   * a value can still depend on the same cycle multiple ways, it's just that each way must be
-   * through a different child value (a path with a different first element).
+   * Normalize multiple cycles. This includes removing multiple paths to the same cycle, so that a
+   * value does not depend on the same cycle multiple ways through the same child value. Note that a
+   * value can still depend on the same cycle multiple ways, it's just that each way must be through
+   * a different child value (a path with a different first element).
+   *
+   * <p>If any of the given cycles are without details (created using {@link #cycleInfoNoDetails()})
+   * then a single {@link #cycleInfoNoDetails} will be returned.
    */
   static Iterable<CycleInfo> prepareCycles(final SkyKey value, Iterable<CycleInfo> cycles) {
     final Set<ImmutableList<SkyKey>> alreadyDoneCycles = new HashSet<>();
-    return Iterables.filter(
-        Iterables.transform(
-            cycles,
-            new Function<CycleInfo, CycleInfo>() {
-              @Override
-              @Nullable
-              public CycleInfo apply(CycleInfo input) {
-                CycleInfo normalized = normalizeCycle(value, input);
-                if (normalized != null && alreadyDoneCycles.add(normalized.cycle)) {
-                  return normalized;
-                }
-                return null;
-              }
-            }),
-        Predicates.notNull());
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(cycle, pathToCycle);
-  }
-
-  @Override
-  public boolean equals(Object that) {
-    if (this == that) {
-      return true;
+    ImmutableList.Builder<CycleInfo> result = ImmutableList.builder();
+    for (CycleInfo cycle : cycles) {
+      if (!cycle.hasCycleDetails()) {
+        return ImmutableList.of(cycle);
+      }
+      CycleInfo normalized = normalizeCycle(value, cycle);
+      if (normalized != null && alreadyDoneCycles.add(normalized.getCycle())) {
+        result.add(normalized);
+      }
     }
-    if (!(that instanceof CycleInfo thatCycle)) {
+    return result.build();
+  }
+
+  private static class CycleInfoNoDetails extends CycleInfo {
+    @Override
+    public ImmutableList<SkyKey> getCycle() {
+      throw new UnsupportedOperationException("unexpected access of cycle details");
+    }
+
+    @Override
+    public ImmutableList<SkyKey> getPathToCycle() {
+      throw new UnsupportedOperationException("unexpected access of cycle details");
+    }
+
+    @Override
+    public SkyKey getTopKey() {
+      throw new UnsupportedOperationException("unexpected access of cycle details");
+    }
+
+    @Override
+    public boolean hasCycleDetails() {
       return false;
     }
-
-    return thatCycle.cycle.equals(this.cycle) && thatCycle.pathToCycle.equals(this.pathToCycle);
   }
 
-  @Override
-  public String toString() {
-    return Iterables.toString(pathToCycle) + " -> " + Iterables.toString(cycle);
+  private static class CycleInfoWithDetails extends CycleInfo {
+    private final ImmutableList<SkyKey> cycle;
+    private final ImmutableList<SkyKey> pathToCycle;
+
+    private CycleInfoWithDetails(Iterable<SkyKey> pathToCycle, Iterable<SkyKey> cycle) {
+      this.pathToCycle = ImmutableList.copyOf(pathToCycle);
+      this.cycle = ImmutableList.copyOf(cycle);
+      checkArgument(!this.cycle.isEmpty(), "Cycle cannot be empty: %s", this);
+    }
+
+    // If a cycle is already known, but we are processing a value in the middle of the cycle, we
+    // need to shift the cycle so that the value is at the head.
+    private CycleInfoWithDetails(Iterable<SkyKey> cycle, int cycleStart) {
+      Preconditions.checkState(cycleStart >= 0, cycleStart);
+      ImmutableList.Builder<SkyKey> cycleTail = ImmutableList.builder();
+      ImmutableList.Builder<SkyKey> cycleHead = ImmutableList.builder();
+      int index = 0;
+      for (SkyKey key : cycle) {
+        if (index >= cycleStart) {
+          cycleHead.add(key);
+        } else {
+          cycleTail.add(key);
+        }
+        index++;
+      }
+      Preconditions.checkState(cycleStart < index, "%s >= %s ??", cycleStart, index);
+      this.cycle = cycleHead.addAll(cycleTail.build()).build();
+      this.pathToCycle = ImmutableList.of();
+    }
+
+    @Override
+    public ImmutableList<SkyKey> getCycle() {
+      return cycle;
+    }
+
+    @Override
+    public ImmutableList<SkyKey> getPathToCycle() {
+      return pathToCycle;
+    }
+
+    @Override
+    public SkyKey getTopKey() {
+      return pathToCycle.isEmpty() ? cycle.get(0) : pathToCycle.get(0);
+    }
+
+    @Override
+    public boolean hasCycleDetails() {
+      return true;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(cycle, pathToCycle);
+    }
+
+    @Override
+    public boolean equals(Object that) {
+      if (this == that) {
+        return true;
+      }
+      if (!(that instanceof CycleInfoWithDetails thatCycle)) {
+        return false;
+      }
+
+      return thatCycle.cycle.equals(this.cycle) && thatCycle.pathToCycle.equals(this.pathToCycle);
+    }
+
+    @Override
+    public String toString() {
+      return Iterables.toString(pathToCycle) + " -> " + Iterables.toString(cycle);
+    }
   }
 }

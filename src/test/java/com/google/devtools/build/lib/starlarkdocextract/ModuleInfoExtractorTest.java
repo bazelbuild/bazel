@@ -17,11 +17,12 @@ package com.google.devtools.build.lib.starlarkdocextract;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
-import static com.google.devtools.build.lib.starlarkdocextract.AttributeInfoExtractor.IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO;
-import static com.google.devtools.build.lib.starlarkdocextract.AttributeInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO;
+import static com.google.devtools.build.lib.starlarkdocextract.ModuleInfoExtractor.IMPLICIT_MACRO_ATTRIBUTES;
+import static com.google.devtools.build.lib.starlarkdocextract.RuleInfoExtractor.IMPLICIT_RULE_ATTRIBUTES;
 import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_KWARGS;
 import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_ORDINARY;
 import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_VARARGS;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -45,6 +46,10 @@ import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.Prov
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderNameGroup;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.StarlarkFunctionInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.StarlarkOtherSymbolInfo;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
 import net.starlark.java.eval.Module;
@@ -54,9 +59,8 @@ import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class ModuleInfoExtractorTest {
 
   private String fakeLabelString = null; // set by exec()
@@ -68,26 +72,27 @@ public final class ModuleInfoExtractorTest {
   private Module execWithOptions(ImmutableList<String> options, String... lines) throws Exception {
     BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
     ev.setSemantics(options.toArray(new String[0]));
-    Module module = ev.getModule();
-    Label fakeLabel = BazelModuleContext.of(module).label();
+    Module moduleForCompilation = ev.newModule();
+    Label fakeLabel = BazelModuleContext.of(moduleForCompilation).label();
     ev.setThreadOwner(keyForBuild(fakeLabel));
     fakeLabelString = fakeLabel.getCanonicalForm();
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, FileOptions.DEFAULT);
-    Program program = Program.compileFile(file, module);
+    Program program = Program.compileFile(file, moduleForCompilation);
+    Module moduleForEvaluation = ev.newModule(program);
     BzlLoadFunction.execAndExport(
-        program, fakeLabel, ev.getEventHandler(), module, ev.getStarlarkThread());
-    return ev.getModule();
+        program, fakeLabel, ev.getEventHandler(), moduleForEvaluation, ev.getStarlarkThread());
+    return moduleForEvaluation;
   }
 
   private static ModuleInfoExtractor getExtractor() {
-    RepositoryMapping repositoryMapping = RepositoryMapping.ALWAYS_FALLBACK;
+    RepositoryMapping repositoryMapping = RepositoryMapping.EMPTY;
     return new ModuleInfoExtractor(
         name -> true, new LabelRenderer(repositoryMapping, Optional.empty()));
   }
 
   private static ModuleInfoExtractor getExtractor(Predicate<String> isWantedQualifiedName) {
-    RepositoryMapping repositoryMapping = RepositoryMapping.ALWAYS_FALLBACK;
+    RepositoryMapping repositoryMapping = RepositoryMapping.EMPTY;
     return new ModuleInfoExtractor(
         isWantedQualifiedName, new LabelRenderer(repositoryMapping, Optional.empty()));
   }
@@ -607,7 +612,7 @@ public final class ModuleInfoExtractorTest {
 
             my_lib = rule(
                 implementation = _my_impl,
-                provides = [MyInfo, DefaultInfo, "LegacyStructInfo"],
+                provides = [MyInfo, DefaultInfo],
             )
             """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
@@ -621,12 +626,10 @@ public final class ModuleInfoExtractorTest {
                     ProviderNameGroup.newBuilder()
                         .addProviderName("MyInfo")
                         .addProviderName("DefaultInfo")
-                        .addProviderName("LegacyStructInfo")
                         .addOriginKey(
                             OriginKey.newBuilder().setName("MyInfo").setFile(fakeLabelString))
                         .addOriginKey(
-                            OriginKey.newBuilder().setName("DefaultInfo").setFile("<native>"))
-                        .addOriginKey(OriginKey.newBuilder().setName("LegacyStructInfo")))
+                            OriginKey.newBuilder().setName("DefaultInfo").setFile("<native>")))
                 .build());
   }
 
@@ -702,7 +705,7 @@ public final class ModuleInfoExtractorTest {
                 implementation = _my_impl,
                 attrs = {
                     "a": attr.string(doc = "My doc", default = "foo"),
-                    "b": attr.string(mandatory = True),
+                    "b": attr.string(mandatory = True, values = ["foo", "bar"]),
                     "c": attr.label(providers = [MyInfo1, MyInfo2]),
                     "d": attr.label(providers = [[MyInfo1, MyInfo2], [MyInfo3]]),
                     "_e": attr.string(doc = "Hidden attribute"),
@@ -712,55 +715,69 @@ public final class ModuleInfoExtractorTest {
             """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getRuleInfoList().get(0).getAttributeList())
-        .containsExactly(
-            IMPLICIT_NAME_ATTRIBUTE_INFO,
-            AttributeInfo.newBuilder()
-                .setName("a")
-                .setType(AttributeType.STRING)
-                .setDocString("My doc")
-                .setDefaultValue("\"foo\"")
-                .build(),
-            AttributeInfo.newBuilder()
-                .setName("b")
-                .setType(AttributeType.STRING)
-                .setMandatory(true)
-                .build(),
-            AttributeInfo.newBuilder()
-                .setName("c")
-                .setType(AttributeType.LABEL)
-                .setDefaultValue("None")
-                .addProviderNameGroup(
-                    ProviderNameGroup.newBuilder()
-                        .addProviderName("MyInfo1")
-                        .addProviderName("MyInfo2")
-                        .addOriginKey(
-                            OriginKey.newBuilder().setName("MyInfo1").setFile(fakeLabelString))
-                        .addOriginKey(
-                            OriginKey.newBuilder().setName("MyInfo2").setFile(fakeLabelString)))
-                .build(),
-            AttributeInfo.newBuilder()
-                .setName("d")
-                .setType(AttributeType.LABEL)
-                .setDefaultValue("None")
-                .addProviderNameGroup(
-                    ProviderNameGroup.newBuilder()
-                        .addProviderName("MyInfo1")
-                        .addProviderName("MyInfo2")
-                        .addOriginKey(
-                            OriginKey.newBuilder().setName("MyInfo1").setFile(fakeLabelString))
-                        .addOriginKey(
-                            OriginKey.newBuilder().setName("MyInfo2").setFile(fakeLabelString)))
-                .addProviderNameGroup(
-                    ProviderNameGroup.newBuilder()
-                        .addProviderName("MyInfo3")
-                        .addOriginKey(
-                            OriginKey.newBuilder().setName("MyInfo3").setFile(fakeLabelString)))
-                .build(),
-            AttributeInfo.newBuilder()
-                .setName("deprecated_license")
-                .setType(AttributeType.STRING_LIST)
-                .setDefaultValue("[\"none\"]")
-                .setNonconfigurable(true)
+        .containsExactlyElementsIn(
+            ImmutableList.builder()
+                .addAll(IMPLICIT_RULE_ATTRIBUTES.values())
+                .add(
+                    AttributeInfo.newBuilder()
+                        .setName("a")
+                        .setType(AttributeType.STRING)
+                        .setDocString("My doc")
+                        .setDefaultValue("\"foo\"")
+                        .build(),
+                    AttributeInfo.newBuilder()
+                        .setName("b")
+                        .setType(AttributeType.STRING)
+                        .setMandatory(true)
+                        .addAllValues(ImmutableList.of("\"foo\"", "\"bar\""))
+                        .build(),
+                    AttributeInfo.newBuilder()
+                        .setName("c")
+                        .setType(AttributeType.LABEL)
+                        .setDefaultValue("None")
+                        .addProviderNameGroup(
+                            ProviderNameGroup.newBuilder()
+                                .addProviderName("MyInfo1")
+                                .addProviderName("MyInfo2")
+                                .addOriginKey(
+                                    OriginKey.newBuilder()
+                                        .setName("MyInfo1")
+                                        .setFile(fakeLabelString))
+                                .addOriginKey(
+                                    OriginKey.newBuilder()
+                                        .setName("MyInfo2")
+                                        .setFile(fakeLabelString)))
+                        .build(),
+                    AttributeInfo.newBuilder()
+                        .setName("d")
+                        .setType(AttributeType.LABEL)
+                        .setDefaultValue("None")
+                        .addProviderNameGroup(
+                            ProviderNameGroup.newBuilder()
+                                .addProviderName("MyInfo1")
+                                .addProviderName("MyInfo2")
+                                .addOriginKey(
+                                    OriginKey.newBuilder()
+                                        .setName("MyInfo1")
+                                        .setFile(fakeLabelString))
+                                .addOriginKey(
+                                    OriginKey.newBuilder()
+                                        .setName("MyInfo2")
+                                        .setFile(fakeLabelString)))
+                        .addProviderNameGroup(
+                            ProviderNameGroup.newBuilder()
+                                .addProviderName("MyInfo3")
+                                .addOriginKey(
+                                    OriginKey.newBuilder()
+                                        .setName("MyInfo3")
+                                        .setFile(fakeLabelString)))
+                        .build(),
+                    AttributeInfo.newBuilder()
+                        .setName("deprecated_license")
+                        .setType(AttributeType.STRING_LIST)
+                        .setDefaultValue("[\"none\"]")
+                        .setNonconfigurable(true)
+                        .build())
                 .build());
   }
 
@@ -812,74 +829,83 @@ public final class ModuleInfoExtractorTest {
                     "j": attr.string_list_dict(),
                     "k": attr.output(),
                     "l": attr.output_list(),
+                    "m": attr.label_list_dict(),
                 },
             )
             """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getRuleInfoList().get(0).getAttributeList())
-        .containsExactly(
-            IMPLICIT_NAME_ATTRIBUTE_INFO,
-            AttributeInfo.newBuilder()
-                .setName("a")
-                .setType(AttributeType.INT)
-                .setDefaultValue("0")
-                .build(),
-            AttributeInfo.newBuilder()
-                .setName("b")
-                .setType(AttributeType.LABEL)
-                .setDefaultValue("None")
-                .build(),
-            AttributeInfo.newBuilder()
-                .setName("c")
-                .setType(AttributeType.STRING)
-                .setDefaultValue("\"\"")
-                .build(),
-            AttributeInfo.newBuilder()
-                .setName("d")
-                .setType(AttributeType.STRING_LIST)
-                .setDefaultValue("[]")
-                .build(),
-            AttributeInfo.newBuilder()
-                .setName("e")
-                .setType(AttributeType.INT_LIST)
-                .setDefaultValue("[]")
-                .build(),
-            AttributeInfo.newBuilder()
-                .setName("f")
-                .setType(AttributeType.LABEL_LIST)
-                .setDefaultValue("[]")
-                .build(),
-            AttributeInfo.newBuilder()
-                .setName("g")
-                .setType(AttributeType.BOOLEAN)
-                .setDefaultValue("False")
-                .build(),
-            AttributeInfo.newBuilder()
-                .setName("h")
-                .setType(AttributeType.LABEL_STRING_DICT)
-                .setDefaultValue("{}")
-                .build(),
-            AttributeInfo.newBuilder()
-                .setName("i")
-                .setType(AttributeType.STRING_DICT)
-                .setDefaultValue("{}")
-                .build(),
-            AttributeInfo.newBuilder()
-                .setName("j")
-                .setType(AttributeType.STRING_LIST_DICT)
-                .setDefaultValue("{}")
-                .build(),
-            AttributeInfo.newBuilder()
-                .setName("k")
-                .setType(AttributeType.OUTPUT)
-                .setDefaultValue("None")
-                .setNonconfigurable(true)
-                .build(),
-            AttributeInfo.newBuilder()
-                .setName("l")
-                .setType(AttributeType.OUTPUT_LIST)
-                .setDefaultValue("[]")
-                .setNonconfigurable(true)
+        .containsExactlyElementsIn(
+            ImmutableList.builder()
+                .addAll(IMPLICIT_RULE_ATTRIBUTES.values())
+                .add(
+                    AttributeInfo.newBuilder()
+                        .setName("a")
+                        .setType(AttributeType.INT)
+                        .setDefaultValue("0")
+                        .build(),
+                    AttributeInfo.newBuilder()
+                        .setName("b")
+                        .setType(AttributeType.LABEL)
+                        .setDefaultValue("None")
+                        .build(),
+                    AttributeInfo.newBuilder()
+                        .setName("c")
+                        .setType(AttributeType.STRING)
+                        .setDefaultValue("\"\"")
+                        .build(),
+                    AttributeInfo.newBuilder()
+                        .setName("d")
+                        .setType(AttributeType.STRING_LIST)
+                        .setDefaultValue("[]")
+                        .build(),
+                    AttributeInfo.newBuilder()
+                        .setName("e")
+                        .setType(AttributeType.INT_LIST)
+                        .setDefaultValue("[]")
+                        .build(),
+                    AttributeInfo.newBuilder()
+                        .setName("f")
+                        .setType(AttributeType.LABEL_LIST)
+                        .setDefaultValue("[]")
+                        .build(),
+                    AttributeInfo.newBuilder()
+                        .setName("g")
+                        .setType(AttributeType.BOOLEAN)
+                        .setDefaultValue("False")
+                        .build(),
+                    AttributeInfo.newBuilder()
+                        .setName("h")
+                        .setType(AttributeType.LABEL_STRING_DICT)
+                        .setDefaultValue("{}")
+                        .build(),
+                    AttributeInfo.newBuilder()
+                        .setName("i")
+                        .setType(AttributeType.STRING_DICT)
+                        .setDefaultValue("{}")
+                        .build(),
+                    AttributeInfo.newBuilder()
+                        .setName("j")
+                        .setType(AttributeType.STRING_LIST_DICT)
+                        .setDefaultValue("{}")
+                        .build(),
+                    AttributeInfo.newBuilder()
+                        .setName("k")
+                        .setType(AttributeType.OUTPUT)
+                        .setDefaultValue("None")
+                        .setNonconfigurable(true)
+                        .build(),
+                    AttributeInfo.newBuilder()
+                        .setName("l")
+                        .setType(AttributeType.OUTPUT_LIST)
+                        .setDefaultValue("[]")
+                        .setNonconfigurable(true)
+                        .build(),
+                    AttributeInfo.newBuilder()
+                        .setName("m")
+                        .setType(AttributeType.LABEL_LIST_DICT)
+                        .setDefaultValue("{}")
+                        .build())
                 .build());
   }
 
@@ -926,13 +952,40 @@ public final class ModuleInfoExtractorTest {
                 .setDocString("My doc")
                 .setOriginKey(
                     OriginKey.newBuilder().setName("documented_macro").setFile(fakeLabelString))
-                .addAttribute(IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO)
+                .addAllAttribute(IMPLICIT_MACRO_ATTRIBUTES.values())
                 .build(),
             MacroInfo.newBuilder()
                 .setMacroName("undocumented_macro")
                 .setOriginKey(
                     OriginKey.newBuilder().setName("undocumented_macro").setFile(fakeLabelString))
-                .addAttribute(IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO)
+                .addAllAttribute(IMPLICIT_MACRO_ATTRIBUTES.values())
+                .build());
+  }
+
+  @Test
+  public void macroFinalizer() throws Exception {
+    Module module =
+        exec(
+            """
+            def _my_impl(name, visibility):
+                pass
+
+            my_finalizer = macro(
+                doc = "My finalizer",
+                implementation = _my_impl,
+                finalizer = True,
+            )
+            """);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
+    assertThat(moduleInfo.getMacroInfoList())
+        .containsExactly(
+            MacroInfo.newBuilder()
+                .setMacroName("my_finalizer")
+                .setDocString("My finalizer")
+                .setOriginKey(
+                    OriginKey.newBuilder().setName("my_finalizer").setFile(fakeLabelString))
+                .addAllAttribute(IMPLICIT_MACRO_ATTRIBUTES.values())
+                .setFinalizer(true)
                 .build());
   }
 
@@ -955,29 +1008,29 @@ public final class ModuleInfoExtractorTest {
             """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getMacroInfoList().get(0).getAttributeList())
-        .containsExactly(
-            IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO, // name comes first
-            AttributeInfo.newBuilder()
-                .setName("some_attr")
-                .setType(AttributeType.LABEL)
-                .setMandatory(true)
-                .build(),
-            AttributeInfo.newBuilder()
-                .setName("another_attr")
-                .setType(AttributeType.INT)
-                .setDocString("An integer")
-                .setDefaultValue("42")
-                .build()
-            // note that implicit attributes don't get documented
-            );
+        .containsExactlyElementsIn(
+            ImmutableList.builder()
+                .addAll(IMPLICIT_MACRO_ATTRIBUTES.values())
+                .add(
+                    AttributeInfo.newBuilder()
+                        .setName("some_attr")
+                        .setType(AttributeType.LABEL)
+                        .setMandatory(true)
+                        .build(),
+                    AttributeInfo.newBuilder()
+                        .setName("another_attr")
+                        .setType(AttributeType.INT)
+                        .setDocString("An integer")
+                        .setDefaultValue("42")
+                        .build())
+                .build());
   }
 
   @Test
   public void macroInheritedAttributes() throws Exception {
     Module module =
-        execWithOptions(
-            ImmutableList.of("--experimental_enable_macro_inherit_attrs"),
-            """
+        exec(
+"""
 def _my_rule_impl(ctx):
     pass
 
@@ -997,20 +1050,29 @@ my_macro = macro(
 )
 """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
-    assertThat(moduleInfo.getMacroInfoList().get(0).getAttributeList())
-        .containsExactly(
-            IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO, // name comes first
-            // TODO(arostovtsev): for macros, we ought to also document the visibility attr
+    List<AttributeInfo> attributes = moduleInfo.getMacroInfoList().get(0).getAttributeList();
+    assertThat(attributes.get(0)).isEqualTo(IMPLICIT_MACRO_ATTRIBUTES.get("name"));
+    assertThat(attributes.get(1)).isEqualTo(IMPLICIT_MACRO_ATTRIBUTES.get("visibility"));
+    // Starlark-defined inherited attribute
+    assertThat(attributes)
+        .contains(
             AttributeInfo.newBuilder()
                 .setName("srcs")
                 .setType(AttributeType.LABEL_LIST)
                 .setDocString("My rule sources")
                 .setDefaultValue("None") // Default value of inherited attributes is always None
-                .build()
-            // TODO(arostovtsev): currently, non-Starlark-defined attributes don't get documented.
-            // This is a reasonable behavior for rules, but we probably ought to document them in
-            // macros with inherited attributes.
-            );
+                .build());
+    // Native inherited attributes may not be documented, so ignore doc string for them.
+    assertThat(attributes)
+        .ignoringFields(AttributeInfo.DOC_STRING_FIELD_NUMBER)
+        .contains(
+            AttributeInfo.newBuilder()
+                .setName("tags")
+                .setType(AttributeType.STRING_LIST)
+                .setDefaultValue("None") // Default value of inherited attributes is always None
+                .setNonconfigurable(true)
+                .setNativelyDefined(true)
+                .build());
   }
 
   @Test
@@ -1085,10 +1147,13 @@ my_macro = macro(
                 attrs = {
                     "label": attr.label(default = "//test:foo"),
                     "label_list": attr.label_list(
-                        default = ["//x", "@canonical//y", "@canonical//y:z"],
+                        default = ["//x", "@@canonical//y", "@@canonical//y:z"],
                     ),
                     "label_keyed_string_dict": attr.label_keyed_string_dict(
-                        default = {"//x": "label_in_main", "@canonical//y": "label_in_dep"},
+                        default = {"//x": "label_in_main", "@@canonical//y": "label_in_dep"},
+                    ),
+                    "label_list_dict": attr.label_list_dict(
+                        default = {"a": ["//x", "@@canonical//y", "@@canonical//y:z"]},
                     ),
                 },
             )
@@ -1099,12 +1164,13 @@ my_macro = macro(
     ModuleInfo moduleInfo = getExtractor(repositoryMapping, "my_repo").extractFrom(module);
     assertThat(
             moduleInfo.getRuleInfoList().get(0).getAttributeList().stream()
-                .filter(attr -> !attr.equals(IMPLICIT_NAME_ATTRIBUTE_INFO))
+                .filter(attr -> !IMPLICIT_RULE_ATTRIBUTES.containsKey(attr.getName()))
                 .map(AttributeInfo::getDefaultValue))
         .containsExactly(
             "\"@my_repo//test:foo\"",
             "[\"@my_repo//x\", \"@local//y\", \"@local//y:z\"]",
-            "{\"@my_repo//x\": \"label_in_main\", \"@local//y\": \"label_in_dep\"}");
+            "{\"@my_repo//x\": \"label_in_main\", \"@local//y\": \"label_in_dep\"}",
+            "{\"a\": [\"@my_repo//x\", \"@local//y\", \"@local//y:z\"]}");
   }
 
   @Test
@@ -1161,7 +1227,6 @@ my_macro = macro(
                 .setOriginKey(OriginKey.newBuilder().setName("my_aspect").setFile(fakeLabelString))
                 .addAspectAttribute("deps")
                 .addAspectAttribute("srcs")
-                .addAttribute(IMPLICIT_NAME_ATTRIBUTE_INFO)
                 .addAttribute(
                     AttributeInfo.newBuilder()
                         .setName("a")
@@ -1194,5 +1259,119 @@ my_macro = macro(
             """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getAspectInfoList()).isEmpty();
+  }
+
+  @Test
+  public void starlarkOtherSymbols_extractedIfExportableAndDocumented() throws Exception {
+    Module module =
+        exec(
+            """
+            #: Exportable and documented
+            NAMES = ["foo", "bar"]
+
+            # Exportable but not documented
+            MORE_NAMES = ["baz", "qux"]
+
+            #: Ignored - non-exportable symbol
+            _PRIVATE_CONSTANT = 42
+
+            #: Struct
+            S = struct(answer = _PRIVATE_CONSTANT)
+            """);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
+    assertThat(moduleInfo.getStarlarkOtherSymbolInfoList())
+        .containsExactly(
+            StarlarkOtherSymbolInfo.newBuilder()
+                .setName("NAMES")
+                .setDoc("Exportable and documented")
+                .setTypeName("list")
+                .build(),
+            StarlarkOtherSymbolInfo.newBuilder()
+                .setName("S")
+                .setDoc("Struct")
+                .setTypeName("struct")
+                .build());
+  }
+
+  @Test
+  public void starlarkOtherSymbols_conflictingDocComments(
+      @TestParameter boolean allowUnusedDocComments) throws Exception {
+    Module module =
+        exec(
+            """
+            #: Leading doc comment
+            ANSWER = 42 #: Trailing doc comment
+            """);
+    if (allowUnusedDocComments) {
+      assertThat(
+              getExtractor()
+                  .allowUnusedDocComments()
+                  .extractFrom(module)
+                  .getStarlarkOtherSymbolInfoList())
+          .containsExactly(
+              StarlarkOtherSymbolInfo.newBuilder()
+                  .setName("ANSWER")
+                  .setDoc("Trailing doc comment") // Overrides leading doc comment.
+                  .setTypeName("int")
+                  .build());
+    } else {
+      ExtractionException exception =
+          assertThrows(ExtractionException.class, () -> getExtractor().extractFrom(module));
+      assertThat(exception)
+          .hasMessageThat()
+          .contains("unexpected or conflicting doc comments on line 1");
+    }
+  }
+
+  @Test
+  public void functions_cannotUseDocComments(@TestParameter boolean allowUnusedDocComments)
+      throws Exception {
+    Module module =
+        exec(
+            """
+            def _my_function():
+                pass
+
+            #: Unexpected doc comment
+            MY_FUNCTION_ALIAS = _my_function
+            """);
+    if (allowUnusedDocComments) {
+      assertThat(getExtractor().allowUnusedDocComments().extractFrom(module).getFuncInfoList())
+          .hasSize(1);
+    } else {
+      ExtractionException exception =
+          assertThrows(ExtractionException.class, () -> getExtractor().extractFrom(module));
+      assertThat(exception)
+          .hasMessageThat()
+          .contains(
+              "unexpected doc comment for MY_FUNCTION_ALIAS on line 4; API documentation for a"
+                  + " function must be provided in a docstring at the top of the function body");
+    }
+  }
+
+  @Test
+  public void rules_cannotUseDocComments(@TestParameter boolean allowUnusedDocComments)
+      throws Exception {
+    Module module =
+        exec(
+            """
+            def _impl(ctx):
+                pass
+
+            #: Unexpected doc comment
+            my_rule = rule(implementation = _impl)
+            """);
+    if (allowUnusedDocComments) {
+      assertThat(getExtractor().allowUnusedDocComments().extractFrom(module).getRuleInfoList())
+          .hasSize(1);
+    } else {
+      ExtractionException exception =
+          assertThrows(ExtractionException.class, () -> getExtractor().extractFrom(module));
+      assertThat(exception)
+          .hasMessageThat()
+          .contains(
+              "unexpected doc comment for my_rule on line 4; API documentation for a rule must be"
+                  + " provided in the doc argument to rule()");
+    }
   }
 }

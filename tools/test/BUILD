@@ -1,3 +1,7 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 package(default_visibility = ["//visibility:public"])
 
 # Members of this filegroup shouldn't have duplicate basenames, otherwise
@@ -39,6 +43,12 @@ filegroup(
 cc_binary(
     name = "tw",
     srcs = ["windows/tw_main.cc"],
+    linkopts = select({
+        # MinGW requires -municode when using wmain.
+        "@rules_cc//cc/compiler:clang": ["-municode"],
+        "//conditions:default": [],
+    }),
+    target_compatible_with = ["@platforms//os:windows"],
     visibility = ["//visibility:private"],
     deps = [":tw_lib"],
 )
@@ -46,6 +56,12 @@ cc_binary(
 cc_binary(
     name = "xml",
     srcs = ["windows/xml_main.cc"],
+    linkopts = select({
+        # MinGW requires -municode when using wmain.
+        "@rules_cc//cc/compiler:clang": ["-municode"],
+        "//conditions:default": [],
+    }),
+    target_compatible_with = ["@platforms//os:windows"],
     visibility = ["//visibility:private"],
     deps = [":tw_lib"],
 )
@@ -76,7 +92,7 @@ cc_library(
             "//src/main/native/windows:lib-file",
             "//src/main/native/windows:lib-process",
             "//third_party/ijar:zip",
-            "@bazel_tools//tools/cpp/runfiles",
+            "@rules_cc//cc/runfiles",
         ],
         "//conditions:default": [],
     }),
@@ -113,6 +129,7 @@ filegroup(
         "BUILD.tools",
         "collect_cc_coverage.sh",
         "collect_coverage.sh",
+        "default_test_toolchain.bzl",
         "extensions.bzl",
         "generate-xml.sh",
         "test-setup.sh",
@@ -130,5 +147,8 @@ filegroup(
 
 filegroup(
     name = "bzl_srcs",
-    srcs = ["extensions.bzl"],
+    srcs = [
+        "default_test_toolchain.bzl",
+        "extensions.bzl",
+    ],
 )

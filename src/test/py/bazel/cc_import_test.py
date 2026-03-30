@@ -26,7 +26,7 @@ class CcImportTest(test_base.TestBase):
                          system_provided=0,
                          linkstatic=1,
                          provide_header=True):
-
+    self.AddBazelDep('rules_cc')
     # We use the outputs of cc_binary and cc_library as precompiled
     # libraries for cc_import
     self.ScratchFile(
@@ -34,6 +34,9 @@ class CcImportTest(test_base.TestBase):
         [
             'package(default_visibility = ["//visibility:public"])',
             '',
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'load("@rules_cc//cc:cc_import.bzl", "cc_import")',
+            'load("@rules_cc//cc:cc_library.bzl", "cc_library")',
             'cc_binary(',
             '  name = "libA.so",',
             '  srcs = ["a.cc"],',
@@ -61,19 +64,24 @@ class CcImportTest(test_base.TestBase):
             '  name = "A",',
             '  static_library = "//lib:libA_archive",',
             '  shared_library = "//lib:libA.so",'
-            if not system_provided else '',
+            if not system_provided
+            else '',
             # On Windows, we always need the interface library
             '  interface_library = "//lib:libA_ifso",'
-            if self.IsWindows() else (
+            if self.IsWindows()
+            else (
                 # On Unix, we use .so file as interface library
                 # if system_provided is true
                 '  interface_library = "//lib:libA.so",'
-                if system_provided else ''),
+                if system_provided
+                else ''
+            ),
             '  hdrs = ["a.h"],' if provide_header else '',
             '  alwayslink = %s,' % str(alwayslink),
             '  system_provided = %s,' % str(system_provided),
             ')',
-        ])
+        ],
+    )
 
     self.ScratchFile('lib/a.cc', [
         '#include <stdio.h>',
@@ -104,14 +112,18 @@ class CcImportTest(test_base.TestBase):
         'void HelloWorld();',
     ])
 
-    self.ScratchFile('main/BUILD', [
-        'cc_binary(',
-        '  name = "B",',
-        '  srcs = ["b.cc"],',
-        '  deps = ["//lib:A",],',
-        '  linkstatic = %s,' % str(linkstatic),
-        ')',
-    ])
+    self.ScratchFile(
+        'main/BUILD',
+        [
+            'load("@rules_cc//cc:cc_binary.bzl", "cc_binary")',
+            'cc_binary(',
+            '  name = "B",',
+            '  srcs = ["b.cc"],',
+            '  deps = ["//lib:A",],',
+            '  linkstatic = %s,' % str(linkstatic),
+            ')',
+        ],
+    )
 
     self.ScratchFile('main/b.cc', [
         '#include <stdio.h>',

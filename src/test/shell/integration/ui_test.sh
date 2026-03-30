@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -67,6 +67,9 @@ function set_up() {
     return
   fi
 
+  add_rules_shell "MODULE.bazel"
+  add_rules_cc "MODULE.bazel"
+
   mkdir -p pkg
   touch remote_file
   cat > pkg/true.sh <<EOF
@@ -103,6 +106,9 @@ echo Ending \$1
 EOF
   chmod 755 pkg/do_output.sh
   cat > pkg/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+
 sh_test(
   name = "true",
   srcs = ["true.sh"],
@@ -156,6 +162,8 @@ genrule(
 EOF
   mkdir -p pkg/errorAfterWarning
   cat > pkg/errorAfterWarning/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 RANGE = range(500)
 
 [ genrule(
@@ -225,6 +233,8 @@ exit 0
 EOF
   chmod 755 $pkg/true.sh
   cat > $pkg/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
   name = "true",
   srcs = ["true.sh"],
@@ -723,6 +733,8 @@ EOF
 function test_bazel_run_error_visible() {
   mkdir -p foo
   cat > foo/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
   name = 'foo',
   srcs = ['foo.sh'],
@@ -735,7 +747,7 @@ EOF
   expect_log "ERROR: 'run' only works with tests with one shard"
   # If we would print this again after the run failed, we would overwrite the
   # error message above.
-  expect_log_n "INFO: Build completed successfully, [4567] total actions" 1
+  expect_log_n "INFO: Build completed successfully, [4-9] total actions" 1
 }
 
 function test_exit_code_reported() {

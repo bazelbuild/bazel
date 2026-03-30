@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetComple
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -47,16 +46,14 @@ final class TargetCompletor
       SkyframeActionExecutor skyframeActionExecutor,
       MetadataConsumerForMetrics.FilesMetricConsumer topLevelArtifactsMetric,
       ActionRewindStrategy actionRewindStrategy,
-      BugReporter bugReporter,
-      Supplier<Boolean> isSkymeld) {
+      BugReporter bugReporter) {
     return new CompletionFunction<>(
         pathResolverFactory,
         new TargetCompletor(skyframeActionExecutor),
         skyframeActionExecutor,
         topLevelArtifactsMetric,
         actionRewindStrategy,
-        bugReporter,
-        isSkymeld);
+        bugReporter);
   }
 
   private TargetCompletor(SkyframeActionExecutor announceTargetSummaries) {
@@ -77,9 +74,7 @@ final class TargetCompletor
   public Location getLocationIdentifier(
       TargetCompletionKey key, ConfiguredTargetValue value, Environment env)
       throws InterruptedException {
-    return ConfiguredTargetAndData.fromExistingConfiguredTargetInSkyframe(
-            value.getConfiguredTarget(), env)
-        .getLocation();
+    return ConfiguredTargetAndData.fromExistingConfiguredTargetInSkyframe(value, env).getLocation();
   }
 
   @Override
@@ -97,8 +92,7 @@ final class TargetCompletor
       Environment env)
       throws InterruptedException {
     return TargetCompleteEvent.createFailed(
-        ConfiguredTargetAndData.fromExistingConfiguredTargetInSkyframe(
-            value.getConfiguredTarget(), env),
+        ConfiguredTargetAndData.fromExistingConfiguredTargetInSkyframe(value, env),
         ctx,
         rootCauses,
         outputs,
@@ -116,7 +110,7 @@ final class TargetCompletor
       throws InterruptedException {
     ConfiguredTarget target = value.getConfiguredTarget();
     ConfiguredTargetAndData configuredTargetAndData =
-        ConfiguredTargetAndData.fromExistingConfiguredTargetInSkyframe(target, env);
+        ConfiguredTargetAndData.fromExistingConfiguredTargetInSkyframe(value, env);
     if (skyKey.willTest()) {
       return TargetCompleteEvent.successfulBuildSchedulingTest(
           configuredTargetAndData,

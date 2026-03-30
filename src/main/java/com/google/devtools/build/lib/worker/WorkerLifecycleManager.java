@@ -23,6 +23,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
+import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -37,37 +38,42 @@ final class WorkerLifecycleManager extends Thread {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private boolean isWorking = false;
+  private volatile boolean isWorking = false;
   private boolean emptyEvictionWasLogged = false;
   private final WorkerPool workerPool;
-  private final WorkerOptions options;
+  private final int totalWorkerMemoryLimitKb;
+  private final int workerMemoryLimitKb;
+  private final boolean shrinkWorkerPool;
+  private final boolean workerVerbose;
+  private final Duration workerMetricsPollInterval;
 
-  private Reporter reporter;
+  private final Reporter reporter;
 
-  public WorkerLifecycleManager(WorkerPool workerPool, WorkerOptions options) {
+  public WorkerLifecycleManager(WorkerPool workerPool, WorkerOptions options, Reporter reporter) {
     this.workerPool = workerPool;
-    this.options = options;
-  }
-
-  public void setReporter(Reporter reporter) {
+    this.totalWorkerMemoryLimitKb = options.totalWorkerMemoryLimitMb * 1000;
+    this.workerMemoryLimitKb = options.workerMemoryLimitMb * 1000;
+    this.shrinkWorkerPool = options.shrinkWorkerPool;
+    this.workerVerbose = options.workerVerbose;
+    this.workerMetricsPollInterval = options.workerMetricsPollInterval;
     this.reporter = reporter;
   }
 
   @Override
   public void run() {
-    if (options.totalWorkerMemoryLimitMb == 0 && options.workerMemoryLimitMb == 0) {
+    if (totalWorkerMemoryLimitKb == 0 && workerMemoryLimitKb == 0) {
       return;
     }
 
     String msg =
         String.format(
-            "Worker Lifecycle Manager starts work with (total limit: %d MB, individual limit: %d"
-                + " MB, shrinking: %s)",
-            options.totalWorkerMemoryLimitMb,
-            options.workerMemoryLimitMb,
-            options.shrinkWorkerPool ? "enabled" : "disabled");
+            "Worker Lifecycle Manager starts work with (total limit: %d KB, individual limit: %d"
+                + " KB, shrinking: %s)",
+            totalWorkerMemoryLimitKb,
+            workerMemoryLimitKb,
+            shrinkWorkerPool ? "enabled" : "disabled");
     logger.atInfo().log("%s", msg);
-    if (options.workerVerbose && this.reporter != null) {
+    if (workerVerbose && reporter != null) {
       reporter.handle(Event.info(msg));
     }
 
@@ -76,7 +82,7 @@ final class WorkerLifecycleManager extends Thread {
     // This loop works until method stopProcessing() called by WorkerModule.
     while (isWorking) {
       try {
-        Thread.sleep(options.workerMetricsPollInterval.toMillis());
+        Thread.sleep(workerMetricsPollInterval.toMillis());
       } catch (InterruptedException e) {
         logger.atInfo().withCause(e).log("received interrupt in worker life cycle manager");
         break;
@@ -85,7 +91,7 @@ final class WorkerLifecycleManager extends Thread {
       ImmutableList<WorkerProcessMetrics> workerProcessMetrics =
           WorkerProcessMetricsCollector.instance().getLiveWorkerProcessMetrics();
 
-      if (options.totalWorkerMemoryLimitMb > 0) {
+      if (totalWorkerMemoryLimitKb > 0) {
         try {
           evictWorkers(workerProcessMetrics);
         } catch (InterruptedException e) {
@@ -94,8 +100,8 @@ final class WorkerLifecycleManager extends Thread {
         }
       }
 
-      if (options.workerMemoryLimitMb > 0) {
-        killLargeWorkers(workerProcessMetrics, options.workerMemoryLimitMb);
+      if (workerMemoryLimitKb > 0) {
+        killLargeWorkers(workerProcessMetrics, workerMemoryLimitKb);
       }
     }
 
@@ -106,11 +112,11 @@ final class WorkerLifecycleManager extends Thread {
     isWorking = false;
   }
 
-  /** Kills any worker that uses more than {@code limitMb} MB of memory. */
-  void killLargeWorkers(ImmutableList<WorkerProcessMetrics> workerProcessMetrics, int limitMb) {
+  /** Kills any worker that uses more than {@code limitKb} KB of memory. */
+  void killLargeWorkers(ImmutableList<WorkerProcessMetrics> workerProcessMetrics, int limitKb) {
     ImmutableList<WorkerProcessMetrics> large =
         workerProcessMetrics.stream()
-            .filter(m -> m.getUsedMemoryInKb() > limitMb * 1000)
+            .filter(m -> m.getUsedMemoryInKb() > limitKb)
             .collect(toImmutableList());
 
     for (WorkerProcessMetrics l : large) {
@@ -121,13 +127,13 @@ final class WorkerLifecycleManager extends Thread {
       if (ph.isPresent()) {
         msg =
             String.format(
-                "Killing %s worker %s (pid %d) because it is using more memory than the limit (%d"
-                    + " KB > %d MB)",
+                "Killing %s worker %s (pid %d) because it is using more memory than the limit"
+                    + " (%,d KB > %,d KB)",
                 l.getMnemonic(),
                 workerIds.size() == 1 ? workerIds.get(0) : workerIds,
                 l.getProcessId(),
                 l.getUsedMemoryInKb(),
-                limitMb);
+                limitKb);
         logger.atInfo().log("%s", msg);
         // TODO(b/310640400): Converge APIs in killing workers, rather than killing via the process
         //  handle here (resulting in errors in execution), perhaps we want to wait till the worker
@@ -146,7 +152,7 @@ final class WorkerLifecycleManager extends Thread {
   void evictWorkers(ImmutableList<WorkerProcessMetrics> workerProcessMetrics)
       throws InterruptedException {
 
-    if (options.totalWorkerMemoryLimitMb == 0) {
+    if (totalWorkerMemoryLimitKb == 0) {
       return;
     }
 
@@ -156,9 +162,9 @@ final class WorkerLifecycleManager extends Thread {
     // TODO: Remove after b/274608075 is fixed.
     if (!workerProcessMetrics.isEmpty()) {
       logger.atInfo().atMostEvery(1, TimeUnit.MINUTES).log(
-          "total worker memory %d KB while limit is %d MB - details: %s",
+          "total worker memory %,d KB while limit is %,d KB - details: %s",
           workerMemoryUsageKb,
-          options.totalWorkerMemoryLimitMb,
+          totalWorkerMemoryLimitKb,
           workerProcessMetrics.stream()
               .map(
                   metric ->
@@ -171,13 +177,13 @@ final class WorkerLifecycleManager extends Thread {
               .collect(Collectors.joining(", ")));
     }
 
-    if (workerMemoryUsageKb <= options.totalWorkerMemoryLimitMb * 1000) {
+    if (workerMemoryUsageKb <= totalWorkerMemoryLimitKb) {
       return;
     }
 
     ImmutableSet<WorkerProcessMetrics> candidates =
         collectEvictionCandidates(
-            workerProcessMetrics, options.totalWorkerMemoryLimitMb, workerMemoryUsageKb);
+            workerProcessMetrics, totalWorkerMemoryLimitKb, workerMemoryUsageKb);
 
     if (!candidates.isEmpty() || !emptyEvictionWasLogged) {
       String msg;
@@ -185,8 +191,8 @@ final class WorkerLifecycleManager extends Thread {
         msg =
             String.format(
                 "Could not find any worker eviction candidates. Worker memory usage: %d KB, Memory"
-                    + " limit: %d MB",
-                workerMemoryUsageKb, options.totalWorkerMemoryLimitMb);
+                    + " limit: %d KB",
+                workerMemoryUsageKb, totalWorkerMemoryLimitKb);
       } else {
         ImmutableSet<Integer> workerIdsToEvict =
             candidates.stream().flatMap(m -> m.getWorkerIds().stream()).collect(toImmutableSet());
@@ -197,7 +203,7 @@ final class WorkerLifecycleManager extends Thread {
       }
 
       logger.atInfo().log("%s", msg);
-      if (options.workerVerbose && this.reporter != null) {
+      if (workerVerbose && this.reporter != null) {
         reporter.handle(Event.info(msg));
       }
     }
@@ -209,7 +215,7 @@ final class WorkerLifecycleManager extends Thread {
           String.format(
               "Total evicted idle workers %d. With ids: %s", evictedWorkers.size(), evictedWorkers);
       logger.atInfo().log("%s", msg);
-      if (options.workerVerbose && this.reporter != null) {
+      if (workerVerbose && this.reporter != null) {
         reporter.handle(Event.info(msg));
       }
 
@@ -221,7 +227,7 @@ final class WorkerLifecycleManager extends Thread {
     //  penalizing lower memory usage workers (but more active) by shrinking their pool sizes
     //  instead of higher memory usage workers (but less active) and are killed directly with
     //  {@code #evictCandidates()} (where shrinking doesn't happen).
-    if (options.shrinkWorkerPool) {
+    if (shrinkWorkerPool) {
       List<WorkerProcessMetrics> notEvictedWorkerProcessMetrics =
           workerProcessMetrics.stream()
               .filter(metric -> !evictedWorkers.containsAll(metric.getWorkerIds()))
@@ -232,7 +238,7 @@ final class WorkerLifecycleManager extends Thread {
               .mapToInt(WorkerProcessMetrics::getUsedMemoryInKb)
               .sum();
 
-      if (notEvictedWorkerMemoryUsageKb <= options.totalWorkerMemoryLimitMb * 1000) {
+      if (notEvictedWorkerMemoryUsageKb <= totalWorkerMemoryLimitKb) {
         return;
       }
 
@@ -244,7 +250,7 @@ final class WorkerLifecycleManager extends Thread {
       List<WorkerProcessMetrics> workerProcessMetrics, int notEvictedWorkerMemoryUsageKb) {
     ImmutableSet<WorkerProcessMetrics> potentialCandidates =
         getCandidates(
-            workerProcessMetrics, options.totalWorkerMemoryLimitMb, notEvictedWorkerMemoryUsageKb);
+            workerProcessMetrics, totalWorkerMemoryLimitKb, notEvictedWorkerMemoryUsageKb);
 
     if (!potentialCandidates.isEmpty()) {
       String msg =
@@ -254,7 +260,7 @@ final class WorkerLifecycleManager extends Thread {
                   .flatMap(m -> m.getWorkerIds().stream())
                   .collect(toImmutableList()));
       logger.atInfo().log("%s", msg);
-      if (options.workerVerbose && this.reporter != null) {
+      if (workerVerbose && reporter != null) {
         reporter.handle(Event.info(msg));
       }
       potentialCandidates.forEach(
@@ -276,7 +282,7 @@ final class WorkerLifecycleManager extends Thread {
   @SuppressWarnings("JdkCollectors")
   ImmutableSet<WorkerProcessMetrics> collectEvictionCandidates(
       ImmutableList<WorkerProcessMetrics> workerProcessMetrics,
-      int memoryLimitMb,
+      int memoryLimitKb,
       int workerMemoryUsageKb)
       throws InterruptedException {
     // TODO(b/300067854): Consider rethinking the strategy here. The current logic kills idle
@@ -295,15 +301,15 @@ final class WorkerLifecycleManager extends Thread {
             .filter(metric -> metric.getWorkerIds().stream().anyMatch(idleWorkers::contains))
             .collect(Collectors.toList());
 
-    return getCandidates(idleWorkerProcessMetrics, memoryLimitMb, workerMemoryUsageKb);
+    return getCandidates(idleWorkerProcessMetrics, memoryLimitKb, workerMemoryUsageKb);
   }
 
   /**
    * Chooses the WorkerProcessMetrics of workers with the most usage of memory. Selects workers
-   * until total memory usage is less than memoryLimitMb.
+   * until total memory usage is less than memoryLimitKb.
    */
   private static ImmutableSet<WorkerProcessMetrics> getCandidates(
-      List<WorkerProcessMetrics> workerProcessMetrics, int memoryLimitMb, int usedMemoryKb) {
+      List<WorkerProcessMetrics> workerProcessMetrics, int memoryLimitKb, int usedMemoryKb) {
 
     workerProcessMetrics.sort(new MemoryComparator());
     ImmutableSet.Builder<WorkerProcessMetrics> candidates = ImmutableSet.builder();
@@ -312,7 +318,7 @@ final class WorkerLifecycleManager extends Thread {
       candidates.add(metric);
       freeMemoryKb += metric.getUsedMemoryInKb();
 
-      if (usedMemoryKb - freeMemoryKb <= memoryLimitMb * 1000) {
+      if (usedMemoryKb - freeMemoryKb <= memoryLimitKb) {
         break;
       }
     }

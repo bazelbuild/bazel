@@ -18,6 +18,7 @@ public final class DotExpression extends Expression {
 
   private final Expression object;
   private final int dotOffset;
+  // This Identifier's `binding` is left null by the resolver.
   private final Identifier field;
 
   DotExpression(FileLocations locs, Expression object, int dotOffset, Identifier field) {

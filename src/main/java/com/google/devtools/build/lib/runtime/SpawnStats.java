@@ -39,19 +39,24 @@ public class SpawnStats {
   private final ConcurrentHashMultiset<String> runners = ConcurrentHashMultiset.create();
   private final ConcurrentHashMap<String, String> runnerExecKinds = new ConcurrentHashMap<>();
   private final AtomicLong totalWallTimeMillis = new AtomicLong();
-  private final AtomicInteger totalNumberOfActions = new AtomicInteger();
+  // Counts all actions, where an action can run an arbitrary number of spawns (including zero).
+  private final AtomicInteger allActionsCount = new AtomicInteger();
+  // Counts internal actions, such as SymlinkTree actions, which are recognized by having zero
+  // spawns.
+  private final AtomicInteger nonInternalActionsCount = new AtomicInteger();
   private int actionCacheHitCount = 0;
 
   public void countActionResult(ActionResult actionResult) {
+    // This method is usually not called for internal actions with {@link ActionResult#EMPTY}, but
+    // just in case, we double-check here.
+    if (!actionResult.spawnResults().isEmpty()) {
+      nonInternalActionsCount.incrementAndGet();
+    }
     for (SpawnResult r : actionResult.spawnResults()) {
       storeRunnerExecKind(r);
-      countRunnerName(r.getRunnerName());
+      runners.add(r.getRunnerName());
       totalWallTimeMillis.addAndGet(r.getMetrics().executionWallTimeInMs());
     }
-  }
-
-  public void countRunnerName(String runner) {
-    runners.add(runner);
   }
 
   private void storeRunnerExecKind(SpawnResult r) {
@@ -61,7 +66,7 @@ public class SpawnStats {
   }
 
   public void incrementActionCount() {
-    totalNumberOfActions.incrementAndGet();
+    allActionsCount.incrementAndGet();
   }
 
   public long getTotalWallTimeMillis() {
@@ -84,9 +89,9 @@ public class SpawnStats {
    */
   public ImmutableMap<String, Integer> getSummary(ImmutableList<String> reportFirst) {
     ImmutableMap.Builder<String, Integer> result = ImmutableMap.builder();
-    int numActionsWithoutInternal = runners.size();
-    int numActionsTotal = totalNumberOfActions.get();
-    result.put("total", numActionsTotal);
+    int numNonInternalActions = nonInternalActionsCount.get();
+    int numAllActions = allActionsCount.get();
+    result.put("total", numAllActions);
 
     // First report cache results.
     if (actionCacheHitCount > 0) {
@@ -100,8 +105,10 @@ public class SpawnStats {
     }
 
     // Account for internal actions such as SymlinkTree.
-    if (numActionsWithoutInternal < numActionsTotal) {
-      result.put("internal", numActionsTotal - numActionsWithoutInternal);
+    // This condition is always fulfilled if {@link #incrementActionCount} is called for each
+    // action for which {@link #countActionResult} is called eventually.
+    if (numNonInternalActions < numAllActions) {
+      result.put("internal", numAllActions - numNonInternalActions);
     }
 
     // Sort the rest alphabetically
@@ -120,6 +127,17 @@ public class SpawnStats {
   }
 
   public static String convertSummaryToString(ImmutableMap<String, Integer> spawnSummary) {
+    // This summary is misleading in a number of ways:
+    // - The "processes" count is actually the number of actions, not spawns.
+    // - Even if it were the number of spawns, the "* cache hit" runners do not correspond to
+    //   processes executed, but rather to cache hits that avoided process execution.
+    // - The total count does not include action cache hits, so the sum of the parts is greater than
+    //   the total.
+    // TODO: Find a better way to report this information, e.g.:
+    // 15 cache hits (5 action, 5 disk, 5 remote), 10 processes (2 local, 3 remote, 5 sandboxed), 7
+    // internal.
+    // A large number of integration tests rely on the current format, though, so changing it is
+    // non-trivial.
     Integer total = spawnSummary.get("total");
     if (total == 0) {
       return "0 processes.";

@@ -38,13 +38,11 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.OutputStream;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.Nullable;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.OutputKeys;
@@ -66,7 +64,6 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   private boolean packageGroupIncludesDoubleSlash;
   private boolean relativeLocations;
   private QueryOptions queryOptions;
-  @Nullable private PathFragment overrideSourceRoot;
 
   @Override
   public String getName() {
@@ -91,11 +88,6 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
 
     Preconditions.checkArgument(options instanceof QueryOptions);
     this.queryOptions = (QueryOptions) options;
-  }
-
-  @Override
-  public void setOverrideSourceRoot(PathFragment overrideSourceRoot) {
-    this.overrideSourceRoot = overrideSourceRoot;
   }
 
   @Override
@@ -195,7 +187,8 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
         outputElem.setAttribute("name", labelPrinter.toString(outputFile.getLabel()));
         elem.appendChild(outputElem);
       }
-      for (String feature : rule.getPackage().getPackageArgs().features().toStringList()) {
+      for (String feature :
+          rule.getPackageDeclarations().getPackageArgs().features().toStringList()) {
         Element outputElem = doc.createElement("rule-default-setting");
         outputElem.setAttribute("name", feature);
         elem.appendChild(outputElem);
@@ -224,8 +217,8 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       if (inputFile.getName().equals("BUILD")) {
         addStarlarkFilesToElement(doc, elem, inputFile, labelPrinter);
         addFeaturesToElement(doc, elem, inputFile);
-        elem.setAttribute("package_contains_errors",
-            String.valueOf(inputFile.getPackage().containsErrors()));
+        elem.setAttribute(
+            "package_contains_errors", String.valueOf(inputFile.getPackageoid().containsErrors()));
       }
 
       // TODO(bazel-team): We're being inconsistent about whether we include the package's
@@ -249,7 +242,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
     }
 
     elem.setAttribute("name", labelPrinter.toString(target.getLabel()));
-    String location = FormatUtils.getLocation(target, relativeLocations, overrideSourceRoot);
+    String location = FormatUtils.getLocation(target, relativeLocations);
     if (!queryOptions.xmlLineNumbers) {
       int firstColon = location.indexOf(':');
       if (firstColon != -1) {
@@ -277,7 +270,8 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   private static void addFeaturesToElement(Document doc, Element parent, InputFile inputFile) {
-    for (String feature : inputFile.getPackage().getPackageArgs().features().toStringList()) {
+    for (String feature :
+        inputFile.getPackageDeclarations().getPackageArgs().features().toStringList()) {
       Element elem = doc.createElement("feature");
       elem.setAttribute("name", feature);
       parent.appendChild(elem);
@@ -285,10 +279,9 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   private void addStarlarkFilesToElement(
-      Document doc, Element parent, InputFile inputFile, LabelPrinter labelPrinter)
+      Document doc, Element parent, InputFile buildFile, LabelPrinter labelPrinter)
       throws InterruptedException {
-    Iterable<Label> dependencies =
-        aspectResolver.computeBuildFileDependencies(inputFile.getPackage());
+    Iterable<Label> dependencies = aspectResolver.computeBuildFileDependencies(buildFile);
 
     for (Label starlarkFileDep : dependencies) {
       Element elem = doc.createElement("load");
@@ -351,7 +344,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
         licenseTypes.setAttribute("name", "license-types");
         elem.appendChild(licenseTypes);
       }
-    } else { // INTEGER STRING LABEL DISTRIBUTION OUTPUT
+    } else { // INTEGER STRING LABEL OUTPUT
       elem = createSingleValueElement(doc, type.toString(), hasMultipleValues);
       if (!hasMultipleValues && !Iterables.isEmpty(values)) {
         Object value = Iterables.getOnlyElement(values);

@@ -548,12 +548,24 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       if (key.functionName().equals(SkyFunctions.CONFIGURED_TARGET)
           || (explicitAspects && key.functionName().equals(SkyFunctions.ASPECT))) {
         T dependency = getValueFromKey(key);
+        if (dependency == null && keepGoing) {
+          eventHandler.handle(
+              Event.warn(
+                  String.format(
+                      "Dependency %s is unavaillable for querying. This may be because this query"
+                          + " sets --keep_going, which continues analysis even some of the build"
+                          + " graph  fails to analyze. For more accurate results ensure this"
+                          + " request can build.",
+                      key)));
+          continue;
+        }
+        // If --keep_going wasn't applied and a build node is missing, something's wrong with the
+        // build graph.
         Preconditions.checkState(
             dependency != null,
             "query-requested node '%s' was unavailable in the query environment graph. If you come"
-                + " across this error, please add to"
-                + " https://github.com/bazelbuild/bazel/issues/15079 or contact the bazel"
-                + " configurability team.",
+                + " across this error, please file an issue at https://github.com/bazelbuild/bazel"
+                + " or contact the bazel configurability team.",
             key);
 
         boolean implicitDep;

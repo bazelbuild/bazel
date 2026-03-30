@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction.VENDOR_DIRECTORY;
+import static com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.VENDOR_DIRECTORY;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesValue.InvalidIgnorePathException;
 import com.google.devtools.build.lib.skyframe.RepoFileFunction.BadRepoFileException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -76,8 +77,16 @@ public class IgnoredSubdirectoriesFunction implements SkyFunction {
       throws IgnoredSubdirectoriesFunctionException {
     try (InputStreamReader reader =
         new InputStreamReader(patternFile.asPath().getInputStream(), StandardCharsets.UTF_8)) {
-      ignoredDirectoriesBuilder.addAll(
-          CharStreams.readLines(reader, new PathFragmentLineProcessor()));
+      for (PathFragment ignored : CharStreams.readLines(reader, new PathFragmentLineProcessor())) {
+        if (ignored.isAbsolute()) {
+          throw new IgnoredSubdirectoriesFunctionException(
+              new InvalidIgnorePathException(
+                  patternFile.asPath().toString(),
+                  String.format("'%s': cannot be an absolute path", ignored)));
+        }
+
+        ignoredDirectoriesBuilder.add(ignored);
+      }
     } catch (IOException e) {
       String errorMessage = e.getMessage() != null ? "error '" + e.getMessage() + "'" : "an error";
       throw new IgnoredSubdirectoriesFunctionException(
@@ -88,7 +97,7 @@ public class IgnoredSubdirectoriesFunction implements SkyFunction {
                   + ". Was it modified mid-build?"));
     } catch (InvalidPathException e) {
       throw new IgnoredSubdirectoriesFunctionException(
-          new InvalidIgnorePathException(e, patternFile.asPath().toString()));
+          new InvalidIgnorePathException(patternFile.asPath().toString(), e.getMessage()));
     }
   }
 
@@ -155,10 +164,9 @@ public class IgnoredSubdirectoriesFunction implements SkyFunction {
       if (repositoryValue == null) {
         return null;
       }
-      if (repositoryValue.repositoryExists()) {
+      if (repositoryValue instanceof RepositoryDirectoryValue.Success success) {
         RootedPath rootedPrefixFile =
-            RootedPath.toRootedPath(
-                Root.fromPath(repositoryValue.getPath()), BAZELIGNORE_REPOSITORY_RELATIVE_PATH);
+            RootedPath.toRootedPath(success.root(), BAZELIGNORE_REPOSITORY_RELATIVE_PATH);
         FileValue prefixFileValue = (FileValue) env.getValue(FileValue.key(rootedPrefixFile));
         if (prefixFileValue == null) {
           return null;
@@ -215,12 +223,6 @@ public class IgnoredSubdirectoriesFunction implements SkyFunction {
     @Override
     public ImmutableSet<PathFragment> getResult() {
       return fragments.build();
-    }
-  }
-
-  private static class InvalidIgnorePathException extends Exception {
-    public InvalidIgnorePathException(InvalidPathException e, String path) {
-      super("Invalid path in " + path + ": " + e);
     }
   }
 

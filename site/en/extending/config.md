@@ -791,5 +791,4 @@ TODO: Add strategies for measurement and mitigation of these issues.
 For more details on modifying build configurations, see:
 
  * [Starlark Build Configuration](https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing){: .external}
- * [Bazel Configurability Roadmap](https://bazel.build/community/roadmaps-configurability){: .external}
  * Full [set](https://github.com/bazelbuild/examples/tree/HEAD/configurations){: .external} of end to end examples

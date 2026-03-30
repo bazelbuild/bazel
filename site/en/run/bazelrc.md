@@ -51,7 +51,12 @@ before the command (`build`, `test`, etc).
 
     It is not an error if this file does not exist.
 
-4.  **The user-specified RC file**, if specified with
+4.  **The environment variable RC file**, if its path is set with the `BAZELRC`
+    environment variable.
+
+    The environment variable can include multiple comma-separated paths.
+
+5.  **The user-specified RC file**, if specified with
     <code>--bazelrc=<var>file</var></code>
 
     This flag is optional but can also be specified multiple times.
@@ -82,13 +87,60 @@ rules as the Bourne shell.
 
 #### Imports {:#imports}
 
-Lines that start with `import` or `try-import` are special: use these to load
-other "rc" files. To specify a path that is relative to the workspace root,
-write `import %workspace%/path/to/bazelrc`.
+Lines that start with `import`, `try-import` or `try-import-if-bazel-version`
+are special: use these to load other "rc" files. To specify a path that is
+relative to the workspace root, write `import %workspace%/path/to/bazelrc`.
 
-The difference between `import` and `try-import` is that Bazel fails if the
-`import`'ed file is missing (or can't be read), but not so for a `try-import`'ed
-file.
+The difference between the various import statements is as follows:
+
+*   `import` - Bazel will fail if the `imported`'ed file is missing (or can't be
+    read)
+*   `try-import` - An attempt to import the file will be made, but unlike
+    `import`, Bazel will NOT fail if the file is missing (or can't be read).
+*   `try-import-if-bazel-version` - Similar to `try-import`, but an additional
+    condition on the current Bazel version is checked before attempting to do
+    the import. See below for the syntax.
+
+Conditional Bazel version imports can be useful if a project needs to work under
+several Bazel versions or during the transition from one Bazel version to
+another. Different flags may be needed for different Bazel versions since flags
+may be deprecated, removed or introduced in each release. To check which version
+of Bazel you have, run `bazel --version`. The following conditional checks are
+supported and require valid semantic versions:
+
+```none
+# Strictly greater than: used for post-release targeting
+try-import-if-bazel-version >7.0.0 %workspace%/configs/post_v7.rc
+
+# Greater than or equal to: commonly used for feature introduction
+try-import-if-bazel-version >=6.0.0 %workspace%/configs/features.rc
+
+# Strictly less than: used for deprecated flags removed in newer versions
+try-import-if-bazel-version <7.0.0 %workspace%/configs/legacy.rc
+
+# Less than or equal to: caps configuration to a specific version
+try-import-if-bazel-version <=5.4.0 %workspace%/configs/v5_fixes.rc
+
+# Exact match: hotfix for a specific broken release
+try-import-if-bazel-version ==6.3.2 %workspace%/configs/hotfix_6.3.2.rc
+
+# Not equal to: excludes broken version from standard config
+try-import-if-bazel-version !=7.0.1 %workspace%/configs/standard.rc
+```
+
+An additional tilde operator provides ranges for patch, minor, and major version
+changes:
+
+```none
+# Equivalent to >=1.2.3 <1.3.0
+try-import-if-bazel-version ~1.2.3 %workspace%/configs/1.2.3_flags.rc
+
+# Equivalent to >=1.2.0 <1.3.0 (Same as 1.2.x)
+try-import-if-bazel-version ~1.2 %workspace%/configs/1.2_flags.rc
+
+# Equivalent to >=1.0.0 <2.0.0 (Same as 1.x)
+try-import-if-bazel-version ~1 %workspace%/configs/v1_flags.rc
+```
 
 Import precedence:
 
@@ -215,7 +267,8 @@ Platform specific configs in the `.bazelrc` can be automatically enabled using
 the `build` command is run, the `build:linux` configuration will be
 automatically enabled. Supported OS identifiers are `linux`, `macos`, `windows`,
 `freebsd`, and `openbsd`. Enabling this flag is equivalent to using
-`--config=linux` on Linux, `--config=windows` on Windows, and so on.
+`--config=linux` on Linux, `--config=windows` on Windows, `--config=macos` on
+macOS, `--config=freebsd` on FreeBSD, and `--config=openbsd` on OpenBSD.
 
 See [--enable_platform_specific_config](/reference/command-line-reference#flag--enable_platform_specific_config).
 
@@ -247,11 +300,16 @@ that use other build systems. Place a file called
 and add the directories you want Bazel to ignore, one per
 line. Entries are relative to the workspace root.
 
+The `.bazelignore` file does not permit glob semantics.
+Bazel 8 introduces the `REPO.bazel` file which allows another directive, `ignore_directories()`.
+It takes a list of directories to ignore just like .bazelignore does, but with glob semantics.
+See [#24203](https://github.com/bazelbuild/bazel/pull/24203).
+
 ### The global bazelrc file {:#global-bazelrc}
 
 Bazel reads optional bazelrc files in this order:
 
-1.  System rc-file located at `etc/bazel.bazelrc`.
+1.  System rc-file located at `/etc/bazel.bazelrc`.
 2.  Workspace rc-file located at `$workspace/tools/bazel.rc`.
 3.  Home rc-file located at `$HOME/.bazelrc`
 

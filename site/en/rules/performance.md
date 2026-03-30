@@ -164,10 +164,10 @@ def _impl(ctx):
   args.add("--foo", file)
 
   # Use format if you prefer ["--foo=<file path>"] to ["--foo", <file path>]
-  args.add(format="--foo=%s", value=file)
+  args.add(file, format="--foo=%s")
 
   # Bad, makes a giant string of a whole depset
-  args.add(" ".join(["-I%s" % file.short_path for file in files])
+  args.add(" ".join(["-I%s" % file.short_path for file in files.to_list()])
 
   # Good, only stores a reference to the depset
   args.add_all(files, format_each="-I%s", map_each=_to_short_path)
@@ -225,13 +225,13 @@ You must pass these two startup flags to *every* Bazel invocation:
 
   ```
   STARTUP_FLAGS=\
-  --host_jvm_args=-javaagent:<path to java-allocation-instrumenter-3.3.0.jar> \
+  --host_jvm_args=-javaagent:<path to java-allocation-instrumenter-3.3.4.jar> \
   --host_jvm_args=-DRULE_MEMORY_TRACKER=1
   ```
 Note: You can download the allocation instrumenter jar file from [Maven Central
 Repository][allocation-instrumenter-link].
 
-[allocation-instrumenter-link]: https://repo1.maven.org/maven2/com/google/code/java-allocation-instrumenter/java-allocation-instrumenter/3.3.0
+[allocation-instrumenter-link]: https://repo1.maven.org/maven2/com/google/code/java-allocation-instrumenter/java-allocation-instrumenter/3.3.4
 
 These start the server in memory tracking mode. If you forget these for even
 one Bazel invocation the server will restart and you will have to start over.

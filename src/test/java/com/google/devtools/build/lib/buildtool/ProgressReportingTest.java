@@ -20,6 +20,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -30,9 +31,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Test for progress reporting.
- */
+/** Test for progress reporting. */
 @RunWith(JUnit4.class)
 public class ProgressReportingTest extends BuildIntegrationTestCase {
   private enum PathOp {
@@ -53,7 +52,8 @@ public class ProgressReportingTest extends BuildIntegrationTestCase {
 
   @Override
   protected FileSystem createFileSystem() {
-    return new UnixFileSystem(DigestHashFunction.SHA256, /*hashAttributeName=*/ "") {
+    return new UnixFileSystem(
+        DigestHashFunction.SHA256, /* hashAttributeName= */ "", new NativePosixFilesServiceImpl()) {
       private void recordAccess(PathOp op, PathFragment path) {
         if (receiver != null) {
           receiver.accept(path, op);
@@ -61,7 +61,7 @@ public class ProgressReportingTest extends BuildIntegrationTestCase {
       }
 
       @Override
-      protected boolean delete(PathFragment path) throws IOException {
+      public boolean delete(PathFragment path) throws IOException {
         recordAccess(PathOp.DELETE, path);
         return super.delete(path);
       }
@@ -149,8 +149,8 @@ public class ProgressReportingTest extends BuildIntegrationTestCase {
     // in order to keep exactly one genrule running at a time.
     addOptions(
         "--progress_report_interval=1",
-        "--local_ram_resources=1000",
-        "--local_cpu_resources=1",
+        "--local_resources=cpu=1",
+        "--local_resources=memory=1000",
         "--show_progress_rate_limit=-1");
     buildTarget("//x:x", "//x:y");
 

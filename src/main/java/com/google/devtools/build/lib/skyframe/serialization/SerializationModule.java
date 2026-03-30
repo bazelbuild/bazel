@@ -13,16 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.ForkJoinPool.commonPool;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
-import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
+import com.google.errorprone.annotations.ForOverride;
+import java.util.function.Supplier;
 
 /** A {@link BlazeModule} to store Skyframe serialization lifecycle hooks. */
 public class SerializationModule extends BlazeModule {
+
+  private RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier;
 
   @Override
   public void workspaceInit(
@@ -36,37 +42,42 @@ public class SerializationModule extends BlazeModule {
     // This is injected as a callback instead of evaluated eagerly to avoid forcing the somewhat
     // expensive AutoRegistry.get call on clients that don't require it.
     builder.setAnalysisCodecRegistrySupplier(
-        SerializationRegistrySetupHelpers.createAnalysisCodecRegistrySupplier(
-            runtime,
-            SerializationRegistrySetupHelpers.makeReferenceConstants(
-                directories,
+        getAnalysisCodecRegistrySupplier(runtime, directories));
+
+    remoteAnalysisCachingServicesSupplier = getAnalysisCachingServicesSupplier();
+    builder.setRemoteAnalysisCachingServicesSupplier(remoteAnalysisCachingServicesSupplier);
+  }
+
+  @Override
+  public void commandComplete() {
+    if (remoteAnalysisCachingServicesSupplier != null) {
+      remoteAnalysisCachingServicesSupplier.shutdown();
+    }
+  }
+
+  @ForOverride
+  protected Supplier<ObjectCodecRegistry> getAnalysisCodecRegistrySupplier(
+      BlazeRuntime runtime, BlazeDirectories directories) {
+    return () ->
+        SerializationRegistrySetupHelpers.initializeAnalysisCodecRegistryBuilder(
                 runtime.getRuleClassProvider(),
-                directories.getWorkspace().getBaseName())));
-
-    builder.setFingerprintValueServiceFactory(getFingerprintValueServiceFactory());
+                SerializationRegistrySetupHelpers.makeReferenceConstants(
+                    directories,
+                    runtime.getRuleClassProvider(),
+                    directories.getWorkspace().getBaseName()))
+            .build();
   }
 
-  /**
-   * Returns the {@link FingerprintValueService.Factory} for creating {@link
-   * FingerprintValueService} instances.
-   *
-   * <p>Using a factory, each command invocation can instantiate a new {@link
-   * FingerprintValueService} instance configurable with command options, like the URL or
-   * concurrency level.
-   *
-   * <p>However, the default implementation is an in-memory static singleton instance unique to the
-   * lifetime of the Bazel server process. This can be overridden using alternate implementations.
-   */
-  protected FingerprintValueService.Factory getFingerprintValueServiceFactory() {
-    // Single instance for the Bazel server lifetime.
-    return InMemoryFingerprintValueServiceFactory.INSTANCE;
+  @ForOverride
+  protected RemoteAnalysisCachingServicesSupplier getAnalysisCachingServicesSupplier() {
+    return InMemoryRemoteAnalysisCachingServicesSupplier.INSTANCE;
   }
 
-  /** A factory for creating in-memory fingerprint value services. */
-  private static final class InMemoryFingerprintValueServiceFactory
-      implements FingerprintValueService.Factory {
-    private static final InMemoryFingerprintValueServiceFactory INSTANCE =
-        new InMemoryFingerprintValueServiceFactory();
+  /** A supplier that uses an in-memory fingerprint value service. */
+  private static final class InMemoryRemoteAnalysisCachingServicesSupplier
+      implements RemoteAnalysisCachingServicesSupplier {
+    private static final InMemoryRemoteAnalysisCachingServicesSupplier INSTANCE =
+        new InMemoryRemoteAnalysisCachingServicesSupplier();
 
     private static final FingerprintValueService SERVICE_INSTANCE =
         new FingerprintValueService(
@@ -74,13 +85,18 @@ public class SerializationModule extends BlazeModule {
             // TODO: b/358347099 - use a persistent store
             FingerprintValueStore.inMemoryStore(),
             new FingerprintValueCache(FingerprintValueCache.SyncMode.NOT_LINKED),
-            FingerprintValueService.NONPROD_FINGERPRINTER);
+            FingerprintValueService.NONPROD_FINGERPRINTER,
+            /* jsonLogWriter= */ null);
 
-    private InMemoryFingerprintValueServiceFactory() {}
+    private static final ListenableFuture<FingerprintValueService> WRAPPED_SERVICE_INSTANCE =
+        immediateFuture(SERVICE_INSTANCE);
 
     @Override
-    public FingerprintValueService create(OptionsParsingResult unused) {
-      return SERVICE_INSTANCE;
+    public ListenableFuture<FingerprintValueService> getFingerprintValueService() {
+      return WRAPPED_SERVICE_INSTANCE;
     }
+
+    @Override
+    public void shutdown() {}
   }
 }

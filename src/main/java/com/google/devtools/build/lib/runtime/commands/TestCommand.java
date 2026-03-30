@@ -98,9 +98,11 @@ public class TestCommand implements BlazeCommand {
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     TestOutputFormat testOutput = options.getOptions(ExecutionOptions.class).testOutput;
     if (testOutput == ExecutionOptions.TestOutputFormat.STREAMED) {
-      env.getReporter().handle(Event.warn(
-          "Streamed test output requested. All tests will be run locally, without sharding, "
-          + "one at a time"));
+      env.getReporter()
+          .handle(
+              Event.warn(
+                  "Streamed test output requested. All tests will be run without sharding, "
+                      + "one at a time"));
     }
 
     AnsiTerminalPrinter printer =
@@ -156,14 +158,14 @@ public class TestCommand implements BlazeCommand {
             .setTargets(targets)
             .setStartTimeMillis(env.getCommandStartTime())
             .setRunTests(true);
-    if (options.getOptions(CoreOptions.class).collectCodeCoverage
+    if (options.getOptions(CoreOptions.class).getCollectCodeCoverage()
         && !options.containsExplicitOption(
             InstrumentationFilterSupport.INSTRUMENTATION_FILTER_FLAG)) {
       builder.setNeedsInstrumentationFilter(true);
     }
     BuildRequest request = builder.build();
 
-    BuildResult buildResult = new BuildTool(env).processRequest(request, null);
+    BuildResult buildResult = new BuildTool(env).processRequest(request, null, options);
 
     Collection<ConfiguredTarget> testTargets = buildResult.getTestTargets();
     // TODO(bazel-team): don't handle isEmpty here or fix up a bunch of tests
@@ -273,7 +275,10 @@ public class TestCommand implements BlazeCommand {
     String productName = runtime.getProductName();
     BuildRequestOptions requestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
     PathPrettyPrinter pathPrettyPrinter =
-        new PathPrettyPrinter(requestOptions.getSymlinkPrefix(productName), convenienceSymlinks);
+        new PathPrettyPrinter(
+            env.getRelativeWorkingDirectory(),
+            requestOptions.getSymlinkPrefix(productName),
+            convenienceSymlinks);
     return path -> pathPrettyPrinter.getPrettyPath(path.asFragment()).getPathString();
   }
 }

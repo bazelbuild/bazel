@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLo
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -39,26 +38,6 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
     analysisMock.pySupport().setup(mockToolsConfig);
   }
 
-  /** Retrieves the Python version of a configured target. */
-  protected PythonVersion getPythonVersion(ConfiguredTarget ct) {
-    return getConfiguration(ct).getOptions().get(PythonOptions.class).getPythonVersion();
-  }
-
-  @Test
-  public void badSrcsVersionValue() throws Exception {
-    checkError(
-        "pkg",
-        "foo",
-        // error:
-        Pattern.compile(".*invalid value.*srcs_version.*"),
-        // build file:
-        bzlLoad,
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs_version = 'doesnotexist',",
-        "    srcs = ['foo.py'])");
-  }
-
   @Test
   public void goodSrcsVersionValue() throws Exception {
     scratch.file(
@@ -73,17 +52,6 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
   }
 
   @Test
-  public void versionIs3IfUnspecified() throws Exception {
-    scratch.file(
-        "pkg/BUILD", //
-        bzlLoad,
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'])");
-    assertThat(getPythonVersion(getConfiguredTarget("//pkg:foo"))).isEqualTo(PythonVersion.PY3);
-  }
-
-  @Test
   public void producesProvider() throws Exception {
     scratch.file(
         "pkg/BUILD", //
@@ -93,63 +61,6 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         "    srcs = ['foo.py'])");
     ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
     assertThat(PyInfo.fromTarget(target)).isNotNull();
-  }
-
-  @Test
-  public void consumesProvider() throws Exception {
-    scratch.file(
-        "pkg/rules.bzl",
-        getPyLoad("PyInfo"),
-        "def _myrule_impl(ctx):",
-        "    return [PyInfo(transitive_sources=depset([]))]",
-        "myrule = rule(",
-        "    implementation = _myrule_impl,",
-        ")");
-    scratch.file(
-        "pkg/BUILD",
-        bzlLoad,
-        "load(':rules.bzl', 'myrule')",
-        "myrule(",
-        "    name = 'dep',",
-        ")",
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'],",
-        "    deps = [':dep'],",
-        ")");
-    ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
-    assertThat(target).isNotNull();
-    assertNoEvents();
-  }
-
-  @Test
-  public void requiresProvider() throws Exception {
-    scratch.file(
-        "pkg/rules.bzl",
-        """
-        def _myrule_impl(ctx):
-            return []
-
-        myrule = rule(
-            implementation = _myrule_impl,
-        )
-        """);
-    checkError(
-        "pkg",
-        "foo",
-        // error:
-        "'//pkg:dep' does not have mandatory providers",
-        // build file:
-        bzlLoad,
-        "load(':rules.bzl', 'myrule')",
-        "myrule(",
-        "    name = 'dep',",
-        ")",
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'],",
-        "    deps = [':dep'],",
-        ")");
   }
 
   @Test

@@ -31,7 +31,7 @@ public class RuleDocumentationTest {
   private static final ImmutableSet<String> NO_FLAGS = ImmutableSet.<String>of();
 
   private static void assertContains(String base, String value) {
-    assertWithMessage(base + " is expected to contain " + value)
+    assertWithMessage("%s is expected to contain %s", base, value)
         .that(base.contains(value))
         .isTrue();
   }

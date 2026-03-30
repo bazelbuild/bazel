@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -41,21 +41,6 @@ fi
 
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# `tr` converts all upper case letters to lower case.
-# `case` matches the result if the `uname | tr` expression to string prefixes
-# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# starting with "msys", and "*" matches everything (it's the default case).
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  # As of 2019-01-15, Bazel on Windows only supports MSYS Bash.
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
 
 # NOTE: All tests need to declare targets in a custom package, which is why they
 # all use the pkg=${FUNCNAME[0]} variable.
@@ -108,7 +93,7 @@ EOF
 function test_target_exec_properties_starlark_test() {
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
-  if "$is_windows"; then
+  if is_windows; then
     script_name="test_script.bat"
     script_content="@echo off\necho hello\n"
   else
@@ -155,6 +140,7 @@ EOF
 }
 
 function test_target_exec_properties_cc() {
+  add_rules_cc MODULE.bazel
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
   cat > ${pkg}/a.cc <<EOF
@@ -164,6 +150,7 @@ int main() {
 }
 EOF
   cat > ${pkg}/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 constraint_setting(name = "setting")
 constraint_value(name = "local", constraint_setting = ":setting")
 cc_binary(
@@ -194,6 +181,7 @@ EOF
 }
 
 function test_target_exec_properties_cc_test() {
+  add_rules_cc MODULE.bazel
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
   cat > ${pkg}/a.cc <<EOF
@@ -203,6 +191,7 @@ int main() {
 }
 EOF
   cat > ${pkg}/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 constraint_setting(name = "setting")
 constraint_value(name = "local", constraint_setting = ":setting")
 cc_test(
@@ -229,14 +218,16 @@ EOF
 }
 
 function test_target_test_properties_sh_test() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
   cat > ${pkg}/a.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 echo hello
 EOF
   chmod u+x ${pkg}/a.sh
   cat > ${pkg}/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 constraint_setting(name = "setting")
 constraint_value(name = "local", constraint_setting = ":setting")
 sh_test(
@@ -263,12 +254,14 @@ EOF
 }
 
 function test_platform_execgroup_properties_cc_test() {
+  add_rules_cc "MODULE.bazel"
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
   cat > ${pkg}/a.cc <<EOF
 int main() {}
 EOF
   cat > ${pkg}/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 constraint_setting(name = "setting")
 constraint_value(name = "local", constraint_setting = ":setting")
 cc_test(
@@ -301,7 +294,7 @@ function test_starlark_test_has_test_execgroup_by_default() {
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
 
-  if "$is_windows"; then
+  if is_windows; then
     script_name="test_script.bat"
     script_content="@echo off\necho hello\n"
   else
@@ -350,7 +343,7 @@ function test_starlark_test_can_define_test_execgroup_manually() {
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
 
-  if "$is_windows"; then
+  if is_windows; then
     script_name="test_script.bat"
     script_content="@echo off\necho hello\n"
   else
@@ -400,12 +393,15 @@ EOF
 }
 
 function test_platform_execgroup_properties_nongroup_override_cc_test() {
+  add_rules_cc "MODULE.bazel"
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
   cat > ${pkg}/a.cc <<EOF
 int main() {}
 EOF
   cat > ${pkg}/BUILD <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 constraint_setting(name = "setting")
 constraint_value(name = "local", constraint_setting = ":setting")
 cc_library(name = "empty_lib")
@@ -432,7 +428,18 @@ EOF
   bazel build --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt || fail "Build failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
   grep "override_value" out.txt || fail "Did not find the overriding value"
-  grep "default_value" out.txt && fail "Used the default value"
+  # If we could do json parsing, we would check that override_value is used for
+  # the cc_test and default_value is used for all other targets.
+  # Instead, just check that the number of grep matches is the same.
+  assert_equals \
+    "$(grep -c override_value out.txt)" \
+    "$(grep -c "targetLabel.*${pkg}:a" out.txt)" \
+    "Used override_value the wrong number of times"
+  # Note: `grep -c` should not fail if there are no matches.
+  assert_equals \
+    "$(grep -c default_value out.txt || true)" \
+    "$(grep targetLabel out.txt | (grep -cv "${pkg}:a" || true))" \
+    "Used default_value the wrong number of times"
 
   bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt || fail "Test failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
@@ -440,12 +447,14 @@ EOF
 }
 
 function test_platform_execgroup_properties_group_override_cc_test() {
+  add_rules_cc "MODULE.bazel"
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
   cat > ${pkg}/a.cc <<EOF
 int main() {}
 EOF
   cat > ${pkg}/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 constraint_setting(name = "setting")
 constraint_value(name = "local", constraint_setting = ":setting")
 cc_test(
@@ -477,12 +486,16 @@ EOF
 }
 
 function test_platform_execgroup_properties_override_group_and_default_cc_test() {
+  add_rules_cc "MODULE.bazel"
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
   cat > ${pkg}/a.cc <<EOF
 int main() {}
 EOF
   cat > ${pkg}/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 constraint_setting(name = "setting")
 constraint_value(name = "local", constraint_setting = ":setting")
 cc_library(name = "empty_lib")
@@ -510,7 +523,18 @@ EOF
   bazel build --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt || fail "Build failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
   grep "override_value" out.txt || fail "Did not find the overriding value"
-  grep "default_value" out.txt && fail "Used the default value"
+  # If we could do json parsing, we would check that override_value is used for
+  # the cc_test and default_value is used for all other targets.
+  # Instead, just check that the number of grep matches is the same.
+  assert_equals \
+    "$(grep -c override_value out.txt)" \
+    "$(grep -c "targetLabel.*${pkg}:a" out.txt)" \
+    "Used override_value the wrong number of times"
+  # Note: `grep -c` should not fail if there are no matches.
+  assert_equals \
+    "$(grep -c default_value out.txt || true)" \
+    "$(grep targetLabel out.txt | (grep -cv "${pkg}:a" || true))" \
+    "Used default_value the wrong number of times"
 
   bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt || fail "Test failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
@@ -518,12 +542,15 @@ EOF
 }
 
 function test_platform_execgroup_properties_test_inherits_default() {
+  add_rules_cc "MODULE.bazel"
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
   cat > ${pkg}/a.cc <<EOF
 int main() {}
 EOF
   cat > ${pkg}/BUILD <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 constraint_setting(name = "setting")
 constraint_value(name = "local", constraint_setting = ":setting")
 cc_library(name = "empty_lib")
@@ -564,12 +591,14 @@ EOF
 }
 
 function test_platform_properties_only_applied_for_relevant_execgroups_cc_test() {
+  add_rules_cc "MODULE.bazel"
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
   cat > ${pkg}/a.cc <<EOF
 int main() {}
 EOF
   cat > ${pkg}/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 constraint_setting(name = "setting")
 constraint_value(name = "local", constraint_setting = ":setting")
 cc_test(
@@ -594,12 +623,14 @@ EOF
 }
 
 function test_cannot_set_properties_for_irrelevant_execgroup_on_target_cc_test() {
+  add_rules_cc "MODULE.bazel"
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
   cat > ${pkg}/a.cc <<EOF
 int main() {}
 EOF
   cat > ${pkg}/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_test(
   name = "a",
   srcs = ["a.cc"],
@@ -610,7 +641,7 @@ cc_test(
 )
 EOF
   bazel test ${pkg}:a &> $TEST_log && fail "Build passed when we expected an error"
-  grep "Tried to set properties for non-existent exec group" $TEST_log || fail "Did not complain about unknown exec group"
+  grep "Tried to set exec_properties for non-existent exec groups on //${pkg}:a: unknown" $TEST_log || fail "Did not complain about unknown exec group"
 }
 
 function write_toolchains_for_exec_group_tests() {
@@ -952,7 +983,7 @@ function test_override_exec_group_of_test() {
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
 
-  if "$is_windows"; then
+  if is_windows; then
     script_name="test_script.bat"
     script_content="@echo off\necho hello\n"
   else

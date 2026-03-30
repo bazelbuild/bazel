@@ -24,9 +24,13 @@ filegroup(
             "*~",
             ".*",
         ],
-    ) + [
-        "//tools/android/runtime_deps:srcs",
-    ],
+    ),
+)
+
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]),
+    visibility = ["//tools:__pkg__"],
 )
 
 filegroup(

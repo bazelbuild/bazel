@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -51,12 +50,8 @@ import net.starlark.java.eval.StarlarkValue;
 @Immutable
 public final class JavaToolchainProvider extends StarlarkInfoWrapper {
 
-  public static final StarlarkProviderWrapper<JavaToolchainProvider> LEGACY_BUILTINS_PROVIDER =
-      new BuiltinsProvider();
   public static final StarlarkProviderWrapper<JavaToolchainProvider> RULES_JAVA_PROVIDER =
       new RulesJavaProvider();
-  public static final StarlarkProviderWrapper<JavaToolchainProvider> WORKSPACE_PROVIDER =
-      new WorkspaceProvider();
   public static final StarlarkProviderWrapper<JavaToolchainProvider> PROVIDER = new Provider();
 
   private JavaToolchainProvider(StarlarkInfo underlying) {
@@ -67,12 +62,8 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
     com.google.devtools.build.lib.packages.Provider.Key key = info.getProvider().getKey();
     if (key.equals(PROVIDER.getKey())) {
       return PROVIDER.wrap(info);
-    } else if (key.equals(LEGACY_BUILTINS_PROVIDER.getKey())) {
-      return LEGACY_BUILTINS_PROVIDER.wrap(info);
     } else if (key.equals(RULES_JAVA_PROVIDER.getKey())) {
       return RULES_JAVA_PROVIDER.wrap(info);
-    } else if (key.equals(WORKSPACE_PROVIDER.getKey())) {
-      return WORKSPACE_PROVIDER.wrap(info);
     } else {
       throw new RuleErrorException("expected JavaToolchainInfo, got: " + key);
     }
@@ -103,9 +94,7 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
   public static JavaToolchainProvider from(RuleContext ruleContext) {
     ToolchainInfo toolchainInfo =
         ruleContext.getToolchainInfo(
-            ruleContext
-                .getPrerequisite(JavaRuleClasses.JAVA_TOOLCHAIN_TYPE_ATTRIBUTE_NAME)
-                .getLabel());
+            ruleContext.getPrerequisite("$java_toolchain_type").getLabel());
     return from(toolchainInfo, ruleContext);
   }
 
@@ -155,13 +144,15 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
 
   /** Returns the {@link JavaToolchainTool} for JavaBuilder */
   public JavaToolchainTool getJavaBuilder() throws RuleErrorException {
-    return JavaToolchainTool.fromStarlark(getUnderlyingValue("_javabuilder", StructImpl.class));
+    return JavaToolchainTool.fromStarlark(
+        getUnderlyingValue("_javabuilder", StructImpl.class), this);
   }
 
   /** Returns the {@link JavaToolchainTool} for the header compiler */
   @Nullable
   public JavaToolchainTool getHeaderCompiler() throws RuleErrorException {
-    return JavaToolchainTool.fromStarlark(getUnderlyingValue("_header_compiler", StructImpl.class));
+    return JavaToolchainTool.fromStarlark(
+        getUnderlyingValue("_header_compiler", StructImpl.class), this);
   }
 
   /**
@@ -171,7 +162,7 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
   @Nullable
   public JavaToolchainTool getHeaderCompilerDirect() throws RuleErrorException {
     return JavaToolchainTool.fromStarlark(
-        getUnderlyingValue("_header_compiler_direct", StructImpl.class));
+        getUnderlyingValue("_header_compiler_direct", StructImpl.class), this);
   }
 
   @Nullable
@@ -188,7 +179,7 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
   @Nullable
   public JavaToolchainTool getBytecodeOptimizer() throws RuleErrorException {
     return JavaToolchainTool.fromStarlark(
-        getUnderlyingValue("_bytecode_optimizer", StructImpl.class));
+        getUnderlyingValue("_bytecode_optimizer", StructImpl.class), this);
   }
 
   public ImmutableList<Artifact> getLocalJavaOptimizationConfiguration() throws RuleErrorException {
@@ -272,7 +263,7 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
   }
 
   public JavaRuntimeInfo getJavaRuntime() throws RuleErrorException {
-    return JavaRuntimeInfo.wrap(getUnderlyingValue("java_runtime", Info.class));
+    return JavaRuntimeInfo.wrap(getUnderlyingValue("java_runtime", Info.class), "java_runtime");
   }
 
   record JspecifyInfo(
@@ -322,25 +313,9 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
     }
   }
 
-  private static class BuiltinsProvider extends Provider {
-    private BuiltinsProvider() {
-      super(
-          keyForBuiltins(
-              Label.parseCanonicalUnchecked("@_builtins//:common/java/java_toolchain.bzl")));
-    }
-  }
-
   private static class RulesJavaProvider extends Provider {
     private RulesJavaProvider() {
       super(keyForBuild(Label.parseCanonicalUnchecked("//java/common/rules:java_toolchain.bzl")));
-    }
-  }
-
-  private static class WorkspaceProvider extends Provider {
-    private WorkspaceProvider() {
-      super(
-          keyForBuild(
-              Label.parseCanonicalUnchecked("@@rules_java//java/common/rules:java_toolchain.bzl")));
     }
   }
 

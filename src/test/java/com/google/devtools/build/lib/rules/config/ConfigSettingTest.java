@@ -15,9 +15,12 @@ package com.google.devtools.build.lib.rules.config;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider.MatchResult.Match;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider.MatchResult.NoMatch;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
@@ -28,12 +31,15 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.License.LicenseType;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.util.List;
@@ -43,7 +49,7 @@ import org.junit.runner.RunWith;
 
 /** Tests for {@link ConfigSetting}. */
 @RunWith(TestParameterInjector.class)
-public class ConfigSettingTest extends BuildViewTestCase {
+public final class ConfigSettingTest extends BuildViewTestCase {
 
   /** Extra options for this test. */
   public static class DummyTestOptions extends FragmentOptions {
@@ -65,6 +71,22 @@ public class ConfigSettingTest extends BuildViewTestCase {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP})
     public List<String> allowMultipleOption;
+
+    @Option(
+        name = "new_option_name",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "",
+        oldName = "old_option_name")
+    public String optionWithOldName;
+
+    @Option(
+        name = "non_configurable_option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "non-configurable",
+        metadataTags = {OptionMetadataTag.NON_CONFIGURABLE})
+    public String nonConfigurableOption;
   }
 
   /** Test fragment. */
@@ -108,11 +130,10 @@ public class ConfigSettingTest extends BuildViewTestCase {
     return getConfiguredTarget(label).getProvider(ConfigMatchingProvider.class);
   }
 
-  private boolean forceConvertMatchResult(ConfigMatchingProvider.MatchResult result)
-      throws Exception {
-    if (result.equals(ConfigMatchingProvider.MatchResult.MATCH)) {
+  private static boolean forceConvertMatchResult(ConfigMatchingProvider.MatchResult result) {
+    if (result instanceof Match) {
       return true;
-    } else if (result.equals(ConfigMatchingProvider.MatchResult.NOMATCH)) {
+    } else if (result instanceof NoMatch) {
       return false;
     }
     throw new IllegalStateException("Unexpected MatchResult: " + result);
@@ -210,6 +231,20 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "config_setting(",
         "    name = 'badoption',",
         "    values = {'internal_option': 'bar'})");
+  }
+
+  @Test
+  public void oldNameReference() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {"old_option_name": "foo"},
+        )
+        """);
+    assertThat(getConfiguredTarget("//test:match")).isNotNull();
+    assertNoEvents();
   }
 
   /**
@@ -467,9 +502,41 @@ public class ConfigSettingTest extends BuildViewTestCase {
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isEqualTo(matchExpected);
   }
 
+  @Test
+  public void flagWithOldName_NoMatch() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {
+                "old_option_name": "different_setting",
+            },
+        )
+        """);
+    useConfiguration("--new_option_name=is_set");
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
+  }
+
+  @Test
+  public void flagWithOldName_Match() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {
+                "old_option_name": "is_set",
+            },
+        )
+        """);
+    useConfiguration("--new_option_name=is_set");
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
+  }
+
   /**
    * Tests multi-value flags that don't support multiple values <b></b>in the same instance<b>. See
-   * comments on {@link #multiValueListMultipleExpectedValues()} for details.
+   * comments on {@link #multiValueListMultipleExpectedValues(List, boolean)} for details.
    */
   @Test
   public void multiValueListSingleValueThatLooksLikeMultiple() throws Exception {
@@ -2653,8 +2720,46 @@ public class ConfigSettingTest extends BuildViewTestCase {
         )
         """);
 
+    // Expect config_setting on an alias to pass completely through the alias to the underlying
+    // flag it references. This means aliases model which flags trigger config_setting matches. This
+    // keeps config_seting in sync with actual builds: if someone builds with --//foo:alias=1,
+    // both the user and config_setting interpret it the same way even when the underlying flag
+    // changes.
     useConfiguration("--//test:flag=specified");
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:alias_setting")).isTrue();
+  }
+
+  @Test
+  public void labelStarlarkFlag() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+
+        label_flag(
+            name = "my_flag",
+            build_setting_default = "other_target",
+        )
+
+        genrule(
+            name = "other_target",
+            srcs = [],
+            outs = ["other_target"],
+            cmd = "echo other_target",
+        )
+
+        config_setting(
+            name = "my_setting",
+            flag_values = {":my_flag": "//test:other_target"},
+        )
+        """);
+
+    // While label_flag is technically an alias, we can't treat it the same way as a normal alias:
+    // label_flag is by definition a flag, and therefore a valid config_setting input. But the
+    // target it refers to isn't necessarily a flag (and for most practical uses won't be a flag).
+    // So it doesn't make sense to treat it like an alias(), where config_setting setting matches
+    // against the reference's value. So config_setting treats a label_flag's value like any
+    // normal flag value and compares against it directly.
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:my_setting")).isTrue();
   }
 
   @Test
@@ -2796,18 +2901,21 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void canOnlyMatchSingleValueInMultiValueFlags() throws Exception {
+  public void canOnlyMatchSingleValueInMultiValueFlags(@TestParameter boolean repeatable)
+      throws Exception {
     scratch.file(
         "test/build_settings.bzl",
-        """
-        def _impl(ctx):
-            return []
+        String.format(
+            """
+            def _impl(ctx):
+                return []
 
-        string_list_flag = rule(
-            implementation = _impl,
-            build_setting = config.string_list(flag = True),
-        )
-        """);
+            string_list_flag = rule(
+                implementation = _impl,
+                build_setting = config.string_list(flag = True, repeatable = %s),
+            )
+            """,
+            repeatable ? "True" : "False"));
     scratch.file(
         "test/BUILD",
         """
@@ -2896,5 +3004,431 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "in values attribute of config_setting rule //test:match: '//foo:bar' is"
             + " not a valid setting name, but appears to be a label. Did you mean to place it in"
             + " flag_values instead?");
+  }
+
+  @Test
+  @TestParameters({"{flag: cpu}", "{flag: host_cpu}", "{flag: crosstool_top}"})
+  public void selectOnDeprecatedFlagEmitsWarning(String flag) throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {
+              "%s": "//foo",
+            },
+        )
+        """
+            .formatted(flag));
+    // empty --incompatible_disable_select_on to get the warning.
+    useConfiguration("--incompatible_disable_select_on=");
+    assertThat(getConfiguredTarget("//test:match")).isNotNull();
+    assertContainsEvent(
+        "select() on %s is deprecated. Use platform constraints instead".formatted(flag));
+  }
+
+  @Test
+  @TestParameters({"{flag: cpu}", "{flag: host_cpu}", "{flag: crosstool_top}"})
+  public void selectOnDisabledFlagFails(String flag) throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {
+              "%s": "//foo",
+            },
+        )
+        """
+            .formatted(flag));
+    useConfiguration("--incompatible_disable_select_on=%s".formatted(flag));
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//test:match")).isNull();
+    assertContainsEvent(
+        "in values attribute of config_setting rule //test:match: error while parsing configuration"
+            + " settings: select() on '%s' is not allowed. Use platform constraints instead"
+                .formatted(flag));
+  }
+
+  @Test
+  public void selectDisabledOnNonPlatformsFlag() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {
+              "compilation_mode": "opt",
+            },
+        )
+        """);
+    useConfiguration("--incompatible_disable_select_on=compilation_mode");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//test:match")).isNull();
+    assertContainsEvent(
+        "in values attribute of config_setting rule //test:match: error while parsing configuration"
+            + " settings: select() on 'compilation_mode' is not allowed.");
+    assertDoesNotContainEvent("Use platform constraints instead");
+  }
+
+  @Test
+  // If --foo has oldName --old_foo, let disabling flag selection have fine-grained control over
+  // which name is permitted. For example, if we want to force all config_settings to use the
+  // new name, we could set --incompatible_disable-select_on=old_foo.
+  @TestParameters({
+    "{configSettingName: new_option_name, disabledName: new_option_name, expectSuccess:"
+        + " false}",
+    "{configSettingName: old_option_name, disabledName: old_option_name,"
+        + " expectSuccess: false}",
+    "{configSettingName: new_option_name, disabledName: old_option_name," + " expectSuccess: true}",
+    "{configSettingName: old_option_name, disabledName: new_option_name," + " expectSuccess: true}",
+  })
+  public void selectOnDisabledFlagwithOldName(
+      String configSettingName, String disabledName, boolean expectSuccess) throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {
+              "%s": "//foo",
+            },
+        )
+        """
+            .formatted(configSettingName));
+    useConfiguration("--incompatible_disable_select_on=%s".formatted(disabledName));
+    reporter.removeHandler(failFastHandler);
+
+    if (expectSuccess) {
+      assertThat(getConfiguredTarget("//test:match")).isNotNull();
+      assertNoEvents();
+    } else {
+      assertThat(getConfiguredTarget("//test:match")).isNull();
+      assertContainsEvent(
+          "in values attribute of config_setting rule //test:match: error while parsing"
+              + " configuration"
+              + " settings: select() on '%s' is not allowed.".formatted(disabledName));
+    }
+  }
+
+  @Test
+  @TestParameters({
+    // Alias --nativeform to --//test:myflag, config_setting matches --nativeform on default value:
+"""
+{
+  valuesAttr: '"nativeform": "parmesan"',
+  flagValuesAttr: '',
+  config: ['--flag_alias=nativeform=//test:myflag'],
+  expectMatch: true,
+  expectedError: ''
+}\
+""",
+    // Alias --nativeform to --//test:myflag, config_setting doesn't match --nativeform because it
+    // expects a different value:
+"""
+{
+  valuesAttr: '"nativeform": "other_expected_value"',
+  flagValuesAttr: '',
+  config: ['--flag_alias=nativeform=//test:myflag'],
+  expectMatch: false,
+  expectedError: ''
+}\
+""",
+    // Alias --nativeform to --//test:doesnt_exist, config_setting on --nativeform fails because the
+    // target doesn't exist.
+"""
+{
+  valuesAttr: '"nativeform": "parmesan"',
+  flagValuesAttr: '',
+  config: ['--flag_alias=nativeform=//test:doesnt_exist'],
+  expectMatch: false,
+  expectedError: "target 'doesnt_exist' not declared"
+}\
+""",
+    // Alias --nativeform not set, config_setting on --nativeform errors.
+"""
+{
+  valuesAttr: '"nativeform": "parmesan"',
+  flagValuesAttr: '',
+  config: [],
+  expectMatch: false,
+  expectedError: "unknown option: 'nativeform'"
+}\
+""",
+    // config_setting reads both alias and actual flags and matches because their value is the same.
+"""
+{
+  valuesAttr: '"nativeform": "parmesan"',
+  flagValuesAttr: '"//test:myflag": "parmesan"',
+  config: ['--flag_alias=nativeform=//test:myflag'],
+  expectMatch: true,
+  expectedError: ""
+}\
+""",
+    // config_setting reads both alias and actual flags and errors because of mismatching values.
+"""
+{
+  valuesAttr: '"nativeform": "parmesan"',
+  flagValuesAttr: '"//test:myflag": "other_value"',
+  config: ['--flag_alias=nativeform=//test:myflag'],
+  expectMatch: false,
+  expectedError: "Conflicting flag value expectations"
+}\
+"""
+  })
+  public void flagAlias(
+      String valuesAttr,
+      String flagValuesAttr,
+      List<String> config,
+      boolean expectMatch,
+      String expectedError)
+      throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        """
+        def _impl(ctx):
+            return []
+        string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_settings.bzl", "string_flag")
+        config_setting(
+            name = "match",
+            values = {%s},
+            flag_values = {%s}
+        )
+        string_flag(
+            name = "myflag",
+            build_setting_default = "parmesan",
+        )
+        """
+            .formatted(valuesAttr, flagValuesAttr));
+
+    reporter.removeHandler(failFastHandler);
+    useConfiguration(config.toArray(new String[0]));
+
+    if (expectedError.isEmpty()) {
+      assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isEqualTo(expectMatch);
+    } else {
+      assertThat(getConfiguredTarget("//test:match")).isNull();
+      assertContainsEvent(expectedError);
+    }
+  }
+
+  @Test
+  public void nonConfigurableOption() throws Exception {
+    checkError(
+        "foo",
+        "non_configurable_option",
+        "select() on 'non_configurable_option' is not allowed.",
+        """
+        config_setting(
+            name = "non_configurable_option",
+            values = {"non_configurable_option": "foo"},
+        )
+        """);
+  }
+
+  @Test
+  public void stringSet_singleValue_works(@TestParameter boolean flagDefault) throws Exception {
+    String matchValue = flagDefault ? "default_value" : "cmd_val";
+    scratch.file(
+        "test/build_settings.bzl",
+        """
+        def _impl(ctx):
+            return []
+
+        string_set_flag = rule(
+            implementation = _impl,
+            build_setting = config.string_set(flag = True),
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        String.format(
+            """
+            load("//test:build_settings.bzl", "string_set_flag")
+
+            config_setting(
+                name = "match",
+                flag_values = {
+                    ":my_flag": "%s",
+                },
+            )
+
+            config_setting(
+                name = "no_match",
+                flag_values = {
+                    ":my_flag": "another_value",
+                },
+            )
+
+            string_set_flag(
+                name = "my_flag",
+                build_setting_default = set(["default_value"]),
+            )
+            """,
+            matchValue));
+
+    if (!flagDefault) {
+      useConfiguration("--//test:my_flag=cmd_val");
+    }
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:no_match")).isFalse();
+  }
+
+  @Test
+  public void stringSet_multipleValues_works(
+      @TestParameter({"default", "multiple", "repeatable"}) String valuesSrc) throws Exception {
+    String defaultValue = valuesSrc.equals("default") ? "'v2', 'v1', 'v3'" : "'default_value'";
+    scratch.file(
+        "test/build_settings.bzl",
+        String.format(
+            """
+            def _impl(ctx):
+                return []
+
+            string_set_flag = rule(
+                implementation = _impl,
+                build_setting = config.string_set(flag = True, repeatable = %s),
+            )
+            """,
+            valuesSrc.equals("repeatable") ? "True" : "False"));
+    scratch.file(
+        "test/BUILD",
+        String.format(
+            """
+            load("//test:build_settings.bzl", "string_set_flag")
+
+            config_setting(
+                name = "match_2",
+                flag_values = {
+                    ":my_flag": "v2",
+                },
+            )
+
+            config_setting(
+                name = "match_3",
+                flag_values = {
+                    ":my_flag": "v3",
+                },
+            )
+
+            config_setting(
+                name = "match_4",
+                flag_values = {
+                    ":my_flag": "v4",
+                },
+            )
+
+            string_set_flag(
+                name = "my_flag",
+                build_setting_default = set([%s]),
+            )
+            """,
+            defaultValue));
+
+    if (valuesSrc.equals("multiple")) {
+      useConfiguration("--//test:my_flag=v2,v1,v3");
+    } else if (valuesSrc.equals("repeatable")) {
+      useConfiguration("--//test:my_flag=v3", "--//test:my_flag=v1", "--//test:my_flag=v2");
+    }
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match_2")).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match_3")).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match_4")).isFalse();
+  }
+
+  @Test
+  public void canOnlyMatchSingleValueWithSetFlags(@TestParameter boolean repeatable)
+      throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        String.format(
+            """
+            def _impl(ctx):
+                return []
+
+            string_set_flag = rule(
+                implementation = _impl,
+                build_setting = config.string_set(flag = True, repeatable = %s),
+            )
+            """,
+            repeatable ? "True" : "False"));
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_settings.bzl", "string_set_flag")
+
+        string_set_flag(
+            name = "my_flag",
+            build_setting_default = set(["default_value"]),
+        )
+
+        config_setting(
+            name = "match",
+            flag_values = {
+                ":my_flag": "v1,v2",
+            },
+        )
+
+        filegroup(
+            name = "fg",
+            srcs = select({
+                ":match": [],
+            }),
+        )
+        """);
+    reporter.removeHandler(failFastHandler); // expect errors
+    assertThat(getConfiguredTarget("//test:fg")).isNull();
+    assertContainsEvent(
+        "\"v1,v2\" not a valid value for flag //test:my_flag. "
+            + "Only single, exact values are allowed");
+  }
+
+  @Test
+  public void stampNotInSelectValues_stampSettingMarkerNotApplied(@TestParameter boolean stampFlag)
+      throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {"compilation_mode": "opt"},
+        )
+        """);
+
+    useConfiguration("--stamp=" + stampFlag);
+
+    ActionLookupKey key = getConfiguredTarget("//test:match").getLookupKey();
+    NodeEntry node =
+        getSkyframeExecutor().getEvaluator().getExistingEntryAtCurrentlyEvaluatingVersion(key);
+    assertThat(node.getDirectDeps()).doesNotContain(PrecomputedValue.STAMP_SETTING_MARKER.getKey());
+  }
+
+  @Test
+  public void stampInSelectValues_stampSettingMarkerAppliedIfStampFlag(
+      @TestParameter boolean stampFlag) throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {"stamp": "False"},
+        )
+        """);
+
+    useConfiguration("--stamp=" + stampFlag);
+
+    ActionLookupKey key = getConfiguredTarget("//test:match").getLookupKey();
+    NodeEntry node =
+        getSkyframeExecutor().getEvaluator().getExistingEntryAtCurrentlyEvaluatingVersion(key);
+    if (stampFlag) {
+      assertThat(node.getDirectDeps()).contains(PrecomputedValue.STAMP_SETTING_MARKER.getKey());
+    } else {
+      assertThat(node.getDirectDeps())
+          .doesNotContain(PrecomputedValue.STAMP_SETTING_MARKER.getKey());
+    }
   }
 }

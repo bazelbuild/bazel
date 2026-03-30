@@ -18,18 +18,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
-import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader;
-import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
+import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.analysis.config.transitions.BaselineOptionsValue;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.AttributeTransitionData;
-import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
-import com.google.devtools.build.lib.skyframe.BzlLoadValue;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.analysis.test.TestTrimmingLogic;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -37,11 +29,18 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.Version;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** A builder for {@link BaselineOptionsValue} instances. */
 public final class BaselineOptionsFunction implements SkyFunction {
+
+  // Don't use these directly. Instead, use the BuildOptions obtained from this function, which
+  // applies the appropriate trimming and transition logic to reduce Skyframe invalidation.
+  // Unsharable because of complications in deserializing BuildOptions on startup due to caching.
+  public static final Precomputed<BuildOptions> BASELINE_CONFIGURATION =
+      Precomputed.createUnshareable("baseline_configuration");
+  public static final Precomputed<BuildOptions> BASELINE_EXEC_CONFIGURATION =
+      Precomputed.createUnshareable("baseline_exec_configuration");
 
   private final Version minimalVersionToInject;
 
@@ -57,7 +56,14 @@ public final class BaselineOptionsFunction implements SkyFunction {
 
     BaselineOptionsValue.Key key = (BaselineOptionsValue.Key) skyKey.argument();
 
-    BuildOptions rawBaselineOptions = PrecomputedValue.BASELINE_CONFIGURATION.get(env);
+    BuildOptions rawBaselineOptions;
+    if (key.afterExecTransition()) {
+      // Use the precomputed baseline exec
+      rawBaselineOptions = BASELINE_EXEC_CONFIGURATION.get(env);
+    } else {
+      // Use the standard baseline
+      rawBaselineOptions = BASELINE_CONFIGURATION.get(env);
+    }
 
     // Some test infrastructure only creates mock or partial top-level BuildOptions such that
     // PlatformOptions or even CoreOptions might not be included.
@@ -66,47 +72,18 @@ public final class BaselineOptionsFunction implements SkyFunction {
       return BaselineOptionsValue.create(rawBaselineOptions);
     }
 
+    if (key.trimTestOptions()) {
+      rawBaselineOptions = TestTrimmingLogic.trim(rawBaselineOptions);
+    }
+
     // First, make sure platform_mappings applied to the top-level baseline option.
     BuildOptions mappedBaselineOptions = mapBuildOptions(env, rawBaselineOptions);
     if (mappedBaselineOptions == null) {
       return null;
     }
-
-    Optional<StarlarkAttributeTransitionProvider> starlarkExecTransition;
-    try {
-      starlarkExecTransition =
-          StarlarkExecTransitionLoader.loadStarlarkExecTransition(
-              mappedBaselineOptions,
-              (bzlKey) -> (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class));
-    } catch (StarlarkExecTransitionLoadingException e) {
-      throw new BaselineOptionsFunctionException(e);
-    }
-    if (starlarkExecTransition == null) {
-      return null;
-    }
-
-    // Next, apply elements of BaselineOptionsKey: apply exec transition and/or adjust platform
     BuildOptions adjustedBaselineOptions = mappedBaselineOptions;
-    if (key.afterExecTransition()) {
-      // A null executionPlatform actually skips transition application so need some value here when
-      // not overriding the platform. It is safe to supply some fake value here (as long as it is
-      // constant) since the baseline should never be used to actually construct an action or do
-      // toolchain resolution.
-      PatchTransition execTransition =
-          ExecutionTransitionFactory.createFactory()
-              .create(
-                  AttributeTransitionData.builder()
-                      .executionPlatform(
-                          key.newPlatform() != null
-                              ? key.newPlatform()
-                              : Label.parseCanonicalUnchecked(
-                                  "//this_is_a_faked_exec_platform_for_blaze_internals"))
-                      .analysisData(starlarkExecTransition.orElse(null))
-                      .build());
-      adjustedBaselineOptions =
-          execTransition.patch(
-              TransitionUtil.restrict(execTransition, adjustedBaselineOptions), env.getListener());
-    } else if (key.newPlatform() != null) {
+
+    if (key.newPlatform() != null) {
       // Clone for safety as-is the standard for all transitions.
       adjustedBaselineOptions = adjustedBaselineOptions.clone();
       adjustedBaselineOptions.get(PlatformOptions.class).platforms =
@@ -134,10 +111,20 @@ public final class BaselineOptionsFunction implements SkyFunction {
   @Nullable
   private static BuildOptions mapBuildOptions(Environment env, BuildOptions rawBaselineOptions)
       throws InterruptedException, BaselineOptionsFunctionException {
-    BuildConfigurationKeyValue.Key bckvk =
-        BuildConfigurationKeyValue.Key.create(rawBaselineOptions);
+    // Baseline options have no need to contain scope info. Set all scopes to the default type so
+    // that BuildConfigurationKeyFunction doesn't attempt to apply scopes, which would lead to a
+    // cycle as this requires knowing the baseline options.
+    var builder = rawBaselineOptions.toBuilder();
+    rawBaselineOptions
+        .getStarlarkOptions()
+        .forEach(
+            (key, value) -> {
+              builder.addScopeType(key, new Scope.ScopeType(Scope.ScopeType.DEFAULT));
+              builder.removeOnLeaveScopeValue(key);
+            });
+    var bckvk = BuildConfigurationKeyValue.Key.create(builder.build());
     try {
-      BuildConfigurationKeyValue buildConfigurationKeyValue =
+      var buildConfigurationKeyValue =
           (BuildConfigurationKeyValue)
               env.getValueOrThrow(
                   bckvk,

@@ -17,15 +17,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.PathMapper;
-import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.exec.SpawnInputExpander;
-import com.google.devtools.build.lib.exec.SpawnInputExpander.InputVisitor;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -36,22 +31,19 @@ import java.util.concurrent.ConcurrentHashMap;
 public interface RemotePathResolver {
 
   /**
-   * Returns the {@code workingDirectory} for a remote action. Empty string if working directory is
-   * the input root.
+   * Returns the {@code workingDirectory} for a remote action. Empty if working directory is the
+   * input root.
    */
-  String getWorkingDirectory();
+  PathFragment getWorkingDirectory();
 
   /**
    * Returns a {@link SortedMap} which maps from input paths for remote action to {@link
    * ActionInput}.
    */
-  SortedMap<PathFragment, ActionInput> getInputMapping(
-      SpawnExecutionContext context, boolean willAccessRepeatedly)
-      throws ForbiddenActionInputException;
-
-  void walkInputs(
-      Spawn spawn, SpawnExecutionContext context, SpawnInputExpander.InputVisitor visitor)
-      throws IOException, ForbiddenActionInputException;
+  default SortedMap<PathFragment, ActionInput> getInputMapping(
+      SpawnExecutionContext context, boolean willAccessRepeatedly) {
+    return context.getInputMapping(getWorkingDirectory(), willAccessRepeatedly);
+  }
 
   /** Resolves the output path relative to input root for the given {@link Path}. */
   String localPathToOutputPath(Path path);
@@ -75,6 +67,9 @@ public interface RemotePathResolver {
    */
   Path outputPathToLocalPath(String outputPath);
 
+  /** Returns the exec path for the given local path. */
+  PathFragment localPathToExecPath(PathFragment localPath);
+
   /** Creates the default {@link RemotePathResolver}. */
   static RemotePathResolver createDefault(Path execRoot) {
     return new DefaultRemotePathResolver(execRoot);
@@ -93,29 +88,8 @@ public interface RemotePathResolver {
     }
 
     @Override
-    public String getWorkingDirectory() {
-      return "";
-    }
-
-    @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping(
-        SpawnExecutionContext context, boolean willAccessRepeatedly)
-        throws ForbiddenActionInputException {
-      return context.getInputMapping(PathFragment.EMPTY_FRAGMENT, willAccessRepeatedly);
-    }
-
-    @Override
-    public void walkInputs(
-        Spawn spawn, SpawnExecutionContext context, SpawnInputExpander.InputVisitor visitor)
-        throws IOException, ForbiddenActionInputException {
-      context
-          .getSpawnInputExpander()
-          .walkInputs(
-              spawn,
-              context.getArtifactExpander(),
-              context.getInputMetadataProvider(),
-              PathFragment.EMPTY_FRAGMENT,
-              visitor);
+    public PathFragment getWorkingDirectory() {
+      return PathFragment.EMPTY_FRAGMENT;
     }
 
     @Override
@@ -132,6 +106,11 @@ public interface RemotePathResolver {
     public Path outputPathToLocalPath(String outputPath) {
       return execRoot.getRelative(outputPath);
     }
+
+    @Override
+    public PathFragment localPathToExecPath(PathFragment localPath) {
+      return localPath.relativeTo(execRoot.asFragment());
+    }
   }
 
   /**
@@ -144,43 +123,23 @@ public interface RemotePathResolver {
   class SiblingRepositoryLayoutResolver implements RemotePathResolver {
 
     private final Path execRoot;
+    private final PathFragment workingDirectory;
 
     public SiblingRepositoryLayoutResolver(Path execRoot) {
       this.execRoot = execRoot;
-    }
-
-    @Override
-    public String getWorkingDirectory() {
-      return execRoot.getBaseName();
-    }
-
-    @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping(
-        SpawnExecutionContext context, boolean willAccessRepeatedly)
-        throws ForbiddenActionInputException {
       // The "root directory" of the action from the point of view of RBE is the parent directory of
       // the execroot locally. This is so that paths of artifacts in external repositories don't
       // start with an uplevel reference.
-      return context.getInputMapping(
-          PathFragment.create(checkNotNull(getWorkingDirectory())), willAccessRepeatedly);
+      this.workingDirectory = PathFragment.create(checkNotNull(execRoot.getBaseName()));
     }
 
     @Override
-    public void walkInputs(
-        Spawn spawn, SpawnExecutionContext context, SpawnInputExpander.InputVisitor visitor)
-        throws IOException, ForbiddenActionInputException {
-      context
-          .getSpawnInputExpander()
-          .walkInputs(
-              spawn,
-              context.getArtifactExpander(),
-              context.getInputMetadataProvider(),
-              PathFragment.create(checkNotNull(getWorkingDirectory())),
-              visitor);
+    public PathFragment getWorkingDirectory() {
+      return workingDirectory;
     }
 
     private Path getBase() {
-        return execRoot;
+      return execRoot;
     }
 
     @Override
@@ -198,6 +157,10 @@ public interface RemotePathResolver {
       return getBase().getRelative(outputPath);
     }
 
+    @Override
+    public PathFragment localPathToExecPath(PathFragment localPath) {
+      return localPath.relativeTo(getBase().asFragment());
+    }
   }
 
   /**
@@ -214,21 +177,14 @@ public interface RemotePathResolver {
           new ConcurrentHashMap<>();
 
       @Override
-      public String getWorkingDirectory() {
+      public PathFragment getWorkingDirectory() {
         return base.getWorkingDirectory();
       }
 
       @Override
       public SortedMap<PathFragment, ActionInput> getInputMapping(
-          SpawnExecutionContext context, boolean willAccessRepeatedly)
-          throws ForbiddenActionInputException {
+          SpawnExecutionContext context, boolean willAccessRepeatedly) {
         return base.getInputMapping(context, willAccessRepeatedly);
-      }
-
-      @Override
-      public void walkInputs(Spawn spawn, SpawnExecutionContext context, InputVisitor visitor)
-          throws IOException, ForbiddenActionInputException {
-        base.walkInputs(spawn, context, visitor);
       }
 
       @Override
@@ -245,6 +201,11 @@ public interface RemotePathResolver {
       public Path outputPathToLocalPath(String outputPath) {
         return execRoot.getRelative(
             inverseMap(base.outputPathToLocalPath(outputPath).relativeTo(execRoot)));
+      }
+
+      @Override
+      public PathFragment localPathToExecPath(PathFragment localPath) {
+        return base.localPathToExecPath(localPath);
       }
 
       private PathFragment map(PathFragment path) {

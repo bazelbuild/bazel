@@ -32,11 +32,13 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisCachingTestBase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -298,6 +300,9 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "conflict_non_top_level/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         cc_library(
             name = "x",
             srcs = ["foo.cc"],
@@ -335,6 +340,8 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "conflict/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "x",
             srcs = ["foo.cc"],
@@ -352,6 +359,8 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.overwriteFile(
         "conflict/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         # Rename target.
         cc_library(
             name = "newx",
@@ -380,6 +389,9 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "conflict/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         cc_library(
             name = "x",
             srcs = ["foo.cc"],
@@ -405,6 +417,9 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "conflict/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         cc_library(
             name = "x",
             srcs = ["foo.cc"],
@@ -425,6 +440,8 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.overwriteFile(
         "conflict/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "x",
             srcs = ["baz.cc"],
@@ -453,6 +470,9 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "conflict/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         cc_library(
             name = "x",
             srcs = ["foo.cc"],
@@ -484,6 +504,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     scratch.file(
         "conflict/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name='x', srcs=['foo1.cc'])",
         "genrule(name = 'foo', outs=['_objs/x/foo1.o'], srcs=['foo1.cc', 'foo2.cc', "
             + "'foo3.cc', 'foo4.cc', 'foo5.cc', 'foo6.cc'], cmd='', output_to_bindir=1)");
@@ -503,7 +524,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     }
 
     assertWithMessage(
-            "Event does not contain expected number of file conflicts:\n" + event.getMessage())
+            "Event does not contain expected number of file conflicts:\n%s", event.getMessage())
         .that(matchCount)
         .isEqualTo(5);
   }
@@ -522,6 +543,9 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "conflict/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
         cc_library(
             name = "x",
             srcs = ["foo.cc"],
@@ -1203,11 +1227,11 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         ImmutableMap.<String, Integer>builder()
             .put("//test:top", 1)
             .put("//test:shared", 1)
-            .build());
+            .buildOrThrow());
   }
 
   @Test
-  public void cacheClearedWhenNonAllowedHostOptionsChange() throws Exception {
+  public void cacheNotClearedForExecWhenNonExecOptionsChange() throws Exception {
     setupDiffResetTesting();
     scratch.file(
         "test/BUILD",
@@ -1225,7 +1249,46 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update("//test:top");
     useConfiguration("--host_relevant=Test 2");
     update("//test:top");
-    useConfiguration("--host_relevant=Test 1");
+    // //test:shared is in the exec configuration, and --host_relevant is not part of the exec
+    // configuration. Therefore, //test:shared is not reanalyzed, even though //test:top is.
+    assertNumberOfAnalyzedConfigurationsOfTargets(
+        ImmutableMap.<String, Integer>builder()
+            .put("//test:top", 1)
+            .put("//test:shared", 0)
+            .buildOrThrow());
+  }
+
+  @Test
+  public void cacheClearedForExecWhenExecOptionsChange() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib", "uses_irrelevant")
+
+        uses_irrelevant(
+            name = "top",
+            host_deps = [":shared"],
+        )
+
+        normal_lib(name = "shared")
+        """);
+    // --host_compilation_mode is part of the exec configuration.
+    useConfiguration("--host_compilation_mode=opt");
+    update("//test:top");
+    useConfiguration("--host_compilation_mode=dbg");
+    update("//test:top");
+
+    // Now, //test:shared is reanalyzed, because --host_compilation_mode is part of the exec
+    // configuration.
+    assertNumberOfAnalyzedConfigurationsOfTargets(
+        ImmutableMap.<String, Integer>builder()
+            .put("//test:top", 1)
+            .put("//test:shared", 1)
+            .buildOrThrow());
+
+    // Return to the original configuration and check that the cache is not cleared.
+    useConfiguration("--host_compilation_mode=opt");
     update("//test:top");
     // these targets needed to be reanalyzed even though we built them in this configuration
     // just a moment ago
@@ -1233,7 +1296,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         ImmutableMap.<String, Integer>builder()
             .put("//test:top", 1)
             .put("//test:shared", 1)
-            .build());
+            .buildOrThrow());
   }
 
   @Test
@@ -1261,7 +1324,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         ImmutableMap.<String, Integer>builder()
             .put("//test:top", 1)
             .put("//test:shared", 0)
-            .build());
+            .buildOrThrow());
     useConfiguration("--definitely_relevant=Testing", "--probably_irrelevant=Test 1");
     update("//test:top");
     // now we're back to the old configuration with no cache clears, so no work needed to be done
@@ -1269,7 +1332,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         ImmutableMap.<String, Integer>builder()
             .put("//test:top", 0)
             .put("//test:shared", 0)
-            .build());
+            .buildOrThrow());
   }
 
   @Test
@@ -1683,14 +1746,19 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   }
 
   @Test
-  public void throwsIfAnalysisCacheIsDiscardedWhenOptionSet() throws Exception {
+  public void throwsIfAnalysisCacheIsDiscardedWhenOptionSet_nativeOption() throws Exception {
     setupDiffResetTesting();
     scratch.file(
         "test/BUILD",
         """
         load(":lib.bzl", "normal_lib")
 
-        normal_lib(name = "top")
+        normal_lib(
+            name = "top",
+            host_deps = [":exec"],
+        )
+
+        normal_lib(name = "exec")
         """);
     useConfiguration("--definitely_relevant=old");
 
@@ -1700,6 +1768,15 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     // Check if things work if the build options are not changed
     useConfiguration("--noallow_analysis_cache_discard", "--definitely_relevant=old");
     update("//test:top");
+    var topTargetBefore =
+        skyframeExecutor
+            .getEvaluator()
+            .getExistingValue(
+                ConfiguredTargetKey.builder()
+                    .setLabel(Label.parseCanonicalUnchecked("//test:top"))
+                    .setConfiguration(getTargetConfiguration())
+                    .build());
+    assertThat(topTargetBefore).isNotNull();
 
     // Check if an error is raised when the build options are changed. Do it twice because
     // had already had a bug that the second invocation erroneously worked. See
@@ -1707,6 +1784,15 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     useConfiguration("--noallow_analysis_cache_discard", "--definitely_relevant=new");
     Throwable t = assertThrows(InvalidConfigurationException.class, () -> update("//test:top"));
     assertThat(t.getMessage().contains("analysis cache would have been discarded")).isTrue();
+    var topTargetAfter =
+        skyframeExecutor
+            .getEvaluator()
+            .getExistingValue(
+                ConfiguredTargetKey.builder()
+                    .setLabel(Label.parseCanonicalUnchecked("//test:top"))
+                    .setConfiguration(getTargetConfiguration())
+                    .build());
+    assertThat(topTargetAfter).isSameInstanceAs(topTargetBefore);
 
     t = assertThrows(InvalidConfigurationException.class, () -> update("//test:top"));
     assertThat(t.getMessage()).contains("analysis cache would have been discarded");
@@ -1717,6 +1803,62 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
     // Now check if removing --noallow_analysis_cache_discard in fact allows discarding the cache.
     useConfiguration("--definitely_relevant=new");
+    update("//test:top");
+  }
+
+  @Test
+  public void throwsIfAnalysisCacheIsDiscardedWhenOptionSet_starlarkFlag() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test_flags/build_setting.bzl",
+        """
+        bool_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.bool(flag = True),
+        )
+        """);
+    scratch.file(
+        "test_flags/BUILD",
+        """
+        load(":build_setting.bzl", "bool_flag")
+
+        bool_flag(
+            name = "my_flag",
+            build_setting_default = False,
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
+    useConfiguration("--no//test_flags:my_flag");
+
+    // Set up the analysis cache
+    update("//test:top");
+
+    // Check if things work if the build options are not changed
+    useConfiguration("--noallow_analysis_cache_discard", "--no//test_flags:my_flag");
+    update("//test:top");
+
+    // Check if an error is raised when the build options are changed. Do it twice because
+    // had already had a bug that the second invocation erroneously worked. See
+    // https://github.com/bazelbuild/bazel/issues/23491 .
+    useConfiguration("--noallow_analysis_cache_discard", "--//test_flags:my_flag");
+    Throwable t = assertThrows(InvalidConfigurationException.class, () -> update("//test:top"));
+    assertThat(t.getMessage()).contains("analysis cache would have been discarded");
+
+    t = assertThrows(InvalidConfigurationException.class, () -> update("//test:top"));
+    assertThat(t).hasMessageThat().contains("analysis cache would have been discarded");
+
+    // Check if going back to the original configuration works.
+    useConfiguration("--noallow_analysis_cache_discard", "--no//test_flags:my_flag");
+    update("//test:top");
+
+    // Now check if removing --noallow_analysis_cache_discard in fact allows discarding the cache.
+    useConfiguration("--//test_flags:my_flag");
     update("//test:top");
   }
 }

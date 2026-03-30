@@ -158,7 +158,7 @@ public class TimestampGranularityMonitor {
   public void waitForTimestampGranularity(OutErr outErr) {
     if (this.waitASecond || this.waitAMillisecond) {
       long before = clock.currentTimeMillis();
-      long startedWaiting = Profiler.nanoTimeMaybe();
+      long startedWaiting = Profiler.instance().nanoTimeMaybe();
       boolean interrupted = false;
 
       if (waitASecond) {

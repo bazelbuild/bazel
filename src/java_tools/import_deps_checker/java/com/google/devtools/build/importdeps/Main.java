@@ -20,24 +20,23 @@ import static com.google.common.io.MoreFiles.asCharSink;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.view.proto.Deps.Dependencies;
-import com.google.devtools.common.options.Converter;
-import com.google.devtools.common.options.EnumConverter;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
-import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
+import org.kohsuke.args4j.Option;
+import org.kohsuke.args4j.OptionDef;
+import org.kohsuke.args4j.OptionHandlerRegistry;
+import org.kohsuke.args4j.spi.Parameters;
+import org.kohsuke.args4j.spi.PathOptionHandler;
+import org.kohsuke.args4j.spi.Setter;
 
 /**
  * A checker that checks the completeness of the dependencies of an import target (java_import or
@@ -46,103 +45,62 @@ import java.util.List;
 public class Main {
 
   /** Command line options. */
-  public static class Options extends OptionsBase {
+  public static class Options {
     @Option(
-        name = "input",
-        allowMultiple = true,
-        defaultValue = "null",
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = ExistingPathConverter.class,
-        abbrev = 'i',
-        help = "Input jars with classes to check the completeness of their dependencies.")
-    public List<Path> inputJars;
+        name = "--input",
+        required = true,
+        handler = ExistingPathOptionHandler.class,
+        usage = "Input jars with classes to check the completeness of their dependencies.")
+    public List<Path> inputJars = new ArrayList<>();
 
     @Option(
-        name = "directdep",
-        allowMultiple = true,
-        defaultValue = "null",
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = ExistingPathConverter.class,
-        help =
+        name = "--directdep",
+        handler = ExistingPathOptionHandler.class,
+        usage =
             "Subset of Jars listed in --classpath_entry that --input Jars are allowed to depend "
                 + "on directly.")
-    public List<Path> directClasspath;
+    public List<Path> directClasspath = new ArrayList<>();
 
     @Option(
-        name = "classpath_entry",
-        allowMultiple = true,
-        defaultValue = "null",
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = ExistingPathConverter.class,
-        help =
+        name = "--classpath_entry",
+        handler = ExistingPathOptionHandler.class,
+        usage =
             "Ordered classpath (Jar) to resolve symbols in the --input jars, like javac's -cp"
                 + " flag.")
-    public List<Path> fullClasspath;
+    public List<Path> fullClasspath = new ArrayList<>();
 
     @Option(
-        name = "bootclasspath_entry",
-        allowMultiple = true,
-        defaultValue = "null",
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = ExistingPathConverter.class,
-        help =
+        name = "--bootclasspath_entry",
+        required = true,
+        handler = ExistingPathOptionHandler.class,
+        usage =
             "Bootclasspath that was used to compile the --input Jar with, like javac's "
                 + "-bootclasspath_entry flag (required).")
-    public List<Path> bootclasspath;
+    public List<Path> bootclasspath = new ArrayList<>();
 
     @Option(
-        name = "output",
-        defaultValue = "null",
-        category = "output",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = PathConverter.class,
-        help = "Output path to save the result.")
+        name = "--output",
+        handler = PathOptionHandler.class,
+        usage = "Output path to save the result.")
     public Path output;
 
     @Option(
-        name = "jdeps_output",
-        defaultValue = "null",
-        category = "output",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = PathConverter.class,
-        help = "Output path to save the result.")
+        name = "--jdeps_output",
+        handler = PathOptionHandler.class,
+        usage = "Output path to save the result.")
     public Path jdepsOutput;
 
-    @Option(
-        name = "rule_label",
-        defaultValue = "",
-        category = "output",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "The rule label of the current target under analysis.")
-    public String ruleLabel;
+    @Option(name = "--rule_label", usage = "The rule label of the current target under analysis.")
+    public String ruleLabel = "";
+
+    @Option(name = "--checking_mode", usage = "Controls the behavior of the checker.")
+    public CheckingMode checkingMode = CheckingMode.WARNING;
 
     @Option(
-        name = "checking_mode",
-        defaultValue = "WARNING",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = CheckingModeConverter.class,
-        help = "Controls the behavior of the checker.")
-    public CheckingMode checkingMode;
-
-    @Option(
-        name = "check_missing_members",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Whether to check whether referenced fields and methods are defined.")
-    public boolean checkMissingMembers;
+        name = "--check_missing_members",
+        handler = BooleanOptionHandler.class,
+        usage = "Whether to check whether referenced fields and methods are defined.")
+    public boolean checkMissingMembers = true;
   }
 
   /** A randomly picked large exit code to avoid collision with other common exit codes. */
@@ -207,15 +165,17 @@ public class Main {
   }
 
   @VisibleForTesting
-  static Options parseCommandLineOptions(String[] args) throws IOException {
-    OptionsParser optionsParser =
-        OptionsParser.builder()
-            .optionsClasses(Options.class)
-            .allowResidue(false)
-            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
-            .build();
-    optionsParser.parseAndExitUponError(args);
-    Options options = optionsParser.getOptions(Options.class);
+  static Options parseCommandLineOptions(String[] args) {
+    Options options = new Options();
+    CmdLineParser parser = new CmdLineParser(options);
+    OptionHandlerRegistry.getRegistry().registerHandler(boolean.class, BooleanOptionHandler.class);
+    try {
+      parser.parseArgument(args);
+    } catch (CmdLineException e) {
+      System.err.println(e.getMessage());
+      parser.printUsage(System.err);
+      throw new IllegalArgumentException(e);
+    }
 
     checkArgument(!options.inputJars.isEmpty(), "--input is required");
     checkArgument(!options.bootclasspath.isEmpty(), "--bootclasspath_entry is required");
@@ -225,56 +185,6 @@ public class Main {
     //     options.jdepsOutput);
 
     return options;
-  }
-
-  /** Validating converter for Paths. A Path is considered valid if it resolves to a file. */
-  public static class PathConverter extends Converter.Contextless<Path> {
-
-    private final boolean mustExist;
-
-    public PathConverter() {
-      this.mustExist = false;
-    }
-
-    protected PathConverter(boolean mustExist) {
-      this.mustExist = mustExist;
-    }
-
-    @Override
-    public Path convert(String input) throws OptionsParsingException {
-      try {
-        Path path = FileSystems.getDefault().getPath(input);
-        if (mustExist && !Files.exists(path)) {
-          throw new OptionsParsingException(
-              String.format("%s is not a valid path: it does not exist.", input));
-        }
-        return path;
-      } catch (InvalidPathException e) {
-        throw new OptionsParsingException(
-            String.format("%s is not a valid path: %s.", input, e.getMessage()), e);
-      }
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a valid filesystem path";
-    }
-  }
-
-  /**
-   * Validating converter for Paths. A Path is considered valid if it resolves to a file and exists.
-   */
-  public static class ExistingPathConverter extends PathConverter {
-    public ExistingPathConverter() {
-      super(true);
-    }
-  }
-
-  /** Converter for {@link CheckingMode} */
-  public static class CheckingModeConverter extends EnumConverter<CheckingMode> {
-    public CheckingModeConverter() {
-      super(CheckingMode.class, "The checking mode for the dependency checker.");
-    }
   }
 
   /** The checking mode of the dependency checker. */
@@ -288,5 +198,47 @@ public class Main {
      * protos.
      */
     SILENCE
+  }
+
+  /**
+   * Custom option handler for boolean values, to support both "--foo=true" and "--foo" syntax. The
+   * default args4j boolean handler only supports the latter.
+   */
+  public static class BooleanOptionHandler extends org.kohsuke.args4j.spi.BooleanOptionHandler {
+    public BooleanOptionHandler(
+        CmdLineParser parser, OptionDef option, Setter<? super Boolean> setter) {
+      super(parser, option, setter);
+    }
+
+    @Override
+    public int parseArguments(Parameters params) throws CmdLineException {
+      if (params.size() > 0) {
+        String value = params.getParameter(0);
+        if ("true".equalsIgnoreCase(value) || "false".equalsIgnoreCase(value)) {
+          setter.addValue(Boolean.parseBoolean(value));
+          return 1;
+        }
+      }
+      return super.parseArguments(params);
+    }
+  }
+
+  /** Custom option handler for a path that must exist. */
+  public static class ExistingPathOptionHandler extends PathOptionHandler {
+
+    public ExistingPathOptionHandler(
+        CmdLineParser parser, OptionDef option, Setter<? super Path> setter) {
+      super(parser, option, setter);
+    }
+
+    @Override
+    protected Path parse(String argument) throws CmdLineException {
+      Path path = FileSystems.getDefault().getPath(argument);
+      if (!Files.exists(path)) {
+        throw new CmdLineException(
+            owner, String.format("Path %s for option %s does not exist.", argument, option));
+      }
+      return path;
+    }
   }
 }

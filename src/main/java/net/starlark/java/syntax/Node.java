@@ -124,5 +124,7 @@ public abstract class Node {
    *
    * @param visitor the {@link NodeVisitor} instance to dispatch to.
    */
+  // TODO(bazel-team): Should this be package-private? Seems like the only legitimate call site is
+  // NodeVisitor#visit, and all other clients (including tests) should prefer NodeVisitor#visit.
   public abstract void accept(NodeVisitor visitor);
 }

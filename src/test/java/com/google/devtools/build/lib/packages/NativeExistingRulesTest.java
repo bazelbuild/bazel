@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import java.util.HashMap;
 import java.util.Map;
@@ -25,6 +27,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
@@ -82,6 +85,7 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     scratch.file(
         "test/getrule/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//test/starlark:rulestr.bzl", "rule_dict")
 
         cc_library(
@@ -143,9 +147,16 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     // Parse the BUILD file, to make sure select() makes it out of native.existing_rule().
     assertThat(getConfiguredTarget("//test/getrule:x")).isNotNull();
 
-    // We have to compare by stringification because SelectorValue has reference equality semantics.
-    assertThat(getSaved("dep").toString())
-        .isEqualTo("select({\":config\": None, \"//conditions:default\": None})");
+    assertThat(getSaved("dep"))
+        .isEqualTo(
+            SelectorList.of(
+                new SelectorValue(
+                    ImmutableMap.of(
+                        Label.parseCanonicalUnchecked("//test/getrule:config"),
+                        Starlark.NONE,
+                        Label.parseCanonicalUnchecked("//conditions:default"),
+                        Starlark.NONE),
+                    "")));
   }
 
   @Test
@@ -153,10 +164,11 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     scratch.file(
         "test/rulestr.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         def test_rule(name, x):
             print(native.existing_rule(x))
             if native.existing_rule(x) == None:
-                native.cc_library(name = name)
+                cc_library(name = name)
         """);
     scratch.file(
         "test/BUILD",
@@ -177,18 +189,20 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     scratch.file(
         "test/existing_rule.bzl",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         def macro():
             s = select({"//foo": ["//bar"]})
-            print("Passed: " + repr(s))
-            native.cc_library(name = "x", srcs = s)
-            print("Returned: " + repr(native.existing_rule("x")["srcs"]))
+            test.save("passed", s)
+            cc_library(name = "x", srcs = s)
+            test.save("returned", native.existing_rule("x")["srcs"])
 
             # The value returned here should round-trip fine.
-            native.cc_library(name = "y", srcs = native.existing_rule("x")["srcs"])
+            cc_library(name = "y", srcs = native.existing_rule("x")["srcs"])
         """);
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//test:existing_rule.bzl", "macro")
 
         macro()
@@ -199,14 +213,25 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
         )
         """);
     getConfiguredTarget("//test:a");
-    assertContainsEvent("Passed: select({\"//foo\": [\"//bar\"]}");
-    // The short labels are now in their canonical form, and the sequence is represented as
-    // tuple instead of list, but the meaning is unchanged.
-    assertContainsEvent("Returned: select({\"//foo:foo\": (\"//bar:bar\",)}");
+    assertThat(getSaved("passed"))
+        .isEqualTo(
+            SelectorList.of(
+                new SelectorValue(
+                    ImmutableMap.of("//foo", StarlarkList.of(Mutability.create("temp"), "//bar")),
+                    "")));
+    // The select key is now a label, the short label string is in canonical form, and the sequence
+    // is represented as tuple instead of list, but the meaning is unchanged.
+    assertThat(getSaved("returned"))
+        .isEqualTo(
+            SelectorList.of(
+                new SelectorValue(
+                    ImmutableMap.of(
+                        Label.parseCanonicalUnchecked("//foo:foo"), Tuple.of("//bar:bar")),
+                    "")));
   }
 
   @Test
-  public void existingRule_shortensLabelsInSamePackage() throws Exception {
+  public void existingRule_labelStringification() throws Exception {
     scratch.file(
         "test/existing_rule.bzl",
         """
@@ -218,6 +243,8 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
         "test/BUILD",
         """
         load("//test:existing_rule.bzl", "save_deps")
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
         cc_library(
             name = "a",
@@ -226,14 +253,19 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
 
         cc_binary(
             name = "b",
-            deps = ["//test:a"],
+            deps = [
+                "//test:a",
+                "//other_package:a",
+                "@bazel_tools//test:a",
+            ],
         )
 
         save_deps()
         """);
-    getConfiguredTarget("//test:b");
+    getTarget("//test:b");
     assertThat(Starlark.toIterable(getSaved("r['deps']")))
-        .containsExactly(":a"); // as opposed to "//test:a"
+        .containsExactly(":a", "//other_package:a", "@@bazel_tools//test:a")
+        .inOrder();
   }
 
   @Test
@@ -484,6 +516,7 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//test:test.bzl", "save_as_dict")
 
         cc_library(
@@ -515,6 +548,7 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//test:test.bzl", "save_as_updated_dict")
 
         cc_library(
@@ -543,6 +577,7 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//test:test.bzl", "save_as_union")
 
         cc_library(
@@ -587,6 +622,7 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//test:test.bzl", "save_kwargs_of_existing_rule")
 
         cc_library(
@@ -851,5 +887,46 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     assertThat(jsonRoundTripBarValue)
         .containsAtLeast(
             "name", "bar", "kind", "test_library", "srcs", StarlarkList.immutableOf(":bar.cc"));
+  }
+
+  @Test
+  public void existingRule_roundTripThroughRule() throws Exception {
+    // Verify that the set of native attributes captured by native.existing_rule() are
+    // round-trippable (e.g. we don't attempt to capture computed defaults, etc.), with the
+    // exception of name/kind pseudo-attributes, and restricted_to/visibility which have special
+    // semantics.
+    scratch.file(
+        "test/macros.bzl",
+        """
+        def lib(name, **kwargs):
+            native.filegroup(name=name, **kwargs)
+
+        def get_round_trippable_attrs(r):
+            return {
+                k: v
+                for k, v in native.existing_rule(r).items()
+                if k not in ("name", "kind", "restricted_to", "visibility")
+            }
+
+        def copy(name, src):
+            src_attrs = get_round_trippable_attrs(src)
+            test.save("src_attrs", src_attrs)
+            native.filegroup(name = name, **src_attrs)
+            test.save("copy_attrs", get_round_trippable_attrs(name))
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":macros.bzl", "lib", "copy")
+        lib(name = "a", srcs = ["BUILD"])
+        copy(name = "b", src = "a")
+        """);
+    getConfiguredTarget("//test:b");
+    Dict<String, Object> srcAttrs =
+        Dict.cast(getSaved("src_attrs"), String.class, Object.class, "copy_args");
+    Dict<String, Object> copyAttrs =
+        Dict.cast(getSaved("copy_attrs"), String.class, Object.class, "copy_attrs");
+
+    assertThat(copyAttrs.entrySet()).containsExactlyElementsIn(srcAttrs.entrySet());
   }
 }

@@ -67,8 +67,8 @@ public final class SymlinkTreeActionTest extends BuildViewTestCase {
                       ActionsTestUtil.NULL_ACTION_OWNER,
                       runfilesInputManifest,
                       /* runfiles= */ attributesToFlip.contains(RunfilesActionAttributes.RUNFILES)
-                          ? new Runfiles.Builder("TESTING", false).addArtifact(runfile).build()
-                          : new Runfiles.Builder("TESTING", false).addArtifact(runfile2).build(),
+                          ? new Runfiles.Builder("TESTING").addArtifact(runfile).build()
+                          : new Runfiles.Builder("TESTING").addArtifact(runfile2).build(),
                       outputManifest,
                       /* repoMappingManifest= */ null,
                       createActionEnvironment(

@@ -40,6 +40,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.ActionApi;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -48,6 +50,7 @@ import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * A single dependency with its configured target and aspects merged together.
@@ -56,6 +59,7 @@ import net.starlark.java.eval.Printer;
  * that configured target is analyzed, this is thrown away.
  */
 @Immutable
+@AutoCodec
 public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   /**
    * This exception is thrown when the providers of a configured target and the aspects applied to
@@ -82,7 +86,8 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
    */
   private final TransitiveInfoProviderMap nonBaseProviders;
 
-  private MergedConfiguredTarget(
+  @VisibleForSerialization
+  MergedConfiguredTarget(
       ConfiguredTarget base,
       Iterable<ConfiguredAspect> aspects,
       TransitiveInfoProviderMap nonBaseProviders) {
@@ -364,7 +369,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<merged target " + getLabel() + ">");
   }
 

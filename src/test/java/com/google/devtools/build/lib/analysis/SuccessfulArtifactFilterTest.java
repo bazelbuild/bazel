@@ -68,8 +68,7 @@ public class SuccessfulArtifactFilterTest {
       outputGroups.put(pair.first, NestedSetBuilder.fromNestedSet(pair.second));
     }
     groupProvider = OutputGroupInfo.fromBuilders(outputGroups);
-    ctx =
-        new TopLevelArtifactContext(false, false, false, ImmutableSortedSet.copyOf(groupProvider));
+    ctx = new TopLevelArtifactContext(false, false, ImmutableSortedSet.copyOf(groupProvider));
   }
 
   @Test
@@ -247,7 +246,7 @@ public class SuccessfulArtifactFilterTest {
     return new SourceArtifact(root, PathFragment.create(name), LabelArtifactOwner.NULL_OWNER);
   }
 
-  private Map<String, ImmutableSet<Artifact>> extractArtifactsByOutputGroup(
+  private static Map<String, ImmutableSet<Artifact>> extractArtifactsByOutputGroup(
       ImmutableMap<String, ArtifactsInOutputGroup> outputGroups) {
     Map<String, ImmutableSet<Artifact>> groupToDeclaredArtifacts = new HashMap<>();
     for (Map.Entry<String, ArtifactsInOutputGroup> entry : outputGroups.entrySet()) {

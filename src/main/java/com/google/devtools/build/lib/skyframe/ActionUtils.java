@@ -23,10 +23,12 @@ import javax.annotation.Nullable;
 public final class ActionUtils {
 
   @Nullable
-  public static Action getActionForLookupData(Environment env, ActionLookupData actionLookupData)
+  public static Action getActionForLookupData(
+      Environment env, ActionLookupData actionLookupData, boolean crashIfActionOwnerMissing)
       throws InterruptedException {
     ActionLookupValue actionLookupValue =
-        ArtifactFunction.getActionLookupValue(actionLookupData.getActionLookupKey(), env);
+        ArtifactFunction.getActionLookupValue(
+            actionLookupData.getActionLookupKey(), env, crashIfActionOwnerMissing);
     return actionLookupValue != null
         ? actionLookupValue.getAction(actionLookupData.getActionIndex())
         : null;

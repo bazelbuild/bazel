@@ -546,6 +546,10 @@ public final class Crosstool {
     String build =
         Joiner.on("\n")
             .join(
+                "load('@rules_cc//cc/toolchains:cc_toolchain.bzl',"
+                    + " 'cc_toolchain')",
+                "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
+                    + " 'cc_toolchain_alias')",
                 "package(default_visibility=['//visibility:public'])",
                 "licenses(['restricted'])",
                 "",
@@ -604,11 +608,6 @@ public final class Crosstool {
         String.format(
             "register_toolchains('%s:all')",
             crosstoolTopLabel.getPackageIdentifier().getCanonicalForm()));
-    config.append(
-        "WORKSPACE",
-        String.format(
-            "register_toolchains('%s:all')",
-            crosstoolTopLabel.getPackageIdentifier().getCanonicalForm()));
     // Empty files to satisfy fake targets.
     config.create(crosstoolTop + "/grep-includes");
     config.create(crosstoolTop + "/build_interface_so");
@@ -629,7 +628,7 @@ public final class Crosstool {
                 "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
                 "load('"
                     + TestConstants.TOOLS_REPOSITORY
-                    + "//third_party/cc_rules/macros:defs.bzl', 'cc_library')",
+                    + "//third_party/cc_rules/macros:defs.bzl', 'cc_library', 'cc_toolchain')",
                 "exports_files(glob(['**']))",
                 "",
                 "cc_library(",
@@ -697,7 +696,6 @@ public final class Crosstool {
           "    linker_files = ':link',",
           "    objcopy_files = ':empty',",
           "    strip_files = ':empty',",
-          "    supports_param_files = 0,",
           supportsHeaderParsing ? "    supports_header_parsing = 1," : "",
           dynamicRuntimeLabel == null
               ? ""
@@ -720,9 +718,6 @@ public final class Crosstool {
         Joiner.on("\n").join(crosstoolBuild.build()));
     config.append(
         "MODULE.bazel",
-        "register_toolchains('//" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR + ":all')");
-    config.append(
-        "WORKSPACE",
         "register_toolchains('//" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR + ":all')");
     config.overwrite(crosstoolTop + "/cc_toolchain_config.bzl", ccToolchainConfigFileContents);
   }

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.runtime.MemoryPressureEvent;
 import com.google.devtools.build.lib.runtime.MemoryPressureOptions;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
+import java.time.Duration;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,6 +41,7 @@ public final class HighWaterMarkLimiterTest {
           .setWasFullGc(false)
           .setTenuredSpaceMaxBytes(100L)
           .setTenuredSpaceUsedBytes(91L)
+          .setDuration(Duration.ofMillis(42L))
           .build();
   private static final MemoryPressureEvent FULL =
       MemoryPressureEvent.newBuilder()
@@ -47,6 +49,7 @@ public final class HighWaterMarkLimiterTest {
           .setWasFullGc(true)
           .setTenuredSpaceMaxBytes(100L)
           .setTenuredSpaceUsedBytes(91L)
+          .setDuration(Duration.ofSeconds(42L))
           .build();
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
 
@@ -70,6 +73,7 @@ public final class HighWaterMarkLimiterTest {
             .setWasFullGc(false)
             .setTenuredSpaceMaxBytes(100L)
             .setTenuredSpaceUsedBytes(89L)
+            .setDuration(Duration.ofMillis(42L))
             .build();
     underTest.handle(belowThreshold);
 
@@ -162,7 +166,9 @@ public final class HighWaterMarkLimiterTest {
   }
 
   private static void assertStats(
-      HighWaterMarkLimiter underTest, MemoryPressureStats.Builder expected) {
-    assertThat(underTest.getStats()).isEqualTo(expected.build());
+      HighWaterMarkLimiter underTest, MemoryPressureStats.Builder expectedBuilder) {
+    MemoryPressureStats.Builder actualBuilder = MemoryPressureStats.newBuilder();
+    underTest.populateStats(actualBuilder);
+    assertThat(actualBuilder.build()).isEqualTo(expectedBuilder.build());
   }
 }

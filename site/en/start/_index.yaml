@@ -48,10 +48,6 @@ landing_page:
       path: /install/windows
       custom_image:
         path: /install/images/windows.svg
-    - description: Fedora and CentOS
-      path: /install/redhat
-      custom_image:
-        path: /install/images/redhat.svg
     - description: Ubuntu
       path: /install/ubuntu
       custom_image:

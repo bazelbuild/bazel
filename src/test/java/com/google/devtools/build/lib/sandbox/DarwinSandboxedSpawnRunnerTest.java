@@ -68,7 +68,6 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
   @Before
   public void setUp() throws Exception {
     commandEnvironment = runtimeWrapper.newCommand();
-    commandEnvironment.setWorkspaceName("workspace");
     commandEnvironment
         .getLocalResourceManager()
         .setAvailableResources(LocalHostCapacity.getLocalHostCapacity());
@@ -124,22 +123,14 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
   @Test
   public void testSimpleExecution() throws Exception {
     DarwinSandboxedSpawnRunner runner =
-        new DarwinSandboxedSpawnRunner(
-            new SandboxHelpers(),
-            commandEnvironment,
-            sandboxBase,
-            treeDeleter);
+        new DarwinSandboxedSpawnRunner(commandEnvironment, sandboxBase, treeDeleter);
     doSimpleExecutionTest(runner);
   }
 
   @Test
   public void testSupportsParamFiles() throws Exception {
     DarwinSandboxedSpawnRunner runner =
-        new DarwinSandboxedSpawnRunner(
-            new SandboxHelpers(),
-            commandEnvironment,
-            sandboxBase,
-            treeDeleter);
+        new DarwinSandboxedSpawnRunner(commandEnvironment, sandboxBase, treeDeleter);
     Spawn spawn =
         new SpawnBuilder("cp", "params/param-file", "out")
             .withInput(

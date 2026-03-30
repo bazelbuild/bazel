@@ -41,6 +41,15 @@ public abstract class SkyValueDirtinessChecker {
       throws IOException;
 
   /**
+   * Returns whether directory listings should be invalidated even if file types do not change.
+   *
+   * <p>Handles MTSV changes on directory listings when files are modified without changing type.
+   */
+  public boolean invalidateListingsOnFileModification() {
+    return false;
+  }
+
+  /**
    * Returns the max transitive source version (mtsv) of a {@link SkyKey} for its new {@link
    * SkyValue}.
    */

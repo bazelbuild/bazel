@@ -30,11 +30,12 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.Store;
+import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
-import com.google.devtools.build.lib.remote.util.DigestOutputStream;
+import com.google.devtools.build.lib.remote.common.MaybePathBacked;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistryLite;
@@ -44,8 +45,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import javax.annotation.Nullable;
+import java.util.concurrent.Executors;
 
 /**
  * An on-disk store for the remote action cache.
@@ -71,21 +71,14 @@ public class DiskCacheClient {
   private final ImmutableMap<Store, Path> storeRootMap;
   private final Path tmpRoot;
 
-  private final ListeningExecutorService executorService;
-  private final boolean verifyDownloads;
-  private final DigestUtil digestUtil;
+  // Disk cache operations are almost entirely I/O-bound as digests are only computed as part of
+  // I/O operations, so using virtual threads is appropriate.
+  @SuppressWarnings("AllowVirtualThreads")
+  private final ListeningExecutorService executorService =
+      MoreExecutors.listeningDecorator(
+          Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("disk-cache-", 0).factory()));
 
-  /**
-   * @param verifyDownloads whether verify the digest of downloaded content are the same as the
-   *     digest used to index that file.
-   */
-  public DiskCacheClient(
-      Path root, DigestUtil digestUtil, ExecutorService executorService, boolean verifyDownloads)
-      throws IOException {
-    this.digestUtil = digestUtil;
-    this.executorService = MoreExecutors.listeningDecorator(executorService);
-    this.verifyDownloads = verifyDownloads;
-
+  public DiskCacheClient(Path root, DigestUtil digestUtil) throws IOException {
     Path fnRoot =
         isOldStyleDigestFunction(digestUtil.getDigestFunction())
             ? root
@@ -138,7 +131,7 @@ public class DiskCacheClient {
     }
 
     target.getParentDirectory().createDirectoryAndParents();
-    src.renameTo(target);
+    FileSystemUtils.renameToleratingConcurrentCreation(src, target);
   }
 
   private ListenableFuture<Void> download(Digest digest, OutputStream out, Store store) {
@@ -148,23 +141,29 @@ public class DiskCacheClient {
           if (!refresh(path)) {
             throw new CacheNotFoundException(digest);
           }
-          try (InputStream in = path.getInputStream()) {
-            ByteStreams.copy(in, out);
+          Path outPath = null;
+          if (out instanceof MaybePathBacked maybePathBacked) {
+            outPath = maybePathBacked.maybeGetPath();
+          }
+
+          if (outPath != null) {
+            // If the output stream is path-backed, the filesystem may be able to avoid copying the
+            // file.
+            FileSystemUtils.copyFile(path, outPath);
+          } else {
+            try (InputStream in = path.getInputStream()) {
+              ByteStreams.copy(in, out);
+            }
           }
           return null;
         });
   }
 
   public ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
-    @Nullable
-    DigestOutputStream digestOut = verifyDownloads ? digestUtil.newDigestOutputStream(out) : null;
     return Futures.transformAsync(
-        download(digest, digestOut != null ? digestOut : out, Store.CAS),
+        download(digest, out, Store.CAS),
         (v) -> {
           try {
-            if (digestOut != null) {
-              Utils.verifyBlobContents(digest, digestOut.digest());
-            }
             out.flush();
             return immediateFuture(null);
           } catch (IOException e) {
@@ -207,9 +206,10 @@ public class DiskCacheClient {
       var treeDigest = outputDirectory.getTreeDigest();
       checkDigestExists(treeDigest);
 
-      var treePath = toPath(treeDigest, Store.CAS);
-      var tree =
-          Tree.parseFrom(treePath.getInputStream(), ExtensionRegistryLite.getEmptyRegistry());
+      Tree tree;
+      try (var in = toPath(treeDigest, Store.CAS).getInputStream()) {
+        tree = Tree.parseFrom(in, ExtensionRegistryLite.getEmptyRegistry());
+      }
       checkOutputDirectory(tree.getRoot());
       for (var dir : tree.getChildrenList()) {
         checkOutputDirectory(dir);
@@ -256,13 +256,15 @@ public class DiskCacheClient {
     return executorService.submit(
         () -> {
           try (InputStream data = actionResult.toByteString().newInput()) {
-            saveFile(actionKey.getDigest(), Store.AC, data);
+            saveFile(actionKey.digest(), Store.AC, data);
           }
           return null;
         });
   }
 
-  public void close() {}
+  public void close() {
+    executorService.close();
+  }
 
   public ListenableFuture<Void> uploadFile(Digest digest, Path file) {
     return executorService.submit(
@@ -307,7 +309,9 @@ public class DiskCacheClient {
   public void saveFile(Digest digest, Store store, InputStream in) throws IOException {
     Path path = toPath(digest, store);
 
-    if (refresh(path)) {
+    // CAS entries are content-addressed and thus automatically have the correct content if they
+    // exist.
+    if (store == Store.CAS && refresh(path)) {
       return;
     }
 
@@ -324,7 +328,7 @@ public class DiskCacheClient {
         }
       }
       path.getParentDirectory().createDirectoryAndParents();
-      temp.renameTo(path);
+      FileSystemUtils.renameToleratingConcurrentCreation(temp, path);
     } catch (IOException e) {
       try {
         temp.delete();

@@ -23,12 +23,12 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link TimeSeries}. */
+/** Tests for {@link TimeSeriesImpl}. */
 @RunWith(JUnit4.class)
 public final class TimeSeriesTest {
   @Test
   public void testAddRange() {
-    TimeSeries timeSeries = new TimeSeries(Duration.ofMillis(42), Duration.ofMillis(100));
+    TimeSeries timeSeries = new TimeSeriesImpl(Duration.ofMillis(42), Duration.ofMillis(100));
     timeSeries.addRange(Duration.ofMillis(42), Duration.ofMillis(142));
     timeSeries.addRange(Duration.ofMillis(442), Duration.ofMillis(542));
     double[] values = timeSeries.toDoubleArray(5);
@@ -37,7 +37,7 @@ public final class TimeSeriesTest {
 
   @Test
   public void testAddRangeWithValue() {
-    TimeSeries timeSeries = new TimeSeries(Duration.ofMillis(42), Duration.ofMillis(100));
+    TimeSeries timeSeries = new TimeSeriesImpl(Duration.ofMillis(42), Duration.ofMillis(100));
     timeSeries.addRange(Duration.ofMillis(42), Duration.ofMillis(242), 3);
     timeSeries.addRange(Duration.ofMillis(442), Duration.ofMillis(542), 0.5);
     double[] values = timeSeries.toDoubleArray(5);
@@ -46,7 +46,7 @@ public final class TimeSeriesTest {
 
   @Test
   public void testAddRangeOverlappingWithValue() {
-    TimeSeries timeSeries = new TimeSeries(Duration.ofMillis(42), Duration.ofMillis(100));
+    TimeSeries timeSeries = new TimeSeriesImpl(Duration.ofMillis(42), Duration.ofMillis(100));
     timeSeries.addRange(Duration.ofMillis(42), Duration.ofMillis(242), 3);
     timeSeries.addRange(Duration.ofMillis(142), Duration.ofMillis(442), 0.5);
     double[] values = timeSeries.toDoubleArray(5);
@@ -55,7 +55,7 @@ public final class TimeSeriesTest {
 
   @Test
   public void testAddRangeFractions() {
-    TimeSeries timeSeries = new TimeSeries(Duration.ofMillis(42), Duration.ofMillis(100));
+    TimeSeries timeSeries = new TimeSeriesImpl(Duration.ofMillis(42), Duration.ofMillis(100));
     timeSeries.addRange(Duration.ofMillis(92), Duration.ofMillis(267));
     double[] values = timeSeries.toDoubleArray(5);
     assertThat(values).usingTolerance(1.0e-10).containsExactly(0.5, 1, 0.25, 0, 0).inOrder();
@@ -63,7 +63,7 @@ public final class TimeSeriesTest {
 
   @Test
   public void testAddRangeWithValueFractions() {
-    TimeSeries timeSeries = new TimeSeries(Duration.ofMillis(42), Duration.ofMillis(100));
+    TimeSeries timeSeries = new TimeSeriesImpl(Duration.ofMillis(42), Duration.ofMillis(100));
     timeSeries.addRange(Duration.ofMillis(92), Duration.ofMillis(267), 3);
     double[] values = timeSeries.toDoubleArray(5);
     assertThat(values).usingTolerance(1.0e-10).containsExactly(1.5, 3, 0.75, 0, 0).inOrder();
@@ -71,7 +71,7 @@ public final class TimeSeriesTest {
 
   @Test
   public void testResize() {
-    TimeSeries timeSeries = new TimeSeries(Duration.ZERO, Duration.ofMillis(100));
+    TimeSeries timeSeries = new TimeSeriesImpl(Duration.ZERO, Duration.ofMillis(100));
     timeSeries.addRange(Duration.ZERO, Duration.ofMillis(100 * 100 + 1), 42);
     double[] values = timeSeries.toDoubleArray(101);
     double[] expected = new double[101];
@@ -83,7 +83,7 @@ public final class TimeSeriesTest {
   @Test
   public void testParallelism() throws Exception {
     // Define two threads. One is writing 1 on odd places, and another writes 2 on even places.
-    TimeSeries timeSeries = new TimeSeries(Duration.ZERO, Duration.ofMillis(100));
+    TimeSeries timeSeries = new TimeSeriesImpl(Duration.ZERO, Duration.ofMillis(100));
     CountDownLatch latch = new CountDownLatch(2);
     TestThread thread1 =
         new TestThread(

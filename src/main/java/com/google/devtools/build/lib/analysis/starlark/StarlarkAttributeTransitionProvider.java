@@ -37,6 +37,7 @@ import java.util.LinkedHashMap;
 import java.util.Objects;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark.InvalidStarlarkValueException;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * This class implements {@link TransitionFactory} to provide a starlark-defined transition that
@@ -84,6 +85,10 @@ public class StarlarkAttributeTransitionProvider
     return false;
   }
 
+  public boolean isExecTransitionProvider() {
+    return false;
+  }
+
   @Override
   public TransitionType transitionType() {
     return TransitionType.ATTRIBUTE;
@@ -95,7 +100,7 @@ public class StarlarkAttributeTransitionProvider
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<transition object>");
   }
 
@@ -145,12 +150,18 @@ public class StarlarkAttributeTransitionProvider
               buildOptions,
               starlarkDefinedConfigTransition,
               allowImmutableFlagChanges(),
+              isExecTransitionProvider(),
               attrObject,
               eventHandler);
       if (res == null) {
         return ImmutableMap.of("error", buildOptions.clone());
       }
       return res;
+    }
+
+    @Override
+    public boolean isExecTransition() {
+      return isExecTransitionProvider();
     }
 
     @Override

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
 import com.google.common.base.Optional;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.FragmentCollection;
 import com.google.devtools.build.lib.analysis.LocationExpander;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -49,14 +51,15 @@ import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkSubrule.SubruleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -68,6 +71,7 @@ import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -151,18 +155,7 @@ public final class StarlarkRuleContext
    * This variable is used to expose the state of {@link
    * RuleContext#configurationMakeVariableContext} to the user via {@code ctx.var}.
    *
-   * <p>Computing this field causes a side-effect of initializing the Make var context with an empty
-   * list of additional MakeVariableSuppliers. Historically, this was fine for Starlark-defined
-   * rules, but became a problem when we started giving StarlarkRuleContexts to native rules (to
-   * sandwich them with {@code @_builtins}, for Starlarkification). The native rules would then
-   * compete with this default initialization for control over the Make var context.
-   *
-   * <p>To work around this, we now compute and cache the Dict of all Make vars lazily at the first
-   * call to {@code ctx.var}. If a native rule provides custom MakeVariableSuppliers (via {@link
-   * RuleContext#initConfigurationMakeVariableContext}) and also passes {@code ctx} to a
-   * Starlark-defined function that accesses {@code ctx.var}, then the call to {@code
-   * initConfigurationMakeVariableContext} must come first or else that call will throw a
-   * precondition exception.
+   * <p>Computing this field causes a side-effect of initializing the Make var context.
    *
    * <p>Note that StarlarkRuleContext can (for pathological user-written rules) survive the analysis
    * phase and be accessed concurrently. Nonetheless, it is still safe to initialize {@code ctx.var}
@@ -249,7 +242,7 @@ public final class StarlarkRuleContext
         } else if (type == BuildType.OUTPUT_LIST) {
           outputs.addOutput(attrName, artifacts);
         } else {
-          throw new AssertionError(
+          throw ruleContext.throwWithRuleError(
               String.format("Attribute %s has unexpected output type %s", attrName, type));
         }
       }
@@ -294,6 +287,16 @@ public final class StarlarkRuleContext
       this.splitAttributes = null;
       StarlarkAttributesCollection.Builder ruleBuilder =
           StarlarkAttributesCollection.builder(this, ruleContext.getRulePrerequisitesCollection());
+      try {
+        Dict<String, String> makeVariables =
+            ((AspectContext) ruleContext)
+                .getBaseTargetConfigurationMakeVariableContext()
+                .collectMakeVariables()
+                .buildImmutable();
+        ruleBuilder.putAllRuleVariables(makeVariables);
+      } catch (ExpansionException e) {
+        throw ruleContext.throwWithRuleError("Exception expanding template variables", e);
+      }
 
       for (Attribute attribute : rule.getAttributes()) {
         Object value = ruleContext.attributes().get(attribute.getName(), attribute.getType());
@@ -409,7 +412,7 @@ public final class StarlarkRuleContext
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       if (isImmutable()) {
         printer.append("ctx.outputs(for ");
         printer.append(context.ruleLabelCanonicalName);
@@ -427,7 +430,7 @@ public final class StarlarkRuleContext
           first = false;
           printer.append(field);
           printer.append(" = ");
-          printer.repr(getValue(field));
+          printer.repr(getValue(field), semantics);
         }
         printer.append(")");
       } catch (EvalException e) {
@@ -539,8 +542,17 @@ public final class StarlarkRuleContext
               StarlarkAttributesCollection.Builder.convertStringToLabelMap(
                   ruleContext.attributes().get(attr.getName(), BuildType.LABEL_DICT_UNARY),
                   prerequisites);
+        } else if (attr.getType() == BuildType.LABEL_LIST_DICT) {
+          ImmutableList<ConfiguredTarget> prerequisites =
+              splitPrereq.getValue().stream()
+                  .map(ConfiguredTargetAndData::getConfiguredTarget)
+                  .collect(ImmutableList.toImmutableList());
+
+          value =
+              StarlarkAttributesCollection.Builder.convertStringToLabelListMap(
+                  ruleContext.attributes().get(attr.getName(), BuildType.LABEL_LIST_DICT),
+                  prerequisites);
         } else {
-          // BuildType.LABEL_LIST
           value =
               StarlarkList.immutableCopyOf(
                   splitPrereq.getValue().stream()
@@ -576,7 +588,7 @@ public final class StarlarkRuleContext
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     if (isForAspect) {
       printer.append("<aspect context for " + ruleLabelCanonicalName + ">");
     } else {
@@ -591,7 +603,12 @@ public final class StarlarkRuleContext
   }
 
   @Override
-  public StarlarkActionFactory actions() {
+  public StarlarkActionFactory actions() throws EvalException {
+    // ruleContext will be null when this StarlarkRuleContext is frozen. Accessing ctx.actions when
+    // frozen will throw other errors, so just ignore this for materializer rules.
+    if (ruleContext != null && ruleContext.getRule().getRuleClassObject().isMaterializerRule()) {
+      throw Starlark.errorf("ctx.actions is not available in materializer rules");
+    }
     return actionFactory;
   }
 
@@ -813,7 +830,7 @@ public final class StarlarkRuleContext
   }
 
   @Override
-  public Dict<String, String> var() throws EvalException, InterruptedException {
+  public Dict<String, String> var() throws EvalException {
     checkMutable("var");
     if (cachedMakeVariables == null) {
       Dict.Builder<String, String> vars;
@@ -846,7 +863,7 @@ public final class StarlarkRuleContext
         ruleContext.getToolchainContexts();
 
     return toolchainContexts.getExecGroupNames().stream()
-        .filter(e -> ruleContext.isAutomaticExecGroup(e))
+        .filter(DeclaredExecGroup::isAutomatic)
         .flatMap(
             execGroupName ->
                 toolchainContexts
@@ -933,7 +950,7 @@ public final class StarlarkRuleContext
   @Override
   public String expandMakeVariables(
       String attributeName, String command, Dict<?, ?> additionalSubstitutions) // <String, String>
-      throws EvalException, InterruptedException {
+      throws EvalException {
     checkMutable("expand_make_variables");
     final Map<String, String> additionalSubstitutionsMap =
         Dict.cast(additionalSubstitutions, String.class, String.class, "additional_substitutions");
@@ -941,17 +958,14 @@ public final class StarlarkRuleContext
   }
 
   private String expandMakeVariables(
-      String attributeName, String command, Map<String, String> additionalSubstitutionsMap)
-      throws InterruptedException {
+      String attributeName, String command, Map<String, String> additionalSubstitutionsMap) {
     ConfigurationMakeVariableContext makeVariableContext =
         new ConfigurationMakeVariableContext(
-            ruleContext,
-            ruleContext.getRule().getPackage(),
+            ruleContext.getRule().getPackageDeclarations(),
             ruleContext.getConfiguration(),
-            ImmutableList.of()) {
+            ruleContext.getDefaultTemplateVariableProviders()) {
           @Override
-          public String lookupVariable(String variableName)
-              throws ExpansionException, InterruptedException {
+          public String lookupVariable(String variableName) throws ExpansionException {
             if (additionalSubstitutionsMap.containsKey(variableName)) {
               return additionalSubstitutionsMap.get(variableName);
             } else {
@@ -994,8 +1008,11 @@ public final class StarlarkRuleContext
     checkMutable("build_file_path");
     checkDeprecated("ctx.label.package + '/BUILD'", "ctx.build_file_path", getStarlarkSemantics());
 
-    Package pkg = ruleContext.getRule().getPackage();
-    return pkg.getSourceRoot().get().relativize(pkg.getBuildFile().getPath()).getPathString();
+    Package.Metadata pkgMetadata = ruleContext.getRule().getPackageMetadata();
+    return pkgMetadata
+        .sourceRoot()
+        .relativize(pkgMetadata.buildFilename().asPath())
+        .getPathString();
   }
 
   private static void checkDeprecated(String newApi, String oldApi, StarlarkSemantics semantics)
@@ -1016,7 +1033,11 @@ public final class StarlarkRuleContext
     checkMutable("expand_location");
     try {
       ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap =
-          makeLabelMap(Sequence.cast(targets, TransitiveInfoCollection.class, "targets"));
+          makeLabelMap(
+              Sequence.cast(targets, TransitiveInfoCollection.class, "targets"),
+              thread
+                  .getSemantics()
+                  .getBool(BuildLanguageOptions.INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE));
       LocationExpander expander;
       if (!shortPaths) {
         expander = LocationExpander.withExecPaths(ruleContext, labelMap);
@@ -1049,9 +1070,7 @@ public final class StarlarkRuleContext
       checkPrivateAccess(thread);
     }
     checkMutable("runfiles");
-    Runfiles.Builder builder =
-        new Runfiles.Builder(
-            ruleContext.getWorkspaceName(), getConfiguration().legacyExternalRunfiles());
+    Runfiles.Builder builder = new Runfiles.Builder(ruleContext.getWorkspaceName());
     boolean checkConflicts = false;
     if (Starlark.truth(collectData)) {
       builder.addRunfiles(ruleContext, RunfilesProvider.DATA_RUNFILES);
@@ -1125,7 +1144,7 @@ public final class StarlarkRuleContext
       Dict<?, ?> labelDictUnchecked,
       Dict<?, ?> executionRequirementsUnchecked,
       StarlarkThread thread)
-      throws EvalException, InterruptedException {
+      throws EvalException {
     checkMutable("resolve_command");
     Map<Label, Iterable<Artifact>> labelDict = checkLabelDict(labelDictUnchecked);
     // The best way to fix this probably is to convert CommandHelper to Starlark.
@@ -1137,7 +1156,7 @@ public final class StarlarkRuleContext
     String attribute = Type.STRING.convertOptional(attributeUnchecked, "attribute");
     if (expandLocations) {
       command =
-          helper.resolveCommandAndExpandLabels(command, attribute, /*allowDataInLabel=*/ false);
+          helper.resolveCommandAndExpandLabels(command, attribute, /* allowDataInLabel= */ false);
     }
     if (!Starlark.isNullOrNone(makeVariablesUnchecked)) {
       Map<String, String> makeVariables =
@@ -1157,16 +1176,18 @@ public final class StarlarkRuleContext
                 "execution_requirements"));
     // TODO(b/234923262): Take exec_group into consideration instead of using the default
     // exec_group.
+    PlatformInfo executionPlatform = ruleContext.getExecutionPlatform();
     PathFragment shExecutable =
-        ShToolchain.getPathForPlatform(
-            ruleContext.getConfiguration(), ruleContext.getExecutionPlatform());
+        ShToolchain.getPathForPlatform(ruleContext.getConfiguration(), executionPlatform);
 
     BashCommandConstructor constructor =
         CommandHelper.buildBashCommandConstructor(
             executionRequirements,
             shExecutable,
             String.format(".resolve_command_%d.script.sh", resolveCommandScriptCounter++));
-    List<String> argv = helper.buildCommandLine(command, inputs, constructor);
+    List<String> argv =
+        helper.buildCommandLine(
+            command, inputs, constructor, getOsFromConstraintsOrHost(executionPlatform));
     return Tuple.triple(
         StarlarkList.copyOf(thread.mutability(), inputs),
         StarlarkList.copyOf(thread.mutability(), argv),
@@ -1196,6 +1217,23 @@ public final class StarlarkRuleContext
   }
 
   @Override
+  public Label packageRelativeLabel(Object input) throws EvalException {
+    checkMutable("package_relative_label");
+    if (input instanceof Label inputLabel) {
+      return inputLabel;
+    }
+    try {
+      return Label.parseWithPackageContext(
+          (String) input,
+          Label.PackageContext.of(
+              ruleContext.getLabel().getPackageIdentifier(),
+              ruleContext.getRule().getPackageMetadata().repositoryMapping()));
+    } catch (LabelSyntaxException e) {
+      throw Starlark.errorf("invalid label in ctx.package_relative_label: %s", e.getMessage());
+    }
+  }
+
+  @Override
   public StarlarkSemantics getStarlarkSemantics() {
     return ruleContext.getAnalysisEnvironment().getStarlarkSemantics();
   }
@@ -1212,7 +1250,8 @@ public final class StarlarkRuleContext
     for (Map.Entry<?, ?> entry : labelDict.entrySet()) {
       Object key = entry.getKey();
       if (!(key instanceof Label)) {
-        throw Starlark.errorf("invalid key %s in 'label_dict'", Starlark.repr(key));
+        throw Starlark.errorf(
+            "invalid key %s in 'label_dict'", Starlark.repr(key, StarlarkSemantics.DEFAULT));
       }
       ImmutableList.Builder<Artifact> files = ImmutableList.builder();
       Object val = entry.getValue();
@@ -1222,11 +1261,12 @@ public final class StarlarkRuleContext
       } else {
         throw Starlark.errorf(
             "invalid value %s in 'label_dict': expected iterable, but got '%s'",
-            Starlark.repr(val), Starlark.type(val));
+            Starlark.repr(val, StarlarkSemantics.DEFAULT), Starlark.type(val));
       }
       for (Object file : valIter) {
         if (!(file instanceof Artifact)) {
-          throw Starlark.errorf("invalid value %s in 'label_dict'", Starlark.repr(val));
+          throw Starlark.errorf(
+              "invalid value %s in 'label_dict'", Starlark.repr(val, StarlarkSemantics.DEFAULT));
         }
         files.add((Artifact) file);
       }
@@ -1239,19 +1279,38 @@ public final class StarlarkRuleContext
    * Builds a map: Label -> List of files from the given labels
    *
    * @param knownLabels List of known labels
+   * @param locationsPrefersExecutable whether to prefer an executable over a list of files that
+   *     isn't a singleton when requesting a plural location function
    * @return Immutable map with immutable collections as values
    */
   public static ImmutableMap<Label, ImmutableCollection<Artifact>> makeLabelMap(
-      Iterable<TransitiveInfoCollection> knownLabels) throws EvalException {
+      Iterable<TransitiveInfoCollection> knownLabels, boolean locationsPrefersExecutable)
+      throws EvalException {
     var targetsMap = new LinkedHashMap<Label, ImmutableCollection<Artifact>>();
     for (TransitiveInfoCollection current : knownLabels) {
       Label label = AliasProvider.getDependencyLabel(current);
       if (targetsMap.containsKey(label)) {
         throw Starlark.errorf(
-            "Label %s is found more than once in 'targets' list.", Starlark.repr(label.toString()));
+            "Label %s is found more than once in 'targets' list.",
+            Starlark.repr(label.toString(), StarlarkSemantics.DEFAULT));
       }
 
-      targetsMap.put(label, current.getProvider(FileProvider.class).getFilesToBuild().toList());
+      var filesToRunProvider = current.getProvider(FilesToRunProvider.class);
+      ImmutableCollection<Artifact> expansion;
+      // Only use the executable if requesting the files to build via a singleton location function
+      // would fail to ensure backwards compatibility (this function used to always return the
+      // files to build). The case of a plural location function is potentially breaking, but gated
+      // behind locationsPrefersExecutable.
+      // Avoid flattening a nested set if the first branch is taken.
+      if (filesToRunProvider != null
+          && filesToRunProvider.getExecutable() != null
+          && locationsPrefersExecutable
+          && !current.getProvider(FileProvider.class).getFilesToBuild().isSingleton()) {
+        expansion = ImmutableList.of(filesToRunProvider.getExecutable());
+      } else {
+        expansion = current.getProvider(FileProvider.class).getFilesToBuild().toList();
+      }
+      targetsMap.put(label, expansion);
     }
 
     return ImmutableMap.copyOf(targetsMap);

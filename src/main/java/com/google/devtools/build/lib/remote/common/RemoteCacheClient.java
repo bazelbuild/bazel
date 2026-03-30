@@ -18,13 +18,15 @@ import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
-import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * An interface for a remote caching protocol.
@@ -35,40 +37,6 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
   ServerCapabilities getServerCapabilities() throws IOException;
 
   ListenableFuture<String> getAuthority();
-
-  /**
-   * A key in the remote action cache. The type wraps around a {@link Digest} of an {@link Action}.
-   * Action keys are special in that they aren't content-addressable but refer to action results.
-   *
-   * <p>Terminology note: "action" is used here in the remote execution protocol sense, which is
-   * equivalent to a Bazel "spawn" (a Bazel "action" being a higher-level concept).
-   */
-  final class ActionKey {
-
-    private final Digest digest;
-
-    public Digest getDigest() {
-      return digest;
-    }
-
-    public ActionKey(Digest digest) {
-      this.digest = Preconditions.checkNotNull(digest, "digest");
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (!(other instanceof ActionKey otherKey)) {
-        return false;
-      }
-
-      return digest.equals(otherKey.digest);
-    }
-
-    @Override
-    public int hashCode() {
-      return digest.hashCode();
-    }
-  }
 
   /**
    * Downloads an action result for the {@code actionKey}.
@@ -112,25 +80,91 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
       RemoteActionExecutionContext context, Digest digest, OutputStream out);
 
   /**
-   * Uploads a {@code file} to the CAS.
+   * A supplier for the data comprising a BLOB.
+   *
+   * <p>As blobs can be large and may need to be kept in memory, consumers should call {@link #get}
+   * as late as possible.
+   */
+  @FunctionalInterface
+  interface Blob {
+    /** Get an input stream for the blob's data. Can be called multiple times. */
+    InputStream get() throws IOException;
+
+    /** An optional human-readable description of the blob's source. */
+    @Nullable
+    default String description() {
+      return null;
+    }
+  }
+
+  /**
+   * Uploads a {@code file} BLOB to the CAS.
    *
    * @param context the context for the action.
    * @param digest The digest of the file.
    * @param file The file to upload.
    * @return A future representing pending completion of the upload.
    */
-  ListenableFuture<Void> uploadFile(RemoteActionExecutionContext context, Digest digest, Path file);
+  default ListenableFuture<Void> uploadFile(
+      RemoteActionExecutionContext context, Digest digest, Path file) {
+    return uploadBlob(
+        context,
+        digest,
+        new Blob() {
+          @Override
+          public InputStream get() {
+            return new LazyFileInputStream(file);
+          }
+
+          @Override
+          public String description() {
+            return "file " + file;
+          }
+        });
+  }
 
   /**
-   * Uploads a BLOB to the CAS.
+   * Uploads a blob to the CAS.
+   *
+   * @param context the context for the action.
+   * @param digest The digest of the blob.
+   * @param blob A supplier for the blob to upload. May be called multiple times, but is closed by
+   *     the implementation after the upload is complete.
+   * @return A future representing pending completion of the upload.
+   */
+  ListenableFuture<Void> uploadBlob(RemoteActionExecutionContext context, Digest digest, Blob blob);
+
+  /**
+   * Uploads an in-memory BLOB to the CAS.
    *
    * @param context the context for the action.
    * @param digest The digest of the blob.
    * @param data The BLOB to upload.
    * @return A future representing pending completion of the upload.
    */
-  ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, ByteString data);
+  default ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, ByteString data) {
+    return uploadBlob(context, digest, data::newInput);
+  }
+
+  /**
+   * Registers a blob as the concatenation of the given chunks via SpliceBlob RPC.
+   *
+   * <p>This is used for CDC (Content-Defined Chunking) uploads. After uploading all chunks,
+   * SpliceBlob is called to register the blob with the given digest as the concatenation of the
+   * chunks.
+   *
+   * @param context the context for the action.
+   * @param blobDigest The digest of the complete blob.
+   * @param chunkDigests The digests of the chunks that make up the blob, in order.
+   * @return A future representing pending completion of the splice operation, or null if SpliceBlob
+   *     is not supported by this cache client.
+   */
+  @Nullable
+  default ListenableFuture<Void> spliceBlob(
+      RemoteActionExecutionContext context, Digest blobDigest, List<Digest> chunkDigests) {
+    return null;
+  }
 
   /** Close resources associated with the remote cache. */
   void close();

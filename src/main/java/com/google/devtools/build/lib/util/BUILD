@@ -1,5 +1,4 @@
 load("@rules_java//java:defs.bzl", "java_library")
-load("//src:build_defs.bzl", "java_11_library")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -10,15 +9,23 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/lib/util/io:srcs",
+        "//src/main/java/com/google/devtools/build/lib/util/regex:srcs",
     ],
     visibility = ["//src:__subpackages__"],
+)
+
+java_library(
+    name = "decimal_bucketer",
+    srcs = ["DecimalBucketer.java"],
+    deps = [
+        "//third_party:guava",
+    ],
 )
 
 java_library(
     name = "logging",
     srcs = ["LoggingUtil.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -31,7 +38,7 @@ java_library(
     ],
 )
 
-java_11_library(
+java_library(
     name = "os",
     srcs = ["OS.java"],
 )
@@ -47,19 +54,18 @@ java_library(
     srcs = ["FileSystemLock.java"],
     deps = [
         ":string_encoding",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
     ],
 )
 
 java_library(
-    name = "process",
-    srcs = ["ProcessUtils.java"],
+    name = "file_channels",
+    srcs = ["FileChannels.java"],
+    add_exports = ["java.base/sun.nio.ch"],
     deps = [
-        ":os",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/unix",
-        "//src/main/java/com/google/devtools/build/lib/windows:processes",
+        "//third_party:flogger",
     ],
 )
 
@@ -77,6 +83,7 @@ java_library(
     deps = [
         ":os",
         ":single_line_formatter",
+        ":string_encoding",
         ":util",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
@@ -115,18 +122,29 @@ java_library(
     name = "command",
     srcs = [
         "CommandBuilder.java",
-        "CommandDescriptionForm.java",
-        "CommandFailureUtils.java",
         "CommandUtils.java",
     ],
     deps = [
-        ":describable_execution_unit",
+        ":command_failure_utils",
         ":os",
-        ":script_util",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:error_prone_annotations",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "command_failure_utils",
+    srcs = [
+        "CommandDescriptionForm.java",
+        "CommandFailureUtils.java",
+    ],
+    deps = [
+        ":describable_execution_unit",
+        ":script_util",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -175,7 +193,7 @@ java_library(
     name = "object_graph_traverser",
     srcs = ["ObjectGraphTraverser.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/collect",
+        "//src/main/java/com/google/devtools/build/lib/collect:concurrent_identity_set",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -203,7 +221,7 @@ java_library(
     ],
 )
 
-java_11_library(
+java_library(
     name = "pair",
     srcs = [
         "Pair.java",
@@ -217,6 +235,7 @@ java_library(
     name = "util",
     srcs = [
         "AnsiStrippingOutputStream.java",
+        "BytesSink.java",
         "CPU.java",
         "ClassName.java",
         "DependencySet.java",
@@ -228,6 +247,7 @@ java_library(
         "LogHandlerQuerier.java",
         "LoggingUtil.java",
         "LongArrayList.java",
+        "MapCodec.java",
         "NetUtil.java",
         "OnDemandString.java",
         "OptionsUtils.java",
@@ -246,13 +266,17 @@ java_library(
     exports = [
         # vfs depends on the profiler and creates a cycle since we use Pair in profiler
         ":pair",
-        ":stream_writer",
+        ":deterministic_writer",
     ],
     deps = [
         ":os",
         ":shell_escaper",
+        ":string_encoding",
+        ":thread_dump_analyzer",
+        ":thread_dumper",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
@@ -260,14 +284,31 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
-        "@protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
-java_11_library(
-    name = "stream_writer",
-    srcs = [
-        "StreamWriter.java",
+java_library(
+    name = "deterministic_writer",
+    srcs = ["DeterministicWriter.java"],
+    deps = ["@com_google_protobuf//:protobuf_java"],
+)
+
+java_library(
+    name = "byte_string_deterministic_writer",
+    srcs = ["ByteStringDeterministicWriter.java"],
+    deps = [
+        ":deterministic_writer",
+        "@com_google_protobuf//:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "proto_deterministic_writer",
+    srcs = ["ProtoDeterministicWriter.java"],
+    deps = [
+        ":deterministic_writer",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -278,11 +319,11 @@ java_library(
         "FileTypeSet.java",
     ],
     deps = [
+        ":os",
         ":string",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
-        "//src/main/java/com/google/devtools/build/lib/vfs:ospathpolicy",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -313,6 +354,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -347,7 +389,7 @@ java_library(
     ],
 )
 
-java_11_library(
+java_library(
     name = "exit_code",
     srcs = [
         "ExitCode.java",
@@ -363,6 +405,7 @@ java_library(
     name = "custom_exit_code_publisher",
     srcs = ["CustomExitCodePublisher.java"],
     deps = [
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -386,7 +429,7 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
-        "@protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -411,6 +454,7 @@ java_library(
     name = "heap_offset_helper",
     srcs = ["HeapOffsetHelper.java"],
     deps = [
+        ":TestType",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//third_party:flogger",
         "//third_party:guava",
@@ -445,6 +489,17 @@ java_library(
 )
 
 java_library(
+    name = "thread_dumper",
+    srcs = ["ThreadDumper.java"],
+    add_exports = ["java.base/jdk.internal.vm"],
+)
+
+java_library(
+    name = "thread_dump_analyzer",
+    srcs = ["ThreadDumpAnalyzer.java"],
+)
+
+java_library(
     name = "value_or_exception",
     srcs = ["ValueOrException.java"],
     deps = [
@@ -458,5 +513,18 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "cleaner",
+    srcs = ["BazelCleaner.java"],
+)
+
+java_library(
+    name = "markdown",
+    srcs = ["Markdown.java"],
+    deps = [
+        "@maven//:org_commonmark_commonmark",
     ],
 )

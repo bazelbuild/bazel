@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction;
@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -85,10 +84,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     SpecialArtifact parent = createTreeArtifact("parent");
     parent.setGeneratingActionKey(ActionLookupData.create(ACTION_LOOKUP_KEY, 0));
     new SerializationTester(parent, TreeFileArtifact.createTreeOutput(parent, "child"))
-        .addDependency(FileSystem.class, scratch.getFileSystem())
-        .addDependency(
-            Root.RootCodecDependencies.class,
-            new Root.RootCodecDependencies(Root.absoluteRoot(scratch.getFileSystem())))
+        .addDependencies(getCommonSerializationDependencies())
         .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
         .runTests();
   }
@@ -604,18 +600,16 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   @Test
   public void remoteDirectoryInjection() throws Exception {
     SpecialArtifact out = createTreeArtifact("output");
-    RemoteFileArtifactValue remoteFile1 =
-        RemoteFileArtifactValue.create(
+    FileArtifactValue remoteFile1 =
+        FileArtifactValue.createForRemoteFile(
             Hashing.sha256().hashString("one", UTF_8).asBytes(),
             /* size= */ 3,
-            /* locationIndex= */ 1,
-            /* expireAtEpochMilli= */ -1);
-    RemoteFileArtifactValue remoteFile2 =
-        RemoteFileArtifactValue.create(
+            /* locationIndex= */ 1);
+    FileArtifactValue remoteFile2 =
+        FileArtifactValue.createForRemoteFile(
             Hashing.sha256().hashString("two", UTF_8).asBytes(),
             /* size= */ 3,
-            /* locationIndex= */ 2,
-            /* expireAtEpochMilli= */ -1);
+            /* locationIndex= */ 2);
 
     Action action =
         new SimpleTestAction(out) {
@@ -994,7 +988,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     @Override
     void run(ActionExecutionContext context) throws IOException {
       for (Artifact child :
-          context.getArtifactExpander().tryExpandTreeArtifact(getPrimaryInput())) {
+          context.getInputMetadataProvider().getTreeMetadata(getPrimaryInput()).getChildren()) {
         Path newOutput = getPrimaryOutput().getPath().getRelative(child.getParentRelativePath());
         newOutput.createDirectoryAndParents();
         FileSystemUtils.copyFile(child.getPath(), newOutput);
@@ -1008,7 +1002,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
         fs.getPath(TestUtils.tmpDir()).getRelative("execroot").getRelative("default-exec-root");
     PathFragment execPath = PathFragment.create("out").getRelative(name);
     return SpecialArtifact.create(
-        ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out"),
+        ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "out"),
         execPath,
         ACTION_LOOKUP_KEY,
         SpecialArtifactType.TREE);
@@ -1033,7 +1027,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
             .map(path -> TreeFileArtifact.createTreeOutput(parent, path))
             .collect(toImmutableSet());
     for (TreeFileArtifact child : expectedChildren) {
-      assertWithMessage(child + " does not exist").that(child.getPath().exists()).isTrue();
+      assertWithMessage("%s does not exist", child).that(child.getPath().exists()).isTrue();
     }
     assertThat(result.getChildren()).isEqualTo(expectedChildren);
   }

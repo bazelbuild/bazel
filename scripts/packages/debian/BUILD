@@ -149,5 +149,6 @@ genrule(
         cp ./bazel_*.dsc $(location bazel.dsc)
         cp ./bazel_*.tar.gz $(location bazel.tar.gz)
         """,
+    target_compatible_with = ["@platforms//os:linux"],
     visibility = ["//scripts/packages:__pkg__"],
 )

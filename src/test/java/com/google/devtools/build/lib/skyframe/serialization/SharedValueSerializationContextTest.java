@@ -16,15 +16,20 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
-import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.InMemoryFingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NestedArrayCodec;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NotNestedSetCodec;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SettableWriteStatus;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,9 +39,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class SharedValueSerializationContextTest {
   private static final int CONCURRENCY = 20;
 
@@ -44,11 +48,11 @@ public final class SharedValueSerializationContextTest {
   private final Random rng = new Random(0);
 
   private static final class PutRecordingStore implements FingerprintValueStore {
-    private final ArrayList<SettableFuture<Void>> putResponses = new ArrayList<>();
+    private final ArrayList<SettableWriteStatus> putResponses = new ArrayList<>();
 
     @Override
-    public ListenableFuture<Void> put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
-      var response = SettableFuture.<Void>create();
+    public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
+      var response = new SettableWriteStatus();
       synchronized (putResponses) {
         putResponses.add(response);
       }
@@ -61,8 +65,8 @@ public final class SharedValueSerializationContextTest {
     }
 
     private void completeAllResponses() {
-      for (SettableFuture<Void> response : putResponses) {
-        response.set(null);
+      for (SettableWriteStatus response : putResponses) {
+        response.markSuccess();
       }
     }
   }
@@ -93,7 +97,7 @@ public final class SharedValueSerializationContextTest {
 
     // 4 remote arrays were written because d is memoized via the cache, despite the fact that d
     // occurs twice in the traversal.
-    ArrayList<SettableFuture<Void>> responses = store.putResponses;
+    ArrayList<SettableWriteStatus> responses = store.putResponses;
     assertThat(responses).hasSize(4);
 
     ListenableFuture<Void> writeStatus = result.getFutureToBlockWritesOn();
@@ -102,13 +106,13 @@ public final class SharedValueSerializationContextTest {
 
     // Sets some, but not all of the responses.
     for (int i = 0; i < 2; i++) {
-      responses.get(i).set(null);
+      responses.get(i).markSuccess();
     }
     assertThat(writeStatus.isDone()).isFalse(); // not yet done
 
     // Sets the remaining responses.
     for (int i = 2; i < responses.size(); i++) {
-      responses.get(i).set(null);
+      responses.get(i).markSuccess();
     }
     assertThat(writeStatus.isDone()).isTrue(); // write status future completes
   }
@@ -203,13 +207,13 @@ public final class SharedValueSerializationContextTest {
     // The put thread blocks, awaiting its associated latch.
     ConcurrentLinkedDeque<CountDownLatch> putPermits = new ConcurrentLinkedDeque<>();
     // Responses returned by the FingerprintValueStore.
-    ArrayList<SettableFuture<Void>> putResponses = new ArrayList<>();
+    var putResponses = new ArrayList<SettableWriteStatus>();
 
     var blockingStore =
         new FingerprintValueStore() {
           @Override
-          public ListenableFuture<Void> put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
-            var response = SettableFuture.<Void>create();
+          public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
+            var response = new SettableWriteStatus();
             synchronized (putResponses) {
               putResponses.add(response);
             }
@@ -297,8 +301,8 @@ public final class SharedValueSerializationContextTest {
     assertThat(putResponses).hasSize(CONCURRENCY * 2);
 
     // Setting all the responses completes the result write status futures.
-    for (SettableFuture<Void> response : putResponses) {
-      response.set(null);
+    for (SettableWriteStatus response : putResponses) {
+      response.markSuccess();
     }
     for (SerializationResult<ByteString> result : resultList) {
       assertThat(result.getFutureToBlockWritesOn().isDone()).isTrue();
@@ -328,7 +332,25 @@ public final class SharedValueSerializationContextTest {
             () ->
                 codecs.serializeMemoizedAndBlocking(
                     fingerprintValueService, subject2, /* profileCollector= */ null));
-    assertThat(thrown2).hasCauseThat().isSameInstanceAs(thrown1);
+    assertThat(thrown2).isSameInstanceAs(thrown1);
+  }
+
+  @Test
+  public void sharedValueIsCompressed(@TestParameter boolean compress) throws Exception {
+    InMemoryFingerprintValueStore store = new InMemoryFingerprintValueStore();
+    FingerprintValueService fingerprintValueService =
+        FingerprintValueService.createForTesting(store);
+    ObjectCodecs codecs = createObjectCodecs();
+    byte[] byteArray = new byte[compress ? 2000 : 1000];
+    Object[] a = new Object[] {byteArray};
+
+    var unused =
+        codecs.serializeMemoizedAndBlocking(
+            fingerprintValueService, new NotNestedSet(a), /* profileCollector= */ null);
+
+    ImmutableList<byte[]> storeValues = ImmutableList.copyOf(store.fingerprintToContents.values());
+    assertThat(storeValues).hasSize(1);
+    assertThat(storeValues.get(0)).hasLength(compress ? 23 : 1007);
   }
 
   /** Test data for {@link #errorInSharedPut}. */

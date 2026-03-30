@@ -77,10 +77,13 @@ public class BranchDetailAnalyzer extends Analyzer {
 
     long classid = CRC64.classId(reader.b);
     ExecutionData classData = executionData.get(classid);
-    if (classData == null) {
-      return;
+
+    // It's possible our class was never executed or that we're generating a baseline coverage
+    // report but we still need to perform the analysis run.
+    boolean[] probes = null;
+    if (classData != null) {
+      probes = classData.getProbes();
     }
-    boolean[] probes = classData.getProbes();
 
     BranchCoverageDetail detail = new BranchCoverageDetail();
 

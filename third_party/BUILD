@@ -1,25 +1,23 @@
-load("@rules_java//java:defs.bzl", "java_import", "java_library", "java_plugin")
+load("@rules_java//java:defs.bzl", "java_binary", "java_import", "java_library", "java_plugin")
 load("@rules_license//rules:license.bzl", "license")
+load("//src/tools/bzlmod:utils.bzl", "get_repo_root")
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup", "distrib_java_import")
-load(":compiler_config_setting.bzl", "create_compiler_config_setting")
 
 package(default_visibility = ["//visibility:public"])
+
+exports_files(["remoteapis/MODULE.bazel"])
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//third_party/allocation_instrumenter:srcs",
-        "//third_party/android_dex:srcs",
+        "//third_party/chicory:srcs",
         "//third_party/def_parser:srcs",
         "//third_party/googleapis:srcs",
         "//third_party/grpc:srcs",
         "//third_party/grpc-java:srcs",
         "//third_party/ijar:srcs",
         "//third_party/jarjar:srcs",
-        "//third_party/java/android_databinding:srcs",
-        "//third_party/java/aosp_gradle_core:srcs",
-        "//third_party/java/j2objc:srcs",
-        "//third_party/java/j2objc-annotations:srcs",
         "//third_party/java/jacoco:srcs",
         "//third_party/java/javapoet:srcs",
         "//third_party/java/jcommander:srcs",
@@ -31,8 +29,6 @@ filegroup(
         "//third_party/py/dataclasses:srcs",
         "//third_party/py/frozendict:srcs",
         "//third_party/py/mock:srcs",
-        "//third_party/remoteapis:srcs",
-        "//third_party/zlib:srcs",
     ],
 )
 
@@ -42,6 +38,11 @@ filegroup(
 filegroup(
     name = "gpl-srcs",
     srcs = [],
+)
+
+filegroup(
+    name = "patches",
+    srcs = glob(["*.patch"]),
 )
 
 alias(
@@ -57,11 +58,6 @@ alias(
 alias(
     name = "apache_commons_compress",
     actual = "@maven//:org_apache_commons_commons_compress",
-)
-
-alias(
-    name = "apache_commons_pool2",
-    actual = "@maven//:org_apache_commons_commons_pool2",
 )
 
 alias(
@@ -82,38 +78,48 @@ java_library(
     ],
 )
 
+exports_files(
+    [
+        # keep sorted
+        "asm/asm-9.9-sources.jar",
+        "asm/asm-analysis-9.9-sources.jar",
+        "asm/asm-commons-9.9-sources.jar",
+        "asm/asm-tree-9.9-sources.jar",
+    ],
+)
+
 distrib_java_import(
     name = "asm",
     enable_distributions = ["debian"],
-    jars = ["asm/asm-9.6.jar"],
-    srcjar = "asm/asm-9.6-sources.jar",
+    jars = ["asm/asm-9.9.jar"],
+    srcjar = "asm/asm-9.9-sources.jar",
 )
 
 java_import(
     name = "asm-analysis",
-    jars = ["asm/asm-analysis-9.6.jar"],
-    srcjar = "asm/asm-analysis-9.6-sources.jar",
+    jars = ["asm/asm-analysis-9.9.jar"],
+    srcjar = "asm/asm-analysis-9.9-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["asm/asm-commons-9.6.jar"],
-    srcjar = "asm/asm-commons-9.6-sources.jar",
+    jars = ["asm/asm-commons-9.9.jar"],
+    srcjar = "asm/asm-commons-9.9-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["asm/asm-tree-9.6.jar"],
-    srcjar = "asm/asm-tree-9.6-sources.jar",
+    jars = ["asm/asm-tree-9.9.jar"],
+    srcjar = "asm/asm-tree-9.9-sources.jar",
     runtime_deps = [":asm"],
 )
 
 java_import(
     name = "asm-util",
-    jars = ["asm/asm-util-9.6.jar"],
-    srcjar = "asm/asm-util-9.6-sources.jar",
+    jars = ["asm/asm-util-9.9.jar"],
+    srcjar = "asm/asm-util-9.9-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
@@ -140,7 +146,6 @@ java_plugin(
         ":auto_value_lib",
         ":guava",
         ":jsr305",
-        ":tomcat_annotations_api",
     ],
 )
 
@@ -194,7 +199,6 @@ java_plugin(
         ":auto_service_lib",
         ":auto_value_lib",
         ":guava",
-        ":tomcat_annotations_api",
     ],
 )
 
@@ -208,7 +212,6 @@ java_plugin(
         ":auto_service_lib",
         ":auto_value_lib",
         ":guava",
-        ":tomcat_annotations_api",
     ],
 )
 
@@ -222,7 +225,6 @@ java_plugin(
         ":auto_service_lib",
         ":auto_value_lib",
         ":guava",
-        ":tomcat_annotations_api",
     ],
 )
 
@@ -246,7 +248,6 @@ java_library(
     ],
     exports = [
         ":auto_value_api",
-        ":tomcat_annotations_api",
         "@maven//:com_ryanharter_auto_value_auto_value_gson_runtime",
     ],
 )
@@ -276,6 +277,28 @@ distrib_jar_filegroup(
     enable_distributions = ["debian"],
 )
 
+java_import(
+    name = "async_profiler",
+    jars = ["@async_profiler//file"],
+    runtime_deps = [":async_profiler_native"],
+)
+
+java_library(
+    name = "async_profiler_native",
+    resource_strip_prefix = select({
+        "//src/conditions:darwin": get_repo_root("async_profiler_macos"),
+        "//src/conditions:linux_arm": get_repo_root("async_profiler_linux_arm64"),
+        "//src/conditions:linux_x86_64": get_repo_root("async_profiler_linux_x64"),
+        "//conditions:default": None,
+    }),
+    resources = select({
+        "//src/conditions:darwin": ["@async_profiler_macos//:libasyncProfiler"],
+        "//src/conditions:linux_arm": ["@async_profiler_linux_arm64//:libasyncProfiler"],
+        "//src/conditions:linux_x86_64": ["@async_profiler_linux_x64//:libasyncProfiler"],
+        "//conditions:default": [],
+    }),
+)
+
 alias(
     name = "checker_framework_annotations",
     actual = "@maven//:org_checkerframework_checker_qual",
@@ -301,16 +324,20 @@ genrule(
     name = "fastutil_stripped_jar",
     srcs = [
         "@maven//:it_unimi_dsi_fastutil_file",
-        "@rules_java//toolchains:platformclasspath",
+        "@rules_java//toolchains:platformclasspath_nostrip",
     ],
     outs = ["fastutil-stripped.jar"],
+    # ProGuard output is silenced below because it prints
+    # ...
+    # Caused by: java.net.UnknownHostException: bk-docker-3gmr: Temporary failure in name resolution
+    # ...
+    # when running in the Bazel sandbox, which throws off bazel_determinism_test.
     cmd = """
-    $(location :proguard) \
+    $(location :proguard_bin) \
         -injars $(execpath @maven//:it_unimi_dsi_fastutil_file) \
         -outjars $@ \
-        -libraryjars $(execpath @rules_java//toolchains:platformclasspath) \
-        @$(location //tools:fastutil.proguard) \
-      | tail -n +2 # Skip the "ProGuard, version X" line
+        -libraryjars $(execpath @rules_java//toolchains:platformclasspath_nostrip) \
+        @$(location //tools:fastutil.proguard) > /dev/null
     # Null out the file times stored in the jar to make the output reproducible.
     TMPDIR=$$(mktemp -d)
     trap 'rm -rf $$TMPDIR' EXIT
@@ -321,13 +348,17 @@ genrule(
     (cd $$TMPDIR && find . -type f | LC_ALL=C sort | zip -qDX0r@ "$$OUTPUT")
     """,
     tools = [
-        ":proguard",
+        ":proguard_bin",
         "//tools:fastutil.proguard",
     ],
 )
 
 java_binary(
-    name = "proguard",
+    name = "proguard_bin",
+    jvm_flags = [
+        # Prevent ProGuard from calling out to the internet through log4j.
+        "-Dlog4j.rootLogger=OFF",
+    ],
     main_class = "proguard.ProGuard",
     runtime_deps = ["@maven//:com_guardsquare_proguard_base"],
 )
@@ -336,7 +367,6 @@ java_library(
     name = "error_prone_annotations",
     exports = [
         "@maven//:com_google_errorprone_error_prone_annotations",
-        "@maven//:com_google_errorprone_error_prone_type_annotations",
     ],
 )
 
@@ -463,6 +493,12 @@ java_library(
     exports = ["@maven//:javax_annotation_javax_annotation_api"],
 )
 
+distrib_jar_filegroup(
+    name = "javax_annotations-jars",
+    srcs = ["@maven//:javax_annotation_javax_annotation_api_file"],
+    enable_distributions = ["debian"],
+)
+
 alias(
     name = "rxjava3",
     actual = "@maven//:io_reactivex_rxjava3_rxjava",
@@ -487,15 +523,15 @@ alias(
 
 UNNECESSARY_DYNAMIC_LIBRARIES = select({
     "//src/conditions:windows": "*.so *.jnilib",
-    "//src/conditions:darwin": "*.so *.dll",
-    "//src/conditions:linux_x86_64": "*.jnilib *.dll",
-    "//src/conditions:linux_s390x": "*.jnilib *.dll",
+    "//src/conditions:darwin": "*.so *.dll *.pyd",
+    "//src/conditions:linux_x86_64": "*.jnilib *.dll *.pyd",
+    "//src/conditions:linux_s390x": "*.jnilib *.dll *.pyd",
     # The .so file is an x86/s390x one, so we can just remove it if the CPU is not x86/s390x
-    "//src/conditions:arm": "*.so *.jnilib *.dll",
-    "//src/conditions:linux_aarch64": "*.so *.jnilib *.dll",
-    "//src/conditions:linux_ppc": "*.so *.jnilib *.dll",
-    "//src/conditions:freebsd": "*.so *.jnilib *.dll",
-    "//src/conditions:openbsd": "*.so *.jnilib *.dll",
+    "//src/conditions:arm": "*.so *.jnilib *.dll *.pyd",
+    "//src/conditions:linux_aarch64": "*.so *.jnilib *.dll *.pyd",
+    "//src/conditions:linux_ppc": "*.so *.jnilib *.dll *.pyd",
+    "//src/conditions:freebsd": "*.so *.jnilib *.dll *.pyd",
+    "//src/conditions:openbsd": "*.so *.jnilib *.dll *.pyd",
     # Default is to play it safe -- better have a big binary than a slow binary
     #   The empty string means nothing is to be removed from the library;
     #   the rule command tests for the empty string explictly to avoid
@@ -568,18 +604,6 @@ distrib_java_import(
         "//src/conditions:windows": [":netty_tcnative/netty-tcnative-filtered.jar"],
         "//conditions:default": [],
     }),
-)
-
-alias(
-    name = "tomcat_annotations_api",
-    actual = "@maven//:org_apache_tomcat_tomcat_annotations_api",
-)
-
-# For bootstrapping JavaBuilder
-distrib_jar_filegroup(
-    name = "tomcat_annotations_api-jars",
-    srcs = ["@maven//:org_apache_tomcat_tomcat_annotations_api_file"],
-    enable_distributions = ["debian"],
 )
 
 alias(
@@ -656,70 +680,15 @@ filegroup(
     ],
 )
 
-create_compiler_config_setting(
-    name = "windows_mingw",
-    value = "windows_mingw",
+java_library(
+    name = "jmh",
+    exported_plugins = [":jmh_benchmark_processor"],
+    exports = ["@maven//:org_openjdk_jmh_jmh_core"],
 )
 
-create_compiler_config_setting(
-    name = "windows_msys64",
-    value = "windows_msys64",
-)
-
-create_compiler_config_setting(
-    name = "windows_msys64_mingw64",
-    value = "windows_msys64_mingw64",
-)
-
-create_compiler_config_setting(
-    name = "windows_clang",
-    value = "windows_clang",
-)
-
-config_setting(
-    name = "k8",
-    values = {"host_cpu": "k8"},
-)
-
-config_setting(
-    name = "piii",
-    values = {"host_cpu": "piii"},
-)
-
-config_setting(
-    name = "arm",
-    values = {"host_cpu": "arm"},
-)
-
-config_setting(
-    name = "aarch64",
-    values = {"host_cpu": "aarch64"},
-)
-
-config_setting(
-    name = "freebsd",
-    values = {"host_cpu": "freebsd"},
-)
-
-config_setting(
-    name = "openbsd",
-    values = {"host_cpu": "openbsd"},
-)
-
-config_setting(
-    name = "s390x",
-    values = {"host_cpu": "s390x"},
-)
-
-config_setting(
-    name = "ppc",
-    values = {"host_cpu": "ppc"},
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        "//third_party/def_parser:windows_tests",
-    ],
-    visibility = ["//src:__pkg__"],
+java_plugin(
+    name = "jmh_benchmark_processor",
+    processor_class = "org.openjdk.jmh.generators.BenchmarkProcessor",
+    visibility = ["//visibility:private"],
+    deps = ["@maven//:org_openjdk_jmh_jmh_generator_annprocess"],
 )

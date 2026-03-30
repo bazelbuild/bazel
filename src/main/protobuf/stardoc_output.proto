@@ -48,11 +48,13 @@ message ModuleInfo {
   repeated RepositoryRuleInfo repository_rule_info = 8;
 
   repeated MacroInfo macro_info = 9;
+
+  repeated StarlarkOtherSymbolInfo starlark_other_symbol_info = 10;
 }
 
 // Representation of a Starlark rule attribute type. These generally
 // have a one-to-one correspondence with functions defined at
-// https://bazel.build/rules/lib/attr.
+// https://bazel.build/rules/lib/toplevel/attr.
 enum AttributeType {
   UNKNOWN = 0;
   // A special case of STRING; all rules have exactly one implicit
@@ -71,6 +73,7 @@ enum AttributeType {
   OUTPUT = 12;
   OUTPUT_LIST = 13;
   LABEL_DICT_UNARY = 14;
+  LABEL_LIST_DICT = 15;
 }
 
 // Representation of a Starlark rule definition.
@@ -126,12 +129,15 @@ message MacroInfo {
   // The module where and the name under which the macro was originally
   // declared.
   OriginKey origin_key = 4;
+
+  // True if this macro is a rule finalizer.
+  bool finalizer = 5;
 }
 
 // Representation of a Starlark rule, repository rule, or module extension tag
 // attribute definition, comprised of an attribute name, and a schema defined by
 // a call to one of the 'attr' module methods enumerated at
-// https://bazel.build/rules/lib/attr
+// https://bazel.build/rules/lib/toplevel/attr.
 message AttributeInfo {
   // The name of the attribute.
   string name = 1;
@@ -161,6 +167,13 @@ message AttributeInfo {
 
   // If true, the attribute is non-configurable.
   bool nonconfigurable = 7;
+
+  // If true, the attribute is defined in Bazel's native code, not in Starlark.
+  bool natively_defined = 8;
+
+  // If non-empty, the string representations of the allowed values for this
+  // attribute.
+  repeated string values = 9;
 }
 
 // Representation of a set of providers.
@@ -388,6 +401,21 @@ message RepositoryRuleInfo {
   // The Starlark module where and the name under which the repository rule was
   // originally declared.
   OriginKey origin_key = 5;
+}
+
+// Representation of a Starlark symbol whose value is of type which lacks
+// built-in docstring and needs to be documented using `#:`-prefixed doc
+// comments; for example, a bool, dict, float, int, list, range, set, string,
+// struct, or tuple.
+message StarlarkOtherSymbolInfo {
+  // The name of the symbol.
+  string name = 1;
+
+  // The content of the symbol's doc comments.
+  string doc = 2;
+
+  // The symbol's value's data type.
+  string type_name = 3;
 }
 
 // Representation of the origin of a rule, provider, aspect, or function.

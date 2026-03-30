@@ -85,6 +85,7 @@ class OptionsTest(test_base.TestBase):
 
   def testCommonPseudoCommand(self):
     self.ScratchFile("MODULE.bazel")
+    self.AddBazelDep("rules_cc")
     self.ScratchFile(
         ".bazelrc",
         [
@@ -97,6 +98,7 @@ class OptionsTest(test_base.TestBase):
     self.ScratchFile(
         "pkg/BUILD.bazel",
         [
+            "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
             "cc_binary(name='main',srcs=['main.cc'])",
         ],
     )
@@ -184,6 +186,7 @@ class OptionsTest(test_base.TestBase):
 
   def testCommonPseudoCommand_singleLineParsesUnambiguously(self):
     self.ScratchFile("MODULE.bazel")
+    self.AddBazelDep("rules_cc")
     self.ScratchFile(
         ".bazelrc",
         [
@@ -195,6 +198,7 @@ class OptionsTest(test_base.TestBase):
     self.ScratchFile(
         "pkg/BUILD.bazel",
         [
+            "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
             "cc_binary(name='main',srcs=['main.cc'])",
         ],
     )
@@ -226,6 +230,7 @@ class OptionsTest(test_base.TestBase):
 
   def testCommonPseudoCommand_unsupportedOptionValue(self):
     self.ScratchFile("MODULE.bazel")
+    self.AddBazelDep("rules_cc")
     self.ScratchFile(
         ".bazelrc",
         [
@@ -235,6 +240,7 @@ class OptionsTest(test_base.TestBase):
     self.ScratchFile(
         "pkg/BUILD.bazel",
         [
+            "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
             "cc_binary(name='main',srcs=['main.cc'])",
         ],
     )

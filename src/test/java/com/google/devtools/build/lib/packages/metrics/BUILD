@@ -22,12 +22,13 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/metrics",
         "//src/main/java/com/google/devtools/build/lib/packages/metrics:package_load_metrics_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache:package_options",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
-        "@protobuf//:protobuf_java_util",
+        "@com_google_protobuf//:protobuf_java_util",
     ],
 )
 
@@ -36,8 +37,8 @@ java_test(
     size = "small",
     srcs = ["PackageMetricsModuleTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/packages/metrics",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:junit4",
         "//third_party:mockito",

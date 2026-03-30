@@ -21,18 +21,15 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** Creates the workspace status artifacts and action. */
 public class WorkspaceStatusFunction implements SkyFunction {
-  interface WorkspaceStatusActionFactory {
-    WorkspaceStatusAction create(String workspaceName);
-  }
 
-  private final WorkspaceStatusActionFactory workspaceStatusActionFactory;
+  private final Supplier<WorkspaceStatusAction> workspaceStatusActionFactory;
 
-  WorkspaceStatusFunction(
-      WorkspaceStatusActionFactory workspaceStatusActionFactory) {
+  WorkspaceStatusFunction(Supplier<WorkspaceStatusAction> workspaceStatusActionFactory) {
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
   }
 
@@ -41,14 +38,7 @@ public class WorkspaceStatusFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     Preconditions.checkState(
         WorkspaceStatusValue.BUILD_INFO_KEY.equals(skyKey), WorkspaceStatusValue.BUILD_INFO_KEY);
-    WorkspaceNameValue workspaceNameValue =
-        (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
-    if (env.valuesMissing()) {
-      return null;
-    }
-
-    WorkspaceStatusAction action =
-        workspaceStatusActionFactory.create(workspaceNameValue.getName());
+    WorkspaceStatusAction action = workspaceStatusActionFactory.get();
 
     ActionLookupData generatingActionKey =
         ActionLookupData.createUnshareable(WorkspaceStatusValue.BUILD_INFO_KEY, 0);

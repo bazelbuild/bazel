@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -26,15 +26,16 @@ fi
 PROTO_FILES=$(find third_party/remoteapis third_party/pprof src/main/protobuf src/main/java/com/google/devtools/build/lib/buildeventstream/proto src/main/java/com/google/devtools/build/skyframe src/main/java/com/google/devtools/build/lib/skyframe/proto src/main/java/com/google/devtools/build/lib/bazel/debug src/main/java/com/google/devtools/build/lib/starlarkdebug/proto src/main/java/com/google/devtools/build/lib/packages/metrics/package_load_metrics.proto -name "*.proto")
 # For protobuf jars, derived/jars/protobuf+/java/core/libcore.jar must be in front of derived/jars/protobuf+/java/core/liblite.jar, so we sort jars here
 LIBRARY_JARS=$(find $ADDITIONAL_JARS -name '*.jar' | sort | grep -Fv JavaBuilder | tr "\n" " ")
-MAVEN_JARS=$(find "derived/maven" -name '*.jar' | grep -Fv netty-tcnative | tr "\n" " ")
+MAVEN_JARS=$(find "derived/maven" -name '*.jar' | sort | grep -Fv netty-tcnative | tr "\n" " ")
 LIBRARY_JARS="${LIBRARY_JARS} ${MAVEN_JARS}"
 
 DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java,tools/starlark/java} tools/java/runfiles ${OUTPUT_DIR}/src)
 # Exclude source files that are not needed for Bazel itself, which avoids dependencies like truth.
-EXCLUDE_FILES="src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/testing/* src/main/java/com/google/devtools/build/lib/collect/nestedset/NestedSetCodecTestUtils.java"
+# Also exclude TreeArtifactValueCodec.java which requires AutoCodec to run, but that's not needed during bootstrap.
+EXCLUDE_FILES="src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/testing/* src/main/java/com/google/devtools/build/lib/collect/nestedset/NestedSetCodecTestUtils.java src/main/java/com/google/devtools/build/lib/skyframe/TreeArtifactValueCodec.java"
 # Exclude whole directories under the bazel src tree that bazel itself
 # doesn't depend on.
-EXCLUDE_DIRS="src/main/java/com/google/devtools/build/docgen tools/java/runfiles/testing src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils src/main/java/com/google/devtools/common/options/testing src/main/java/com/google/devtools/build/lib/testing"
+EXCLUDE_DIRS="src/main/java/com/google/devtools/build/docgen src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils src/main/java/com/google/devtools/common/options/testing src/main/java/com/google/devtools/build/lib/testing"
 for d in $EXCLUDE_DIRS ; do
   for f in $(find $d -type f) ; do
     EXCLUDE_FILES+=" $f"
@@ -138,12 +139,42 @@ function java_compilation() {
   run "${JAVAC}" -classpath "${classpath}" -sourcepath "${sourcepath}" \
       -d "${output}/classes" -source "$JAVA_VERSION" -target "$JAVA_VERSION" \
       -encoding UTF-8 --add-exports=java.base/jdk.internal.misc=ALL-UNNAMED \
+      --add-exports=java.base/jdk.internal.vm=ALL-UNNAMED \
       ${BAZEL_JAVAC_OPTS} "@${paramfile}"
 
   log "Extracting helper classes for $name..."
   for f in ${library_jars} ; do
     run unzip -qn ${f} -d "${output}/classes"
   done
+}
+
+# Build the JNI library.
+function build_jni() {
+  local -r output_dir=$1
+
+  log "Building JNI library..."
+
+  local output
+  if [[ $PLATFORM == "windows" ]]; then
+    output="${output_dir}/classes/main/native/windows/windows_jni.dll"
+  elif [[ $PLATFORM == "darwin" ]]; then
+    output="${output_dir}/classes/main/native/libunix_jni.dylib"
+  else
+    output="${output_dir}/classes/main/native/libunix_jni.so"
+  fi
+
+  local -r tmp_output="${NEW_TMPDIR}/jni/$(basename "${output}")"
+  mkdir -p "$(dirname "$tmp_output")"
+  mkdir -p "$(dirname "$output")"
+
+  if [[ $PLATFORM == "windows" ]]; then
+    scripts/bootstrap/build_windows_jni.sh "$tmp_output"
+  else
+    scripts/bootstrap/build_unix_jni.sh "$JAVA_HOME" "$PLATFORM" "$tmp_output"
+  fi
+
+  cp "$tmp_output" "$output"
+  chmod 0555 "$output"
 }
 
 # Create the deploy JAR
@@ -264,17 +295,17 @@ EOF
 
   link_dir ${PWD}/third_party ${BAZEL_TOOLS_REPO}/third_party
 
+  # Set up the function_transition_allowlist target, which needs to exist for
+  # Starlark rules that use Starlark transitions.
+  mkdir -p "${BAZEL_TOOLS_REPO}/tools/allowlists/function_transition_allowlist"
+  link_file "${PWD}/tools/allowlists/function_transition_allowlist/BUILD.tools" \
+      "${BAZEL_TOOLS_REPO}/tools/allowlists/function_transition_allowlist/BUILD"
+  link_children "${PWD}" tools/allowlists "${BAZEL_TOOLS_REPO}"
+
   # Create @bazel_tools//tools/cpp/runfiles
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/cpp/runfiles
-  link_file "${PWD}/tools/cpp/runfiles/runfiles_src.h" \
+  link_file "${PWD}/tools/cpp/runfiles/runfiles.h" \
       "${BAZEL_TOOLS_REPO}/tools/cpp/runfiles/runfiles.h"
-  # Transform //tools/cpp/runfiles:runfiles_src.cc to
-  # @bazel_tools//tools/cpp/runfiles:runfiles.cc
-  # Keep this transformation logic in sync with the
-  # //tools/cpp/runfiles:srcs_for_embedded_tools genrule.
-  sed 's|^#include.*/runfiles_src.h.*|#include \"tools/cpp/runfiles/runfiles.h\"|' \
-      "${PWD}/tools/cpp/runfiles/runfiles_src.cc" > \
-      "${BAZEL_TOOLS_REPO}/tools/cpp/runfiles/runfiles.cc"
   link_file "${PWD}/tools/cpp/runfiles/BUILD.tools" \
       "${BAZEL_TOOLS_REPO}/tools/cpp/runfiles/BUILD"
 
@@ -284,7 +315,6 @@ EOF
 
   # Create @bazel_tools//tools/sh
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/sh
-  link_file "${PWD}/tools/sh/sh_configure.bzl" "${BAZEL_TOOLS_REPO}/tools/sh/sh_configure.bzl"
   link_file "${PWD}/tools/sh/sh_toolchain.bzl" "${BAZEL_TOOLS_REPO}/tools/sh/sh_toolchain.bzl"
   link_file "${PWD}/tools/sh/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/sh/BUILD"
 
@@ -295,9 +325,11 @@ EOF
 
   # Create @bazel_tools//tools/java/runfiles
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/java/runfiles
-  link_file "${PWD}/tools/java/runfiles/Runfiles.java" "${BAZEL_TOOLS_REPO}/tools/java/runfiles/Runfiles.java"
-  link_file "${PWD}/tools/java/runfiles/Util.java" "${BAZEL_TOOLS_REPO}/tools/java/runfiles/Util.java"
   link_file "${PWD}/tools/java/runfiles/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/java/runfiles/BUILD"
+
+  # Create @bazel_tools/tools/launcher/BUILD
+  mkdir -p ${BAZEL_TOOLS_REPO}/tools/launcher
+  link_file "${PWD}/tools/launcher/BUILD.bootstrap" "${BAZEL_TOOLS_REPO}/tools/launcher/BUILD"
 
   # Create @bazel_tools/tools/python/BUILD
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/python
@@ -312,6 +344,8 @@ EOF
   # Set up @maven properly
   cp derived/maven/BUILD.vendor derived/maven/BUILD
 
+  build_jni ${OUTPUT_DIR}
+
   create_deploy_jar "libblaze" "com.google.devtools.build.lib.bazel.Bazel" \
       ${OUTPUT_DIR}
 fi
@@ -319,86 +353,6 @@ fi
 log "Creating Bazel install base..."
 ARCHIVE_DIR=${OUTPUT_DIR}/archive
 mkdir -p ${ARCHIVE_DIR}
-
-# Dummy build-runfiles (we can't compile C++ yet, so we can't have the real one)
-if [ "${PLATFORM}" = "windows" ]; then
-  # We don't rely on runfiles trees on Windows
-  cat <<'EOF' >${ARCHIVE_DIR}/build-runfiles${EXE_EXT}
-#!/bin/sh
-# Skip over --allow_relative.
-mkdir -p $3
-cp $2 $3/MANIFEST
-EOF
-else
-  cat <<'EOF' >${ARCHIVE_DIR}/build-runfiles${EXE_EXT}
-#!/bin/sh
-# This is bash implementation of build-runfiles: reads space-separated paths
-# from each line in the file in $1, then creates a symlink under $2 for the
-# first element of the pair that points to the second element of the pair.
-#
-# bash is a terrible tool for this job, but in this case, that's the only one
-# we have (we could hand-compile a little .jar file like we hand-compile the
-# bootstrap version of Bazel, but we'd still need a shell wrapper around it, so
-# it's not clear whether that would be a win over a few lines of Lovecraftian
-# code)
-# Skip over --allow_relative.
-MANIFEST="$2"
-TREE="$3"
-
-rm -fr "$TREE"
-mkdir -p "$TREE"
-
-# Read the lines in $MANIFEST. the usual "for VAR in $(cat FILE)" idiom won't do
-# because the lines in FILE contain spaces.
-while read LINE; do
-  # Split each line into two parts on the first space
-  SYMLINK_PATH="${LINE%% *}"
-  TARGET_PATH="${LINE#* }"
-  ABSOLUTE_SYMLINK_PATH="$TREE/$SYMLINK_PATH"
-  mkdir -p "$(dirname $ABSOLUTE_SYMLINK_PATH)"
-  ln -s "$TARGET_PATH" "$ABSOLUTE_SYMLINK_PATH"
-done < "$MANIFEST"
-
-cp "$MANIFEST" "$TREE/MANIFEST"
-EOF
-fi
-
-chmod 0755 ${ARCHIVE_DIR}/build-runfiles${EXE_EXT}
-
-function build_jni() {
-  local -r output_dir=$1
-
-  if [ "${PLATFORM}" = "windows" ]; then
-    # We need JNI on Windows because some filesystem operations are not (and
-    # cannot be) implemented in native Java.
-    log "Building Windows JNI library..."
-
-    local -r jni_lib_name="windows_jni.dll"
-    local -r output="${output_dir}/${jni_lib_name}"
-    local -r tmp_output="${NEW_TMPDIR}/jni/${jni_lib_name}"
-    mkdir -p "$(dirname "$tmp_output")"
-    mkdir -p "$(dirname "$output")"
-
-    # Keep this `find` command in sync with the `srcs` of
-    # //src/main/native/windows:windows_jni
-    local srcs=$(find src/main/native/windows -name '*.cc' -o -name '*.h')
-    [ -n "$srcs" ] || fail "Could not find sources for Windows JNI library"
-
-    # do not quote $srcs because we need to expand it to multiple args
-    src/main/native/windows/build_windows_jni.sh "$tmp_output" ${srcs}
-
-    cp "$tmp_output" "$output"
-    chmod 0555 "$output"
-
-    JNI_FLAGS="-Djava.library.path=${output_dir}"
-  else
-    # We don't need JNI on other platforms. The Java NIO file system fallback is
-    # sufficient.
-    true
-  fi
-}
-
-build_jni "${ARCHIVE_DIR}"
 
 cp $OUTPUT_DIR/libblaze.jar ${ARCHIVE_DIR}
 
@@ -438,7 +392,7 @@ function run_bazel_jar() {
       -XX:HeapDumpPath=${OUTPUT_DIR} \
       -Djava.util.logging.config.file=${OUTPUT_DIR}/javalog.properties \
       --add-opens java.base/java.lang=ALL-UNNAMED \
-      ${JNI_FLAGS} \
+      --add-exports java.base/jdk.internal.misc=ALL-UNNAMED \
       -jar ${ARCHIVE_DIR}/libblaze.jar \
       --batch \
       --install_base=${ARCHIVE_DIR} \
@@ -452,7 +406,6 @@ function run_bazel_jar() {
       ${BAZEL_DIR_STARTUP_OPTIONS} \
       ${BAZEL_BOOTSTRAP_STARTUP_OPTIONS:-} \
       $command \
-      --ignore_unsupported_sandboxing \
       --startup_time=329 --extract_data_time=523 \
       --rc_source=/dev/null --isatty=1 \
       --build_python_zip \

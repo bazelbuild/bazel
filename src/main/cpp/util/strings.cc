@@ -271,12 +271,7 @@ void StringPrintf(string *str, const char *format, ...) {
   delete[] buf;
 }
 
-void ToLower(string *str) {
-  assert(str);
-  *str = AsLower(*str);
-}
-
-string AsLower(const string &str) {
+string ToLower(const string &str) {
   if (str.empty()) {
     return "";
   }
@@ -386,6 +381,18 @@ std::wstring CstringToWstring(const std::string &input) {
   return result;
 }
 
+char** WArgsToCArgs(int argc, wchar_t **wargv) {
+  char **argv = new char*[argc];
+  for (int i = 0; i < argc; i++) {
+    std::string arg = WstringToCstring(std::wstring(wargv[i]));
+    argv[i] = new char[arg.length()+1];
+    for (int j = 0; j < arg.length(); j++) {
+      argv[i][j] = arg[j];
+    }
+    argv[i][arg.length()] = 0;
+  }
+  return argv;
+}
 #endif  // defined(_WIN32) || defined(__CYGWIN__)
 
 }  // namespace blaze_util

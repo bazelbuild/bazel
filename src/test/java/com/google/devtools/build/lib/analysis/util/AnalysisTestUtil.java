@@ -17,9 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -46,7 +44,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.Run
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -55,16 +52,15 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.shell.Command;
+import com.google.devtools.build.lib.skyframe.BuildOptionsScopeValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
-import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -85,10 +81,9 @@ public final class AnalysisTestUtil {
   /** TopLevelArtifactContext that should be sufficient for testing. */
   public static final TopLevelArtifactContext TOP_LEVEL_ARTIFACT_CONTEXT =
       new TopLevelArtifactContext(
-          /*runTestsExclusively=*/ false,
-          /*expandFilesets=*/ false,
-          /*fullyResolveFilesetSymlinks=*/ false,
-          /*outputGroups=*/ ImmutableSortedSet.copyOf(OutputGroupInfo.DEFAULT_GROUPS));
+          /* runTestsExclusively= */ false,
+          /* expandFilesets= */ false,
+          OutputGroupInfo.DEFAULT_GROUPS);
 
   /**
    * An {@link AnalysisEnvironment} implementation that collects the actions registered.
@@ -136,12 +131,6 @@ public final class AnalysisTestUtil {
     public Artifact.DerivedArtifact getDerivedArtifact(
         PathFragment rootRelativePath, ArtifactRoot root) {
       return original.getDerivedArtifact(rootRelativePath, root);
-    }
-
-    @Override
-    public Artifact.DerivedArtifact getDerivedArtifact(
-        PathFragment rootRelativePath, ArtifactRoot root, boolean contentBasedPath) {
-      return original.getDerivedArtifact(rootRelativePath, root, contentBasedPath);
     }
 
     @Override
@@ -202,6 +191,11 @@ public final class AnalysisTestUtil {
     @Override
     public Artifact getVolatileWorkspaceStatusArtifact() throws InterruptedException {
       return original.getVolatileWorkspaceStatusArtifact();
+    }
+
+    @Override
+    public void declareStampSettingDep() throws InterruptedException {
+      original.declareStampSettingDep();
     }
 
     @Override
@@ -325,141 +319,6 @@ public final class AnalysisTestUtil {
     }
   }
 
-  public static final AnalysisEnvironment STUB_ANALYSIS_ENVIRONMENT = new StubAnalysisEnvironment();
-
-  /** An AnalysisEnvironment with stubbed-out methods. */
-  public static class StubAnalysisEnvironment implements AnalysisEnvironment {
-    private static final ActionLookupKey DUMMY_KEY =
-        new ActionLookupKey() {
-          @Nullable
-          @Override
-          public Label getLabel() {
-            return null;
-          }
-
-          @Nullable
-          @Override
-          public BuildConfigurationKey getConfigurationKey() {
-            return null;
-          }
-
-          @Override
-          public SkyFunctionName functionName() {
-            return null;
-          }
-        };
-
-    @Override
-    public void registerAction(ActionAnalysisMetadata action) {}
-
-    @Override
-    public boolean hasErrors() {
-      return false;
-    }
-
-    @Override
-    public Artifact getConstantMetadataArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
-      return null;
-    }
-
-    @Override
-    public SpecialArtifact getRunfilesArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
-      return null;
-    }
-
-    @Override
-    public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
-      return null;
-    }
-
-    @Override
-    public SpecialArtifact getSymlinkArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
-      return null;
-    }
-
-    @Override
-    public ExtendedEventHandler getEventHandler() {
-      return null;
-    }
-
-    @Override
-    public Action getLocalGeneratingAction(Artifact artifact) {
-      return null;
-    }
-
-    @Override
-    public ImmutableList<ActionAnalysisMetadata> getRegisteredActions() {
-      return ImmutableList.of();
-    }
-
-    @Override
-    public SkyFunction.Environment getSkyframeEnv() {
-      return null;
-    }
-
-    @Override
-    public StarlarkSemantics getStarlarkSemantics() {
-      return null;
-    }
-
-    @Override
-    public ImmutableMap<String, Object> getStarlarkDefinedBuiltins() {
-      return null;
-    }
-
-    @Override
-    public Artifact getFilesetArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
-      return null;
-    }
-
-    @Override
-    public Artifact.DerivedArtifact getDerivedArtifact(
-        PathFragment rootRelativePath, ArtifactRoot root) {
-      return null;
-    }
-
-    @Override
-    public Artifact.DerivedArtifact getDerivedArtifact(
-        PathFragment rootRelativePath, ArtifactRoot root, boolean contentBasedPath) {
-      return null;
-    }
-
-    @Override
-    public Artifact getStableWorkspaceStatusArtifact() {
-      return null;
-    }
-
-    @Override
-    public Artifact getVolatileWorkspaceStatusArtifact() {
-      return null;
-    }
-
-    @Override
-    public ActionLookupKey getOwner() {
-      return DUMMY_KEY;
-    }
-
-    @Override
-    public ImmutableSet<Artifact> getOrphanArtifacts() {
-      return ImmutableSet.of();
-    }
-
-    @Override
-    public ImmutableSet<Artifact> getTreeArtifactsConflictingWithFiles() {
-      return ImmutableSet.of();
-    }
-
-    @Override
-    public ActionKeyContext getActionKeyContext() {
-      return null;
-    }
-
-    @Override
-    public RepositoryMapping getMainRepoMapping() {
-      return RepositoryMapping.ALWAYS_FALLBACK;
-    }
-  }
-
   /** Matches the output path prefix contributed by a C++ configuration fragment. */
   private static final Pattern OUTPUT_PATH_CPP_PREFIX_PATTERN =
       Pattern.compile("(?<=" + TestConstants.PRODUCT_NAME + "-out/)gcc[^/]*-grte-\\w+-");
@@ -538,6 +397,20 @@ public final class AnalysisTestUtil {
   public static BuildOptions execOptions(
       BuildOptions targetOptions, SkyframeExecutor skyframeExecutor, ExtendedEventHandler handler)
       throws Exception {
+    // Get Starlark flags' "scope = '<string>'" info, which can control whether the flags propagate
+    // to the exec config.
+    var starlarkFlagScopeInfo =
+        skyframeExecutor.evaluateSkyKeys(
+            handler,
+            ImmutableList.of(
+                BuildOptionsScopeValue.Key.create(
+                    targetOptions, new ArrayList<>(targetOptions.getStarlarkOptions().keySet()))),
+            /* keepGoing= */ false);
+
+    BuildOptions targetOptionsWithScopeInfo =
+        ((BuildOptionsScopeValue) Iterables.getOnlyElement(starlarkFlagScopeInfo.values()))
+            .getResolvedBuildOptionsWithScopeTypes();
+
     return Iterables.getOnlyElement(
         ExecutionTransitionFactory.createFactory()
             .create(
@@ -545,10 +418,13 @@ public final class AnalysisTestUtil {
                     .attributes(FakeAttributeMapper.empty())
                     .executionPlatform(targetOptions.get(PlatformOptions.class).hostPlatform)
                     .analysisData(
-                        skyframeExecutor.getStarlarkExecTransitionForTesting(
-                            targetOptions, handler))
+                        skyframeExecutor.getStarlarkExecTransition(
+                            targetOptionsWithScopeInfo, handler))
                     .build())
-            .apply(new BuildOptionsView(targetOptions, targetOptions.getFragmentClasses()), handler)
+            .apply(
+                new BuildOptionsView(
+                    targetOptionsWithScopeInfo, targetOptions.getFragmentClasses()),
+                handler)
             .values());
   }
 }

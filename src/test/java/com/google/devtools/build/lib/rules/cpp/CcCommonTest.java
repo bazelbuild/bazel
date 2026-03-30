@@ -37,6 +37,8 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -61,6 +63,8 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "empty/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(name = "emptylib")
 
         cc_binary(name = "emptybinary")
@@ -69,6 +73,7 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "foo",
             srcs = ["foo.cc"],
@@ -78,70 +83,12 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "bar/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "bar",
             srcs = ["bar.cc"],
         )
         """);
-  }
-
-  @Test
-  public void testSameCcFileTwice() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        """
-        cc_library(
-            name = "a",
-            srcs = [
-                "a1",
-                "a2",
-            ],
-        )
-
-        filegroup(
-            name = "a1",
-            srcs = ["a.cc"],
-        )
-
-        filegroup(
-            name = "a2",
-            srcs = ["a.cc"],
-        )
-        """);
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:a");
-    assertContainsEvent("Artifact 'a/a.cc' is duplicated");
-  }
-
-  @Test
-  public void testSameHeaderFileTwice() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        """
-        package(features = ["parse_headers"])
-
-        cc_library(
-            name = "a",
-            srcs = [
-                "a.cc",
-                "a1",
-                "a2",
-            ],
-        )
-
-        filegroup(
-            name = "a1",
-            srcs = ["a.h"],
-        )
-
-        filegroup(
-            name = "a2",
-            srcs = ["a.h"],
-        )
-        """);
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:a");
-    assertNoEvents();
   }
 
   @Test
@@ -151,8 +98,7 @@ public class CcCommonTest extends BuildViewTestCase {
     // But we avoid creating .so files for empty libraries,
     // because those have a potentially significant run-time startup cost.
     assertThat(
-            emptylib
-                .get(CcInfo.PROVIDER)
+            CcInfo.get(emptylib)
                 .getCcLinkingContext()
                 .getDynamicLibrariesForRuntime(/* linkingStatically= */ false)
                 .isEmpty())
@@ -178,6 +124,7 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "copts/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "c_lib",
             srcs = ["foo.cc"],
@@ -195,6 +142,7 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "copts/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "c_lib",
             srcs = ["foo.cc"],
@@ -210,6 +158,7 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "copts/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         package(features = ["no_copts_tokenization"])
 
         cc_library(
@@ -240,6 +189,8 @@ public class CcCommonTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "archive_in_srcs",
             "archive_in_srcs_test",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+            "load('@rules_cc//cc:cc_test.bzl', 'cc_test')",
             "cc_test(name = 'archive_in_srcs_test',",
             "           srcs = ['archive_in_srcs_test.cc'],",
             "           deps = [':archive_in_srcs_lib'],",
@@ -263,6 +214,7 @@ public class CcCommonTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "archive_in_src_darwin",
             "archive_in_srcs",
+            "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
             "cc_binary(name = 'archive_in_srcs',",
             "    srcs = ['libarchive.34.dylib'])");
 
@@ -277,12 +229,12 @@ public class CcCommonTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "statically",
             "statically",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "cc_library(name = 'statically',",
             "           srcs = ['statically.cc'],",
             "           linkstatic=1)");
     assertThat(
-            statically
-                .get(CcInfo.PROVIDER)
+            CcInfo.get(statically)
                 .getCcLinkingContext()
                 .getDynamicLibrariesForRuntime(/* linkingStatically= */ false)
                 .isEmpty())
@@ -299,10 +251,11 @@ public class CcCommonTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "isolated_defines",
             "defineslib",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "cc_library(name = 'defineslib',",
             "           srcs = ['defines.cc'],",
             "           defines = ['FOO', 'BAR'])");
-    assertThat(isolatedDefines.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines())
+    assertThat(CcInfo.get(isolatedDefines).getCcCompilationContext().getDefines())
         .containsExactly("FOO", "BAR")
         .inOrder();
   }
@@ -313,11 +266,12 @@ public class CcCommonTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "expanded_defines",
             "expand_deps",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "cc_library(name = 'expand_deps',",
             "           srcs = ['defines.cc'],",
             "           deps = ['//foo'],",
             "           defines = ['FOO=$(location //foo)'])");
-    assertThat(expandedDefines.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines())
+    assertThat(CcInfo.get(expandedDefines).getCcCompilationContext().getDefines())
         .containsExactly(
             String.format("FOO=%s/foo/libfoo.a", getRuleContext(expandedDefines).getBinFragment()));
   }
@@ -328,10 +282,11 @@ public class CcCommonTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "expanded_defines",
             "expand_srcs",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "cc_library(name = 'expand_srcs',",
             "           srcs = ['defines.cc'],",
             "           defines = ['FOO=$(location defines.cc)'])");
-    assertThat(expandedDefines.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines())
+    assertThat(CcInfo.get(expandedDefines).getCcCompilationContext().getDefines())
         .containsExactly("FOO=expanded_defines/defines.cc");
   }
 
@@ -342,21 +297,26 @@ public class CcCommonTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "expanded_defines",
             "expand_srcs",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "cc_library(name = 'expand_srcs',",
             "           srcs = ['defines.cc'],",
             "           data = ['//data'],",
             "           defines = ['FOO=$(location //data)'])");
-    assertThat(expandedDefines.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines())
+    assertThat(CcInfo.get(expandedDefines).getCcCompilationContext().getDefines())
         .containsExactly("FOO=data/data.txt");
   }
 
   @Test
   public void testExpandedDefinesDuplicateTargets() throws Exception {
-    scratch.file("data/BUILD", "cc_library(name = 'a', srcs = ['foo.cc'])");
+    scratch.file(
+        "data/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'a', srcs = ['foo.cc'])");
     ConfiguredTarget expandedDefines =
         scratchConfiguredTarget(
             "expanded_defines",
             "expand_srcs",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "cc_library(name = 'expand_srcs',",
             "           srcs = ['defines.cc'],",
             "           data = ['//data:a'],",
@@ -364,7 +324,7 @@ public class CcCommonTest extends BuildViewTestCase {
             "           defines = ['FOO=$(location //data:a)'])");
     String depPath =
         getFilesToBuild(getConfiguredTarget("//data:a")).getSingleton().getExecPathString();
-    assertThat(expandedDefines.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines())
+    assertThat(CcInfo.get(expandedDefines).getCcCompilationContext().getDefines())
         .containsExactly(String.format("FOO=%s", depPath));
   }
 
@@ -379,6 +339,8 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "lib",
             srcs = ["lib.c"],
@@ -410,6 +372,8 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "lib",
             srcs = ["lib.c"],
@@ -442,6 +406,7 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "ananas/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "ananas",
             srcs = [
@@ -509,13 +474,19 @@ public class CcCommonTest extends BuildViewTestCase {
     invalidatePackages();
     useConfiguration();
 
-    scratch.file("csrc/BUILD", "cc_library(name='csrc', srcs=['foo.c'])");
+    scratch.file(
+        "csrc/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='csrc', srcs=['foo.c'])");
     assertTempsForTarget("//csrc:csrc").containsExactly("foo.pic.i", "foo.pic.s");
   }
 
   @Test
   public void testTempsForCWithoutPic() throws Exception {
-    scratch.file("csrc/BUILD", "cc_library(name='csrc', srcs=['foo.c'])");
+    scratch.file(
+        "csrc/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='csrc', srcs=['foo.c'])");
     assertTempsForTarget("//csrc:csrc").containsExactly("foo.i", "foo.s");
   }
 
@@ -525,6 +496,7 @@ public class CcCommonTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "always_link",
             "always_link",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "cc_library(name = 'always_link',",
             "           alwayslink = 1,",
             "           srcs = ['always_link.cc'])");
@@ -541,7 +513,10 @@ public class CcCommonTest extends BuildViewTestCase {
                 .withFeatures(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.PIC));
     invalidatePackages();
     useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
-    scratch.file("a/BUILD", "cc_library(name='preprocess', srcs=['preprocess.S'])");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='preprocess', srcs=['preprocess.S'])");
     List<String> argv = getCppCompileAction("//a:preprocess").getArguments();
     assertThat(argv).contains("-fPIC");
   }
@@ -556,34 +531,11 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testIsolatedIncludes() throws Exception {
-    // Tests the (immediate) effect of declaring the includes attribute on a
-    // cc_library.
-
-    scratch.file(
-        "bang/BUILD",
-        """
-        cc_library(
-            name = "bang",
-            srcs = ["bang.cc"],
-            includes = ["bang_includes"],
-        )
-        """);
-
-    ConfiguredTarget foo = getConfiguredTarget("//bang:bang");
-
-    String includesRoot = "bang/bang_includes";
-    assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
-        .containsAtLeast(
-            PathFragment.create(includesRoot),
-            targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot));
-  }
-
-  @Test
   public void testDisabledGenfilesDontShowUpInSystemIncludePaths() throws Exception {
     scratch.file(
         "bang/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "bang",
             srcs = ["bang.cc"],
@@ -596,22 +548,23 @@ public class CcCommonTest extends BuildViewTestCase {
     ConfiguredTarget foo = getConfiguredTarget("//bang:bang");
     PathFragment genfilesDir =
         targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot);
-    assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
-        .contains(genfilesDir);
+    assertThat(CcInfo.get(foo).getCcCompilationContext().getIncludeDirs()).contains(genfilesDir);
 
     useConfiguration("--incompatible_merge_genfiles_directory");
     foo = getConfiguredTarget("//bang:bang");
-    assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
+    assertThat(CcInfo.get(foo).getCcCompilationContext().getIncludeDirs())
         .doesNotContain(genfilesDir);
   }
 
   @Test
   public void testUseIsystemForIncludes() throws Exception {
-    // Tests the effect of --use_isystem_for_includes.
-    useConfiguration("--incompatible_merge_genfiles_directory=false");
+    // Tests the effect of using `-isystem` for include paths.
+    useConfiguration(
+        "--incompatible_merge_genfiles_directory=false", "--features=system_include_paths");
     scratch.file(
         "no_includes/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "no_includes",
             srcs = ["no_includes.cc"],
@@ -622,6 +575,48 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "bang/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = "bang",
+            srcs = ["bang.cc"],
+            includes = ["bang_includes"],
+            features = ["system_include_paths"],
+        )
+        """);
+
+    ConfiguredTarget foo = getConfiguredTarget("//bang:bang");
+
+    String includesRoot = "bang/bang_includes";
+    List<PathFragment> expected =
+        new ImmutableList.Builder<PathFragment>()
+            .addAll(CcInfo.get(noIncludes).getCcCompilationContext().getSystemIncludeDirs())
+            .add(PathFragment.create(includesRoot))
+            .add(targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot))
+            .add(targetConfig.getBinFragment(RepositoryName.MAIN).getRelative(includesRoot))
+            .build();
+    assertThat(CcInfo.get(foo).getCcCompilationContext().getSystemIncludeDirs())
+        .containsExactlyElementsIn(expected);
+  }
+
+  @Test
+  public void testUseIForIncludes() throws Exception {
+    // Tests that includes use -I without the alternative feature (system_include_paths).
+    useConfiguration("--incompatible_merge_genfiles_directory=false");
+    scratch.file(
+        "no_includes/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = "no_includes",
+            srcs = ["no_includes.cc"],
+        )
+        """);
+    ConfiguredTarget noIncludes = getConfiguredTarget("//no_includes:no_includes");
+
+    scratch.file(
+        "bang/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "bang",
             srcs = ["bang.cc"],
@@ -632,15 +627,14 @@ public class CcCommonTest extends BuildViewTestCase {
     ConfiguredTarget foo = getConfiguredTarget("//bang:bang");
 
     String includesRoot = "bang/bang_includes";
-    List<PathFragment> expected =
+    ImmutableList<PathFragment> expected =
         new ImmutableList.Builder<PathFragment>()
-            .addAll(
-                noIncludes.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
+            .addAll(CcInfo.get(noIncludes).getCcCompilationContext().getIncludeDirs())
             .add(PathFragment.create(includesRoot))
             .add(targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot))
             .add(targetConfig.getBinFragment(RepositoryName.MAIN).getRelative(includesRoot))
             .build();
-    assertThat(foo.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
+    assertThat(CcInfo.get(foo).getCcCompilationContext().getIncludeDirs())
         .containsExactlyElementsIn(expected);
   }
 
@@ -649,6 +643,8 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "cc/common/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("@rules_cc//cc:cc_test.bzl", "cc_test")
         cc_library(
             name = "lib1",
             srcs = ["foo1.cc"],
@@ -683,7 +679,10 @@ public class CcCommonTest extends BuildViewTestCase {
         "--fission=yes");
     ConfiguredTarget target =
         scratchConfiguredTarget(
-            "mypackage", "mytest", "cc_test(name = 'mytest', srcs = ['mytest.cc'])");
+            "mypackage",
+            "mytest",
+            "load('@rules_cc//cc:cc_test.bzl', 'cc_test')",
+            "cc_test(name = 'mytest', srcs = ['mytest.cc'])");
 
     NestedSet<Artifact> runfiles = collectRunfiles(target);
     assertThat(baseArtifactNames(runfiles)).contains("mytest.dwp");
@@ -699,6 +698,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "in includes attribute of cc_library rule //badincludes:flaky_lib: "
             + "ignoring invalid absolute path '//third_party/procps/proc'",
         // build file:
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name = 'flaky_lib',",
         "   srcs = [ 'ok.cc' ],",
         "   includes = [ '//third_party/procps/proc' ])");
@@ -715,6 +715,7 @@ public class CcCommonTest extends BuildViewTestCase {
             + "'third_party/bar' not below the relative path of its package 'third_party/uplevel'. "
             + "This will be an error in the future",
         // build file:
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "licenses(['unencumbered'])",
         "cc_library(name = 'lib',",
         "           srcs = ['foo.cc'],",
@@ -728,6 +729,7 @@ public class CcCommonTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "third_party/pkg",
             "lib",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "licenses(['unencumbered'])",
             "cc_library(name = 'lib',",
             "           srcs = ['foo.cc'],",
@@ -738,6 +740,9 @@ public class CcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testCcLibraryExternalIncludesNotWarned() throws Exception {
+    if (!analysisMock.isThisBazel()) {
+      return;
+    }
     eventCollector.clear();
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("MODULE.bazel"),
@@ -750,9 +755,11 @@ public class CcCommonTest extends BuildViewTestCase {
             Root.fromPath(rootDirectory));
     scratch.resolve("/foo/bar").createDirectoryAndParents();
     scratch.file("/foo/MODULE.bazel", "module(name = 'pkg')");
+    MockCcSupport.get().setup(new MockToolsConfig(scratch.resolve("/foo")));
     scratch.file(
         "/foo/bar/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "lib",
             srcs = ["foo.cc"],
@@ -775,6 +782,7 @@ public class CcCommonTest extends BuildViewTestCase {
             + "workspace root, which would allow this rule and all of its transitive dependents to "
             + "include any file in your workspace. Please include only what you need",
         // build file:
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "licenses(['unencumbered'])",
         "cc_library(name = 'lib',",
         "           srcs = ['foo.cc'],",
@@ -786,6 +794,7 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "third_party/sophos/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         licenses(["notice"])
 
         cc_library(
@@ -797,6 +806,8 @@ public class CcCommonTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "quality/malware/support",
             "wrapsophos",
+            "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "cc_library(name = 'sophosengine',",
             "           srcs = [ 'sophosengine.cc' ],",
             "           deps = [ '//third_party/sophos:savi' ])",
@@ -827,6 +838,7 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "myapp/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         cc_binary(
             name = "myapp",
             srcs = ["//coolthing:nicelib.a"],
@@ -864,6 +876,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "in linkopts attribute of cc_library rule @@//badlib:lib_with_dash_static: "
             + "Apple builds do not support statically linked binaries",
         // build file:
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name = 'lib_with_dash_static',",
         "   srcs = [ 'ok.cc' ],",
         "   linkopts = [ '-static' ])");
@@ -899,6 +912,8 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_test.bzl", "cc_test")
         cc_test(
             name = "a",
             srcs = ["a.cc"],
@@ -946,6 +961,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "test",
         "bad_relative_include",
         "Path references a path above the execution root.",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name='bad_relative_include', srcs=[], includes=['../..'])");
   }
 
@@ -956,6 +972,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "test",
         "bad_absolute_include",
         "ignoring invalid absolute path",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name='bad_absolute_include', srcs=[], includes=['/usr/include/'])");
   }
 
@@ -966,6 +983,8 @@ public class CcCommonTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "mypackage",
             "mybinary",
+            "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "cc_binary(name = 'mybinary',",
             "           srcs = ['mybinary.cc'],",
             "           deps = [':mylib'])",
@@ -977,7 +996,10 @@ public class CcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testLibraryInHdrs() throws Exception {
-    scratchConfiguredTarget("a", "a",
+    scratchConfiguredTarget(
+        "a",
+        "a",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name='a', srcs=['a.cc'], hdrs=[':b'])",
         "cc_library(name='b', srcs=['b.cc'])");
   }
@@ -987,6 +1009,7 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         genrule(
             name = "linker",
             outs = ["a.lds"],
@@ -1017,6 +1040,7 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_test.bzl", "cc_test")
         genrule(
             name = "linker",
             outs = ["a.lds"],
@@ -1040,6 +1064,7 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         cc_binary(
             name = "bin",
             srcs = ["b.cc"],
@@ -1058,6 +1083,7 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "third_party/a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         licenses(["notice"])
 
         cc_library(
@@ -1069,7 +1095,7 @@ public class CcCommonTest extends BuildViewTestCase {
         """);
 
     ConfiguredTarget lib = getConfiguredTarget("//third_party/a");
-    CcCompilationContext ccCompilationContext = lib.get(CcInfo.PROVIDER).getCcCompilationContext();
+    CcCompilationContext ccCompilationContext = CcInfo.get(lib).getCcCompilationContext();
     assertThat(ActionsTestUtil.prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
         .containsExactly("third_party/a/_virtual_includes/a/lib/b/c.h", "third_party/a/v1/b/c.h");
     assertThat(ccCompilationContext.getIncludeDirs())
@@ -1080,10 +1106,43 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testIncludeManglingSmokeWithShortendVirtualIncludes() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SHORTEN_VIRTUAL_INCLUDES));
+    scratch.file(
+        "third_party/a/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        licenses(["notice"])
+
+        cc_library(
+            name = "a",
+            hdrs = ["v1/b/c.h"],
+            include_prefix = "lib",
+            strip_include_prefix = "v1",
+        )
+        """);
+
+    ConfiguredTarget lib = getConfiguredTarget("//third_party/a");
+    CcCompilationContext ccCompilationContext = CcInfo.get(lib).getCcCompilationContext();
+    assertThat(ActionsTestUtil.prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
+        .containsExactly("_virtual_includes/207132b2/lib/b/c.h", "third_party/a/v1/b/c.h");
+    assertThat(ccCompilationContext.getIncludeDirs())
+        .containsExactly(
+            getTargetConfiguration()
+                .getBinFragment(RepositoryName.MAIN)
+                .getRelative("_virtual_includes/207132b2"));
+  }
+
+  @Test
   public void testUpLevelReferencesInIncludeMangling() throws Exception {
     scratch.file(
         "third_party/a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         licenses(["notice"])
 
         cc_library(
@@ -1123,6 +1182,7 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "third_party/a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         licenses(["notice"])
 
         cc_library(
@@ -1139,13 +1199,9 @@ public class CcCommonTest extends BuildViewTestCase {
         """);
 
     CcCompilationContext relative =
-        getConfiguredTarget("//third_party/a:relative")
-            .get(CcInfo.PROVIDER)
-            .getCcCompilationContext();
+        CcInfo.get(getConfiguredTarget("//third_party/a:relative")).getCcCompilationContext();
     CcCompilationContext absolute =
-        getConfiguredTarget("//third_party/a:absolute")
-            .get(CcInfo.PROVIDER)
-            .getCcCompilationContext();
+        CcInfo.get(getConfiguredTarget("//third_party/a:absolute")).getCcCompilationContext();
 
     assertThat(ActionsTestUtil.prettyArtifactNames(relative.getDeclaredIncludeSrcs()))
         .containsExactly("third_party/a/_virtual_includes/relative/b.h", "third_party/a/v1/b.h");
@@ -1162,11 +1218,28 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "BUILD",
         "licenses(['notice'])",
-        "cc_library(name='a', hdrs=['b.h'], strip_include_prefix='.')");
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='a', hdrs=['b.h'], strip_include_prefix=None)");
     CcCompilationContext ccContext =
-        getConfiguredTarget("//:a").get(CcInfo.PROVIDER).getCcCompilationContext();
+        CcInfo.get(getConfiguredTarget("//:a")).getCcCompilationContext();
     assertThat(ActionsTestUtil.prettyArtifactNames(ccContext.getDeclaredIncludeSrcs()))
         .containsExactly("b.h");
+  }
+
+  @Test
+  public void testDotPackageStripPrefix() throws Exception {
+    if (!AnalysisMock.get().isThisBazel()) {
+      return;
+    }
+    scratch.file(
+        "BUILD",
+        "licenses(['notice'])",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='a', hdrs=['b.h'], strip_include_prefix='.')");
+    CcCompilationContext ccContext =
+        CcInfo.get(getConfiguredTarget("//:a")).getCcCompilationContext();
+    assertThat(ActionsTestUtil.prettyArtifactNames(ccContext.getDeclaredIncludeSrcs()))
+        .containsExactly("_virtual_includes/a/b.h", "b.h");
   }
 
   @Test
@@ -1174,6 +1247,7 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "third_party/a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         licenses(["notice"])
 
         cc_library(
@@ -1190,10 +1264,11 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSymlinkActionIsNotRegisteredWhenIncludePrefixDoesntChangePath() throws Exception {
+  public void testSymlinkActionIsRegisteredWhenIncludePrefixDoesntChangePath() throws Exception {
     scratch.file(
         "third_party/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         licenses(["notice"])
 
         cc_library(
@@ -1204,9 +1279,9 @@ public class CcCommonTest extends BuildViewTestCase {
         """);
 
     CcCompilationContext ccCompilationContext =
-        getConfiguredTarget("//third_party:a").get(CcInfo.PROVIDER).getCcCompilationContext();
+        CcInfo.get(getConfiguredTarget("//third_party:a")).getCcCompilationContext();
     assertThat(ActionsTestUtil.prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
-        .doesNotContain("third_party/_virtual_includes/a/third_party/a.h");
+        .containsExactly("third_party/_virtual_includes/a/third_party/a.h", "third_party/a.h");
   }
 
   @Test
@@ -1221,7 +1296,10 @@ public class CcCommonTest extends BuildViewTestCase {
             CcToolchainConfig.builder().withFeatures("same_symbol_provided_configuration"));
     useConfiguration("--features=a1", "--features=a2");
 
-    scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
 
     getConfiguredTarget("//x:foo");
@@ -1242,7 +1320,10 @@ public class CcCommonTest extends BuildViewTestCase {
                     CppActionNames.CPP_LINK_NODEPS_DYNAMIC_LIBRARY));
     useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
 
-    scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
 
     RuleConfiguredTarget ccLibrary = (RuleConfiguredTarget) getConfiguredTarget("//x:foo");
@@ -1269,7 +1350,10 @@ public class CcCommonTest extends BuildViewTestCase {
                     CppActionNames.CPP_LINK_NODEPS_DYNAMIC_LIBRARY));
     useConfiguration("--features=-supports_pic");
 
-    scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
 
     RuleConfiguredTarget ccLibrary = (RuleConfiguredTarget) getConfiguredTarget("//x:foo");
@@ -1296,7 +1380,10 @@ public class CcCommonTest extends BuildViewTestCase {
                     CppActionNames.CPP_LINK_NODEPS_DYNAMIC_LIBRARY));
     useConfiguration("--force_pic", "--platforms=" + TestConstants.PLATFORM_LABEL);
 
-    scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
 
     RuleConfiguredTarget ccLibrary = (RuleConfiguredTarget) getConfiguredTarget("//x:foo");
@@ -1326,7 +1413,10 @@ public class CcCommonTest extends BuildViewTestCase {
                     CppActionNames.CPP_LINK_NODEPS_DYNAMIC_LIBRARY));
     useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL, "--compilation_mode=opt");
 
-    scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
 
     RuleConfiguredTarget ccLibrary = (RuleConfiguredTarget) getConfiguredTarget("//x:foo");
@@ -1355,7 +1445,10 @@ public class CcCommonTest extends BuildViewTestCase {
                     CppActionNames.CPP_LINK_NODEPS_DYNAMIC_LIBRARY));
     useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL, "--compilation_mode=opt");
 
-    scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
 
     RuleConfiguredTarget ccLibrary = (RuleConfiguredTarget) getConfiguredTarget("//x:foo");
@@ -1384,7 +1477,10 @@ public class CcCommonTest extends BuildViewTestCase {
                     CppActionNames.CPP_COMPILE));
     useConfiguration("--force_pic", "--features=-supports_pic");
 
-    scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
 
     getConfiguredTarget("//x:foo");
@@ -1400,7 +1496,10 @@ public class CcCommonTest extends BuildViewTestCase {
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.COMPILER_PARAM_FILE));
-    scratch.file("a/BUILD", "cc_library(name='foo', srcs=['foo.cc'])");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='foo', srcs=['foo.cc'])");
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
         "--experimental_platform_in_output_dir",
@@ -1422,7 +1521,10 @@ public class CcCommonTest extends BuildViewTestCase {
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.COMPILER_PARAM_FILE));
-    scratch.file("a/BUILD", "cc_library(name='foo', srcs=['foo.cc'])");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='foo', srcs=['foo.cc'])");
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
         "--experimental_platform_in_output_dir",
@@ -1455,6 +1557,7 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = "foo",
             srcs = ["foo.cc"],
@@ -1489,13 +1592,6 @@ public class CcCommonTest extends BuildViewTestCase {
     setupTestCcLibraryLoadedThroughMacro(/* loadMacro= */ true);
     assertThat(getConfiguredTarget("//a:a")).isNotNull();
     assertNoEvents();
-  }
-
-  @Test
-  public void testCcLibraryNotLoadedThroughMacro() throws Exception {
-    setupTestCcLibraryLoadedThroughMacro(/* loadMacro= */ false);
-    reporter.removeHandler(failFastHandler);
-    assertThat(getConfiguredTarget("//a:a")).isNotNull();
   }
 
   private void setupTestCcLibraryLoadedThroughMacro(boolean loadMacro) throws Exception {
@@ -1546,7 +1642,10 @@ public class CcCommonTest extends BuildViewTestCase {
       return;
     }
     reporter.removeHandler(failFastHandler);
-    scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'], nocopts = 'abc')");
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'foo', srcs = ['a.cc'], nocopts = 'abc')");
     useConfiguration("--incompatible_disable_nocopts");
     getConfiguredTarget("//x:foo");
     assertContainsEvent(
@@ -1560,6 +1659,7 @@ public class CcCommonTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "mypackage",
             "mybinary",
+            "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
             "cc_binary(name = 'mybinary',",
             "          srcs = ['mybinary.cc'])");
     List<String> artifactNames = baseArtifactNames(getLinkerInputs(target));
@@ -1572,6 +1672,8 @@ public class CcCommonTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "mypackage",
             "mybinary",
+            "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "cc_library(name = 'empty_lib')",
             "cc_binary(name = 'mybinary',",
             "          srcs = ['mybinary.cc'],",
@@ -1591,6 +1693,7 @@ public class CcCommonTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "generate_linkmap",
             "generate_linkmap_test",
+            "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
             "cc_binary(name = 'generate_linkmap_test',",
             "          features = ['generate_linkmap'],",
             "          srcs = ['generate_linkmap_test.cc'],",

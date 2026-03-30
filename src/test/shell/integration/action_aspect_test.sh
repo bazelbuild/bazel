@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -42,21 +42,12 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
 add_to_bazelrc "build --package_path=%workspace%"
 
 function test_directory_args_inspection() {
   mkdir -p package
   cat > package/makes_tree_artifacts.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 my_dir=\$1
 
 touch \$my_dir/a.txt
@@ -66,7 +57,7 @@ EOF
   chmod 755 package/makes_tree_artifacts.sh
 
   cat > package/write.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 output_file=\$1
 shift;
 
@@ -137,7 +128,7 @@ EOF
 function test_directory_args_inspection_param_file() {
   mkdir -p package
   cat > package/makes_tree_artifacts.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 my_dir=\$1
 
 touch \$my_dir/a.txt
@@ -147,7 +138,7 @@ EOF
   chmod 755 package/makes_tree_artifacts.sh
 
   cat > package/write.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 param_file=\$1
 shift;
@@ -289,6 +280,7 @@ function test_starlark_action_rerun_after_shadowed_action_inputs_change() {
 }
 
 function create_starlark_action_with_shadowed_action_cache_test_files() {
+  add_rules_cc MODULE.bazel
   local package="$1"
 
   mkdir -p "${package}"
@@ -328,6 +320,7 @@ EOF
 int a() { return x(); }
 EOF
   cat > "${package}/BUILD" <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
   name = "x",
   hdrs  = ["x.h"],
@@ -346,7 +339,7 @@ function test_aspect_requires_aspect_no_action_conflict() {
   mkdir -p "${package}"
 
   cat > "${package}/write.sh" <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 output_file=\$1
 unused_file=\$2
 

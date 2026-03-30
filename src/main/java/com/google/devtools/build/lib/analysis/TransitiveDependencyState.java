@@ -13,27 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.common.collect.Comparators.lexicographical;
 import static java.util.Comparator.comparing;
-import static java.util.Comparator.naturalOrder;
-import static java.util.Comparator.nullsFirst;
 
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PrerequisitePackageFunction;
-import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashSet;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 
@@ -93,7 +86,7 @@ public final class TransitiveDependencyState {
   }
 
   @Nullable
-  public NestedSet<Package> transitivePackages() {
+  public NestedSet<Package.Metadata> transitivePackages() {
     if (packageCollector == null) {
       return null;
     }
@@ -116,24 +109,25 @@ public final class TransitiveDependencyState {
     return packageCollector != null;
   }
 
-  /** Adds to the set of transitive packages if {@link #storeTransitivePackages} is true. */
-  public void updateTransitivePackages(Package pkg) {
+  /** Adds to the set of transitive package metadata if {@link #storeTransitivePackages} is true. */
+  public void updateTransitivePackages(Package.Metadata pkg) {
     if (packageCollector == null) {
       return;
     }
     packageCollector.packages.add(pkg);
   }
 
-  /** Adds to the set of transitive packages if {@link #storeTransitivePackages} is true. */
-  public void updateTransitivePackages(ConfiguredTargetKey key, NestedSet<Package> packages) {
+  /** Adds to the set of transitive package metadata if {@link #storeTransitivePackages} is true. */
+  public void updateTransitivePackages(
+      ConfiguredTargetKey key, NestedSet<Package.Metadata> packages) {
     if (packageCollector == null) {
       return;
     }
     packageCollector.configuredTargetPackages.put(key, packages);
   }
 
-  /** Adds to the set of transitive packages if {@link #storeTransitivePackages} is true. */
-  public void updateTransitivePackages(AspectKey key, NestedSet<Package> packages) {
+  /** Adds to the set of transitive package metadata if {@link #storeTransitivePackages} is true. */
+  public void updateTransitivePackages(AspectKey key, NestedSet<Package.Metadata> packages) {
     if (packageCollector == null) {
       return;
     }
@@ -146,7 +140,7 @@ public final class TransitiveDependencyState {
   }
 
   /**
-   * Collects packages of dependencies to be unified in a {@link NestedSet}.
+   * Collects package metadata of dependencies to be unified in a {@link NestedSet}.
    *
    * <p>Performs bookkeeping so the result is deterministic.
    *
@@ -155,8 +149,7 @@ public final class TransitiveDependencyState {
    * following: {@code (//foo, null), (null, //bar), (//foo, //bar) or (null, null)}.
    *
    * <p>This class tracks how the {@link Package}s are added so they can be given a deterministic
-   * order. This is required for determinism of {@link
-   * com.google.devtools.build.lib.analysis.RepoMappingManifestAction#computeKey}.
+   * order. This is required for determinism of {@link ActionKeyComputer#computeKey}.
    */
   private static class PackageCollector {
     /**
@@ -164,31 +157,31 @@ public final class TransitiveDependencyState {
      *
      * <p>These will be sorted.
      */
-    private final ArrayList<Package> packages = new ArrayList<>();
+    private final ArrayList<Package.Metadata> packages = new ArrayList<>();
 
-    /** Stores transitive {@link Package}s of {@link ConfiguredTargetValues}s. */
-    private final TreeMap<ConfiguredTargetKey, NestedSet<Package>> configuredTargetPackages =
-        new TreeMap<>(CONFIGURED_TARGET_KEY_ORDERING);
+    /** Stores transitive {@link Package.Metadata}s of {@link ConfiguredTargetValues}s. */
+    private final TreeMap<ConfiguredTargetKey, NestedSet<Package.Metadata>>
+        configuredTargetPackages = new TreeMap<>(ConfiguredTargetKey.ORDERING);
 
-    /** Stores transitive {@link Package}s of {@link AspectValue}s. */
-    private final TreeMap<AspectKey, NestedSet<Package>> aspectPackages =
-        new TreeMap<>(ASPECT_KEY_ORDERING);
+    /** Stores transitive {@link Package.Metadata}s of {@link AspectValue}s. */
+    private final TreeMap<AspectKey, NestedSet<Package.Metadata>> aspectPackages =
+        new TreeMap<>(AspectKey.ORDERING);
 
     /**
      * Constructs the deterministically ordered result.
      *
      * <p>It's safe to call this multiple times.
      */
-    private NestedSet<Package> buildSet() {
-      var result = NestedSetBuilder.<Package>stableOrder();
+    private NestedSet<Package.Metadata> buildSet() {
+      var result = NestedSetBuilder.<Package.Metadata>stableOrder();
 
-      Collections.sort(packages, comparing(Package::getPackageIdentifier));
+      Collections.sort(packages, comparing(Package.Metadata::packageIdentifier));
       result.addAll(packages);
 
-      for (NestedSet<Package> packageSet : configuredTargetPackages.values()) {
+      for (NestedSet<Package.Metadata> packageSet : configuredTargetPackages.values()) {
         result.addTransitive(packageSet);
       }
-      for (NestedSet<Package> packageSet : aspectPackages.values()) {
+      for (NestedSet<Package.Metadata> packageSet : aspectPackages.values()) {
         result.addTransitive(packageSet);
       }
 
@@ -196,50 +189,4 @@ public final class TransitiveDependencyState {
     }
   }
 
-  private static final Comparator<ConfiguredTargetKey> CONFIGURED_TARGET_KEY_ORDERING =
-      comparing(ConfiguredTargetKey::getLabel)
-          .thenComparing(ConfiguredTargetKey::getExecutionPlatformLabel, nullsFirst(naturalOrder()))
-          .thenComparing(
-              ConfiguredTargetKey::getConfigurationKey,
-              nullsFirst(comparing(BuildConfigurationKey::getOptionsChecksum)));
-
-  private static final Comparator<AspectKey> ASPECT_KEY_ORDERING =
-      comparing(AspectKey::getBaseConfiguredTargetKey, CONFIGURED_TARGET_KEY_ORDERING)
-          .thenComparing(
-              (left, right) -> new AspectKeyDescriptorGraphComparator().compare(left, right));
-
-  /**
-   * Compares the {@link AspectKey} graph structure for specific dependencies.
-   *
-   * <p>An {@link AspectKey} for a dependency is determined by {@link
-   * AspectCollection#buildAspectKey}. This means that the {@link AspectKey} is structured like a
-   * DAG with the following properties.
-   *
-   * <ul>
-   *   <li>The {@link AspectKey#getBaseConfiguredTargetKey} is the same across all nodes.
-   *   <li>Each DAG node has a unique {@link AspectKey#getAspectDescriptor}.
-   * </ul>
-   *
-   * <p>Given the above, it's sufficient to traverse unique {@link AspectDescriptor}s to understand
-   * the toplogy of both graphs.
-   *
-   * <p>NB: a new instance of this comparator must be constructed for each comparison.
-   */
-  private static class AspectKeyDescriptorGraphComparator implements Comparator<AspectKey> {
-    private final HashSet<AspectDescriptor> visited = new HashSet<>();
-
-    @Override
-    public int compare(AspectKey left, AspectKey right) {
-      AspectDescriptor leftDescriptor = left.getAspectDescriptor();
-      AspectDescriptor rightDescriptor = right.getAspectDescriptor();
-      if (!leftDescriptor.equals(rightDescriptor)) {
-        return leftDescriptor.getDescription().compareTo(rightDescriptor.getDescription());
-      }
-      if (!visited.add(leftDescriptor)) {
-        return 0;
-      }
-
-      return lexicographical(this).compare(left.getBaseKeys(), right.getBaseKeys());
-    }
-  }
 }

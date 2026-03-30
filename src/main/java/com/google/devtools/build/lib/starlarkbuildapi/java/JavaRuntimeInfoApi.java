@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import javax.annotation.Nullable;
@@ -112,7 +111,7 @@ public interface JavaRuntimeInfoApi extends StructApi {
       name = "hermetic_static_libs",
       doc = "Returns the JDK static libraries.",
       structField = true)
-  Sequence<CcInfo> starlarkHermeticStaticLibs();
+  Sequence<?> starlarkHermeticStaticLibs();
 
   /** The Java feature version of the runtime. This is 0 if the version is unknown. */
   @StarlarkMethod(

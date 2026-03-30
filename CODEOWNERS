@@ -48,13 +48,13 @@ android/ @ahumesky @ted-xie
 
 # C++
 
-/src/tools/cpp @comius @pzembrod @trybka
+/src/tools/cpp @pzembrod @trybka
 
-/src/test/shell/bazel/cpp @comius @pzembrod @trybka
+/src/test/shell/bazel/cpp @pzembrod @trybka
 
-/src/test/java/com/google/devtools/build/lib/rules/cpp/ @comius @pzembrod @trybka
+/src/test/java/com/google/devtools/build/lib/rules/cpp/ @pzembrod @trybka
 
-/src/main/java/com/google/devtools/build/lib/rules/cpp/ @comius @pzembrod @trybka
+/src/main/java/com/google/devtools/build/lib/rules/cpp/ @pzembrod @trybka
 
 # Java
 
@@ -66,8 +66,8 @@ android/ @ahumesky @ted-xie
 
 # Python
 
-/src/main/java/com/google/devtools/build/lib/bazel/rules/python/ @comius @rickeylev
-/src/main/java/com/google/devtools/build/lib/rules/python/ @comius @rickeylev
+/src/main/java/com/google/devtools/build/lib/bazel/rules/python/ @rickeylev
+/src/main/java/com/google/devtools/build/lib/rules/python/ @rickeylev
 
 # Execution and I/O related code
 

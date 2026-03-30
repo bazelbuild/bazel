@@ -17,13 +17,13 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.HasBinary;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.TokenKind;
 
@@ -52,9 +52,9 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
   private final Class<?> type;
   private final String noMatchError;
 
-  SelectorValue(Map<?, ?> dictionary, String noMatchError) {
+  SelectorValue(ImmutableMap<?, ?> dictionary, String noMatchError) {
     Preconditions.checkArgument(!dictionary.isEmpty());
-    this.dictionary = ImmutableMap.copyOf(dictionary);
+    this.dictionary = dictionary;
     // TODO(adonovan): doesn't this assume all the elements have the same type?
     this.type = Iterables.getFirst(dictionary.values(), null).getClass();
     this.noMatchError = noMatchError;
@@ -78,7 +78,7 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
 
   @Override
   public String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 
   @Override
@@ -88,8 +88,8 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
   }
 
   @Override
-  public void repr(Printer printer) {
-    printer.append("select(").repr(dictionary).append(")");
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    printer.append("select(").repr(dictionary, semantics).append(")");
   }
 
   @Override

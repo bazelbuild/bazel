@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
@@ -42,24 +42,6 @@ fi
 
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# `tr` converts all upper case letters to lower case.
-# `case` matches the result if the `uname | tr` expression to string prefixes
-# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# starting with "msys", and "*" matches everything (it's the default case).
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  # As of 2018-08-14, Bazel on Windows only supports MSYS Bash.
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-# override rules_java in bazel otherwise no build succeeds without injection
-[[ $(type -t mock_rules_java_to_avoid_downloading) == function ]] && mock_rules_java_to_avoid_downloading
 
 # use an empty prelude else no build succeeds without injection
 rm -f tools/build_rules/{blaze_prelude,prelude_bazel}
@@ -114,7 +96,6 @@ EOF
   bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path= \
       --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
-      --incompatible_autoload_externally= \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: original value"
 
@@ -122,7 +103,6 @@ EOF
   bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=%bundled% \
       --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
-      --incompatible_autoload_externally= \
       &>"$TEST_log" || fail "bazel build failed"
   # "overridden value" comes from the exports.bzl in production Bazel.
   expect_log "dummy :: overridden value"
@@ -132,7 +112,6 @@ EOF
   bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=%workspace% \
       --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
-      --incompatible_autoload_externally= \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: workspace value"
 
@@ -141,7 +120,6 @@ EOF
   bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=alternate \
       --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
-      --incompatible_autoload_externally= \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: alternate value"
 
@@ -154,7 +132,6 @@ EOF
   bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=alternate \
       --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
-      --incompatible_autoload_externally= \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: second alternate value"
 
@@ -162,7 +139,6 @@ EOF
   # files are.
   bazel query 'buildfiles(//pkg:BUILD)' --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=alternate \
-      --incompatible_autoload_externally= \
       &>"$TEST_log" || fail "bazel query failed"
   expect_not_log "exports.bzl"
 }

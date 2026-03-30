@@ -14,9 +14,10 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.devtools.build.lib.skyframe.serialization.proto.FileInvalidationData;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
+import com.google.devtools.build.lib.versioning.LongVersionGetter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.math.BigInteger;
 import java.util.Arrays;
@@ -25,7 +26,6 @@ import java.util.Base64;
 /** Constants and methods supporting {@link FileInvalidationData} keys. */
 final class FileDependencyKeySupport {
   static final int MAX_KEY_LENGTH = 250;
-  static final long MTSV_SENTINEL = -1;
 
   private static final byte[] EMPTY_BYTES = new byte[0];
 
@@ -43,7 +43,7 @@ final class FileDependencyKeySupport {
 
   static byte[] encodeMtsv(long mtsv) {
     if (mtsv < 0) {
-      checkArgument(mtsv == MTSV_SENTINEL, mtsv);
+      checkArgument(mtsv == LongVersionGetter.MINIMAL, mtsv);
       return EMPTY_BYTES; // BigInteger.toByteArray is never empty so this is unique.
     }
     // Uses a BigInteger to trim leading 0 bytes.
@@ -56,13 +56,15 @@ final class FileDependencyKeySupport {
 
   static String computeCacheKey(String path, long mtsv, byte delimiter) {
     byte[] encodedMtsv = encodeMtsv(mtsv);
-    byte[] pathBytes = path.getBytes(UTF_8);
+    byte[] pathBytes = StringUnsafe.getInternalStringBytes(path);
 
     byte[] keyBytes = Arrays.copyOf(encodedMtsv, encodedMtsv.length + 1 + pathBytes.length);
     keyBytes[encodedMtsv.length] = delimiter;
     System.arraycopy(pathBytes, 0, keyBytes, encodedMtsv.length + 1, pathBytes.length);
 
-    return new String(keyBytes, UTF_8);
+    // encodedMtsv is Base64-encoded and thus always ASCII-only, which means that it doesn't require
+    // any reencoding to match the internal string encoding (see StringEncoding for details).
+    return StringUnsafe.newInstance(keyBytes, StringUnsafe.LATIN1);
   }
 
   private FileDependencyKeySupport() {}

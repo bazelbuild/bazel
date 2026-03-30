@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Splitter;
@@ -102,7 +104,8 @@ public abstract class ExecutionInfoModifier {
    * Determines whether the given {@code mnemonic} (e.g. "CppCompile") matches any of the patterns.
    */
   boolean matches(String mnemonic) {
-    return expressions().stream().anyMatch(expr -> expr.pattern().matcher(mnemonic).matches());
+    return expressions().stream()
+        .anyMatch(expr -> expr.pattern().matcher(internalToUnicode(mnemonic)).matches());
   }
 
   /** Checks whether the {@code executionInfoList} matches the {@code mnemonic}. */
@@ -139,7 +142,7 @@ public abstract class ExecutionInfoModifier {
   /** Modifies the given map of {@code executionInfo} to add or remove the keys for this option. */
   void apply(String mnemonic, Map<String, String> executionInfo) {
     for (Expression expr : expressions()) {
-      if (expr.pattern().matcher(mnemonic).matches()) {
+      if (expr.pattern().matcher(internalToUnicode(mnemonic)).matches()) {
         if (expr.remove()) {
           executionInfo.remove(expr.key());
         } else {

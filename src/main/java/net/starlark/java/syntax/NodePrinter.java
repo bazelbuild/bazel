@@ -95,7 +95,7 @@ final class NodePrinter {
     } else if (arg instanceof Argument.StarStar) {
       buf.append("**");
     }
-    printExpr(arg.getValue());
+    printExpr(arg.getValue(), true);
   }
 
   private void printParameter(Parameter param) {
@@ -127,14 +127,33 @@ final class NodePrinter {
   void printDefSignature(DefStatement def) {
     buf.append("def ");
     printExpr(def.getIdentifier());
+    if (!def.getTypeParameters().isEmpty()) {
+      buf.append("[");
+      String sep = "";
+      for (Identifier typeParam : def.getTypeParameters()) {
+        buf.append(sep);
+        printExpr(typeParam);
+        sep = ", ";
+      }
+      buf.append("]");
+    }
     buf.append('(');
     String sep = "";
     for (Parameter param : def.getParameters()) {
       buf.append(sep);
       printParameter(param);
+      if (param.getType() != null) {
+        buf.append(": ");
+        printExpr(param.getType(), true);
+      }
       sep = ", ";
     }
-    buf.append("):");
+    buf.append(")");
+    if (def.getReturnType() != null) {
+      buf.append(" -> ");
+      printExpr(def.getReturnType(), true);
+    }
+    buf.append(":");
   }
 
   private void printStmt(Statement s) {
@@ -145,6 +164,11 @@ final class NodePrinter {
         {
           AssignmentStatement stmt = (AssignmentStatement) s;
           printExpr(stmt.getLHS());
+          Expression type = stmt.getType();
+          if (type != null) {
+            buf.append(" : ");
+            printExpr(type);
+          }
           buf.append(' ');
           if (stmt.isAugmented()) {
             buf.append(stmt.getOperator());
@@ -248,23 +272,61 @@ final class NodePrinter {
           buf.append('\n');
           break;
         }
+
+      case TYPE_ALIAS:
+        {
+          TypeAliasStatement stmt = (TypeAliasStatement) s;
+          buf.append("type ");
+          printExpr(stmt.getIdentifier());
+          if (!stmt.getParameters().isEmpty()) {
+            buf.append('[');
+            String sep = "";
+            for (Identifier param : stmt.getParameters()) {
+              buf.append(sep);
+              printExpr(param);
+              sep = ", ";
+            }
+            buf.append(']');
+          }
+          buf.append(" = ");
+          printExpr(stmt.getDefinition(), /* canSkipParenthesis= */ true);
+          buf.append('\n');
+          break;
+        }
+
+      case VAR:
+        {
+          VarStatement stmt = (VarStatement) s;
+          printExpr(stmt.getIdentifier());
+          buf.append(" : ");
+          printExpr(stmt.getType());
+          buf.append('\n');
+          break;
+        }
     }
   }
 
   private void printExpr(Expression expr) {
+    printExpr(expr, false);
+  }
+
+  private void printExpr(Expression expr, boolean canSkipParenthesis) {
     switch (expr.kind()) {
       case BINARY_OPERATOR:
         {
           BinaryOperatorExpression binop = (BinaryOperatorExpression) expr;
-          // TODO(bazel-team): retain parentheses in the syntax tree so we needn't
-          // conservatively emit them here.
-          buf.append('(');
+          // TODO(bazel-team): print minimal number of parentheses
+          if (!canSkipParenthesis) {
+            buf.append('(');
+          }
           printExpr(binop.getX());
           buf.append(' ');
           buf.append(binop.getOperator());
           buf.append(' ');
           printExpr(binop.getY());
-          buf.append(')');
+          if (!canSkipParenthesis) {
+            buf.append(')');
+          }
           break;
         }
 
@@ -339,6 +401,23 @@ final class NodePrinter {
           break;
         }
 
+      case CAST:
+        {
+          CastExpression cast = (CastExpression) expr;
+          buf.append("cast(");
+          printExpr(cast.getType(), /* canSkipParenthesis= */ true);
+          buf.append(", ");
+          printExpr(cast.getValue(), /* canSkipParenthesis= */ true);
+          buf.append(')');
+          break;
+        }
+
+      case ELLIPSIS:
+        {
+          buf.append("...");
+          break;
+        }
+
       case IDENTIFIER:
         buf.append(((Identifier) expr).getName());
         break;
@@ -356,6 +435,17 @@ final class NodePrinter {
       case INT_LITERAL:
         {
           buf.append(((IntLiteral) expr).getValue());
+          break;
+        }
+
+      case ISINSTANCE:
+        {
+          IsInstanceExpression isinstance = (IsInstanceExpression) expr;
+          buf.append("isinstance(");
+          printExpr(isinstance.getValue(), /* canSkipParenthesis= */ true);
+          buf.append(", ");
+          printExpr(isinstance.getType(), /* canSkipParenthesis= */ true);
+          buf.append(')');
           break;
         }
 
@@ -387,7 +477,7 @@ final class NodePrinter {
           String sep = "";
           for (Expression e : list.getElements()) {
             buf.append(sep);
-            printExpr(e);
+            printExpr(e, true);
             sep = ", ";
           }
           if (list.isTuple() && list.getElements().size() == 1) {
@@ -469,12 +559,30 @@ final class NodePrinter {
       case UNARY_OPERATOR:
         {
           UnaryOperatorExpression unop = (UnaryOperatorExpression) expr;
-          // TODO(bazel-team): retain parentheses in the syntax tree so we needn't
-          // conservatively emit them here.
+          // TODO(bazel-team): print minimal number of parentheses
           buf.append(unop.getOperator() == TokenKind.NOT ? "not " : unop.getOperator().toString());
-          buf.append('(');
+          if (!canSkipParenthesis) {
+            buf.append('(');
+          }
           printExpr(unop.getX());
-          buf.append(')');
+          if (!canSkipParenthesis) {
+            buf.append(')');
+          }
+          break;
+        }
+
+      case TYPE_APPLICATION:
+        {
+          TypeApplication typeApplication = (TypeApplication) expr;
+          printExpr(typeApplication.getConstructor());
+          buf.append('[');
+          String sep = "";
+          for (Expression arg : typeApplication.getArguments()) {
+            buf.append(sep);
+            printExpr(arg, true);
+            sep = ", ";
+          }
+          buf.append(']');
           break;
         }
     }

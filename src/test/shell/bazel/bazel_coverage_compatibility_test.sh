@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2022 The Bazel Authors. All rights reserved.
 #
@@ -22,7 +22,10 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function set_up_sh_test_coverage() {
+  add_rules_shell "MODULE.bazel"
   cat <<EOF > BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 constraint_setting(name = "incompatible_setting")
 
 constraint_value(
@@ -48,11 +51,11 @@ exports_files([
 ])
 EOF
   cat <<EOF > compatible_test.sh
-#!/bin/bash
+#!/usr/bin/env bash
 exit 0
 EOF
   cat <<EOF > incompatible_test.sh
-#!/bin/bash
+#!/usr/bin/env bash
 exit 1
 EOF
   chmod +x compatible_test.sh
@@ -60,6 +63,8 @@ EOF
 
   mkdir all_incompatible/
   cat <<EOF > all_incompatible/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "incompatible1_test",
     srcs = ["//:incompatible_test.sh"],

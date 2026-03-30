@@ -145,9 +145,10 @@ projects:
 ## Configuring the Java toolchains {:#config-java-toolchains}
 
 Bazel uses two types of Java toolchains:
-- execution, used to execute and test Java binaries, controlled with
+
+* execution, used to execute and test Java binaries, controlled with the
   `--java_runtime_version` flag
-- compilation, used to compile Java sources, controlled with
+* compilation, used to compile Java sources, controlled with the
   `--java_language_version` flag
 
 ### Configuring additional execution toolchains {:#config-execution-toolchains}
@@ -161,24 +162,26 @@ Java execution toolchains may added using the `local_java_repository` or
 the JVM available using a flag. When multiple definitions for the same operating
 system and CPU architecture are given, the first one is used.
 
-Example configuration of local JVM:
+Example configuration of local JVM in MODULE.bazel:
 
 ```python
-load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
+custom_jdk = use_extension("@rules_java//java:extensions.bzl", "java_repository")
 
-local_java_repository(
+custom_jdk.local(
   name = "additionaljdk",          # Can be used with --java_runtime_version=additionaljdk, --java_runtime_version=11 or --java_runtime_version=additionaljdk_11
-  version = 11,                    # Optional, if not set it is autodetected
+  version = "11",                  # Optional, if not set it is autodetected
   java_home = "/usr/lib/jdk-15/",  # Path to directory containing bin/java
 )
+use_repo(custom_jdk, "additionaljdk")
+register_toolchains("@additionaljdk//:all")
 ```
 
 Example configuration of remote JVM:
 
 ```python
-load("@bazel_tools//tools/jdk:remote_java_repository.bzl", "remote_java_repository")
+custom_jdk = use_extension("@rules_java//java:extensions.bzl", "java_repository")
 
-remote_java_repository(
+custom_jdk.remote(
   name = "openjdk_canary_linux_arm",
   prefix = "openjdk_canary", # Can be used with --java_runtime_version=openjdk_canary_11
   version = "11",            # or --java_runtime_version=11
@@ -190,6 +193,9 @@ remote_java_repository(
   sha256 = ...,
   strip_prefix = ...
 )
+use_repo(custom_jdk, "openjdk_canary_linux_arm", "openjdk_canary_linux_arm_toolchain_config_repo")
+
+register_toolchains("@openjdk_canary_linux_arm_toolchain_config_repo//:all")
 ```
 
 ### Configuring additional compilation toolchains {:#config-compilation-toolchains}
@@ -244,7 +250,7 @@ Example toolchain configuration:
 
 ```python
 load(
-  "@bazel_tools//tools/jdk:default_java_toolchain.bzl",
+  "@rules_java//toolchains:default_java_toolchain.bzl",
   "default_java_toolchain", "DEFAULT_TOOLCHAIN_CONFIGURATION", "BASE_JDK9_JVM_OPTS", "DEFAULT_JAVACOPTS"
 )
 
@@ -252,7 +258,7 @@ default_java_toolchain(
   name = "repository_default_toolchain",
   configuration = DEFAULT_TOOLCHAIN_CONFIGURATION,        # One of predefined configurations
                                                           # Other parameters are from java_toolchain rule:
-  java_runtime = "@bazel_tools//tools/jdk:remote_jdk11", # JDK to use for compilation and toolchain's tools execution
+  java_runtime = "@rules_java//toolchains:remote_jdk11", # JDK to use for compilation and toolchain's tools execution
   jvm_opts = BASE_JDK9_JVM_OPTS + ["--enable_preview"],   # Additional JDK options
   javacopts = DEFAULT_JAVACOPTS + ["--enable_preview"],   # Additional javac options
   source_version = "9",
@@ -274,7 +280,7 @@ Predefined configurations:
     built from sources (this may be useful on operating system with different
     libc)
 
-#### Configuring JVM and Java compiler flags {:#config-jvm}
+#### Configuring JVM and Java compiler flags {:#config-jvm-flags}
 
 You may configure JVM and javac flags either with flags or with
  `default_java_toolchain` attributes.
@@ -292,7 +298,7 @@ files using `package_configuration` attribute of `default_java_toolchain`.
 Please refer to the example below.
 
 ```python
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 
 # This is a convenience macro that inherits values from Bazel's default java_toolchain
 default_java_toolchain(

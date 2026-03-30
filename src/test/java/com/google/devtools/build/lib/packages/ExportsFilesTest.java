@@ -31,7 +31,7 @@ public class ExportsFilesTest extends PackageLoadingTestCase {
 
   private Package pkg() throws Exception {
     scratch.file("pkg/BUILD", "exports_files(['foo.txt', 'bar.txt'])");
-    return getTarget("//pkg:BUILD").getPackage();
+    return getPackage("pkg");
   }
 
   @Test

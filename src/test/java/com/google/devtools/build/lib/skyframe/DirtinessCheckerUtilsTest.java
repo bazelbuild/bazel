@@ -69,7 +69,6 @@ public final class DirtinessCheckerUtilsTest {
       new BlazeDirectories(
           new ServerDirectories(pkgRoot, outputBase, outputBase.getParentDirectory()),
           pkgRoot,
-          /* defaultSystemJavabase= */ null,
           TestConstants.PRODUCT_NAME);
   private final ExternalFilesHelper externalFilesHelper =
       ExternalFilesHelper.createForTesting(
@@ -105,7 +104,8 @@ public final class DirtinessCheckerUtilsTest {
             ? new DirtinessCheckerUtils.ExternalDirtinessChecker(
                 externalFilesHelper,
                 EnumSet.of(
-                    ExternalFilesHelper.FileType.INTERNAL, ExternalFilesHelper.FileType.EXTERNAL))
+                    ExternalFilesHelper.FileType.INTERNAL,
+                    ExternalFilesHelper.FileType.EXTERNAL_OTHER))
             : createMissingDiffChecker();
 
     boolean shouldCheck = underTest.applies(rootedPath);

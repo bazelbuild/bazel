@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.UUID;
 import javax.annotation.Nullable;
@@ -120,7 +121,6 @@ public final class TestUtils {
       try {
         randomSeed = Integer.parseInt(value);
       } catch (NumberFormatException e) {
-        // throw new AssertionError("TEST_RANDOM_SEED must be an integer");
         throw new RuntimeException("TEST_RANDOM_SEED must be an integer", e);
       }
     }
@@ -193,6 +193,8 @@ public final class TestUtils {
   public static final long WAIT_TIMEOUT_MILLISECONDS = Long.MAX_VALUE;
 
   public static final long WAIT_TIMEOUT_SECONDS = WAIT_TIMEOUT_MILLISECONDS / 1000;
+
+  public static final Duration WAIT_TIMEOUT_DURATION = Duration.ofMillis(WAIT_TIMEOUT_MILLISECONDS);
 
   private TestUtils() {}
 }

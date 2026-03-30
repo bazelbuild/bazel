@@ -16,22 +16,20 @@ package com.google.devtools.build.lib.remote;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -43,8 +41,9 @@ import javax.annotation.Nullable;
 /** A fake implementation of the {@link InputMetadataProvider} interface. */
 final class FakeActionInputFileCache implements InputMetadataProvider {
   private final Path execRoot;
-  private final BiMap<ActionInput, String> cas = HashBiMap.create();
+  private final Map<PathFragment, FileArtifactValue> cas = new HashMap<>();
   private final Map<ActionInput, RunfilesArtifactValue> runfilesMap = new HashMap<>();
+  private final Map<ActionInput, TreeArtifactValue> trees = new HashMap<>();
   private final List<RunfilesTree> runfilesTrees = new ArrayList<>();
   private final DigestUtil digestUtil;
 
@@ -55,12 +54,35 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
   }
 
   @Override
-  public FileArtifactValue getInputMetadataChecked(ActionInput input) throws IOException {
-    String hexDigest = Preconditions.checkNotNull(cas.get(input), input);
-    Path path = execRoot.getRelative(input.getExecPath());
-    FileStatus stat = path.stat(Symlinks.FOLLOW);
-    return FileArtifactValue.createForNormalFile(
-        HashCode.fromString(hexDigest).asBytes(), FileContentsProxy.create(stat), stat.getSize());
+  public FileArtifactValue getInputMetadataChecked(ActionInput input) {
+    return Preconditions.checkNotNull(
+        cas.get(input.getExecPath()),
+        "No metadata for input '%s' (exec path: '%s')",
+        input,
+        input.getExecPath());
+  }
+
+  @Nullable
+  @Override
+  public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
+    return trees.get(actionInput);
+  }
+
+  @Nullable
+  @Override
+  public TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  @Nullable
+  public FilesetOutputTree getFileset(ActionInput input) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public Map<Artifact, FilesetOutputTree> getFilesets() {
+    throw new UnsupportedOperationException();
   }
 
   @Override
@@ -75,12 +97,16 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
   }
 
   @Override
-  public ActionInput getInput(String execPath) {
+  public ActionInput getInput(PathFragment execPath) {
     throw new UnsupportedOperationException();
   }
 
-  private void setDigest(ActionInput input, String digest) {
-    cas.put(input, digest);
+  private void setMetadata(ActionInput input, FileArtifactValue metadata) {
+    cas.put(input.getExecPath(), metadata);
+  }
+
+  public void addTreeArtifact(ActionInput treeArtifact, TreeArtifactValue value) {
+    trees.put(treeArtifact, value);
   }
 
   public void addRunfilesTree(ActionInput runfilesTreeArtifact, RunfilesTree runfilesTree) {
@@ -88,6 +114,8 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
         runfilesTreeArtifact,
         new RunfilesArtifactValue(
             runfilesTree,
+            ImmutableList.of(),
+            ImmutableList.of(),
             ImmutableList.of(),
             ImmutableList.of(),
             ImmutableList.of(),
@@ -100,7 +128,12 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
     inputFile.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(inputFile, content);
     Digest digest = digestUtil.compute(inputFile);
-    setDigest(input, digest.getHash());
+    setMetadata(
+        input,
+        FileArtifactValue.createForNormalFile(
+            DigestUtil.toBinaryDigest(digest),
+            FileContentsProxy.create(inputFile.stat()),
+            content.length()));
     return digest;
   }
 
@@ -108,16 +141,16 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
     Path inputFile = execRoot.getRelative(input.getExecPath());
     inputFile.createDirectoryAndParents();
     Digest digest = digestUtil.compute(content);
-    setDigest(input, digest.getHash());
+    setMetadata(
+        input, FileArtifactValue.createForDirectoryWithHash(DigestUtil.toBinaryDigest(digest)));
     return digest;
   }
 
-  public Digest createScratchInputSymlink(ActionInput input, String target) throws IOException {
-    Path inputFile = execRoot.getRelative(input.getExecPath());
+  public void createScratchInputSymlink(Artifact input, String target) throws IOException {
+    Preconditions.checkArgument(input.isSymlink());
+    Path inputFile = input.getPath();
     inputFile.getParentDirectory().createDirectoryAndParents();
     inputFile.createSymbolicLink(PathFragment.create(target));
-    Digest digest = digestUtil.compute(inputFile);
-    setDigest(input, digest.getHash());
-    return digest;
+    setMetadata(input, FileArtifactValue.createForUnresolvedSymlink(input));
   }
 }

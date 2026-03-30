@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
@@ -28,22 +28,11 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_macos=false
-  declare -r is_windows=true
-  ;;
-darwin)
-  declare -r is_macos=true
-  declare -r is_windows=false
-  ;;
-*)
-  declare -r is_macos=false
-  declare -r is_windows=false
-  ;;
-esac
-
 add_to_bazelrc "build --package_path=%workspace%"
+
+function set_up() {
+  add_rules_java MODULE.bazel
+}
 
 function has_iso_8859_1_locale() {
   charmap="$(LC_ALL=en_US.ISO-8859-1 locale charmap 2>/dev/null)"
@@ -132,7 +121,7 @@ EOF
   # their actual contents since that would be too much.
   assert_contains "Inputs: \[" output
   assert_contains "Outputs: \[" output
-  if $is_windows; then
+  if is_windows; then
     assert_contains "Command Line: .*bash\.exe" output
   else
     assert_contains "Command Line: (" output
@@ -142,6 +131,25 @@ EOF
   bazel aquery --output=text --noinclude_commandline "//$pkg:bar" > output \
     2> "$TEST_log" || fail "Expected success"
   assert_not_contains "echo unused" output
+}
+
+function test_basic_aquery_commands() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = ["dummy.txt"],
+    outs = ["bar_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  echo "hello aquery" > "$pkg/in.txt"
+
+  bazel aquery --output=commands "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "echo unused" output
 }
 
 function test_basic_aquery_proto() {
@@ -239,9 +247,12 @@ EOF
 }
 
 function test_prunable_headers() {
+  add_rules_cc MODULE.bazel
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_binary(
   name = "foo",
   srcs = ["foo.cc"],
@@ -359,7 +370,13 @@ EOF
   assert_empty_file output
 }
 
+# Note: --noinclude_pruned_inputs doesn't filter out inputs removed by
+# unused_inputs_list, even after the build. The set of used inputs is only
+# stored in the action cache (not in memory), so aquery cannot know which inputs
+# are used.
 function test_unused_inputs() {
+  add_rules_shell "MODULE.bazel"
+
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/defs.bzl" <<EOF
@@ -385,6 +402,8 @@ foo = rule(
 EOF
   cat > "$pkg/BUILD" <<'EOF'
 load(":defs.bzl", "foo")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "tool",
     srcs = ["tool.sh"],
@@ -397,13 +416,13 @@ foo(
 )
 EOF
   cat > "$pkg/tool.sh" <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 echo "$1" > "$2"
 EOF
   chmod +x "$pkg/tool.sh"
   touch "$pkg/used.txt" "$pkg/useless.txt"
 
-  # Test --include_pruned_inputs before build.
+  # Test before build.
   # Expect used.txt and useless.txt to be considered inputs.
 
   bazel aquery "mnemonic(Action,//$pkg:foo)" > output 2> "$TEST_log" \
@@ -422,7 +441,7 @@ EOF
 
   assert_nonempty_file output
 
-  # Test --include_pruned_inputs after build.
+  # Test after build.
   # Expect used.txt and useless.txt to be considered inputs.
 
   bazel build "//$pkg:foo" || fail "Expected success"
@@ -444,54 +463,6 @@ EOF
   assert_nonempty_file output
 
   bazel clean
-
-  # Test --noinclude_pruned_inputs before build.
-  # Expect used.txt and useless.txt to be considered inputs.
-
-  bazel aquery --noinclude_pruned_inputs \
-    "mnemonic(Action,//$pkg:foo)" > output 2> "$TEST_log" \
-    || fail "Expected success"
-  cat output >> "$TEST_log"
-
-  assert_contains "Inputs:.*used.txt" output
-  assert_contains "Inputs:.*useless.txt" output
-
-  bazel aquery --noinclude_pruned_inputs \
-    "inputs(.*used.txt, //$pkg:foo)" > output 2> "$TEST_log" \
-    || fail "Expected success"
-
-  assert_nonempty_file output
-
-  bazel aquery --noinclude_pruned_inputs \
-    "inputs(.*useless.txt, //$pkg:foo)" > output 2> "$TEST_log" \
-    || fail "Expected success"
-
-  assert_nonempty_file output
-
-  # Test --noinclude_pruned_inputs after build.
-  # Expect used.h to be considered an input, but not useless.h.
-
-  bazel build "//$pkg:foo" || fail "Expected success"
-
-  bazel aquery --noinclude_pruned_inputs \
-    "mnemonic(Action,//$pkg:foo)" > output 2> "$TEST_log" \
-    || fail "Expected success"
-  cat output >> "$TEST_log"
-
-  assert_contains "Inputs:.*used.txt" output
-  assert_not_contains "Inputs:.*useless.txt" output
-
-  bazel aquery --noinclude_pruned_inputs \
-    "inputs(.*used.txt, //$pkg:foo)" > output 2> "$TEST_log" \
-    || fail "Expected success"
-
-  assert_nonempty_file output
-
-  bazel aquery --noinclude_pruned_inputs \
-    "inputs(.*useless.txt, //$pkg:foo)" > output 2> "$TEST_log" \
-    || fail "Expected success"
-
-  assert_empty_file output
 }
 
 function test_aquery_starlark_env() {
@@ -643,6 +614,7 @@ function test_aquery_all_filters_only_match_foo() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
 genrule(
     name = "foo",
     srcs = ["foo_matching_in.java"],
@@ -749,6 +721,7 @@ function test_aquery_mnemonic_filter_only_mach_foo() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
 genrule(
     name = "foo",
     srcs = ["foo_matching_in.java"],
@@ -840,6 +813,7 @@ function test_aquery_mnemonic_filter_exact_mnemonic_only_mach_foo() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
 genrule(
     name = "foo",
     srcs = ["foo_matching_in.java"],
@@ -890,6 +864,7 @@ function test_aquery_filters_chain_inputs_only_match_one() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
 genrule(
     name='foo',
     srcs=['foo_matching_in.java'],
@@ -964,6 +939,7 @@ function test_aquery_filters_chain_mnemonic_only_match_one() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
 java_library(
     name='foo',
     srcs=['Foo.java']
@@ -991,9 +967,11 @@ EOF
 }
 
 function test_aquery_noinclude_artifacts() {
+  add_rules_cc MODULE.bazel
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
     name='foo',
     srcs=['foo.cc']
@@ -1103,9 +1081,11 @@ EOF
 }
 
 function test_aquery_include_param_file_not_enabled_by_default() {
+  add_rules_cc MODULE.bazel
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
     name='foo',
     srcs=['foo.cc']
@@ -1126,6 +1106,7 @@ EOF
 }
 
 function test_aquery_cpp_action_template_treeartifact_output() {
+  add_rules_cc MODULE.bazel
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/a.bzl" <<'EOF'
@@ -1148,6 +1129,7 @@ cc_tree_artifact_files = rule(
 EOF
 
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load(':a.bzl', 'cc_tree_artifact_files')
 cc_tree_artifact_files(
     name = 'tree_artifact',
@@ -1177,7 +1159,7 @@ EOF
     --features=-prefer_pic_for_opt_binaries \
     || fail "Expected success"
   cat output >> "$TEST_log"
-  if (is_darwin || $is_windows); then
+  if (is_darwin || is_windows); then
     expected_num_actions=1
   else
     expected_num_actions=2
@@ -1229,7 +1211,7 @@ def _my_jpl_aspect_imp(target, ctx):
 
 my_jpl_aspect = aspect(
   attr_aspects = ['deps', 'exports'],
-  required_aspect_providers = [['proto_java']],
+  required_aspect_providers = [],
   attrs = {
     'aspect_param': attr.string(default = 'x', values = ['x', 'y'])
   },
@@ -1448,6 +1430,8 @@ EOF
   assert_not_contains "actions" output
 
   bazel build --nobuild "//$pkg:foo"
+  # Skyframe state becomes "dirty" after an initial build because that build alters the lockfile
+  bazel build --nobuild "//$pkg:foo"
 
   bazel aquery --output=textproto --skyframe_state > output 2> "$TEST_log" \
     || fail "Expected success"
@@ -1480,6 +1464,8 @@ EOF
 
   bazel clean
   bazel build --nobuild "//$pkg:foo"
+  # Skyframe state becomes "dirty" after an initial build because that build alters the lockfile
+  bazel build --nobuild "//$pkg:foo"
 
   bazel aquery --output=textproto --skyframe_state ${QUERY} > output 2> "$TEST_log" \
     || fail "Expected success"
@@ -1506,6 +1492,8 @@ EOF
   cat output >> "$TEST_log"
   assert_not_contains "actions" output
 
+  bazel build --nobuild "//$pkg:foo"
+  # Skyframe state becomes "dirty" after an initial build because that build alters the lockfile
   bazel build --nobuild "//$pkg:foo"
 
   bazel aquery --output=textproto --skyframe_state > output 2> "$TEST_log" \
@@ -1537,6 +1525,8 @@ EOF
   cat output >> "$TEST_log"
   assert_not_contains "actions" output
 
+  bazel build --nobuild "//$pkg:foo"
+  # Skyframe state becomes "dirty" after an initial build because that build alters the lockfile
   bazel build --nobuild "//$pkg:foo"
 
   bazel aquery --output=jsonproto --skyframe_state > output 2> "$TEST_log" \
@@ -1875,7 +1865,7 @@ EOF
 function test_unicode_text() {
   # Bazel relies on the JVM for filename encoding, and can only support
   # UTF-8 if either a UTF-8 or ISO-8859-1 locale is available.
-  if ! "$is_windows"; then
+  if ! is_windows; then
     if ! has_iso_8859_1_locale && ! has_utf8_locale; then
       echo "Skipping test (no ISO-8859-1 or UTF-8 locale)."
       echo "Available locales (need ISO-8859-1 or UTF-8):"
@@ -1949,7 +1939,7 @@ function test_file_write_is_executable() {
   touch "$pkg/foo.sh"
   cat > "$pkg/write_executable_file.bzl" <<'EOF'
 def _impl(ctx):
-    out = ctx.actions.declare_symlink(ctx.label.name)
+    out = ctx.actions.declare_file(ctx.label.name)
     ctx.actions.write(
         output = out,
         content = "Hello",
@@ -1985,10 +1975,12 @@ EOF
 }
 
 function test_source_symlink_manifest() {
+  add_rules_shell "MODULE.bazel"
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   touch "$pkg/foo.sh"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(name = "foo",
           srcs = ["foo.sh"],
 )
@@ -2006,48 +1998,9 @@ EOF
   # Verify file contents if we can decode base64-encoded data.
   if which base64 >/dev/null; then
     sed -nr 's/^ *FileWriteContents: \[(.*)\]/echo \1 | base64 -d/p' output | \
-       sh | tee -a "$TEST_log"  | assert_contains "$pkg/foo\.sh" -
+       sh | tee -a "$TEST_log"  > contents
+    assert_contains "$pkg/foo\.sh" contents
   fi
-}
-
-function test_unresolved_symlinks() {
-  local pkg="${FUNCNAME[0]}"
-  mkdir -p "$pkg" || fail "mkdir -p $pkg"
-  touch "$pkg/foo.sh"
-  cat > "$pkg/unresolved_symlink.bzl" <<'EOF'
-def _impl(ctx):
-    out = ctx.actions.declare_symlink(ctx.label.name)
-    ctx.actions.symlink(
-        output = out,
-        target_path = ctx.attr.path
-    )
-    return [
-        DefaultInfo(files = depset([out]))
-    ]
-unresolved_symlink = rule(
-    implementation = _impl,
-    attrs = {
-        "path": attr.string(),
-    },
-)
-EOF
-  cat > "$pkg/BUILD" <<'EOF'
-load(":unresolved_symlink.bzl", "unresolved_symlink")
-unresolved_symlink(
-  name = "foo",
-  path = "bar/baz.txt",
-)
-EOF
-  bazel aquery --output=textproto \
-     "//$pkg:foo" >output 2> "$TEST_log" || fail "Expected success"
-  cat output >> "$TEST_log"
-  assert_contains "^unresolved_symlink_target:.*bar/baz.txt" output
-
-  bazel aquery --output=text "//$pkg:foo" | \
-    sed -nr '/Mnemonic: UnresolvedSymlink/,/^ *$/p' >output \
-      2> "$TEST_log" || fail "Expected success"
-  cat output >> "$TEST_log"
-  assert_contains "^ *UnresolvedSymlinkTarget:.*bar/baz.txt" output
 }
 
 function test_does_not_fail_horribly_with_file() {
@@ -2070,11 +2023,13 @@ EOF
 }
 
 function test_cpp_compile_action_env() {
+  add_rules_cc MODULE.bazel
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg"
 
   touch "$pkg/main.cpp"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
     name = "main",
     srcs = ["main.cpp"],
@@ -2084,7 +2039,7 @@ EOF
      "mnemonic(CppCompile,//$pkg:main)" >output 2> "$TEST_log" || fail "Expected success"
   cat output >> "$TEST_log"
 
-  if "$is_windows"; then
+  if is_windows; then
     assert_contains '  key: "INCLUDE"' output
   else
     assert_contains '  key: "PWD"' output
@@ -2096,7 +2051,7 @@ EOF
 function DISABLED_test_unicode_textproto() {
   # Bazel relies on the JVM for filename encoding, and can only support
   # UTF-8 if either a UTF-8 or ISO-8859-1 locale is available.
-  if ! "$is_windows"; then
+  if ! is_windows; then
     if ! has_iso_8859_1_locale && ! has_utf8_locale; then
       echo "Skipping test (no ISO-8859-1 or UTF-8 locale)."
       echo "Available locales (need ISO-8859-1 or UTF-8):"

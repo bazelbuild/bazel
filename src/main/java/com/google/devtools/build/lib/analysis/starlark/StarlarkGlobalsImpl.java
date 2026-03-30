@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.starlark;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
+import com.google.devtools.build.lib.analysis.MaterializedDepsInfo;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileGlobals;
@@ -101,6 +102,7 @@ public final class StarlarkGlobalsImpl implements StarlarkGlobals {
     env.put("Actions", ActionsProvider.INSTANCE);
     env.put("DefaultInfo", DefaultInfo.PROVIDER);
     env.put("RunEnvironmentInfo", RunEnvironmentInfo.PROVIDER);
+    env.put("MaterializedDepsInfo", MaterializedDepsInfo.PROVIDER);
 
     return env.buildOrThrow();
   }

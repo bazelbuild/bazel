@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -29,12 +31,13 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.Protos.EnvironmentVariable;
 import com.google.devtools.build.lib.exec.Protos.Platform;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -48,6 +51,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.SortedMap;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** An {@link ActionContext} providing the ability to log executed spawns. */
@@ -59,7 +63,7 @@ public abstract class SpawnLogContext implements ActionContext {
    *
    * @param spawn the spawn to log
    * @param inputMetadataProvider provides metadata for the spawn inputs
-   * @param inputMap the mapping from input paths to action inputs
+   * @param inputMap the mapping from input paths to action inputs (built lazily)
    * @param fileSystem the filesystem containing the spawn inputs and outputs, which might be an
    *     action filesystem when building without the bytes
    * @param timeout the timeout the spawn was run under
@@ -68,11 +72,23 @@ public abstract class SpawnLogContext implements ActionContext {
   public abstract void logSpawn(
       Spawn spawn,
       InputMetadataProvider inputMetadataProvider,
-      SortedMap<PathFragment, ActionInput> inputMap,
+      Supplier<SortedMap<PathFragment, ActionInput>> inputMap,
       FileSystem fileSystem,
       Duration timeout,
       SpawnResult result)
       throws IOException, InterruptedException, ExecException;
+
+  @VisibleForTesting
+  void logSpawn(
+      Spawn spawn,
+      InputMetadataProvider inputMetadataProvider,
+      SortedMap<PathFragment, ActionInput> inputMap,
+      FileSystem fileSystem,
+      Duration timeout,
+      SpawnResult result)
+      throws IOException, InterruptedException, ExecException {
+    logSpawn(spawn, inputMetadataProvider, () -> inputMap, fileSystem, timeout, result);
+  }
 
   /**
    * Logs an internal symlink action, which is not backed by a spawn.
@@ -98,8 +114,8 @@ public abstract class SpawnLogContext implements ActionContext {
     for (Map.Entry<String, String> entry : ImmutableSortedMap.copyOf(environment).entrySet()) {
       builder.add(
           EnvironmentVariable.newBuilder()
-              .setName(entry.getKey())
-              .setValue(entry.getValue())
+              .setName(internalToUnicode(entry.getKey()))
+              .setValue(internalToUnicode(entry.getValue()))
               .build());
     }
     return builder.build();
@@ -154,7 +170,7 @@ public abstract class SpawnLogContext implements ActionContext {
   protected Digest computeDigest(
       @Nullable ActionInput input,
       Path path,
-      InputMetadataProvider inputMetadataProvider,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       XattrProvider xattrProvider,
       DigestHashFunction digestHashFunction,
       boolean includeHashFunctionName)
@@ -167,24 +183,24 @@ public abstract class SpawnLogContext implements ActionContext {
 
     if (input != null) {
       if (input instanceof VirtualActionInput virtualActionInput) {
-        byte[] blob = virtualActionInput.getBytes().toByteArray();
-        return builder
-            .setHash(digestHashFunction.getHashFunction().hashBytes(blob).toString())
-            .setSizeBytes(blob.length)
-            .build();
+        build.bazel.remote.execution.v2.Digest digest =
+            DigestUtil.compute(virtualActionInput, digestHashFunction.getHashFunction());
+        return builder.setHash(digest.getHash()).setSizeBytes(digest.getSizeBytes()).build();
       }
 
-      // Try to obtain a digest from the input metadata.
-      try {
-        FileArtifactValue metadata = inputMetadataProvider.getInputMetadata(input);
-        if (metadata != null && metadata.getDigest() != null) {
-          return builder
-              .setHash(HashCode.fromBytes(metadata.getDigest()).toString())
-              .setSizeBytes(metadata.getSize())
-              .build();
+      if (inputMetadataProvider != null) {
+        // Try to obtain a digest from the input metadata.
+        try {
+          FileArtifactValue metadata = inputMetadataProvider.getInputMetadata(input);
+          if (metadata != null && metadata.getDigest() != null) {
+            return builder
+                .setHash(HashCode.fromBytes(metadata.getDigest()).toString())
+                .setSizeBytes(metadata.getSize())
+                .build();
+          }
+        } catch (IOException | IllegalStateException e) {
+          // Pass through to local computation.
         }
-      } catch (IOException | IllegalStateException e) {
-        // Pass through to local computation.
       }
     }
 

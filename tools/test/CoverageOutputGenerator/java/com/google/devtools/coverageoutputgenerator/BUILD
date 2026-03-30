@@ -1,7 +1,6 @@
-load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_java//java:java_library.bzl", "java_library")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
-load("//tools:build_defs.bzl", "transition_java_language_8_filegroup")
+load("//src:release_archive.bzl", "minimum_java_runtime_java_binary")
 
 package(
     default_visibility = [
@@ -11,7 +10,7 @@ package(
 
 licenses(["notice"])  # Apache 2.0
 
-java_binary(
+minimum_java_runtime_java_binary(
     name = "all_lcov_merger_tools",
     visibility = ["//visibility:public"],
     runtime_deps = [":lcov_merger_lib"],
@@ -60,20 +59,33 @@ java_library(
 )
 
 java_library(
-    name = "BranchCoverage",
-    srcs = ["BranchCoverage.java"],
+    name = "BranchCoverageItem",
+    srcs = ["BranchCoverageItem.java"],
     deps = [
         "//third_party:auto_value",
-        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "BranchCoverageKey",
+    srcs = ["BranchCoverageKey.java"],
+    deps = [
+        "//third_party:auto_value",
     ],
 )
 
 java_library(
     name = "LineCoverage",
     srcs = ["LineCoverage.java"],
+)
+
+java_library(
+    name = "BranchCoverage",
+    srcs = ["BranchCoverage.java"],
     deps = [
-        "//third_party:auto_value",
-        "//third_party:jsr305",
+        ":BranchCoverageItem",
+        ":BranchCoverageKey",
+        "//third_party:guava",
     ],
 )
 
@@ -82,10 +94,10 @@ java_library(
     srcs = ["SourceFileCoverage.java"],
     deps = [
         ":BranchCoverage",
+        ":BranchCoverageItem",
+        ":BranchCoverageKey",
         ":LineCoverage",
-        "//third_party:auto_value",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -93,10 +105,9 @@ java_library(
     name = "LcovPrinter",
     srcs = ["LcovPrinter.java"],
     deps = [
-        ":BranchCoverage",
+        ":BranchCoverageItem",
         ":Constants",
         ":Coverage",
-        ":LineCoverage",
         ":SourceFileCoverage",
         "//third_party:guava",
     ],
@@ -115,9 +126,8 @@ java_library(
         "Parser.java",
     ],
     deps = [
-        ":BranchCoverage",
+        ":BranchCoverageItem",
         ":Constants",
-        ":LineCoverage",
         ":SourceFileCoverage",
         "//third_party:guava",
     ],
@@ -130,9 +140,8 @@ java_library(
         "Parser.java",
     ],
     deps = [
-        ":BranchCoverage",
+        ":BranchCoverageItem",
         ":Constants",
-        ":LineCoverage",
         ":SourceFileCoverage",
         "//third_party:gson",
     ],
@@ -145,9 +154,8 @@ java_library(
         "Parser.java",
     ],
     deps = [
-        ":BranchCoverage",
+        ":BranchCoverageItem",
         ":Constants",
-        ":LineCoverage",
         ":SourceFileCoverage",
     ],
 )
@@ -224,16 +232,6 @@ filegroup(
         ":coverage_empty_workspace",
         ":coverage_lcov_merge_tools",
         ":rename_build_tools",
-    ],
-    visibility = ["//src/test/shell/bazel:__pkg__"],
-)
-
-transition_java_language_8_filegroup(
-    name = "coverage_output_generator_repo_java8",
-    files = [
-        ":coverage/BUILD",
-        ":coverage/WORKSPACE",
-        ":coverage/all_lcov_merger_tools_deploy.jar",
     ],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )

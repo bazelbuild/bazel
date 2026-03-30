@@ -146,6 +146,14 @@ public class QueryTransitivePackagePreloader {
             .setKeepGoing(keepGoing)
             .setParallelism(parallelThreads)
             .setEventHandler(eventHandler)
+            // We're evaluating the set of TransitiveTarget nodes merely to ensure that all Package
+            // nodes for all transitive dependencies of the given labels are in the graph, since its
+            // these Package nodes that will be consumed by the query engine. We don't
+            // do anything with cycles between TransitiveTarget nodes (even stronger: we don't even
+            // consume TransitiveTarget nodes after this evaluation here, and no other node type in
+            // the graph depends on them), so we disable cycle detection to save time in the
+            // situation where there are a lot of large cycles involving TransitiveTarget nodes.
+            .setDetectCycles(false)
             .build();
     EvaluationResult<SkyValue> result =
         memoizingEvaluatorSupplier.get().evaluate(valueNames, evaluationContext);

@@ -7,7 +7,7 @@ package(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + ["//src/main/java/net/starlark/java/annot/processor:srcs"],
     visibility = ["//src:__subpackages__"],
 )
 

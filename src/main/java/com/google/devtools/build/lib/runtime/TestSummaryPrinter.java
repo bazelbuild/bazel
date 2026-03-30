@@ -81,7 +81,6 @@ public class TestSummaryPrinter {
           TestLogHelper.writeTestLog(path, testName, printer.getOutputStream(), maxTestOutputBytes);
         } catch (IOException e) {
           printer.printLn("==================== Could not read test output for " + testName);
-          LoggingUtil.logToRemote(Level.WARNING, "Error while reading test log", e);
         }
       }
     }
@@ -93,7 +92,6 @@ public class TestSummaryPrinter {
           TestLogHelper.writeTestLog(path, testName, printer.getOutputStream(), maxTestOutputBytes);
         } catch (Exception e) {
           printer.printLn("==================== Could not read test output for " + testName);
-          LoggingUtil.logToRemote(Level.WARNING, "Error while reading test log", e);
         }
       }
     }
@@ -126,7 +124,7 @@ public class TestSummaryPrinter {
         verboseSummary,
         showAllTestCases,
         false,
-        RepositoryMapping.ALWAYS_FALLBACK);
+        RepositoryMapping.EMPTY);
   }
 
   /**

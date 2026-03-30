@@ -187,8 +187,7 @@ public abstract class AbstractQueryTest<T> {
   // Evaluate the query, assert that it is successful, and return its results.
   protected Set<T> eval(String query) throws Exception {
     ResultAndTargets<T> result = helper.evaluateQuery(query);
-    assertWithMessage(
-            "evaluateQuery failed: " + query + "\n" + Iterables.toString(helper.getEvents()))
+    assertWithMessage("evaluateQuery failed: %s\n%s", query, Iterables.toString(helper.getEvents()))
         .that(result.getQueryEvalResult().getSuccess())
         .isTrue();
     return result.getResultSet();
@@ -242,7 +241,6 @@ public abstract class AbstractQueryTest<T> {
   protected ImmutableList<String> resultSetToListOfStrings(Set<T> results) {
     return results.stream()
         .map(node -> helper.getLabel(node))
-        .distinct()
         .sorted(Ordering.natural())
         .collect(toImmutableList());
   }
@@ -354,6 +352,9 @@ public abstract class AbstractQueryTest<T> {
     writeFile(
         "c/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
         genrule(name='c', srcs=['p', 'q'], outs=['r', 's'], cmd=':')
         cc_binary(name='d', srcs=['e.cc'], data=['r'])
         cc_test(name='f', srcs=['g.cc'])
@@ -450,6 +451,7 @@ public abstract class AbstractQueryTest<T> {
     writeFile(
         "t/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(name='t', srcs=['t.cc'], data=['r'], testonly=0)
         cc_library(name='t_test', srcs=['t.cc'], data=['r'], testonly=1)
         """);
@@ -497,6 +499,7 @@ public abstract class AbstractQueryTest<T> {
     writeFile(
         "t/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         package(default_visibility=['//visibility:public'])
         cc_library(name='t', srcs=['t.cc'])
         """);
@@ -589,6 +592,9 @@ public abstract class AbstractQueryTest<T> {
         """);
     writeFile(
         "configurable/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "",
         "cc_binary(",
         "    name = 'main',",
         "    srcs = ['main.cc'],",
@@ -1111,7 +1117,10 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testNoImplicitDeps() throws Exception {
-    writeFile("x/BUILD", "cc_binary(name='x', srcs=['x.cc'])");
+    writeFile(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
+        "cc_binary(name='x', srcs=['x.cc'])");
 
     // Implicit dependencies:
     String hostDepsExpr = helper.getToolsRepository() + "//tools/cpp:malloc";
@@ -1290,10 +1299,11 @@ public abstract class AbstractQueryTest<T> {
   public void testTestsOperatorExpandsTestsAndExcludesNonTests() throws Exception {
     writeFile(
         "a/BUILD",
+        "load('//test_defs:foo_binary.bzl', 'foo_binary')",
         "load('//test_defs:foo_test.bzl', 'foo_test')",
         "test_suite(name='a')",
         "foo_test(name='foo_test', srcs=['foo_test.sh'])",
-        "cc_binary(name='cc_binary')");
+        "foo_binary(name='cc_binary')");
     assertThat(eval("tests(//a)")).isEqualTo(eval("//a:foo_test"));
   }
 
@@ -1319,6 +1329,7 @@ public abstract class AbstractQueryTest<T> {
     writeFile(
         "b/BUILD",
         getPyLoad("py_test"),
+        "load('@rules_cc//cc:cc_test.bzl', 'cc_test')",
         "test_suite(name='foo_tests', tags=['foo'])",
         "test_suite(name='bar_tests', tags=['bar'])",
         "test_suite(name='foo_notbar_tests', tags=['foo', '-bar'])",
@@ -1410,6 +1421,36 @@ public abstract class AbstractQueryTest<T> {
     assertThat(eval("//a:a + //a/b:cycle1 + //a/b:cycle2")).isEqualTo(eval("//a/..."));
   }
 
+  /* executables(x) operator */
+
+  @Test
+  public void testExecutablesQuery() throws Exception {
+    writeFile(
+        "donut/BUILD",
+        """
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+        foo_binary(
+            name = "bin",
+            srcs = ["thief.sh"],
+        )
+
+        cc_test(
+            name = "test",
+            srcs = ["shop.cc"],
+        )
+
+        cc_library(
+            name = "lib",
+            srcs = ["shop.cc"],
+        )
+        """);
+
+    assertThat(eval("executables(//donut:all)")).isEqualTo(eval("//donut:bin"));
+  }
+
   /* set(x) operator */
 
   @Test
@@ -1481,7 +1522,16 @@ public abstract class AbstractQueryTest<T> {
     writeFile("mango/BUILD", "package_group(name='mango', packages=[])");
 
     Set<T> result = eval("deps(//kiwi:kiwi.sh)");
-    assertThat(result).isEqualTo(eval("//mango:mango + //kiwi:kiwi.sh"));
+    // Updated the test with an isThisBazel() check because incompatible_no_implicit_file_export
+    // is flipped to true in Bazel but remains false in Blaze. This discrepancy caused 'unexpected
+    // target' failures internally by still including the //mango:mango package group. The
+    // conditional logic ensures the test correctly validates both environments, and TAP presubmits
+    // are now passing.
+    if (analysisMock.isThisBazel()) {
+      assertThat(result).isEqualTo(eval("//kiwi:kiwi.sh"));
+    } else {
+      assertThat(result).isEqualTo(eval("//mango:mango + //kiwi:kiwi.sh"));
+    }
   }
 
   // Regression test for bug #2827101:
@@ -1522,7 +1572,10 @@ public abstract class AbstractQueryTest<T> {
   // Regression test for #1309697, NPE crash during Blaze query.
   @Test
   public void testRegression1309697() throws Exception {
-    writeFile("x/BUILD", "cc_library(name='x', srcs=['a.cc', 'a.cc'])");
+    writeFile(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='x', srcs=['a.cc', 'a.cc'])");
     String expectedError = "Label '//x:a.cc' is duplicated in the 'srcs' attribute of rule 'x'";
     if (helper.isKeepGoing()) {
       assertThat(evalThrows("//x:all", false).getMessage()).contains(expectedError);
@@ -1538,7 +1591,7 @@ public abstract class AbstractQueryTest<T> {
   }
 
   private static <T> DotOutputVisitor<T> createVisitor(PrintWriter writer) {
-    return new DotOutputVisitor<T>(writer, (Node<T> node) -> node.getLabel().toString());
+    return new DotOutputVisitor<T>(writer, "\n", (Node<T> node) -> node.getLabel().toString());
   }
 
   @Test
@@ -1592,7 +1645,10 @@ public abstract class AbstractQueryTest<T> {
   // than just p".
   @Test
   public void testWildcardsDontLoadUnnecessaryPackages() throws Exception {
-    writeFile("x/BUILD", "cc_library(name='x', deps=['//y'])");
+    writeFile(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='x', deps=['//y'])");
     writeFile("y/BUILD");
 
     eval("//x:*");
@@ -1605,6 +1661,7 @@ public abstract class AbstractQueryTest<T> {
     writeFile(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(name='x', deps=['z'])
         cc_library(name='y', deps=['z'])
         cc_library(name='z')
@@ -1639,6 +1696,7 @@ public abstract class AbstractQueryTest<T> {
     writeFile(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_test.bzl", "cc_test")
         cc_test(name='one')
         cc_test(name='two')
         test_suite(name='all', tests=[':one'])
@@ -1666,7 +1724,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testSlashSlashDotDotDot() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
     writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['a.sh'])");
     assertThat(eval("//...")).isEqualTo(eval("//a"));
@@ -1761,61 +1818,49 @@ public abstract class AbstractQueryTest<T> {
   protected void useReducedSetOfRules() throws Exception {
     helper.clearAllFiles();
     helper.useRuleClassProvider(analysisMock.createRuleClassProvider());
-    helper.writeFile("/workspace/embedded_tools/BUILD");
-    helper.writeFile("/workspace/embedded_tools/WORKSPACE");
-    helper.writeFile("/workspace/embedded_tools/MODULE.bazel", "module(name='bazel_tools')");
-    helper.writeFile("/workspace/platforms_workspace/BUILD");
-    helper.writeFile("/workspace/platforms_workspace/WORKSPACE");
-    helper.writeFile("/workspace/platforms_workspace/MODULE.bazel", "module(name='platforms')");
-    helper.writeFile("/workspace/local_config_xcode_workspace/BUILD");
-    helper.writeFile("/workspace/local_config_xcode_workspace/WORKSPACE");
+    helper.writeFile("embedded_tools/BUILD");
+    helper.writeFile("embedded_tools/MODULE.bazel", "module(name='bazel_tools')");
+    helper.writeFile("embedded_tools/tools/build_defs/repo/BUILD");
     helper.writeFile(
-        "/workspace/local_config_xcode_workspace/MODULE.bazel",
-        "module(name='local_config_xcode')");
-    helper.writeFile("/workspace/rules_java_workspace/BUILD");
-    helper.writeFile("/workspace/rules_java_workspace/WORKSPACE");
-    helper.writeFile("/workspace/rules_java_workspace/MODULE.bazel", "module(name='rules_java')");
-    helper.writeFile("/workspace/rules_python_workspace/BUILD");
-    helper.writeFile("/workspace/rules_python_workspace/WORKSPACE");
+        "embedded_tools/tools/build_defs/repo/local.bzl",
+        """
+        def _local_repository_impl(rctx):
+          path = rctx.workspace_root.get_child(rctx.attr.path)
+          rctx.symlink(path, ".")
+        local_repository = repository_rule(
+          implementation = _local_repository_impl,
+          attrs = {"path": attr.string()},
+        )
+        """);
+    helper.writeFile("platforms_workspace/BUILD");
+    helper.writeFile("platforms_workspace/MODULE.bazel", "module(name='platforms')");
+    helper.writeFile("local_config_xcode_workspace/BUILD");
     helper.writeFile(
-        "/workspace/rules_python_workspace/MODULE.bazel", "module(name='rules_python')");
-    helper.writeFile("/workspace/rules_python_internal_workspace/BUILD");
-    helper.writeFile("/workspace/rules_python_internal_workspace/WORKSPACE");
+        "local_config_xcode_workspace/MODULE.bazel", "module(name='local_config_xcode')");
+    helper.writeFile("rules_java_workspace/BUILD");
+    helper.writeFile("rules_java_workspace/MODULE.bazel", "module(name='rules_java')");
+    helper.writeFile("rules_python_workspace/BUILD");
+    helper.writeFile("rules_python_workspace/MODULE.bazel", "module(name='rules_python')");
+    helper.writeFile("rules_python_internal_workspace/BUILD");
     helper.writeFile(
-        "/workspace/rules_python_internal_workspace/MODULE.bazel",
-        "module(name='rules_python_internal')");
-    helper.writeFile("/workspace/bazel_skylib_workspace/BUILD");
-    helper.writeFile("/workspace/bazel_skylib_workspace/WORKSPACE");
+        "rules_python_internal_workspace/MODULE.bazel", "module(name='rules_python_internal')");
+    helper.writeFile("bazel_skylib_workspace/BUILD");
+    helper.writeFile("bazel_skylib_workspace/MODULE.bazel", "module(name='bazel_skylib')");
+    helper.writeFile("third_party/protobuf/BUILD");
+    helper.writeFile("third_party/protobuf/MODULE.bazel", "module(name='com_google_protobuf')");
+    helper.writeFile("proto_bazel_features_workspace/BUILD");
     helper.writeFile(
-        "/workspace/bazel_skylib_workspace/MODULE.bazel", "module(name='bazel_skylib')");
-    helper.writeFile("/workspace/third_party/protobuf/BUILD");
-    helper.writeFile("/workspace/third_party/protobuf/WORKSPACE");
+        "proto_bazel_features_workspace/MODULE.bazel", "module(name='proto_bazel_features')");
+    helper.writeFile("bazel_features_workspace/BUILD");
+    helper.writeFile("bazel_features_workspace/MODULE.bazel", "module(name='bazel_features')");
+    helper.writeFile("build_bazel_apple_support/BUILD");
     helper.writeFile(
-        "/workspace/third_party/protobuf/MODULE.bazel", "module(name='com_google_protobuf')");
-    helper.writeFile("/workspace/proto_bazel_features_workspace/BUILD");
-    helper.writeFile("/workspace/proto_bazel_features_workspace/WORKSPACE");
+        "build_bazel_apple_support/MODULE.bazel", "module(name='build_bazel_apple_support')");
+    helper.writeFile("third_party/bazel_rules/rules_cc/BUILD");
+    helper.writeFile("third_party/bazel_rules/rules_cc/MODULE.bazel", "module(name='rules_cc')");
+    helper.writeFile("third_party/bazel_rules/rules_shell/BUILD");
     helper.writeFile(
-        "/workspace/proto_bazel_features_workspace/MODULE.bazel",
-        "module(name='proto_bazel_features')");
-    helper.writeFile("/workspace/local_config_platform_workspace/BUILD");
-    helper.writeFile("/workspace/local_config_platform_workspace/WORKSPACE");
-    helper.writeFile(
-        "/workspace/local_config_platform_workspace/MODULE.bazel",
-        "module(name='local_config_platform')");
-    helper.writeFile("/workspace/build_bazel_apple_support/BUILD");
-    helper.writeFile("/workspace/build_bazel_apple_support/WORKSPACE");
-    helper.writeFile(
-        "/workspace/build_bazel_apple_support/MODULE.bazel",
-        "module(name='build_bazel_apple_support')");
-    helper.writeFile("/workspace/third_party/bazel_rules/rules_cc/BUILD");
-    helper.writeFile("/workspace/third_party/bazel_rules/rules_cc/WORKSPACE");
-    helper.writeFile(
-        "/workspace/third_party/bazel_rules/rules_cc/MODULE.bazel", "module(name='rules_cc')");
-    helper.writeFile("/workspace/third_party/bazel_rules/rules_shell/BUILD");
-    helper.writeFile("/workspace/third_party/bazel_rules/rules_shell/WORKSPACE");
-    helper.writeFile(
-        "/workspace/third_party/bazel_rules/rules_shell/MODULE.bazel",
-        "module(name='rules_shell')");
+        "third_party/bazel_rules/rules_shell/MODULE.bazel", "module(name='rules_shell')");
   }
 
   @Test
@@ -1866,7 +1911,6 @@ public abstract class AbstractQueryTest<T> {
 
   public void simpleVisibilityTest(String visibility, boolean expectVisible) throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
     writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
@@ -1907,7 +1951,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_private_same_package() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
     writeFile("MODULE.bazel");
     writeFile(
         "a/BUILD",
@@ -1921,7 +1964,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_package_group() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
     writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
@@ -1936,7 +1978,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_package_group_invisible() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
     writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
@@ -1952,7 +1993,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_package_group_include() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
     writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
@@ -1969,7 +2009,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_java_javatests() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
     writeFile("MODULE.bazel");
     writeFile(
         "java/com/google/a/BUILD",
@@ -1988,7 +2027,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_java_javatests_different_package() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
     writeFile("MODULE.bazel");
     writeFile(
         "java/com/google/a/BUILD",
@@ -2008,7 +2046,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_javatests_java() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
     writeFile("MODULE.bazel");
     writeFile(
         "javatests/com/google/a/BUILD",
@@ -2027,7 +2064,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_default_private() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
     writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b'])");
     writeFile(
@@ -2042,7 +2078,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_default_public() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
     writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b'])");
     writeFile(
@@ -2057,7 +2092,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testPackageGroupAllBeneath() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
     writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
@@ -2568,6 +2602,7 @@ public abstract class AbstractQueryTest<T> {
     writeFile(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         computed_default_rule(name='x1')
         computed_default_rule(name='x2', use_default = True)
         computed_default_rule(name='x3', dep = ':custom')
@@ -2617,7 +2652,7 @@ public abstract class AbstractQueryTest<T> {
         ")");
     helper.addModule(
         new ModuleKey("repo", Version.parse("1.0")), "module(name = 'repo', version = '1.0')");
-    writeFile(helper.getModuleRoot().getRelative("repo+1.0/WORKSPACE").getPathString(), "");
+    writeFile(helper.getModuleRoot().getRelative("repo+1.0/REPO.bazel").getPathString(), "");
     writeFile(
         helper.getModuleRoot().getRelative("repo+1.0/a/BUILD").getPathString(),
         "exports_files(['x', 'y', 'z'])",
@@ -2756,6 +2791,7 @@ public abstract class AbstractQueryTest<T> {
     writeFile(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(name = "cclib")
         """);
 

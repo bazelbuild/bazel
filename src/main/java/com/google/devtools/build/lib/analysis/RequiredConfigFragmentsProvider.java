@@ -39,7 +39,7 @@ import java.util.Set;
  * com.google.devtools.build.lib.analysis.config.FragmentOptions} required by this target and its
  * transitive dependencies.
  *
- * <p>See {@link com.google.devtools.build.lib.analysis.config.RequiredFragmentsUtil} for details.
+ * <p>See {@link RequiredFragmentsUtil} for details.
  */
 @Immutable
 @AutoCodec

@@ -15,26 +15,32 @@ package com.google.devtools.build.lib.analysis.producers;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.analysis.DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY;
+import static com.google.devtools.build.lib.analysis.DependencyKind.TRANSITIVE_VISIBILITY_DEPENDENCY;
 import static com.google.devtools.build.lib.analysis.DependencyKind.VISIBILITY_DEPENDENCY;
 import static com.google.devtools.build.lib.analysis.DependencyResolutionHelpers.getExecutionPlatformLabel;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyKind.AttributeDependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyKind.ToolchainDependencyKind;
-import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers;
 import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers.ExecutionPlatformResult;
+import com.google.devtools.build.lib.analysis.DormantDependency;
 import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
+import com.google.devtools.build.lib.analysis.MaterializedDepsInfo;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigurationTransitionEvent;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionCreationException;
+import com.google.devtools.build.lib.analysis.producers.DependencyMapProducer.MaterializerException;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
+import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -42,32 +48,45 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackagePiece;
+import com.google.devtools.build.lib.packages.Packageoid;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.rules.Alias;
 import com.google.devtools.build.lib.skyframe.AspectCreationException;
+import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
+import com.google.devtools.build.lib.util.Either;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
- * Evaluates dependencies.
+ * Evaluates a dependency.
  *
- * <p>A dependency is described by a {@link DependencyKind}, a {@link Label} and possibly a list of
- * {@link Aspect}s. This class determines the {@link AttributeConfiguration}, based on the parent's
- * configuration. This may include using the {@link TransitionApplier} to perform an attribute
- * configuration transition.
+ * <p>A dependency is described by a {@link DependencyKind} (e.g. an attribute), a {@link Label} to
+ * the dependency, and possibly a list of {@link Aspect}s. This class determines the {@link
+ * AttributeConfiguration} based on the parent's configuration. This may include using the {@link
+ * TransitionApplier} to perform an attribute configuration transition.
  *
  * <p>It then delegates computation of the {@link ConfiguredTargetAndData} prerequisite values to
  * {@link PrerequisitesProducer} with the determined configuration(s).
+ *
+ * <p>In the case that the dependency is a materializer target, the dependency may result in zero or
+ * more {@link ConfiguredTargetAndData}s per configuration.
  */
 final class DependencyProducer
     implements StateMachine, TransitionApplier.ResultSink, PrerequisitesProducer.ResultSink {
@@ -83,6 +102,8 @@ final class DependencyProducer
      * DependencyResolutionHelpers#getExecutionPlatformLabel} for when this happens.
      */
     void acceptDependencyValues(int index, ConfiguredTargetAndData[] values);
+
+    void acceptMaterializerTarget(DependencyKind dependencyKind, ConfiguredTargetAndData target);
 
     void acceptDependencyError(DependencyError error);
 
@@ -101,6 +122,9 @@ final class DependencyProducer
 
   // -------------------- Internal State --------------------
   private ImmutableMap<String, BuildConfigurationKey> transitionedConfigurations;
+  private ConfiguredTargetAndData[] prerequisiteValues;
+  // The label of the materializer target this DependencyProducer is producing for, null otherwise.
+  @Nullable private final Label originatingMaterializerTarget;
 
   DependencyProducer(
       PrerequisiteParameters parameters,
@@ -108,12 +132,14 @@ final class DependencyProducer
       Label toLabel,
       ImmutableList<Aspect> propagatingAspects,
       ResultSink sink,
+      Label originatingMaterializerTarget,
       int index) {
     this.parameters = parameters;
     this.kind = checkNotNull(kind);
     this.toLabel = toLabel;
     this.propagatingAspects = propagatingAspects;
     this.sink = sink;
+    this.originatingMaterializerTarget = originatingMaterializerTarget;
     this.index = index;
   }
 
@@ -124,6 +150,10 @@ final class DependencyProducer
     if (kind == VISIBILITY_DEPENDENCY
         || (attribute != null && attribute.getName().equals("visibility"))) {
       // This is always a null transition because visibility targets are not configurable.
+      return computePrerequisites(
+          AttributeConfiguration.ofVisibility(), /* executionPlatformLabel= */ null);
+    }
+    if (kind == TRANSITIVE_VISIBILITY_DEPENDENCY) {
       return computePrerequisites(
           AttributeConfiguration.ofVisibility(), /* executionPlatformLabel= */ null);
     }
@@ -185,6 +215,7 @@ final class DependencyProducer
     }
     sink.acceptTransition(kind, toLabel, attributeTransition);
     return new TransitionApplier(
+        toLabel,
         configurationKey,
         attributeTransition,
         parameters.transitionCache(),
@@ -214,6 +245,11 @@ final class DependencyProducer
   }
 
   @Override
+  public void acceptBuildOptionsScopeFunctionError(BuildOptionsScopeFunctionException e) {
+    sink.acceptDependencyError(DependencyError.of(e));
+  }
+
+  @Override
   public void acceptPlatformMappingError(PlatformMappingException e) {
     sink.acceptDependencyError(DependencyError.of(e));
   }
@@ -225,7 +261,7 @@ final class DependencyProducer
 
   private String getMessageWithEdgeTransitionInfo(Throwable e) {
     return String.format(
-        "On dependency edge %s (%s) -|%s|-> %s: %s",
+        "on dependency edge %s (%s) -|%s|-> %s: %s",
         parameters.target().getLabel(),
         parameters.configurationKey().getOptions().shortId(),
         kind.getAttribute().getName(),
@@ -238,7 +274,26 @@ final class DependencyProducer
       return DONE; // There was a previously reported error.
     }
 
-    if (isNonconfigurableTargetInSamePackage()) {
+    boolean isNonconfigurableTargetInSamePackage = false;
+    try {
+      @Nullable Target toTarget = getTargetInSamePackageWithoutSkyframe(toLabel);
+      if (toTarget != null) {
+        isNonconfigurableTargetInSamePackage = !toTarget.isConfigurable();
+      }
+    } catch (NoSuchTargetException e) {
+      Target parentTarget = parameters.target();
+      parameters
+          .transitiveState()
+          .addTransitiveCause(new LoadingFailedCause(toLabel, e.getDetailedExitCode()));
+      parameters
+          .eventHandler()
+          .handle(
+              Event.error(
+                  TargetUtils.getLocationMaybe(parentTarget),
+                  TargetUtils.formatMissingEdge(parentTarget, toLabel, e, kind.getAttribute())));
+    }
+
+    if (isNonconfigurableTargetInSamePackage) {
       // The target is in the same package as the parent and non-configurable. In the general case
       // loading a child target would defeat Package-based sharding. However, when the target is in
       // the same Package, that concern no longer applies. This optimization means that delegation,
@@ -291,7 +346,8 @@ final class DependencyProducer
         configuration,
         propagatingAspects,
         (PrerequisitesProducer.ResultSink) this,
-        useBaseTargetPrerequisitesSupplier());
+        useBaseTargetPrerequisitesSupplier(),
+        this::evaluateMaterializerTargets);
   }
 
   /**
@@ -320,7 +376,7 @@ final class DependencyProducer
 
   @Override
   public void acceptPrerequisitesValue(ConfiguredTargetAndData[] value) {
-    sink.acceptDependencyValues(index, value);
+    this.prerequisiteValues = value;
   }
 
   @Override
@@ -361,27 +417,217 @@ final class DependencyProducer
     sink.acceptDependencyError(DependencyError.of(error));
   }
 
-  private boolean isNonconfigurableTargetInSamePackage() {
-    Target parentTarget = parameters.target();
-    if (parentTarget.getLabel().getPackageIdentifier().equals(toLabel.getPackageIdentifier())) {
-      try {
-        Target toTarget = parentTarget.getPackage().getTarget(toLabel.getName());
-        if (!toTarget.isConfigurable()) {
-          return true;
-        }
-      } catch (NoSuchTargetException e) {
-        parameters
-            .transitiveState()
-            .addTransitiveCause(new LoadingFailedCause(toLabel, e.getDetailedExitCode()));
-        parameters
-            .eventHandler()
-            .handle(
-                Event.error(
-                    TargetUtils.getLocationMaybe(parentTarget),
-                    TargetUtils.formatMissingEdge(parentTarget, toLabel, e, kind.getAttribute())));
+  private StateMachine evaluateMaterializerTargets(Tasks tasks) {
+
+    // If the target this DependencyProducer is producing dependencies for is an alias, then
+    // do not expand materializer targets. Instead, keep the materializer target as-is and the
+    // alias will pass the materializer target along to the target that depends on the alias, where
+    // all this code will be run again and the materializer target will be expanded there. This is
+    // extra important for materializer rules which return more than one dependency: alias()'s
+    // 'actual' attribute is a single-label attribute, which means that normally it cannot contain
+    // a materializer target that returns multiple dependencies. By deferring evaluation of
+    // materializer targets, alias()s can point to any materializer target.
+    if (parameters.target().getAssociatedRule() != null) {
+      // Identifying a rule by its ConfiguredTargetFactory is a bit hacky, but the alternative
+      // is adding an "isAlias" boolean to RuleClass which would require serializing more data for
+      // one corner case.
+      if (parameters.target().getAssociatedRule().getRuleClassObject().getConfiguredTargetFactory()
+          instanceof Alias) {
+        return this::emitResults;
       }
     }
-    return false;
+
+    Attribute attribute = kind.getAttribute();
+
+    MaterializerRuleDependencySink materializerRuleDependencySink =
+        new MaterializerRuleDependencySink();
+
+    int materializedTargetsCount = 0;
+    List<Pair<ConfiguredTargetAndData, Integer>> erroringMaterializerTargetsUnderAnalysisTest =
+        new ArrayList<>();
+
+    // There will be one ConfiguredTargetAndData in prerequisiteValues for each configuration this
+    // label is being evaluated under.
+    for (ConfiguredTargetAndData dep : prerequisiteValues) {
+
+      // Skip non-materializer rules.
+      // Footnote: Iff the first dependency is a materializer rule, then they all should be, since
+      // this loop is iterating over the same target under different configurations.
+      if (!dep.isMaterializerRule()) {
+        materializedTargetsCount++;
+        continue;
+      }
+
+      if (originatingMaterializerTarget != null) {
+        sink.acceptDependencyError(
+            DependencyError.of(
+                MaterializerException.materializerRuleException(
+                    attribute,
+                    parameters.label(),
+                    String.format(
+                        "Materializer target %s depends on another materializer target"
+                            + " %s, which is not supported.",
+                        originatingMaterializerTarget, dep.getTargetLabel()),
+                    null)));
+        return DONE;
+      }
+
+      // Check that this materializer is in a label_list attribute. Since materializers can return
+      // a variable number of targets, they cannot go into single-label-typed attributes.
+      if (attribute != null
+          && dep.isMaterializerRule()
+          && attribute.getType() != BuildType.LABEL_LIST) {
+        sink.acceptDependencyError(
+            DependencyError.of(
+                MaterializerException.materializerRuleException(
+                    attribute,
+                    parameters.label(),
+                    String.format(
+                        "Target %s is a materializer target but attribute '%s' is a %s, not a"
+                            + " label list",
+                        dep.getTargetLabel(), attribute.getName(), attribute.getType()),
+                    null)));
+        return DONE;
+      }
+
+      sink.acceptMaterializerTarget(kind, dep);
+
+      MaterializedDepsInfo materializedDepsInfo =
+          dep.getConfiguredTarget().get(MaterializedDepsInfo.PROVIDER);
+      if (materializedDepsInfo != null) {
+        for (Either<ConfiguredTarget, DormantDependency> dependency :
+            materializedDepsInfo.getDeps()) {
+
+          // In the case that the dep is a ConfiguredTarget, things are somewhat circuitous because
+          // this very ConfiguredTarget object is already the ConfiguredTarget that is needed. What
+          // is actually needed though is the corresponding ConfiguredTargetAndData object. The
+          // ConfiguredTargetAndData object is also already available in the RuleContext when the
+          // MaterializedDepsInfo was created, but there is no easy way to get it from the
+          // RuleContext, through the provider, then to here. So just use the label to ask
+          // DependencyProducer to get the ConfiguredTargetAndData like everything else.
+          Label label = dependency.map(ConfiguredTarget::getLabel, DormantDependency::getLabel);
+
+          // The task will not start until this step is complete, so it is safe to calculate
+          // indices here and reallocate the results array after (instead of having to
+          // precalculate everything, then reallocate, then calculate and enqueue the dependency
+          // producer tasks)
+          tasks.enqueue(
+              new DependencyProducer(
+                  parameters,
+                  kind,
+                  label,
+                  propagatingAspects,
+                  materializerRuleDependencySink,
+                  dep.getTargetLabel(),
+                  materializedTargetsCount));
+
+          // Using result.length is a bit of a hack. It's not easy to get the number of
+          // configurations, and hence how many results DependencyProducer will return, in this
+          // part of the code. However the number of results returned from DependencyProducer
+          // in the first round in attributeResolutionStep matches the number of configurations.
+          materializedTargetsCount += prerequisiteValues.length;
+        }
+      } else {
+        // StarlarkRuleConfiguredTargetUtil checks that MaterializedDepsInfo provider exists, but if
+        // the materializer target is being tested under an analysis test that expects failure, then
+        // there might be a call to fail() before the MaterializedDepsInfo provider is returned, but
+        // analysis will continue. So allow there to be no MaterializedDepsInfo from a materializer
+        // target only if analysis failure is allowed. Futhermore, the failing materializer target
+        // must not disappear as it usually would so that the test can observe the
+        // AnalysisFailureInfo provider.
+        Preconditions.checkState(dep.getConfiguration().allowAnalysisFailures());
+        Preconditions.checkNotNull(
+            dep.getConfiguredTarget().get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR));
+        erroringMaterializerTargetsUnderAnalysisTest.add(new Pair<>(dep, materializedTargetsCount));
+        // The materializer target is in error, so it will not be expanded, so only add 1 for itself
+        materializedTargetsCount++;
+      }
+    }
+
+    // Note that if a materializer returns no deps, then this will clear the array, which
+    // is important because the materializer target itself needs to be cleared out.
+    if (materializedTargetsCount != prerequisiteValues.length) {
+      // Throw away the materializer target(s) and make room for the materialized target(s).
+      prerequisiteValues = new ConfiguredTargetAndData[materializedTargetsCount];
+
+      // But preserve any materializer target that was in error under analysis testing.
+      for (Pair<ConfiguredTargetAndData, Integer> pair :
+          erroringMaterializerTargetsUnderAnalysisTest) {
+        prerequisiteValues[pair.getSecond()] = pair.getFirst();
+      }
+    }
+
+    return this::emitResults;
+  }
+
+  private class MaterializerRuleDependencySink implements ResultSink {
+
+    @Override
+    public void acceptTransition(
+        DependencyKind kind, Label label, ConfigurationTransition transition) {
+      sink.acceptTransition(kind, label, transition);
+    }
+
+    @Override
+    public void acceptDependencyValues(int index, ConfiguredTargetAndData[] values) {
+      System.arraycopy(values, 0, prerequisiteValues, index, values.length);
+    }
+
+    @Override
+    public void acceptMaterializerTarget(
+        DependencyKind dependencyKind, ConfiguredTargetAndData target) {
+      sink.acceptMaterializerTarget(dependencyKind, target);
+    }
+
+    @Override
+    public void acceptDependencyError(MissingEdgeError error) {
+      sink.acceptDependencyError(error);
+    }
+
+    @Override
+    public void acceptDependencyError(DependencyError error) {
+      sink.acceptDependencyError(error);
+    }
+  }
+
+  private StateMachine emitResults(Tasks tasks) {
+    sink.acceptDependencyValues(index, prerequisiteValues);
+    return DONE;
+  }
+
+  /**
+   * Attempts to resolve a label to a target in the same package as the parent target without doing
+   * a skyframe call. Returns the target if it can be resolved, and null otherwise.
+   *
+   * <p>In particular, this method always returns null if {@code label} points to a different
+   * package.
+   *
+   * <p>If the parent target is owned by a {@link PackagePiece}, this method will look for {@code
+   * label} in that package piece only, and cannot examine other package pieces.
+   *
+   * @throws NoSuchTargetException if it can be determined without a skyframe call that {@code
+   *     label} is not a valid target.
+   */
+  @Nullable
+  private Target getTargetInSamePackageWithoutSkyframe(Label label) throws NoSuchTargetException {
+    Target parentTarget = parameters.target();
+    if (parentTarget.getLabel().getPackageIdentifier().equals(label.getPackageIdentifier())) {
+      Packageoid parentPackageoid = parentTarget.getPackageoid();
+      if (parentPackageoid instanceof Package parentPkg) {
+        // Throws NoSuchTargetException if label is not found; since parentPkg is a full Package,
+        // this guarantees that label is not a valid target.
+        return parentPkg.getTarget(label.getName());
+      } else if (parentPackageoid instanceof PackagePiece parentPkgPiece) {
+        // NoSuchTargetException could indicate that label is owned by a different package piece,
+        // and we would need a skyframe call to resolve.
+        try {
+          return parentPkgPiece.getTarget(label.getName());
+        } catch (NoSuchTargetException e) {
+          return null;
+        }
+      }
+    }
+    return null;
   }
 
   /**

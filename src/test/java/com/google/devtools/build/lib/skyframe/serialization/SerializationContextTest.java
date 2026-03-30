@@ -176,7 +176,7 @@ public final class SerializationContextTest {
 
     ObjectCodecs codecs = new ObjectCodecs(registry);
     ByteString bytes = codecs.serialize(toSerialize);
-    assertThrows(RuntimeException.class, () -> codecs.deserializeMemoized(bytes));
+    assertThrows(SerializationException.class, () -> codecs.deserializeMemoized(bytes));
   }
 
   private static final class ArrayListCodec implements ObjectCodec<ArrayList<?>> {

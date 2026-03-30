@@ -44,9 +44,13 @@ public final class NonWindowsCcBinaryThinLtoTest extends BuildViewTestCase {
   public void createTestFiles(String extraTestParameters, String extraLibraryParameters)
       throws Exception {
     scratch.overwriteFile(
-        "base/BUILD", "cc_library(name = 'system_malloc', visibility = ['//visibility:public'])");
+        "base/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name = 'system_malloc', visibility = ['//visibility:public'])");
     scratch.file(
         "pkg/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "load('@rules_cc//cc:cc_test.bzl', 'cc_test')",
         "package(features = ['thin_lto'])",
         "cc_test(",
         "    name = 'bin_test',",

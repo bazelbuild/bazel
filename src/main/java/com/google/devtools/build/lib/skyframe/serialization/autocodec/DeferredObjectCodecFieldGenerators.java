@@ -55,7 +55,7 @@ import javax.lang.model.type.TypeMirror;
  * </ul>
  *
  * <p>There's a similar division for deserialization, with the {@link
- * AsyncDeserializationContext#deserialize} handling aribtrary objects. Deserialized child values
+ * AsyncDeserializationContext#deserialize} handling arbitrary objects. Deserialized child values
  * are written to a builder object, generated in {@link DeferredObjectCodecGenerator} with all the
  * required fields and setters.
  */
@@ -234,32 +234,19 @@ abstract class DeferredObjectCodecFieldGenerators {
         TypeKind baseComponentKind,
         FieldAccessor accessor) {
       super(name, type, typeName, parentName, hierarchyLevel, accessor);
-      switch (baseComponentKind) {
-        case BOOLEAN:
-        case BYTE:
-        case CHAR:
-        case DOUBLE:
-        case FLOAT:
-        case INT:
-        case LONG:
-        case SHORT:
-          this.processorName = baseComponentKind.name() + "_ARRAY_PROCESSOR";
-          break;
-        case DECLARED:
-        case TYPEVAR:
-          // See comments of `ArrayProcessor.OBJECT_ARRAY_PROCESSOR` to understand how it works for
-          // any type of object array.
-          this.processorName = "OBJECT_ARRAY_PROCESSOR";
-          break;
-        default:
-          throw new IllegalStateException(
-              "Unexpected base array component kind "
-                  + baseComponentKind
-                  + " for array field "
-                  + name
-                  + " of type "
-                  + type);
-      }
+      this.processorName =
+          switch (baseComponentKind) {
+            case BOOLEAN, BYTE, CHAR, DOUBLE, FLOAT, INT, LONG, SHORT ->
+                baseComponentKind.name() + "_ARRAY_PROCESSOR";
+            case DECLARED, TYPEVAR ->
+                // See comments of `ArrayProcessor.OBJECT_ARRAY_PROCESSOR` to understand how it
+                // works for any type of object array.
+                "OBJECT_ARRAY_PROCESSOR";
+            default ->
+                throw new IllegalStateException(
+                    "Unexpected base array component kind %s for array field %s of type %s"
+                        .formatted(baseComponentKind, name, type));
+          };
     }
 
     /**

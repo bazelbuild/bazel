@@ -29,7 +29,9 @@ import org.junit.runners.JUnit4;
 public class IncludeValidationTest extends BuildIntegrationTestCase {
 
   private void writeFooBuild(boolean withDeps) throws Exception {
-    write("foo/BUILD",
+    write(
+        "foo/BUILD",
+        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
         "genrule(name = 'gen',",
         "        srcs = ['foo.h'],",
         "        outs = ['foo_gen.h'],",

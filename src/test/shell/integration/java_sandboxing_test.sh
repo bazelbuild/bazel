@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -25,6 +25,10 @@ set -euo pipefail
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+
+function set_up() {
+  add_rules_java MODULE.bazel
+}
 
 function tear_down() {
   bazel clean --expunge
@@ -70,6 +74,7 @@ function build_with_params() {
   # sandboxing and support workers.
   mkdir pkg
   cat >pkg/BUILD <<'EOF'
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(
     name = "java",
     srcs = ["Main.java"],

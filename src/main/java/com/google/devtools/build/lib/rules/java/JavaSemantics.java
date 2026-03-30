@@ -18,7 +18,7 @@ package com.google.devtools.build.lib.rules.java;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
-import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -34,20 +34,6 @@ public interface JavaSemantics {
   FileType JAVA_SOURCE = FileType.of(".java");
   FileType JAR = FileType.of(".jar");
   FileType PROPERTIES = FileType.of(".properties");
-  FileType SOURCE_JAR = FileType.of(".srcjar");
-
-  /** The java_toolchain.compatible_javacopts key for Android javacopts */
-  String ANDROID_JAVACOPTS_KEY = "android";
-
-  /** The java_toolchain.compatible_javacopts key for testonly compilations. */
-  String TESTONLY_JAVACOPTS_KEY = "testonly";
-
-  /** The java_toolchain.compatible_javacopts key for public visibility. */
-  String PUBLIC_VISIBILITY_JAVACOPTS_KEY = "public_visibility";
-
-  static Label javaToolchainAttribute(RuleDefinitionEnvironment environment) {
-    return environment.getToolsLabel("//tools/jdk:current_java_toolchain");
-  }
 
   /** Name of the output group used for transitive source jars. */
   String SOURCE_JARS_OUTPUT_GROUP = OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX + "source_jars";
@@ -78,6 +64,6 @@ public interface JavaSemantics {
    */
   PathFragment getDefaultJavaResourcePath(PathFragment path);
 
-  /** Environment variable that sets the UTF-8 charset. */
-  ImmutableMap<String, String> utf8Environment();
+  /** Environment variable that sets the UTF-8 charset for the given execution platform. */
+  ImmutableMap<String, String> utf8Environment(PlatformInfo executionPlatform);
 }

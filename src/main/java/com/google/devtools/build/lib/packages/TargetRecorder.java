@@ -14,8 +14,11 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -172,8 +175,16 @@ public final class TargetRecorder {
    *     created in, based on the macro stack maintained herein. If false, we only record the
    *     definition location associated with said macro, as supplied by the caller via {@link
    *     #putAllTargetsToDeclaringPackage}.
+   * @param enableTargetMapSnapshotting whether to use a snapshottable map as the targets map;
+   *     required for {@link TargetDefinitionContext#getRulesSnapshotView}, which is used by {@code
+   *     native.existing_rules()} machinery in the context of a {@link Package.Builder}. If false,
+   *     {@link #unwrapSnapshottableBiMap} cannot be called (since in that case the target map is
+   *     not snapshottable in the first place).
    */
-  public TargetRecorder(boolean enableNameConflictChecking, boolean trackFullMacroInformation) {
+  public TargetRecorder(
+      boolean enableNameConflictChecking,
+      boolean trackFullMacroInformation,
+      boolean enableTargetMapSnapshotting) {
     if (enableNameConflictChecking) {
       this.ruleLabels = new HashMap<>();
       this.rulesCreatedInMacros = new HashSet<>();
@@ -190,6 +201,10 @@ public final class TargetRecorder {
       this.targetsToDeclaringMacro = null;
       this.targetsToDeclaringPackage = new LinkedHashMap<>();
     }
+    this.targetMap =
+        enableTargetMapSnapshotting
+            ? new SnapshottableBiMap<>(target -> target instanceof Rule)
+            : HashBiMap.create();
   }
 
   public Map<String, Target> getTargetMap() {
@@ -346,40 +361,20 @@ public final class TargetRecorder {
     return targetMap.get(name);
   }
 
-  public void unwrapSnapshottableBiMap() {
+  /**
+   * Transforms the target map in-place from a {@link SnapshottableBiMap} to its backing mutable
+   * bimap. Intended only for use by {@link Package.Builder#beforeBuild} to allow removal of certain
+   * broken targets from the map.
+   *
+   * <p>After this method has been called, {@link #getTargetMap} will return a map which is
+   * non-snapshottable, but which does allow removal.
+   *
+   * @throws IllegalStateException if this object was constructed with {@code
+   *     enableTargetMapSnapshotting == false} or if this method had already been called.
+   */
+  void unwrapSnapshottableBiMap() {
     Preconditions.checkState(targetMap instanceof SnapshottableBiMap<?, ?>);
     this.targetMap = ((SnapshottableBiMap<String, Target>) targetMap).getUnderlyingBiMap();
-  }
-
-  /**
-   * Replaces a target in the {@link Package} under construction with a new target with the same
-   * name and belonging to the same package.
-   *
-   * <p>There must already be an existing target by the same name.
-   *
-   * <p>Requires that the constructor was called with {@code enableNameConflictChecking} set to
-   * true.
-   *
-   * <p>A hack needed for {@link WorkspaceFactoryHelper}.
-   */
-  public void replaceTarget(Target newTarget) {
-    Preconditions.checkState(
-        isNameConflictCheckingEnabled(), "Expected name conflict checking to be enabled");
-
-    Preconditions.checkArgument(
-        targetMap.containsKey(newTarget.getName()),
-        "No existing target with name '%s' in the targets map",
-        newTarget.getName());
-    Target oldTarget = putTargetInternal(newTarget);
-    if (newTarget instanceof Rule) {
-      List<Label> ruleLabelsForOldTarget = ruleLabels.remove(oldTarget);
-      if (ruleLabelsForOldTarget != null) {
-        // TODO(brandjon): Can the new target have different labels than the old? If so, we
-        // probably need newTarget.getLabels() here instead. Moot if we can delete this along with
-        // WORKSPACE logic.
-        ruleLabels.put((Rule) newTarget, ruleLabelsForOldTarget);
-      }
-    }
   }
 
   // TODO(bazel-team): This method allows target deletion via the returned view, which is used in
@@ -453,6 +448,39 @@ public final class TargetRecorder {
         currentMacroFrame.mainSubmacroHasBeenDefined = true;
       }
     }
+  }
+
+  /**
+   * Adds all rules and macros from a given package piece. Intended only for use by skyframe
+   * machinery.
+   */
+  public void addAllFromPackagePiece(PackagePiece packagePiece, boolean skipBuildFile)
+      throws NameConflictException {
+    MacroFrame prev;
+    if (packagePiece instanceof PackagePiece.ForMacro forMacro) {
+      prev = setCurrentMacroFrame(new MacroFrame(forMacro.getEvaluatedMacro()));
+    } else {
+      prev = setCurrentMacroFrame(null);
+    }
+    for (MacroInstance macro : packagePiece.getMacros()) {
+      addMacro(macro);
+    }
+    @Nullable
+    InputFile buildFile =
+        packagePiece instanceof PackagePiece.ForBuildFile forBuildFile
+            ? forBuildFile.getBuildFile()
+            : null;
+    for (Target target : packagePiece.getTargets().values()) {
+      if (skipBuildFile && target == buildFile) {
+        continue;
+      }
+      if (target instanceof OutputFile) {
+        // Rule output files are recorded as a side effect of addTarget(rule)
+        continue;
+      }
+      addTarget(target);
+    }
+    var unused = setCurrentMacroFrame(prev);
   }
 
   /** Returns the current macro frame, or null if there is no currently running symbolic macro. */
@@ -529,7 +557,8 @@ public final class TargetRecorder {
       if (outputFilesByName.put(outputFileName, outputFile) != null) {
         throw new NameConflictException(
             String.format(
-                "rule '%s' has more than one generated file named '%s'", ruleName, outputFileName));
+                "rule '%s' has more than one generated file named '%s'", ruleName, outputFileName),
+            outputFile);
       }
       // Check for conflict with any other already added target.
       checkTargetName(outputFile);
@@ -566,7 +595,8 @@ public final class TargetRecorder {
         throw new NameConflictException(
             String.format(
                 "rule '%s' has file '%s' as both an input and an output",
-                ruleName, inputLabel.getName()));
+                ruleName, inputLabel.getName()),
+            outputFilesByName.get(inputLabel.getName()));
       }
     }
   }
@@ -620,7 +650,7 @@ public final class TargetRecorder {
     // error messages.
     checkForExistingTargetName(target);
 
-    checkForExistingMacroName(target.getName(), "target");
+    checkForExistingMacroName(TargetOrMacro.of(target));
 
     if (currentMacroFrame != null
         && !nameIsWithinMacroNamespace(
@@ -681,7 +711,7 @@ public final class TargetRecorder {
     object += ", defined at " + existing.getLocation();
 
     throw new NameConflictException(
-        String.format("%s conflicts with existing %s", subject, object));
+        String.format("%s conflicts with existing %s", subject, object), target);
   }
 
   /**
@@ -699,17 +729,18 @@ public final class TargetRecorder {
     Target existingTarget = targetMap.get(name);
     if (existingTarget != null) {
       throw new NameConflictException(
-          String.format("macro '%s' conflicts with an existing target.", name));
+          String.format("macro '%s' conflicts with an existing target.", name), macro);
     }
 
-    checkForExistingMacroName(name, "macro");
+    checkForExistingMacroName(TargetOrMacro.of(macro));
 
     if (currentMacroFrame != null
         && !nameIsWithinMacroNamespace(name, currentMacroFrame.macroInstance.getName())) {
       throw new MacroNamespaceViolationException(
           String.format(
               "macro '%s' cannot declare submacro named '%s'. %s",
-              currentMacroFrame.macroInstance.getName(), name, MACRO_NAMING_RULES));
+              currentMacroFrame.macroInstance.getName(), name, MACRO_NAMING_RULES),
+          macro);
     }
   }
 
@@ -720,7 +751,8 @@ public final class TargetRecorder {
    *
    * <p>{@code what} must be either "macro" or "target".
    */
-  private void checkForExistingMacroName(String name, String what) throws NameConflictException {
+  private void checkForExistingMacroName(TargetOrMacro targetOrMacro) throws NameConflictException {
+    String name = targetOrMacro.getName();
     if (!hasMacroWithName(name)) {
       return;
     }
@@ -741,7 +773,9 @@ public final class TargetRecorder {
     // of that name.
     throw new NameConflictException(
         String.format(
-            "%s '%s' conflicts with an existing macro (and was not created by it)", what, name));
+            "%s '%s' conflicts with an existing macro (and was not created by it)",
+            targetOrMacro.getKind(), name),
+        targetOrMacro);
   }
 
   /**
@@ -754,7 +788,8 @@ public final class TargetRecorder {
       return new NameConflictException(
           String.format(
               "rule '%s' has conflicting output files '%s' and '%s'",
-              added.getGeneratingRule().getName(), added.getName(), existing.getName()));
+              added.getGeneratingRule().getName(), added.getName(), existing.getName()),
+          added);
     } else {
       return new NameConflictException(
           String.format(
@@ -762,7 +797,43 @@ public final class TargetRecorder {
               added.getName(),
               added.getGeneratingRule().getName(),
               existing.getName(),
-              existing.getGeneratingRule().getName()));
+              existing.getGeneratingRule().getName()),
+          added);
+    }
+  }
+
+  private static final class TargetOrMacro {
+    private final Object targetOrMacro;
+
+    private TargetOrMacro(Object targetOrMacro) {
+      checkArgument(targetOrMacro instanceof Target || targetOrMacro instanceof MacroInstance);
+      this.targetOrMacro = targetOrMacro;
+    }
+
+    static TargetOrMacro of(Target target) {
+      return new TargetOrMacro(target);
+    }
+
+    static TargetOrMacro of(MacroInstance macro) {
+      return new TargetOrMacro(macro);
+    }
+
+    @Nullable
+    MacroInstance getMacro() {
+      return targetOrMacro instanceof MacroInstance macro ? macro : null;
+    }
+
+    @Nullable
+    Target getTarget() {
+      return targetOrMacro instanceof Target target ? target : null;
+    }
+
+    String getName() {
+      return targetOrMacro instanceof Target target ? target.getName() : getMacro().getName();
+    }
+
+    String getKind() {
+      return targetOrMacro instanceof Target ? "target" : "macro";
     }
   }
 
@@ -776,8 +847,39 @@ public final class TargetRecorder {
    */
   public static sealed class NameConflictException extends Exception
       permits MacroNamespaceViolationException {
-    public NameConflictException(String message) {
+    TargetOrMacro subject;
+
+    public NameConflictException(String message, TargetOrMacro subject) {
       super(message);
+      this.subject = subject;
+    }
+
+    public NameConflictException(String message, Target subject) {
+      super(message);
+      this.subject = TargetOrMacro.of(subject);
+    }
+
+    public NameConflictException(String message, MacroInstance subject) {
+      super(message);
+      this.subject = TargetOrMacro.of(subject);
+    }
+
+    /**
+     * Returns the target whose evaluation threw this exception; or null if the exception was caused
+     * by the evaluation of a macro.
+     */
+    @Nullable
+    public Target getTarget() {
+      return subject.getTarget();
+    }
+
+    /**
+     * Returns the macro whose evaluation threw this exception; or null if the exception was caused
+     * by the evaluation of a target.
+     */
+    @Nullable
+    public MacroInstance getMacro() {
+      return subject.getMacro();
     }
   }
 
@@ -788,8 +890,12 @@ public final class TargetRecorder {
    * <p>An example might be a target named "libfoo" declared within a macro named "foo".
    */
   public static final class MacroNamespaceViolationException extends NameConflictException {
-    public MacroNamespaceViolationException(String message) {
-      super(message);
+    public MacroNamespaceViolationException(String message, Target subject) {
+      super(message, subject);
+    }
+
+    public MacroNamespaceViolationException(String message, MacroInstance subject) {
+      super(message, subject);
     }
   }
 }

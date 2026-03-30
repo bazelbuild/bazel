@@ -577,6 +577,19 @@ provides verbose output for toolchain types or target names that match the regex
 can use `.*` to output all information. Bazel will output names of toolchains it
 checks and skips during the resolution process.
 
+For example, to debug toolchain selection for all actions created directly by
+`//my:target`:
+
+```sh
+$ bazel build //my:all --toolchain_resolution_debug=//my:target
+```
+
+To debug toolchain selection for all actions over all build targets:
+
+```sh
+$ bazel build //my:all --toolchain_resolution_debug=.*
+```
+
 If you'd like to see which [`cquery`](/query/cquery) dependencies are from toolchain
 resolution, use `cquery`'s [`--transitions`](/query/cquery#transitions) flag:
 

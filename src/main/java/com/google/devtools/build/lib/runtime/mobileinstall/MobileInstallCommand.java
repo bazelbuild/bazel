@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
-import com.google.devtools.build.lib.runtime.commands.ExecRequestUtils;
+import com.google.devtools.build.lib.runtime.commands.PathToReplaceUtils;
 import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -137,35 +137,21 @@ public class MobileInstallCommand implements BlazeCommand {
     public Mode mode;
 
     @Option(
-      name = "mobile_install_aspect",
-      defaultValue = "@android_test_support//tools/android/mobile_install:mobile-install.bzl",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.CHANGES_INPUTS},
-      help = "The aspect to use for mobile-install."
-    )
+        name = "mobile_install_aspect",
+        defaultValue = "@rules_android//mobile_install:mi.bzl",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.CHANGES_INPUTS},
+        help = "The aspect to use for mobile-install.")
     public String mobileInstallAspect;
 
     @Option(
         name = "mobile_install_supported_rules",
-        defaultValue = "",
+        defaultValue = "android_binary",
         converter = Converters.CommaSeparatedOptionListConverter.class,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         help = "The supported rules for mobile-install.")
     public List<String> mobileInstallSupportedRules;
-
-    @Option(
-        name = "mobile_install_run_deployer",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.EXECUTION
-        },
-        help = "Whether to run the mobile-install deployer after building all artifacts.")
-    // TODO: b/369442227 - Delete --mobile_install_run_deployer or have --run_in_client respect it.
-    public boolean mobileInstallRunDeployer;
 
     @Option(
         name = "run_in_client",
@@ -220,7 +206,9 @@ public class MobileInstallCommand implements BlazeCommand {
                 /* validator= */ null,
                 successfulTargets ->
                     doMobileInstall(
-                        env, options, runTargetArgs, successfulTargets, deployerRequestRef));
+                        env, options, runTargetArgs, successfulTargets, deployerRequestRef),
+                options,
+                /* targetsForProjectResolution= */ null);
     if (!result.getSuccess()) {
       env.getReporter().handle(Event.error("Build failed. Not running mobile-install on target."));
       return BlazeCommandResult.detailedExitCode(result.getDetailedExitCode());
@@ -302,7 +290,7 @@ public class MobileInstallCommand implements BlazeCommand {
     // Collect relevant test options.
     TestOptions testOptions = options.getOptions(TestOptions.class);
     // Default value of testFilter is null.
-    if (!Strings.isNullOrEmpty(testOptions.testFilter)){
+    if (!Strings.isNullOrEmpty(testOptions.testFilter)) {
       cmdLine.add("--test_filter=" + testOptions.testFilter);
     }
     for (String arg : testOptions.testArguments) {
@@ -314,17 +302,12 @@ public class MobileInstallCommand implements BlazeCommand {
     Path workingDir =
         env.getDirectories().getOutputPath(env.getWorkspaceName()).getParentDirectory();
 
-    // TODO: b/369442227 - Delete --mobile_install_run_deployer or have --run_in_client respect it.
     if (mobileInstallOptions.runInClient) {
       deployerRequestRef.set(createExecRequest(env, workingDir, cmdLine.build()));
       return null;
+    } else {
+      return executeAsChild(env, workingDir, cmdLine.build());
     }
-
-    if (!mobileInstallOptions.mobileInstallRunDeployer) {
-      return null;
-    }
-
-    return executeAsChild(env, workingDir, cmdLine.build());
   }
 
   /** Executes the mobile-install deployer as a child process on this machine. */
@@ -333,7 +316,7 @@ public class MobileInstallCommand implements BlazeCommand {
       CommandEnvironment env, Path workingDir, ImmutableList<String> cmdLine)
       throws InterruptedException {
     com.google.devtools.build.lib.shell.Command command =
-        new CommandBuilder()
+        new CommandBuilder(env.getClientEnv())
             .addArgs(cmdLine)
             .setEnv(env.getClientEnv())
             .setWorkingDir(workingDir)
@@ -374,18 +357,18 @@ public class MobileInstallCommand implements BlazeCommand {
       CommandEnvironment env, Path workingDir, ImmutableList<String> cmdLine) {
     return ExecRequest.newBuilder()
         .setShouldExec(true)
-        .setWorkingDirectory(ExecRequestUtils.bytes(workingDir.getPathString()))
-        .addAllArgv(cmdLine.stream().map(ExecRequestUtils::bytes).collect(toImmutableList()))
-        .addAllPathToReplace(ExecRequestUtils.getPathsToReplace(env))
+        .setWorkingDirectory(PathToReplaceUtils.bytes(workingDir.getPathString()))
+        .addAllArgv(cmdLine.stream().map(PathToReplaceUtils::bytes).collect(toImmutableList()))
+        .addAllPathToReplace(PathToReplaceUtils.getPathsToReplace(env))
         // TODO: b/333695932 - Shim for client run-support, remove once no longer needed.
         .addEnvironmentVariable(
             EnvironmentVariable.newBuilder()
-                .setName(ExecRequestUtils.bytes("BUILD_WORKING_DIRECTORY"))
-                .setValue(ExecRequestUtils.bytes(env.getWorkingDirectory().getPathString())))
+                .setName(PathToReplaceUtils.bytes("BUILD_WORKING_DIRECTORY"))
+                .setValue(PathToReplaceUtils.bytes(env.getWorkingDirectory().getPathString())))
         .addEnvironmentVariable(
             EnvironmentVariable.newBuilder()
-                .setName(ExecRequestUtils.bytes("BUILD_WORKSPACE_DIRECTORY"))
-                .setValue(ExecRequestUtils.bytes(env.getWorkspace().getPathString())))
+                .setName(PathToReplaceUtils.bytes("BUILD_WORKSPACE_DIRECTORY"))
+                .setValue(PathToReplaceUtils.bytes(env.getWorkspace().getPathString())))
         .build();
   }
 

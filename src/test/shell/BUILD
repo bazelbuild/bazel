@@ -1,4 +1,6 @@
 load("@rules_python//python:defs.bzl", "py_test")
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -7,6 +9,7 @@ exports_files([
     "bin/bazel_jdk_minimal",
     "bin/bazel_nojdk",
     "integration_test_setup.sh",
+    "platform_utils.sh",
     "sandboxing_test_utils.sh",
     "unittest.bash",
     "shell_utils.sh",

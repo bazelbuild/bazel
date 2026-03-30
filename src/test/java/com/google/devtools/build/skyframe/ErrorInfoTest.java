@@ -47,7 +47,7 @@ public final class ErrorInfoTest {
       boolean isDirectlyTransient, boolean isTransitivelyTransient) {
     Exception exception = new IOException("ehhhhh");
     DummySkyFunctionException dummyException =
-        new DummySkyFunctionException(exception, isDirectlyTransient, /*isCatastrophic=*/ false);
+        new DummySkyFunctionException(exception, isDirectlyTransient, /* isCatastrophic= */ false);
 
     ErrorInfo errorInfo =
         ErrorInfo.fromException(
@@ -56,35 +56,35 @@ public final class ErrorInfoTest {
     assertThat(errorInfo.getException()).isSameInstanceAs(exception);
     assertThat(errorInfo.getCycleInfo()).isEmpty();
     assertThat(errorInfo.isDirectlyTransient()).isEqualTo(isDirectlyTransient);
-    assertThat(errorInfo.isTransitivelyTransient()).isEqualTo(
-        isDirectlyTransient || isTransitivelyTransient);
+    assertThat(errorInfo.isTransitivelyTransient())
+        .isEqualTo(isDirectlyTransient || isTransitivelyTransient);
     assertThat(errorInfo.isCatastrophic()).isFalse();
   }
 
   @Test
   public void testFromException_NonTransient() {
-    runTestFromException(/*isDirectlyTransient=*/ false, /*isTransitivelyTransient= */ false);
+    runTestFromException(/* isDirectlyTransient= */ false, /* isTransitivelyTransient= */ false);
   }
 
   @Test
   public void testFromException_DirectlyTransient() {
-    runTestFromException(/*isDirectlyTransient=*/ true, /*isTransitivelyTransient= */ false);
+    runTestFromException(/* isDirectlyTransient= */ true, /* isTransitivelyTransient= */ false);
   }
 
   @Test
   public void testFromException_TransitivelyTransient() {
-    runTestFromException(/*isDirectlyTransient=*/ false, /*isTransitivelyTransient= */ true);
+    runTestFromException(/* isDirectlyTransient= */ false, /* isTransitivelyTransient= */ true);
   }
 
   @Test
   public void testFromException_DirectlyAndTransitivelyTransient() {
-    runTestFromException(/*isDirectlyTransient=*/ true, /*isTransitivelyTransient= */ true);
+    runTestFromException(/* isDirectlyTransient= */ true, /* isTransitivelyTransient= */ true);
   }
 
   @Test
   public void testFromCycle() {
     CycleInfo cycle =
-        new CycleInfo(
+        CycleInfo.createCycleInfo(
             ImmutableList.of(GraphTester.skyKey("PATH, 1234")),
             ImmutableList.of(GraphTester.skyKey("CYCLE, 4321")));
 
@@ -98,40 +98,44 @@ public final class ErrorInfoTest {
   @Test
   public void testFromChildErrors() {
     CycleInfo cycle =
-        new CycleInfo(
+        CycleInfo.createCycleInfo(
             ImmutableList.of(GraphTester.skyKey("PATH, 1234")),
             ImmutableList.of(GraphTester.skyKey("CYCLE, 4321")));
     ErrorInfo cycleErrorInfo = ErrorInfo.fromCycle(cycle);
 
     Exception exception1 = new IOException("ehhhhh");
     DummySkyFunctionException dummyException1 =
-        new DummySkyFunctionException(exception1, /*isTransient=*/ true, /*isCatastrophic=*/ false);
+        new DummySkyFunctionException(
+            exception1, /* isTransient= */ true, /* isCatastrophic= */ false);
     ErrorInfo exceptionErrorInfo1 =
         ErrorInfo.fromException(
-            new ReifiedSkyFunctionException(dummyException1), /*isTransitivelyTransient=*/ false);
+            new ReifiedSkyFunctionException(dummyException1), /* isTransitivelyTransient= */ false);
 
     // N.B this ErrorInfo will be catastrophic.
     Exception exception2 = new IOException("blahhhhh");
     DummySkyFunctionException dummyException2 =
-        new DummySkyFunctionException(exception2, /*isTransient=*/ false, /*isCatastrophic=*/ true);
+        new DummySkyFunctionException(
+            exception2, /* isTransient= */ false, /* isCatastrophic= */ true);
     ErrorInfo exceptionErrorInfo2 =
         ErrorInfo.fromException(
-            new ReifiedSkyFunctionException(dummyException2), /*isTransitivelyTransient=*/ false);
+            new ReifiedSkyFunctionException(dummyException2), /* isTransitivelyTransient= */ false);
 
     SkyKey currentKey = GraphTester.skyKey("CURRENT, 9876");
 
-    ErrorInfo errorInfo = ErrorInfo.fromChildErrors(
-        currentKey, ImmutableList.of(cycleErrorInfo, exceptionErrorInfo1, exceptionErrorInfo2));
+    ErrorInfo errorInfo =
+        ErrorInfo.fromChildErrors(
+            currentKey, ImmutableList.of(cycleErrorInfo, exceptionErrorInfo1, exceptionErrorInfo2));
 
     // For simplicity we test the current implementation detail that we choose the first non-null
     // exception that we encounter. This isn't necessarily a requirement of the interface, but it
     // makes the test convenient and is a way to document the current behavior.
     assertThat(errorInfo.getException()).isSameInstanceAs(exception1);
 
-    assertThat(errorInfo.getCycleInfo()).containsExactly(
-        new CycleInfo(
-            ImmutableList.of(currentKey, Iterables.getOnlyElement(cycle.getPathToCycle())),
-            cycle.getCycle()));
+    assertThat(errorInfo.getCycleInfo())
+        .containsExactly(
+            CycleInfo.createCycleInfo(
+                ImmutableList.of(currentKey, Iterables.getOnlyElement(cycle.getPathToCycle())),
+                cycle.getCycle()));
     assertThat(errorInfo.isTransitivelyTransient()).isTrue();
     assertThat(errorInfo.isCatastrophic()).isTrue();
   }
@@ -143,7 +147,7 @@ public final class ErrorInfoTest {
             RuntimeException.class,
             () ->
                 new ErrorInfo(
-                    /*exception=*/ null, /*cycles=*/ ImmutableList.of(), false, false, false));
+                    /* exception= */ null, /* cycles= */ ImmutableList.of(), false, false, false));
     assertThat(e).hasMessageThat().contains("At least one of exception and cycles must be present");
   }
 
@@ -155,10 +159,10 @@ public final class ErrorInfoTest {
             () ->
                 new ErrorInfo(
                     new Exception(),
-                    /*cycles=*/ ImmutableList.of(),
-                    /*isDirectlyTransient=*/ true,
-                    /*isTransitivelyTransient=*/ false,
-                    /*isCatastrophic=*/ false));
+                    /* cycles= */ ImmutableList.of(),
+                    /* isDirectlyTransient= */ true,
+                    /* isTransitivelyTransient= */ false,
+                    /* isCatastrophic= */ false));
     assertThat(e)
         .hasMessageThat()
         .contains("Cannot be directly transient but not transitively transient");

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -43,27 +43,12 @@ fi
 source $(rlocation io_bazel/src/test/shell/integration_test_setup.sh) \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# `tr` converts all upper case letters to lower case.
-# `case` matches the result if the `uname | tr` expression to string prefixes
-# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# starting with "msys", and "*" matches everything (it's the default case).
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  # As of 2019-01-15, Bazel on Windows only supports MSYS Bash.
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if ! "$is_windows"; then
-  echo "This test suite requires running on Windows. But now is ${PLATFORM}" >&2
+if ! is_windows; then
+  echo "This test suite must be run on Windows." >&2
   exit 0
 fi
 
-setup_localjdk_javabase
+setup_javabase
 
 function set_up() {
   copy_examples
@@ -188,6 +173,8 @@ function test_cpp_with_mingw_gcc() {
 function test_cpp_alwayslink() {
   mkdir -p cpp/main
   cat >cpp/main/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "lib",
     srcs = ["lib.cc"],
@@ -292,6 +279,7 @@ function test_java_test() {
 }
 
 function test_native_python() {
+  add_rules_python "MODULE.bazel"
   # On windows, we build a python executable zip as the python binary
   assert_build //examples/py_native:bin
   # run the python package directly, clearing out runfiles variables to
@@ -314,6 +302,7 @@ function test_native_python() {
 # default on your system. See this pull request for an example:
 # https://github.com/bazelbuild/continuous-integration/pull/1216
 function test_native_python_with_runfiles() {
+  add_rules_python "MODULE.bazel"
   BUILD_FLAGS="--enable_runfiles --build_python_zip=0"
   bazel build -s --verbose_failures $BUILD_FLAGS //examples/py_native:bin \
     || fail "Failed to build //examples/py_native:bin with runfiles support"
@@ -351,6 +340,7 @@ function test_native_python_with_python3() {
 }
 
 function test_python_test_with_data() {
+  add_rules_python "MODULE.bazel"
   touch BUILD
 
   mkdir data
@@ -368,6 +358,7 @@ EOF
 
   mkdir src
   cat >src/BUILD <<EOF
+load("@rules_python//python:py_test.bzl", "py_test")
 py_test(
   name = "data_test",
   srcs = ["data_test.py"],
@@ -396,4 +387,3 @@ EOF
 }
 
 run_suite "examples on Windows"
-

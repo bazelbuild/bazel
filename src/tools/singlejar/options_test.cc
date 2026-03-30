@@ -12,20 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <memory>
-
 #include "src/tools/singlejar/options.h"
 
-#include "src/main/cpp/util/port.h"
+#include <iterator>
+
 #include "googletest/include/gtest/gtest.h"
 
 TEST(OptionsTest, Flags1) {
-  const char *args[] = {
+  const char* args[] = {
       "--exclude_build_data", "--compression",     "--normalize",
       "--no_duplicates",      "--output",          "output_jar",
       "--hermetic_java_home", "hermetic_java_home"};
   Options options;
-  options.ParseCommandLine(arraysize(args), args);
+  options.ParseCommandLine(std::size(args), args);
 
   EXPECT_TRUE(options.exclude_build_data);
   EXPECT_TRUE(options.force_compression);
@@ -41,7 +40,7 @@ TEST(OptionsTest, Flags1) {
 }
 
 TEST(OptionsTest, Flags2) {
-  const char *args[] = {"--dont_change_compression",
+  const char* args[] = {"--dont_change_compression",
                         "--verbose",
                         "--warn_duplicate_resources",
                         "--check_desugar_deps",
@@ -49,7 +48,7 @@ TEST(OptionsTest, Flags2) {
                         "output_jar",
                         "--multi_release"};
   Options options;
-  options.ParseCommandLine(arraysize(args), args);
+  options.ParseCommandLine(std::size(args), args);
 
   ASSERT_FALSE(options.exclude_build_data);
   ASSERT_FALSE(options.force_compression);
@@ -64,17 +63,15 @@ TEST(OptionsTest, Flags2) {
 }
 
 TEST(OptionsTest, SingleOptargs) {
-  const char *args[] = {"--output", "output_jar",
-                        "--main_class", "com.google.Main",
-                        "--java_launcher", "//tools:mylauncher",
-                        "--build_info_file", "build_file1",
-                        "--extra_build_info", "extra_build_line1",
-                        "--build_info_file", "build_file2",
-                        "--extra_build_info", "extra_build_line2",
-                        "--cds_archive", "classes.jsa",
-                        "--jdk_lib_modules", "modules"};
+  const char* args[] = {
+      "--output",           "output_jar",        "--main_class",
+      "com.google.Main",    "--java_launcher",   "//tools:mylauncher",
+      "--build_info_file",  "build_file1",       "--extra_build_info",
+      "extra_build_line1",  "--build_info_file", "build_file2",
+      "--extra_build_info", "extra_build_line2", "--cds_archive",
+      "classes.jsa",        "--jdk_lib_modules", "modules"};
   Options options;
-  options.ParseCommandLine(arraysize(args), args);
+  options.ParseCommandLine(std::size(args), args);
 
   EXPECT_EQ("output_jar", options.output_jar);
   EXPECT_EQ("com.google.Main", options.main_class);
@@ -90,7 +87,7 @@ TEST(OptionsTest, SingleOptargs) {
 }
 
 TEST(OptionsTest, MultiOptargs) {
-  const char *args[] = {"--output",
+  const char* args[] = {"--output",
                         "output_file",
                         "--sources",
                         "jar1",
@@ -106,6 +103,10 @@ TEST(OptionsTest, MultiOptargs) {
                         "--include_prefixes",
                         "prefix1",
                         "prefix2",
+                        "--exclude_zip_entries",
+                        "file1",
+                        "file2",
+                        "file3",
                         "--nocompress_suffixes",
                         ".png",
                         ".so",
@@ -116,7 +117,7 @@ TEST(OptionsTest, MultiOptargs) {
                         "open1",
                         "open2"};
   Options options;
-  options.ParseCommandLine(arraysize(args), args);
+  options.ParseCommandLine(std::size(args), args);
 
   ASSERT_EQ(3UL, options.input_jars.size());
   EXPECT_EQ("jar1", options.input_jars[0].first);
@@ -131,6 +132,13 @@ TEST(OptionsTest, MultiOptargs) {
   ASSERT_EQ(2UL, options.include_prefixes.size());
   EXPECT_EQ("prefix1", options.include_prefixes[0]);
   EXPECT_EQ("prefix2", options.include_prefixes[1]);
+  ASSERT_EQ(3UL, options.exclude_zip_entries.size());
+  ASSERT_TRUE(options.exclude_zip_entries.find("file1") !=
+              options.exclude_zip_entries.end());
+  ASSERT_TRUE(options.exclude_zip_entries.find("file2") !=
+              options.exclude_zip_entries.end());
+  ASSERT_TRUE(options.exclude_zip_entries.find("file3") !=
+              options.exclude_zip_entries.end());
   EXPECT_EQ(2UL, options.nocompress_suffixes.size());
   EXPECT_EQ(".png", options.nocompress_suffixes[0]);
   EXPECT_EQ(".so", options.nocompress_suffixes[1]);
@@ -143,15 +151,17 @@ TEST(OptionsTest, MultiOptargs) {
 }
 
 TEST(OptionsTest, EmptyMultiOptargs) {
-  const char *args[] = {"--output", "output_file",
+  const char* args[] = {"--output",
+                        "output_file",
                         "--sources",
                         "--resources",
                         "--classpath_resources",
                         "--sources",
-                        "--include_prefixes", "prefix1",
+                        "--include_prefixes",
+                        "prefix1",
                         "--resources"};
   Options options;
-  options.ParseCommandLine(arraysize(args), args);
+  options.ParseCommandLine(std::size(args), args);
 
   EXPECT_EQ(0UL, options.input_jars.size());
   EXPECT_EQ(0UL, options.resources.size());
@@ -160,16 +170,16 @@ TEST(OptionsTest, EmptyMultiOptargs) {
 }
 
 TEST(OptionTest, CustomCreatedBy) {
-  const char *args[] = {"--output", "output_file", "--output_jar_creator",
+  const char* args[] = {"--output", "output_file", "--output_jar_creator",
                         "CustomCreatedBy 123.456"};
   Options options;
-  options.ParseCommandLine(arraysize(args), args);
+  options.ParseCommandLine(std::size(args), args);
   EXPECT_EQ("CustomCreatedBy 123.456", options.output_jar_creator);
 }
 
 TEST(OptionTest, DefaultCreatedBy) {
-  const char *args[] = {"--output", "output_file"};
+  const char* args[] = {"--output", "output_file"};
   Options options;
-  options.ParseCommandLine(arraysize(args), args);
+  options.ParseCommandLine(std::size(args), args);
   EXPECT_EQ("singlejar", options.output_jar_creator);
 }

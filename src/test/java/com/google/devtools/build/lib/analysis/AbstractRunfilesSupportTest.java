@@ -47,6 +47,7 @@ public abstract class AbstractRunfilesSupportTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_test.bzl", "cc_test")
         cc_test(
             name = "bar",
             srcs = ["bar.cc"],

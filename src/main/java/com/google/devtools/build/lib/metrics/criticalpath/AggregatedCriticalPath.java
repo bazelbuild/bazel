@@ -28,24 +28,24 @@ import java.util.Locale;
 @SuppressWarnings("GoodTime") // Use ints instead of Durations to improve build time (cl/505728570)
 public class AggregatedCriticalPath {
   public static final AggregatedCriticalPath EMPTY =
-      new AggregatedCriticalPath(0, AggregatedSpawnMetrics.EMPTY, ImmutableList.of());
+      new AggregatedCriticalPath(Duration.ZERO, AggregatedSpawnMetrics.EMPTY, ImmutableList.of());
 
-  private final int totalTimeInMs;
+  private final Duration totalTime;
   private final AggregatedSpawnMetrics aggregatedSpawnMetrics;
   private final ImmutableList<CriticalPathComponent> criticalPathComponents;
 
   public AggregatedCriticalPath(
-      int totalTimeInMs,
+      Duration totalTime,
       AggregatedSpawnMetrics aggregatedSpawnMetrics,
       ImmutableList<CriticalPathComponent> criticalPathComponents) {
-    this.totalTimeInMs = totalTimeInMs;
+    this.totalTime = totalTime;
     this.aggregatedSpawnMetrics = aggregatedSpawnMetrics;
     this.criticalPathComponents = criticalPathComponents;
   }
 
   /** Total wall time spent running the critical path actions. */
-  public int totalTimeInMs() {
-    return totalTimeInMs;
+  public Duration getAggregatedElapsedTime() {
+    return totalTime;
   }
 
   public AggregatedSpawnMetrics getSpawnMetrics() {
@@ -66,7 +66,7 @@ public class AggregatedCriticalPath {
     return String.format(
         Locale.US,
         "Execution critical path %.2fs (setup %.2fs, action wall time %.2fs)",
-        totalTimeInMs / 1000.0,
+        totalTime.toMillis() / 1000.0,
         overheadTimeInMs / 1000.0,
         executionWallTimeInMs / 1000.0);
   }
@@ -78,11 +78,11 @@ public class AggregatedCriticalPath {
 
   private String toString(boolean summary, boolean remote) {
     StringBuilder sb = new StringBuilder("Critical Path: ");
-    sb.append(String.format(Locale.US, "%.2f", totalTimeInMs / 1000.0));
+    sb.append(String.format(Locale.US, "%.2f", totalTime.toMillis() / 1000.0));
     sb.append("s");
     if (remote) {
       sb.append(", ");
-      sb.append(getSpawnMetrics().toString(Duration.ofMillis(totalTimeInMs), summary));
+      sb.append(getSpawnMetrics().toString(totalTime, summary));
     }
     if (summary || criticalPathComponents.isEmpty()) {
       return sb.toString();

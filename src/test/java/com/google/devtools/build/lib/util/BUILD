@@ -11,6 +11,7 @@ filegroup(
     testonly = 0,
     srcs = glob(["*"]) + [
         "//src/test/java/com/google/devtools/build/lib/util/io:srcs",
+        "//src/test/java/com/google/devtools/build/lib/util/regex:srcs",
         "//src/test/java/com/google/devtools/build/lib/util/subjects:srcs",
     ],
     visibility = ["//src:__subpackages__"],
@@ -44,15 +45,17 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect",
+        "//src/main/java/com/google/devtools/build/lib/collect:concurrent_identity_set",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:command",
+        "//src/main/java/com/google/devtools/build/lib/util:command_failure_utils",
         "//src/main/java/com/google/devtools/build/lib/util:concurrency_meter",
         "//src/main/java/com/google/devtools/build/lib/util:cpu_resource_converter",
         "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
+        "//src/main/java/com/google/devtools/build/lib/util:decimal_bucketer",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:file_system_lock",
@@ -67,6 +70,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/util:simple_log_handler",
         "//src/main/java/com/google/devtools/build/lib/util:single_line_formatter",
         "//src/main/java/com/google/devtools/build/lib/util:string",
+        "//src/main/java/com/google/devtools/build/lib/util:thread_dump_analyzer",
         "//src/main/java/com/google/devtools/build/lib/util:value_or_exception",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -83,8 +87,18 @@ java_test(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
+        "@com_google_protobuf//:protobuf_java",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
-        "@protobuf//:protobuf_java",
+    ],
+)
+
+java_test(
+    name = "DecimalBucketerTest",
+    srcs = ["DecimalBucketerTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:decimal_bucketer",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 
@@ -163,8 +177,9 @@ java_test(
     name = "HeapOffsetHelperTest",
     srcs = ["HeapOffsetHelperTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib:runtime/memory_pressure",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/runtime:memory_pressure",
+        "//src/main/java/com/google/devtools/build/lib/runtime:memory_pressure_module",
         "//src/main/java/com/google/devtools/build/lib/util:heap_offset_helper",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",

@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.skyframe.ActionLookupConflictFindingFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
@@ -738,9 +737,13 @@ public class BuildViewTest extends BuildViewTestBase {
   public void testHelpfulErrorForWrongPackageLabels() throws Exception {
     reporter.removeHandler(failFastHandler);
 
-    scratch.file("x/BUILD",
+    scratch.file(
+        "x/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name='x', srcs=['x.cc'])");
-    scratch.file("y/BUILD",
+    scratch.file(
+        "y/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name='y', srcs=['y.cc'], deps=['//x:z'])");
 
     AnalysisResult result = update(defaultFlags().with(Flag.KEEP_GOING), "//y:y");
@@ -1129,12 +1132,14 @@ public class BuildViewTest extends BuildViewTestBase {
       // TODO(b/67651960): fix or justify disabling.
       return;
     }
-    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
+    useConfiguration("--compilation_mode=fastbuild");
     reporter.removeHandler(failFastHandler); // Expect errors from action conflicts.
     scratch.file(
         "conflict/BUILD",
         """
-        config_setting(name = 'a', values = {'cpu': 'unobtainiumx'})
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        config_setting(name = 'a', values = {'compilation_mode': 'dbg'})
         cc_library(name='x', srcs=select({':a': ['a.cc'], '//conditions:default': ['foo.cc']}))
         cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])
         """);
@@ -1154,6 +1159,7 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("@rules_java//java:defs.bzl", "java_binary")
         java_binary(name = 'java', srcs = ['DoesntMatter.java'])
         cc_binary(name = 'cpp', data = [':java'])
@@ -1201,6 +1207,7 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "cycle/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(name = 'foo', srcs = ['foo.cc'], deps = [':bar'])
         cc_library(name = 'bar', srcs = ['bar.cc'], deps = [':foo'])
         """);
@@ -1226,6 +1233,7 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "cycle/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(name = 'foo', srcs = ['foo.cc'], deps = [':bar'])
         cc_library(name = 'bar', srcs = ['bar.cc'], deps = [':foo'])
         cc_library(name = 'bat', srcs = ['bat.cc'], deps = [':bas'])
@@ -1259,8 +1267,14 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testLoadingErrorReportedCorrectly() throws Exception {
-    scratch.file("a/BUILD", "cc_library(name='a')");
-    scratch.file("b/BUILD", "cc_library(name='b', deps = ['//missing:lib'])");
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='a')");
+    scratch.file(
+        "b/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='b', deps = ['//missing:lib'])");
 
     reporter.removeHandler(failFastHandler);
     AnalysisResult result = update(defaultFlags().with(Flag.KEEP_GOING), "//a", "//b");

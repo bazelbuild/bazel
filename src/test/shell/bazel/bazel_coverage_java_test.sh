@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -42,9 +42,15 @@ if [[ $# -gt 0 ]]; then
     add_to_bazelrc "build --tool_java_runtime_version=${JAVA_RUNTIME_VERSION}"
 fi
 
+function set_up() {
+  add_rules_java "MODULE.bazel"
+}
+
 function test_java_test_coverage() {
   cat <<EOF > BUILD
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//java:java_test.bzl", "java_test")
+load("@rules_java//java:java_library.bzl", "java_library")
 
 java_test(
     name = "test",
@@ -139,6 +145,9 @@ end_of_record"
 function test_java_test_coverage_combined_report() {
 
   cat <<EOF > BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_test(
     name = "test",
     srcs = glob(["src/test/**/*.java"]),
@@ -228,6 +237,10 @@ end_of_record"
 function test_java_test_java_import_coverage() {
 
   cat <<EOF > BUILD
+load("@rules_java//java:java_test.bzl", "java_test")
+load("@rules_java//java:java_import.bzl", "java_import")
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_test(
     name = "test",
     srcs = glob(["src/test/**/*.java"]),
@@ -319,6 +332,8 @@ function test_run_jar_in_subprocess_empty_env() {
   mkdir -p java/cov
   mkdir -p javatests/cov
   cat >java/cov/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 package(default_visibility=['//visibility:public'])
 java_binary(name = 'Cov',
             main_class = 'cov.Cov',
@@ -341,6 +356,7 @@ public class Cov {
 EOF
 
   cat >javatests/cov/BUILD <<EOF
+load("@rules_java//java:java_test.bzl", "java_test")
 java_test(name = 'CovTest',
           srcs = ['CovTest.java'],
           data = ['//java/cov:Cov_deploy.jar'],
@@ -409,6 +425,9 @@ function test_runtime_deploy_jar() {
   mkdir -p java/cov
   mkdir -p javatests/cov
   cat >java/cov/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_library.bzl", "java_library")
+
 package(default_visibility=['//visibility:public'])
 java_binary(
     name = 'RandomBinary',
@@ -447,6 +466,8 @@ public class Cov {
 EOF
 
   cat >javatests/cov/BUILD <<EOF
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_test(name = 'CovTest',
           srcs = ['CovTest.java'],
           deps = ['//java/cov:Cov'],
@@ -475,9 +496,15 @@ EOF
 }
 
 function test_runtime_and_data_deploy_jars() {
+  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
+      # TODO: Enable test after the next java_tools release.
+      return 0
+  fi
   mkdir -p java/cov
   mkdir -p javatests/cov
   cat >java/cov/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 package(default_visibility=['//visibility:public'])
 java_binary(
     name = 'RandomBinary',
@@ -517,6 +544,8 @@ public class Cov {
 EOF
 
   cat >javatests/cov/BUILD <<EOF
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_test(name = 'CovTest',
           srcs = ['CovTest.java'],
           data = ['//java/cov:Cov_deploy.jar'],
@@ -583,8 +612,8 @@ FNDA:0,cov/Cov::<init> ()V
 FNDA:2,cov/Cov::main ([Ljava/lang/String;)V
 FNF:2
 FNH:1
-BRDA:4,0,0,0
-BRDA:4,0,1,2
+BRDA:4,0,0,2
+BRDA:4,0,1,0
 BRDA:5,0,0,1
 BRDA:5,0,1,1
 BRF:4
@@ -622,6 +651,9 @@ function test_java_coverage_with_classpath_jar() {
   # Verifies the logic in JacocoCoverageRunner can unpack the classpath jar
   # created when the classpath is too long.
   cat <<EOF > BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_library(
     name = "lib",
     srcs = ["src/main/java/lib/Lib.java"],
@@ -686,6 +718,10 @@ LF:2"
 
 function test_java_coverage_with_classpath_and_data_jar() {
   cat <<EOF > BUILD
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_test.bzl", "java_test")
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_binary(
     name = "foo",
     srcs = ["src/main/java/foo/Foo.java"],
@@ -779,11 +815,18 @@ LF:2"
 }
 
 function test_java_string_switch_coverage() {
+  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
+      # TODO: Enable test after the next java_tools release.
+      return 0
+  fi
   # Verify that Jacoco's filtering is being applied.
   # Switches on strings generate over double the number of expected branches
   # (because a switch on String::hashCode is made first) - these branches should
   # be filtered.
   cat <<EOF > BUILD
+load("@rules_java//java:java_test.bzl", "java_test")
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_test(
     name = "test",
     srcs = glob(["src/test/**/*.java"]),
@@ -850,9 +893,9 @@ FNDA:0,com/example/Switch::<init> ()V
 FNDA:1,com/example/Switch::switchString (Ljava/lang/String;)I
 FNF:2
 FNH:1
-BRDA:6,0,0,0
+BRDA:6,0,0,1
 BRDA:6,0,1,0
-BRDA:6,0,2,1
+BRDA:6,0,2,0
 BRDA:6,0,3,1
 BRF:4
 BRH:2
@@ -871,11 +914,18 @@ end_of_record"
 
 
 function test_finally_block_branch_coverage() {
+  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
+      # TODO: Enable test after the next java_tools release.
+      return 0
+  fi
   # Verify branches in finally blocks are handled correctly.
   # The java compiler duplicates finally blocks for the various code paths that
   # may enter them (e.g. via an exception handler or when no exception is
   # thrown).
   cat <<EOF > BUILD
+load("@rules_java//java:java_test.bzl", "java_test")
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_test(
     name = "test",
     srcs = glob(["src/test/**/*.java"]),
@@ -965,10 +1015,11 @@ EOF
     --test_filter=TestFinally.testNegativeException \
    || echo "Coverage for //:test failed"
 
-    #--test_filter=".*(testNegativeException)" \
+  # if (x == 1 || x == -1) is a "jump if eq" followed by a "jump if not eq", so
+  # the branch ordering is reversed for the second comparison
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
-  local expected_result="BRDA:9,0,0,0
-BRDA:9,0,1,1
+  local expected_result="BRDA:9,0,0,1
+BRDA:9,0,1,0
 BRDA:9,0,2,1
 BRDA:9,0,3,0
 BRDA:12,0,0,-
@@ -986,12 +1037,12 @@ BRH:3"
    || echo "Coverage for //:test failed"
 
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
-  local expected_result="BRDA:9,0,0,0
-BRDA:9,0,1,1
+  local expected_result="BRDA:9,0,0,1
+BRDA:9,0,1,0
 BRDA:9,0,2,0
 BRDA:9,0,3,1
-BRDA:12,0,0,1
-BRDA:12,0,1,0
+BRDA:12,0,0,0
+BRDA:12,0,1,1
 BRDA:18,0,0,1
 BRDA:18,0,1,1
 BRF:8
@@ -1005,8 +1056,8 @@ BRH:5"
    || echo "Coverage for //:test failed"
 
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
-  local expected_result="BRDA:9,0,0,0
-BRDA:9,0,1,1
+  local expected_result="BRDA:9,0,0,1
+BRDA:9,0,1,0
 BRDA:9,0,2,0
 BRDA:9,0,3,1
 BRDA:12,0,0,1
@@ -1028,8 +1079,8 @@ BRH:6"
 BRDA:9,0,1,1
 BRDA:9,0,2,0
 BRDA:9,0,3,1
-BRDA:12,0,0,0
-BRDA:12,0,1,1
+BRDA:12,0,0,1
+BRDA:12,0,1,0
 BRDA:18,0,0,1
 BRDA:18,0,1,1
 BRF:8
@@ -1043,8 +1094,8 @@ BRH:6"
    || echo "Coverage for //:test failed"
 
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
-  local expected_result="BRDA:9,0,0,0
-BRDA:9,0,1,1
+  local expected_result="BRDA:9,0,0,1
+BRDA:9,0,1,0
 BRDA:9,0,2,0
 BRDA:9,0,3,1
 BRDA:12,0,0,1
@@ -1066,13 +1117,115 @@ BRH:5"
 BRDA:9,0,1,1
 BRDA:9,0,2,0
 BRDA:9,0,3,1
-BRDA:12,0,0,1
-BRDA:12,0,1,0
+BRDA:12,0,0,0
+BRDA:12,0,1,1
 BRDA:18,0,0,1
 BRDA:18,0,1,0
 BRF:8
 BRH:5"
   assert_coverage_result "$expected_result" "$coverage_file_path"
+}
+
+function test_branch_in_switch_coverage() {
+  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
+      # TODO: Enable test after the next java_tools release.
+      return 0
+  fi
+  # Verify our branch analysis handles an edge case where an instruction is
+  # reached from several different branch sets.
+  # https://github.com/bazelbuild/bazel/commit/a915b00547129bc15c7efcf5794407854ecf450c
+  # broke this.
+
+  mkdir -p foo
+  cat <<EOF > foo/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_test.bzl", "java_test")
+
+java_test(
+  name = "fooTest",
+  srcs = ["FooTest.java"],
+  test_class = "foo.FooTest",
+  deps = [":foo"],
+)
+
+java_library(
+  name = "foo",
+  srcs = ["Foo.java"],
+)
+EOF
+
+  cat <<EOF > foo/Foo.java
+package foo;
+
+public class Foo {
+  public static String calcFoo(int x) {
+    String out = "default";
+    switch(x) {
+      case 0:
+        out = "zero";
+        break;
+      case 1:
+      case 2:
+      case 3:
+        break;
+      case 4:
+        if (out.startsWith("d")) {
+          out = "four";
+        }
+      default:
+        break;
+    }
+    return out;
+  }
+}
+EOF
+
+  cat <<EOF > foo/FooTest.java
+package foo;
+
+import static org.junit.Assert.assertEquals;
+import org.junit.Test;
+
+public class FooTest {
+
+  @Test
+  public void testMiddleValue() {
+    assertEquals("default", Foo.calcFoo(2));
+  }
+
+  @Test
+  public void testFour() {
+    assertEquals("four", Foo.calcFoo(4));
+  }
+}
+EOF
+
+  bazel coverage //foo:fooTest \
+    --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator \
+    --test_output=all \
+    --combined_report=lcov &>$TEST_log \
+    || echo "Coverage for //foo:fooTest failed"
+
+  local coverage_file_path="$(get_coverage_file_path_from_test_log)"
+  local expected_line_result="DA:3,0
+DA:5,1
+DA:6,1
+DA:8,0
+DA:9,0
+DA:13,1
+DA:15,1
+DA:16,1
+DA:21,1"
+  local expected_branch_result="BRDA:6,0,0,0
+BRDA:6,0,1,0
+BRDA:6,0,2,1
+BRDA:6,0,3,1
+BRDA:15,0,0,1
+BRDA:15,0,1,0
+BRF:6
+BRH:3"
+  assert_coverage_result "$expected_line_result" "$coverage_file_path"
+  assert_coverage_result "$expected_branch_result" "$coverage_file_path"
 }
 
 function test_java_test_coverage_cc_binary() {
@@ -1081,7 +1234,10 @@ function test_java_test_coverage_cc_binary() {
   fi
 
   ########### Setup source files and BUILD file ###########
+  add_rules_cc "MODULE.bazel"
   cat <<EOF > BUILD
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_test(
     name = "NumJava",
     srcs = ["NumJava.java"],
@@ -1103,6 +1259,9 @@ EOF
   mkdir -p examples/cpp
 
   cat <<EOF > examples/cpp/BUILD
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 package(default_visibility = ["//visibility:public"])
 
 cc_binary(
@@ -1227,6 +1386,8 @@ local_repository(
 EOF
 
   cat > BUILD <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(
     name = "math",
     srcs = ["src/main/com/example/Math.java"],
@@ -1250,6 +1411,9 @@ EOF
   touch other_repo/REPO.bazel
 
   cat > other_repo/BUILD <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_library(
     name = "collatz",
     srcs = ["src/main/com/example/Collatz.java"],
@@ -1329,7 +1493,7 @@ DA:6,1
 LH:1
 LF:2
 end_of_record'
-  local expected_result_collatz="SF:external/+_repo_rules+other_repo/src/main/com/example/Collatz.java
+  local expected_result_collatz="SF:external/+local_repository+other_repo/src/main/com/example/Collatz.java
 FN:3,com/example/Collatz::<init> ()V
 FN:6,com/example/Collatz::getCollatzFinal (I)I
 FNDA:0,com/example/Collatz::<init> ()V
@@ -1384,10 +1548,10 @@ LF:2
 end_of_record'
 
   assert_coverage_result "$expected_result_math" "$coverage_file_path"
-  assert_not_contains "SF:external/+_repo_rules+other_repo/" "$coverage_file_path"
+  assert_not_contains "SF:external/+local_repository+other_repo/" "$coverage_file_path"
 
   assert_coverage_result "$expected_result_math" bazel-out/_coverage/_coverage_report.dat
-  assert_not_contains "SF:external/+_repo_rules+other_repo/" bazel-out/_coverage/_coverage_report.dat
+  assert_not_contains "SF:external/+local_repository+other_repo/" bazel-out/_coverage/_coverage_report.dat
 }
 
 run_suite "test tests"

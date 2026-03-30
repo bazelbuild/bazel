@@ -13,9 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.repository.starlark;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -38,7 +39,6 @@ import java.util.Map;
 import java.util.Set;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -105,25 +105,25 @@ final class StarlarkExecutionResult implements StarlarkValue {
    * Returns a Builder that can be used to execute a command and build an execution result.
    *
    * @param environment pass through the list of environment variables from the client to be passed
-   * to the execution environment.
+   *     to the execution environment.
    */
   public static Builder builder(Map<String, String> environment) {
     return new Builder(environment);
   }
 
-  /**
-   * A Builder class to build a {@link StarlarkExecutionResult} object by executing a command.
-   */
+  /** A Builder class to build a {@link StarlarkExecutionResult} object by executing a command. */
   static final class Builder {
 
     private final List<String> args = new ArrayList<>();
     private File directory = null;
     private final Map<String, String> envBuilder = Maps.newLinkedHashMap();
+    private final ImmutableMap<String, String> clientEnv;
     private long timeout = -1;
     private boolean executed = false;
     private boolean quiet;
 
     private Builder(Map<String, String> environment) {
+      clientEnv = ImmutableMap.copyOf(environment);
       envBuilder.putAll(environment);
     }
 
@@ -182,14 +182,14 @@ final class StarlarkExecutionResult implements StarlarkValue {
 
     private static String toString(ByteArrayOutputStream stream) {
       try {
-        return new String(stream.toByteArray(), UTF_8);
+        return stream.toString(ISO_8859_1);
       } catch (IllegalStateException e) {
         return "";
       }
     }
 
-    /** Execute the command specified by {@link #addArguments(Iterable)}. */
-    StarlarkExecutionResult execute() throws EvalException, InterruptedException {
+    /** Execute the command specified by {@link #addArguments}. */
+    StarlarkExecutionResult execute() throws InterruptedException {
       Preconditions.checkArgument(timeout > 0, "Timeout must be set prior to calling execute().");
       Preconditions.checkArgument(!args.isEmpty(), "No command specified.");
       Preconditions.checkState(!executed, "Command was already executed, cannot re-use builder.");
@@ -206,11 +206,8 @@ final class StarlarkExecutionResult implements StarlarkValue {
         delegator.addSink(OutErr.create(System.err, System.err));
       }
       try {
-        String[] argsArray = new String[args.size()];
-        for (int i = 0; i < args.size(); i++) {
-          argsArray[i] = args.get(i);
-        }
-        Command command = new Command(argsArray, envBuilder, directory, Duration.ofMillis(timeout));
+        Command command =
+            new Command(args, envBuilder, directory, Duration.ofMillis(timeout), clientEnv);
         CommandResult result =
             command.execute(delegator.getOutputStream(), delegator.getErrorStream());
         return new StarlarkExecutionResult(

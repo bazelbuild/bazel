@@ -107,7 +107,6 @@ public class PlatformTestCase extends BuildViewTestCase {
     private final Label label;
     private final List<String> constraintValues = new ArrayList<>();
     private Label parentLabel = null;
-    private String remoteExecutionProperties = "";
     private ImmutableMap<String, String> execProperties;
     private List<String> flags = new ArrayList<>();
 
@@ -124,12 +123,6 @@ public class PlatformTestCase extends BuildViewTestCase {
     @CanIgnoreReturnValue
     public PlatformBuilder addConstraint(String value) {
       this.constraintValues.add(value);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public PlatformBuilder setRemoteExecutionProperties(String value) {
-      this.remoteExecutionProperties = value;
       return this;
     }
 
@@ -157,9 +150,6 @@ public class PlatformTestCase extends BuildViewTestCase {
         lines.add("    ':" + name + "',");
       }
       lines.add("  ],");
-      if (!Strings.isNullOrEmpty(remoteExecutionProperties)) {
-        lines.add("  remote_execution_properties = '" + remoteExecutionProperties + "',");
-      }
       if (execProperties != null && !execProperties.isEmpty()) {
         lines.add("  exec_properties = { ");
         for (Map.Entry<String, String> entry : execProperties.entrySet()) {

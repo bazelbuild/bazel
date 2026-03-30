@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -172,6 +173,10 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
           exception.getMessage(),
           exception,
           ((NoSuchPackageException) exception).getDetailedExitCode());
+    }
+    if (exception instanceof DetailedIOException detailedException) {
+      return new TargetParsingException(
+          detailedException.getMessage(), exception, detailedException.getDetailedExitCode());
     }
     BugReport.sendNonFatalBugReport(
         new IllegalStateException("Unexpected exception: " + debugging, exception));

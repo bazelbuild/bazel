@@ -54,37 +54,36 @@ final class PathCanonicalizer {
     PathFragment resolveOneLink(PathFragment path) throws IOException;
   }
 
-  /** The trie node for a path segment. */
-  private static final class Node {
-    /**
-     * Maps the next segment to the corresponding node. Null iff the path ending with the current
-     * segment is a symlink.
-     */
-    @Nullable private final ConcurrentHashMap<String, Node> tab;
+  /** A trie node. */
+  private sealed interface Node {}
 
-    /** The symlink target. Null iff the path ending with the current segment is not a symlink. */
-    @Nullable private final PathFragment targetPath;
+  /** A trie node corresponding to a symlink. */
+  private record SymlinkNode(PathFragment targetPath) implements Node {}
 
-    private Node(@Nullable PathFragment targetPath) {
-      this.tab = targetPath == null ? new ConcurrentHashMap<>() : null;
-      this.targetPath = targetPath;
+  /** A trie node not corresponding to a symlink. */
+  private static final class NonSymlinkNode extends ConcurrentHashMap<String, Node>
+      implements Node {
+    NonSymlinkNode() {
+      super(/* initialCapacity= */ 1);
     }
   }
 
   private final Resolver resolver;
-  private final Node root = new Node(null);
+  private final NonSymlinkNode root = new NonSymlinkNode();
 
   PathCanonicalizer(Resolver resolver) {
     this.resolver = resolver;
   }
 
   /** Returns the root node for an absolute path. */
-  private Node getRootNode(PathFragment path) {
+  private NonSymlinkNode getRootNode(PathFragment path) {
     checkArgument(path.isAbsolute());
     // Unix has a single root. Windows has one root per drive.
-    return path.getDriveStrLength() > 1
-        ? root.tab.computeIfAbsent(path.getDriveStr(), unused -> new Node(null))
-        : root;
+    if (path.getDriveStrLength() > 1) {
+      return (NonSymlinkNode)
+          root.computeIfAbsent(path.getDriveStr(), unused -> new NonSymlinkNode());
+    }
+    return root;
   }
 
   /**
@@ -102,7 +101,7 @@ final class PathCanonicalizer {
     // and has been previously cached. Avoid making changes without benchmarking. A tree artifact
     // with hundreds of thousands of files makes for a good benchmark.
 
-    Node node = getRootNode(path);
+    NonSymlinkNode node = getRootNode(path);
     Iterable<String> segments = path.segments();
     int segmentIndex = 0;
 
@@ -114,39 +113,45 @@ final class PathCanonicalizer {
     // - `node` is the trie node corresponding to the `path` prefix ending with `segmentIndex` - 1,
     //   or to the root path when `segmentIndex` is 0.
     for (String segment : segments) {
-      Node nextNode = node.tab.get(segment);
+      Node nextNode = node.get(segment);
       if (nextNode == null) {
         PathFragment naivePath = path.subFragment(0, segmentIndex + 1);
         PathFragment targetPath = resolver.resolveOneLink(naivePath);
-        nextNode = node.tab.computeIfAbsent(segment, unused -> new Node(targetPath));
+        nextNode =
+            node.computeIfAbsent(
+                segment,
+                unused -> targetPath != null ? new SymlinkNode(targetPath) : new NonSymlinkNode());
       }
 
-      if (nextNode.targetPath != null) {
-        if (maxLinks == 0) {
-          throw new FileSymlinkLoopException(path);
-        }
-        maxLinks--;
+      switch (nextNode) {
+        case SymlinkNode(PathFragment targetPath) -> {
+          if (maxLinks == 0) {
+            throw new FileSymlinkLoopException(path);
+          }
+          maxLinks--;
 
-        // Compute the path obtained by resolving the symlink.
-        // Note that path normalization already handles uplevel references.
-        PathFragment newPath;
-        if (nextNode.targetPath.isAbsolute()) {
-          newPath = nextNode.targetPath.getRelative(path.subFragment(segmentIndex + 1));
-        } else {
-          newPath =
-              path.subFragment(0, segmentIndex)
-                  .getRelative(nextNode.targetPath)
-                  .getRelative(path.subFragment(segmentIndex + 1));
-        }
+          // Compute the path obtained by resolving the symlink.
+          // Note that path normalization already handles uplevel references.
+          PathFragment newPath;
+          if (targetPath.isAbsolute()) {
+            newPath = targetPath.getRelative(path.subFragment(segmentIndex + 1));
+          } else {
+            newPath =
+                path.subFragment(0, segmentIndex)
+                    .getRelative(targetPath)
+                    .getRelative(path.subFragment(segmentIndex + 1));
+          }
 
-        // For absolute symlinks, we must start over.
-        // For relative symlinks, it would have been possible to restart after the already
-        // canonicalized prefix, but they're too rare to be worth optimizing for.
-        return resolveSymbolicLinks(newPath, maxLinks);
+          // For absolute symlinks, we must start over.
+          // For relative symlinks, it would have been possible to restart after the already
+          // canonicalized prefix, but they're too rare to be worth optimizing for.
+          return resolveSymbolicLinks(newPath, maxLinks);
+        }
+        case NonSymlinkNode nonSymlinkNode -> {
+          node = nonSymlinkNode;
+          segmentIndex++;
+        }
       }
-
-      node = nextNode;
-      segmentIndex++;
     }
 
     return path;
@@ -176,20 +181,20 @@ final class PathCanonicalizer {
       String segment = segments.next();
       hasNext = segments.hasNext();
 
-      if (!hasNext) {
-        // Found the path prefix.
-        if (node.tab != null) {
-          node.tab.remove(segment);
+      switch (node) {
+        case SymlinkNode symlinkNode -> {
+          // Path prefix not in trie.
+          return;
         }
-        return;
+        case NonSymlinkNode nonSymlinkNode -> {
+          if (!hasNext) {
+            // Found the path prefix.
+            nonSymlinkNode.remove(segment);
+          } else {
+            node = nonSymlinkNode.get(segment);
+          }
+        }
       }
-
-      if (node.targetPath != null) {
-        // Path prefix not in trie.
-        return;
-      }
-
-      node = node.tab.get(segment);
     }
   }
 }

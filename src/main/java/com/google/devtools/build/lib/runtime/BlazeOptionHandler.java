@@ -20,15 +20,18 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions.ConfigDefinition;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser.BuildSettingLoader;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -44,7 +47,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionAndRawValue;
 import com.google.devtools.common.options.OptionDefinition;
@@ -126,7 +128,7 @@ public final class BlazeOptionHandler {
             .flatMap(
                 cmd ->
                     BlazeCommandUtils.getOptions(
-                        cmd, runtime.getBlazeModules(), runtime.getRuleClassProvider())
+                        cmd, runtime.getOptionsSuppliers(), runtime.getRuleClassProvider())
                         .stream())
             .distinct()
             .collect(toImmutableList());
@@ -245,7 +247,13 @@ public final class BlazeOptionHandler {
     }
   }
 
-  private void parseArgsAndConfigs(List<String> args, ExtendedEventHandler eventHandler)
+  /**
+   * Returns a map from rc file definitions to the options they define and which rc files defined.
+   * them. For example, "build:asan" keys a {@code --config=asan} definition and "build" keys
+   * options that apply to all build commands.
+   */
+  private ListMultimap<String, RcChunkOfArgs> parseArgsAndConfigs(
+      List<String> args, ExtendedEventHandler eventHandler)
       throws OptionsParsingException, InterruptedException, AbruptExitException {
     Path workspaceDirectory = workspace.getWorkspace();
     // TODO(ulfjack): The working directory is passed by the client as part of CommonCommandOptions,
@@ -308,6 +316,7 @@ public final class BlazeOptionHandler {
     }
 
     expandConfigOptions(eventHandler, commandToRcArgs);
+    return commandToRcArgs;
   }
 
   /**
@@ -341,7 +350,13 @@ public final class BlazeOptionHandler {
     }
 
     @Override
-    public void post(ExtendedEventHandler.Postable e) {}
+    public void post(ExtendedEventHandler.Postable e) {
+      // Fetches of external repositories are not reported as BES events and important to surface
+      // in the CLI due to their long-running nature.
+      if (e instanceof FetchProgress) {
+        delegate.post(e);
+      }
+    }
   }
 
   /**
@@ -396,7 +411,7 @@ public final class BlazeOptionHandler {
    * TODO(bazel-team): When we move CoreOptions options to be defined in starlark, make sure they're
    * not passed in here during {@link #getOptionsResult}.
    */
-  DetailedExitCode parseStarlarkOptions(CommandEnvironment env) {
+  DetailedExitCode parseStarlarkOptions(CommandEnvironment env, List<String> args) {
     // For now, restrict starlark options to commands that already build to ensure that loading
     // will work. We may want to open this up to other commands in the future.
     if (!commandAnnotation.buildPhase().analyzes()) {
@@ -412,6 +427,18 @@ public final class BlazeOptionHandler {
       Preconditions.checkState(starlarkOptionsParser.parse());
     } catch (OptionsParsingException e) {
       String logMessage = "Error parsing Starlark options";
+      if (e.getInvalidArgument() != null) {
+        for (int i = 0; i < args.size() - 1; i++) {
+          if (args.get(i).equals(e.getInvalidArgument()) && !args.get(i + 1).startsWith("-")) {
+            e =
+                new OptionsParsingException(
+                    String.format(
+                        "%s. Did you mean %s=%s?", e.getMessage(), args.get(i), args.get(i + 1)),
+                    e.getInvalidArgument());
+            ;
+          }
+        }
+      }
       logger.atInfo().withCause(e).log("%s", logMessage);
       return processOptionsParsingException(
           env.getReporter(), e, logMessage, Code.STARLARK_OPTIONS_PARSE_FAILURE);
@@ -423,6 +450,10 @@ public final class BlazeOptionHandler {
     return DetailedExitCode.success();
   }
 
+  /** Detailed parsing results: exit code and {@code --config=foo} definitions. */
+  static record DetailedParseResults(
+      DetailedExitCode detailedExitCode, ConfigFlagDefinitions configFlagDefinitions) {}
+
   /**
    * Parses the options, taking care not to generate any output to outErr, return, or throw an
    * exception.
@@ -433,29 +464,51 @@ public final class BlazeOptionHandler {
       List<String> args,
       ExtendedEventHandler eventHandler,
       ImmutableList.Builder<OptionAndRawValue> invocationPolicyFlagListBuilder) {
-    DetailedExitCode result =
-        parseOptionsInternal(args, eventHandler, invocationPolicyFlagListBuilder);
-    if (!result.isSuccess()) {
+    DetailedParseResults result =
+        parseOptionsInternal(
+            args, eventHandler, invocationPolicyFlagListBuilder, /* getConfigDefinitions= */ false);
+    if (!result.detailedExitCode.isSuccess()) {
+      optionsParser.setError();
+    }
+    return result.detailedExitCode;
+  }
+
+  /**
+   * {@link #parseOptions} variation that also returns {@code --config=foo} definitions. Callers can
+   * use this to determine which flags {@code --config=foo} sets.
+   */
+  DetailedParseResults parseOptionsAndGetConfigDefinitions(
+      List<String> args,
+      ExtendedEventHandler eventHandler,
+      ImmutableList.Builder<OptionAndRawValue> invocationPolicyFlagListBuilder) {
+    DetailedParseResults result =
+        parseOptionsInternal(
+            args, eventHandler, invocationPolicyFlagListBuilder, /* getConfigDefinitions= */ true);
+    if (!result.detailedExitCode.isSuccess()) {
       optionsParser.setError();
     }
     return result;
   }
 
-  private DetailedExitCode parseOptionsInternal(
+  private DetailedParseResults parseOptionsInternal(
       List<String> args,
       ExtendedEventHandler eventHandler,
-      ImmutableList.Builder<OptionAndRawValue> invocationPolicyFlagListBuilder) {
+      ImmutableList.Builder<OptionAndRawValue> invocationPolicyFlagListBuilder,
+      boolean getConfigDefinitions) {
     // The initialization code here was carefully written to parse the options early before we call
     // into the BlazeModule APIs, which means we must not generate any output to outErr, return, or
     // throw an exception. All the events happening here are instead stored in a temporary event
     // handler, and later replayed.
     DetailedExitCode earlyExitCode = checkCwdInWorkspace(eventHandler);
     if (!earlyExitCode.isSuccess()) {
-      return earlyExitCode;
+      return new DetailedParseResults(
+          earlyExitCode, new ConfigFlagDefinitions(ImmutableListMultimap.of()));
     }
 
+    ListMultimap<String, RcChunkOfArgs> rcDefinitions = ImmutableListMultimap.of();
+    DetailedExitCode exitCode;
     try {
-      parseArgsAndConfigs(args, eventHandler);
+      rcDefinitions = parseArgsAndConfigs(args, eventHandler);
       // Allow the command to edit the options.
       command.editOptions(optionsParser);
       // Merge the invocation policy that is user-supplied, from the command line, and any
@@ -485,22 +538,49 @@ public final class BlazeOptionHandler {
       for (String warning : commonOptions.deprecationWarnings) {
         eventHandler.handle(Event.warn(warning));
       }
+      exitCode = DetailedExitCode.success();
     } catch (OptionsParsingException e) {
       String logMessage = "Error parsing options";
       logger.atInfo().withCause(e).log("%s", logMessage);
-      return processOptionsParsingException(
-          eventHandler, e, logMessage, Code.OPTIONS_PARSE_FAILURE);
+      exitCode =
+          processOptionsParsingException(eventHandler, e, logMessage, Code.OPTIONS_PARSE_FAILURE);
     } catch (InterruptedException e) {
-      return DetailedExitCode.of(
-          FailureDetail.newBuilder()
-              .setInterrupted(
-                  FailureDetails.Interrupted.newBuilder()
-                      .setCode(FailureDetails.Interrupted.Code.INTERRUPTED))
-              .build());
+      exitCode =
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setInterrupted(
+                      FailureDetails.Interrupted.newBuilder()
+                          .setCode(FailureDetails.Interrupted.Code.INTERRUPTED))
+                  .build());
     } catch (AbruptExitException e) {
-      return e.getDetailedExitCode();
+      exitCode = e.getDetailedExitCode();
     }
-    return DetailedExitCode.success();
+
+    if (!getConfigDefinitions) {
+      return new DetailedParseResults(
+          exitCode, new ConfigFlagDefinitions(ImmutableListMultimap.of()));
+    }
+    // Transforms all rc definitions into valid --config definitions for this command. For example,
+    // "build:asan" is valid for a build command but not "test:asan". Rc definitions like "build"
+    // aren't included because those aren't --config definitions.
+    var validConfigDefs = new ImmutableListMultimap.Builder<String, ConfigDefinition>();
+    List<String> matchingRcCommands = getCommandNamesToParse(commandAnnotation);
+    for (var entry : rcDefinitions.entries()) {
+      String rcKey = entry.getKey();
+      int firstColon = rcKey.indexOf(":");
+      if (firstColon == -1) {
+        continue;
+      }
+      String cmd = rcKey.substring(0, firstColon);
+      String configName = rcKey.substring(firstColon + 1);
+      if (matchingRcCommands.contains(cmd)) {
+        validConfigDefs.put(
+            configName,
+            new ConfigFlagDefinitions.ConfigDefinition(
+                ImmutableList.copyOf(entry.getValue().getArgs()), entry.getValue().getRcFile()));
+      }
+    }
+    return new DetailedParseResults(exitCode, new ConfigFlagDefinitions(validConfigDefs.build()));
   }
 
   /**
@@ -598,8 +678,8 @@ public final class BlazeOptionHandler {
       // The canonicalize-flags command only inherits bazelrc "build" commands. Not "test", not
       // "build:foo". Restrict --flag_alias accordingly to prevent building with flags that
       // canonicalize-flags can't recognize.
-      if ((override.option.startsWith("--" + Converters.BLAZE_ALIASING_FLAG + "=")
-              || override.option.equals("--" + Converters.BLAZE_ALIASING_FLAG))
+      if ((override.option.startsWith("--" + CoreOptionConverters.BLAZE_ALIASING_FLAG + "=")
+              || override.option.equals("--" + CoreOptionConverters.BLAZE_ALIASING_FLAG))
           && !BUILD_COMMAND_ANCESTORS.contains(override.command)) {
         throw new OptionsParsingException(
             String.format(
@@ -607,7 +687,7 @@ public final class BlazeOptionHandler {
                 rcFile,
                 override.command,
                 override.option,
-                Converters.BLAZE_ALIASING_FLAG,
+                CoreOptionConverters.BLAZE_ALIASING_FLAG,
                 String.join(", ", BUILD_COMMAND_ANCESTORS)));
       }
       String command = override.command;

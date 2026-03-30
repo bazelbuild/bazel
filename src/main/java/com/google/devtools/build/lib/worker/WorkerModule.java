@@ -19,6 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
@@ -29,16 +30,15 @@ import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
 import com.google.devtools.build.lib.sandbox.AsynchronousTreeDeleter;
 import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxUtil;
-import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxOptions;
 import com.google.devtools.build.lib.sandbox.cgroups.VirtualCgroup;
 import com.google.devtools.build.lib.sandbox.cgroups.VirtualCgroupFactory;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.worker.SandboxedWorker.WorkerSandboxOptions;
 import com.google.devtools.common.options.OptionsBase;
@@ -59,10 +59,8 @@ public class WorkerModule extends BlazeModule {
   @Nullable private WorkerLifecycleManager workerLifecycleManager;
 
   @Override
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return "build".equals(command.name())
-        ? ImmutableList.of(WorkerOptions.class)
-        : ImmutableList.of();
+  public Iterable<Class<? extends OptionsBase>> getCommandOptions(String commandName) {
+    return commandName.equals("build") ? ImmutableList.of(WorkerOptions.class) : ImmutableList.of();
   }
 
   @Override
@@ -103,16 +101,18 @@ public class WorkerModule extends BlazeModule {
     SandboxOptions sandboxOptions = event.request().getOptions(SandboxOptions.class);
     if (options.sandboxHardening) {
       workerSandboxOptions =
-          WorkerSandboxOptions.create(
+          new WorkerSandboxOptions(
               LinuxSandboxUtil.getLinuxSandbox(workspace),
               sandboxOptions.sandboxFakeHostname,
               sandboxOptions.sandboxFakeUsername,
               sandboxOptions.sandboxDebug,
-              ImmutableList.copyOf(sandboxOptions.sandboxTmpfsPath),
-              ImmutableList.copyOf(sandboxOptions.sandboxWritablePath),
+              ImmutableSet.copyOf(sandboxOptions.sandboxTmpfsPath),
+              ImmutableSet.copyOf(sandboxOptions.sandboxWritablePath),
               sandboxOptions.memoryLimitMb,
               sandboxOptions.getInaccessiblePaths(env.getRuntime().getFileSystem()),
-              ImmutableList.copyOf(sandboxOptions.sandboxAdditionalMounts));
+              ImmutableMap.<String, String>builder()
+                  .putAll(sandboxOptions.sandboxAdditionalMounts)
+                  .buildKeepingLast());
     } else {
       workerSandboxOptions = null;
     }
@@ -124,7 +124,9 @@ public class WorkerModule extends BlazeModule {
       }
     }
     VirtualCgroupFactory cgroupFactory =
-        sandboxOptions == null || !sandboxOptions.useNewCgroupImplementation
+        OS.getCurrent() != OS.LINUX
+                || sandboxOptions == null
+                || !sandboxOptions.useNewCgroupImplementation
             ? null
             : new VirtualCgroupFactory(
                 "worker_",
@@ -171,10 +173,7 @@ public class WorkerModule extends BlazeModule {
     }
 
     WorkerPoolConfig newConfig =
-        new WorkerPoolConfig(
-            options.useNewWorkerPool,
-            options.workerMaxInstances,
-            options.workerMaxMultiplexInstances);
+        new WorkerPoolConfig(options.workerMaxInstances, options.workerMaxMultiplexInstances);
 
     // If the config changed compared to the last run, we have to create a new pool.
     if (!newConfig.equals(config)) {
@@ -185,11 +184,7 @@ public class WorkerModule extends BlazeModule {
     }
 
     if (workerPool == null) {
-      if (options.useNewWorkerPool) {
-        workerPool = new WorkerPoolImpl(workerFactory, newConfig);
-      } else {
-        workerPool = new WorkerPoolImplLegacy(workerFactory, newConfig);
-      }
+      workerPool = new WorkerPoolImpl(workerFactory, newConfig);
       config = newConfig;
       // If workerPool is restarted then we should recreate metrics.
       WorkerProcessMetricsCollector.instance().clear();
@@ -197,15 +192,15 @@ public class WorkerModule extends BlazeModule {
 
     // Override the flag value if we can't actually use cgroups so that we at least fallback to ps.
     boolean useCgroupsOnLinux =
-        options.useCgroupsOnLinux
+        OS.getCurrent() == OS.LINUX
+            && options.useCgroupsOnLinux
             && ((sandboxOptions == null || !sandboxOptions.useNewCgroupImplementation)
                 ? CgroupsInfo.isSupported()
                 : VirtualCgroup.getInstance().memory() != null);
     WorkerProcessMetricsCollector.instance().setUseCgroupsOnLinux(useCgroupsOnLinux);
 
     // Start collecting after a pool is defined
-    workerLifecycleManager = new WorkerLifecycleManager(workerPool, options);
-    workerLifecycleManager.setReporter(env.getReporter());
+    workerLifecycleManager = new WorkerLifecycleManager(workerPool, options, env.getReporter());
     workerLifecycleManager.setDaemon(true);
     workerLifecycleManager.start();
 
@@ -242,7 +237,6 @@ public class WorkerModule extends BlazeModule {
     LocalEnvProvider localEnvProvider = LocalEnvProvider.forCurrentOs(env.getClientEnv());
     WorkerSpawnRunner spawnRunner =
         new WorkerSpawnRunner(
-            new SandboxHelpers(),
             env.getExecRoot(),
             workerPool,
             env.getReporter(),
@@ -256,7 +250,7 @@ public class WorkerModule extends BlazeModule {
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
     registryBuilder.registerStrategy(
-        new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner, executionOptions), "worker");
+        new WorkerSpawnStrategy(spawnRunner, executionOptions), "worker");
   }
 
   @Subscribe

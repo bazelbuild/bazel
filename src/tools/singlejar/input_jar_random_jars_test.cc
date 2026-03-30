@@ -19,7 +19,6 @@
 #include <string>
 
 #include "src/tools/singlejar/input_jar.h"
-
 #include "googletest/include/gtest/gtest.h"
 
 namespace {
@@ -29,10 +28,10 @@ static const char kJarsDirPath[] =
 
 TEST(InputJarRandomJarsTest, ScanAllJars) {
   int processed_jars = 0;
-  DIR *dirp = opendir(kJarsDirPath);
+  DIR* dirp = opendir(kJarsDirPath);
   ASSERT_NE(nullptr, dirp);
 
-  struct dirent *dirent;
+  struct dirent* dirent;
   InputJar input_jar;
   while ((dirent = readdir(dirp)) != nullptr) {
     if (dirent->d_type != DT_REG && dirent->d_type != DT_LNK) {
@@ -49,8 +48,8 @@ TEST(InputJarRandomJarsTest, ScanAllJars) {
       }
     }
     EXPECT_TRUE(input_jar.Open(path));
-    const LH *lh;
-    const CDH *cdh;
+    const LH* lh;
+    const CDH* cdh;
     int file_count = 0;
     int entry_count = 0;
     for (; (cdh = input_jar.NextEntry(&lh)); ++entry_count) {

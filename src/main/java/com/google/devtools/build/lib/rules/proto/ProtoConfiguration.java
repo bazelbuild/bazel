@@ -92,16 +92,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     public Label protoToolchainForJava;
 
     @Option(
-        name = "proto_toolchain_for_j2objc",
-        defaultValue = ProtoConstants.DEFAULT_J2OBJC_PROTO_LABEL,
-        category = "flags",
-        converter = CoreOptionConverters.EmptyToNullLabelConverter.class,
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-        help = "Label of proto_lang_toolchain() which describes how to compile j2objc protos")
-    public Label protoToolchainForJ2objc;
-
-    @Option(
         name = "proto_toolchain_for_cc",
         defaultValue = ProtoConstants.DEFAULT_CC_PROTO_LABEL,
         converter = CoreOptionConverters.EmptyToNullLabelConverter.class,
@@ -201,15 +191,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
   @Nullable
   public Label protoToolchainForJava() {
     return options.protoToolchainForJava;
-  }
-
-  @StarlarkConfigurationField(
-      name = "proto_toolchain_for_j2objc",
-      doc = "Label for the j2objc toolchains.",
-      defaultLabel = ProtoConstants.DEFAULT_J2OBJC_PROTO_LABEL)
-  @Nullable
-  public Label protoToolchainForJ2objc() {
-    return options.protoToolchainForJ2objc;
   }
 
   @StarlarkConfigurationField(

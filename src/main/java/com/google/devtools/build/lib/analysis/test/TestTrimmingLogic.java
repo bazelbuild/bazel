@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
-import com.google.devtools.build.lib.analysis.test.CoverageConfiguration.CoverageOptions;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 
 /**
@@ -48,12 +47,12 @@ public final class TestTrimmingLogic {
           (options, unused, unusedNonEventHandler) -> {
             BuildOptions.Builder builder = options.underlying().toBuilder();
             builder.removeFragmentOptions(TestOptions.class);
-            builder.removeFragmentOptions(CoverageOptions.class);
             // Only the label of the --run_under target (if any) needs to be part of the
             // configuration for non-test targets, all other information is directly obtained
             // from the options in RunCommand.
             CoreOptions coreOptions = builder.getFragmentOptions(CoreOptions.class);
-            coreOptions.runUnder = RunUnder.trimForNonTestConfiguration(coreOptions.runUnder);
+            coreOptions.setRunUnder(
+                RunUnder.trimForNonTestConfiguration(coreOptions.getRunUnder()));
             return builder.build();
           });
 

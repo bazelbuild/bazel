@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AliasProvider;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
@@ -36,6 +38,8 @@ import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAttributesCollectionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ExecGroupCollectionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainContextApi;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -47,6 +51,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.Identifier;
 
 /** Information about attributes of a rule an aspect is applied to. */
@@ -58,6 +63,7 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
   private final StructImpl filesObject;
   private final ImmutableMap<Artifact, FilesToRunProvider> executableRunfilesMap;
   private final String ruleClassName;
+  private final Dict<String, String> ruleVariables;
 
   static final String ERROR_MESSAGE_FOR_NO_ATTR =
       "No attribute '%s' in attr. Make sure you declared a rule attribute with this name.";
@@ -69,7 +75,8 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
       Map<String, Object> executables,
       Map<String, Object> singleFiles,
       Map<String, Object> files,
-      ImmutableMap<Artifact, FilesToRunProvider> executableRunfilesMap) {
+      ImmutableMap<Artifact, FilesToRunProvider> executableRunfilesMap,
+      Dict<String, String> ruleVariables) {
     this.starlarkRuleContext = starlarkRuleContext;
     this.ruleClassName = ruleClassName;
     attrObject = StructProvider.STRUCT.create(attrs, ERROR_MESSAGE_FOR_NO_ATTR);
@@ -89,6 +96,7 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
             "No attribute '%s' in files. Make sure there is a label or label_list type attribute "
                 + "with this name");
     this.executableRunfilesMap = executableRunfilesMap;
+    this.ruleVariables = ruleVariables;
   }
 
   private void checkMutable(String attrName) throws EvalException {
@@ -148,7 +156,7 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
     checkMutable("exec_groups");
     if (((AspectContext) starlarkRuleContext.getRuleContext()).getBaseTargetToolchainContexts()
         == null) {
-      return StarlarkExecGroupCollection.EXEC_GRPOUP_COLLECTION_NOT_VALID;
+      return StarlarkExecGroupCollection.EXEC_GROUP_COLLECTION_NOT_VALID;
     }
     // Create a thin wrapper around the toolchain collection, to expose the Starlark API.
     return StarlarkExecGroupCollection.create(
@@ -165,7 +173,7 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<rule collection for " + starlarkRuleContext.getRuleLabelCanonicalName() + ">");
   }
 
@@ -186,6 +194,7 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
     private final LinkedHashMap<String, Object> fileBuilder = new LinkedHashMap<>();
     private final LinkedHashMap<String, Object> filesBuilder = new LinkedHashMap<>();
     private final HashSet<Artifact> seenExecutables = new HashSet<>();
+    private final Dict.Builder<String, String> ruleVariablesBuilder = new Dict.Builder<>();
 
     private Builder(
         StarlarkRuleContext ruleContext, PrerequisitesCollection prerequisitesCollection) {
@@ -193,42 +202,70 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
       this.prerequisites = prerequisitesCollection;
     }
 
-    static Dict<String, TransitiveInfoCollection> convertStringToLabelMap(
-        Map<String, Label> unconfiguredValue,
+    private static Map<Label, TransitiveInfoCollection> buildPrequisiteMap(
         List<? extends TransitiveInfoCollection> prerequisites) {
-      Map<Label, TransitiveInfoCollection> prerequisiteMap = Maps.newHashMap();
+      Map<Label, TransitiveInfoCollection> prerequisiteMap =
+          Maps.newHashMapWithExpectedSize(prerequisites.size());
       for (TransitiveInfoCollection prereq : prerequisites) {
         prerequisiteMap.put(AliasProvider.getDependencyLabel(prereq), prereq);
       }
-
-      Dict.Builder<String, TransitiveInfoCollection> builder = Dict.builder();
-      for (var entry : unconfiguredValue.entrySet()) {
-        builder.put(entry.getKey(), prerequisiteMap.get(entry.getValue()));
-      }
-
-      return builder.buildImmutable();
+      return prerequisiteMap;
     }
 
-    @Nullable
-    public static Object convertAttributeValue(
-        Supplier<List<? extends TransitiveInfoCollection>> prerequisiteSupplier,
-        Attribute a,
-        Object val) {
+    static Dict<String, TransitiveInfoCollection> convertStringToLabelMap(
+        Map<String, Label> unconfiguredValue,
+        List<? extends TransitiveInfoCollection> prerequisites) {
+      var prerequisiteMap = buildPrequisiteMap(prerequisites);
+      ImmutableMap.Builder<String, TransitiveInfoCollection> builder =
+          ImmutableMap.builderWithExpectedSize(unconfiguredValue.size());
+      unconfiguredValue.forEach((key, label) -> builder.put(key, prerequisiteMap.get(label)));
+      return Dict.immutableCopyOf(builder.buildOrThrow());
+    }
+
+    static Dict<String, StarlarkList<TransitiveInfoCollection>> convertStringToLabelListMap(
+        Map<String, List<Label>> unconfiguredValue,
+        List<? extends TransitiveInfoCollection> prerequisites) {
+      var prerequisiteMap = buildPrequisiteMap(prerequisites);
+      ImmutableMap.Builder<String, StarlarkList<TransitiveInfoCollection>> builder =
+          ImmutableMap.builderWithExpectedSize(unconfiguredValue.size());
+      unconfiguredValue.forEach(
+          (key, labels) ->
+              builder.put(
+                  key,
+                  StarlarkList.immutableCopyOf(Lists.transform(labels, prerequisiteMap::get))));
+      return Dict.immutableCopyOf(builder.buildOrThrow());
+    }
+
+    private static boolean shouldIgnore(Attribute a) {
       Type<?> type = a.getType();
       String skyname = a.getPublicName();
 
       // Some legacy native attribute types do not have a valid Starlark type. Avoid exposing
       // these to Starlark.
-      if (type == BuildType.DISTRIBUTIONS || type == BuildType.TRISTATE) {
-        return null;
+      if (type == BuildType.TRISTATE) {
+        return true;
       }
 
       // Don't expose invalid attributes via the rule ctx.attr. Ordinarily, this case cannot happen,
       // and currently only applies to subrule attributes
       // TODO: b/293304174 - let subrules explicitly mark attributes as not-visible-to-starlark
       if (!Identifier.isValid(skyname)) {
-        return null;
+        return true;
       }
+
+      // Don't expose exec_group_compatible_with to Starlark. There is no reason for it to be used
+      // by the rule implementation function and its type (LABEL_LIST_DICT) is not available to
+      // Starlark.
+      if (a.getName().equals(RuleClass.EXEC_GROUP_COMPATIBLE_WITH_ATTR)) {
+        return true;
+      }
+
+      return false;
+    }
+
+    @Nullable
+    private static Object maybeDirectVal(Attribute a, Object val) {
+      Type<?> type = a.getType();
 
       if (type == BuildType.DORMANT_LABEL) {
         return val == null
@@ -250,6 +287,68 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
         return Attribute.valueToStarlark(val);
       }
 
+      return null;
+    }
+
+    @Nullable
+    public static Object convertAttributeValueForAspectPropagationFunc(
+        Supplier<Collection<Label>> depLabelsSupplier, Attribute a, Object val) {
+
+      if (shouldIgnore(a)) {
+        return null;
+      }
+
+      Object maybeVal = maybeDirectVal(a, val);
+      if (maybeVal != null) {
+        return maybeVal;
+      }
+
+      Type<?> type = a.getType();
+
+      var prerequisites = depLabelsSupplier.get();
+
+      if (a.isMaterializing() || prerequisites == null || prerequisites.contains(null)) {
+        return Starlark.NONE;
+      }
+
+      if (type == BuildType.LABEL && !a.getTransitionFactory().isSplit()) {
+        return prerequisites.isEmpty() ? Starlark.NONE : prerequisites.iterator().next();
+      } else if (type == BuildType.LABEL_LIST
+          || (type == BuildType.LABEL && a.getTransitionFactory().isSplit())) {
+        return StarlarkList.immutableCopyOf(prerequisites);
+      } else if (type == BuildType.LABEL_DICT_UNARY || type == BuildType.LABEL_KEYED_STRING_DICT) {
+        return val; // return the same map as the labels are not configured to targets
+      } else if (type == BuildType.LABEL_LIST_DICT) {
+        // The type of the inner lists has to be converted to Starlark.
+        return Dict.immutableCopyOf(
+            Maps.transformValues(
+                BuildType.LABEL_LIST_DICT.cast(val), StarlarkList::immutableCopyOf));
+      } else {
+        throw new IllegalArgumentException(
+            "Can't transform attribute "
+                + a.getName()
+                + " of type "
+                + type
+                + " to a Starlark object");
+      }
+    }
+
+    @Nullable
+    public static Object convertAttributeValue(
+        Supplier<List<? extends TransitiveInfoCollection>> prerequisiteSupplier,
+        Attribute a,
+        Object val) {
+      if (shouldIgnore(a)) {
+        return null;
+      }
+
+      Object maybeVal = maybeDirectVal(a, val);
+      if (maybeVal != null) {
+        return maybeVal;
+      }
+
+      Type<?> type = a.getType();
+
       if (type == BuildType.LABEL && !a.getTransitionFactory().isSplit()) {
         List<? extends TransitiveInfoCollection> prerequisites = prerequisiteSupplier.get();
         return prerequisites.isEmpty() ? Starlark.NONE : prerequisites.get(0);
@@ -261,13 +360,17 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
         return convertStringToLabelMap(
             BuildType.LABEL_DICT_UNARY.cast(val), prerequisiteSupplier.get());
       } else if (type == BuildType.LABEL_KEYED_STRING_DICT) {
-        Dict.Builder<TransitiveInfoCollection, String> builder = Dict.builder();
         Map<Label, String> original = BuildType.LABEL_KEYED_STRING_DICT.cast(val);
+        ImmutableMap.Builder<TransitiveInfoCollection, String> builder =
+            ImmutableMap.builderWithExpectedSize(original.size());
         List<? extends TransitiveInfoCollection> allPrereq = prerequisiteSupplier.get();
         for (TransitiveInfoCollection prereq : allPrereq) {
           builder.put(prereq, original.get(AliasProvider.getDependencyLabel(prereq)));
         }
-        return builder.buildImmutable();
+        return Dict.immutableCopyOf(builder.buildOrThrow());
+      } else if (type == BuildType.LABEL_LIST_DICT) {
+        return convertStringToLabelListMap(
+            BuildType.LABEL_LIST_DICT.cast(val), prerequisiteSupplier.get());
       } else {
         throw new IllegalArgumentException(
             "Can't transform attribute "
@@ -342,6 +445,12 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
       }
     }
 
+    @CanIgnoreReturnValue
+    public Builder putAllRuleVariables(Dict<String, String> var) {
+      this.ruleVariablesBuilder.putAll(var);
+      return this;
+    }
+
     public StarlarkAttributesCollection build() {
       return new StarlarkAttributesCollection(
           context,
@@ -350,7 +459,13 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
           executableBuilder,
           fileBuilder,
           filesBuilder,
-          executableRunfilesbuilder.buildOrThrow());
+          executableRunfilesbuilder.buildOrThrow(),
+          ruleVariablesBuilder.buildImmutable());
     }
+  }
+
+  @Override
+  public Dict<String, String> var() throws EvalException, InterruptedException {
+    return this.ruleVariables;
   }
 }

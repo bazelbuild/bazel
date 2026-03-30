@@ -86,6 +86,7 @@ def _jvm_import_external(repository_ctx):
             srcpath = url[url.rindex("/") + 1:].replace("-sources.jar", "-src.jar")
             break
     lines = [_HEADER, ""]
+    lines.append("load(\"@rules_java//java:java_import.bzl\", \"java_import\")")
     if repository_ctx.attr.rule_load:
         lines.append(repository_ctx.attr.rule_load)
         lines.append("")
@@ -143,7 +144,6 @@ def _jvm_import_external(repository_ctx):
         _HEADER,
         "",
         "package(default_visibility = %r)" % (
-            repository_ctx.attr.visibility or
             repository_ctx.attr.default_visibility
         ),
         "",

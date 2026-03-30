@@ -18,6 +18,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.io.Files;
+import com.google.devtools.build.lib.sandbox.cgroups.proto.CgroupsInfoProtos.CgroupControllerInfo;
+import com.google.devtools.build.lib.sandbox.cgroups.proto.CgroupsInfoProtos.CgroupsInfo;
 import com.google.devtools.build.lib.vfs.util.FsApparatus;
 import java.io.File;
 import java.io.IOException;
@@ -265,5 +267,61 @@ public class VirtualCgroupTest {
     VirtualCgroup vcg = VirtualCgroup.createRoot(mounts, hierarchies);
     assertThat(vcg.cpu()).isNotNull();
     assertThat(vcg.memory()).isNull();
+  }
+
+  @Test
+  public void validCgroupV1_cgroupsInfo_returnsCorrectInfo() throws IOException {
+    VirtualCgroup vcg = createV1();
+    assertThat(vcg.cgroupsInfo())
+        .isEqualTo(
+            CgroupsInfo.newBuilder()
+                .addCgroupControllers(
+                    CgroupControllerInfo.newBuilder()
+                        .setPath(
+                            scratch.path("dev/cgroup/memory/user.slice").getPathFile().toString())
+                        .setIsWritable(true)
+                        .setVersion(CgroupControllerInfo.Version.V1)
+                        .build())
+                .addCgroupControllers(
+                    CgroupControllerInfo.newBuilder()
+                        .setPath(
+                            scratch.path("dev/cgroup/memory/user.slice").getPathFile().toString())
+                        .setIsWritable(true)
+                        .setVersion(CgroupControllerInfo.Version.V1)
+                        .build())
+                .addCgroupControllers(
+                    CgroupControllerInfo.newBuilder()
+                        .setPath(scratch.path("dev/cgroup/cpuset").getPathFile().toString())
+                        .setIsWritable(true)
+                        .setVersion(CgroupControllerInfo.Version.V1)
+                        .build())
+                .addCgroupControllers(
+                    CgroupControllerInfo.newBuilder()
+                        .setPath(scratch.path("dev/cgroup/cpu/user.slice").getPathFile().toString())
+                        .setIsWritable(true)
+                        .setVersion(CgroupControllerInfo.Version.V1)
+                        .build())
+                .addCgroupControllers(
+                    CgroupControllerInfo.newBuilder()
+                        .setPath(scratch.path("dev/cgroup/cpu/user.slice").getPathFile().toString())
+                        .setIsWritable(true)
+                        .setVersion(CgroupControllerInfo.Version.V1)
+                        .build())
+                .build());
+  }
+
+  @Test
+  public void validCgroupV2_cgroupsInfo_returnsCorrectInfo() throws IOException {
+    VirtualCgroup vcg = createV2();
+    assertThat(vcg.cgroupsInfo())
+        .isEqualTo(
+            CgroupsInfo.newBuilder()
+                .addCgroupControllers(
+                    CgroupControllerInfo.newBuilder()
+                        .setPath(scratch.path("dev/cgroup/unified").getPathFile().toString())
+                        .setIsWritable(true)
+                        .setVersion(CgroupControllerInfo.Version.V2)
+                        .build())
+                .build());
   }
 }

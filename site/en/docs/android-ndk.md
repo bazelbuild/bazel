@@ -14,33 +14,77 @@ Bazel can run in many different build configurations, including several that use
 the Android Native Development Kit (NDK) toolchain. This means that normal
 `cc_library` and `cc_binary` rules can be compiled for Android directly within
 Bazel. Bazel accomplishes this by using the `android_ndk_repository` repository
-rule.
+rule and its related bzlmod extension.
+
+For general Android
+compilation, use [`rules_android`](https://github.com/bazelbuild/rules_android).
+This tutorial demonstrates how to integrate C++ library dependencies into
+Android apps and uses
+[`rules_android_ndk`](https://github.com/bazelbuild/rules_android_ndk) for NDK
+toolchain discovery and registration.
 
 ## Prerequisites {:#prerequisites}
 
 Please ensure that you have installed the Android SDK and NDK.
 
-To set up the SDK and NDK, add the following snippet to your `WORKSPACE`:
+### NDK and SDK setup {:#ndk-sdk-setup}
+
+External repository setup varies depending on whether you are using WORKSPACE
+or bzlmod (MODULE.bazel). *Bzlmod is the preferred solution for Bazel 7+.*
+Note that the MODULE.bazel and WORKSPACE setup stanzas are independent of
+each other.
+If you are using one dependency management solution, you don't need to add
+the boilerplate for the other.
+
+#### Bzlmod MODULE.bazel setup {:#ndk-sdk-setup-bzlmod}
+
+Add the following snippet to your MODULE.bazel:
 
 ```python
+# NDK
+bazel_dep(name = "rules_android_ndk", version = "0.1.3")
+android_ndk_repository_extension = use_extension("@rules_android_ndk//:extension.bzl", "android_ndk_repository_extension")
+use_repo(android_ndk_repository_extension, "androidndk")
+register_toolchains("@androidndk//:all")
+
+# SDK
+bazel_dep(name = "rules_android", version = "0.6.6")
+register_toolchains(
+    "@rules_android//toolchains/android:android_default_toolchain",
+    "@rules_android//toolchains/android_sdk:android_sdk_tools",
+)
+android_sdk_repository_extension = use_extension("@rules_android//rules/android_sdk_repository:rule.bzl", "android_sdk_repository_extension")
+use_repo(android_sdk_repository_extension, "androidsdk")
+register_toolchains("@androidsdk//:sdk-toolchain", "@androidsdk//:all")
+```
+
+#### Legacy WORKSPACE setup {:#ndk-sdk-setup-workspace}
+
+Add the following snippet to your `WORKSPACE`:
+
+```python
+load("@rules_android//rules:rules.bzl", "android_sdk_repository")
 android_sdk_repository(
     name = "androidsdk", # Required. Name *must* be "androidsdk".
     path = "/path/to/sdk", # Optional. Can be omitted if `ANDROID_HOME` environment variable is set.
 )
 
+load("@rules_android_ndk//:rules.bzl", "android_ndk_repository")
 android_ndk_repository(
     name = "androidndk", # Required. Name *must* be "androidndk".
     path = "/path/to/ndk", # Optional. Can be omitted if `ANDROID_NDK_HOME` environment variable is set.
 )
 ```
 
-For more information about the `android_ndk_repository` rule, see the [Build
-Encyclopedia entry](/reference/be/android#android_ndk_repository).
+Compatibility notes for WORKSPACE:
 
-If you're using a recent version of the Android NDK (r22 and beyond), use the
-Starlark implementation of `android_ndk_repository`.
-Follow the instructions in
-[its README](https://github.com/bazelbuild/rules_android_ndk).
+* Both `rules_android` and `rules_android_ndk` rules require extra
+  boilerplate not depicted in the WORKSPACE snippet above. For an up-to-date
+  and fully-formed instantiation stanza, see the [WORKSPACE](https://github.com/bazelbuild/rules_android_ndk/blob/main/examples/basic/WORKSPACE)
+  file of `rules_android_ndk`'s basic example app.
+
+For more information about the `android_ndk_repository` rule, see its
+[docstring](https://github.com/bazelbuild/rules_android_ndk/blob/7b4300f6d731139ca097f3332a5aebae5b0d91d0/rules.bzl#L18-L25).
 
 ## Quick start {:#quick-start}
 
@@ -51,6 +95,8 @@ For example, given the following `BUILD` file for an Android app:
 
 ```python
 # In <project>/app/src/main/BUILD.bazel
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_android//rules:rules.bzl", "android_binary", "android_library")
 
 cc_library(
     name = "jni_lib",
@@ -82,8 +128,11 @@ This `BUILD` file results in the following target graph:
 To build the app, simply run:
 
 ```posix-terminal
-bazel build //app/src/main:app
+bazel build //app/src/main:app --android_platforms=<your platform>
 ```
+
+Note that if you don't specify `--android_platforms`, your build will fail with
+errors about missing JNI headers.
 
 The `bazel build` command compiles the Java files, Android resource files, and
 `cc_library` rules, and packages everything into an APK:
@@ -103,9 +152,9 @@ META-INF/MANIFEST.MF
 ```
 
 Bazel compiles all of the cc_libraries into a single shared object (`.so`) file,
-targeted for the `armeabi-v7a` ABI by default. To change this or build for
-multiple ABIs at the same time, see the section on [configuring the target
-ABI](#configuring-target-abi).
+targeted the architectures specified by `--android_platforms`.
+See the section on [configuring the target ABI](#configuring-target-abi) for
+more details.
 
 ## Example setup {:#example-setup}
 

@@ -175,7 +175,7 @@ public class Main {
     int exitStatus = 0;
 
     try {
-      LcovPrinter.print(new FileOutputStream(outputFile), coverage);
+      LcovPrinter.print(new FileOutputStream(outputFile), coverage, flags.legacyBranches());
     } catch (IOException e) {
       logger.log(
           Level.SEVERE,
@@ -375,10 +375,7 @@ public class Main {
       InputStreamReader inputStreamReader = new InputStreamReader(inputStream, UTF_8);
       BufferedReader reader = new BufferedReader(inputStreamReader);
       for (String tracefile = reader.readLine(); tracefile != null; tracefile = reader.readLine()) {
-        // TODO(elenairina): baseline coverage contains some file names that need to be modified
-        if (!tracefile.endsWith("baseline_coverage.dat")) {
-          datFiles.add(new File(tracefile));
-        }
+        datFiles.add(new File(tracefile));
       }
 
     } catch (IOException e) {

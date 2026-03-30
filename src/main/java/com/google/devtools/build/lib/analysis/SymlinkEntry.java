@@ -19,14 +19,14 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.starlarkbuildapi.SymlinkEntryApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * An entry in the runfiles map.
  *
- * <p>build-runfiles.cc enforces the following constraints: The PathFragment must not be an absolute
- * path, nor contain "..". Overlapping runfiles links are also refused. This is the case where you
- * ask to create a link to "foo" and also "foo/bar.txt". I.e. you're asking it to make "foo" both a
- * file (symlink) and a directory.
+ * <p>The PathFragment must not be an absolute path nor contain "..". Overlapping runfiles links are
+ * also refused. This is the case where you ask to create a link to "foo" and also "foo/bar.txt",
+ * i.e. you're asking it to make "foo" both a file (symlink) and a directory.
  *
  * <p>Links to directories are heavily discouraged.
  */
@@ -78,11 +78,11 @@ public final class SymlinkEntry implements SymlinkEntryApi {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("SymlinkEntry(path = ");
-    printer.repr(getPathString());
+    printer.repr(getPathString(), semantics);
     printer.append(", target_file = ");
-    artifact.repr(printer);
+    artifact.repr(printer, semantics);
     printer.append(")");
   }
 }

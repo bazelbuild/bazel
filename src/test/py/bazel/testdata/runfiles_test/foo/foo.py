@@ -18,7 +18,7 @@ from __future__ import print_function
 import os
 import subprocess
 
-from bazel_tools.tools.python.runfiles import runfiles
+from python.runfiles import runfiles
 
 
 def IsWindows():

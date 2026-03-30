@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.starlarkdocextract;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
@@ -31,15 +33,16 @@ final class ProviderNameGroupExtractor {
       ExtractorContext context, ImmutableSet<StarlarkProviderIdentifier> providerGroup) {
     ProviderNameGroup.Builder providerNameGroupBuilder = ProviderNameGroup.newBuilder();
     for (StarlarkProviderIdentifier provider : providerGroup) {
-      providerNameGroupBuilder.addProviderName(context.getDocumentedProviderName(provider));
-      OriginKey.Builder providerKeyBuilder = OriginKey.newBuilder().setName(provider.toString());
-      if (!provider.isLegacy()) {
-        if (provider.getKey() instanceof StarlarkProvider.Key) {
-          Label definingModule = ((StarlarkProvider.Key) provider.getKey()).getExtensionLabel();
-          providerKeyBuilder.setFile(context.labelRenderer().render(definingModule));
-        } else if (provider.getKey() instanceof BuiltinProvider.Key) {
-          providerKeyBuilder.setFile("<native>");
-        }
+      providerNameGroupBuilder.addProviderName(
+          internalToUnicode(context.getDocumentedProviderName(provider)));
+      OriginKey.Builder providerKeyBuilder =
+          OriginKey.newBuilder().setName(internalToUnicode(provider.toString()));
+      if (provider.getKey() instanceof StarlarkProvider.Key) {
+        Label definingModule = ((StarlarkProvider.Key) provider.getKey()).getExtensionLabel();
+        providerKeyBuilder.setFile(
+            internalToUnicode(context.labelRenderer().render(definingModule)));
+      } else if (provider.getKey() instanceof BuiltinProvider.Key) {
+        providerKeyBuilder.setFile("<native>");
       }
       providerNameGroupBuilder.addOriginKey(providerKeyBuilder.build());
     }

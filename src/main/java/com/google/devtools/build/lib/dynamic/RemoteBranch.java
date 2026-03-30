@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.actions.DynamicStrategyRegistry.Dyna
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry.DynamicMode;
@@ -45,7 +44,6 @@ import javax.annotation.Nullable;
 class RemoteBranch extends Branch {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private LocalBranch localBranch;
   private final IgnoreFailureCheck ignoreFailureCheck;
   private final AtomicBoolean delayLocalExecution;
 
@@ -109,28 +107,11 @@ class RemoteBranch extends Branch {
     throw new AssertionError("canExec passed but no usable remote strategy for action " + spawn);
   }
 
-  /** Sets up the future for this branch, once the other branch is available. */
-  public void prepareFuture(LocalBranch localBranch) {
-    this.localBranch = localBranch;
-    future.addListener(
-        () -> {
-          if (starting.compareAndSet(true, false)) {
-            // If the remote branch got cancelled before even starting, we release its semaphore
-            // for it.
-            done.release();
-          }
-          if (!future.isCancelled()) {
-            localBranch.cancel();
-          }
-        },
-        MoreExecutors.directExecutor());
-  }
-
   @Override
   public ImmutableList<SpawnResult> callImpl(ActionExecutionContext context)
       throws InterruptedException, ExecException {
-    if (localBranch == null) {
-      throw new IllegalStateException("Initialize not called");
+    if (otherBranch == null) {
+      throw new IllegalStateException("prepareFuture not called");
     }
     try {
       if (!starting.compareAndSet(true, false)) {
@@ -147,7 +128,7 @@ class RemoteBranch extends Branch {
               maybeIgnoreFailure(exitCode, errorMessage, outErr);
             }
             DynamicSpawnStrategy.stopBranch(
-                localBranch, this, strategyThatCancelled, options, this.context);
+                otherBranch, this, strategyThatCancelled, options, this.context);
           },
           delayLocalExecution);
     } catch (DynamicInterruptedException e) {

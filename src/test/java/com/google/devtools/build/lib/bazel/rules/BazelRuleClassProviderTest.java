@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
-import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Options;
@@ -98,11 +97,6 @@ public class BazelRuleClassProviderTest extends BuildViewTestCase {
   }
 
   @Test
-  public void coreWorkspaceConsistency() {
-    checkModule(CoreWorkspaceRules.INSTANCE);
-  }
-
-  @Test
   public void genericConsistency() {
     checkModule(GenericRules.INSTANCE);
   }
@@ -140,11 +134,6 @@ public class BazelRuleClassProviderTest extends BuildViewTestCase {
   @Test
   public void objcConsistency() {
     checkModule(ObjcRules.INSTANCE);
-  }
-
-  @Test
-  public void variousWorkspaceConsistency() {
-    checkModule(BazelRuleClassProvider.VARIOUS_WORKSPACE_RULES);
   }
 
   @Test

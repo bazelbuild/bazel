@@ -62,12 +62,6 @@ public interface Spawn extends DescribableExecutionUnit {
   ImmutableMap<String, String> getEnvironment();
 
   /**
-   * Map of the execpath at which we expect the Fileset symlink trees, to a list of
-   * FilesetOutputSymlinks which contains the details of the Symlink trees.
-   */
-  ImmutableMap<Artifact, FilesetOutputTree> getFilesetMappings();
-
-  /**
    * Returns the list of files that are required to execute this spawn (e.g. the compiler binary),
    * in contrast to files necessary for the tool to do its work (e.g. source code to be compiled).
    *
@@ -142,7 +136,7 @@ public interface Spawn extends DescribableExecutionUnit {
    * Returns the amount of resources needed for local execution. Calling this may trigger an
    * expensive computation: do not call unless actually needed!
    */
-  ResourceSet getLocalResources() throws ExecException;
+  ResourceSet getLocalResources() throws ExecException, InterruptedException;
 
   /** Returns a mnemonic (string constant) for this kind of spawn. */
   @Override
@@ -158,7 +152,9 @@ public interface Spawn extends DescribableExecutionUnit {
    * #getExecutionInfo()} can be set by multiple sources while this data is set via the {@code
    * exec_properties} attribute on targets and platforms.
    */
-  ImmutableMap<String, String> getCombinedExecProperties();
+  default ImmutableMap<String, String> getCombinedExecProperties() {
+    return getResourceOwner().getOwner().getExecProperties();
+  }
 
   @Nullable
   PlatformInfo getExecutionPlatform();

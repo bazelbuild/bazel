@@ -12,7 +12,7 @@ assert_eq(type(set({"a": 1, "b": 2, "c": 0})), "set")
 assert_eq(list(set({"a": 1, "b": 2, "c": 0})), ["a", "b", "c"])
 assert_eq(type(set(set([3, 1, 2]))), "set")
 assert_eq(list(set(set([3, 1, 2]))), [3, 1, 2])
-assert_fails(lambda: set(1), "got value of type 'int', want a set, sequence, or dict")
+assert_fails(lambda: set(1), "got value of type 'int', want 'iterable'")
 assert_fails(lambda: set([1], [2]), "accepts no more than 1 positional argument")
 assert_fails(lambda: set([1, 2, [3]]), "unhashable type: 'list'")
 
@@ -130,7 +130,7 @@ assert_fails(lambda: frozen_set.add(0), "trying to mutate a frozen set value")
 update_set = set([1, 2])
 update_set.update([2, 3], {3: "three", 4: "four"})
 assert_eq(list(update_set), [1, 2, 3, 4])
-assert_fails(lambda: update_set.update(1), "got value of type 'int', want a set, sequence, or dict")
+assert_fails(lambda: update_set.update(1), "got value of type 'int', want a collection of hashable elements")
 assert_fails(lambda: frozen_set.update([0]), "trying to mutate a frozen set value")
 
 # iteration order
@@ -181,14 +181,14 @@ assert_fails(lambda: frozen_set.clear(), "trying to mutate a frozen set value")
 assert_eq(set([1, 2]).issubset([1, 2, 3]), True)
 assert_eq(set([1, 2]).issubset(set([2, 3])), False)
 assert_eq(set([1, 2]).issubset([2, 1]), True)
-assert_fails(lambda: set([1, 2]).issubset(2), "got value of type 'int', want a set, sequence, or dict")
+assert_fails(lambda: set([1, 2]).issubset(2), "got value of type 'int', want a collection of hashable elements")
 assert_fails(lambda: set([1, 2]).issubset([1, 2], [3]), "accepts no more than 1 positional argument")
 
 # issuperset method allows an arbitrary sequence, set, or mapping
 assert_eq(set([1, 2, 3]).issuperset([0, 1, 2, 3]), False)
 assert_eq(set([1, 2, 3]).issuperset({2: "a", 3: "b"}), True)
 assert_eq(set([1, 2, 3]).issuperset([3, 2, 1]), True)
-assert_fails(lambda: set([1, 2]).issuperset(2), "got value of type 'int', want a set, sequence, or dict")
+assert_fails(lambda: set([1, 2]).issuperset(2), "got value of type 'int', want a collection of hashable elements")
 assert_fails(lambda: set([1, 2]).issubset([1, 2], [3]), "accepts no more than 1 positional argument")
 
 # isdisjoint method allows an arbitrary sequence, set, or mapping
@@ -198,19 +198,19 @@ assert_eq(set([1, 2]).isdisjoint({2: "a", 3: "b"}), False)
 assert_eq(set([1, 2]).isdisjoint({}), True)
 assert_eq(set().isdisjoint([2, 3]), True)
 assert_eq(set().isdisjoint([]), True)
-assert_fails(lambda: set([1, 2]).isdisjoint(2), "got value of type 'int', want a set, sequence, or dict")
+assert_fails(lambda: set([1, 2]).isdisjoint(2), "got value of type 'int', want a collection of hashable elements")
 assert_fails(lambda: set([1, 2]).isdisjoint([1, 2], [3]), "accepts no more than 1 positional argument")
 
 # union method, unlike the | operator, allows arbitrary number of arbitrary sequences, sets, or mappings
 assert_eq(set([1, 2]).union([2, 3]), set([1, 2, 3]))
 assert_eq(set([1, 2]).union([2, 3], {3: "three", 4: "four"}), set([1, 2, 3, 4]))
-assert_fails(lambda: set([1, 2]).union(3), "got value of type 'int', want a set, sequence, or dict")
+assert_fails(lambda: set([1, 2]).union(3), "got value of type 'int', want a collection of hashable elements")
 
 # intersection method, unlike the & operator, allows arbitrary number of arbitrary sequences, sets, or mappings
 assert_eq(set([1, 2, 3]).intersection([2, 3, 4]), set([2, 3]))
 assert_eq(set([1, 2, 3]).intersection([2, 3, 4, 2, 3, 4]), set([2, 3]))
 assert_eq(set([1, 2, 3]).intersection([2, 3], {3: "three", 4: "four"}), set([3]))
-assert_fails(lambda: set([1, 2]).intersection(3), "got value of type 'int', want a set, sequence, or dict")
+assert_fails(lambda: set([1, 2]).intersection(3), "got value of type 'int', want a collection of hashable elements")
 
 # intersection_update method, unlike the &= operator, allows arbitrary number of arbitrary sequences, sets, or mappings
 intersection_update_set = set([1, 2, 3])
@@ -220,14 +220,14 @@ intersection_update_set.intersection_update([2, 3, 4, 2, 3, 4])
 assert_eq(intersection_update_set, set([2, 3]))
 intersection_update_set.intersection_update([2, 3], {3: "three", 4: "four"})
 assert_eq(intersection_update_set, set([3]))
-assert_fails(lambda: intersection_update_set.intersection_update(3), "got value of type 'int', want a set, sequence, or dict")
+assert_fails(lambda: intersection_update_set.intersection_update(3), "got value of type 'int', want a collection of hashable elements")
 assert_fails(lambda: frozen_set.intersection_update([1]), "trying to mutate a frozen set value")
 
 # difference method, unlike the - operator, allows arbitrary number of arbitrary sequences, sets, or mappings
 assert_eq(set([1, 2, 3]).difference([2]), set([1, 3]))
 assert_eq(set([1, 2, 3]).difference([2, 3, 2, 3]), set([1]))
 assert_eq(set([1, 2, 3]).difference([2], {3: "three", 4: "four"}), set([1]))
-assert_fails(lambda: set([1, 2]).difference(2), "got value of type 'int', want a set, sequence, or dict")
+assert_fails(lambda: set([1, 2]).difference(2), "got value of type 'int', want a collection of hashable elements")
 
 # difference_update method, unlike the -= operator, allows arbitrary number of arbitrary sequences, sets, or mappings
 difference_update_set = set([1, 2, 3, 4])
@@ -237,14 +237,14 @@ difference_update_set.difference_update([2, 3, 2, 3])
 assert_eq(difference_update_set, set([1, 4]))
 difference_update_set.difference_update([2], {3: "three", 4: "four"})
 assert_eq(difference_update_set, set([1]))
-assert_fails(lambda: difference_update_set.difference_update(2), "got value of type 'int', want a set, sequence, or dict")
+assert_fails(lambda: difference_update_set.difference_update(2), "got value of type 'int', want a collection of hashable elements")
 assert_fails(lambda: frozen_set.difference_update([1]), "trying to mutate a frozen set value")
 
 # symmetric_difference method, unlike the ^ operator, allows one arbitrary sequence, set, or mapping
 assert_eq(set([1, 2, 3]).symmetric_difference([2, 3, 4]), set([1, 4]))
 assert_eq(set([1, 2, 3]).symmetric_difference([2, 3, 4, 2, 3, 4]), set([1, 4]))
 assert_eq(set([1, 2, 3]).symmetric_difference({0: "zero", 1: "one"}), set([2, 3, 0]))
-assert_fails(lambda: set([1, 2]).symmetric_difference(2), "got value of type 'int', want a set, sequence, or dict")
+assert_fails(lambda: set([1, 2]).symmetric_difference(2), "got value of type 'int', want a collection of hashable elements")
 assert_fails(lambda: set([1, 2]).symmetric_difference([1], [2]), "accepts no more than 1 positional argument")
 
 # symmetric_difference_update method, unlike the ^= operator, allows one arbitrary sequence, set, or mapping
@@ -255,5 +255,5 @@ symmetric_difference_update_set.symmetric_difference_update([2, 3, 2, 3])
 assert_eq(symmetric_difference_update_set, set([1, 2, 4]))
 symmetric_difference_update_set.symmetric_difference_update({0: "zero", 1: "one"})
 assert_eq(symmetric_difference_update_set, set([0, 2, 4]))
-assert_fails(lambda: symmetric_difference_update_set.symmetric_difference_update(2), "got value of type 'int', want a set, sequence, or dict")
+assert_fails(lambda: symmetric_difference_update_set.symmetric_difference_update(2), "got value of type 'int', want a collection of hashable elements")
 assert_fails(lambda: frozen_set.symmetric_difference_update([1]), "trying to mutate a frozen set value")

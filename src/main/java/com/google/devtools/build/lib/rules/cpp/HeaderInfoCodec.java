@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationExcepti
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import net.starlark.java.eval.SymbolGenerator;
 
 /**
  * A codec for {@link HeaderInfo} with intra-value memoization.
@@ -46,14 +47,10 @@ public final class HeaderInfoCodec extends DeferredObjectCodec<HeaderInfo> {
   }
 
   @Override
-  public boolean autoRegister() {
-    return false; // Used only by delegation from CcCompilationContextCodec.
-  }
-
-  @Override
   public void serialize(
       SerializationContext context, HeaderInfo headerInfo, CodedOutputStream codedOut)
       throws SerializationException, IOException {
+    context.serialize(headerInfo.identityToken, codedOut);
     context.serialize(headerInfo.headerModule, codedOut);
     context.serialize(headerInfo.picHeaderModule, codedOut);
     context.serialize(headerInfo.modularPublicHeaders, codedOut);
@@ -76,6 +73,7 @@ public final class HeaderInfoCodec extends DeferredObjectCodec<HeaderInfo> {
       throws SerializationException, IOException {
     Builder builder = new Builder();
 
+    context.deserialize(codedIn, builder, Builder::setIdentityToken);
     context.deserialize(codedIn, builder, Builder::setHeaderModule);
     context.deserialize(codedIn, builder, Builder::setPicHeaderModule);
     context.deserialize(codedIn, builder, Builder::setModularPublicHeaders);
@@ -100,6 +98,7 @@ public final class HeaderInfoCodec extends DeferredObjectCodec<HeaderInfo> {
   }
 
   private static class Builder implements DeferredValue<HeaderInfo> {
+    private SymbolGenerator.Symbol<?> identityToken;
     private DerivedArtifact headerModule;
     private DerivedArtifact picHeaderModule;
     private ImmutableList<Artifact> modularPublicHeaders;
@@ -113,6 +112,7 @@ public final class HeaderInfoCodec extends DeferredObjectCodec<HeaderInfo> {
     @Override
     public HeaderInfo call() {
       return new HeaderInfo(
+          identityToken,
           headerModule,
           picHeaderModule,
           modularPublicHeaders,
@@ -122,6 +122,10 @@ public final class HeaderInfoCodec extends DeferredObjectCodec<HeaderInfo> {
           separateModule,
           separatePicModule,
           ImmutableList.copyOf(deps));
+    }
+
+    private static void setIdentityToken(Builder builder, Object obj) {
+      builder.identityToken = (SymbolGenerator.Symbol<?>) obj;
     }
 
     private static void setHeaderModule(Builder builder, Object obj) {

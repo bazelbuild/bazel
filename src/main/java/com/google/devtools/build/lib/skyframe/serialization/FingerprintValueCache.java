@@ -13,17 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
-import java.io.IOException;
-import java.util.concurrent.ExecutionException;
+import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.MissingSharedValueBytesException;
 import javax.annotation.Nullable;
 
 /**
@@ -58,6 +58,9 @@ public final class FingerprintValueCache {
           .initialCapacity(SerializationConstants.DESERIALIZATION_POOL_SIZE)
           .weakValues()
           .build();
+
+  private static final ListenableFuture<Object> MISSING_SHARED_VALUE_BYTES_FUTURE =
+      immediateFailedFuture(MissingSharedValueBytesException.INSTANCE);
 
   /**
    * {@link Object} contents to store result mapping, eventually a fingerprint, but a future while
@@ -121,6 +124,11 @@ public final class FingerprintValueCache {
 
   public FingerprintValueCache(SyncMode mode) {
     this.mode = mode;
+  }
+
+  @VisibleForTesting
+  Cache<Object, Object> getSerializationCache() {
+    return serializationCache;
   }
 
   /**
@@ -260,6 +268,18 @@ public final class FingerprintValueCache {
           @Override
           public void onFailure(Throwable t) {
             // Failure will be reported by the owner of the `getOperation`.
+
+            // If a value fails to deserialize because it's missing bytes for a
+            // shared value, it will consistently fail for any subsequent
+            // lookups, so cache the failure.
+            if (t instanceof MissingSharedValueBytesException) {
+              deserializationCache.put(key, MISSING_SHARED_VALUE_BYTES_FUTURE);
+            }
+
+            // TODO: b/417445528 - It might make sense to delete the failed deserialization future
+            // here, especially if it comes from an abandoned SkyframeLookup. However, since the
+            // deserializationCache is weak-valued, it should become eligible for cleanup quickly,
+            // as nothing else should be adding retained references to these futures.
           }
         },
         directExecutor());
@@ -298,5 +318,12 @@ public final class FingerprintValueCache {
     static FingerprintWithDistinguisher of(PackedFingerprint fingerprint, Object distinguisher) {
       return new FingerprintWithDistinguisher(fingerprint, distinguisher);
     }
+  }
+
+  /** Forces Caffeine's internal maintenance for testing. */
+  @VisibleForTesting
+  public void cleanUpForTesting() {
+    serializationCache.cleanUp();
+    deserializationCache.cleanUp();
   }
 }

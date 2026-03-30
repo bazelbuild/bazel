@@ -253,6 +253,55 @@ public final class OptionsParserTest {
     public boolean ignoredWithoutValue;
   }
 
+  public static class BooleanAliasOptions extends OptionsBase {
+    @Option(
+        name = "foo",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "true")
+    public boolean foo;
+
+    @Option(
+        name = "bar",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "true")
+    public boolean bar;
+
+    @Option(
+        name = "flag_alias",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        allowMultiple = true)
+    public List<String> flagAlias;
+  }
+
+  public static class DeprecatedAliasOptions extends OptionsBase {
+    @Option(
+        name = "foo",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "true",
+        deprecationWarning = "Don't use foo.")
+    public boolean foo;
+
+    @Option(
+        name = "bar",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "true")
+    public boolean bar;
+
+    @Option(
+        name = "flag_alias",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        allowMultiple = true)
+    public List<String> flagAlias;
+  }
+
   public static class ExampleIncompatibleWithFoo extends OptionsBase {
 
     @Option(
@@ -1458,8 +1507,20 @@ public final class OptionsParserTest {
         OptionsParser.builder().optionsClasses(ExpansionWarningOptions.class).build();
     parser.parse("--first", "--second");
     assertThat(parser.getWarnings())
-        .containsExactly(
-            "option '--underlying' was expanded to from both option '--first' and option "
+        .contains(
+            "option '--underlying' was expanded from both option '--first' and option "
+                + "'--second'");
+  }
+
+  @Test
+  public void noWarningForTwoConflictingExpansionOptionsFromRcFile() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(ExpansionWarningOptions.class).build();
+    parser.parse(
+        OptionPriority.PriorityCategory.RC_FILE, null, ImmutableList.of("--first", "--second"));
+    assertThat(parser.getWarnings())
+        .doesNotContain(
+            "option '--underlying' was expanded from both option '--first' and option "
                 + "'--second'");
   }
 
@@ -2642,6 +2703,15 @@ public final class OptionsParserTest {
   }
 
   @Test
+  public void testOptionsParser_explicitOptions_excludesFlagsetOptions() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(ExampleFoo.class).build();
+    parser.parse(
+        PriorityCategory.RC_FILE, "//test:PROJECT.scl", ImmutableList.of("--foo=set_by_flagset"));
+    assertThat(parser.asListOfExplicitOptions()).isEmpty();
+    assertThat(parser.canonicalize()).contains("--foo=set_by_flagset");
+  }
+
+  @Test
   public void testOptionsParser_getUserOptions_excludesInvocationPolicy() throws Exception {
     OptionsParser parser =
         OptionsParser.builder()
@@ -2668,5 +2738,74 @@ public final class OptionsParserTest {
         "invocation policy",
         implicitDependent,
         expandedFrom);
+  }
+
+  @Test
+  public void aliasWithNoPrefix_emitsWarningIfNative() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder()
+            .withAliasFlag("flag_alias")
+            .optionsClasses(BooleanAliasOptions.class)
+            .build();
+    parser.parse("--flag_alias=foo=bar");
+
+    parser.parse("--nofoo");
+
+    // The actual flag should not change from default.
+    assertThat(parser.getOptions(BooleanAliasOptions.class).bar).isTrue();
+    // The alias flag should change.
+    assertThat(parser.getOptions(BooleanAliasOptions.class).foo).isFalse();
+    assertThat(parser.getWarnings())
+        .contains("Flag --nofoo is deprecated. Use --foo=false instead.");
+  }
+
+  @Test
+  public void aliasWithNoPrefix_failsIfNotNative() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder()
+            .withAliasFlag("flag_alias")
+            .optionsClasses(BooleanAliasOptions.class)
+            .build();
+    // Set up alias: baz=bar. baz is NOT a native flag.
+    parser.parse("--flag_alias=baz=bar");
+
+    // Use --nobaz. It should NOT swap and should fail as unrecognized.
+    assertThrows(OptionsParsingException.class, () -> parser.parse("--nobaz"));
+  }
+
+  @Test
+  public void aliasWithNoPrefixAndCustomWarning_emitsCustomWarning() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder()
+            .withAliasFlag("flag_alias")
+            .optionsClasses(DeprecatedAliasOptions.class)
+            .build();
+    parser.parse("--flag_alias=foo=bar");
+
+    parser.parse("--nofoo");
+
+    assertThat(parser.getWarnings()).contains("Option 'foo' is deprecated: Don't use foo.");
+  }
+
+  @Test
+  public void aliasWithNoPrefix_emitsCustomWarningIfAvailable() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder()
+            .withAliasFlag("flag_alias")
+            .optionsClasses(DeprecatedAliasOptions.class)
+            .build();
+    parser.parse("--flag_alias=foo=bar");
+
+    parser.parse("--nofoo");
+
+    // The actual flag should not change from default.
+    assertThat(parser.getOptions(DeprecatedAliasOptions.class).bar).isTrue();
+    // The alias flag should change.
+    assertThat(parser.getOptions(DeprecatedAliasOptions.class).foo).isFalse();
+    // Should show custom warning.
+    assertThat(parser.getWarnings()).contains("Option 'foo' is deprecated: Don't use foo.");
+    // Should NOT show generalized warning because a custom one was present.
+    assertThat(parser.getWarnings())
+        .doesNotContain("Flag --nofoo is deprecated. Use --foo=false instead.");
   }
 }

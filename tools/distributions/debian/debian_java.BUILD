@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+load("@rules_java//java:java_import.bzl", "java_import")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -49,18 +50,6 @@ java_import(
 java_import(
     name = "gson",
     jars = ["java/gson.jar"],
-)
-
-# libtomcat9-java
-java_import(
-    name = "tomcat_annotations_api",
-    jars = ["java/tomcat9-annotations-api.jar"],
-)
-
-# For bootstrapping java toolcahin
-filegroup(
-    name = "tomcat_annotations_api-jars",
-    srcs = ["java/tomcat9-annotations-api.jar"],
 )
 
 # libjava-allocation-instrumenter-java

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** A natively-defined aspect that is may be referenced by Starlark attribute definitions. */
 public abstract class StarlarkNativeAspect extends NativeAspectClass implements StarlarkAspect {
@@ -26,7 +27,7 @@ public abstract class StarlarkNativeAspect extends NativeAspectClass implements 
   static final Function<Rule, AspectParameters> EMPTY_FUNCTION = input -> AspectParameters.EMPTY;
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<native aspect>");
   }
 

@@ -182,6 +182,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
     scratch.file(
         "subrule_testing/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//subrule_testing/%s:myrule.bzl", "my_rule")
 
         my_rule(name = "foo")
@@ -829,6 +830,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
         getRuleContext(getConfiguredTarget("//subrule_testing:foo"))
             .getRule()
             .getRuleClassObject()
+            .getAttributeProvider()
             .getAttributes()
             .stream()
             .map(Attribute::getName)
@@ -1085,7 +1087,10 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
     scratch.file(
         "my/BUILD",
         //
-        "cc_binary(name = 'tool')");
+        """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        cc_binary(name = 'tool')
+        """);
     scratch.file(
         "subrule_testing/myrule.bzl",
         """
@@ -1126,8 +1131,10 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   public void testSubruleAction_executableMustBeFilesToRunProvider() throws Exception {
     scratch.file(
         "my/BUILD",
-        //
-        "cc_binary(name = 'tool')");
+        """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        cc_binary(name = 'tool')
+        """);
     scratch.file(
         "subrule_testing/myrule.bzl",
         """
@@ -1170,7 +1177,10 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
     scratch.file(
         "my/BUILD",
         //
-        "cc_binary(name = 'tool')");
+        """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        cc_binary(name = 'tool')
+        """);
     scratch.file(
         "subrule_testing/myrule.bzl",
         """
@@ -1200,10 +1210,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
         my_rule(name = "foo")
         """);
     // TODO: b/293304174 - use a custom fragment instead of coverage
-    useConfiguration(
-        "--collect_code_coverage",
-        "--coverage_output_generator=//my:tool",
-        "--notrim_test_configuration");
+    useConfiguration("--collect_code_coverage", "--coverage_output_generator=//my:tool");
 
     StructImpl provider =
         getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo");
@@ -1322,9 +1329,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
 
     assertThat(toolchainInfo).isNotNull();
     assertThat(toolchainInfo.getValue("java", StarlarkInfo.class).getProvider().getKey())
-        .isAnyOf(
-            JavaToolchainProvider.PROVIDER.getKey(),
-            JavaToolchainProvider.LEGACY_BUILTINS_PROVIDER.getKey());
+        .isEqualTo(JavaToolchainProvider.PROVIDER.getKey());
   }
 
   @Test
@@ -1366,9 +1371,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
 
     assertThat(toolchainInfo).isNotNull();
     assertThat(toolchainInfo.getValue("java", StarlarkInfo.class).getProvider().getKey())
-        .isAnyOf(
-            JavaToolchainProvider.PROVIDER.getKey(),
-            JavaToolchainProvider.LEGACY_BUILTINS_PROVIDER.getKey());
+        .isEqualTo(JavaToolchainProvider.PROVIDER.getKey());
   }
 
   @Test

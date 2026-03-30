@@ -19,10 +19,12 @@ import static com.google.common.base.StandardSystemProperty.OS_ARCH;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.bazel.repository.starlark.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -32,8 +34,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps;
@@ -41,18 +41,17 @@ import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.skyframe.RepoEnvironmentFunction;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.WorkerSkyKeyComputeState;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -73,7 +72,8 @@ final class RegularRunnableExtension implements RunnableExtension {
   private final ModuleExtension extension;
   private final ImmutableMap<String, Optional<String>> staticEnvVars;
   private final BlazeDirectories directories;
-  private final Supplier<Map<String, String>> clientEnvironmentSupplier;
+  private final ImmutableMap<String, String> repoEnv;
+  private final ImmutableMap<String, String> nonstrictRepoEnv;
   private final double timeoutScaling;
   @Nullable private final ProcessWrapper processWrapper;
   @Nullable private final RepositoryRemoteExecutor repositoryRemoteExecutor;
@@ -84,7 +84,8 @@ final class RegularRunnableExtension implements RunnableExtension {
       ModuleExtension extension,
       ImmutableMap<String, Optional<String>> staticEnvVars,
       BlazeDirectories directories,
-      Supplier<Map<String, String>> clientEnvironmentSupplier,
+      ImmutableMap<String, String> repoEnv,
+      ImmutableMap<String, String> nonstrictRepoEnv,
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
       @Nullable RepositoryRemoteExecutor repositoryRemoteExecutor,
@@ -93,7 +94,8 @@ final class RegularRunnableExtension implements RunnableExtension {
     this.extension = extension;
     this.staticEnvVars = staticEnvVars;
     this.directories = directories;
-    this.clientEnvironmentSupplier = clientEnvironmentSupplier;
+    this.repoEnv = repoEnv;
+    this.nonstrictRepoEnv = nonstrictRepoEnv;
     this.timeoutScaling = timeoutScaling;
     this.processWrapper = processWrapper;
     this.repositoryRemoteExecutor = repositoryRemoteExecutor;
@@ -141,7 +143,8 @@ final class RegularRunnableExtension implements RunnableExtension {
       StarlarkSemantics starlarkSemantics,
       Environment env,
       BlazeDirectories directories,
-      Supplier<Map<String, String>> clientEnvironmentSupplier,
+      ImmutableMap<String, String> repoEnv,
+      ImmutableMap<String, String> nonstrictRepoEnv,
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
       @Nullable RepositoryRemoteExecutor repositoryRemoteExecutor,
@@ -176,17 +179,19 @@ final class RegularRunnableExtension implements RunnableExtension {
           SpellChecker.didYouMean(extensionId.extensionName(), exportedExtensions));
     }
 
-    ImmutableMap<String, Optional<String>> envVars =
-        RepositoryFunction.getEnvVarValues(env, ImmutableSet.copyOf(extension.envVariables()));
-    if (envVars == null) {
+    ImmutableMap<String, Optional<String>> staticEnvVars =
+        RepoEnvironmentFunction.getEnvironmentView(
+            env, ImmutableSet.copyOf(extension.envVariables()));
+    if (staticEnvVars == null) {
       return null;
     }
     return new RegularRunnableExtension(
         bzlLoadValue,
         extension,
-        envVars,
+        staticEnvVars,
         directories,
-        clientEnvironmentSupplier,
+        repoEnv,
+        nonstrictRepoEnv,
         timeoutScaling,
         processWrapper,
         repositoryRemoteExecutor,
@@ -201,11 +206,6 @@ final class RegularRunnableExtension implements RunnableExtension {
   }
 
   @Override
-  public ImmutableMap<String, Optional<String>> getStaticEnvVars() {
-    return staticEnvVars;
-  }
-
-  @Override
   public byte[] getBzlTransitiveDigest() {
     return BazelModuleContext.of(bzlLoadValue.getModule()).bzlTransitiveDigest();
   }
@@ -217,7 +217,8 @@ final class RegularRunnableExtension implements RunnableExtension {
       SingleExtensionUsagesValue usagesValue,
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
-      RepositoryMapping mainRepositoryMapping)
+      RepositoryMapping mainRepositoryMapping,
+      Facts facts)
       throws InterruptedException, ExternalDepsException {
     // See below (the `catch CancellationException` clause) for why there's a `while` loop here.
     while (true) {
@@ -225,10 +226,15 @@ final class RegularRunnableExtension implements RunnableExtension {
       try {
         return state.startOrContinueWork(
             env,
-            "module-extension-" + extensionId.asTargetString(),
+            "module-extension-" + extensionId,
             (workerEnv) ->
                 runInternal(
-                    workerEnv, usagesValue, starlarkSemantics, extensionId, mainRepositoryMapping));
+                    workerEnv,
+                    usagesValue,
+                    starlarkSemantics,
+                    extensionId,
+                    mainRepositoryMapping,
+                    facts));
       } catch (ExecutionException e) {
         Throwables.throwIfInstanceOf(e.getCause(), ExternalDepsException.class);
         Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
@@ -248,7 +254,8 @@ final class RegularRunnableExtension implements RunnableExtension {
       SingleExtensionUsagesValue usagesValue,
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
-      RepositoryMapping mainRepositoryMapping)
+      RepositoryMapping mainRepositoryMapping,
+      Facts facts)
       throws InterruptedException, ExternalDepsException {
     env.getListener().post(ModuleExtensionEvaluationProgress.ongoing(extensionId, "starting"));
     ModuleExtensionEvalStarlarkThreadContext threadContext =
@@ -259,47 +266,37 @@ final class RegularRunnableExtension implements RunnableExtension {
             BazelModuleContext.of(bzlLoadValue.getModule()).repoMapping(),
             usagesValue.getRepoOverrides(),
             mainRepositoryMapping,
-            directories,
             env.getListener());
-    Optional<ModuleExtensionMetadata> moduleExtensionMetadata;
-    var repoMappingRecorder = new Label.RepoMappingRecorder();
-    repoMappingRecorder.mergeEntries(bzlLoadValue.getRecordedRepoMappings());
+    ModuleExtensionMetadata moduleExtensionMetadata;
     try (Mutability mu =
             Mutability.create("module extension", usagesValue.getExtensionUniqueName());
         ModuleExtensionContext moduleContext =
-            createContext(env, usagesValue, starlarkSemantics, extensionId)) {
+            createContext(env, usagesValue, starlarkSemantics, extensionId, facts, bzlLoadValue)) {
       StarlarkThread thread =
           StarlarkThread.create(
               mu,
               starlarkSemantics,
-              /* contextDescription= */ "",
+              "module extension " + extensionId,
               SymbolGenerator.create(extensionId));
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
       threadContext.storeInThread(thread);
-      // This is used by the `Label()` constructor in Starlark, to record any attempts to resolve
-      // apparent repo names to canonical repo names. See #20721 for why this is necessary.
-      thread.setThreadLocal(Label.RepoMappingRecorder.class, repoMappingRecorder);
+      moduleContext.storeRepoMappingRecorderInThread(thread);
       try (SilentCloseable c =
           Profiler.instance()
-              .profile(
-                  ProfilerTask.BZLMOD,
-                  () -> "evaluate module extension: " + extensionId.asTargetString())) {
+              .profile(ProfilerTask.BZLMOD, () -> "evaluate module extension: " + extensionId)) {
         Object returnValue =
-            Starlark.fastcall(
-                thread, extension.implementation(), new Object[] {moduleContext}, new Object[0]);
+            Starlark.positionalOnlyCall(thread, extension.implementation(), moduleContext);
         if (returnValue != Starlark.NONE && !(returnValue instanceof ModuleExtensionMetadata)) {
           throw ExternalDepsException.withMessage(
-              ExternalDeps.Code.BAD_MODULE,
-              "expected module extension %s in %s to return None or extension_metadata, got"
-                  + " %s",
-              extensionId.extensionName(),
-              extensionId.bzlFileLabel(),
+              ExternalDeps.Code.EXTENSION_EVAL_ERROR,
+              "expected module extension %s to return None or extension_metadata, got %s",
+              extensionId,
               Starlark.type(returnValue));
         }
         if (returnValue instanceof ModuleExtensionMetadata retMetadata) {
-          moduleExtensionMetadata = Optional.of(retMetadata);
+          moduleExtensionMetadata = retMetadata;
         } else {
-          moduleExtensionMetadata = Optional.empty();
+          moduleExtensionMetadata = ModuleExtensionMetadata.DEFAULT;
         }
       } catch (NeedsSkyframeRestartException e) {
         // Restart by returning null.
@@ -308,19 +305,16 @@ final class RegularRunnableExtension implements RunnableExtension {
       moduleContext.markSuccessful();
       env.getListener().post(ModuleExtensionEvaluationProgress.finished(extensionId));
       return new RunModuleExtensionResult(
-          moduleContext.getRecordedFileInputs(),
-          moduleContext.getRecordedDirentsInputs(),
-          moduleContext.getRecordedEnvVarInputs(),
-          threadContext.createRepos(starlarkSemantics),
-          moduleExtensionMetadata,
-          repoMappingRecorder.recordedEntries());
+          moduleContext.getRecordedInputs(), threadContext.createRepos(), moduleExtensionMetadata);
     } catch (EvalException e) {
-      env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
+      if (!(e.getCause() instanceof ExternalDepsException)) {
+        // ExternalDepsException events should already have been reported.
+        env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
+      }
       throw ExternalDepsException.withMessage(
-          ExternalDeps.Code.BAD_MODULE,
-          "error evaluating module extension %s in %s",
-          extensionId.extensionName(),
-          extensionId.bzlFileLabel());
+          ExternalDeps.Code.EXTENSION_EVAL_ERROR,
+          "error evaluating module extension %s",
+          extensionId);
     } catch (IOException e) {
       throw ExternalDepsException.withCauseAndMessage(
           ExternalDeps.Code.EXTERNAL_DEPS_UNKNOWN,
@@ -333,22 +327,30 @@ final class RegularRunnableExtension implements RunnableExtension {
       Environment env,
       SingleExtensionUsagesValue usagesValue,
       StarlarkSemantics starlarkSemantics,
-      ModuleExtensionId extensionId)
+      ModuleExtensionId extensionId,
+      Facts facts,
+      BzlLoadValue bzlLoadValue)
       throws ExternalDepsException {
+    var staticRepoMappingRecorder = new Label.SimpleRepoMappingRecorder();
+    staticRepoMappingRecorder.record(bzlLoadValue.getRecordedRepoMappings());
     Path workingDirectory =
         directories
             .getOutputBase()
             .getRelative(LabelConstants.MODULE_EXTENSION_WORKING_DIRECTORY_LOCATION)
             .getRelative(usagesValue.getExtensionUniqueName());
     ArrayList<StarlarkBazelModule> modules = new ArrayList<>();
-    for (AbridgedModule abridgedModule : usagesValue.getAbridgedModules()) {
-      ModuleKey moduleKey = abridgedModule.getKey();
+    ImmutableList<AbridgedModule> abridgedModules = usagesValue.getAbridgedModules();
+    for (int i = 0; i < abridgedModules.size(); i++) {
+      var abridgedModule = abridgedModules.get(i);
+      var moduleKey = abridgedModule.getKey();
       modules.add(
           StarlarkBazelModule.create(
               abridgedModule,
               extension,
               usagesValue.getRepoMappings().get(moduleKey),
-              usagesValue.getExtensionUsages().get(moduleKey)));
+              usagesValue.getExtensionUsages().get(moduleKey),
+              staticRepoMappingRecorder,
+              i));
     }
     ModuleExtensionUsage rootUsage = usagesValue.getExtensionUsages().get(ModuleKey.ROOT);
     boolean rootModuleHasNonDevDependency =
@@ -357,7 +359,8 @@ final class RegularRunnableExtension implements RunnableExtension {
         workingDirectory,
         directories,
         env,
-        clientEnvironmentSupplier.get(),
+        repoEnv,
+        nonstrictRepoEnv,
         downloadManager,
         timeoutScaling,
         processWrapper,
@@ -365,6 +368,9 @@ final class RegularRunnableExtension implements RunnableExtension {
         repositoryRemoteExecutor,
         extensionId,
         StarlarkList.immutableCopyOf(modules),
-        rootModuleHasNonDevDependency);
+        facts,
+        rootModuleHasNonDevDependency,
+        staticEnvVars,
+        staticRepoMappingRecorder.recordedEntries());
   }
 }

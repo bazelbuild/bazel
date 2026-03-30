@@ -471,6 +471,7 @@ public class WorkRequestHandler implements AutoCloseable {
    *     #callback} are reported with exit code 1.
    */
   @VisibleForTesting
+  @SuppressWarnings("CatchingUnchecked") // handle checked exceptions thrown by Kotlin
   void respondToRequest(WorkerIO workerIO, WorkRequest request, RequestInfo requestInfo)
       throws IOException {
     int exitCode;
@@ -480,7 +481,7 @@ public class WorkRequestHandler implements AutoCloseable {
         exitCode = callback.apply(request, pw);
       } catch (InterruptedException e) {
         exitCode = 1;
-      } catch (RuntimeException e) {
+      } catch (Exception e) {
         e.printStackTrace(pw);
         exitCode = 1;
       }

@@ -50,6 +50,8 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_binary(
             name = "foo",
             deps = ["a"],
@@ -72,9 +74,9 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
         (CppCompileAction) getGeneratingAction(compiledLinkstamp);
 
     CcToolchainProvider ccToolchainProvider =
-        getConfiguredTarget(
-                ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain")
-            .get(CcToolchainProvider.PROVIDER);
+        CcToolchainProvider.getFromTarget(
+            getConfiguredTarget(
+                ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain"));
 
     List<String> arguments = linkstampCompileAction.getArguments();
     assertThatArgumentsAreValid(
@@ -92,11 +94,11 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     assertThat(arguments).contains("-DGPLATFORM=\"" + platform + "\"");
     assertThat(arguments).contains("-I.");
     String correctG3BuildTargetPattern = "-DG3_BUILD_TARGET=\".*" + buildTargetNameSuffix + "\"";
-    assertWithMessage("in " + arguments + " flag matching " + correctG3BuildTargetPattern)
+    assertWithMessage("in %s flag matching %s", arguments, correctG3BuildTargetPattern)
         .that(Iterables.tryFind(arguments, (arg) -> arg.matches(correctG3BuildTargetPattern)))
         .isPresent();
     String fdoStampPattern = "-D" + CppConfiguration.FDO_STAMP_MACRO + "=\".*\"";
-    assertWithMessage("in " + arguments + " flag matching " + fdoStampPattern)
+    assertWithMessage("in %s flag matching %s", arguments, fdoStampPattern)
         .that(Iterables.tryFind(arguments, (arg) -> arg.matches(fdoStampPattern)))
         .isAbsent();
   }
@@ -113,6 +115,8 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_binary(
             name = "libfoo.so",
             linkshared = 1,
@@ -136,9 +140,9 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     CppCompileAction linkstampCompileAction =
         (CppCompileAction) getGeneratingAction(compiledLinkstamp);
     CcToolchainProvider ccToolchainProvider =
-        getConfiguredTarget(
-                ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain")
-            .get(CcToolchainProvider.PROVIDER);
+        CcToolchainProvider.getFromTarget(
+            getConfiguredTarget(
+                ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain"));
 
     List<String> arguments = linkstampCompileAction.getArguments();
     assertThatArgumentsAreValid(
@@ -161,6 +165,8 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_binary(
             name = "foo",
             deps = ["a"],
@@ -190,6 +196,8 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_binary(
             name = "foo",
             deps = ["a"],
@@ -226,6 +234,8 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_binary(
             name = "foo",
             srcs = ["main.cc"],
@@ -278,6 +288,8 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_binary(
             name = "foo",
             copts = ["-bar_copt_from_attribute"],
@@ -308,6 +320,8 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_binary(
             name = "foo",
             copts = ["-bar_copt_from_attribute"],
@@ -341,6 +355,9 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("@rules_cc//cc/toolchains:fdo_profile.bzl", "fdo_profile")
         cc_binary(
             name = "foo",
             deps = ["a"],

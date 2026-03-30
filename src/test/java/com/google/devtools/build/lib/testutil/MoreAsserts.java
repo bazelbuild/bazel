@@ -141,7 +141,7 @@ public class MoreAsserts {
 
   public static void assertContainsWordsWithQuotes(String message, String... strings) {
     for (String string : strings) {
-      assertWithMessage(message + " should contain '" + string + "' (with quotes)")
+      assertWithMessage("%s should contain '%s' (with quotes)", message, string)
           .that(message.contains("'" + string + "'"))
           .isTrue();
     }
@@ -294,10 +294,9 @@ public class MoreAsserts {
     }
     String eventsString = eventsToString(eventCollector);
     assertWithMessage(
-            "Event '"
-                + expectedEvent
-                + "' not found"
-                + (eventsString.length() == 0 ? "" : ("; found these though:" + eventsString)))
+            "Event '%s' not found%s",
+            expectedEvent,
+            (eventsString.length() == 0 ? "" : ("; found these though:" + eventsString)))
         .that(false)
         .isTrue();
     return null; // unreachable
@@ -364,10 +363,8 @@ public class MoreAsserts {
     for (Event event : eventCollector) {
       for (String unexpectedEvent : unexpectedEvents) {
         assertWithMessage(
-                "Unexpected string '"
-                    + unexpectedEvent
-                    + "' matched following event:\n"
-                    + event.getMessage())
+                "Unexpected string '%s' matched following event:\n%s",
+                unexpectedEvent, event.getMessage())
             .that(event.getMessage())
             .doesNotContain(unexpectedEvent);
       }
@@ -438,10 +435,8 @@ public class MoreAsserts {
 
     String eventsString = eventsToString(eventCollector);
     assertWithMessage(
-            "Event '"
-                + failure
-                + "' not found in proper order"
-                + (eventsString.length() == 0 ? "" : ("; found these though:" + eventsString)))
+            "Event '%s' not found in proper order%s",
+            failure, (eventsString.length() == 0 ? "" : ("; found these though:" + eventsString)))
         .that(failure)
         .isNull();
   }

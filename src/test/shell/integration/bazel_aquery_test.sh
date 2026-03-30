@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
@@ -28,23 +28,7 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_macos=false
-  declare -r is_windows=true
-  ;;
-darwin)
-  declare -r is_macos=true
-  declare -r is_windows=false
-  ;;
-*)
-  declare -r is_macos=false
-  declare -r is_windows=false
-  ;;
-esac
-
 add_to_bazelrc "build --package_path=%workspace%"
-
 
 function test_repo_mapping_manifest() {
   local pkg="${FUNCNAME[0]}"
@@ -57,9 +41,11 @@ local_repository(
     path = "../$pkg2",
 )
 EOF
+  add_rules_cc "${pkg}/MODULE.bazel"
 
   touch "$pkg/foo.cpp"
   cat > "$pkg/BUILD" <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(name = "foo",
           srcs = ["foo.cpp"],
           deps = ["@pkg2//:bar"]
@@ -69,6 +55,7 @@ EOF
   touch "$pkg2/REPO.bazel"
   touch "$pkg2/bar.cpp"
   cat > "$pkg2/BUILD" <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(name = "bar",
           srcs = ["bar.cpp"],
           visibility=["//visibility:public"],
@@ -78,7 +65,7 @@ EOF
   bazel aquery --output=textproto --include_file_write_contents \
      "//:foo" >output 2> "$TEST_log" || fail "Expected success"
   cat output >> "$TEST_log"
-  assert_contains "^file_contents:.*pkg2,+_repo_rules+pkg2" output
+  assert_contains "^file_contents:.*pkg2,+local_repository+pkg2" output
 
   bazel aquery --output=text --include_file_write_contents "//:foo" | \
     sed -nr '/Mnemonic: RepoMappingManifest/,/^ *$/p' >output \
@@ -88,8 +75,48 @@ EOF
   # Verify file contents if we can decode base64-encoded data.
   if which base64 >/dev/null; then
     sed -nr 's/^ *FileWriteContents: \[(.*)\]/echo \1 | base64 -d/p' output | \
-       sh | tee -a "$TEST_log"  | assert_contains "pkg2,+_repo_rules+pkg2" -
+       sh | tee -a "$TEST_log"  | assert_contains "pkg2,+local_repository+pkg2" -
   fi
+}
+
+function test_unresolved_symlinks() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  touch "$pkg/foo.sh"
+  cat > "$pkg/unresolved_symlink.bzl" <<'EOF'
+def _impl(ctx):
+    out = ctx.actions.declare_symlink(ctx.label.name)
+    ctx.actions.symlink(
+        output = out,
+        target_path = ctx.attr.path
+    )
+    return [
+        DefaultInfo(files = depset([out]))
+    ]
+unresolved_symlink = rule(
+    implementation = _impl,
+    attrs = {
+        "path": attr.string(),
+    },
+)
+EOF
+  cat > "$pkg/BUILD" <<'EOF'
+load(":unresolved_symlink.bzl", "unresolved_symlink")
+unresolved_symlink(
+  name = "foo",
+  path = "bar/baz.txt",
+)
+EOF
+  bazel aquery --output=textproto \
+     "//$pkg:foo" >output 2> "$TEST_log" || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "^unresolved_symlink_target:.*bar/baz.txt" output
+
+  bazel aquery --output=text "//$pkg:foo" | \
+    sed -nr '/Mnemonic: UnresolvedSymlink/,/^ *$/p' >output \
+      2> "$TEST_log" || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "^ *UnresolvedSymlinkTarget:.*bar/baz.txt" output
 }
 
 run_suite "${PRODUCT_NAME} action graph query tests"

@@ -107,8 +107,7 @@ public class TestTrimmingTransitionTest extends BuildViewTestCase {
                     .attributes(FakeAttributeMapper.empty())
                     .analysisData(
                         getSkyframeExecutor()
-                            .getStarlarkExecTransitionForTesting(
-                                targetConfig.getOptions(), reporter))
+                            .getStarlarkExecTransition(targetConfig.getOptions(), reporter))
                     .executionPlatform(executionPlatform)
                     .build());
     assertThat(execTransition).isNotNull();
@@ -118,8 +117,7 @@ public class TestTrimmingTransitionTest extends BuildViewTestCase {
         BuildOptions.of(
             targetConfig.getOptions().getFragmentClasses(),
             "--platforms=//platform:target",
-            "--trim_test_configuration",
-            "--experimental_exec_configuration_distinguisher=off");
+            "--trim_test_configuration");
 
     EventHandler handler = new StoredEventHandler();
 

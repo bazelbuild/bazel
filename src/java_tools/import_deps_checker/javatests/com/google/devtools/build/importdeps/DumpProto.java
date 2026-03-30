@@ -15,6 +15,7 @@
 package com.google.devtools.build.importdeps;
 
 import com.google.devtools.build.lib.view.proto.Deps.Dependencies;
+import com.google.protobuf.TextFormat;
 import java.io.BufferedInputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -24,7 +25,7 @@ public class DumpProto {
   public static void main(String[] args) throws Exception {
     try (BufferedInputStream bis =
         new BufferedInputStream(Files.newInputStream(Paths.get(args[0])))) {
-      System.out.print(Dependencies.parseFrom(bis));
+      System.out.print(TextFormat.printer().printToString(Dependencies.parseFrom(bis)));
     }
   }
 }

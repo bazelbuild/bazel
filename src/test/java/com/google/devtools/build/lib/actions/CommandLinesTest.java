@@ -16,18 +16,21 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.CommandLines.ExpandedCommandLines;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.util.Collections;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link CommandLines}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class CommandLinesTest {
 
-  private final ArtifactExpander artifactExpander = null;
+  private final InputMetadataProvider inputMetadataProvider = null;
   private final PathFragment execPath = PathFragment.create("output.txt");
   private static final CommandLineLimits NO_LIMIT = new CommandLineLimits(10000);
 
@@ -39,7 +42,7 @@ public class CommandLinesTest {
             .build();
 
     ExpandedCommandLines expanded =
-        commandLines.expand(artifactExpander, execPath, NO_LIMIT, PathMapper.NOOP, 0);
+        commandLines.expand(inputMetadataProvider, execPath, NO_LIMIT, PathMapper.NOOP, 0);
 
     assertThat(commandLines.allArguments()).containsExactly("--foo", "--bar").inOrder();
     assertThat(expanded.arguments()).containsExactly("--foo", "--bar").inOrder();
@@ -51,7 +54,7 @@ public class CommandLinesTest {
     CommandLines commandLines = CommandLines.of(ImmutableList.of("--foo", "--bar"));
 
     ExpandedCommandLines expanded =
-        commandLines.expand(artifactExpander, execPath, NO_LIMIT, PathMapper.NOOP, 0);
+        commandLines.expand(inputMetadataProvider, execPath, NO_LIMIT, PathMapper.NOOP, 0);
 
     assertThat(commandLines.allArguments()).containsExactly("--foo", "--bar").inOrder();
     assertThat(expanded.arguments()).containsExactly("--foo", "--bar").inOrder();
@@ -66,7 +69,7 @@ public class CommandLinesTest {
             CommandLines.of(ImmutableList.of("--foo", "--bar")));
 
     ExpandedCommandLines expanded =
-        commandLines.expand(artifactExpander, execPath, NO_LIMIT, PathMapper.NOOP, 0);
+        commandLines.expand(inputMetadataProvider, execPath, NO_LIMIT, PathMapper.NOOP, 0);
 
     assertThat(commandLines.allArguments()).containsExactly("--before", "--foo", "--bar");
     assertThat(expanded.arguments()).containsExactly("--before", "--foo", "--bar");
@@ -83,7 +86,7 @@ public class CommandLinesTest {
             .build();
 
     ExpandedCommandLines expanded =
-        commandLines.expand(artifactExpander, execPath, NO_LIMIT, PathMapper.NOOP, 0);
+        commandLines.expand(inputMetadataProvider, execPath, NO_LIMIT, PathMapper.NOOP, 0);
 
     assertThat(commandLines.allArguments()).containsExactly("--foo", "--bar").inOrder();
     assertThat(expanded.arguments()).containsExactly("@output.txt-0.params");
@@ -104,7 +107,7 @@ public class CommandLinesTest {
 
     // Set max length to longer than command line, no param file needed
     ExpandedCommandLines expanded =
-        commandLines.expand(artifactExpander, execPath, NO_LIMIT, PathMapper.NOOP, 0);
+        commandLines.expand(inputMetadataProvider, execPath, NO_LIMIT, PathMapper.NOOP, 0);
 
     assertThat(expanded.arguments()).containsExactly("--foo", "--bar").inOrder();
     assertThat(expanded.getParamFiles()).isEmpty();
@@ -122,7 +125,7 @@ public class CommandLinesTest {
     // Set max length to 0, spill to param file is forced
     ExpandedCommandLines expanded =
         commandLines.expand(
-            artifactExpander, execPath, new CommandLineLimits(0), PathMapper.NOOP, 0);
+            inputMetadataProvider, execPath, new CommandLineLimits(0), PathMapper.NOOP, 0);
 
     assertThat(expanded.arguments()).containsExactly("@output.txt-0.params");
     assertThat(expanded.getParamFiles()).hasSize(1);
@@ -146,7 +149,7 @@ public class CommandLinesTest {
             .build();
 
     ExpandedCommandLines expanded =
-        commandLines.expand(artifactExpander, execPath, NO_LIMIT, PathMapper.NOOP, 0);
+        commandLines.expand(inputMetadataProvider, execPath, NO_LIMIT, PathMapper.NOOP, 0);
 
     assertThat(commandLines.allArguments()).containsExactly("a", "b", "c", "d", "e", "f", "g", "h");
     assertThat(expanded.arguments())
@@ -175,7 +178,7 @@ public class CommandLinesTest {
 
     ExpandedCommandLines expanded =
         commandLines.expand(
-            artifactExpander, execPath, new CommandLineLimits(4), PathMapper.NOOP, 0);
+            inputMetadataProvider, execPath, new CommandLineLimits(4), PathMapper.NOOP, 0);
 
     assertThat(commandLines.allArguments()).containsExactly("a", "b", "c", "d").inOrder();
     assertThat(expanded.arguments()).containsExactly("a", "b", "@output.txt-0.params").inOrder();
@@ -198,12 +201,47 @@ public class CommandLinesTest {
 
     ExpandedCommandLines expanded =
         commandLines.expand(
-            artifactExpander, execPath, new CommandLineLimits(4), PathMapper.NOOP, 0);
+            inputMetadataProvider, execPath, new CommandLineLimits(4), PathMapper.NOOP, 0);
     assertThat(commandLines.allArguments()).containsExactly("--a", "1", "--b=c", "-2");
     assertThat(expanded.arguments()).containsExactly("1", "-2", "@output.txt-0.params");
     assertThat(expanded.getParamFiles()).hasSize(1);
     assertThat(expanded.getParamFiles().get(0).getArguments())
         .containsExactly("--a", "--b=c")
+        .inOrder();
+  }
+
+  @Test
+  public void expand_onlyExecutableArgProcessedForPathMapping(
+      @TestParameter({"0", "1", "2", "3"}) int numNonExecutableArgs,
+      @TestParameter boolean normalizedExecutablePath,
+      @TestParameter boolean mappableNonExecutablePath)
+      throws Exception {
+    CommandLines.Builder builder = CommandLines.builder();
+    String executableArg =
+        normalizedExecutablePath
+            ? "bazel-out/k8-fastbuild/bin/my_binary"
+            : "bazel-out/some/path/../my_binary";
+    String nonExecutableArg =
+        mappableNonExecutablePath ? "bazel-out/k8-fastbuild/bin/unrelated" : "hello/../world";
+    builder.addSingleArgument(executableArg);
+    for (int i = 0; i < numNonExecutableArgs; i++) {
+      builder.addSingleArgument(nonExecutableArg);
+    }
+    CommandLines commandLines = builder.build();
+    PathMapper pathMapper =
+        execPath ->
+            execPath.startsWith(PathFragment.create("bazel-out"))
+                ? PathFragment.create("mapped").getRelative(execPath)
+                : execPath;
+
+    String expectedExecutableArg =
+        normalizedExecutablePath ? "mapped/bazel-out/k8-fastbuild/bin/my_binary" : executableArg;
+    Iterable<String> expectedArgs =
+        Iterables.concat(
+            ImmutableList.of(expectedExecutableArg),
+            Collections.nCopies(numNonExecutableArgs, nonExecutableArg));
+    assertThat(commandLines.allArguments(pathMapper))
+        .containsExactlyElementsIn(expectedArgs)
         .inOrder();
   }
 }

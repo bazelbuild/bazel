@@ -33,6 +33,9 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.LabelConverter;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -63,29 +66,32 @@ public class BazelDepGraphFunction implements SkyFunction {
     }
     var depGraph = selectionResult.getResolvedDepGraph();
 
-    ImmutableBiMap<RepositoryName, ModuleKey> canonicalRepoNameLookup =
-        computeCanonicalRepoNameLookup(depGraph);
-    ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById;
-    try {
-      extensionUsagesById = getExtensionUsagesById(depGraph, canonicalRepoNameLookup.inverse());
-    } catch (ExternalDepsException e) {
-      throw new BazelDepGraphFunctionException(e, Transience.PERSISTENT);
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.BZLMOD, "finalize dep graph")) {
+      ImmutableBiMap<RepositoryName, ModuleKey> canonicalRepoNameLookup =
+          computeCanonicalRepoNameLookup(depGraph);
+      ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById;
+      try {
+        extensionUsagesById = getExtensionUsagesById(depGraph, canonicalRepoNameLookup.inverse());
+      } catch (ExternalDepsException e) {
+        throw new BazelDepGraphFunctionException(e, Transience.PERSISTENT);
+      }
+
+      ImmutableBiMap<String, ModuleExtensionId> extensionUniqueNames =
+          calculateUniqueNameForUsedExtensionId(extensionUsagesById);
+
+      return BazelDepGraphValue.create(
+          depGraph,
+          canonicalRepoNameLookup,
+          depGraph.values().stream().map(AbridgedModule::from).collect(toImmutableList()),
+          extensionUsagesById,
+          extensionUniqueNames.inverse(),
+          resolveRepoOverrides(
+              depGraph,
+              extensionUsagesById,
+              extensionUniqueNames.inverse(),
+              canonicalRepoNameLookup));
     }
-
-    ImmutableBiMap<String, ModuleExtensionId> extensionUniqueNames =
-        calculateUniqueNameForUsedExtensionId(extensionUsagesById);
-
-    return BazelDepGraphValue.create(
-        depGraph,
-        canonicalRepoNameLookup,
-        depGraph.values().stream().map(AbridgedModule::from).collect(toImmutableList()),
-        extensionUsagesById,
-        extensionUniqueNames.inverse(),
-        resolveRepoOverrides(
-            depGraph,
-            extensionUsagesById,
-            extensionUniqueNames.inverse(),
-            canonicalRepoNameLookup));
   }
 
   private static ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
@@ -100,7 +106,7 @@ public class BazelDepGraphFunction implements SkyFunction {
           module.getRepoMappingWithBazelDepsOnly(moduleKeyToRepositoryNames);
       LabelConverter labelConverter =
           new LabelConverter(
-              PackageIdentifier.create(repoMapping.ownerRepo(), PathFragment.EMPTY_FRAGMENT),
+              PackageIdentifier.create(repoMapping.contextRepo(), PathFragment.EMPTY_FRAGMENT),
               module.getRepoMappingWithBazelDepsOnly(moduleKeyToRepositoryNames));
       for (ModuleExtensionUsage usage : module.getExtensionUsages()) {
         ModuleExtensionId moduleExtensionId;
@@ -181,9 +187,12 @@ public class BazelDepGraphFunction implements SkyFunction {
   private static String makeUniqueNameCandidate(ModuleExtensionId id, int attempt) {
     Preconditions.checkArgument(attempt >= 1);
     String extensionNameDisambiguator = attempt == 1 ? "" : String.valueOf(attempt);
-    // An innate extension name is of the form @repo//path/to/defs.bzl%repo_rule_name, which cannot
-    // be part of a valid repo name.
-    String extensionName = id.isInnate() ? "_repo_rules" : id.extensionName();
+    // An innate extension name is of the form "@repo//path/to/defs.bzl repo_rule_name", which
+    // cannot be part of a valid repo name.
+    String extensionName =
+        id.isInnate()
+            ? id.extensionName().substring(id.extensionName().indexOf(' ') + 1)
+            : id.extensionName();
     return id.isolationKey()
         .map(
             isolationKey ->

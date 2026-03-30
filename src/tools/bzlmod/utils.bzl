@@ -14,9 +14,10 @@
 
 """Helper functions for Bzlmod build"""
 
-load(":blazel_utils.bzl", _get_canonical_repo_name = "get_canonical_repo_name")
+load(":blazel_utils.bzl", _get_canonical_repo_name = "get_canonical_repo_name", _get_repo_root = "get_repo_root")
 
 get_canonical_repo_name = _get_canonical_repo_name
+get_repo_root = _get_repo_root
 
 def extract_url(attributes):
     """Extracts the url from the given attributes.
@@ -78,6 +79,12 @@ def parse_http_artifacts(ctx, lockfile_path, required_repos):
                 "url": url.rsplit("/", 1)[0] + "/patches/" + patch,
             })
 
+        for overlay_file, integrity in source_json.get("overlay", {}).items():
+            http_artifacts.append({
+                "integrity": integrity,
+                "url": url.rsplit("/", 1)[0] + "/overlay/" + overlay_file,
+            })
+
     for extension_id, extension_entry in lockfile["moduleExtensions"].items():
         if extension_id.startswith("@@"):
             # "@@rules_foo+//:extensions.bzl%foo" --> "rules_foo+"
@@ -92,9 +99,9 @@ def parse_http_artifacts(ctx, lockfile_path, required_repos):
             extensions.append(extension_per_platform)
         for extension in extensions:
             for local_name, repo_spec in extension["generatedRepoSpecs"].items():
-                rule_class = repo_spec["ruleClassName"]
+                rule_class = repo_spec["ruleClassName"] if "ruleClassName" in repo_spec else repo_spec["repoRuleId"]
 
-                if rule_class == "http_archive" or rule_class == "http_file" or rule_class == "http_jar":
+                if rule_class.endswith("http_archive") or rule_class.endswith("http_file") or rule_class.endswith("http_jar"):
                     attributes = repo_spec["attributes"]
                     repo_name = repo_name_prefix + local_name
 
@@ -103,7 +110,8 @@ def parse_http_artifacts(ctx, lockfile_path, required_repos):
                     found_repos.append(repo_name)
 
                     http_artifacts.append({
-                        "sha256": attributes["sha256"],
+                        "sha256": attributes.get("sha256", None),
+                        "integrity": attributes.get("integrity", None),
                         "url": extract_url(attributes),
                     })
 
@@ -160,7 +168,7 @@ def parse_bazel_module_repos(ctx, lockfile_path):
     return {repo: None for repo in repos}.keys()
 
 # Keep in sync with ModuleKey.
-_WELL_KNOWN_MODULES = ["bazel_tools", "local_config_platform", "platforms"]
+_WELL_KNOWN_MODULES = ["bazel_tools", "platforms"]
 
 def _module_repo_name(module):
     module_name = module["name"]

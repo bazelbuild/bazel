@@ -21,6 +21,7 @@ officially support them. Contact the package maintainers for support.
 *   [Alpine Linux](https://pkgs.alpinelinux.org/packages?name=bazel*&branch=edge&repo=&arch=&origin=&flagged=&maintainer=){: .external}
 *   [Arch Linux][arch]{: .external}
 *   [Debian](https://qa.debian.org/developer.php?email=team%2Bbazel%40tracker.debian.org){: .external}
+*   [Fedora](https://copr.fedorainfracloud.org/coprs/lihaohong/bazel){: .external}
 *   [FreeBSD](https://www.freshports.org/devel/bazel){: .external}
 *   [Homebrew](https://formulae.brew.sh/formula/bazel){: .external}
 *   [Nixpkgs](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/build-managers/bazel){: .external}

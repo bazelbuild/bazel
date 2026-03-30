@@ -16,9 +16,12 @@ package com.google.devtools.build.lib.buildtool;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ActionChangePrunedEvent;
+import com.google.devtools.build.lib.actions.ActionExecutionInactivityEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
@@ -38,6 +41,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.text.NumberFormat;
+import java.time.Instant;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -61,7 +65,6 @@ public final class ExecutionProgressReceiver
 
   private final Set<ActionLookupData> enqueuedActions = Sets.newConcurrentHashSet();
   private final Set<ActionLookupData> completedActions = Sets.newConcurrentHashSet();
-  private final Set<ActionLookupData> ignoredActions = Sets.newConcurrentHashSet();
   private final EventBus eventBus;
 
   /** Number of exclusive tests. To be accounted for in progress messages. */
@@ -80,13 +83,11 @@ public final class ExecutionProgressReceiver
   public void enqueueing(SkyKey skyKey) {
     if (skyKey.functionName().equals(SkyFunctions.ACTION_EXECUTION)) {
       ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
-      if (!ignoredActions.contains(actionLookupData)) {
-        // Remember all enqueued actions for the benefit of progress reporting.
-        // We discover most actions early in the build, well before we start executing them.
-        // Some of these will be cache hits and won't be executed, so we'll need to account for them
-        // in the evaluated method too.
-        enqueuedActions.add(actionLookupData);
-      }
+      // Remember all enqueued actions for the benefit of progress reporting.
+      // We discover most actions early in the build, well before we start executing them.
+      // Some of these will be cache hits and won't be executed, so we'll need to account for them
+      // in the evaluated method too.
+      enqueuedActions.add(actionLookupData);
     }
   }
 
@@ -148,6 +149,14 @@ public final class ExecutionProgressReceiver
     }
   }
 
+  @Override
+  public void changePruned(SkyKey skyKey) {
+    if (skyKey.functionName().equals(SkyFunctions.ACTION_EXECUTION)) {
+      eventBus.post(
+          new ActionChangePrunedEvent((ActionLookupData) skyKey.argument(), BlazeClock.nanoTime()));
+    }
+  }
+
   /**
    * {@inheritDoc}
    *
@@ -164,10 +173,8 @@ public final class ExecutionProgressReceiver
    */
   @Override
   public void actionCompleted(ActionLookupData actionLookupData) {
-    if (!ignoredActions.contains(actionLookupData)) {
-      enqueuedActions.add(actionLookupData);
-      completedActions.add(actionLookupData);
-    }
+    enqueuedActions.add(actionLookupData);
+    completedActions.add(actionLookupData);
   }
 
   @Override
@@ -215,12 +222,13 @@ public final class ExecutionProgressReceiver
       final AtomicBoolean isBuildingExclusiveArtifacts) {
     return new ActionExecutionInactivityWatchdog.InactivityReporter() {
       @Override
-      public void maybeReportInactivity() {
+      public void maybeReportInactivity(Instant lastActionCompletedAt) {
         // Do not report inactivity if we are currently running an exclusive test or a streaming
         // action (in practice only tests can stream and it implicitly makes them exclusive).
         if (!isBuildingExclusiveArtifacts.get()) {
           statusReporter.showCurrentlyExecutingActions(
               ExecutionProgressReceiver.this.getProgressString() + " ");
+          eventBus.post(new ActionExecutionInactivityEvent(lastActionCompletedAt));
         }
       }
     };

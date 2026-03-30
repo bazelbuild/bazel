@@ -55,10 +55,8 @@ import com.google.devtools.common.options.OptionsParsingException;
  * tests, because there may be code in the binary that is not linked into any test. Therefore, what
  * we do is to emit a coverage file for every binary, which contains only the files we collect
  * coverage for with no covered lines. The baseline coverage file for a target is at {@code
- * testlogs/PACKAGE/TARGET/baseline_coverage.dat}. Note that it is also generated for binaries and
- * libraries in addition to tests if you pass the {@code --nobuild_tests_only} flag to Bazel.
- *
- * <p>Baseline coverage collection is currently broken.
+ * testlogs/PACKAGE/TARGET/baseline_coverage.dat}, but rules are encouraged to generate their own
+ * baseline coverage files with more meaningful content than just the names of the source files.
  *
  * <p>We track two groups of files for coverage collection for each rule: the set of instrumented
  * files and the set of instrumentation metadata files.

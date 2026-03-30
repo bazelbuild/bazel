@@ -18,20 +18,20 @@ import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptionsFields;
 import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;
 
 /** A representation of a list of arguments. */
 public abstract class CommandLine {
 
-  public static CommandLine empty() {
-    return EmptyCommandLine.INSTANCE;
+  public static FlatCommandLine empty() {
+    return FlatCommandLine.EMPTY_INSTANCE;
   }
 
   /** Returns a {@link CommandLine} backed by the given list of arguments. */
-  public static CommandLine of(ImmutableList<String> arguments) {
-    return arguments.isEmpty() ? empty() : new SimpleCommandLine(arguments);
+  public static FlatCommandLine of(ImmutableList<String> arguments) {
+    return arguments.isEmpty() ? empty() : new FlatCommandLine(arguments);
   }
 
   /**
@@ -42,7 +42,7 @@ public abstract class CommandLine {
     if (args.isEmpty()) {
       return commandLine;
     }
-    if (commandLine == EmptyCommandLine.INSTANCE) {
+    if (commandLine == FlatCommandLine.EMPTY_INSTANCE) {
       return CommandLine.of(args);
     }
     return new SuffixedCommandLine(args, commandLine);
@@ -57,12 +57,12 @@ public abstract class CommandLine {
     }
 
     @Override
-    public Iterable<String> arguments() {
+    public Iterable<String> arguments(PathMapper pathMapper) {
       return args;
     }
 
     @Override
-    public int totalArgLength() {
+    public int totalArgLength(PathMapper pathMapper) {
       int total = 0;
       for (String arg : args) {
         total += arg.length() + 1;
@@ -80,42 +80,41 @@ public abstract class CommandLine {
   public abstract ArgChunk expand() throws CommandLineExpansionException, InterruptedException;
 
   /**
-   * Returns the expanded command line with enclosed artifacts expanded by {@code artifactExpander}
-   * at execution time.
+   * Returns the expanded command line, expanding the referenced artifacts using the provided {@link
+   * InputMetadataProvider}.
    */
-  public abstract ArgChunk expand(ArtifactExpander artifactExpander, PathMapper pathMapper)
+  public abstract ArgChunk expand(
+      InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException;
 
   /** Identical to calling {@code expand().arguments()}. */
   public abstract Iterable<String> arguments()
       throws CommandLineExpansionException, InterruptedException;
 
-  /** Identical to calling {@code expand(artifactExpander, pathMapper).arguments()}. */
+  /** Identical to calling {@code expand(inputMetadataProvider, pathMapper).arguments()}. */
   public abstract Iterable<String> arguments(
-      ArtifactExpander artifactExpander, PathMapper pathMapper)
+      InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException;
 
   /** Adds this command line to the provided {@link Fingerprint}. */
   public abstract void addToFingerprint(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
-      CoreOptions.OutputPathsMode outputPathsMode,
+      @Nullable InputMetadataProvider inputMetadataProvider,
+      CoreOptionsFields.OutputPathsMode effectiveOutputPathsMode,
       Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException;
 
-  private static final class EmptyCommandLine extends AbstractCommandLine {
-    private static final EmptyCommandLine INSTANCE = new EmptyCommandLine();
+  /**
+   * A command line backed by a simple {@code ImmutableList<String>}.
+   *
+   * <p>{@link #arguments()} can be retrieved exception-free.
+   */
+  public static final class FlatCommandLine extends AbstractCommandLine {
+    private static final FlatCommandLine EMPTY_INSTANCE = new FlatCommandLine(ImmutableList.of());
 
-    @Override
-    public ImmutableList<String> arguments() {
-      return ImmutableList.of();
-    }
-  }
-
-  private static final class SimpleCommandLine extends AbstractCommandLine {
     private final ImmutableList<String> args;
 
-    SimpleCommandLine(ImmutableList<String> args) {
+    private FlatCommandLine(ImmutableList<String> args) {
       this.args = args;
     }
 
@@ -140,9 +139,11 @@ public abstract class CommandLine {
     }
 
     @Override
-    public Iterable<String> arguments(ArtifactExpander artifactExpander, PathMapper pathMapper)
+    public Iterable<String> arguments(
+        InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
         throws CommandLineExpansionException, InterruptedException {
-      return Iterables.concat(commandLine.arguments(artifactExpander, pathMapper), executableArgs);
+      return Iterables.concat(
+          commandLine.arguments(inputMetadataProvider, pathMapper), executableArgs);
     }
   }
 

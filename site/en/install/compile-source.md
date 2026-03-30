@@ -33,7 +33,15 @@ To build Bazel from source, you can do one of the following:
 
 4.  Build a development build of Bazel using Bazel:
     `bazel build //src:bazel-dev` (or `bazel build //src:bazel-dev.exe` on
-    Windows)
+    Windows).
+
+    **Note:** Many rulesets rely on the Bazel version for feature detection.
+    For this to work correctly, the version must be embedded in the binary.
+    Build `bazel-dev` with:
+
+    `bazel build --stamp --embed_label="X.Y.Z" //src:bazel-dev`
+
+    where `X.Y.Z` is the Bazel version being built (for example, `8.6.0`).
 
 5.  The resulting binary is at `bazel-bin/src/bazel-dev`
     (or `bazel-bin\src\bazel-dev.exe` on Windows). You can copy it wherever you
@@ -199,14 +207,13 @@ For instructions for Windows, see [Bootstrap Bazel on Windows](#bootstrap-window
 
 *   **JDK.** Version 21 is required.
 
-*   **Python**. Versions 2 and 3 are supported, installing one of them is
-    enough.
+*   **Python**. Version 3 is required.
 
 For example on Ubuntu Linux you can install these requirements using the
 following command:
 
 ```sh
-sudo apt-get install build-essential openjdk-21-jdk python zip unzip
+sudo apt-get install build-essential openjdk-21-jdk python3 zip unzip
 ```
 
 #### 2.2. Bootstrap Bazel on Unix {:#bootstrap-unix}

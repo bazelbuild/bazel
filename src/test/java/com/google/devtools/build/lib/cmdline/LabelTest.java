@@ -21,7 +21,6 @@ import com.google.common.collect.Tables;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
-import com.google.devtools.build.lib.cmdline.Label.RepoMappingRecorder;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -412,11 +411,6 @@ public class LabelTest {
                     "@bad//abc", RepoContext.of(RepositoryName.MAIN, repositoryMapping))
                 .getDisplayForm(repositoryMapping))
         .isEqualTo("@@[unknown repo 'bad' requested from @@]//abc:abc");
-
-    assertThat(displayFormFor("@unremapped//:unremapped", RepositoryMapping.ALWAYS_FALLBACK))
-        .isEqualTo("@unremapped//:unremapped");
-    assertThat(displayFormFor("@unremapped", RepositoryMapping.ALWAYS_FALLBACK))
-        .isEqualTo("@unremapped//:unremapped");
   }
 
   @Test
@@ -462,53 +456,33 @@ public class LabelTest {
                     "@bad//abc", RepoContext.of(RepositoryName.MAIN, repositoryMapping))
                 .getShorthandDisplayForm(repositoryMapping))
         .isEqualTo("@@[unknown repo 'bad' requested from @@]//abc");
-
-    assertThat(
-            shorthandDisplayFormFor("@unremapped//:unremapped", RepositoryMapping.ALWAYS_FALLBACK))
-        .isEqualTo("@unremapped");
-    assertThat(shorthandDisplayFormFor("@unremapped", RepositoryMapping.ALWAYS_FALLBACK))
-        .isEqualTo("@unremapped");
   }
 
   @Test
-  public void starlarkStrAndRepr() throws Exception {
+  public void starlarkStrAndRepr_unambiguous() throws Exception {
     Label label = Label.parseCanonical("//x");
     assertThat(Starlark.str(label, StarlarkSemantics.DEFAULT)).isEqualTo("@@//x:x");
-    assertThat(Starlark.repr(label)).isEqualTo("Label(\"//x:x\")");
+    assertThat(Starlark.repr(label, StarlarkSemantics.DEFAULT)).isEqualTo("Label(\"@@//x:x\")");
 
     label = Label.parseCanonical("@hello//x");
     assertThat(Starlark.str(label, StarlarkSemantics.DEFAULT)).isEqualTo("@@hello//x:x");
-    assertThat(Starlark.repr(label)).isEqualTo("Label(\"@@hello//x:x\")");
+    assertThat(Starlark.repr(label, StarlarkSemantics.DEFAULT))
+        .isEqualTo("Label(\"@@hello//x:x\")");
   }
 
   @Test
-  public void starlarkStr_ambiguous() throws Exception {
+  public void starlarkStrAndRepr_ambiguous() throws Exception {
     StarlarkSemantics semantics =
         StarlarkSemantics.builder()
             .setBool(BuildLanguageOptions.INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION, false)
-            .setBool(BuildLanguageOptions.ENABLE_BZLMOD, false)
             .build();
-    assertThat(Starlark.str(Label.parseCanonical("//x"), semantics)).isEqualTo("//x:x");
-    assertThat(Starlark.str(Label.parseCanonical("@x//y"), semantics)).isEqualTo("@x//y:y");
-  }
+    Label label = Label.parseCanonical("//x");
+    assertThat(Starlark.str(label, semantics)).isEqualTo("//x:x");
+    assertThat(Starlark.repr(label, semantics)).isEqualTo("Label(\"//x:x\")");
 
-  @Test
-  public void starlarkStr_canonicalLabelLiteral() throws Exception {
-    StarlarkSemantics semantics =
-        StarlarkSemantics.builder().setBool(BuildLanguageOptions.ENABLE_BZLMOD, true).build();
-    assertThat(Starlark.str(Label.parseCanonical("//x"), semantics)).isEqualTo("@@//x:x");
-    assertThat(Starlark.str(Label.parseCanonical("@x//y"), semantics)).isEqualTo("@@x//y:y");
-  }
-
-  @Test
-  public void starlarkStr_ambiguousAndCanonicalLabelLiteral() throws Exception {
-    StarlarkSemantics semantics =
-        StarlarkSemantics.builder()
-            .setBool(BuildLanguageOptions.INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION, false)
-            .setBool(BuildLanguageOptions.ENABLE_BZLMOD, true)
-            .build();
-    assertThat(Starlark.str(Label.parseCanonical("//x"), semantics)).isEqualTo("//x:x");
-    assertThat(Starlark.str(Label.parseCanonical("@x//y"), semantics)).isEqualTo("@@x//y:y");
+    label = Label.parseCanonical("@hello//x");
+    assertThat(Starlark.str(label, semantics)).isEqualTo("@@hello//x:x");
+    assertThat(Starlark.repr(label, semantics)).isEqualTo("Label(\"@@hello//x:x\")");
   }
 
   @Test
@@ -537,7 +511,7 @@ public class LabelTest {
             PackageIdentifier.create(bar, PathFragment.EMPTY_FRAGMENT),
             RepositoryMapping.create(ImmutableMap.of("foo", quux, "quux", foo), bar));
 
-    RepoMappingRecorder recorder = new RepoMappingRecorder();
+    var recorder = new Label.SimpleRepoMappingRecorder();
     // Not recorded: no repo part
     var unused = Label.parseWithPackageContext("//foo/bar", fooPackageContext, recorder);
     // Recorded: <foo, bar, quux>

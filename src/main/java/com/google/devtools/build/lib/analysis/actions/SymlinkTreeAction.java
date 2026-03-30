@@ -26,7 +26,10 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.RichArtifactData;
+import com.google.devtools.build.lib.actions.RichDataProducingAction;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
@@ -42,7 +45,7 @@ import javax.annotation.Nullable;
  * trees.
  */
 @Immutable
-public final class SymlinkTreeAction extends AbstractAction {
+public final class SymlinkTreeAction extends AbstractAction implements RichDataProducingAction {
 
   private static final String GUID = "7a16371c-cd4a-494d-b622-963cd89f5212";
 
@@ -135,10 +138,9 @@ public final class SymlinkTreeAction extends AbstractAction {
       @Nullable Artifact repoMappingManifest) {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
     inputs.add(inputManifest);
-    // All current strategies (in-process and build-runfiles-windows) for
-    // making symlink trees on Windows depend on the target files
-    // existing, so directory or file links can be made as appropriate.
-    if (runfileSymlinksMode != RunfileSymlinksMode.SKIP
+    // On Windows, we need to know whether the target artifact is a file or a directory in order to
+    // correctly create a symlink or junction to it.
+    if (runfileSymlinksMode == RunfileSymlinksMode.CREATE
         && runfiles != null
         && OS.getCurrent() == OS.WINDOWS) {
       inputs.addTransitive(runfiles.getAllArtifacts());
@@ -198,7 +200,7 @@ public final class SymlinkTreeAction extends AbstractAction {
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp) {
     fp.addString(GUID);
     fp.addNullableString(workspaceNameForFileset);
@@ -222,12 +224,26 @@ public final class SymlinkTreeAction extends AbstractAction {
     }
   }
 
+  @Nullable
+  @Override
+  public RichArtifactData reconstructRichDataOnActionCacheHit(
+      InputMetadataProvider inputMetadataProvider) {
+    return getPrimaryOutput().isFileset()
+        ? FilesetOutputTree.forward(inputMetadataProvider.getFileset(getPrimaryInput()))
+        : null;
+  }
+
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     actionExecutionContext
         .getContext(SymlinkTreeActionContext.class)
         .createSymlinks(this, actionExecutionContext);
+    if (getPrimaryOutput().isFileset()) {
+      actionExecutionContext.setRichArtifactData(
+          FilesetOutputTree.forward(
+              actionExecutionContext.getInputMetadataProvider().getFileset(getPrimaryInput())));
+    }
     return ActionResult.EMPTY;
   }
 

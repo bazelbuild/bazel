@@ -71,13 +71,13 @@ public final class AsyncTaskCache<KeyT, ValueT> {
   private int state = STATE_ACTIVE;
 
   @GuardedBy("lock")
-  private final List<CompletableEmitter> terminationSubscriber = new ArrayList<>();
+  private final ArrayList<CompletableEmitter> terminationSubscriber = new ArrayList<>();
 
   @GuardedBy("lock")
-  private final Map<KeyT, ValueT> finished = new HashMap<>();
+  private Map<KeyT, ValueT> finished = new HashMap<>();
 
   @GuardedBy("lock")
-  private final Map<KeyT, Execution> inProgress = new HashMap<>();
+  private Map<KeyT, Execution> inProgress = new HashMap<>();
 
   public static <KeyT, ValueT> AsyncTaskCache<KeyT, ValueT> create() {
     return new AsyncTaskCache<>();
@@ -397,6 +397,10 @@ public final class AsyncTaskCache<KeyT, ValueT> {
             emitter -> {
               synchronized (lock) {
                 if (state == STATE_TERMINATED) {
+                  // Reduce retained size in case references to the cache are held after shutdown.
+                  terminationSubscriber.trimToSize();
+                  inProgress = new HashMap<>();
+                  finished = new HashMap<>();
                   emitter.onComplete();
                 } else {
                   terminationSubscriber.add(emitter);

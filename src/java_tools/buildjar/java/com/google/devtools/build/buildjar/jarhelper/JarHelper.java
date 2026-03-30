@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.buildjar.jarhelper;
 
+import com.google.devtools.build.buildjar.jarhelper.JarCreator.JarEntrySource;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.jar.Attributes;
@@ -45,37 +45,40 @@ public class JarHelper {
    *
    * <p>The ZIP format uses MS-DOS timestamps (see <a
    * href="https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT">APPNOTE.TXT</a>) which use
-   * 1980-1-1 as the epoch, but {@link ZipEntry#setTime(long)} expects milliseconds since the unix
-   * epoch (1970-1-1). To work around this, {@link ZipEntry} uses portability-reducing ZIP
+   * 1980-1-1 as the epoch. To work around this, {@link ZipEntry} uses portability-reducing ZIP
    * extensions to store pre-1980 timestamps, which can occasionally <a
    * href="https://bugs.openjdk.java.net/browse/JDK-8246129>cause</a> <a
    * href="https://openjdk.markmail.org/thread/wzw7zfilk5j7uzqk>issues</a>. For that reason, using a
-   * fixed post-1980 timestamp is preferred to e.g. calling {@code setTime(0)}. At Google, the
-   * timestamp of 2010-1-1 is used by convention in deterministic jar archives.
+   * fixed post-1980 timestamp is preferred. At Google, the timestamp of 2010-1-1 is used by
+   * convention in deterministic jar archives.
    */
-  @SuppressWarnings("GoodTime-ApiWithNumericTimeUnit") // Use setTime(LocalDateTime) in Java > 9
-  public static final long DEFAULT_TIMESTAMP =
-      LocalDateTime.of(2010, 1, 1, 0, 0, 0)
-          .atZone(ZoneId.systemDefault())
-          .toInstant()
-          .toEpochMilli();
+  public static final LocalDateTime DEFAULT_TIMESTAMP = LocalDateTime.of(2010, 1, 1, 0, 0, 0);
+
   // These attributes are used by JavaBuilder, Turbine, and ijar.
   // They must all be kept in sync.
   public static final Attributes.Name TARGET_LABEL = new Attributes.Name("Target-Label");
   public static final Attributes.Name INJECTING_RULE_KIND =
       new Attributes.Name("Injecting-Rule-Kind");
 
-  // ZIP timestamps have a resolution of 2 seconds.
-  // see http://www.info-zip.org/FAQ.html#limits
-  public static final long MINIMUM_TIMESTAMP_INCREMENT = 2000L;
+  public static final Attributes.Name MULTI_RELEASE = new Attributes.Name("Multi-Release");
+
+  /**
+   * This is used to adjust the timestamp for class files to slightly after the normalized time.
+   *
+   * <p>ZIP timestamps have a resolution of 2 seconds, see http://www.info-zip.org/FAQ.html#limits.
+   *
+   * <p>Javac will, when loading a class X, prefer a source file to a class file, if both files have
+   * the same timestamp.
+   */
+  public static final Duration MINIMUM_TIMESTAMP_INCREMENT = Duration.ofSeconds(2);
 
   // The path to the Jar we want to create
   protected final Path jarPath;
 
   // The properties to describe how to create the Jar
-  protected boolean normalize;
   protected int storageMethod = JarEntry.DEFLATED;
   protected boolean verbose = false;
+  protected boolean multiRelease = false;
 
   // The state needed to create the Jar
   protected final Set<String> names = new HashSet<>();
@@ -84,13 +87,8 @@ public class JarHelper {
     jarPath = path;
   }
 
-  /**
-   * Enables or disables the Jar entry normalization.
-   *
-   * @param normalize If true the timestamps of Jar entries will be set to the DOS epoch.
-   */
-  public void setNormalize(boolean normalize) {
-    this.normalize = normalize;
+  public void multiRelease(boolean multiRelease) {
+    this.multiRelease = multiRelease;
   }
 
   /**
@@ -120,24 +118,12 @@ public class JarHelper {
    * @param name The name of the file for which we should return the normalized timestamp.
    * @return the time for a new Jar file entry in milliseconds since the epoch.
    */
-  private long normalizedTimestamp(String name) {
+  private static LocalDateTime normalizedTimestamp(String name) {
     if (name.endsWith(".class")) {
-      return DEFAULT_TIMESTAMP + MINIMUM_TIMESTAMP_INCREMENT;
+      return DEFAULT_TIMESTAMP.plus(MINIMUM_TIMESTAMP_INCREMENT);
     } else {
       return DEFAULT_TIMESTAMP;
     }
-  }
-
-  /**
-   * Returns the time for a new Jar file entry in milliseconds since the epoch. Uses {@link
-   * JarCreator#DEFAULT_TIMESTAMP} for normalized entries, {@link System#currentTimeMillis()}
-   * otherwise.
-   *
-   * @param filename The name of the file for which we are entering the time
-   * @return the time for a new Jar file entry in milliseconds since the epoch.
-   */
-  protected long newEntryTimeMillis(String filename) {
-    return normalize ? normalizedTimestamp(filename) : System.currentTimeMillis();
   }
 
   /**
@@ -148,7 +134,7 @@ public class JarHelper {
     if (names.add(name)) {
       // Create a new entry
       JarEntry entry = new JarEntry(name);
-      entry.setTime(newEntryTimeMillis(name));
+      entry.setTimeLocal(normalizedTimestamp(name));
       int size = content.length;
       entry.setSize(size);
       if (size == 0) {
@@ -195,38 +181,39 @@ public class JarHelper {
    * Copies file or directory entries from the file system into the jar. Directory entries will be
    * detected and their names automatically '/' suffixed.
    */
-  protected void copyEntry(JarOutputStream out, String name, Path path) throws IOException {
+  protected void copyEntry(JarOutputStream out, String name, JarEntrySource source)
+      throws IOException {
     if (!names.contains(name)) {
-      if (!Files.exists(path)) {
-        throw new FileNotFoundException(path.toAbsolutePath() + " (No such file or directory)");
+      if (!source.exists()) {
+        throw new FileNotFoundException(source + " (No such file or directory)");
       }
-      boolean isDirectory = Files.isDirectory(path);
+      boolean isDirectory = source.isDirectory();
       if (isDirectory && !name.endsWith("/")) {
         name = name + '/'; // always normalize directory names before checking set
       }
       if (names.add(name)) {
         if (verbose) {
-          System.err.println("adding " + path);
+          System.err.println("adding " + source);
         }
         // Create a new entry
-        long size = isDirectory ? 0 : Files.size(path);
+        long size = isDirectory ? 0 : source.size();
         JarEntry outEntry = new JarEntry(name);
-        long newtime =
-            normalize ? normalizedTimestamp(name) : Files.getLastModifiedTime(path).toMillis();
-        outEntry.setTime(newtime);
+        LocalDateTime newtime = normalizedTimestamp(name);
+        outEntry.setTimeLocal(newtime);
         outEntry.setSize(size);
         if (size == 0L) {
           outEntry.setMethod(JarEntry.STORED);
           outEntry.setCrc(0);
           out.putNextEntry(outEntry);
         } else {
+          int storageMethod = name.equals("protobuf.meta") ? JarEntry.STORED : this.storageMethod;
           outEntry.setMethod(storageMethod);
           if (storageMethod == JarEntry.STORED) {
             // ZipFile requires us to calculate the CRC-32 for any STORED entry.
             // It would be nicer to do this via DigestInputStream, but
             // the architecture of ZipOutputStream requires us to know the CRC-32
             // before we write the data to the stream.
-            byte[] bytes = Files.readAllBytes(path);
+            byte[] bytes = source.bytes();
             CRC32 crc = new CRC32();
             crc.update(bytes);
             outEntry.setCrc(crc.getValue());
@@ -234,7 +221,7 @@ public class JarHelper {
             out.write(bytes);
           } else {
             out.putNextEntry(outEntry);
-            Files.copy(path, out);
+            source.copyTo(out);
           }
         }
         out.closeEntry();

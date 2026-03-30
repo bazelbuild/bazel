@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.worker;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -68,9 +69,12 @@ class WorkerProxy extends Worker {
 
   @Override
   public void prepareExecution(
-      SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
+      SandboxInputs inputFiles,
+      SandboxOutputs outputs,
+      Set<PathFragment> workerFiles,
+      ImmutableMap<String, String> clientEnv)
       throws IOException, InterruptedException {
-    workerMultiplexer.createProcess(workDir);
+    workerMultiplexer.createProcess(workDir, clientEnv);
   }
 
   @Override

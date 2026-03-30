@@ -196,21 +196,21 @@ public class ComparingTransition implements PatchTransition {
         if (op.getKey().equals("define")) {
           ans.putAll(
               serializeUserDefinedOption(
-                  o.get(CoreOptions.class).commandLineBuildVariables.stream()
+                  o.get(CoreOptions.class).getCommandLineBuildVariables().stream()
                       .map(d -> Map.entry(d.getKey(), d.getValue()))
                       .collect(toImmutableList()),
                   "define"));
         } else if (op.getKey().equals("features")) {
           ans.putAll(
               serializeUserDefinedOption(
-                  o.get(CoreOptions.class).defaultFeatures.stream()
+                  o.get(CoreOptions.class).getDefaultFeatures().stream()
                       .map(d -> Map.entry(d, ""))
                       .collect(toImmutableList()),
                   "feature"));
         } else if (op.getKey().equals("host_features")) {
           ans.putAll(
               serializeUserDefinedOption(
-                  o.get(CoreOptions.class).hostFeatures.stream()
+                  o.get(CoreOptions.class).getHostFeatures().stream()
                       .map(d -> Map.entry(d, ""))
                       .collect(toImmutableList()),
                   "host feature"));

@@ -70,7 +70,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
@@ -182,14 +182,14 @@ public abstract class AbstractBlazeQueryEnvironment<T>
     IOException ioExn = null;
     boolean failFast = true;
     try {
-      callback.start();
+      emptySensingCallback.start();
       evalTopLevelInternal(expr, emptySensingCallback);
       failFast = false;
     } catch (QueryException e) {
       throw new QueryException(e, expr);
     } finally {
       try {
-        callback.close(failFast);
+        emptySensingCallback.close(failFast);
       } catch (IOException e) {
         // Only throw this IOException if we weren't about to throw a different exception.
         ioExn = e;
@@ -260,7 +260,7 @@ public abstract class AbstractBlazeQueryEnvironment<T>
     // QueryEnvironment#buildTransitiveClosure. So if the implementation of that method does some
     // heavyweight blocking work, then it's best to do this blocking work in a single batch.
     // Importantly, the callback we pass in needs to maintain order.
-    final QueryUtil.AggregateAllCallback<T, ?> aggregateAllCallback =
+    final QueryUtil.AggregateAllCallback<T, ? extends Set<T>> aggregateAllCallback =
         QueryUtil.newOrderedAggregateAllOutputFormatterCallback(this);
     QueryTaskFuture<Void> evalAllFuture = expr.eval(this, context, aggregateAllCallback);
     return whenSucceedsCall(
@@ -395,7 +395,7 @@ public abstract class AbstractBlazeQueryEnvironment<T>
 
   private static class EmptinessSensingCallback<T> extends OutputFormatterCallback<T> {
     private final OutputFormatterCallback<T> callback;
-    private final AtomicBoolean empty = new AtomicBoolean(true);
+    private final AtomicInteger numTargets = new AtomicInteger(0);
 
     private EmptinessSensingCallback(OutputFormatterCallback<T> callback) {
       this.callback = callback;
@@ -408,17 +408,18 @@ public abstract class AbstractBlazeQueryEnvironment<T>
 
     @Override
     public void processOutput(Iterable<T> partialResult) throws IOException, InterruptedException {
-      empty.compareAndSet(true, Iterables.isEmpty(partialResult));
+      numTargets.addAndGet(Iterables.size(partialResult));
       callback.processOutput(partialResult);
     }
 
     @Override
     public void close(boolean failFast) throws InterruptedException, IOException {
+      logger.atInfo().log("Saw %d targets in the output", numTargets.get());
       callback.close(failFast);
     }
 
     boolean isEmpty() {
-      return empty.get();
+      return numTargets.get() == 0;
     }
   }
 
@@ -499,15 +500,10 @@ public abstract class AbstractBlazeQueryEnvironment<T>
     }
 
     @Override
-    public Target getBuildFileTarget(Target originalTarget) {
-      return originalTarget.getPackage().getBuildFile();
-    }
-
-    @Override
     public void visitLoads(
         Target originalTarget, LoadGraphVisitor<QueryException, InterruptedException> visitor)
         throws QueryException, InterruptedException {
-      originalTarget.getPackage().visitLoadGraph(visitor);
+      originalTarget.getPackageDeclarations().visitLoadGraph(visitor);
     }
   }
 

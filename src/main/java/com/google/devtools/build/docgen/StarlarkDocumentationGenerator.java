@@ -13,19 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.docgen;
 
-
-import java.util.Arrays;
+import com.google.devtools.common.options.OptionsParser;
+import java.util.Collections;
 
 /** The main class for the Starlark documentation generator. */
 public class StarlarkDocumentationGenerator {
 
-  private static boolean checkArgs(String[] args) {
-    if (args.length < 1) {
-      System.err.println("There has to be at least one input parameter\n"
-          + " - an output file.");
-      return false;
-    }
-    return true;
+  private static void printUsage(OptionsParser parser) {
+    System.err.println(
+"""
+Usage: skydoc_bin output_dir --link_map_path=link_map.json [other options]
+
+Generates Starlark API documentation, including Starlark and BUILD language
+built-in functions and data types, providers, configuration fragments, etc.
+""");
+    System.err.println(
+        parser.describeOptionsWithDeprecatedCategories(
+            Collections.emptyMap(), OptionsParser.HelpVerbosity.LONG));
   }
 
   private static void fail(Throwable e, boolean printStackTrace) {
@@ -37,15 +41,31 @@ public class StarlarkDocumentationGenerator {
   }
 
   public static void main(String[] args) {
-    if (checkArgs(args)) {
-      System.out.println("Generating Starlark documentation...");
-      try {
-        StarlarkDocumentationProcessor.generateDocumentation(
-            args[0], Arrays.copyOfRange(args, 1, args.length));
-      } catch (Throwable e) {
-        fail(e, true);
-      }
-      System.out.println("Finished.");
+    OptionsParser parser =
+        OptionsParser.builder()
+            .optionsClasses(StarlarkDocumentationOptions.class)
+            .allowResidue(true)
+            .build();
+    parser.parseAndExitUponError(args);
+    StarlarkDocumentationOptions options = parser.getOptions(StarlarkDocumentationOptions.class);
+
+    if (options.help) {
+      printUsage(parser);
+      Runtime.getRuntime().exit(0);
     }
+
+    if (parser.getResidue().size() != 1 || options.linkMapPath.isEmpty()) {
+      printUsage(parser);
+      Runtime.getRuntime().exit(1);
+    }
+    String outputDir = parser.getResidue().getFirst();
+
+    System.out.println("Generating Starlark documentation...");
+    try {
+      StarlarkDocumentationProcessor.generateDocumentation(outputDir, options);
+    } catch (Throwable e) {
+      fail(e, true);
+    }
+    System.out.println("Finished.");
   }
 }

@@ -70,7 +70,13 @@ public class CgroupsInfoCollectorTest {
         scratch.file(memoryPath + "/memory.current", String.valueOf(i * 1000 * 1024));
         memory = new UnifiedMemory(memoryPath);
       }
-      VirtualCgroup cgroup = VirtualCgroup.create(/* cpu= */ null, memory, ImmutableSet.of());
+      VirtualCgroup cgroup =
+          VirtualCgroup.create(
+              /* cpu= */ null,
+              memory,
+              ImmutableSet.of(),
+              com.google.devtools.build.lib.sandbox.cgroups.proto.CgroupsInfoProtos.CgroupsInfo
+                  .getDefaultInstance());
       pidToCgroups.put((long) i, cgroup);
     }
 

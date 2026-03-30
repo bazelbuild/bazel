@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.bazel.repository.downloader.DownloaderTestUtils.makeUrl;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -32,14 +31,13 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.RetryingInputStream.Reconnector;
 import com.google.devtools.build.lib.events.EventHandler;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.URI;
-import java.net.URL;
 import java.net.URLConnection;
 import java.util.List;
 import java.util.Map;
@@ -57,7 +55,7 @@ import org.junit.runners.JUnit4;
 @SuppressWarnings("unchecked")
 public class HttpConnectorMultiplexerTest {
 
-  private static final URL TEST_URL = makeUrl("http://test.example");
+  private static final URI TEST_URL = URI.create("http://test.example");
   private static final byte[] TEST_DATA = "test_data".getBytes(UTF_8);
 
   private static Optional<Checksum> makeChecksum(String string) {
@@ -71,8 +69,7 @@ public class HttpConnectorMultiplexerTest {
   private static final Optional<Checksum> DUMMY_CHECKSUM =
       makeChecksum("abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd");
 
-  @Rule
-  public final Timeout globalTimeout = new Timeout(10000);
+  @Rule public final Timeout globalTimeout = Timeout.seconds(10);
 
   private final HttpStream stream = new HttpStream(new ByteArrayInputStream(TEST_DATA), TEST_URL);
   private final HttpConnector connector = mock(HttpConnector.class);
@@ -87,7 +84,7 @@ public class HttpConnectorMultiplexerTest {
     when(connector.connect(eq(TEST_URL), any(Function.class))).thenReturn(connection);
     when(streamFactory.create(
             same(connection),
-            any(URL.class),
+            any(URI.class),
             any(Optional.class),
             any(Reconnector.class),
             any(Optional.class)))
@@ -98,7 +95,7 @@ public class HttpConnectorMultiplexerTest {
   public void ftpUrl_throwsIae() throws Exception {
     assertThrows(
         IllegalArgumentException.class,
-        () -> multiplexer.connect(new URL("ftp://lol.example"), Optional.empty()));
+        () -> multiplexer.connect(URI.create("ftp://lol.example"), Optional.empty()));
   }
 
   @Test
@@ -111,7 +108,8 @@ public class HttpConnectorMultiplexerTest {
               public void run() {
                 Thread.currentThread().interrupt();
                 try {
-                  var unused = multiplexer.connect(new URL("http://lol.example"), Optional.empty());
+                  var unused =
+                      multiplexer.connect(URI.create("http://lol.example"), Optional.empty());
                 } catch (InterruptedIOException ignored) {
                   return;
                 } catch (Exception ignored) {
@@ -133,7 +131,7 @@ public class HttpConnectorMultiplexerTest {
     verify(streamFactory)
         .create(
             any(URLConnection.class),
-            any(URL.class),
+            any(URI.class),
             eq(DUMMY_CHECKSUM),
             any(Reconnector.class),
             any(Optional.class));
@@ -142,11 +140,11 @@ public class HttpConnectorMultiplexerTest {
 
   @Test
   public void failure() throws Exception {
-    when(connector.connect(any(URL.class), any(Function.class))).thenThrow(new IOException("oops"));
+    when(connector.connect(any(URI.class), any(Function.class))).thenThrow(new IOException("oops"));
     IOException e =
         assertThrows(IOException.class, () -> multiplexer.connect(TEST_URL, Optional.empty()));
     assertThat(e).hasMessageThat().contains("oops");
-    verify(connector).connect(any(URL.class), any(Function.class));
+    verify(connector).connect(any(URI.class), any(Function.class));
     verifyNoMoreInteractions(connector, streamFactory);
   }
 
@@ -163,12 +161,12 @@ public class HttpConnectorMultiplexerTest {
             new URI("http://hosting.example.com/user/foo/file.txt"),
             ImmutableMap.of("Authentication", ImmutableList.of("Zm9vOmZvb3NlY3JldA==")));
 
-    Function<URL, ImmutableMap<String, List<String>>> headerFunction =
+    Function<URI, ImmutableMap<String, List<String>>> headerFunction =
         HttpConnectorMultiplexer.getHeaderFunction(
             baseHeaders, new StaticCredentials(additionalHeaders), eventHandler);
 
     // Unrelated URL
-    assertThat(headerFunction.apply(new URL("http://example.org/some/path/file.txt")))
+    assertThat(headerFunction.apply(URI.create("http://example.org/some/path/file.txt")))
         .containsExactly(
             "Accept-Encoding",
             ImmutableList.of("gzip"),
@@ -176,7 +174,7 @@ public class HttpConnectorMultiplexerTest {
             ImmutableList.of("Bazel/testing"));
 
     // With auth headers
-    assertThat(headerFunction.apply(new URL("http://hosting.example.com/user/foo/file.txt")))
+    assertThat(headerFunction.apply(URI.create("http://hosting.example.com/user/foo/file.txt")))
         .containsExactly(
             "Accept-Encoding",
             ImmutableList.of("gzip"),
@@ -186,19 +184,19 @@ public class HttpConnectorMultiplexerTest {
             ImmutableList.of("Zm9vOmZvb3NlY3JldA=="));
 
     // Other hosts
-    assertThat(headerFunction.apply(new URL("http://hosting2.example.com/user/foo/file.txt")))
+    assertThat(headerFunction.apply(URI.create("http://hosting2.example.com/user/foo/file.txt")))
         .containsExactly(
             "Accept-Encoding",
             ImmutableList.of("gzip"),
             "User-Agent",
             ImmutableList.of("Bazel/testing"));
-    assertThat(headerFunction.apply(new URL("http://sub.hosting.example.com/user/foo/file.txt")))
+    assertThat(headerFunction.apply(URI.create("http://sub.hosting.example.com/user/foo/file.txt")))
         .containsExactly(
             "Accept-Encoding",
             ImmutableList.of("gzip"),
             "User-Agent",
             ImmutableList.of("Bazel/testing"));
-    assertThat(headerFunction.apply(new URL("http://example.com/user/foo/file.txt")))
+    assertThat(headerFunction.apply(URI.create("http://example.com/user/foo/file.txt")))
         .containsExactly(
             "Accept-Encoding",
             ImmutableList.of("gzip"),
@@ -206,7 +204,7 @@ public class HttpConnectorMultiplexerTest {
             ImmutableList.of("Bazel/testing"));
     assertThat(
             headerFunction.apply(
-                new URL("http://hosting.example.com.evil.example/user/foo/file.txt")))
+                URI.create("http://hosting.example.com.evil.example/user/foo/file.txt")))
         .containsExactly(
             "Accept-Encoding",
             ImmutableList.of("gzip"),
@@ -216,12 +214,12 @@ public class HttpConnectorMultiplexerTest {
     // Verify that URL-specific headers overwrite
     ImmutableMap<String, List<String>> annonAuth =
         ImmutableMap.of("Authentication", ImmutableList.of("YW5vbnltb3VzOmZvb0BleGFtcGxlLm9yZw=="));
-    Function<URL, ImmutableMap<String, List<String>>> combinedHeaders =
+    Function<URI, ImmutableMap<String, List<String>>> combinedHeaders =
         HttpConnectorMultiplexer.getHeaderFunction(
             annonAuth, new StaticCredentials(additionalHeaders), eventHandler);
-    assertThat(combinedHeaders.apply(new URL("http://hosting.example.com/user/foo/file.txt")))
+    assertThat(combinedHeaders.apply(URI.create("http://hosting.example.com/user/foo/file.txt")))
         .containsExactly("Authentication", ImmutableList.of("Zm9vOmZvb3NlY3JldA=="));
-    assertThat(combinedHeaders.apply(new URL("http://unreleated.example.org/user/foo/file.txt")))
+    assertThat(combinedHeaders.apply(URI.create("http://unreleated.example.org/user/foo/file.txt")))
         .containsExactly(
             "Authentication", ImmutableList.of("YW5vbnltb3VzOmZvb0BleGFtcGxlLm9yZw=="));
   }

@@ -25,7 +25,17 @@ assert_eq(json.encode("\""), r'"\""')
 assert_eq(json.encode("/"), '"/"')
 assert_eq(json.encode("\\"), r'"\\"')
 assert_eq(json.encode(""), '""')
-assert_eq(json.encode("😹"[:1]), '"�"')  # invalid UTF-16 -> replacement char U+FFFD
+# TODO: Invalid UTF-8 byte sequences are not replaced with U+FFFD.
+assert_eq(
+    json.encode("😹"[:1]),
+    (
+        '"\360"' # first byte of 0xF0 0x9F 0x98 0xB9 in octal
+        if _utf8_byte_strings else
+        '"�"' # invalid UTF-16 -> replacement char U+FFFD
+    )
+)
+assert_eq(json.encode("¼Δ"), "\"¼Δ\"") # 2 byte UTF-8 encoding, single UTF-16 character
+assert_eq(json.encode("😹"), "\"😹\"") # 4 byte UTF-8 encoding, two UTF-16 characters (surrogate pair)
 
 assert_eq(json.encode([1, 2, 3]), "[1,2,3]")
 assert_eq(json.encode((1, 2, 3)), "[1,2,3]")
@@ -85,6 +95,12 @@ assert_eq(json.decode('{"one": 1, "two": 2}'), dict(one = 1, two = 2))
 assert_eq(json.decode('{"foo\\u0000bar": 42}'), {"foo\0bar": 42})
 assert_eq(json.decode('"\\ud83d\\ude39\\ud83d\\udc8d"'), "😹💍")
 assert_eq(json.decode('"\\u0123"'), "ģ")
+
+# Illegal UTF-16 encodings
+assert_eq(json.decode('"\\udc8d\\ud83d"'), "��") # swapped surrogates
+assert_eq(json.decode('"\\udc8d"'), "�") # unpaired high surrogate
+assert_eq(json.decode('"\\ud83d"'), "�") # unpaired low surrogate
+assert_eq(json.decode('"\\udc8d\\u0123"'), "�ģ") # unpaired high surrogate followed by non-surrogate
 
 #assert_eq(json.decode('"\x7f"'), "\x7f")
 assert_eq(json.decode("\t[\t1,\r2,\n3]\n"), [1, 2, 3])  # whitespace other than ' '

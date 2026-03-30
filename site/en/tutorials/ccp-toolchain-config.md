@@ -8,7 +8,7 @@ Book: /_book.yaml
 This tutorial uses an example scenario to describe how to configure C++
 toolchains for a project.
 
-## What you'll learn {: #what-you-learn }
+## What you'll learn {:#what-you-learn}
 
 In this tutorial you learn how to:
 
@@ -17,18 +17,18 @@ In this tutorial you learn how to:
 *   Configure the C++ toolchain
 *   Create a Starlark rule that provides additional configuration for the
     `cc_toolchain` so that Bazel can build the application with `clang`
-*   Build the C++ binary for by running `bazel build //main:hello-world` on a
+*   Build the C++ binary by running `bazel build //main:hello-world` on a
     Linux machine
 *   Cross-compile the binary for android by running `bazel build
     //main:hello-world --platforms=//:android_x86_64`
 
-## Before you begin {: #before-you-begin }
+## Before you begin {:#before-you-begin}
 
 This tutorial assumes you are on Linux and have successfully built C++
 applications and installed the appropriate tooling and libraries. The tutorial
-uses `clang version 16`, which you can install on your system.
+uses `clang version 19`, which you can install on your system.
 
-### Set up the build environment {: #setup-build-environment }
+### Set up the build environment {:#setup-build-environment}
 
 Set up your build environment as follows:
 
@@ -72,7 +72,7 @@ Set up your build environment as follows:
     `@platforms//host` using
     `@bazel_tools+cc_configure_extension+local_config_cc//:cc-compiler-k8`.
 
-## Configure the C++ toolchain {: #configure-cc-toolchain }
+## Configure the C++ toolchain {:#configure-cc-toolchain}
 
 To configure the C++ toolchain, repeatedly build the application and eliminate
 each error one by one as described as following.
@@ -215,7 +215,7 @@ slightly between different versions of clang.
     def _impl(ctx):
         tool_paths = [ # NEW
             tool_path(
-                name = "gcc",
+                name = "gcc",  # Compiler is referenced by the name "gcc" for historic reasons.
                 path = "/usr/bin/clang",
             ),
             tool_path(
@@ -263,7 +263,8 @@ slightly between different versions of clang.
     ```
 
     Make sure that `/usr/bin/clang` and `/usr/bin/ld` are the correct paths for
-    your system.
+    your system. Note that the compiler is referenced by the name "gcc" for
+    historic reasons.
 
 6.  Run the build again. Bazel throws the following error:
 
@@ -291,7 +292,7 @@ slightly between different versions of clang.
     return cc_common.create_cc_toolchain_config_info(
         ctx = ctx,
         cxx_builtin_include_directories = [ # NEW
-            "/usr/lib/llvm-16/lib/clang/16/include",
+            "/usr/lib/llvm-19/lib/clang/19/include",
             "/usr/include",
         ],
         toolchain_identifier = "local",
@@ -342,7 +343,7 @@ slightly between different versions of clang.
     def _impl(ctx):
         tool_paths = [
             tool_path(
-                name = "gcc",
+                name = "gcc",  # Compiler is referenced by the name "gcc" for historic reasons.
                 path = "/usr/bin/clang",
             ),
             tool_path(
@@ -398,7 +399,7 @@ slightly between different versions of clang.
             ctx = ctx,
             features = features, # NEW
             cxx_builtin_include_directories = [
-                "/usr/lib/llvm-9/lib/clang/9.0.1/include",
+                "/usr/lib/llvm-19/lib/clang/19/include",
                 "/usr/include",
             ],
             toolchain_identifier = "local",
@@ -418,6 +419,9 @@ slightly between different versions of clang.
         provides = [CcToolchainConfigInfo],
     )
     ```
+
+    Note that this code uses the GNU C++ library libstdc++. If you want to use
+    the LLVM C++ library, use "-lc++" instead of "-lstdc++".
 
 8.  Running `bazel build //main:hello-world`, it should finally build the binary
     successfully for host.
@@ -444,7 +448,7 @@ can either modify the existing `cc_toolchain_config` for the differences or
 create a separate rules (i.e. `CcToolchainConfigInfo` provider) for separate
 platforms.
 
-## Review your work {: #review-your-work }
+## Review your work {:#review-your-work}
 
 In this tutorial you learned how to configure a basic C++ toolchain, but
 toolchains are more powerful than this example.
@@ -465,7 +469,7 @@ The key takeaways are:
 -   You can create features to customize which flags should be passed to
     different actions, be it linking or any other type of action.
 
-## Further reading {: #further-reading }
+## Further reading {:#further-reading}
 
 For more details, see [C++ toolchain
 configuration](/docs/cc-toolchain-config-reference)

@@ -24,6 +24,9 @@ import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
@@ -78,7 +81,9 @@ class GrpcRemoteExecutor implements RemoteExecutionClient {
       handleStatus(op.getError(), null);
     }
     if (op.getDone()) {
-      Preconditions.checkState(op.getResultCase() != Operation.ResultCase.RESULT_NOT_SET);
+      Preconditions.checkState(
+          op.getResultCase() != Operation.ResultCase.RESULT_NOT_SET,
+          "Unexpected result of remote execution: result not set");
       ExecuteResponse resp = op.getResponse().unpack(ExecuteResponse.class);
       if (resp.hasStatus()) {
         handleStatus(resp.getStatus(), resp);
@@ -165,11 +170,15 @@ class GrpcRemoteExecutor implements RemoteExecutionClient {
                                     execBlockingStub(context.getRequestMetadata(), channel)
                                         .waitExecution(wr));
                       } else {
-                        replies =
-                            channel.withChannelBlocking(
-                                channel ->
-                                    execBlockingStub(context.getRequestMetadata(), channel)
-                                        .execute(request));
+                        try (SilentCloseable c =
+                            Profiler.instance()
+                                .profile(ProfilerTask.REMOTE_EXECUTION, "send Execute request")) {
+                          replies =
+                              channel.withChannelBlocking(
+                                  channel ->
+                                      execBlockingStub(context.getRequestMetadata(), channel)
+                                          .execute(request));
+                        }
                       }
                       try {
                         while (replies.hasNext()) {

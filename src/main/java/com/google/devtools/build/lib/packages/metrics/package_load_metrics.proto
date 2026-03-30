@@ -41,4 +41,11 @@ message PackageLoadMetrics {
   // with a loaded package. Values are an approximate but reasonable proxy for
   // the real storage costs of a package.
   optional uint64 package_overhead = 6;
+
+  // "Cost" of the filesystem operations performed across all `glob` calls while
+  // loading the package.
+  //
+  // `stat` operations cost 1 and `readdir` operations cost 1 + D, where D is
+  // the number of dirents.
+  optional uint64 glob_filesystem_operation_cost = 7;
 }

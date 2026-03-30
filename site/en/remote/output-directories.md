@@ -26,24 +26,27 @@ Requirements for an output directory layout:
 
 The solution that's currently implemented:
 
-* Bazel must be invoked from a directory containing a repo boundary file, or a
-  subdirectory thereof. In other words, Bazel must be invoked from inside a
+* Bazel must be invoked from a directory containing a repository boundary file,
+or a subdirectory thereof. In other words, Bazel must be invoked from inside a
   [repository](../external/overview#repository). Otherwise, an error is
   reported.
-* The _outputRoot_ directory defaults to `${XDG_CACHE_HOME}/bazel` (or
-  `~/.cache/bazel`, if the `XDG_CACHE_HOME` environment variable is not set) on
-  Linux, `/private/var/tmp` on macOS, and on Windows it defaults to `%HOME%` if
-  set, else `%USERPROFILE%` if set, else the result of calling
-  `SHGetKnownFolderPath()` with the `FOLDERID_Profile` flag set. If the
-  environment variable `$TEST_TMPDIR` is set, as in a test of Bazel itself,
-  then that value overrides the default.
+* The _outputRoot_ directory defaults to ~/.cache/bazel on Linux,
+  `~/Library/Caches/bazel` on macOS (when using Bazel 9 and newer),
+  and on Windows it defaults to `%HOME%` if set, else `%USERPROFILE%`
+  if set, else the result of calling `SHGetKnownFolderPath()` with the
+  `FOLDERID_Profile` flag set. If the environment variable `$XDG_CACHE_HOME`
+  is set on either Linux or macOS, the value `${XDG_CACHE_HOME}/bazel` will
+  override the default. If the environment variable `$TEST_TMPDIR` is set,
+  as in a test of Bazel itself, then that value overrides any defaults.
+  * Note that Bazel 8.x and earlier on macOS used `/private/var/tmp` as _outputR
+  oot_,and ignored `$XDG_CACHE_HOME`.
 * The Bazel user's build state is located beneath `outputRoot/_bazel_$USER`.
   This is called the _outputUserRoot_ directory.
 * Beneath the `outputUserRoot` directory there is an `install` directory, and in
   it is an `installBase` directory whose name is the MD5 hash of the Bazel
   installation manifest.
 * Beneath the `outputUserRoot` directory, an `outputBase` directory
-  is also created whose name is the MD5 hash of the path name of the workspace
+  is also created whose name is the MD5 hash of the path of the workspace
   root. So, for example, if Bazel is running in the workspace root
   `/home/user/src/my-project` (or in a directory symlinked to that one), then
   an output base directory is created called:
@@ -127,9 +130,6 @@ The directories are laid out as follows:
                 foo/bartest.log               such as foo/bar.log might be an output of the //foo:bartest test with
                 foo/bartest.status            foo/bartest.status containing exit status of the test (such as
                                               PASSED or FAILED (Exit 1), etc)
-              include/                    <== a tree with include symlinks, generated as needed. The
-                                              bazel-include symlinks point to here. This is used for
-                                              linkstamp stuff, etc.
             host/                         <== BuildConfiguration for build host (user's workstation), for
                                               building prerequisite tools, that will be used in later stages
                                               of the build (ex: Protocol Compiler)

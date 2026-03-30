@@ -344,11 +344,12 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
       }
     }
 
-    // Reject generic types C<T> other than C<?>,
+    // Reject generic types C<T> other than C<?> and C<Object>,
     // since reflective calls check only the toplevel class.
+    TypeMirror objectType = getType("java.lang.Object");
     if (paramType instanceof DeclaredType declaredType) {
       for (TypeMirror typeArg : declaredType.getTypeArguments()) {
-        if (!(typeArg instanceof WildcardType)) {
+        if (!(typeArg instanceof WildcardType) && !types.isSameType(typeArg, objectType)) {
           errorf(
               param,
               "parameter '%s' has generic type %s, but only wildcard type parameters are"
@@ -380,13 +381,10 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
       }
       hasFlag = true;
     }
-    if (hasFlag == paramAnnot.valueWhenDisabled().isEmpty()) {
+    if (hasFlag && paramAnnot.defaultValue().isEmpty()) {
       errorf(
           param,
-          hasFlag
-              ? "Parameter '%s' may be disabled by semantic flag, thus valueWhenDisabled must be"
-                  + " set"
-              : "Parameter '%s' has valueWhenDisabled set, but is always enabled",
+          "Parameter '%s' may be disabled by semantic flag, thus defaultValue must be" + " set",
           paramAnnot.name());
     }
 

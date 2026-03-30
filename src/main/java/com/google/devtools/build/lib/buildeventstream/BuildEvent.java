@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.buildeventstream;
 
+import static com.google.devtools.build.lib.actions.FileArtifactValue.RUNFILES_TREE_MARKER;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -49,7 +51,6 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
      * associated files for.
      */
     public enum LocalFileType {
-      OUTPUT, /* of uncertain file type */
       OUTPUT_FILE,
       OUTPUT_DIRECTORY,
       OUTPUT_SYMLINK,
@@ -64,10 +65,7 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
 
       /** Returns whether the LocalFile is a declared action output. */
       public boolean isOutput() {
-        return this == OUTPUT
-            || this == OUTPUT_FILE
-            || this == OUTPUT_DIRECTORY
-            || this == OUTPUT_SYMLINK;
+        return this == OUTPUT_FILE || this == OUTPUT_DIRECTORY || this == OUTPUT_SYMLINK;
       }
 
       /**
@@ -77,6 +75,11 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
       public static LocalFileType forArtifact(
           Artifact artifact, @Nullable FileArtifactValue metadata) {
         if (metadata != null) {
+          if (metadata.equals(RUNFILES_TREE_MARKER)) {
+            // TODO(tjgq): Remove RUNFILES_TREE_MARKER in favor of RunfilesProxyArtifactValue,
+            // which would make this special case unnecessary.
+            return LocalFileType.OUTPUT_DIRECTORY;
+          }
           return switch (metadata.getType()) {
             case DIRECTORY -> LocalFileType.OUTPUT_DIRECTORY;
             case SYMLINK -> LocalFileType.OUTPUT_SYMLINK;

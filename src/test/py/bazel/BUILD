@@ -1,6 +1,7 @@
 load("@bazel_pip_dev_deps//:requirements.bzl", "requirement")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_python//python:defs.bzl", "py_library", "py_test")
-load("//:workspace_deps.bzl", "gen_workspace_stanza")
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -10,7 +11,7 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
-filegroup(
+sh_library(
     name = "test-deps",
     testonly = 1,
     srcs = ["//src:bazel"],
@@ -25,7 +26,6 @@ py_library(
     testonly = 1,
     srcs = ["test_base.py"],
     data = [
-        ":default_repos_stanza.txt",
         ":test-deps",
         "//src/test/tools/bzlmod:MODULE.bazel.lock",
     ],
@@ -40,21 +40,6 @@ py_library(
     deps = [
         "//third_party/py/abseil",
         requirement("bazel-runfiles"),
-    ],
-)
-
-gen_workspace_stanza(
-    name = "default_repos_stanza",
-    out = "default_repos_stanza.txt",
-    postamble = "load('@rules_python//python:repositories.bzl', 'py_repositories')\n" +
-                "py_repositories()",
-    preamble = "load('@bazel_tools//tools/build_defs/repo:http.bzl', 'http_archive')",
-    repos = [
-        "bazel_skylib",
-        "rules_license",
-        "rules_cc",
-        "rules_python",
-        "rules_shell",
     ],
 )
 
@@ -269,8 +254,9 @@ py_test(
 )
 
 py_test(
-    name = "bazel_workspace_test",
-    srcs = ["bazel_workspace_test.py"],
+    name = "bazel_tools_proto_test",
+    size = "medium",
+    srcs = ["bazel_tools_proto_test.py"],
     deps = [":test_base"],
 )
 
@@ -311,7 +297,7 @@ py_test(
     name = "bazel_fetch_test",
     size = "medium",
     srcs = ["bzlmod/bazel_fetch_test.py"],
-    data = ["//tools/build_defs/repo:http_src"],
+    data = ["//tools/build_defs/repo:mock_srcs"],
     shard_count = 5,
     tags = [
         "requires-network",
@@ -326,7 +312,7 @@ py_test(
     name = "bazel_vendor_test",
     size = "large",
     srcs = ["bzlmod/bazel_vendor_test.py"],
-    data = ["//tools/build_defs/repo:http_src"],
+    data = ["//tools/build_defs/repo:mock_srcs"],
     shard_count = 5,
     tags = [
         "requires-network",
@@ -403,6 +389,30 @@ py_test(
     tags = [
         "requires-network",
     ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
+    name = "repo_contents_cache_test",
+    size = "large",
+    srcs = ["bzlmod/repo_contents_cache_test.py"],
+    shard_count = 4,
+    tags = ["requires-network"],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
+    name = "remote_repo_contents_cache_test",
+    size = "large",
+    srcs = ["bzlmod/remote_repo_contents_cache_test.py"],
+    shard_count = 2,
+    tags = ["requires-network"],
     deps = [
         ":bzlmod_test_utils",
         ":test_base",

@@ -14,6 +14,8 @@
 
 package net.starlark.java.eval;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -31,6 +33,9 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.Types;
 
 /**
  * A Dict is a Starlark dictionary (dict), a mapping from keys to values.
@@ -109,6 +114,10 @@ public class Dict<K, V>
         StarlarkIndexable,
         StarlarkIterable<K> {
 
+  public static TypeConstructor getAssociatedTypeConstructor() {
+    return Types.DICT_CONSTRUCTOR;
+  }
+
   private final Map<K, V> contents;
   // Number of active iterators (unused once frozen).
   private transient int iteratorCount; // transient for serialization by Bazel
@@ -137,6 +146,19 @@ public class Dict<K, V>
     // iteration order.
     this.mutability = Mutability.IMMUTABLE;
     this.contents = contents;
+  }
+
+  @Override
+  public StarlarkType getStarlarkType() {
+    // TODO(ilist@): store the type for non-homogeneous dicts
+    // Current implementation traverses the dict and computes union of all elements - same as most
+    // of the native calls. This is correct, but could be expensive.
+    return isEmpty()
+        ? Types.dict(Types.ANY, Types.ANY)
+        : Types.dict(
+            Types.union(keySet().stream().map(Starlark::getStarlarkType).collect(toImmutableSet())),
+            Types.union(
+                values().stream().map(Starlark::getStarlarkType).collect(toImmutableSet())));
   }
 
   /**
@@ -260,7 +282,7 @@ public class Dict<K, V>
       return defaultValue;
     }
     // TODO(adonovan): improve error; this ain't Python.
-    throw Starlark.errorf("KeyError: %s", Starlark.repr(key));
+    throw Starlark.errorf("KeyError: %s", Starlark.repr(key, thread.getSemantics()));
   }
 
   @StarlarkMethod(
@@ -625,13 +647,13 @@ public class Dict<K, V>
   }
 
   @Override
-  public void repr(Printer printer) {
-    printer.printList(entrySet(), "{", ", ", "}");
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    printer.printList(entrySet(), "{", ", ", "}", semantics);
   }
 
   @Override
   public String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 
   /**
@@ -677,7 +699,7 @@ public class Dict<K, V>
   public Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
     Object v = get(key);
     if (v == null) {
-      throw Starlark.errorf("key %s not found in dictionary", Starlark.repr(key));
+      throw Starlark.errorf("key %s not found in dictionary", Starlark.repr(key, semantics));
     }
     return v;
   }

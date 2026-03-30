@@ -67,7 +67,7 @@ java_library(
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
-        "@protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -172,8 +172,8 @@ bootstrap_java_library(
         "//:bootstrap-derived-java-jars",
         "//third_party:bootstrap_guava_and_error_prone-jars",
         "//third_party:jsr305-jars",
+        "//third_party:javax_annotations-jars",
         "//third_party/java/jacoco:core-jars",
-        "//third_party:tomcat_annotations_api-jars",
     ],
     neverlink_jars = ["//third_party:auto_value-jars"],
     tags = ["manual"],

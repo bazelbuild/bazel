@@ -34,6 +34,7 @@ def windows_dll_library(
         srcs = srcs + hdrs,
         deps = deps,
         linkshared = 1,
+        target_compatible_with = ["@platforms//os:windows"],
         **kwargs
     )
 
@@ -42,6 +43,7 @@ def windows_dll_library(
         name = import_lib_name,
         srcs = [":" + dll_name],
         output_group = "interface_library",
+        target_compatible_with = ["@platforms//os:windows"],
     )
 
     # Because we cannot directly depend on cc_binary from other cc rules in deps attribute,
@@ -50,6 +52,7 @@ def windows_dll_library(
         name = import_target_name,
         interface_library = ":" + import_lib_name,
         shared_library = ":" + dll_name,
+        target_compatible_with = ["@platforms//os:windows"],
     )
 
     # Create a new cc_library to also include the headers needed for the shared library
@@ -60,4 +63,5 @@ def windows_dll_library(
         deps = deps + [
             ":" + import_target_name,
         ],
+        target_compatible_with = ["@platforms//os:windows"],
     )

@@ -53,8 +53,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.runtime.CrashDebuggingProtos.InflightActionInfo;
+import com.google.devtools.build.lib.skyframe.AnalysisProgressReceiver;
 import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetProgressReceiver;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
@@ -65,9 +65,8 @@ import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -75,7 +74,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
@@ -361,10 +359,11 @@ class UiStateTracker {
   private final AtomicInteger activeActionUploads = new AtomicInteger(0);
   private final AtomicInteger activeActionDownloads = new AtomicInteger(0);
 
-  // running downloads are identified by the original URL they were trying to access.
-  private final Deque<String> runningDownloads;
-  private final Map<String, Long> downloadNanoStartTimes;
-  private final Map<String, FetchProgress> downloads;
+  // Running downloads are identified by the original URL they were trying to access.
+  private final ConcurrentHashMap<String, DownloadData> runningDownloads =
+      new ConcurrentHashMap<>();
+
+  private record DownloadData(FetchProgress latestEvent, long nanoStartTime) {}
 
   /**
    * For each test, the list of actions (as identified by the primary output artifact) currently
@@ -384,7 +383,7 @@ class UiStateTracker {
 
   @Nullable protected ExecutionProgressReceiver executionProgressReceiver;
   @Nullable protected PackageProgressReceiver packageProgressReceiver;
-  @Nullable protected ConfiguredTargetProgressReceiver configuredTargetProgressReceiver;
+  @Nullable protected AnalysisProgressReceiver analysisProgressReceiver;
 
   // Set of build event protocol transports that need yet to be closed.
   private final Set<BuildEventTransport> bepOpenTransports = new HashSet<>();
@@ -396,9 +395,6 @@ class UiStateTracker {
 
     this.actionsCompleted = new AtomicInteger();
     this.testActions = new ConcurrentHashMap<>();
-    this.runningDownloads = new ArrayDeque<>();
-    this.downloads = new TreeMap<>();
-    this.downloadNanoStartTimes = new TreeMap<>();
     this.ok = true;
     this.clock = clock;
     this.targetWidth = targetWidth;
@@ -434,7 +430,7 @@ class UiStateTracker {
   }
 
   void configurationStarted(ConfigurationPhaseStartedEvent event) {
-    configuredTargetProgressReceiver = event.getConfiguredTargetProgressReceiver();
+    analysisProgressReceiver = event.getAnalysisProgressReceiver();
   }
 
   void loadingComplete(LoadingPhaseCompleteEvent event) {
@@ -461,15 +457,15 @@ class UiStateTracker {
     if (packageProgressReceiver != null) {
       Pair<String, String> progress = packageProgressReceiver.progressState();
       workDone += " (" + progress.getFirst();
-      if (configuredTargetProgressReceiver != null) {
-        workDone += ", " + configuredTargetProgressReceiver.getProgressString();
+      if (analysisProgressReceiver != null) {
+        workDone += ", " + analysisProgressReceiver.getProgressString();
       }
       workDone += ")";
     }
     workDone += ".";
     status = null;
     packageProgressReceiver = null;
-    configuredTargetProgressReceiver = null;
+    analysisProgressReceiver = null;
     return workDone;
   }
 
@@ -479,6 +475,7 @@ class UiStateTracker {
 
   Event buildComplete(BuildCompleteEvent event) {
     setBuildComplete();
+    executionProgressReceiver = null;
 
     status = null;
     additionalMessage = "";
@@ -520,23 +517,14 @@ class UiStateTracker {
     buildCompleteAt = Instant.ofEpochMilli(clock.currentTimeMillis());
   }
 
-  synchronized void downloadProgress(FetchProgress event) {
-    String url = event.getResourceIdentifier();
-    if (event.isFinished()) {
-      // a download is finished, clean it up
-      runningDownloads.remove(url);
-      downloadNanoStartTimes.remove(url);
-      downloads.remove(url);
-    } else if (runningDownloads.contains(url)) {
-      // a new progress update on an already known, still running download
-      downloads.put(url, event);
-    } else {
-      // Start of a new download
-      long nanoTime = clock.nanoTime();
-      runningDownloads.add(url);
-      downloads.put(url, event);
-      downloadNanoStartTimes.put(url, nanoTime);
-    }
+  void downloadProgress(FetchProgress event) {
+    runningDownloads.compute(
+        event.getResourceIdentifier(),
+        (unusedKey, latestData) ->
+            event.isFinished()
+                ? null
+                : new DownloadData(
+                    event, latestData != null ? latestData.nanoStartTime : clock.nanoTime()));
   }
 
   private ActionState getActionState(
@@ -912,16 +900,27 @@ class UiStateTracker {
     return prefix + message + postfix;
   }
 
-  protected ActionState getOldestAction() {
-    long minStart = Long.MAX_VALUE;
-    ActionState result = null;
+  private ActionState getOldestAction() {
+    long minRunningStart = Long.MAX_VALUE;
+    ActionState oldestRunning = null;
+    long minScheduledStart = Long.MAX_VALUE;
+    ActionState oldestScheduled = null;
+
     for (ActionState action : activeActions.values()) {
-      if (action.nanoStartTime < minStart) {
-        minStart = action.nanoStartTime;
-        result = action;
+      if (action.getPhase().equals(ActionPhase.RUNNING)) {
+        if (action.nanoStartTime < minRunningStart) {
+          minRunningStart = action.nanoStartTime;
+          oldestRunning = action;
+        }
+      } else {
+        if (action.nanoStartTime < minScheduledStart) {
+          minScheduledStart = action.nanoStartTime;
+          oldestScheduled = action;
+        }
       }
     }
-    return result;
+
+    return oldestRunning != null ? oldestRunning : oldestScheduled;
   }
 
   protected String countActions() {
@@ -1055,7 +1054,7 @@ class UiStateTracker {
     if (packageProgressReceiver != null) {
       return true;
     }
-    if (runningDownloads.size() >= 1) {
+    if (!runningDownloads.isEmpty()) {
       return true;
     }
     if (buildCompleted() && hasActivities()) {
@@ -1134,15 +1133,19 @@ class UiStateTracker {
   }
 
   private void reportOnOneDownload(
-      String url, long nanoTime, int width, AnsiTerminalWriter terminalWriter) throws IOException {
+      String url,
+      DownloadData downloadData,
+      long currentNanoTime,
+      int width,
+      AnsiTerminalWriter terminalWriter)
+      throws IOException {
 
     String postfix = "";
 
-    FetchProgress download = downloads.get(url);
-    long nanoDownloadTime = nanoTime - downloadNanoStartTimes.get(url);
+    long nanoDownloadTime = currentNanoTime - downloadData.nanoStartTime();
     long downloadSeconds = nanoDownloadTime / NANOS_PER_SECOND;
 
-    String progress = download.getProgress();
+    String progress = downloadData.latestEvent().getProgress();
     if (!progress.isEmpty()) {
       postfix = postfix + " " + progress;
     }
@@ -1158,11 +1161,14 @@ class UiStateTracker {
 
   protected void reportOnDownloads(PositionAwareAnsiTerminalWriter terminalWriter)
       throws IOException {
+    ArrayList<Map.Entry<String, DownloadData>> runningDownloadsSnapshot =
+        new ArrayList<>(runningDownloads.entrySet());
+    runningDownloadsSnapshot.sort(comparing(entry -> entry.getValue().nanoStartTime()));
     int count = 0;
     long nanoTime = clock.nanoTime();
-    int downloadCount = runningDownloads.size();
+    int downloadCount = runningDownloadsSnapshot.size();
     String suffix = AND_MORE + " (" + downloadCount + " fetches)";
-    for (String url : runningDownloads) {
+    for (Map.Entry<String, DownloadData> download : runningDownloadsSnapshot) {
       if (count >= sampleSize) {
         break;
       }
@@ -1172,7 +1178,8 @@ class UiStateTracker {
       }
       terminalWriter.append(FETCH_PREFIX);
       reportOnOneDownload(
-          url,
+          download.getKey(),
+          download.getValue(),
           nanoTime,
           targetWidth
               - FETCH_PREFIX.length()
@@ -1308,7 +1315,7 @@ class UiStateTracker {
         maybeShowRecentTest(
             terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());
         String statusMessage =
-            describeAction(oldestAction, clock.nanoTime(), targetWidth - 4, /*toSkip=*/ null);
+            describeAction(oldestAction, clock.nanoTime(), targetWidth - 4, /* toSkip= */ null);
         terminalWriter.normal().newline().append("    " + statusMessage);
       } else {
         String statusMessage =
@@ -1316,7 +1323,7 @@ class UiStateTracker {
                 oldestAction,
                 clock.nanoTime(),
                 targetWidth - terminalWriter.getPosition() - 1,
-                /*toSkip=*/ null);
+                /* toSkip= */ null);
         terminalWriter.normal().append(" " + statusMessage);
       }
     } else {
@@ -1326,7 +1333,7 @@ class UiStateTracker {
                 oldestAction,
                 clock.nanoTime(),
                 targetWidth - terminalWriter.getPosition(),
-                /*toSkip=*/ null);
+                /* toSkip= */ null);
         statusMessage += " ... (" + countActions() + ")";
         terminalWriter.normal().append(" " + statusMessage);
       } else {
@@ -1365,8 +1372,8 @@ class UiStateTracker {
       if (packageProgressReceiver != null) {
         Pair<String, String> progress = packageProgressReceiver.progressState();
         terminalWriter.append(" (" + progress.getFirst());
-        if (configuredTargetProgressReceiver != null) {
-          terminalWriter.append(", " + configuredTargetProgressReceiver.getProgressString());
+        if (analysisProgressReceiver != null) {
+          terminalWriter.append(", " + analysisProgressReceiver.getProgressString());
         }
         terminalWriter.append(")");
         if (!progress.getSecond().isEmpty() && !shortVersion) {

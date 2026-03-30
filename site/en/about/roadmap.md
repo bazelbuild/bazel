@@ -4,144 +4,96 @@ Book: /_book.yaml
 
 {% include "_buttons.html" %}
 
-## Overview {:#overview}
+As Bazel continues to evolve in response to your needs, we want to share our
+2025 roadmap update.
 
-As the Bazel project continues to evolve in response to your needs, we want to
-share our 2024 update.
+We plan to bring Bazel 9.0
+[long term support (LTS)](https://bazel.build/release/versioning) to you in late
+2025.
 
-This roadmap describes current initiatives and predictions for the future of
-Bazel development, giving you visibility into current priorities and ongoing
-projects.
+## Full transition to Bzlmod
 
-## Bazel 8.0 Release {:#bazel-8.0}
+[Bzlmod](https://bazel.build/docs/bzlmod) has been the standard external
+dependency system in Bazel since Bazel 7, replacing the legacy WORKSPACE system.
+As of March 2025, the [Bazel Central Registry](https://registry.bazel.build/)
+hosts more than 650 modules.
 
-We plan to bring Bazel 8.0 [long term support
-(LTS)](https://bazel.build/release/versioning) to you in late 2024.
-The following features are planned to be implemented.
+With Bazel 9, we will completely remove WORKSPACE functionality, and Bzlmod will
+be the only way to introduce external dependencies in Bazel. To minimize the
+migration cost for the community, we'll focus on further improving our migration
+[guide](https://bazel.build/external/migration) and
+[tool](https://github.com/bazelbuild/bazel-central-registry/tree/main/tools#migrate_to_bzlmodpy).
 
-### Bzlmod: external dependency management system {:#bzlmod:-external}
+Additionally, we aim to implement an improved shared repository cache (see
+[#12227](https://github.com/bazelbuild/bazel/issues/12227))
+with garbage collection, and may backport it to Bazel 8. The Bazel Central
+Registry will also support verifying SLSA attestations.
 
-[Bzlmod](https://bazel.build/docs/bzlmod) automatically resolves transitive
-dependencies, allowing projects to scale while staying fast and
-resource-efficient.
+## Migration of Android, C++, Java, Python, and Proto rules
 
-With Bazel 8, we will disable WORKSPACE support by default (it will still be
-possible to enable it using `--enable_workspace`); with Bazel 9 WORKSPACE
-support will be removed. Starting with Bazel 7.1, you can set
-`--noenable_workspace` to opt into the new behavior.
+With Bazel 8, we have migrated support for Android, Java, Python, and Proto
+rules out of the Bazel codebase into Starlark rules in their corresponding
+repositories. To ease the migration, we implemented the autoload features in
+Bazel, which can be controlled with
+[--incompatible_autoload_externally](https://github.com/bazelbuild/bazel/issues/23043)
+and [--incompatible_disable_autoloads_in_main_repo](https://github.com/bazelbuild/bazel/issues/25755)
+flags.
 
-Bazel 8.0 will contain a number of enhancements to
-[Bazel's external dependency management]
-(https://docs.google.com/document/d/1moQfNcEIttsk6vYanNKIy3ZuK53hQUFq1b1r0rmsYVg/edit#heading=h.lgyp7ubwxmjc)
-functionality, including:
+With Bazel 9, we aim to disable autoloads by default and require every project
+to explicitly load required rules in BUILD files.
 
-*   The new flag `--enable_workspace` can be set to `false` to completely
-    disable WORKSPACE functionality.
-*   New directory watching API (see
-    [#21435](https://github.com/bazelbuild/bazel/pull/21435), shipped in Bazel
-    7.1).
-*   Improved scheme for generating canonical repository names for better
-    cacheability of actions across dependency version updates.
-    ([#21316](https://github.com/bazelbuild/bazel/pull/21316), shipped in Bazel
-    7.1)
-*   An improved shared repository cache (see
-    [#12227](https://github.com/bazelbuild/bazel/issues/12227)).
-*   Vendor and offline mode support — allows users to run builds with
-    pre-downloaded dependencies (see
-    [#19563](https://github.com/bazelbuild/bazel/issues/19563)).
-*   Reduced merge conflicts in lock files
-    ([#20396](https://github.com/bazelbuild/bazel/issues/20369)).
-*   Segmented MODULE.bazel
-    ([#17880](https://github.com/bazelbuild/bazel/issues/17880))
-*   Allow overriding module extension generated repository
-    ([#19301](https://github.com/bazelbuild/bazel/issues/19301))
-*   Improved documentation (e.g.
-    [#18030](https://github.com/bazelbuild/bazel/issues/18030),
-    [#15821](https://github.com/bazelbuild/bazel/issues/15821)) and migration
-    guide and migration tooling.
+We will rewrite most of C++ language support to Starlark, detach it from Bazel
+binary and move it into the [/rules_cc](https://github.com/bazelbuild/rules_cc)
+repository. This is the last remaining major language support that is still part
+of Bazel.
 
-### Remote execution improvements {:#remote-execution}
+We're also porting unit tests for C++, Java, and Proto rules to Starlark, moving
+them to repositories next to the implementation to increase velocity of rule
+authors.
 
-*   Add support for asynchronous execution, speeding up remote execution by
-    increased parallelism with flag `--jobs`.
-*   Make it easier to debug cache misses by a new compact execution log,
-    reducing its size by 100x and its runtime overhead significantly (see
-    [#18643](https://github.com/bazelbuild/bazel/issues/18643)).
-*   Implement garbage collection for the disk cache (see
-    [#5139](https://github.com/bazelbuild/bazel/issues/5139)).
-*   Implement remote output service to allow lazy downloading of arbitrary build
-    outputs (see
-    [#20933](https://github.com/bazelbuild/bazel/discussions/20933)).
+## Starlark improvements
 
-### Migration of Android, C++, Java, Python, and Proto rules {:#migration-android,}
+Bazel will have the ability to evaluate symbolic macros lazily. This means that
+a symbolic macro won't run if the targets it declares are not requested,
+improving performance for very large packages.
 
-Complete migration of Android, C++, Java, and Python rulesets to dedicated
-repositories and decoupling them from the Bazel releases. This effort allows
-Bazel users and rule authors to
+Starlark will have an experimental type system, similar to Python's type
+annotations. We expect the type system to stabilize _after_ Bazel 9 is launched.
 
-*   Update rules independently of Bazel.
-*   Update and customize rules as needed.
+## Configurability
 
-The new location of the rulesets is going to be `bazelbuild/rules_android`,
-`rules_cc`, `rules_java`, `rules_python` and `google/protobuf`. `rules_proto` is
-going to be deprecated.
+Our main focus is reducing the cost and confusion of build flags.
 
-Bazel 8 will provide a temporary migration flag that will automatically use the
-rulesets that were previously part of the binary from their repositories. All
-the users of those rulesets are expected to eventually depend on their
-repositories and load them similarly to other rulesets that were never part of
-Bazel.
+We're [experimenting](https://github.com/bazelbuild/bazel/issues/24839) with a
+new project configuration model that doesn't make users have to know which build
+and test flags to set where. So `$ bazel test //foo` automatically sets the
+right flags based on `foo`'s project's policy. This will likely remain
+experimental in 9.0 but guiding feedback is welcome.
 
-Bazel 8 will also improve on the existing extending rules and subrule APIs and
-mark them as non-experimental.
+[Flag scoping](https://github.com/bazelbuild/bazel/issues/24042) lets you strip
+out Starlark flags when they leave project boundaries, so they don't break
+caching on transitive dependencies that don't need them. This makes builds that
+use [transitions](https://bazel.build/extending/config#user-defined-transitions)
+cheaper and faster.
+[Here's](https://github.com/gregestren/snippets/tree/master/project_scoped_flags)
+an example. We're extending the idea to control which flags propagate to
+[exec configurations](https://bazel.build/extending/rules#configurations) and
+are considering even more flexible support like custom Starlark to determine
+which dependency edges should propagate flags.
 
-### Starlark improvements {:#starlark-improvements}
+We're up-prioritizing effort to move built-in language flags out of Bazel and
+into Starlark, where they can live with related rule definitions.
 
-*   Symbolic Macros are a new way of writing macros that is friendlier to
-    `BUILD` users, macro authors, and tooling. Compared to legacy macros, which
-    Bazel has only limited insight into, symbolic macros help users avoid common
-    pitfalls and enforce best practices.
-*   Package finalizers are a proposed feature for adding first-class support for
-    custom package validation logic. They are intended to help us deprecate
-    `native.existing_rules()`.
+## Remote execution improvements
 
-### Configurability {:#configurability}
+We plan to add support for asynchronous execution, speeding up remote execution
+by increasing parallelism.
 
-*   Output path mapping continues to stabilize: promising better remote cache
-    performance and build speed for rule designers who use transitions.
-*   Automatically set build flags suitable for a given `--platforms`.
-*   Define project-supported flag combinations and automatically build targets
-    with default flags without having to set bazelrcs.
-*   Don't redo build analysis every time build flags change.
+---
 
-### Project Skyfocus - minimize retained data structures {:#project-skyfocus}
+To follow updates to the roadmap and discuss planned features, join the
+community Slack server at [slack.bazel.build](https://slack.bazel.build/).
 
-Bazel holds a lot of state in RAM for fast incremental builds. However,
-developers often change a small subset of the source files (e.g. almost never
-one of the external dependencies). With Skyfocus, Bazel will provide an
-experimental way to drop unnecessary incremental state and reduce Bazel's memory
-footprint, while still providing the same fast incremental build experience.
-
-The initial scope aims to improve the retained heap metric only. Peak heap
-reduction is a possibility, but not included in the initial scope.
-
-### Misc {:#misc}
-
-*   Mobile install v3, a simpler and better maintained approach to incrementally
-    deploy Android applications.
-*   Garbage collection for repository caches and Bazel's `install_base`.
-*   Reduced sandboxing overhead.
-
-### Bazel-JetBrains* IntelliJ IDEA support {:#bazel-jetbrains*-intellij}
-
-Incremental IntelliJ plugin updates to support the latest JetBrains plugin
-release.
-
-*This roadmap snapshots targets, and should not be taken as guarantees.
-Priorities are subject to change in response to developer and customer
-feedback, or new market opportunities.*
-
-*To be notified of new features — including updates to this roadmap — join the
-[Google Group](https://groups.google.com/g/bazel-discuss) community.*
-
-*Copyright © 2022 JetBrains s.r.o. JetBrains and IntelliJ are registered trademarks of JetBrains s.r.o
+*This roadmap is intended to help inform the community about the team's
+intentions for Bazel 9.0. Priorities are subject to change in response to
+developer and customer feedback, or to new market opportunities.*

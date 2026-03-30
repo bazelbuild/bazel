@@ -16,13 +16,15 @@ package com.google.devtools.build.lib.analysis.platform;
 
 import static java.util.Objects.requireNonNull;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -46,20 +48,36 @@ public record PlatformValue(PlatformInfo platformInfo, Optional<ParsedFlagsValue
     return new PlatformValue(platformInfo, Optional.of(parsedFlags));
   }
 
-  public static PlatformKey key(Label platformLabel) {
-    return PlatformKey.intern(new PlatformKey(platformLabel));
+  public static Key key(Label platformLabel, ImmutableMap<String, Label> flagAliasMappings) {
+    return Key.create(platformLabel, flagAliasMappings);
   }
 
-  private static final class PlatformKey extends AbstractSkyKey<Label> {
-    private static final SkyKeyInterner<PlatformKey> interner = new SkyKeyInterner<>();
+  /** Key definition. */
+  @AutoCodec
+  public static final class Key implements SkyKey {
+    private static final SkyKeyInterner<Key> interner = new SkyKeyInterner<>();
 
-    @AutoCodec.Interner
-    static PlatformKey intern(PlatformKey key) {
-      return interner.intern(key);
+    private final Label label;
+    private final ImmutableMap<String, Label> flagAliasMappings;
+    private final int hashCode;
+
+    private Key(Label label, ImmutableMap<String, Label> flagAliasMappings) {
+      this.label = requireNonNull(label);
+      this.flagAliasMappings = requireNonNull(flagAliasMappings);
+      this.hashCode = Objects.hash(label, flagAliasMappings);
     }
 
-    private PlatformKey(Label arg) {
-      super(arg);
+    @AutoCodec.Instantiator
+    static Key create(Label label, ImmutableMap<String, Label> flagAliasMappings) {
+      return interner.intern(new Key(label, flagAliasMappings));
+    }
+
+    public Label label() {
+      return label;
+    }
+
+    public ImmutableMap<String, Label> flagAliasMappings() {
+      return flagAliasMappings;
     }
 
     @Override
@@ -68,8 +86,29 @@ public record PlatformValue(PlatformInfo platformInfo, Optional<ParsedFlagsValue
     }
 
     @Override
-    public SkyKeyInterner<PlatformKey> getSkyKeyInterner() {
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
       return interner;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof Key key)) {
+        return false;
+      }
+      return label.equals(key.label) && flagAliasMappings.equals(key.flagAliasMappings);
+    }
+
+    @Override
+    public int hashCode() {
+      return hashCode;
+    }
+
+    @Override
+    public String toString() {
+      return "Key[label=" + label + ", flagAliasMappings=" + flagAliasMappings + "]";
     }
   }
 }

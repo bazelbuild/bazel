@@ -24,14 +24,11 @@ import com.google.devtools.build.lib.actions.util.InjectedActionLookupKey;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheDeps;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
-import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -85,10 +82,7 @@ abstract class ArtifactFunctionTestCase {
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     BlazeDirectories directories =
         new BlazeDirectories(
-            new ServerDirectories(root, root, root),
-            root,
-            /* defaultSystemJavabase= */ null,
-            TestConstants.PRODUCT_NAME);
+            new ServerDirectories(root, root, root), root, TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper =
         ExternalFilesHelper.createForTesting(
             pkgLocator,
@@ -112,7 +106,8 @@ abstract class ArtifactFunctionTestCase {
                         () -> true,
                         MetadataConsumerForMetrics.NO_OP,
                         SyscallCache.NO_CACHE,
-                        () -> DisabledDependenciesProvider.INSTANCE))
+                        /* actionExecutor= */ null, // only used by remote analysis caching
+                        () -> RemoteAnalysisCacheDeps.createDisabled()))
                 .put(SkyFunctions.ACTION_EXECUTION, new SimpleActionExecutionFunction())
                 .put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build())
                 .put(
@@ -120,21 +115,7 @@ abstract class ArtifactFunctionTestCase {
                     new PackageLookupFunction(
                         null,
                         CrossRepositoryLabelViolationStrategy.ERROR,
-                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
-                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
-                .put(
-                    WorkspaceFileValue.WORKSPACE_FILE,
-                    new WorkspaceFileFunction(
-                        TestRuleClassProvider.getRuleClassProvider(),
-                        TestPackageFactoryBuilderFactory.getInstance()
-                            .builder(directories)
-                            .build(TestRuleClassProvider.getRuleClassProvider(), fs),
-                        directories,
-                        /* bzlLoadFunctionForInlining= */ null))
-                .put(
-                    SkyFunctions.EXTERNAL_PACKAGE,
-                    new ExternalPackageFunction(
-                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
+                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,
                     new ActionTemplateExpansionFunction(actionKeyContext))
@@ -179,7 +160,7 @@ abstract class ArtifactFunctionTestCase {
 
     @Override
     @SuppressWarnings("UnsynchronizedOverridesSynchronized")
-    protected byte[] getFastDigest(PathFragment path) throws IOException {
+    public byte[] getFastDigest(PathFragment path) throws IOException {
       return fastDigest ? getDigest(path) : null;
     }
   }

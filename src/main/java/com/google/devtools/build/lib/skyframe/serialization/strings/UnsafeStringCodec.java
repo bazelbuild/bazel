@@ -38,8 +38,6 @@ public final class UnsafeStringCodec extends LeafObjectCodec<String> {
    */
   private static final UnsafeStringCodec INSTANCE = new UnsafeStringCodec();
 
-  private static final StringUnsafe STRING_UNSAFE = StringUnsafe.getInstance();
-
   public static UnsafeStringCodec stringCodec() {
     return INSTANCE;
   }
@@ -52,8 +50,8 @@ public final class UnsafeStringCodec extends LeafObjectCodec<String> {
   @Override
   public void serialize(LeafSerializationContext context, String obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    byte coder = STRING_UNSAFE.getCoder(obj);
-    byte[] value = STRING_UNSAFE.getByteArray(obj);
+    byte coder = StringUnsafe.getCoder(obj);
+    byte[] value = StringUnsafe.getByteArray(obj);
     // Optimize for the case that coder == 0, in which case we can just write the length here,
     // potentially using just one byte. If coder != 0, we'll use 4 bytes, but that's vanishingly
     // rare.
@@ -79,6 +77,6 @@ public final class UnsafeStringCodec extends LeafObjectCodec<String> {
       length = -length;
     }
     byte[] value = codedIn.readRawBytes(length);
-    return STRING_UNSAFE.newInstance(value, coder);
+    return StringUnsafe.newInstance(value, coder);
   }
 }

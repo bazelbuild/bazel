@@ -31,21 +31,21 @@ class BazelYankedVersionsTest(test_base.TestBase):
         os.path.join(self.registries_work_dir, 'main')
     )
     self.main_registry.start()
-    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+    self.main_registry.createShModule('aaa', '1.0').createShModule(
         'aaa', '1.1'
-    ).createCcModule('bbb', '1.0', {'aaa': '1.0'}).createCcModule(
+    ).createShModule('bbb', '1.0', {'aaa': '1.0'}).createShModule(
         'bbb', '1.1', {'aaa': '1.1'}
-    ).createCcModule(
+    ).createShModule(
         'ccc', '1.1', {'aaa': '1.1', 'bbb': '1.1'}
-    ).createCcModule(
+    ).createShModule(
         'ddd', '1.0', {'yanked1': '1.0', 'yanked2': '1.0'}
-    ).createCcModule(
+    ).createShModule(
         'eee', '1.0', {'yanked1': '1.0'}
-    ).createCcModule(
+    ).createShModule(
         'fff', '1.0'
-    ).createCcModule(
+    ).createShModule(
         'yanked1', '1.0'
-    ).createCcModule(
+    ).createShModule(
         'yanked2', '1.0'
     ).addMetadata(
         'yanked1', yanked_versions={'1.0': 'dodgy'}
@@ -64,7 +64,6 @@ class BazelYankedVersionsTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'build --noenable_workspace',
             'build --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
@@ -99,12 +98,14 @@ class BazelYankedVersionsTest(test_base.TestBase):
             ')',
         ],
     )
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@yanked1//:lib_yanked1"],',
             ')',
         ],
@@ -119,12 +120,14 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "yanked1", version = "1.0")',
         ],
     )
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@ddd//:lib_ddd"],',
             ')',
         ],
@@ -147,12 +150,14 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "ddd", version = "1.0")',
         ],
     )
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@ddd//:lib_ddd"],',
             ')',
         ],
@@ -174,12 +179,14 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "ddd", version = "1.0")',
         ],
     )
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@ddd//:lib_ddd"],',
             ')',
         ],
@@ -210,12 +217,14 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "ddd", version = "1.0")',
         ],
     )
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@ddd//:lib_ddd"],',
             ')',
         ],
@@ -246,12 +255,14 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "ddd", version = "1.0")',
         ],
     )
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@ddd//:lib_ddd"],',
             ')',
         ],
@@ -274,12 +285,14 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "aaa", version = "1.0")',
         ],
     )
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@aaa//:lib_aaa"],',
             ')',
         ],
@@ -305,6 +318,7 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "fff", version = "1.0")',
         ],
     )
+    self.AddBazelDep('rules_shell')
     self.RunBazel(['build', '--nobuild', '//:main'])
     self.RunBazel(['shutdown'])
     self.RunBazel(['build', '--nobuild', '//:main'])
@@ -320,6 +334,7 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "bbb", version = "1.1")',
         ],
     )
+    self.AddBazelDep('rules_shell')
     exit_code, _, stderr = self.RunBazel(
         ['build', '--nobuild', '//:main'], allow_failure=True
     )
@@ -338,12 +353,14 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "aaa", version = "1.0")',
         ],
     )
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@aaa//:lib_aaa"],',
             ')',
         ],
@@ -378,12 +395,14 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "aaa", version = "1.0")',
         ],
     )
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@aaa//:lib_aaa"],',
             ')',
         ],
@@ -416,12 +435,14 @@ class BazelYankedVersionsTest(test_base.TestBase):
             'bazel_dep(name = "aaa", version = "1.0")',
         ],
     )
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'BUILD',
         [
-            'cc_binary(',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
             '  name = "main",',
-            '  srcs = ["main.cc"],',
+            '  srcs = ["main.sh"],',
             '  deps = ["@aaa//:lib_aaa"],',
             ')',
         ],

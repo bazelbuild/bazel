@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.worker;
 
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NETNS;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -39,56 +38,24 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedMap;
 import javax.annotation.Nullable;
 
 /** A {@link SingleplexWorker} that runs inside a sandboxed execution root. */
 final class SandboxedWorker extends SingleplexWorker {
-  @AutoValue
-  public abstract static class WorkerSandboxOptions {
-    // Need to have this data class because we can't depend on SandboxOptions in here.
-    abstract boolean fakeHostname();
 
-    abstract boolean fakeUsername();
-
-    abstract boolean debugMode();
-
-    abstract ImmutableList<PathFragment> tmpfsPath();
-
-    abstract ImmutableList<String> writablePaths();
-
-    abstract Path sandboxBinary();
-
-    abstract int memoryLimit();
-
-    abstract ImmutableSet<Path> inaccessiblePaths();
-
-    abstract ImmutableList<Entry<String, String>> additionalMountPaths();
-
-    public static WorkerSandboxOptions create(
-        Path sandboxBinary,
-        boolean fakeHostname,
-        boolean fakeUsername,
-        boolean debugMode,
-        ImmutableList<PathFragment> tmpfsPath,
-        ImmutableList<String> writablePaths,
-        int memoryLimit,
-        ImmutableSet<Path> inaccessiblePaths,
-        ImmutableList<Entry<String, String>> sandboxAdditionalMounts) {
-      return new AutoValue_SandboxedWorker_WorkerSandboxOptions(
-          fakeHostname,
-          fakeUsername,
-          debugMode,
-          tmpfsPath,
-          writablePaths,
-          sandboxBinary,
-          memoryLimit,
-          inaccessiblePaths,
-          sandboxAdditionalMounts);
-    }
-  }
+  // Need to have this data class because we can't depend on SandboxOptions in here.
+  record WorkerSandboxOptions(
+      Path sandboxBinary,
+      boolean fakeHostname,
+      boolean fakeUsername,
+      boolean debugMode,
+      ImmutableSet<PathFragment> tmpfsPath,
+      ImmutableSet<String> writablePaths,
+      int memoryLimit,
+      ImmutableSet<Path> inaccessiblePaths,
+      ImmutableMap<String, String> additionalMountPaths) {}
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private final WorkerExecRoot workerExecRoot;
@@ -172,7 +139,8 @@ final class SandboxedWorker extends SingleplexWorker {
   }
 
   @Override
-  protected Subprocess createProcess() throws IOException, UserExecException {
+  protected Subprocess createProcess(ImmutableMap<String, String> clientEnv)
+      throws IOException, UserExecException {
     ImmutableList<String> args = makeExecPathAbsolute(workerKey.getArgs());
 
     // We put the sandbox inside a unique subdirectory using the worker's ID.
@@ -198,10 +166,10 @@ final class SandboxedWorker extends SingleplexWorker {
           LinuxSandboxCommandLineBuilder.commandLineBuilder(
                   this.hardenedSandboxOptions.sandboxBinary())
               .setWritableFilesAndDirectories(getWritableDirs(workDir))
-              .setTmpfsDirectories(ImmutableSet.copyOf(this.hardenedSandboxOptions.tmpfsPath()))
+              .setTmpfsDirectories(hardenedSandboxOptions.tmpfsPath())
               .setPersistentProcess(true)
               .setBindMounts(getBindMounts(workDir, sandboxTmp))
-              .setUseFakeHostname(this.hardenedSandboxOptions.fakeHostname())
+              .setUseFakeHostname(hardenedSandboxOptions.fakeHostname())
               .setCreateNetworkNamespace(NETNS);
 
       if (cgroup != null && cgroup.exists()) {
@@ -215,7 +183,7 @@ final class SandboxedWorker extends SingleplexWorker {
       args = commandLineBuilder.buildForCommand(args);
     }
 
-    Subprocess process = createProcessBuilder(args).start();
+    Subprocess process = createProcessBuilder(args, clientEnv).start();
 
     // If using hardened sandbox (aka linux-sandbox), the linux-sandbox parent process moves the
     // sandboxed children processes (pid 1, 2) into the cgroup. But we still need to move the
@@ -229,17 +197,21 @@ final class SandboxedWorker extends SingleplexWorker {
 
   @Override
   public void prepareExecution(
-      SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
+      SandboxInputs inputFiles,
+      SandboxOutputs outputs,
+      Set<PathFragment> workerFiles,
+      ImmutableMap<String, String> clientEnv)
       throws IOException, InterruptedException, UserExecException {
     try (SilentCloseable c = Profiler.instance().profile("workerExecRoot.createFileSystem")) {
       workerExecRoot.createFileSystem(workerFiles, inputFiles, outputs, treeDeleter);
     }
 
-    super.prepareExecution(inputFiles, outputs, workerFiles);
+    super.prepareExecution(inputFiles, outputs, workerFiles, clientEnv);
   }
 
   @Override
-  public void finishExecution(Path execRoot, SandboxOutputs outputs) throws IOException {
+  public void finishExecution(Path execRoot, SandboxOutputs outputs)
+      throws IOException, InterruptedException {
     super.finishExecution(execRoot, outputs);
     if (cgroup != null && cgroup.exists()) {
       // This is only to not leave too much behind in the cgroups tree, can ignore errors.

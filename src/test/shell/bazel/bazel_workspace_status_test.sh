@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -24,7 +24,7 @@ function test_workspace_status_parameters() {
 
   local cmd=`mktemp $TEST_TMPDIR/wsc-XXXXXXXX`
   cat > $cmd <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo BUILD_SCM_STATUS funky
 EOF
@@ -50,7 +50,7 @@ function test_workspace_status_overrides() {
 
   local cmd=`mktemp $TEST_TMPDIR/wsc-XXXXXXXX`
   cat > $cmd <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo BUILD_USER fake_user
 echo BUILD_HOST fake_host
@@ -83,7 +83,7 @@ function test_workspace_status_cpp() {
 
   local cmd=`mktemp $TEST_TMPDIR/wsc-XXXXXXXX`
   cat > $cmd <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo BUILD_SCM_STATUS funky
 EOF
@@ -108,7 +108,10 @@ int main() {
 }
 EOF
 
+  add_rules_cc MODULE.bazel
   cat > a/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_library(
     name="linkstamped_library",
     linkstamp="linkstamped_library.cc")
@@ -144,7 +147,7 @@ function test_stable_and_volatile_status() {
   create_new_workspace
   local wsc=`mktemp $TEST_TMPDIR/wsc-XXXXXXXX`
   cat >$wsc <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 cat $TEST_TMPDIR/status
 EOF
@@ -201,8 +204,7 @@ EOF
   # Extract values of the formatted date and timestamp.
   timestamp=${timestamp_key_value#* }
   formatted_date=${formatted_timestamp_key_value#* }
-  if [[ $(uname -s) == "Darwin" ]]
-  then
+  if is_darwin; then
     timestamp_formatted_date=$(date -u -r "$timestamp" +'%Y %b %d %H %M %S %a')
   else
     timestamp_formatted_date=$(date -u -d "@$timestamp" +'%Y %b %d %H %M %S %a')
@@ -218,7 +220,7 @@ function test_env_var_in_workspace_status() {
   create_new_workspace
   local wsc=`mktemp $TEST_TMPDIR/wsc-XXXXXXXX`
   cat >$wsc <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo "STABLE_ENV" ${STABLE_VAR}
 echo "VOLATILE_ENV" ${VOLATILE_VAR}

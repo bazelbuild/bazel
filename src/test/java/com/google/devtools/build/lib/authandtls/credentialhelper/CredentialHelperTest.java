@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -29,12 +30,18 @@ import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.net.URI;
 import java.time.Duration;
+import java.util.LinkedHashMap;
+import java.util.SequencedMap;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class CredentialHelperTest {
+  static {
+    WindowsSubprocessFactory.maybeInstallWindowsSubprocessFactory();
+  }
+
   private static final PathFragment TEST_WORKSPACE_PATH =
       PathFragment.create(System.getenv("TEST_TMPDIR"));
   private static final PathFragment TEST_CREDENTIAL_HELPER_PATH =
@@ -53,11 +60,16 @@ public class CredentialHelperTest {
     FileSystem fs = FileSystems.getNativeFileSystem();
 
     CredentialHelper credentialHelper = new CredentialHelper(fs.getPath(credHelperPath));
+    SequencedMap<String, String> clientEnv = new LinkedHashMap<>(System.getenv());
+    // Don't cd to the Python credential helper's temporary directory on Windows, which would throw
+    // off test assertions. This variable is set to "1" by the surrounding Java test.
+    clientEnv.remove("RUN_UNDER_RUNFILES");
+    clientEnv.putAll(env);
     return credentialHelper.getCredentials(
         CredentialHelperEnvironment.newBuilder()
             .setEventReporter(reporter)
             .setWorkspacePath(fs.getPath(TEST_WORKSPACE_PATH))
-            .setClientEnvironment(env)
+            .setClientEnvironment(ImmutableMap.copyOf(clientEnv))
             .setHelperExecutionTimeout(Duration.ofSeconds(5))
             .build(),
         URI.create(uri));
@@ -66,7 +78,9 @@ public class CredentialHelperTest {
   private GetCredentialsResponse getCredentialsFromHelper(
       String uri, ImmutableMap<String, String> env) throws Exception {
     String credHelperPath =
-        Runfiles.create().rlocation(TEST_CREDENTIAL_HELPER_PATH.getPathString());
+        Runfiles.preload()
+            .withSourceRepository("")
+            .rlocation(TEST_CREDENTIAL_HELPER_PATH.getPathString());
 
     return getCredentialsFromHelper(credHelperPath, uri, env);
   }

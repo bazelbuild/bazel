@@ -87,6 +87,21 @@ public final class DeterministicHelper extends NotifyingHelper {
     }
 
     @Override
+    public NodeBatch getBatch(
+        @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
+        throws InterruptedException {
+      NodeBatch batch = super.getBatch(requestor, reason, keys);
+      var result = new TreeMap<SkyKey, NodeEntry>(ALPHABETICAL_SKYKEY_COMPARATOR);
+      for (SkyKey key : keys) {
+        NodeEntry entry = batch.get(key);
+        if (entry != null) {
+          result.put(key, entry);
+        }
+      }
+      return result::get;
+    }
+
+    @Override
     public Map<SkyKey, ? extends NodeEntry> getBatchMap(
         @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
         throws InterruptedException {

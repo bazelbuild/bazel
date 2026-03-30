@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.bazel.BazelVersion;
-import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
@@ -38,7 +37,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
-import com.google.devtools.build.lib.skyframe.ClientEnvironmentValue;
+import com.google.devtools.build.lib.skyframe.EnvironmentVariableValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -79,8 +78,8 @@ public class BazelModuleResolutionFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws BazelModuleResolutionFunctionException, InterruptedException {
-    ClientEnvironmentValue allowedYankedVersionsFromEnv =
-        (ClientEnvironmentValue)
+    EnvironmentVariableValue allowedYankedVersionsFromEnv =
+        (EnvironmentVariableValue)
             env.getValue(ClientEnvironmentFunction.key(BZLMOD_ALLOWED_YANKED_VERSIONS_ENV));
     if (allowedYankedVersionsFromEnv == null) {
       return null;
@@ -90,7 +89,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     try {
       allowedYankedVersions =
           YankedVersionsUtil.parseAllowedYankedVersions(
-              allowedYankedVersionsFromEnv.getValue(),
+              allowedYankedVersionsFromEnv.value(),
               Objects.requireNonNull(YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.get(env)));
     } catch (ExternalDepsException e) {
       throw new BazelModuleResolutionFunctionException(e, Transience.PERSISTENT);
@@ -136,7 +135,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
       finalDepGraph =
           computeFinalDepGraph(
               state.discoverAndSelectResult.selectionResult.resolvedDepGraph(),
-              root.getOverrides(),
+              root.overrides(),
               remoteRepoSpecs.buildOrThrow());
     }
 
@@ -163,11 +162,11 @@ public class BazelModuleResolutionFunction implements SkyFunction {
       return null;
     }
 
-    verifyAllOverridesAreOnExistentModules(discoveryResult.depGraph(), root.getOverrides());
+    verifyAllOverridesAreOnExistentModules(discoveryResult.depGraph(), root.overrides());
 
     Selection.Result selectionResult;
     try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.BZLMOD, "selection")) {
-      selectionResult = Selection.run(discoveryResult.depGraph(), root.getOverrides());
+      selectionResult = Selection.run(discoveryResult.depGraph(), root.overrides());
     } catch (ExternalDepsException e) {
       throw new BazelModuleResolutionFunctionException(e, Transience.PERSISTENT);
     }
@@ -269,15 +268,15 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     }
 
     boolean failure = false;
-    for (Map.Entry<String, DepSpec> dep : discoveredRootModule.getDeps().entrySet()) {
-      ModuleKey resolved = resolvedRootModule.getDeps().get(dep.getKey()).toModuleKey();
-      if (!dep.getValue().toModuleKey().equals(resolved)) {
+    for (Map.Entry<String, ModuleKey> dep : discoveredRootModule.getDeps().entrySet()) {
+      ModuleKey resolved = resolvedRootModule.getDeps().get(dep.getKey());
+      if (!dep.getValue().equals(resolved)) {
         String message =
             String.format(
                 "For repository '%s', the root module requires module version %s, but got %s in the"
                     + " resolved dependency graph. Please update the version in your MODULE.bazel"
                     + " or set --check_direct_dependencies=off",
-                dep.getKey(), dep.getValue().toModuleKey(), resolved);
+                dep.getKey(), dep.getValue(), resolved);
         if (mode == CheckDirectDepsMode.WARNING) {
           eventHandler.handle(Event.warn(message));
         } else {

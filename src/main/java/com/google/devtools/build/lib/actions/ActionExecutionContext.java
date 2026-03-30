@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -42,6 +43,7 @@ import com.google.devtools.common.options.OptionsProvider;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
+import java.util.SortedMap;
 import javax.annotation.Nullable;
 
 /** A class that groups services in the scope of the action. Like the FileOutErr object. */
@@ -66,7 +68,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     }
 
     @Override
-    public Map<PathFragment, Artifact> getMapping() {
+    public SortedMap<PathFragment, Artifact> getMapping() {
       return wrapped.getMapping();
     }
 
@@ -117,11 +119,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     }
 
     @Override
-    public boolean isLegacyExternalRunfiles() {
-      return wrapped.isLegacyExternalRunfiles();
-    }
-
-    @Override
     public boolean isMappingCached() {
       return wrapped.isMappingCached();
     }
@@ -158,14 +155,37 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     @Nullable
     @Override
     public FileArtifactValue getInputMetadataChecked(ActionInput input)
-        throws IOException, MissingDepExecException {
+        throws InterruptedException, IOException, MissingDepExecException {
       return wrapped.getInputMetadataChecked(input);
     }
 
     @Nullable
     @Override
-    public ActionInput getInput(String execPath) {
+    public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
+      return wrapped.getTreeMetadata(actionInput);
+    }
+
+    @Nullable
+    @Override
+    public TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath) {
+      return wrapped.getEnclosingTreeMetadata(execPath);
+    }
+
+    @Nullable
+    @Override
+    public ActionInput getInput(PathFragment execPath) {
       return wrapped.getInput(execPath);
+    }
+
+    @Nullable
+    @Override
+    public FilesetOutputTree getFileset(ActionInput input) {
+      return wrapped.getFileset(input);
+    }
+
+    @Override
+    public Map<Artifact, FilesetOutputTree> getFilesets() {
+      return wrapped.getFilesets();
     }
 
     @Nullable
@@ -183,12 +203,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     public ImmutableList<RunfilesTree> getRunfilesTrees() {
       return ImmutableList.of(overriddenTree);
     }
-
-    @Override
-    public FileSystem getFileSystemForInputResolution() {
-      return wrapped.getFileSystemForInputResolution();
-    }
-
   }
 
   /** Enum for --subcommands flag */
@@ -214,19 +228,17 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   private final FileOutErr fileOutErr;
   private final ExtendedEventHandler eventHandler;
   private final ImmutableMap<String, String> clientEnv;
-  private final ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets;
-  @Nullable private final ArtifactExpander artifactExpander;
   @Nullable private final Environment env;
 
   @Nullable private final FileSystem actionFileSystem;
-  @Nullable private final Object skyframeDepsResult;
 
-  private FilesetOutputTree filesetOutput = FilesetOutputTree.EMPTY;
+  private RichArtifactData richArtifactData = null;
 
   private final ArtifactPathResolver pathResolver;
   private final DiscoveredModulesPruner discoveredModulesPruner;
   private final SyscallCache syscallCache;
   private final ThreadStateReceiver threadStateReceiverForMetrics;
+  private final boolean fileSystemSupportsInputDiscovery;
 
   private ActionExecutionContext(
       Executor executor,
@@ -239,14 +251,12 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       FileOutErr fileOutErr,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
-      @Nullable ArtifactExpander artifactExpander,
       @Nullable Environment env,
       @Nullable FileSystem actionFileSystem,
-      @Nullable Object skyframeDepsResult,
       DiscoveredModulesPruner discoveredModulesPruner,
       SyscallCache syscallCache,
-      ThreadStateReceiver threadStateReceiverForMetrics) {
+      ThreadStateReceiver threadStateReceiverForMetrics,
+      boolean fileSystemSupportsInputDiscovery) {
     this.inputMetadataProvider = inputMetadataProvider;
     this.actionInputPrefetcher = actionInputPrefetcher;
     this.actionKeyContext = actionKeyContext;
@@ -256,18 +266,16 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     this.fileOutErr = fileOutErr;
     this.eventHandler = eventHandler;
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
-    this.topLevelFilesets = topLevelFilesets;
     this.executor = executor;
-    this.artifactExpander = artifactExpander;
     this.env = env;
     this.actionFileSystem = actionFileSystem;
-    this.skyframeDepsResult = skyframeDepsResult;
     this.threadStateReceiverForMetrics = threadStateReceiverForMetrics;
     this.pathResolver = ArtifactPathResolver.createPathResolver(actionFileSystem,
         // executor is only ever null in testing.
         executor == null ? null : executor.getExecRoot());
     this.discoveredModulesPruner = discoveredModulesPruner;
     this.syscallCache = syscallCache;
+    this.fileSystemSupportsInputDiscovery = fileSystemSupportsInputDiscovery;
   }
 
   public ActionExecutionContext(
@@ -281,10 +289,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       FileOutErr fileOutErr,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
-      ArtifactExpander artifactExpander,
       @Nullable FileSystem actionFileSystem,
-      @Nullable Object skyframeDepsResult,
       DiscoveredModulesPruner discoveredModulesPruner,
       SyscallCache syscallCache,
       ThreadStateReceiver threadStateReceiverForMetrics) {
@@ -299,14 +304,12 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         fileOutErr,
         eventHandler,
         clientEnv,
-        topLevelFilesets,
-        artifactExpander,
         /* env= */ null,
         actionFileSystem,
-        skyframeDepsResult,
         discoveredModulesPruner,
         syscallCache,
-        threadStateReceiverForMetrics);
+        threadStateReceiverForMetrics,
+        /* fileSystemSupportsInputDiscovery= */ false);
   }
 
   public static ActionExecutionContext forInputDiscovery(
@@ -314,7 +317,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       InputMetadataProvider actionInputFileCache,
       ActionInputPrefetcher actionInputPrefetcher,
       ActionKeyContext actionKeyContext,
-      OutputMetadataStore outputMetadataStore,
       boolean rewindingEnabled,
       LostInputsCheck lostInputsCheck,
       FileOutErr fileOutErr,
@@ -324,26 +326,25 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       @Nullable FileSystem actionFileSystem,
       DiscoveredModulesPruner discoveredModulesPruner,
       SyscallCache syscalls,
-      ThreadStateReceiver threadStateReceiverForMetrics) {
+      ThreadStateReceiver threadStateReceiverForMetrics,
+      boolean fileSystemSupportsInputDiscovery) {
     return new ActionExecutionContext(
         executor,
         actionInputFileCache,
         actionInputPrefetcher,
         actionKeyContext,
-        outputMetadataStore,
+        null,
         rewindingEnabled,
         lostInputsCheck,
         fileOutErr,
         eventHandler,
         clientEnv,
-        ImmutableMap.of(),
-        /* artifactExpander= */ null,
         env,
         actionFileSystem,
-        /* skyframeDepsResult= */ null,
         discoveredModulesPruner,
         syscalls,
-        threadStateReceiverForMetrics);
+        threadStateReceiverForMetrics,
+        fileSystemSupportsInputDiscovery);
   }
 
   public ActionInputPrefetcher getActionInputPrefetcher() {
@@ -374,6 +375,10 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   @Nullable
   public FileSystem getActionFileSystem() {
     return actionFileSystem;
+  }
+
+  public boolean fileSystemSupportsInputDiscovery() {
+    return fileSystemSupportsInputDiscovery;
   }
 
   public boolean isRewindingEnabled() {
@@ -428,21 +433,17 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     return eventHandler;
   }
 
-  public ImmutableMap<Artifact, FilesetOutputTree> getTopLevelFilesets() {
-    return topLevelFilesets;
+  public RichArtifactData getRichArtifactData() {
+    return richArtifactData;
   }
 
-  public FilesetOutputTree getFilesetOutput() {
-    return filesetOutput;
-  }
-
-  public void setFilesetOutput(FilesetOutputTree filesetOutput) {
-    checkState(
-        this.filesetOutput.isEmpty(),
-        "Unexpected reassignment of Fileset output from\n:%s to:\n%s",
-        this.filesetOutput,
-        filesetOutput);
-    this.filesetOutput = checkNotNull(filesetOutput);
+  public void setRichArtifactData(RichArtifactData richArtifactData) {
+    Preconditions.checkState(
+        this.richArtifactData == null,
+        "rich artifact data was set twice, old=%s, new=%s",
+        this.richArtifactData,
+        richArtifactData);
+    this.richArtifactData = richArtifactData;
   }
 
   @Override
@@ -452,10 +453,10 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   }
 
   /**
-   * Report a subcommand event to this Executor's Reporter and, if action
-   * logging is enabled, post it on its EventBus.
+   * Report a subcommand event to this Executor's Reporter and, if action logging is enabled, post
+   * it on its EventBus.
    */
-  public void maybeReportSubcommand(Spawn spawn) {
+  public void maybeReportSubcommand(Spawn spawn, @Nullable String spawnRunner) {
     ShowSubcommands showSubcommands = executor.reportsSubcommands();
     if (!showSubcommands.shouldShowSubcommands) {
       return;
@@ -492,21 +493,13 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
             /* environmentVariablesToClear= */ null,
             getExecRoot().getPathString(),
             spawn.getConfigurationChecksum(),
-            spawn.getExecutionPlatformLabel());
+            spawn.getExecutionPlatformLabel(),
+            spawnRunner);
     getEventHandler().handle(Event.of(EventKind.SUBCOMMAND, null, "# " + reason + "\n" + message));
   }
 
   public ImmutableMap<String, String> getClientEnv() {
     return clientEnv;
-  }
-
-  public ArtifactExpander getArtifactExpander() {
-    return artifactExpander;
-  }
-
-  @Nullable
-  public Object getSkyframeDepsResult() {
-    return skyframeDepsResult;
   }
 
   /**
@@ -543,14 +536,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
   @Override
   public void close() throws IOException {
-    // Ensure that we close both fileOutErr and actionFileSystem even if one throws.
-    try {
-      fileOutErr.close();
-    } finally {
-      if (actionFileSystem instanceof Closeable closeable) {
-        closeable.close();
-      }
-    }
+    fileOutErr.close();
   }
 
   private ActionExecutionContext withInputMetadataProvider(
@@ -566,30 +552,28 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         fileOutErr,
         eventHandler,
         clientEnv,
-        topLevelFilesets,
-        artifactExpander,
         env,
         actionFileSystem,
-        skyframeDepsResult,
         discoveredModulesPruner,
         syscallCache,
-        threadStateReceiverForMetrics);
+        threadStateReceiverForMetrics,
+        fileSystemSupportsInputDiscovery);
   }
 
   /**
    * Creates a new {@link ActionExecutionContext} whose {@link InputMetadataProvider} has the given
-   * {@link ActionInput}s as inputs.
+   * {@link Artifact}s as inputs.
    *
-   * <p>Each {@link ActionInput} must be an output of the current {@link ActionExecutionContext} and
-   * it must already have been built.
+   * <p>Each {@link Artifact} must be an output of the current {@link ActionExecutionContext} and it
+   * must already have been built.
    */
-  public ActionExecutionContext withOutputsAsInputs(
-      Iterable<? extends ActionInput> additionalInputs) throws IOException, InterruptedException {
+  public ActionExecutionContext withOutputsAsInputs(Iterable<Artifact> outputs)
+      throws IOException, InterruptedException {
     ImmutableMap.Builder<ActionInput, FileArtifactValue> additionalInputMap =
         ImmutableMap.builder();
 
-    for (ActionInput input : additionalInputs) {
-      additionalInputMap.put(input, outputMetadataStore.getOutputMetadata(input));
+    for (Artifact output : outputs) {
+      additionalInputMap.put(output, outputMetadataStore.getOutputMetadata(output));
     }
 
     StaticInputMetadataProvider additionalInputMetadata =
@@ -622,14 +606,12 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         fileOutErr,
         eventHandler,
         clientEnv,
-        topLevelFilesets,
-        artifactExpander,
         env,
         actionFileSystem,
-        skyframeDepsResult,
         discoveredModulesPruner,
         syscallCache,
-        threadStateReceiverForMetrics);
+        threadStateReceiverForMetrics,
+        fileSystemSupportsInputDiscovery);
   }
 
   /**

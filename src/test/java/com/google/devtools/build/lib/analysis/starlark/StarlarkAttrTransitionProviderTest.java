@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.OutputPathMnemonicComputer;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
@@ -50,6 +49,7 @@ import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.common.options.Converters;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -125,6 +125,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//test/starlark:my_rule.bzl", "my_rule")
 
         my_rule(
@@ -587,6 +588,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "not_allowlisted/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//not_allowlisted:my_rule.bzl", "my_rule")
 
         my_rule(
@@ -679,6 +681,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//test/starlark:my_rule.bzl", "my_rule", "string_list_flag", "string_flag")
 
         string_list_flag(
@@ -765,6 +768,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         "test/starlark/BUILD",
         """
         load("//test/starlark:my_rule.bzl", "my_rule")
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 
         my_rule(
             name = "test",
@@ -852,6 +856,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/skylark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//test/skylark:my_rule.bzl", "my_passthrough_rule", "my_set_options_rule")
 
         my_set_options_rule(
@@ -1021,6 +1026,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//test/starlark:my_rule.bzl", "my_rule")
 
         my_rule(
@@ -1735,7 +1741,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         )
         """);
 
-    useConfiguration("--//test/starlark:cmd-line-option=100", "--cpu=FOO");
+    useConfiguration("--//test/starlark:cmd-line-option=100", "--compilation_mode=opt");
 
     ConfiguredTarget test = getConfiguredTarget("//test/starlark:test");
 
@@ -1752,7 +1758,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         .isEqualTo(StarlarkInt.of(100));
 
     // Assert native option set via command line.
-    assertThat(getCoreOptions(dep).cpu).isEqualTo("FOO");
+    assertThat(getCoreOptions(dep).getCompilationMode().toString()).isEqualTo("opt");
 
     // Assert that transitionDirectoryNameFragment is only affected by options
     // set via transitions. Not by native or starlark options set via command line,
@@ -1898,10 +1904,8 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
   }
 
   @Test
-  public void testOutputDirHash_multipleNativeOptionTransitions_diffNaming() throws Exception {
+  public void testOutputDirHash_multipleNativeOptionTransitions() throws Exception {
     writeFilesWithMultipleNativeOptionTransitions();
-
-    useConfiguration("--experimental_output_directory_naming_scheme=diff_against_baseline");
     ConfiguredTarget test = getConfiguredTarget("//test");
 
     @SuppressWarnings("unchecked")
@@ -1922,7 +1926,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
   }
 
   @Test
-  public void testOutputDirHash_onlyExec_diffDynamic() throws Exception {
+  public void testOutputDirHash_onlyExec() throws Exception {
     scratch.file(
         "test/rules.bzl",
         """
@@ -1956,28 +1960,18 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         simple(name = "dep")
         """);
 
-    useConfiguration("--experimental_output_directory_naming_scheme=diff_against_dynamic_baseline");
     ConfiguredTarget test = getConfiguredTarget("//test");
-
     ConfiguredTarget dep = (ConfiguredTarget) getMyInfoFromTarget(test).getValue("dep");
 
     assertThat(getMnemonic(test)).doesNotContain("-ST-");
 
     // Until platforms is EXPLICIT_IN_OUTPUT_PATH, it will change here as well.
     // But, nothing else should be different.
-    assertThat(getMnemonic(dep))
-        .endsWith(
-            OutputPathMnemonicComputer.transitionDirectoryNameFragment(
-                ImmutableList.of(
-                    "//command_line_option:platforms="
-                        + getConfiguration(dep)
-                            .getOptions()
-                            .get(PlatformOptions.class)
-                            .platforms)));
+    assertThat(getMnemonic(dep)).endsWith("-exec");
   }
 
   @Test
-  public void testOutputDirHash_starlarkRevertedByExec_diffDynamic() throws Exception {
+  public void testOutputDirHash_starlarkRevertedByExec() throws Exception {
     scratch.file(
         "test/transitions.bzl",
         """
@@ -2025,9 +2019,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         simple(name = "dep")
         """);
 
-    useConfiguration(
-        "--experimental_output_directory_naming_scheme=diff_against_dynamic_baseline",
-        "--copt=toplevel_copt");
+    useConfiguration("--copt=toplevel_copt");
     ConfiguredTarget test = getConfiguredTarget("//test");
 
     ConfiguredTarget dep = (ConfiguredTarget) getMyInfoFromTarget(test).getValue("dep");
@@ -2038,20 +2030,11 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
                 ImmutableList.of("//command_line_option:copt=[set_by_test_target]")));
     // Sanity check: the exec-configured value is indeed unique vs. both the target-transitioned
     // value and the top-level config.
-    assertThat(test.getConfigurationKey().getOptions().get(CppOptions.class).coptList)
-        .isNotEqualTo(dep.getConfigurationKey().getOptions().get(CppOptions.class).coptList);
-    assertThat(getTargetConfiguration().getOptions().get(CppOptions.class).coptList)
-        .isNotEqualTo(dep.getConfigurationKey().getOptions().get(CppOptions.class).coptList);
-    assertThat(getMnemonic(dep))
-        .endsWith(
-            OutputPathMnemonicComputer.transitionDirectoryNameFragment(
-                ImmutableList.of(
-                    // Until platforms is EXPLICIT_IN_OUTPUT_PATH, it will change here as well.
-                    "//command_line_option:platforms="
-                        + getConfiguration(dep)
-                            .getOptions()
-                            .get(PlatformOptions.class)
-                            .platforms)));
+    assertThat(test.getConfigurationKey().getOptions().get(CppOptions.class).getCoptList())
+        .isNotEqualTo(dep.getConfigurationKey().getOptions().get(CppOptions.class).getCoptList());
+    assertThat(getTargetConfiguration().getOptions().get(CppOptions.class).getCoptList())
+        .isNotEqualTo(dep.getConfigurationKey().getOptions().get(CppOptions.class).getCoptList());
+    assertThat(getMnemonic(dep)).endsWith("-exec");
   }
 
   // Test that a no-op starlark transition to an already starlark transitioned configuration
@@ -2492,10 +2475,8 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
   }
 
   @Test
-  public void testOutputDirHash_multipleStarlarkTransitions_diffNaming() throws Exception {
+  public void testOutputDirHash_multipleStarlarkTransitions() throws Exception {
     writeFilesWithMultipleStarlarkTransitions();
-
-    useConfiguration("--experimental_output_directory_naming_scheme=diff_against_baseline");
     ConfiguredTarget test = getConfiguredTarget("//test");
 
     @SuppressWarnings("unchecked")
@@ -2628,11 +2609,10 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
   }
 
   @Test
-  public void testOutputDirHash_multipleMixedTransitions_diffNaming() throws Exception {
+  public void testOutputDirHash_multipleMixedTransitions() throws Exception {
     writeFilesWithMultipleMixedTransitions();
 
     // test:top (foo_transition)
-    useConfiguration("--experimental_output_directory_naming_scheme=diff_against_baseline");
     ConfiguredTarget top = getConfiguredTarget("//test:top");
 
     assertThat(getConfiguration(top).getOptions().getStarlarkOptions()).isEmpty();
@@ -2935,6 +2915,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load("//test:my_rule.bzl", "my_rule")
 
         my_rule(
@@ -3137,6 +3118,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//test/starlark:my_rule.bzl", "my_rule")
 
         my_rule(
@@ -3156,7 +3138,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     // When --platforms is empty and no platform mapping triggers, PlatformMappingValue sets
     // --platforms to PlatformOptions.computeTargetPlatform(), which defaults to the host.
     assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).platforms)
-        .containsExactly(Label.parseCanonicalUnchecked(TestConstants.PLATFORM_LABEL_ALIAS));
+        .containsExactly(Label.parseCanonicalUnchecked(TestConstants.PLATFORM_LABEL));
   }
 
   @Test
@@ -3206,6 +3188,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//test/starlark:my_rule.bzl", "my_rule")
 
         my_rule(
@@ -3264,6 +3247,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//test/starlark:my_rule.bzl", "my_rule")
 
         my_rule(
@@ -3286,7 +3270,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
 
   /*
    * If the transition claims to change --cpu but doesn't, it doesn't constitute a platform change
-   * and also doesn't affect any other options (such as affectedByStarlarkTransition).
+   * and also doesn't affect any other options.
    */
   @Test
   public void testCpuNoOpChangeIsFullyNoOp() throws Exception {
@@ -3327,6 +3311,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//test/starlark:my_rule.bzl", "my_rule")
 
         my_rule(
@@ -3400,6 +3385,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//test/starlark:rules.bzl", "apply_transition", "string_flag")
 
         string_flag(
@@ -3488,6 +3474,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//test/starlark:rules.bzl", "apply_transition", "string_flag")
 
         string_flag(
@@ -3583,27 +3570,26 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         """);
     update(
         ImmutableList.of("//test/starlark:c"),
-        /*keepGoing=*/ false,
+        /* keepGoing= */ false,
         LOADING_PHASE_THREADS,
-        /*doAnalysis=*/ true,
+        /* doAnalysis= */ true,
         new EventBus());
     assertNoEvents();
   }
 
   @Test
-  public void allowMultipleNativeOptionWithOptionalAssignmentConverter() throws Exception {
+  public void allowMultipleNativeOptionWithEnvVarConverter() throws Exception {
     // Added to support --action_env and --host_action_env.
     scratch.file(
         "test/rules.bzl",
         "def _t_impl(settings, attr):",
         "    return {",
-        "        '//command_line_option:allow_multiple_with_optional_assignment_converter':",
+        "        '//command_line_option:allow_multiple_with_env_vars_converter':",
         "        ['a=1', 'b=2', 'c'] }",
         "t = transition(",
         "    implementation = _t_impl,",
         "    inputs = [],",
-        "    outputs ="
-            + " ['//command_line_option:allow_multiple_with_optional_assignment_converter'],",
+        "    outputs =" + " ['//command_line_option:allow_multiple_with_env_vars_converter'],",
         ")",
         "r = rule(",
         "    implementation = lambda ctx: [],",
@@ -3630,13 +3616,16 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
                 .getConfigurationKey()
                 .getOptions()
                 .get(DummyTestOptions.class)
-                .allowMultipleWithOptionalAssignmentConverter)
-        .containsExactly(Map.entry("a", "1"), Map.entry("b", "2"), Maps.immutableEntry("c", null));
+                .allowMultipleWithEnvVarsConverter)
+        .containsExactly(
+            new Converters.EnvVar.Set("a", "1"),
+            new Converters.EnvVar.Set("b", "2"),
+            new Converters.EnvVar.Inherit("c"));
     assertNoEvents();
   }
 
   @Test
-  public void allowMultipleNativeOptionWithOptionalAssignmentPassTopLevel() throws Exception {
+  public void allowMultipleNativeOptionWithEnvVarPassTopLevel() throws Exception {
     // Check that Starlark transitions faithfully propagate inputs from the top-level command line.
     // In other words String -> Java type -> Starlark type -> Java type stays consistent.
     //
@@ -3645,15 +3634,13 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         "test/rules.bzl",
         "def _t_impl(settings, attr):",
         "    return {",
-        "        '//command_line_option:allow_multiple_with_optional_assignment_converter':",
-        "       "
-            + " settings['//command_line_option:allow_multiple_with_optional_assignment_converter']",
+        "        '//command_line_option:allow_multiple_with_env_vars_converter':",
+        "       " + " settings['//command_line_option:allow_multiple_with_env_vars_converter']",
         "    }",
         "t = transition(",
         "    implementation = _t_impl,",
-        "    inputs = ['//command_line_option:allow_multiple_with_optional_assignment_converter'],",
-        "    outputs ="
-            + " ['//command_line_option:allow_multiple_with_optional_assignment_converter'],",
+        "    inputs = ['//command_line_option:allow_multiple_with_env_vars_converter'],",
+        "    outputs =" + " ['//command_line_option:allow_multiple_with_env_vars_converter'],",
         ")",
         "r = rule(",
         "    implementation = lambda ctx: [],",
@@ -3675,10 +3662,10 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         """);
 
     useConfiguration(
-        "--allow_multiple_with_optional_assignment_converter=a=1",
-        "--allow_multiple_with_optional_assignment_converter=b=2",
-        "--allow_multiple_with_optional_assignment_converter=a=2",
-        "--allow_multiple_with_optional_assignment_converter=c");
+        "--allow_multiple_with_env_vars_converter=a=1",
+        "--allow_multiple_with_env_vars_converter=b=2",
+        "--allow_multiple_with_env_vars_converter=a=2",
+        "--allow_multiple_with_env_vars_converter=c");
     ConfiguredTarget parentCt = getConfiguredTarget("//test:c");
     ConfiguredTarget depCt = getDirectPrerequisite(parentCt, "//test:dep");
 
@@ -3687,13 +3674,13 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
                 .getConfigurationKey()
                 .getOptions()
                 .get(DummyTestOptions.class)
-                .allowMultipleWithOptionalAssignmentConverter)
+                .allowMultipleWithEnvVarsConverter)
         .isEqualTo(
             depCt
                 .getConfigurationKey()
                 .getOptions()
                 .get(DummyTestOptions.class)
-                .allowMultipleWithOptionalAssignmentConverter);
+                .allowMultipleWithEnvVarsConverter);
     assertNoEvents();
   }
 
@@ -3789,6 +3776,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
         load("//test/starlark:rules.bzl", "apply_transition", "string_flag")
 
         string_flag(

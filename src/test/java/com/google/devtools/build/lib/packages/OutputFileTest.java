@@ -32,7 +32,8 @@ public class OutputFileTest extends PackageLoadingTestCase {
   public final void createRule() throws Exception {
     scratch.file("pkg/BUILD", "genrule(name='foo', srcs=[], cmd='', outs=['x', 'subdir/y'])");
     this.rule = (Rule) getTarget("//pkg:foo");
-    this.pkg = rule.getPackage();
+    this.pkg = getPackage(this.rule.getLabel().getPackageIdentifier());
+    assertThat(this.pkg.getTarget(this.rule.getLabel().getName())).isSameInstanceAs(this.rule);
     assertNoEvents();
   }
 

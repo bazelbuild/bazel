@@ -60,7 +60,7 @@ public final class StarlarkProviderTest {
     assertThat(provider.getErrorMessageForUnknownField("foo"))
         .isEqualTo("'struct' value has no field or method 'foo'");
     assertThat(provider.isImmutable()).isFalse();
-    assertThat(Starlark.repr(provider)).isEqualTo("<provider>");
+    assertThat(Starlark.repr(provider, StarlarkSemantics.DEFAULT)).isEqualTo("<provider>");
     assertThrows(IllegalStateException.class, provider::getKey);
   }
 
@@ -76,7 +76,7 @@ public final class StarlarkProviderTest {
     assertThat(provider.getErrorMessageForUnknownField("foo"))
         .isEqualTo("'prov' value has no field or method 'foo'");
     assertThat(provider.isImmutable()).isTrue();
-    assertThat(Starlark.repr(provider)).isEqualTo("<provider>");
+    assertThat(Starlark.repr(provider, StarlarkSemantics.DEFAULT)).isEqualTo("<provider>");
     assertThat(provider.getKey()).isEqualTo(key);
   }
 
@@ -222,6 +222,20 @@ public final class StarlarkProviderTest {
     assertHasExactlyValuesA1(infoFromNormalConstructor);
     StarlarkInfo infoFromRawConstructor = instantiateWithA1B2C3(provider.createRawConstructor());
     assertHasExactlyValuesA1B2C3(infoFromRawConstructor);
+  }
+
+  @Test
+  public void hasInstance() throws Exception {
+    StarlarkProvider provider1 =
+        StarlarkProvider.builder(Location.BUILTIN).buildWithIdentityToken(generator.generate());
+    StarlarkInfo info1 = instantiateWithA1B2C3(provider1);
+    StarlarkProvider provider2 =
+        StarlarkProvider.builder(Location.BUILTIN).buildWithIdentityToken(generator.generate());
+    StarlarkInfo info2 = instantiateWithA1B2C3(provider2);
+    assertThat(provider1.hasInstance(info1)).isTrue();
+    assertThat(provider1.hasInstance(info2)).isFalse();
+    assertThat(provider2.hasInstance(info1)).isFalse();
+    assertThat(provider2.hasInstance(info2)).isTrue();
   }
 
   @Test

@@ -33,15 +33,15 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
+import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.FilesModifiedEvent;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -63,8 +63,8 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.EvaluatingVersionDiff;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnFilesystemErrorCodeLoadingBzlFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
@@ -74,12 +74,13 @@ import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryConsumingOutp
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.rewinding.RewindableGraphInconsistencyReceiver;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.DelegatingGraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.EmittedEventState;
@@ -105,6 +106,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -114,6 +116,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -163,14 +166,15 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       SkyFunction ignoredSubdirectoriesFunction,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
       ImmutableList<BuildFileName> buildFilesByPriority,
-      ExternalPackageHelper externalPackageHelper,
-      @Nullable SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder,
+      boolean allowExternalRepositories,
+      Supplier<Path> repoContentsCachePathSupplier,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       ActionOnFilesystemErrorCodeLoadingBzlFile actionOnFilesystemErrorCodeLoadingBzlFile,
       boolean shouldUseRepoDotBazel,
       SkyKeyStateReceiver skyKeyStateReceiver,
       BugReporter bugReporter,
-      boolean globUnderSingleDep) {
+      boolean globUnderSingleDep,
+      Optional<DiffCheckNotificationOptions> diffCheckNotificationOptions) {
     super(
         skyframeExecutorConsumerOnInit,
         pkgFactory,
@@ -184,20 +188,21 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         ignoredSubdirectoriesFunction,
         crossRepositoryLabelViolationStrategy,
         buildFilesByPriority,
-        externalPackageHelper,
         actionOnIOExceptionReadingBuildFile,
         actionOnFilesystemErrorCodeLoadingBzlFile,
         shouldUseRepoDotBazel,
         /* shouldUnblockCpuWorkWhenFetchingDeps= */ false,
         new PackageProgressReceiver(),
-        new ConfiguredTargetProgressReceiver(),
+        new AnalysisProgressReceiver(),
         skyKeyStateReceiver,
         bugReporter,
         diffAwarenessFactories,
         workspaceInfoFromDiffReceiver,
         new SequencedRecordingDifferencer(),
-        repositoryHelpersHolder,
-        globUnderSingleDep);
+        allowExternalRepositories,
+        repoContentsCachePathSupplier,
+        globUnderSingleDep,
+        diffCheckNotificationOptions);
   }
 
   @Override
@@ -255,13 +260,33 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       PathPackageLocator packageLocator,
       UUID commandId,
       Map<String, String> clientEnv,
-      Map<String, String> repoEnvOption,
       TimestampGranularityMonitor tsgm,
       QuiescingExecutors executors,
       OptionsProvider options,
-      String commandName)
+      String commandName,
+      boolean commandExecutes)
       throws InterruptedException, AbruptExitException {
     inconsistencyReceiver.setDelegate(getGraphInconsistencyReceiverForCommand(options));
+
+    if (diffAwarenessManager != null) {
+      for (Root pkgRoot : packageLocator.getPathEntries()) {
+        Optional<EvaluatingVersionDiff> evaluatingVersionDiff =
+            diffAwarenessManager.getEvaluatingVersionDiff(pkgRoot, options);
+        if (evaluatingVersionDiff.isPresent()) {
+          EvaluatingVersionDiff versionDiff = evaluatingVersionDiff.get();
+          eventHandler.post(versionDiff);
+          if (!evaluatorNeedsReset
+              && diffCheckNotificationOptions.isPresent()
+              && !diffCheckNotificationOptions
+                  .get()
+                  .allowDiffCheck(versionDiff, eventHandler, options)) {
+            evaluatorNeedsReset = true;
+            needGcAfterResettingEvaluator = true;
+          }
+        }
+      }
+    }
+
     if (evaluatorNeedsReset) {
       // Recreate MemoizingEvaluator so that graph is recreated with correct edge-clearing status,
       // or if the graph doesn't have edges, so that a fresh graph can be used.
@@ -287,11 +312,11 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         packageLocator,
         commandId,
         clientEnv,
-        repoEnvOption,
         tsgm,
         executors,
         options,
-        commandName);
+        commandName,
+        commandExecutes);
     long startTime = System.nanoTime();
     WorkspaceInfoFromDiff workspaceInfo = handleDiffs(eventHandler, options);
     long stopTime = System.nanoTime();
@@ -324,7 +349,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   private static boolean rewindingEnabled(OptionsProvider options) {
     var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    return buildRequestOptions != null && buildRequestOptions.rewindLostInputs;
+    return buildRequestOptions != null && buildRequestOptions.getRewindLostInputs();
   }
 
   /**
@@ -464,7 +489,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   public void detectModifiedOutputFiles(
       ModifiedFileSet modifiedOutputFiles,
       @Nullable Range<Long> lastExecutionTimeRange,
-      RemoteArtifactChecker remoteArtifactChecker,
+      OutputChecker outputChecker,
       int fsvcThreads)
       throws InterruptedException {
     long startTime = System.nanoTime();
@@ -480,7 +505,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
             memoizingEvaluator.getValues(),
             batchStatter,
             modifiedOutputFiles,
-            remoteArtifactChecker,
+            outputChecker,
             (maybeModifiedTime, artifact) -> {
               modifiedFiles.incrementAndGet();
               int dirtyOutputsCount = outputDirtyFiles.incrementAndGet();
@@ -497,7 +522,6 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     Profiler.instance()
         .logSimpleTask(startTime, stopTime, ProfilerTask.INFO, "detectModifiedOutputFiles");
     long duration = stopTime - startTime;
-    getEventBus().post(new FilesModifiedEvent(modifiedFiles.get()));
     outputTreeDiffCheckingDuration = duration > 0 ? Duration.ofNanos(duration) : Duration.ZERO;
   }
 
@@ -519,7 +543,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
           SkyKeyStats ruleStat =
               ruleStats.computeIfAbsent(
                   ruleClassId.key(), k -> new SkyKeyStats(k, ruleClassId.name()));
-          ruleStat.countWithActions(ctValue.getNumActions());
+          ruleStat.countWithActions(ctValue.getActions().size());
         }
       } else if (functionName.equals(SkyFunctions.ASPECT)) {
         AspectValue aspectValue = (AspectValue) value;
@@ -532,7 +556,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         SkyKeyStats aspectStat =
             aspectStats.computeIfAbsent(
                 aspectClass.getKey(), k -> new SkyKeyStats(k, aspectClass.getName()));
-        aspectStat.countWithActions(aspectValue.getNumActions());
+        aspectStat.countWithActions(aspectValue.getActions().size());
       }
 
       // We record rules and aspects again here so function count is correct.
@@ -673,12 +697,15 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
     // Remove BuildConfigurationKeys except for the currently active key and the key for
     // EMPTY_OPTIONS, which is a constant and will be re-used frequently.
-    if (k instanceof BuildConfigurationKey key) {
-      if (isEmptyOptionsKey(key)) {
+    if (k instanceof BuildConfigurationKey buildConfigurationKey) {
+      if (isEmptyOptionsKey(buildConfigurationKey)) {
         return false;
       }
       if (getSkyframeBuildView().getBuildConfiguration() != null
           && k.equals(getSkyframeBuildView().getBuildConfiguration().getKey())) {
+        return false;
+      }
+      if (isExecConfig(buildConfigurationKey)) {
         return false;
       }
       return true;
@@ -690,9 +717,19 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       if (isEmptyOptionsKey(lookupKey.getConfigurationKey())) {
         return false;
       }
+      if (isExecConfig(lookupKey.getConfigurationKey())) {
+        return false;
+      }
+      if (lookupKey.getConfigurationKey() == null) {
+        return false;
+      }
       return true;
     }
     return false;
+  }
+
+  private static boolean isExecConfig(@Nullable BuildConfigurationKey bck) {
+    return bck != null && bck.getOptions().get(CoreOptions.class).getIsExec();
   }
 
   /**
@@ -715,7 +752,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
             EvaluationContext evaluationContext =
                 newEvaluationContextBuilder()
                     .setKeepGoing(false)
-                    .setParallelism(ResourceUsage.getAvailableProcessors())
+                    .setParallelism(Runtime.getRuntime().availableProcessors())
                     .setEventHandler(eventHandler)
                     .build();
             memoizingEvaluator.evaluate(ImmutableList.of(), evaluationContext);
@@ -792,7 +829,6 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     ActionKeyContext actionKeyContext;
     private CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
     private ImmutableList<BuildFileName> buildFilesByPriority;
-    private ExternalPackageHelper externalPackageHelper;
     private ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile;
     private ActionOnFilesystemErrorCodeLoadingBzlFile actionOnFilesystemErrorCodeLoadingBzlFile;
     private boolean shouldUseRepoDotBazel = true;
@@ -803,13 +839,15 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     private Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories = ImmutableList.of();
     private WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver =
         (ignored1, ignored2) -> {};
-    @Nullable private SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder = null;
+    private boolean allowExternalRepositories = false;
+    private Supplier<Path> repoContentsCachePathSupplier = () -> null;
     private Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit = skyframeExecutor -> {};
     private SkyFunction ignoredSubdirectoriesFunction;
     private BugReporter bugReporter = BugReporter.defaultInstance();
     private SkyKeyStateReceiver skyKeyStateReceiver = SkyKeyStateReceiver.NULL_INSTANCE;
     private SyscallCache syscallCache = null;
     private boolean globUnderSingleDep = true;
+    private DiffCheckNotificationOptions diffCheckNotificationOptions;
 
     private Builder() {}
 
@@ -821,7 +859,6 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       Preconditions.checkNotNull(actionKeyContext);
       Preconditions.checkNotNull(crossRepositoryLabelViolationStrategy);
       Preconditions.checkNotNull(buildFilesByPriority);
-      Preconditions.checkNotNull(externalPackageHelper);
       Preconditions.checkNotNull(actionOnIOExceptionReadingBuildFile);
       Preconditions.checkNotNull(actionOnFilesystemErrorCodeLoadingBzlFile);
       Preconditions.checkNotNull(ignoredSubdirectoriesFunction);
@@ -841,14 +878,15 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
               ignoredSubdirectoriesFunction,
               crossRepositoryLabelViolationStrategy,
               buildFilesByPriority,
-              externalPackageHelper,
-              repositoryHelpersHolder,
+              allowExternalRepositories,
+              repoContentsCachePathSupplier,
               actionOnIOExceptionReadingBuildFile,
               actionOnFilesystemErrorCodeLoadingBzlFile,
               shouldUseRepoDotBazel,
               skyKeyStateReceiver,
               bugReporter,
-              globUnderSingleDep);
+              globUnderSingleDep,
+              Optional.ofNullable(diffCheckNotificationOptions));
       skyframeExecutor.init();
       return skyframeExecutor;
     }
@@ -917,9 +955,14 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
 
     @CanIgnoreReturnValue
-    public Builder setRepositoryHelpersHolder(
-        SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder) {
-      this.repositoryHelpersHolder = repositoryHelpersHolder;
+    public Builder allowExternalRepositories(boolean allowExternalRepositories) {
+      this.allowExternalRepositories = allowExternalRepositories;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setRepoContentsCachePathSupplier(Supplier<Path> repoContentsCachePathSupplier) {
+      this.repoContentsCachePathSupplier = repoContentsCachePathSupplier;
       return this;
     }
 
@@ -933,12 +976,6 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     @CanIgnoreReturnValue
     public Builder setBuildFilesByPriority(ImmutableList<BuildFileName> buildFilesByPriority) {
       this.buildFilesByPriority = buildFilesByPriority;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setExternalPackageHelper(ExternalPackageHelper externalPackageHelper) {
-      this.externalPackageHelper = externalPackageHelper;
       return this;
     }
 
@@ -984,6 +1021,13 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     @CanIgnoreReturnValue
     public Builder setGlobUnderSingleDep(boolean globUnderSingleDep) {
       this.globUnderSingleDep = globUnderSingleDep;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setDiffCheckNotificationOptions(
+        DiffCheckNotificationOptions diffCheckNotificationOptions) {
+      this.diffCheckNotificationOptions = diffCheckNotificationOptions;
       return this;
     }
   }

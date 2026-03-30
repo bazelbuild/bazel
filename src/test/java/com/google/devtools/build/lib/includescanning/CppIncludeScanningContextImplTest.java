@@ -91,6 +91,7 @@ public final class CppIncludeScanningContextImplTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":def.bzl", "tree")
 
         package(features = [
@@ -122,7 +123,7 @@ public final class CppIncludeScanningContextImplTest extends BuildViewTestCase {
     assertThat(result).isNotNull();
     ArgumentCaptor<Collection<Artifact>> collector = createCaptor(Collection.class);
     verify(includeScanner)
-        .processAsync(any(), collector.capture(), any(), any(), any(), any(), any(), any());
+        .processAsync(any(), collector.capture(), any(), any(), any(), any(), any(), any(), any());
     assertThat(collector.getValue()).containsExactly(headerTreeFile);
   }
 
@@ -132,6 +133,7 @@ public final class CppIncludeScanningContextImplTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":def.bzl", "tree")
 
         package(features = [
@@ -167,7 +169,7 @@ public final class CppIncludeScanningContextImplTest extends BuildViewTestCase {
     assertThat(result).isNotNull();
     ArgumentCaptor<Collection<Artifact>> collector = createCaptor(Collection.class);
     verify(includeScanner)
-        .processAsync(any(), collector.capture(), any(), any(), any(), any(), any(), any());
+        .processAsync(any(), collector.capture(), any(), any(), any(), any(), any(), any(), any());
     assertThat(collector.getValue()).containsExactly(headerTreeFile, getArtifact("//foo:header.h"));
   }
 
@@ -177,6 +179,7 @@ public final class CppIncludeScanningContextImplTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         load(":def.bzl", "tree")
 
         package(features = [
@@ -232,7 +235,6 @@ public final class CppIncludeScanningContextImplTest extends BuildViewTestCase {
         new ActionKeyContext(),
         new FileOutErr(),
         scratch.resolve("/execroot"),
-        /* outputMetadataStore= */ null,
         environment,
         DiscoveredModulesPruner.DEFAULT);
   }

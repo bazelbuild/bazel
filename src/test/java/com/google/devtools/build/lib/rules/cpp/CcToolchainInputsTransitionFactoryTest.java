@@ -31,6 +31,7 @@ public class CcToolchainInputsTransitionFactoryTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
         load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 
         filegroup(
@@ -66,7 +67,7 @@ public class CcToolchainInputsTransitionFactoryTest extends BuildViewTestCase {
 
     CoreOptions coreOptions = getConfiguration(allFiles).getOptions().get(CoreOptions.class);
     assertThat(coreOptions).isNotNull();
-    assertThat(coreOptions.isExec).isFalse();
+    assertThat(coreOptions.getIsExec()).isFalse();
     // if isExec is false, then allFiles is building for the target platform
   }
 }

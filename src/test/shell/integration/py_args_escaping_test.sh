@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -40,27 +40,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# `tr` converts all upper case letters to lower case.
-# `case` matches the result if the `uname | tr` expression to string prefixes
-# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# starting with "msys", and "*" matches everything (it's the default case).
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*)
-  # As of 2019-04-08, Bazel on Windows only supports MSYS Bash.
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if "$is_windows"; then
-  declare -r EXE_EXT=".exe"
-else
-  declare -r EXE_EXT=""
-fi
-
 # ----------------------------------------------------------------------
 # HELPER FUNCTIONS
 # ----------------------------------------------------------------------
@@ -88,6 +67,8 @@ function create_build_file_for_untokenizable_args() {
   local -r ws="$1"; shift
   mkdir -p "$ws" || fail "mkdir -p $ws"
   cat >"$ws/BUILD" <<'eof'
+load("@rules_python//python:py_binary.bzl", "py_binary")
+
 py_binary(
     name = "cannot_tokenize",
     srcs = ["a.py"],
@@ -107,6 +88,8 @@ function create_build_file_with_many_args() {
   local -r ws="$1"; shift
   mkdir -p "$ws" || fail "mkdir -p $ws"
   cat >"$ws/BUILD" <<'eof'
+load("@rules_python//python:py_binary.bzl", "py_binary")
+
 py_binary(
     name = "x",
     srcs = ["a.py"],
@@ -223,6 +206,7 @@ function test_args_escaping() {
   local -r ws="$TEST_TMPDIR/${FUNCNAME[0]}"  # unique workspace for this test
   mkdir -p "$ws"
   setup_module_dot_bazel "$ws/MODULE.bazel"
+  add_rules_python "$ws/MODULE.bazel"
 
   create_py_file_that_prints_args "$ws"
   create_build_file_with_many_args "$ws"
@@ -245,6 +229,7 @@ function test_untokenizable_args() {
   local -r ws="$TEST_TMPDIR/${FUNCNAME[0]}"  # unique workspace for this test
   mkdir -p "$ws"
   setup_module_dot_bazel "$ws/MODULE.bazel"
+  add_rules_python "$ws/MODULE.bazel"
 
   create_py_file_that_prints_args "$ws"
   create_build_file_for_untokenizable_args "$ws"
@@ -260,9 +245,11 @@ function test_host_config() {
   local -r ws="$TEST_TMPDIR/${FUNCNAME[0]}"  # unique workspace for this test
   mkdir -p "$ws"
   setup_module_dot_bazel "$ws/MODULE.bazel"
+  add_rules_python "$ws/MODULE.bazel"
 
   cat >"$ws/BUILD" <<'eof'
 load("//:rule.bzl", "run_host_configured")
+load("@rules_python//python:py_binary.bzl", "py_binary")
 
 run_host_configured(
     name = "x",

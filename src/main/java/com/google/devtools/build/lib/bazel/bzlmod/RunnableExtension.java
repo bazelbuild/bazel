@@ -15,13 +15,11 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -32,16 +30,14 @@ import net.starlark.java.eval.StarlarkSemantics;
  *
  * <p>The general idiom is to "load" such a {@link RunnableExtension} object by getting as much
  * information about it as needed to determine whether it can be reused from the lockfile (hence
- * methods such as {@link #getEvalFactors()}, {@link #getBzlTransitiveDigest()}, {@link
- * #getStaticEnvVars()}). Then the {@link #run} method can be called if it's determined that we
- * can't reuse the cached results in the lockfile and have to re-run this extension.
+ * methods such as {@link #getEvalFactors()} and {@link #getBzlTransitiveDigest()}). Then the {@link
+ * #run} method can be called if it's determined that we can't reuse the cached results in the
+ * lockfile and have to re-run this extension.
  */
 interface RunnableExtension {
   ModuleExtensionEvalFactors getEvalFactors();
 
   byte[] getBzlTransitiveDigest();
-
-  ImmutableMap<String, Optional<String>> getStaticEnvVars();
 
   /** Runs the extension. Returns null if a Skyframe restart is required. */
   @Nullable
@@ -50,15 +46,13 @@ interface RunnableExtension {
       SingleExtensionUsagesValue usagesValue,
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
-      RepositoryMapping mainRepositoryMapping)
+      RepositoryMapping mainRepositoryMapping,
+      Facts facts)
       throws InterruptedException, ExternalDepsException;
 
   /* Holds the result data from running a module extension */
   record RunModuleExtensionResult(
-      ImmutableMap<RepoRecordedInput.File, String> recordedFileInputs,
-      ImmutableMap<RepoRecordedInput.Dirents, String> recordedDirentsInputs,
-      ImmutableMap<RepoRecordedInput.EnvVar, Optional<String>> recordedEnvVarInputs,
+      ImmutableList<RepoRecordedInput.WithValue> recordedInputs,
       ImmutableMap<String, RepoSpec> generatedRepoSpecs,
-      Optional<ModuleExtensionMetadata> moduleExtensionMetadata,
-      ImmutableTable<RepositoryName, String, RepositoryName> recordedRepoMappingEntries) {}
+      ModuleExtensionMetadata moduleExtensionMetadata) {}
 }

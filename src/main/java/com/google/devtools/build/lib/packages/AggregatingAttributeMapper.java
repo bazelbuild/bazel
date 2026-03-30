@@ -48,11 +48,11 @@ import javax.annotation.Nullable;
  */
 public class AggregatingAttributeMapper extends AbstractAttributeMapper {
 
-  private AggregatingAttributeMapper(Rule rule) {
+  private AggregatingAttributeMapper(RuleOrMacroInstance rule) {
     super(rule);
   }
 
-  public static AggregatingAttributeMapper of(Rule rule) {
+  public static AggregatingAttributeMapper of(RuleOrMacroInstance rule) {
     return new AggregatingAttributeMapper(rule);
   }
 
@@ -61,7 +61,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    * available to computed defaults no matter what dependencies they've declared.
    */
   private List<String> getNonConfigurableAttributes() {
-    return rule.getRuleClassObject().getNonConfigurableAttributes();
+    return rule.getAttributeProvider().getNonConfigurableAttributes();
   }
 
   /**
@@ -184,7 +184,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       Attribute attribute,
       Type<T> type,
       Type.LabelVisitor visitor,
-      @Nullable Rule rule,
+      @Nullable RuleOrMacroInstance rule,
       boolean includeKeys,
       boolean includeValues) {
     var entryProcessor =
@@ -242,15 +242,44 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   /** Returns the labels that appear multiple times in the same attribute value. */
   @SuppressWarnings("unchecked")
   Set<Label> checkForDuplicateLabels(Attribute attribute) {
-    Type<List<Label>> attrType = BuildType.LABEL_LIST;
-    checkArgument(attribute.getType() == attrType, "Not a label list type: %s", attribute);
+    Type<?> attrType = attribute.getType();
+    if (attrType != BuildType.LABEL_LIST && attrType != BuildType.LABEL_LIST_DICT) {
+      return ImmutableSet.of();
+    }
     String attrName = attribute.getName();
-    Object rawVal = rule.getAttr(attrName, attrType);
+    Object rawVal = rule.getAttr(attrName, attribute.getType());
+
+    if (attrType == BuildType.LABEL_LIST_DICT) {
+      ImmutableSet.Builder<Label> duplicates = null;
+      // For LABEL_LIST_DICT, independently check each value list for duplicates.
+      if (!(rawVal instanceof SelectorList<?> selectorList)) {
+        // Plain old attribute (no selects).
+        List<Map<String, List<Label>>> possibleDicts =
+            visitRawNonConfigurableAttributeValue(rawVal, attrName, BuildType.LABEL_LIST_DICT);
+        for (Map<String, List<Label>> dict : possibleDicts) {
+          for (List<Label> labels : dict.values()) {
+            duplicates = addDuplicateLabels(duplicates, labels);
+          }
+        }
+        return duplicates == null ? ImmutableSet.of() : duplicates.build();
+      }
+
+      var selectors = ((SelectorList<Map<String, List<Label>>>) selectorList).getSelectors();
+
+      for (Selector<Map<String, List<Label>>> selector : selectors) {
+        for (Map<String, List<Label>> dict : selector.valuesCopy()) {
+          for (List<Label> labels : dict.values()) {
+            duplicates = addDuplicateLabels(duplicates, labels);
+          }
+        }
+      }
+      return duplicates == null ? ImmutableSet.of() : duplicates.build();
+    }
 
     // Plain old attribute (no selects).
     if (!(rawVal instanceof SelectorList)) {
       return checkForDuplicateLabels(
-          visitRawNonConfigurableAttributeValue(rawVal, attrName, attrType));
+          visitRawNonConfigurableAttributeValue(rawVal, attrName, BuildType.LABEL_LIST));
     }
 
     List<Selector<List<Label>>> selectors = ((SelectorList<List<Label>>) rawVal).getSelectors();

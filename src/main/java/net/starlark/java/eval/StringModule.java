@@ -25,6 +25,9 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.syntax.SyntaxUtils;
+import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.Types;
 
 /**
  * Starlark String module.
@@ -60,6 +63,10 @@ import net.starlark.java.annot.StarlarkMethod;
             + "operator instead. Comparison operators perform a lexicographical comparison; "
             + "use <code>==</code> to test for equality.")
 final class StringModule implements StarlarkValue {
+
+  public static TypeConstructor getAssociatedTypeConstructor() {
+    return Types.STR_CONSTRUCTOR;
+  }
 
   static final StringModule INSTANCE = new StringModule();
 
@@ -113,11 +120,11 @@ final class StringModule implements StarlarkValue {
     int n = str.length();
     int istart = 0;
     if (start != Starlark.NONE) {
-      istart = EvalUtils.toIndex(Starlark.toInt(start, "start"), n);
+      istart = SyntaxUtils.toSliceBound(Starlark.toInt(start, "start"), n);
     }
     int iend = n;
     if (end != Starlark.NONE) {
-      iend = EvalUtils.toIndex(Starlark.toInt(end, "end"), n);
+      iend = SyntaxUtils.toSliceBound(Starlark.toInt(end, "end"), n);
     }
     if (iend < istart) {
       iend = istart; // => empty result
@@ -144,9 +151,16 @@ final class StringModule implements StarlarkValue {
               + "joined by this string as a separator. Example:<br>"
               + "<pre class=\"language-python\">\"|\".join([\"a\", \"b\", \"c\"]) == \"a|b|c\""
               + "</pre>",
-      parameters = {@Param(name = "self"), @Param(name = "elements", doc = "The objects to join.")},
+      parameters = {
+        @Param(name = "self"),
+        @Param(
+            name = "elements",
+            allowedTypes = {@ParamType(type = StarlarkIterable.class, generic1 = String.class)},
+            doc = "The objects to join.")
+      },
       useStarlarkThread = true)
-  public String join(String self, Object elements, StarlarkThread thread) throws EvalException {
+  public String join(String self, StarlarkIterable<?> elements, StarlarkThread thread)
+      throws EvalException {
     Iterable<?> items = Starlark.toIterable(elements);
     int i = 0;
     for (Object item : items) {
@@ -188,8 +202,20 @@ final class StringModule implements StarlarkValue {
   // whitespace, matching Python 3.
   private static final CharMatcher LATIN1_WHITESPACE =
       CharMatcher.anyOf(
-          "\u0009" + "\n" + "\u000B" + "\u000C" + "\r" + "\u001C" + "\u001D" + "\u001E" + "\u001F "
-              + "\u0085" + "\u00A0");
+          Joiner.on("") // to prevent autoformatter from concatenating the strings
+              .join(
+                  "\u0009", "\n", "\u000B", "\u000C", "\r", "\u001C", "\u001D", "\u001E", "\u001F",
+                  " ", "\u0085", "\u00A0"));
+
+  // This is used instead of LATIN1_WHITESPACE when strings are represented as raw UTF-8 byte
+  // arrays. In that case, we should not strip any bytes that are not ASCII whitespace, but part of
+  // a multibyte UTF-8 character.
+  private static final CharMatcher ASCII_WHITESPACE =
+      CharMatcher.anyOf(
+          Joiner.on("") // to prevent autoformatter from concatenating the strings
+              .join(
+                  "\u0009", "\n", "\u000B", "\u000C", "\r", "\u001C", "\u001D", "\u001E", "\u001F",
+                  " "));
 
   private static String stringLStrip(String self, CharMatcher matcher) {
     for (int i = 0; i < self.length(); i++) {
@@ -232,11 +258,15 @@ final class StringModule implements StarlarkValue {
             },
             doc = "The characters to remove, or all whitespace if None.",
             defaultValue = "None")
-      })
-  public String lstrip(String self, Object charsOrNone) {
-    CharMatcher matcher =
-        charsOrNone != Starlark.NONE ? CharMatcher.anyOf((String) charsOrNone) : LATIN1_WHITESPACE;
-    return stringLStrip(self, matcher);
+      },
+      useStarlarkThread = true)
+  public String lstrip(String self, Object charsOrNone, StarlarkThread starlarkThread) {
+    return lstripSemantics(self, charsOrNone, starlarkThread.getSemantics());
+  }
+
+  public String lstripSemantics(
+      String self, Object charsOrNone, StarlarkSemantics starlarkSemantics) {
+    return stringLStrip(self, matcher(charsOrNone, starlarkSemantics));
   }
 
   @StarlarkMethod(
@@ -258,11 +288,15 @@ final class StringModule implements StarlarkValue {
             },
             doc = "The characters to remove, or all whitespace if None.",
             defaultValue = "None")
-      })
-  public String rstrip(String self, Object charsOrNone) {
-    CharMatcher matcher =
-        charsOrNone != Starlark.NONE ? CharMatcher.anyOf((String) charsOrNone) : LATIN1_WHITESPACE;
-    return stringRStrip(self, matcher);
+      },
+      useStarlarkThread = true)
+  public String rstrip(String self, Object charsOrNone, StarlarkThread starlarkThread) {
+    return rstripSemantics(self, charsOrNone, starlarkThread.getSemantics());
+  }
+
+  public String rstripSemantics(
+      String self, Object charsOrNone, StarlarkSemantics starlarkSemantics) {
+    return stringRStrip(self, matcher(charsOrNone, starlarkSemantics));
   }
 
   @StarlarkMethod(
@@ -285,11 +319,26 @@ final class StringModule implements StarlarkValue {
             },
             doc = "The characters to remove, or all whitespace if None.",
             defaultValue = "None")
-      })
-  public String strip(String self, Object charsOrNone) {
-    CharMatcher matcher =
-        charsOrNone != Starlark.NONE ? CharMatcher.anyOf((String) charsOrNone) : LATIN1_WHITESPACE;
-    return stringStrip(self, matcher);
+      },
+      useStarlarkThread = true)
+  public String strip(String self, Object charsOrNone, StarlarkThread starlarkThread) {
+    return stripSemantics(self, charsOrNone, starlarkThread.getSemantics());
+  }
+
+  public String stripSemantics(
+      String self, Object charsOrNone, StarlarkSemantics starlarkSemantics) {
+    return stringStrip(self, matcher(charsOrNone, starlarkSemantics));
+  }
+
+  private static CharMatcher matcher(Object charsOrNone, StarlarkSemantics starlarkSemantics) {
+    return charsOrNone != Starlark.NONE
+        // When using the latin-1 hack, each utf-8 code unit is stored as a distinct string element.
+        // To avoid matching an element that doesn't correspond to a whole code point, we exclude
+        // anything that's not in the ASCII range.
+        ? CharMatcher.anyOf((String) charsOrNone)
+        : (starlarkSemantics.getBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS)
+            ? ASCII_WHITESPACE
+            : LATIN1_WHITESPACE);
   }
 
   @StarlarkMethod(
@@ -348,15 +397,13 @@ final class StringModule implements StarlarkValue {
               + "separator, optionally limiting the number of splits to <code>maxsplit</code>.",
       parameters = {
         @Param(name = "self", doc = "This string."),
-        @Param(name = "sep", doc = "The string to split on."),
+        @Param(name = "sep", doc = "The string to split on.", named = true),
         @Param(
             name = "maxsplit",
-            allowedTypes = {
-              @ParamType(type = StarlarkInt.class),
-              @ParamType(type = NoneType.class),
-            },
-            defaultValue = "None",
-            doc = "The maximum number of splits.")
+            allowedTypes = {@ParamType(type = StarlarkInt.class)},
+            defaultValue = "unbound",
+            doc = "The maximum number of splits.",
+            named = true)
       },
       useStarlarkThread = true)
   public StarlarkList<String> split(
@@ -365,7 +412,7 @@ final class StringModule implements StarlarkValue {
       throw Starlark.errorf("Empty separator");
     }
     int maxSplit = Integer.MAX_VALUE;
-    if (maxSplitO != Starlark.NONE) {
+    if (maxSplitO != Starlark.UNBOUND) {
       maxSplit = Starlark.toInt(maxSplitO, "maxsplit");
     }
     StarlarkList<String> res = StarlarkList.newList(thread.mutability());
@@ -390,15 +437,13 @@ final class StringModule implements StarlarkValue {
               + "Except for splitting from the right, this method behaves like split().",
       parameters = {
         @Param(name = "self", doc = "This string."),
-        @Param(name = "sep", doc = "The string to split on."),
+        @Param(name = "sep", doc = "The string to split on.", named = true),
         @Param(
             name = "maxsplit",
-            allowedTypes = {
-              @ParamType(type = StarlarkInt.class),
-              @ParamType(type = NoneType.class),
-            },
-            defaultValue = "None",
-            doc = "The maximum number of splits.")
+            allowedTypes = {@ParamType(type = StarlarkInt.class)},
+            defaultValue = "unbound",
+            doc = "The maximum number of splits.",
+            named = true)
       },
       useStarlarkThread = true)
   public StarlarkList<String> rsplit(
@@ -407,7 +452,7 @@ final class StringModule implements StarlarkValue {
       throw Starlark.errorf("Empty separator");
     }
     int maxSplit = Integer.MAX_VALUE;
-    if (maxSplitO != Starlark.NONE) {
+    if (maxSplitO != Starlark.UNBOUND) {
       maxSplit = Starlark.toInt(maxSplitO, "maxsplit");
     }
     ArrayList<String> res = new ArrayList<>();
@@ -544,7 +589,7 @@ final class StringModule implements StarlarkValue {
   }
 
   private static final Pattern SPLIT_LINES_PATTERN =
-      Pattern.compile("(?<line>.*)(?<break>(\\r\\n|\\r|\\n)?)");
+      Pattern.compile("(?<line>[^\\r\\n]*)(?<break>(\\r\\n|\\r|\\n)?)");
 
   @StarlarkMethod(
       name = "rfind",
@@ -870,9 +915,10 @@ final class StringModule implements StarlarkValue {
     if (sub.isEmpty()) {
       return hi(indices) - lo(indices) + 1; // str.length() + 1
     }
-    // Unfortunately Java forces us to allocate here, even though
-    // String has a private indexOf method that accepts indices.
-    // Fortunately the common case is self[0:n].
+    // The allocation could be avoided by starting at lo(indices) and checking
+    // for index <= hi(indices) - sub.length() in the loop, but benchmarks show
+    // that the allocation can be faster (and it is a no-op in the common case
+    // of default values for start and end).
     String str = self.substring(lo(indices), hi(indices));
     int count = 0;
     int index = 0;

@@ -28,7 +28,9 @@ public class VendorOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       help =
-          "Only vendors the specified repository, which can be either `@apparent_repo_name` or"
-              + " `@@canonical_repo_name`. This option can be set multiple times")
+          """
+          Only vendors the specified repository, which can be either `@apparent_repo_name` or
+          `@@canonical_repo_name`. This option can be set multiple times.
+          """)
   public List<String> repos;
 }

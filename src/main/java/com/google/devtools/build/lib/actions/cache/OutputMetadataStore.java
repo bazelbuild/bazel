@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions.cache;
 
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /** Handles the metadata of the outputs of the action during its execution. */
 public interface OutputMetadataStore {
@@ -48,27 +48,47 @@ public interface OutputMetadataStore {
   void injectTree(SpecialArtifact output, TreeArtifactValue tree);
 
   /**
-   * Returns a {@link FileArtifactValue} for the given {@link ActionInput}.
+   * Returns a {@link FileArtifactValue} for the given {@link Artifact}.
    *
-   * <p>If the metadata of the given {@link ActionInput} is not known, it's computed. This may
-   * result in a significant amount of I/O.
+   * <p>If the metadata of the given {@link Artifact} has not been injected via {@link #injectFile},
+   * it will be computed from the filesystem. This may result in a significant amount of I/O. The
+   * result will be cached for future calls to this method.
    *
-   * <p>The returned {@link FileArtifactValue} instance corresponds to the final target of a symlink
-   * and therefore must not have a type of {@link FileStateType#SYMLINK}.
+   * <p>For artifacts of non-symlink type (i.e., {@link Artifact#isSymlink} returns false), the
+   * returned {@link FileArtifactValue} corresponds to the final target of a symlink when one exists
+   * in the filesystem, and therefore will not have a type of {@link FileStateType#SYMLINK}.
    *
-   * <p>Freshly created output files (i.e. from an action that just executed) that require a stat to
-   * obtain the metadata will first be set read-only and executable during this call. This ensures
-   * that the returned metadata has an appropriate ctime, which is affected by chmod. Note that this
-   * does not apply to outputs injected via {@link #injectFile} or {@link #injectTree} since a stat
-   * is not required for them.
+   * <p>If a stat is required to obtain the metadata, the output will first be set read-only and
+   * executable by this call. This ensures that the returned metadata has an appropriate ctime,
+   * which is affected by chmod. Note that this does not apply to outputs injected via {@link
+   * #injectFile} since a stat is not required for them.
    *
-   * @param output the output to retrieve the digest for
-   * @return the artifact's digest or null the artifact is not a known output of the action
-   * @throws IOException if the action input cannot be digested
+   * @param artifact the artifact to retrieve metadata for
+   * @return the artifact metadata, or null the artifact is not a known output of the action
+   * @throws IOException if the metadata cannot be obtained from the filesystem
+   * @throws InterruptedException if the current thread is interrupted while computing the metadata
    */
-  FileArtifactValue getOutputMetadata(ActionInput output) throws IOException, InterruptedException;
+  @Nullable
+  FileArtifactValue getOutputMetadata(Artifact artifact) throws IOException, InterruptedException;
 
-  /** Retrieves the metadata for this tree artifact. Data should already be available. */
+  /**
+   * Returns a {@link TreeArtifactValue} for the given {@link SpecialArtifact}, which must be a tree
+   * artifact (i.e., {@link SpecialArtifact#isTreeArtifact} must return true).
+   *
+   * <p>If the metadata of the given {@link SpecialArtifact} has not been injected via {@link
+   * #injectTree}, it will be computed from the filesystem. This may result in a significant amount
+   * of I/O. The result will be cached for future calls to this method.
+   *
+   * <p>If a stat is required to obtain the metadata, the output will first be set read-only and
+   * executable by this call. This ensures that the returned metadata has an appropriate ctime,
+   * which is affected by chmod. Note that this does not apply to outputs injected via {@link
+   * #injectFile} since a stat is not required for them.
+   *
+   * @param treeArtifact the tree artifact to retrieve metadata for
+   * @return the tree artifact metadata
+   * @throws IOException if the metadata cannot be obtained from the filesystem
+   * @throws InterruptedException if the current thread is interrupted while computing the metadata
+   */
   TreeArtifactValue getTreeArtifactValue(SpecialArtifact treeArtifact)
       throws IOException, InterruptedException;
 

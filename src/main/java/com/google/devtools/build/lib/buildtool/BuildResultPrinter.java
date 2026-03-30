@@ -93,13 +93,14 @@ class BuildResultPrinter {
     String productName = runtime.getProductName();
     PathPrettyPrinter prettyPrinter =
         new PathPrettyPrinter(
+            env.getRelativeWorkingDirectory(),
             request.getBuildOptions().getSymlinkPrefix(productName),
             result.getConvenienceSymlinks());
     OutErr outErr = request.getOutErr();
 
     // Filter and split aspects to display.
     ImmutableSet<String> aspectsToIgnore =
-        ImmutableSet.copyOf(request.getBuildOptions().hideAspectResults);
+        ImmutableSet.copyOf(request.getBuildOptions().getHideAspectResults());
     PartitionedAspectKeys partitionedAspectKeys =
         partitionAspectKeys(
             request.useValidationAspect(),
@@ -111,7 +112,7 @@ class BuildResultPrinter {
     TopLevelArtifactContext context = request.getTopLevelArtifactContext();
 
     // `essentialBudget` tracks the number of non-empty results that can be printed.
-    int essentialBudget = request.getBuildOptions().maxResultTargets;
+    int essentialBudget = request.getBuildOptions().getMaxResultTargets();
 
     // Splits the targets we care about into three buckets. Targets are only considered successful
     // if they and their validation aspects succeeded.
@@ -156,7 +157,7 @@ class BuildResultPrinter {
     // Omits "nothing to build" values if it enables staying under --show_result.
     boolean omitNothingToBuild =
         (targetsToPrint.size() + partitionedAspectKeys.aspectsToPrint.size())
-            > request.getBuildOptions().maxResultTargets;
+            > request.getBuildOptions().getMaxResultTargets();
 
     outputConfiguredTargets(
         outErr,
@@ -274,7 +275,7 @@ class BuildResultPrinter {
       ArrayList<ConfiguredTarget> skipped,
       boolean omitNothingToBuild) {
     for (ConfiguredTarget target : skipped) {
-      outErr.printErr("Target " + target.getLabel() + " was skipped\n");
+      outErr.printErr("Target " + target.getOriginalLabel() + " was skipped\n");
     }
     for (int i = 0; i < succeeded.size(); ++i) {
       ConfiguredTarget target = succeeded.get(i);

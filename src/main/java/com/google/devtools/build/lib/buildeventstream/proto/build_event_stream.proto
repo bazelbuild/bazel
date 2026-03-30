@@ -22,6 +22,7 @@ import "google/protobuf/any.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "src/main/java/com/google/devtools/build/lib/packages/metrics/package_load_metrics.proto";
+import "src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto/analysis_cache_service_metadata_status.proto";
 import "src/main/protobuf/action_cache.proto";
 import "src/main/protobuf/command_line.proto";
 import "src/main/protobuf/failure_details.proto";
@@ -84,6 +85,14 @@ message BuildEventId {
   message FetchId {
     // The external resource that was fetched from.
     string url = 1;
+
+    enum Downloader {
+      UNKNOWN = 0;
+      HTTP = 1;
+      GRPC = 2;
+    }
+    // The downloader used to fetch the resource.
+    Downloader downloader = 2;
   }
 
   // Identifier of an event indicating that a target pattern has been expanded
@@ -388,6 +397,15 @@ message BuildStarted {
 
   // The process ID of the Bazel server.
   int64 server_pid = 8;
+
+  // The short hostname of the machine where the build is running.
+  string host = 10;
+
+  // The username of the user who started the build.
+  string user = 11;
+
+  // Information about the Java version used by the Blaze server.
+  JavaVersionInfo java_version_info = 12;
 }
 
 // Configuration related to the blaze workspace and output tree.
@@ -549,6 +567,8 @@ message NamedSetOfFiles {
 // failing; however, consumers of the build-event protocol must not assume
 // that only failed actions are posted.
 message ActionExecuted {
+  reserved 10;
+
   bool success = 1;
 
   // The mnemonic of the action that was executed
@@ -576,9 +596,6 @@ message ActionExecuted {
 
   // The command-line of the action, if the action is a command.
   repeated string command_line = 9;
-
-  // List of paths to log files
-  repeated File action_metadata_logs = 10;
 
   // Only populated if success = false, and sometimes not even then.
   failure_details.FailureDetail failure_detail = 11;
@@ -844,7 +861,15 @@ message TargetSummary {
   // Conjunction of TargetComplete events for this target, including aspects.
   bool overall_build_success = 1;
 
-  // Repeats TestSummary's overall_status if available.
+  // For non-test targets, set to NO_STATUS. For test targets, identical to
+  // TestSummary.overall_status.
+  //
+  // There are some cases where the `build` command on a test target succeeds,
+  // but the `test` command on the same target results in FAILED_TO_BUILD. In
+  // such cases, TargetComplete.overall_build_success is true, but this field is
+  // FAILED_TO_BUILD, and TestSummary may be missing.
+  // TODO - b/186996003: TestSummary is a child of TargetComplete and should be
+  //  posted.
   TestStatus overall_test_status = 2;
 }
 
@@ -1047,6 +1072,9 @@ message BuildMetrics {
     // The elapsed wall time in milliseconds until the first action execution
     // started (excluding workspace status actions).
     int64 actions_execution_start_in_ms = 5;
+
+    // The elapsed wall time in milliseconds that the critical path took.
+    google.protobuf.Duration critical_path_time = 6;
   }
   TimingMetrics timing_metrics = 5;
 
@@ -1343,6 +1371,56 @@ message BuildMetrics {
   }
 
   DynamicExecutionMetrics dynamic_execution_metrics = 12;
+
+  // A distribution of values. Currently only contains a bunch of histogram
+  // buckets, but if need be, we could add things like stddev or percentiles.
+  message Distribution {
+    message HistogramBucket {
+      int64 min = 1;    // inclusive
+      int64 max = 2;    // exclusive
+      int64 count = 3;  // number of values in the bucket
+    }
+
+    repeated HistogramBucket histogram_bucket = 1;
+  }
+
+  // Statistics about remote analysis caching
+  message RemoteAnalysisCacheStatistics {
+    message Entry {
+      string key = 1;
+      int64 value = 2;
+    }
+
+    int64 cache_hits = 1;
+    int64 cache_misses = 2;
+    int64 value_store_value_bytes_received = 3;
+    int64 value_store_value_bytes_sent = 4;
+    int64 value_store_key_bytes_sent = 5;
+    int64 value_store_write_ops = 6;
+    int64 value_store_read_ops_successful = 7;
+    int64 value_store_read_ops_not_found = 8;
+    int64 value_store_read_batches = 10;
+    int64 value_store_write_batches = 11;
+    int64 analysis_cache_bytes_received = 12;
+    int64 analysis_cache_key_bytes_sent = 13;
+    int64 analysis_cache_ops = 14;
+    int64 analysis_cache_batches = 15;
+
+    Distribution value_store_read_latency_micros = 17;
+    Distribution value_store_read_batch_latency_micros = 18;
+    Distribution value_store_write_latency_micros = 19;
+    Distribution value_store_write_batch_latency_micros = 20;
+    Distribution analysis_cache_read_latency_micros = 21;
+    Distribution analysis_cache_read_batch_latency_micros = 22;
+
+    repeated Entry cache_misses_by_reason = 23;
+    repeated Entry cache_misses_by_skyfunction = 24;
+    repeated Entry cache_hits_by_skyfunction = 25;
+
+    // The result of the Skycache metadata lookup.
+    devtools_blaze_proto.TopLevelTargetsMatchStatus metadata_lookup_result = 16;
+  }
+  RemoteAnalysisCacheStatistics remote_analysis_cache_statistics = 13;
 }
 
 // Event providing additional statistics/logs after completion of the build.
@@ -1404,6 +1482,18 @@ message ExecRequestConstructed {
 message EnvironmentVariable {
   bytes name = 1;
   bytes value = 2;
+}
+
+// Information about the Java version.
+message JavaVersionInfo {
+  // The Java version string, e.g. "25.0.1+8-LTS-27".
+  string java_version = 1;
+
+  // The major Java version, e.g. 25.
+  int32 java_major_version = 2;
+
+  // The minor Java version, e.g. 0.
+  int32 java_minor_version = 3;
 }
 
 // Message describing a build event. Events will have an identifier that

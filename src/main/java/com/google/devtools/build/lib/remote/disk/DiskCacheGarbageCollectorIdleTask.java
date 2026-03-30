@@ -20,7 +20,9 @@ import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollector.Colle
 import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollector.CollectionStats;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.server.IdleTask;
+import com.google.devtools.build.lib.server.IdleTaskException;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Optional;
@@ -49,14 +51,14 @@ public final class DiskCacheGarbageCollectorIdleTask implements IdleTask {
    * Creates a new {@link DiskCacheGarbageCollectorIdleTask} according to the options.
    *
    * @param remoteOptions the remote options
+   * @param diskCachePath the resolved disk cache path, or {@code null} if disabled
    * @param workingDirectory the working directory
-   * @param executorService the executor service to schedule I/O operations onto
    * @return the idle task, or null if garbage collection is disabled
    */
   @Nullable
   public static DiskCacheGarbageCollectorIdleTask create(
-      RemoteOptions remoteOptions, Path workingDirectory) {
-    if (remoteOptions.diskCache == null || remoteOptions.diskCache.isEmpty()) {
+      RemoteOptions remoteOptions, @Nullable PathFragment diskCachePath, Path workingDirectory) {
+    if (diskCachePath == null || diskCachePath.isEmpty()) {
       return null;
     }
     Optional<Long> maxSizeBytes = Optional.empty();
@@ -74,8 +76,13 @@ public final class DiskCacheGarbageCollectorIdleTask implements IdleTask {
     var policy = new CollectionPolicy(maxSizeBytes, maxAge);
     var gc =
         new DiskCacheGarbageCollector(
-            workingDirectory.getRelative(remoteOptions.diskCache), executorService, policy);
+            workingDirectory.getRelative(diskCachePath), executorService, policy);
     return new DiskCacheGarbageCollectorIdleTask(delay, gc);
+  }
+
+  @Override
+  public String displayName() {
+    return "Disk cache garbage collector";
   }
 
   @VisibleForTesting
@@ -89,15 +96,12 @@ public final class DiskCacheGarbageCollectorIdleTask implements IdleTask {
   }
 
   @Override
-  public void run() {
+  public void run() throws IdleTaskException, InterruptedException {
     try {
-      logger.atInfo().log("Disk cache garbage collection started");
       CollectionStats stats = gc.run();
       logger.atInfo().log("%s", stats.displayString());
     } catch (IOException e) {
-      logger.atInfo().withCause(e).log("Disk cache garbage collection failed");
-    } catch (InterruptedException e) {
-      logger.atInfo().withCause(e).log("Disk cache garbage collection interrupted");
+      throw new IdleTaskException(e);
     }
   }
 }

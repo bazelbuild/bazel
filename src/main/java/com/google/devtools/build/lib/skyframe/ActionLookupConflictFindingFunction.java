@@ -48,7 +48,7 @@ public class ActionLookupConflictFindingFunction implements SkyFunction {
     ActionLookupValue alValue = (ActionLookupValue) env.getValue(lookupKey);
     if (env.valuesMissing()) {
       if (!CoverageReportValue.COVERAGE_REPORT_KEY.equals(lookupKey)) {
-        BugReport.sendBugReport(
+        BugReport.sendNonFatalBugReport(
             new IllegalStateException(
                 "Unexpected missing action lookup value during action conflict finding: "
                     + skyKey));

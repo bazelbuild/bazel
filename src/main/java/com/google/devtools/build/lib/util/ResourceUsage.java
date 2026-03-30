@@ -120,6 +120,7 @@ public final class ResourceUsage {
   /** Returns a measurement of the current resource usage of the current process. */
   public static Measurement measureCurrentResourceUsage() {
     return new Measurement(
+        System.nanoTime(),
         MEM_BEAN.getHeapMemoryUsage().getUsed(),
         MEM_BEAN.getHeapMemoryUsage().getCommitted(),
         MEM_BEAN.getNonHeapMemoryUsage().getUsed(),
@@ -261,123 +262,45 @@ public final class ResourceUsage {
     return availableMemory;
   }
 
-  /** A snapshot of the resource usage of the current process at a point in time. */
-  public static final class Measurement {
-
-    private final long timeInNanos;
-    private final long heapMemoryUsed;
-    private final long heapMemoryCommitted;
-    private final long nonHeapMemoryUsed;
-    private final long nonHeapMemoryCommitted;
-    private final float loadAverageLastMinute;
-    private final float memoryPressureLast10Sec;
-    private final float ioPressureLast10Sec;
-    private final long freePhysicalMemory;
-    private final long[] cpuUtilizationInMs;
-
-    public Measurement(
-        long heapMemoryUsed,
-        long heapMemoryCommitted,
-        long nonHeapMemoryUsed,
-        long nonHeapMemoryCommitted,
-        float loadAverageLastMinute,
-        float memoryPressureLast10Sec1,
-        float ioPressureLast10Sec1,
-        long freePhysicalMemory,
-        long[] cpuUtilizationInMs) {
-      super();
-      timeInNanos = System.nanoTime();
-      this.heapMemoryUsed = heapMemoryUsed;
-      this.heapMemoryCommitted = heapMemoryCommitted;
-      this.nonHeapMemoryUsed = nonHeapMemoryUsed;
-      this.nonHeapMemoryCommitted = nonHeapMemoryCommitted;
-      this.loadAverageLastMinute = loadAverageLastMinute;
-      this.memoryPressureLast10Sec = memoryPressureLast10Sec1;
-      this.ioPressureLast10Sec = ioPressureLast10Sec1;
-      this.freePhysicalMemory = freePhysicalMemory;
-      this.cpuUtilizationInMs = cpuUtilizationInMs;
-    }
+  /**
+   * A snapshot of the resource usage of the current process at a point in time.
+   *
+   * @attr timeInNanos The time of the measurement in nanoseconds.
+   * @attr heapMemoryUsed The amount of heap memory used in bytes.
+   * @attr heapMemoryCommitted The amount of heap memory committed in bytes.
+   * @attr nonHeapMemoryUsed The amount of non-heap memory used in bytes.
+   * @attr nonHeapMemoryCommitted The amount of non-heap memory committed in bytes.
+   * @attr loadAverageLastMinute The load average of the system in the last minute.
+   * @attr memoryPressureLast10Sec The memory pressure from the Linux Pressure Stall Indicator
+   *     system, or -1 if PSI cannot be read.
+   * @attr ioPressureLast10Sec The IO pressure from the Linux Pressure Stall Indicator system, or -1
+   *     if PSI cannot be read.
+   * @attr freePhysicalMemory The amount of free physical memory in bytes.
+   * @attr cpuUtilizationInMs The current cpu utilization of the current process in ms. The returned
+   *     array contains the following information: The 1st entry is the number of ms that the
+   *     process has executed in user mode, and the 2nd entry is the number of ms that the process
+   *     has executed in kernel mode. Reads /proc/self/stat to obtain this information.
+   */
+  @SuppressWarnings("ArrayRecordComponent")
+  public record Measurement(
+      long timeInNanos,
+      long heapMemoryUsed,
+      long heapMemoryCommitted,
+      long nonHeapMemoryUsed,
+      long nonHeapMemoryCommitted,
+      float loadAverageLastMinute,
+      float memoryPressureLast10Sec,
+      float ioPressureLast10Sec,
+      long freePhysicalMemory,
+      long[] cpuUtilizationInMs) {
 
     /** Returns the time of the measurement in ms. */
-    public long getTimeInMs() {
+    public long timeInMs() {
       return timeInNanos / 1000000;
     }
 
-    /**
-     * Returns the amount of used heap memory in bytes at the time of measurement.
-     *
-     * @see MemoryMXBean#getHeapMemoryUsage()
-     */
-    public long getHeapMemoryUsed() {
-      return heapMemoryUsed;
-    }
-
-    /**
-     * Returns the amount of used non heap memory in bytes at the time of measurement.
-     *
-     * @see MemoryMXBean#getNonHeapMemoryUsage()
-     */
-    public long getHeapMemoryCommitted() {
-      return heapMemoryCommitted;
-    }
-
-    /**
-     * Returns the amount of memory in bytes that is committed for the Java virtual machine to use
-     * for the heap at the time of measurement.
-     *
-     * @see MemoryMXBean#getHeapMemoryUsage()
-     */
-    public long getNonHeapMemoryUsed() {
-      return nonHeapMemoryUsed;
-    }
-
-    /**
-     * Returns the amount of memory in bytes that is committed for the Java virtual machine to use
-     * for non heap memory at the time of measurement.
-     *
-     * @see MemoryMXBean#getNonHeapMemoryUsage()
-     */
-    public long getNonHeapMemoryCommitted() {
-      return nonHeapMemoryCommitted;
-    }
-
-    /**
-     * Returns the system load average for the last minute at the time of measurement.
-     *
-     * @see OperatingSystemMXBean#getSystemLoadAverage()
-     */
-    public float getLoadAverageLastMinute() {
-      return loadAverageLastMinute;
-    }
-
-    /**
-     * Returns the memory pressure from the Linux Pressure Stall Indicator system, or -1 if PSI
-     * cannot be read.
-     */
-    public float getMemoryPressureLast10Sec() {
-      return memoryPressureLast10Sec;
-    }
-
-    /**
-     * Returns the I/O pressure from the Linux Pressure Stall Indicator system, or -1 if PSI cannot
-     * be read.
-     */
-    public float getIoPressureLast10Sec() {
-      return ioPressureLast10Sec;
-    }
-
-    /** Returns the free physical memory in bytes at the time of measurement. */
-    public long getFreePhysicalMemory() {
-      return freePhysicalMemory;
-    }
-
-    /**
-     * Returns the current cpu utilization of the current process in ms. The returned array contains
-     * the following information: The 1st entry is the number of ms that the process has executed in
-     * user mode, and the 2nd entry is the number of ms that the process has executed in kernel
-     * mode. Reads /proc/self/stat to obtain this information.
-     */
-    public long[] getCpuUtilizationInMs() {
+    @Override
+    public long[] cpuUtilizationInMs() {
       return new long[] {cpuUtilizationInMs[0], cpuUtilizationInMs[1]};
     }
   }

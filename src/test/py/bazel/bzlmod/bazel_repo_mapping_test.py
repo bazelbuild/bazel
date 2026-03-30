@@ -31,11 +31,11 @@ class BazelRepoMappingTest(test_base.TestBase):
         os.path.join(self.registries_work_dir, 'main')
     )
     self.main_registry.start()
-    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+    self.main_registry.createShModule('aaa', '1.0').createShModule(
         'aaa', '1.1'
-    ).createCcModule('bbb', '1.0', {'aaa': '1.0'}).createCcModule(
+    ).createShModule('bbb', '1.0', {'aaa': '1.0'}).createShModule(
         'bbb', '1.1', {'aaa': '1.1'}
-    ).createCcModule(
+    ).createShModule(
         'ccc', '1.1', {'aaa': '1.1', 'bbb': '1.1'}
     )
     self.ScratchFile(
@@ -43,7 +43,6 @@ class BazelRepoMappingTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'build --noenable_workspace',
             'build --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
@@ -57,6 +56,9 @@ class BazelRepoMappingTest(test_base.TestBase):
                 'build'
                 ' --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain'
             ),
+            # TODO(bazel-team): Remove once rules_python exports runtime_env_toolchain_interpreter.sh
+            # See https://github.com/bazel-contrib/rules_python/pull/3471
+            'build --noincompatible_no_implicit_file_export',
         ],
     )
 
@@ -112,7 +114,6 @@ class BazelRepoMappingTest(test_base.TestBase):
             'multiple_version_override(module_name="quux",versions=["1.0","2.0"])',
         ],
     )
-    self.ScratchFile('WORKSPACE.bzlmod', ['workspace(name="me_ws")'])
     self.ScratchFile(
         'BUILD',
         [
@@ -155,9 +156,7 @@ class BazelRepoMappingTest(test_base.TestBase):
     bazel_command = 'build' if self.IsWindows() else 'test'
 
     # Finally we get to build stuff!
-    self.RunBazel(
-        [bazel_command, '--enable_workspace', '//:me', '--test_output=errors']
-    )
+    self.RunBazel([bazel_command, '//:me', '--test_output=errors'])
 
     paths = ['bazel-bin/me.repo_mapping']
     if not self.IsWindows():
@@ -168,7 +167,6 @@ class BazelRepoMappingTest(test_base.TestBase):
             f.read().strip(),
             """,foo,foo+
 ,me,_main
-,me_ws,_main
 foo+,foo,foo+
 foo+,quux,quux+1.0
 quux+1.0,quux,quux+1.0""",
@@ -176,12 +174,7 @@ quux+1.0,quux,quux+1.0""",
     with open(self.Path('bazel-bin/me.runfiles_manifest')) as f:
       self.assertIn('_repo_mapping ', f.read())
 
-    self.RunBazel([
-        bazel_command,
-        '--enable_workspace',
-        '@bar//:bar',
-        '--test_output=errors',
-    ])
+    self.RunBazel([bazel_command, '@bar//:bar', '--test_output=errors'])
 
     paths = ['bazel-bin/external/bar+/bar.repo_mapping']
     if not self.IsWindows():
@@ -208,11 +201,20 @@ quux+2.0,quux,quux+2.0""",
     )
 
     self.main_registry.createLocalPathModule(
-        'test', '1.0', 'test', {'data': '1.0'}
+        'test',
+        '1.0',
+        'test',
+        {
+            'data': '1.0',
+            'rules_shell': self.GetModuleVersionFromDefaultLockFile(
+                'rules_shell'
+            ),
+        },
     )
     scratchFile(
         projects_dir.joinpath('test', 'BUILD'),
         [
+            'load("@rules_shell//shell:sh_test.bzl", "sh_test")',
             'sh_test(',
             '    name = "test",',
             '    srcs = ["test.sh"],',
@@ -259,7 +261,7 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
         env_add={'RUNFILES_LIB_DEBUG': '1'},
     )
 
-  def testCppRunfilesLibraryRepoMapping(self):
+  def testLegacyCppRunfilesLibraryRepoMapping(self):
     self.main_registry.setModuleBasePath('projects')
     projects_dir = self.main_registry.projects
 
@@ -270,11 +272,18 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
     )
 
     self.main_registry.createLocalPathModule(
-        'test', '1.0', 'test', {'data': '1.0'}
+        'test',
+        '1.0',
+        'test',
+        {
+            'data': '1.0',
+            'rules_cc': self.GetModuleVersionFromDefaultLockFile('rules_cc'),
+        },
     )
     scratchFile(
         projects_dir.joinpath('test', 'BUILD'),
         [
+            'load("@rules_cc//cc:cc_test.bzl", "cc_test")',
             'cc_test(',
             '    name = "test",',
             '    srcs = ["test.cpp"],',
@@ -311,6 +320,65 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
     # Run unsandboxed on all platforms.
     self.RunBazel(['run', '@test//:test'])
 
+  def testCppRunfilesLibraryRepoMapping(self):
+    self.main_registry.setModuleBasePath('projects')
+    projects_dir = self.main_registry.projects
+
+    self.main_registry.createLocalPathModule('data', '1.0', 'data')
+    scratchFile(projects_dir.joinpath('data', 'foo.txt'), ['hello'])
+    scratchFile(
+        projects_dir.joinpath('data', 'BUILD'), ['exports_files(["foo.txt"])']
+    )
+
+    self.main_registry.createLocalPathModule(
+        'test',
+        '1.0',
+        'test',
+        {
+            'data': '1.0',
+            'rules_cc': self.GetModuleVersionFromDefaultLockFile('rules_cc'),
+        },
+    )
+    scratchFile(
+        projects_dir.joinpath('test', 'BUILD'),
+        [
+            'load("@rules_cc//cc:cc_test.bzl", "cc_test")',
+            'cc_test(',
+            '    name = "test",',
+            '    srcs = ["test.cpp"],',
+            '    data = ["@data//:foo.txt"],',
+            '    args = ["$(rlocationpath @data//:foo.txt)"],',
+            '    deps = ["@rules_cc//cc/runfiles"],',
+            ')',
+        ],
+    )
+    scratchFile(
+        projects_dir.joinpath('test', 'test.cpp'),
+        [
+            '#include <cstdlib>',
+            '#include <fstream>',
+            '#include "rules_cc/cc/runfiles/runfiles.h"',
+            'using rules_cc::cc::runfiles::Runfiles;',
+            'int main(int argc, char** argv) {',
+            (
+                '  Runfiles* runfiles = Runfiles::Create(argv[0],'
+                ' BAZEL_CURRENT_REPOSITORY);'
+            ),
+            '  std::ifstream f1(runfiles->Rlocation(argv[1]));',
+            '  if (!f1.good()) std::exit(1);',
+            '  std::ifstream f2(runfiles->Rlocation("data/foo.txt"));',
+            '  if (!f2.good()) std::exit(2);',
+            '}',
+        ],
+    )
+
+    self.ScratchFile('MODULE.bazel', ['bazel_dep(name="test",version="1.0")'])
+
+    # Run sandboxed on Linux and macOS.
+    self.RunBazel(['test', '@test//:test', '--test_output=errors'])
+    # Run unsandboxed on all platforms.
+    self.RunBazel(['run', '@test//:test'])
+
   def testJavaRunfilesLibraryRepoMapping(self):
     self.main_registry.setModuleBasePath('projects')
     projects_dir = self.main_registry.projects
@@ -322,11 +390,20 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
     )
 
     self.main_registry.createLocalPathModule(
-        'test', '1.0', 'test', {'data': '1.0'}
+        'test',
+        '1.0',
+        'test',
+        {
+            'data': '1.0',
+            'rules_java': self.GetModuleVersionFromDefaultLockFile(
+                'rules_java'
+            ),
+        },
     )
     scratchFile(
         projects_dir.joinpath('test', 'BUILD'),
         [
+            'load("@rules_java//java:java_test.bzl", "java_test")',
             'java_test(',
             '    name = "test",',
             '    srcs = ["Test.java"],',

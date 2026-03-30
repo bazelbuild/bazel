@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
 public class SafeRequestLogging {
   private static final Pattern suppressFromLog =
       Pattern.compile(
-          "--client_env=([^=]*(?:auth|pass|cookie|token)[^=]*)=", Pattern.CASE_INSENSITIVE);
+          "--client_env=([^=]*(?:auth|pass|cookie|token|api_key)[^=]*)=", Pattern.CASE_INSENSITIVE);
 
   private SafeRequestLogging() {}
 

@@ -18,7 +18,7 @@ import com.google.auth.Credentials;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
-import java.net.URL;
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -37,11 +37,12 @@ public interface Downloader {
    * @param checksum valid checksum which is checked, or absent to disable
    * @param output path to the destination file to write
    * @param type extension, e.g. "tar.gz" to force on downloaded filename, or empty to not do this
+   * @param context free-form string that describes the origin of the download for logging
    * @throws IOException if download was attempted and ended up failing
    * @throws InterruptedException if this thread is being cast into oblivion
    */
   void download(
-      List<URL> urls,
+      List<URI> urls,
       Map<String, List<String>> headers,
       Credentials credentials,
       Optional<Checksum> checksum,
@@ -49,6 +50,7 @@ public interface Downloader {
       Path output,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      Optional<String> type)
+      Optional<String> type,
+      String context)
       throws IOException, InterruptedException;
 }

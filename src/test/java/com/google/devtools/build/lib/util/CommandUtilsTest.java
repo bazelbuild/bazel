@@ -16,10 +16,12 @@ package com.google.devtools.build.lib.util;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -29,16 +31,16 @@ import org.junit.runners.JUnit4;
 public class CommandUtilsTest {
 
   private static Command buildLongCommand() {
-    String[] args = new String[40];
-    args[0] = "this_command_will_not_be_found";
-    for (int i = 1; i < args.length; i++) {
-      args[i] = "arg" + i;
+    ArrayList<String> args = new ArrayList<>();
+    args.add("this_command_will_not_be_found");
+    for (int i = 1; i < 40; i++) {
+      args.add("arg" + i);
     }
     Map<String, String> env = Maps.newTreeMap();
     env.put("PATH", "/usr/bin:/bin:/sbin");
     env.put("FOO", "foo");
     File directory = new File("/tmp");
-    return new Command(args, env, directory);
+    return new Command(args, env, directory, System.getenv());
   }
 
   @Test
@@ -79,17 +81,16 @@ public class CommandUtilsTest {
 
   @Test
   public void failingCommand() throws Exception {
-    String[] args = new String[3];
-    args[0] = "/bin/sh";
-    args[1] = "-c";
-    args[2] = "echo Some errors 1>&2; echo Some output; exit 42";
+    var args =
+        ImmutableList.of("/bin/sh", "-c", "echo Some errors 1>&2; echo Some output; exit 42");
     Map<String, String> env = Maps.newTreeMap();
     env.put("FOO", "foo");
     env.put("PATH", "/usr/bin:/bin:/sbin");
     CommandException exception =
-        assertThrows(CommandException.class, () -> new Command(args, env, null).execute());
+        assertThrows(
+            CommandException.class, () -> new Command(args, env, null, System.getenv()).execute());
     String message = CommandUtils.describeCommandFailure(false, exception);
-      String verboseMessage = CommandUtils.describeCommandFailure(true, exception);
+    String verboseMessage = CommandUtils.describeCommandFailure(true, exception);
     assertThat(message)
         .isEqualTo(
             "sh failed: error executing <shell command> command "

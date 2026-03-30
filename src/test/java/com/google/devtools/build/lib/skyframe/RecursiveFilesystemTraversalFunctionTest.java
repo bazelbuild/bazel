@@ -38,11 +38,9 @@ import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValueWithContentsProxy;
 import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValueWithDigest;
-import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
 import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -50,13 +48,13 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.RecursiveFilesystemTraversalException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory;
+import com.google.devtools.build.lib.skyframe.TraversalRequest.DirectTraversalRoot;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TimestampGranularityUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -123,8 +121,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   protected FileSystem createFileSystem() {
     return new DelegateFileSystem(super.createFileSystem()) {
       @Override
-      protected FileStatus statIfFound(PathFragment path, boolean followSymlinks)
-          throws IOException {
+      public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
         if (pathsToPretendDontExist.contains(path)) {
           return null;
         }
@@ -149,12 +146,13 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, rootDirectory),
             rootDirectory,
-            null,
             analysisMock.getProductName());
-    ExternalFilesHelper externalFilesHelper = ExternalFilesHelper.createForTesting(
-        pkgLocator, ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS, directories);
+    ExternalFilesHelper externalFilesHelper =
+        ExternalFilesHelper.createForTesting(
+            pkgLocator,
+            ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
+            directories);
 
-    ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
     skyFunctions.put(
         FileStateKey.FILE_STATE,
@@ -175,25 +173,10 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         new PackageLookupFunction(
             deletedPackages,
             CrossRepositoryLabelViolationStrategy.ERROR,
-            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
-            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     skyFunctions.put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.NOOP);
     skyFunctions.put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build());
-    skyFunctions.put(
-        WorkspaceFileValue.WORKSPACE_FILE,
-        new WorkspaceFileFunction(
-            ruleClassProvider,
-            analysisMock
-                .getPackageFactoryBuilderForTesting(directories)
-                .build(ruleClassProvider, fileSystem),
-            directories,
-            /*bzlLoadFunctionForInlining=*/ null));
-    skyFunctions.put(
-        SkyFunctions.EXTERNAL_PACKAGE,
-        new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
-    skyFunctions.put(
-        SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
-        new LocalRepositoryLookupFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
+    skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
     skyFunctions.put(
         FileSymlinkInfiniteExpansionUniquenessFunction.NAME,
         new FileSymlinkInfiniteExpansionUniquenessFunction());
@@ -222,7 +205,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
 
   private SpecialArtifact treeArtifact(String path) {
     return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
-        ArtifactRoot.asDerivedRoot(rootDirectory, RootType.Output, "out"),
+        ArtifactRoot.asDerivedRoot(rootDirectory, RootType.OUTPUT, "out"),
         PathFragment.create("out/" + path));
   }
 
@@ -237,7 +220,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     Artifact.DerivedArtifact result =
         (Artifact.DerivedArtifact)
             ActionsTestUtil.createArtifactWithExecPath(
-                ArtifactRoot.asDerivedRoot(rootDirectory, RootType.Output, "out"), execPath);
+                ArtifactRoot.asDerivedRoot(rootDirectory, RootType.OUTPUT, "out"), execPath);
     result.setGeneratingActionKey(
         ActionLookupData.create(ActionsTestUtil.NULL_ARTIFACT_OWNER, artifacts.size()));
     artifacts.add(result);
@@ -371,7 +354,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
       Map<PathFragment, ResolvedFile> nameToActualResolvedFiles,
       ResolvedFile... expectedFilesIgnoringMetadata)
       throws Exception {
-    assertWithMessage("Expected files " + Arrays.toString(expectedFilesIgnoringMetadata))
+    assertWithMessage("Expected files %s", Arrays.toString(expectedFilesIgnoringMetadata))
         .that(nameToActualResolvedFiles)
         .hasSize(expectedFilesIgnoringMetadata.length);
     assertEquals(
@@ -389,7 +372,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
       throws Exception {
     Path path = rootedPath.asPath();
     if (path.exists()) {
-      try (OutputStream os = path.getOutputStream(/*append=*/ true)) {
+      try (OutputStream os = path.getOutputStream(/* append= */ true)) {
         os.write(content.getBytes(StandardCharsets.UTF_8));
       }
       differencer.invalidate(ImmutableList.of(toInvalidate));
@@ -517,7 +500,6 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   public void testTraversalOfGeneratedFileWithStrictOutput() throws Exception {
     assertTraversalOfFile(derivedArtifact("foo/bar.txt"), true);
   }
-
 
   @Test
   public void testTraversalOfSymlinkToFile() throws Exception {
@@ -830,8 +812,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     PathFragment linkTarget = PathFragment.create("non_existent");
     parentOf(link).asPath().createDirectory();
     link.asPath().createSymbolicLink(linkTarget);
-    traverseAndAssertFiles(
-        fileLikeRoot(linkArtifact), danglingSymlink(link, linkTarget, EMPTY_METADATA));
+    traverseAndAssertFiles(fileLikeRoot(linkArtifact), danglingSymlink(link, linkTarget));
   }
 
   @Test
@@ -845,7 +826,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     traverseAndAssertFiles(
         fileLikeRoot(dirArtifact),
         regularFile(file, EMPTY_METADATA),
-        danglingSymlink(link, linkTarget, EMPTY_METADATA));
+        danglingSymlink(link, linkTarget));
   }
 
   @Test
@@ -976,7 +957,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         }
         return FileArtifactValue.createForTesting(((Artifact) skyKey.argument()).getPath());
       } catch (IOException e) {
-        throw new SkyFunctionException(e, Transience.PERSISTENT){};
+        throw new SkyFunctionException(e, Transience.PERSISTENT) {};
       }
     }
 
@@ -1060,7 +1041,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
 
     // FileStateValue will be transformed with fingerprinted digest
     RootedPath rootedPath = rootedPath("bar", "foo");
-    FileStateValue fsv = FileStateValue.create(rootedPath, SyscallCache.NO_CACHE, /*tsgm=*/ null);
+    FileStateValue fsv = FileStateValue.create(rootedPath, SyscallCache.NO_CACHE, /* tsgm= */ null);
     HasDigest fsvResult =
         RecursiveFilesystemTraversalFunction.withDigest(fsv, null, SyscallCache.NO_CACHE);
     assertThat(fsvResult).isInstanceOf(HasDigest.ByteStringDigest.class);

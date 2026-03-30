@@ -46,7 +46,7 @@ public class StreamedJSONProtoOutputFormatter extends ProtoOutputFormatter {
                   .omittingInsignificantWhitespace()
                   .print(toTargetProtoBuffer(target, labelPrinter))
                   .getBytes(StandardCharsets.UTF_8));
-          out.write(System.lineSeparator().getBytes(StandardCharsets.UTF_8));
+          out.write('\n');
         }
       }
     };

@@ -17,6 +17,8 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestFunctionConverter;
+import com.google.devtools.common.options.OptionsParsingException;
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -44,25 +46,35 @@ public class DigestHashFunctionGlobalsTest {
 
   @Test
   public void lateRegistrationGetsPickedUpByConverter() throws Exception {
-    DigestHashFunction.register(Hashing.goodFastHash(32), "SHA-512");
+    DigestHashFunction.register(Hashing.goodFastHash(32), "MD5");
 
-    assertThat(converter.convert("SHA-512")).isSameInstanceAs(converter.convert("sha-512"));
+    assertThat(converter.convert("MD5")).isSameInstanceAs(converter.convert("md5"));
   }
 
   @Test
   public void lateRegistrationWithAlternativeNamesGetsPickedUpByConverter() throws Exception {
-    DigestHashFunction.register(Hashing.goodFastHash(64), "SHA-384", "SHA384", "SHA_384");
+    DigestHashFunction.register(Hashing.goodFastHash(64), "SHA-224", "SHA224", "SHA_224");
 
-    assertThat(converter.convert("SHA-384")).isSameInstanceAs(converter.convert("SHA-384"));
-    assertThat(converter.convert("Sha-384")).isSameInstanceAs(converter.convert("SHA-384"));
-    assertThat(converter.convert("sha-384")).isSameInstanceAs(converter.convert("SHA-384"));
+    assertThat(converter.convert("SHA-224")).isSameInstanceAs(converter.convert("SHA-224"));
+    assertThat(converter.convert("Sha-224")).isSameInstanceAs(converter.convert("SHA-224"));
+    assertThat(converter.convert("sha-224")).isSameInstanceAs(converter.convert("SHA-224"));
 
-    assertThat(converter.convert("SHA384")).isSameInstanceAs(converter.convert("SHA-384"));
-    assertThat(converter.convert("Sha384")).isSameInstanceAs(converter.convert("SHA-384"));
-    assertThat(converter.convert("sha384")).isSameInstanceAs(converter.convert("SHA-384"));
+    assertThat(converter.convert("SHA224")).isSameInstanceAs(converter.convert("SHA-224"));
+    assertThat(converter.convert("Sha224")).isSameInstanceAs(converter.convert("SHA-224"));
+    assertThat(converter.convert("sha224")).isSameInstanceAs(converter.convert("SHA-224"));
 
-    assertThat(converter.convert("SHA_384")).isSameInstanceAs(converter.convert("SHA-384"));
-    assertThat(converter.convert("Sha_384")).isSameInstanceAs(converter.convert("SHA-384"));
-    assertThat(converter.convert("sha_384")).isSameInstanceAs(converter.convert("SHA-384"));
+    assertThat(converter.convert("SHA_224")).isSameInstanceAs(converter.convert("SHA-224"));
+    assertThat(converter.convert("Sha_224")).isSameInstanceAs(converter.convert("SHA-224"));
+    assertThat(converter.convert("sha_224")).isSameInstanceAs(converter.convert("SHA-224"));
+  }
+
+  @Test
+  public void convertThrowsDescriptiveErrorOnInvalidInput() {
+    var e = Assert.assertThrows(OptionsParsingException.class, () -> converter.convert("invalid"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'invalid' is not a valid hash function. Possible values are: ");
+    assertThat(e).hasMessageThat().contains("SHA-1");
+    assertThat(e).hasMessageThat().contains("SHA-256");
   }
 }

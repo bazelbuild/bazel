@@ -1,3 +1,7 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_shared_library.bzl", "cc_shared_library")
+
 licenses(["notice"])
 
 package(default_visibility = ["//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library:__subpackages__"])

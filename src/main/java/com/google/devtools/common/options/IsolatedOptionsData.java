@@ -19,12 +19,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import java.lang.reflect.Constructor;
-import java.util.Arrays;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import javax.annotation.concurrent.Immutable;
@@ -56,30 +56,40 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
    * instances, and must be used through the thread safe {@link
    * #getAllOptionDefinitionsForClass(Class)}
    */
-  private static final ConcurrentMap<
-          Class<? extends OptionsBase>, ImmutableList<FieldOptionDefinition>>
-      allOptionsFields = new ConcurrentHashMap<>();
+  private static final ConcurrentMap<Class<? extends OptionsBase>, ImmutableList<OptionDefinition>>
+      allOptionsDefinitions = new ConcurrentHashMap<>();
 
   /** Returns all {@code optionDefinitions}, ordered by their option name (not their field name). */
-  public static ImmutableList<FieldOptionDefinition> getAllOptionDefinitionsForClass(
+  public static ImmutableList<OptionDefinition> getAllOptionDefinitionsForClass(
       Class<? extends OptionsBase> optionsClass) {
-    return allOptionsFields.computeIfAbsent(
+    return allOptionsDefinitions.computeIfAbsent(
         optionsClass,
-        optionsBaseClass ->
-            Arrays.stream(optionsBaseClass.getFields())
-                .map(
-                    field -> {
-                      try {
-                        return FieldOptionDefinition.extractOptionDefinition(field);
-                      } catch (FieldOptionDefinition.NotAnOptionException e) {
-                        // Ignore non-@Option annotated fields. Requiring all fields in the
-                        // OptionsBase to be @Option-annotated requires a depot cleanup.
-                        return null;
-                      }
-                    })
-                .filter(Objects::nonNull)
-                .sorted(OptionDefinition.BY_OPTION_NAME)
-                .collect(ImmutableList.toImmutableList()));
+        optionsBaseClass -> {
+          ImmutableList.Builder<OptionDefinition> builder = ImmutableList.builder();
+          Class<?> methodsClass = optionsBaseClass.getSuperclass();
+          if (methodsClass.isAnnotationPresent(OptionsClass.class)) {
+            for (Method method : methodsClass.getMethods()) {
+              try {
+                MethodOptionDefinition optionDefinition =
+                    MethodOptionDefinition.extractOptionDefinition(method);
+                if (optionDefinition != null) {
+                  builder.add(optionDefinition);
+                }
+              } catch (OptionDefinition.NotAnOptionException e) {
+                // Ignore non-@Option annotated methods.
+              }
+            }
+          } else {
+            for (Field field : optionsBaseClass.getFields()) {
+              try {
+                builder.add(FieldOptionDefinition.extractOptionDefinition(field));
+              } catch (OptionDefinition.NotAnOptionException e) {
+                // Ignore non-@Option annotated fields.
+              }
+            }
+          }
+          return ImmutableList.sortedCopyOf(OptionDefinition.BY_OPTION_NAME, builder.build());
+        });
   }
 
   /**
@@ -271,13 +281,17 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
     // OptionProcessor.
     for (Class<? extends OptionsBase> parsedOptionsClass : classes) {
       try {
-        Constructor<? extends OptionsBase> constructor = parsedOptionsClass.getConstructor();
+        Class<? extends OptionsBase> classToInstantiate = parsedOptionsClass;
+        if (parsedOptionsClass.isAnnotationPresent(OptionsClass.class)) {
+          classToInstantiate = MethodOptionDefinition.getImplClass(parsedOptionsClass);
+        }
+        Constructor<? extends OptionsBase> constructor = classToInstantiate.getConstructor();
         constructorBuilder.put(parsedOptionsClass, constructor);
       } catch (NoSuchMethodException e) {
         throw new IllegalArgumentException(
             parsedOptionsClass + " lacks an accessible default constructor", e);
       }
-      ImmutableList<FieldOptionDefinition> optionDefinitions =
+      ImmutableList<OptionDefinition> optionDefinitions =
           getAllOptionDefinitionsForClass(parsedOptionsClass);
 
       for (OptionDefinition optionDefinition : optionDefinitions) {
@@ -352,7 +366,7 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
       boolean usesOnlyCoreTypes = parsedOptionsClass.isAnnotationPresent(UsesOnlyCoreTypes.class);
       if (usesOnlyCoreTypes) {
         // Validate that @UsesOnlyCoreTypes was used correctly.
-        for (FieldOptionDefinition optionDefinition : optionDefinitions) {
+        for (OptionDefinition optionDefinition : optionDefinitions) {
           // The classes in coreTypes are all final. But even if they weren't, we only want to check
           // for exact matches; subclasses would not be considered core types.
           if (!UsesOnlyCoreTypes.CORE_TYPES.contains(optionDefinition.getType())) {
@@ -361,7 +375,7 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
                     + parsedOptionsClass.getName()
                     + "' is marked as "
                     + "@UsesOnlyCoreTypes, but field '"
-                    + optionDefinition.getField().getName()
+                    + optionDefinition.getMemberName()
                     + "' has type '"
                     + optionDefinition.getType().getName()
                     + "'");

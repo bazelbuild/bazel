@@ -151,15 +151,12 @@ class MethodLibrary {
 
     /**
      * @throws KeyCallException wrapping the exception thrown by the underlying {@link
-     *     Starlark#fastcall} call if it threw.
+     *     Starlark#positionalOnlyCall} call if it threw.
      */
     static ValueWithComparisonKey make(
         Object value, StarlarkCallable keyFn, StarlarkThread thread) {
-      Object[] positional = {value};
-      Object[] named = {};
       try {
-        return new ValueWithComparisonKey(
-            value, Starlark.fastcall(thread, keyFn, positional, named));
+        return new ValueWithComparisonKey(value, Starlark.positionalOnlyCall(thread, keyFn, value));
       } catch (EvalException | InterruptedException ex) {
         throw new KeyCallException(ex);
       }
@@ -173,7 +170,9 @@ class MethodLibrary {
       return comparisonKey;
     }
 
-    /** An unchecked exception wrapping an exception thrown by {@link Starlark#fastcall}. */
+    /**
+     * An unchecked exception wrapping an exception thrown by {@link Starlark#positionalOnlyCall}.
+     */
     private static final class KeyCallException extends RuntimeException {
       KeyCallException(Exception cause) {
         super(cause);
@@ -214,8 +213,8 @@ class MethodLibrary {
               + "Elements are converted to boolean using the <a href=\"#bool\">bool</a> function."
               + "<pre class=\"language-python\">all([\"hello\", 3, True]) == True\n"
               + "all([-1, 0, 1]) == False</pre>",
-      parameters = {@Param(name = "elements", doc = "A string or a collection of elements.")})
-  public boolean all(Object collection) throws EvalException {
+      parameters = {@Param(name = "elements", doc = "A collection of elements.")})
+  public boolean all(StarlarkIterable<Object> collection) throws EvalException {
     return !hasElementWithBooleanValue(collection, false);
   }
 
@@ -226,14 +225,14 @@ class MethodLibrary {
               + "Elements are converted to boolean using the <a href=\"#bool\">bool</a> function."
               + "<pre class=\"language-python\">any([-1, 0, 1]) == True\n"
               + "any([False, 0, \"\"]) == False</pre>",
-      parameters = {@Param(name = "elements", doc = "A string or a collection of elements.")})
-  public boolean any(Object collection) throws EvalException {
+      parameters = {@Param(name = "elements", doc = "A collection of elements.")})
+  public boolean any(StarlarkIterable<Object> collection) throws EvalException {
     return hasElementWithBooleanValue(collection, true);
   }
 
-  private static boolean hasElementWithBooleanValue(Object seq, boolean value)
+  private static boolean hasElementWithBooleanValue(StarlarkIterable<Object> seq, boolean value)
       throws EvalException {
-    for (Object x : Starlark.toIterable(seq)) {
+    for (Object x : seq) {
       if (Starlark.truth(x) == value) {
         return true;
       }
@@ -297,10 +296,9 @@ class MethodLibrary {
     StarlarkCallable keyfn = (StarlarkCallable) key;
 
     // decorate
-    Object[] empty = {};
     for (int i = 0; i < array.length; i++) {
       Object v = array[i];
-      Object k = Starlark.fastcall(thread, keyfn, new Object[] {v}, empty);
+      Object k = Starlark.positionalOnlyCall(thread, keyfn, v);
       array[i] = new Object[] {k, v};
     }
 
@@ -381,7 +379,8 @@ class MethodLibrary {
               + "<pre class=\"language-python\">tuple([1, 2]) == (1, 2)\n"
               + "tuple((2, 3, 2)) == (2, 3, 2)\n"
               + "tuple({5: \"a\", 2: \"b\", 4: \"c\"}) == (5, 2, 4)</pre>",
-      parameters = {@Param(name = "x", defaultValue = "()", doc = "The object to convert.")})
+      parameters = {@Param(name = "x", defaultValue = "()", doc = "The object to convert.")},
+      isTypeConstructor = true)
   public Tuple tuple(StarlarkIterable<?> x) throws EvalException {
     if (x instanceof Tuple) {
       return (Tuple) x;
@@ -397,7 +396,8 @@ class MethodLibrary {
               + "list((2, 3, 2)) == [2, 3, 2]\n"
               + "list({5: \"a\", 2: \"b\", 4: \"c\"}) == [5, 2, 4]</pre>",
       parameters = {@Param(name = "x", defaultValue = "[]", doc = "The object to convert.")},
-      useStarlarkThread = true)
+      useStarlarkThread = true,
+      isTypeConstructor = true)
   public StarlarkList<?> list(StarlarkIterable<?> x, StarlarkThread thread) throws EvalException {
     return StarlarkList.wrap(thread.mutability(), Starlark.toArray(x));
   }
@@ -407,7 +407,15 @@ class MethodLibrary {
       doc =
           "Returns the length of a string, sequence (such as a list or tuple), dict, set, or other"
               + " iterable.",
-      parameters = {@Param(name = "x", doc = "The value whose length to report.")},
+      parameters = {
+        @Param(
+            name = "x",
+            doc = "The value whose length to report.",
+            allowedTypes = {
+              @ParamType(type = StarlarkIterable.class, generic1 = Object.class),
+              @ParamType(type = String.class)
+            })
+      },
       useStarlarkThread = true)
   public int len(Object x, StarlarkThread thread) throws EvalException {
     int len = Starlark.len(x);
@@ -424,7 +432,8 @@ class MethodLibrary {
               + "<pre class=\"language-python\">str(\"ab\") == \"ab\"\n"
               + "str(8) == \"8\"</pre>",
       parameters = {@Param(name = "x", doc = "The object to convert.")},
-      useStarlarkThread = true)
+      useStarlarkThread = true,
+      isTypeConstructor = true)
   public String str(Object x, StarlarkThread thread) throws EvalException {
     return Starlark.str(x, thread.getSemantics());
   }
@@ -434,9 +443,10 @@ class MethodLibrary {
       doc =
           "Converts any object to a string representation. This is useful for debugging.<br>"
               + "<pre class=\"language-python\">repr(\"ab\") == '\"ab\"'</pre>",
-      parameters = {@Param(name = "x", doc = "The object to convert.")})
-  public String repr(Object x) {
-    return Starlark.repr(x);
+      parameters = {@Param(name = "x", doc = "The object to convert.")},
+      useStarlarkThread = true)
+  public String repr(Object x, StarlarkThread thread) {
+    return Starlark.repr(x, thread.getSemantics());
   }
 
   @StarlarkMethod(
@@ -447,7 +457,8 @@ class MethodLibrary {
               + "</code>, an empty string (<code>\"\"</code>), the number <code>0</code>, or an "
               + "empty collection (e.g. <code>()</code>, <code>[]</code>). "
               + "Otherwise, it returns <code>True</code>.",
-      parameters = {@Param(name = "x", defaultValue = "False", doc = "The variable to convert.")})
+      parameters = {@Param(name = "x", defaultValue = "False", doc = "The variable to convert.")},
+      isTypeConstructor = true)
   public boolean bool(Object x) throws EvalException {
     return Starlark.truth(x);
   }
@@ -470,8 +481,18 @@ class MethodLibrary {
               + "Any other value causes an error. With no argument, <code>float()</code> returns"
               + " 0.0.",
       parameters = {
-        @Param(name = "x", doc = "The value to convert.", defaultValue = "unbound"),
-      })
+        @Param(
+            name = "x",
+            doc = "The value to convert.",
+            defaultValue = "unbound",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Boolean.class),
+              @ParamType(type = StarlarkInt.class),
+              @ParamType(type = StarlarkFloat.class),
+            }),
+      },
+      isTypeConstructor = true)
   public StarlarkFloat floatForStarlark(Object x) throws EvalException {
     if (x instanceof String s) {
       if (s.isEmpty()) {
@@ -575,7 +596,15 @@ class MethodLibrary {
               + "int(\"123.456\") == 123\n"
               + "</pre>",
       parameters = {
-        @Param(name = "x", doc = "The string to convert."),
+        @Param(
+            name = "x",
+            doc = "The string to convert.",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Boolean.class),
+              @ParamType(type = StarlarkInt.class),
+              @ParamType(type = StarlarkFloat.class),
+            }),
         @Param(
             name = "base",
             defaultValue = "unbound",
@@ -584,8 +613,10 @@ class MethodLibrary {
                     + "and 36 (inclusive), or 0 to detect the base as if <code>x</code> were an "
                     + "integer literal. This parameter must not be supplied if the value is not a "
                     + "string.",
-            named = true)
-      })
+            named = true,
+            allowedTypes = {@ParamType(type = StarlarkInt.class)})
+      },
+      isTypeConstructor = true)
   public StarlarkInt intForStarlark(Object x, Object baseO) throws EvalException {
     if (x instanceof String) {
       int base = baseO == Starlark.UNBOUND ? 10 : Starlark.toInt(baseO, "base");
@@ -628,7 +659,8 @@ class MethodLibrary {
             doc = "A dict, or an iterable whose elements are each of length 2 (key, value)."),
       },
       extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
-      useStarlarkThread = true)
+      useStarlarkThread = true,
+      isTypeConstructor = true)
   public Dict<?, ?> dict(Object pairs, Dict<String, Object> kwargs, StarlarkThread thread)
       throws EvalException {
     // common case: dict(k=v, ...)
@@ -643,16 +675,26 @@ class MethodLibrary {
   @StarlarkMethod(
       name = "set",
       doc =
-          "<b>Experimental</b>. This API is experimental and may change at any time. Please do not"
-              + " depend on it. It may be enabled on an experimental basis by setting"
-              + " <code>--experimental_enable_starlark_set</code>.\n" //
-              + "<p>Creates a new <a href=\"../core/set.html\">set</a>, optionally initialized to"
-              + " contain the elements from a given iterable.",
+"""
+Creates a new <a href=\"../core/set.html\">set</a> containing the unique elements of a given
+iterable, preserving iteration order.
+
+<p>If called with no argument, <code>set()</code> returns a new empty set.
+
+<p>For example,
+<pre class=language-python>
+set()                          # an empty set
+set([3, 1, 1, 2])              # set([3, 1, 2]), a set of three elements
+set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
+</pre>
+""",
       parameters = {
-        @Param(name = "elements", defaultValue = "[]", doc = "A set, sequence, or dict."),
+        @Param(name = "elements", defaultValue = "[]", doc = "An iterable of hashable values."),
       },
-      useStarlarkThread = true)
-  public StarlarkSet<Object> set(Object elements, StarlarkThread thread) throws EvalException {
+      useStarlarkThread = true,
+      isTypeConstructor = true)
+  public StarlarkSet<Object> set(StarlarkIterable<?> elements, StarlarkThread thread)
+      throws EvalException {
     // Ordinarily we would use StarlarkMethod#enableOnlyWithFlag, but this doesn't work for
     // top-level symbols, so enforce it here instead.
     if (!thread.getSemantics().getBool(StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET)) {
@@ -715,12 +757,11 @@ class MethodLibrary {
                 "Value of the start element if stop is provided, "
                     + "otherwise value of stop and the actual start is 0"),
         @Param(
-            name = "stop_or_none",
+            name = "stop",
             allowedTypes = {
               @ParamType(type = StarlarkInt.class),
-              @ParamType(type = NoneType.class),
             },
-            defaultValue = "None",
+            defaultValue = "unbound",
             doc =
                 "optional index of the first item <i>not</i> to be included in the resulting "
                     + "list; generation of the list stops before <code>stop</code> is reached."),
@@ -731,16 +772,16 @@ class MethodLibrary {
       },
       useStarlarkThread = true)
   public Sequence<StarlarkInt> range(
-      StarlarkInt startOrStop, Object stopOrNone, StarlarkInt stepI, StarlarkThread thread)
+      StarlarkInt startOrStop, Object stopOrUnbound, StarlarkInt stepI, StarlarkThread thread)
       throws EvalException {
     int start;
     int stop;
-    if (stopOrNone == Starlark.NONE) {
+    if (stopOrUnbound == Starlark.UNBOUND) {
       start = 0;
       stop = startOrStop.toInt("stop");
     } else {
       start = startOrStop.toInt("start");
-      stop = Starlark.toInt(stopOrNone, "stop");
+      stop = Starlark.toInt(stopOrUnbound, "stop");
     }
     int step = stepI.toInt("step");
     if (step == 0) {
@@ -763,7 +804,7 @@ class MethodLibrary {
       },
       useStarlarkThread = true)
   public boolean hasattr(Object obj, String name, StarlarkThread thread) throws EvalException {
-    return Starlark.hasattr(thread.getSemantics(), obj, name);
+    return Starlark.hasattr(thread, obj, name);
   }
 
   @StarlarkMethod(
@@ -788,11 +829,7 @@ class MethodLibrary {
   public Object getattr(Object obj, String name, Object defaultValue, StarlarkThread thread)
       throws EvalException, InterruptedException {
     return Starlark.getattr(
-        thread.mutability(),
-        thread.getSemantics(),
-        obj,
-        name,
-        defaultValue == Starlark.UNBOUND ? null : defaultValue);
+        thread, obj, name, defaultValue == Starlark.UNBOUND ? null : defaultValue);
   }
 
   @StarlarkMethod(
@@ -802,8 +839,8 @@ class MethodLibrary {
               + "methods of the parameter object.",
       parameters = {@Param(name = "x", doc = "The object to check.")},
       useStarlarkThread = true)
-  public StarlarkList<?> dir(Object object, StarlarkThread thread) throws EvalException {
-    return Starlark.dir(thread.mutability(), thread.getSemantics(), object);
+  public StarlarkList<String> dir(Object object, StarlarkThread thread) throws EvalException {
+    return Starlark.dir(thread, object);
   }
 
   @StarlarkMethod(
@@ -837,7 +874,13 @@ class MethodLibrary {
             defaultValue = "\" \"",
             named = true,
             positional = false,
-            doc = "The separator string between the objects, default is space (\" \").")
+            doc = "The separator string between the objects, default is space (\" \")."),
+        @Param(
+            name = "stack_trace",
+            doc = "If False stack trace is elided from failure for friendlier user messages",
+            defaultValue = "True",
+            positional = false,
+            named = true),
       },
       extraPositionals =
           @Param(
@@ -847,8 +890,11 @@ class MethodLibrary {
                       + " default) and joined with sep (defaults to \" \"), that appear in the"
                       + " error message."),
       useStarlarkThread = true)
-  public void fail(Object msg, Object attr, String sep, Tuple args, StarlarkThread thread)
+  public void fail(
+      Object msg, Object attr, String sep, Boolean stackTrace, Tuple args, StarlarkThread thread)
       throws EvalException {
+    boolean includeStack =
+        stackTrace || thread.getSemantics().getBool(StarlarkSemantics.FORCE_STARLARK_STACK_TRACE);
     Printer printer = new Printer();
     boolean needSeparator = false;
     if (attr != Starlark.NONE) {
@@ -870,7 +916,7 @@ class MethodLibrary {
       printer.debugPrint(arg, thread);
       needSeparator = true;
     }
-    throw Starlark.errorf("%s", printer.toString());
+    throw new EvalException(printer.toString(), null, includeStack);
   }
 
   @StarlarkMethod(

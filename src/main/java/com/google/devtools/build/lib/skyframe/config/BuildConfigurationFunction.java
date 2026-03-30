@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.config;
 
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.CPU_CONSTRAINT_SETTING;
+
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
@@ -24,11 +26,12 @@ import com.google.devtools.build.lib.analysis.config.FragmentFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.config.transitions.BaselineOptionsValue;
+import com.google.devtools.build.lib.analysis.platform.PlatformValue;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.WorkspaceNameValue;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -54,12 +57,6 @@ public final class BuildConfigurationFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, BuildConfigurationFunctionException {
-    WorkspaceNameValue workspaceNameValue = (WorkspaceNameValue) env
-        .getValue(WorkspaceNameValue.key());
-    if (workspaceNameValue == null) {
-      return null;
-    }
-
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
       return null;
@@ -72,14 +69,19 @@ public final class BuildConfigurationFunction implements SkyFunction {
       return null;
     }
 
+    String platformCpu = getPlatformCpu(env, targetOptions);
+    if (platformCpu == null) {
+      return null;
+    }
+
     try {
       var configurationValue =
           BuildConfigurationValue.create(
               targetOptions,
               baselineOptions.orElse(null),
-              workspaceNameValue.getName(),
               starlarkSemantics.getBool(
                   BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT),
+              platformCpu,
               // Arguments below this are server-global.
               directories,
               ruleClassProvider,
@@ -89,6 +91,38 @@ public final class BuildConfigurationFunction implements SkyFunction {
     } catch (InvalidConfigurationException e) {
       throw new BuildConfigurationFunctionException(e);
     }
+  }
+
+  @Nullable
+  private static String getPlatformCpu(Environment env, BuildOptions targetOptions)
+      throws InterruptedException {
+    if (targetOptions.get(PlatformOptions.class) == null) {
+      return "";
+    }
+
+    var platformLabel = targetOptions.get(PlatformOptions.class).computeTargetPlatform();
+
+    CoreOptions coreOptions = targetOptions.get(CoreOptions.class);
+    Optional<String> overridePlatformCpuName =
+        coreOptions.getPlatformCpuNameOverride(platformLabel);
+    if (overridePlatformCpuName.isPresent()) {
+      return overridePlatformCpuName.get();
+    }
+
+    PlatformValue platformValue =
+        (PlatformValue)
+            env.getValue(
+                PlatformValue.key(platformLabel, coreOptions.getCommandLineFlagAliasesMap()));
+    if (platformValue == null) {
+      return null;
+    }
+
+    var cpuConstraint = platformValue.platformInfo().constraints().get(CPU_CONSTRAINT_SETTING);
+    if (cpuConstraint == null) {
+      return "";
+    }
+
+    return cpuConstraint.label().getName();
   }
 
   /**
@@ -107,25 +141,11 @@ public final class BuildConfigurationFunction implements SkyFunction {
     }
 
     CoreOptions coreOptions = targetOptions.get(CoreOptions.class);
-    if (!coreOptions.useBaselineForOutputDirectoryNamingScheme()) {
-      return Optional.empty();
-    }
-
     var platformOptions = targetOptions.get(PlatformOptions.class);
-
-    // Determine whether this is part of the exec transition, or if we need to calculate a target
-    // platform.
-    boolean useDynamicBaseline =
-        coreOptions.outputDirectoryNamingScheme.equals(
-            CoreOptions.OutputDirectoryNamingScheme.DIFF_AGAINST_DYNAMIC_BASELINE);
-    boolean applyExecTransitionToBaseline = useDynamicBaseline && coreOptions.isExec;
     // In practice, platforms should always be 'well-formed' and contain at most one Label.
     Label newPlatform = null;
-    if (useDynamicBaseline
-        && coreOptions.platformInOutputDir
-        && platformOptions != null
-        && platformOptions.platforms != null // this may be overly defensive
-        && platformOptions.platforms.size() <= 1) {
+    if (platformOptions != null
+        && coreOptions.usePlatformInOutputDir(platformOptions.computeTargetPlatform())) {
       newPlatform = platformOptions.computeTargetPlatform();
     }
 
@@ -133,7 +153,10 @@ public final class BuildConfigurationFunction implements SkyFunction {
       var baselineOptionsValue =
           (BaselineOptionsValue)
               env.getValueOrThrow(
-                  BaselineOptionsValue.key(applyExecTransitionToBaseline, newPlatform),
+                  BaselineOptionsValue.key(
+                      coreOptions.getIsExec(),
+                      !targetOptions.contains(TestConfiguration.TestOptions.class),
+                      newPlatform),
                   StarlarkExecTransitionLoadingException.class);
       if (baselineOptionsValue == null) {
         return null;

@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.config.BaselineOptionsFunction;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -59,9 +60,7 @@ import org.junit.Before;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Testing framework for tests which create configuration collections.
- */
+/** Testing framework for tests which create configuration collections. */
 @RunWith(JUnit4.class)
 public abstract class ConfigurationTestCase extends FoundationTestCase {
 
@@ -101,13 +100,11 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, outputBase),
             rootDirectory,
-            /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
 
     mockToolsConfig = new MockToolsConfig(rootDirectory);
     analysisMock.setupMockToolsRepository(mockToolsConfig);
     analysisMock.setupMockClient(mockToolsConfig);
-    analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
 
     PackageFactory pkgFactory =
         analysisMock
@@ -128,13 +125,19 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     BuildOptions defaultBuildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(buildOptionClasses).clone();
-    defaultBuildOptions.get(CoreOptions.class).starlarkExecConfig =
-        TestConstants.STARLARK_EXEC_TRANSITION;
+    defaultBuildOptions
+        .get(CoreOptions.class)
+        .setStarlarkExecConfig(TestConstants.STARLARK_EXEC_TRANSITION);
     skyframeExecutor.injectExtraPrecomputedValues(
         new ImmutableList.Builder<PrecomputedValue.Injected>()
             .add(
                 PrecomputedValue.injected(
-                    PrecomputedValue.BASELINE_CONFIGURATION, defaultBuildOptions))
+                    BaselineOptionsFunction.BASELINE_CONFIGURATION, defaultBuildOptions))
+            .add(
+                PrecomputedValue.injected(
+                    // Reuse the build options as the baseline exec. This is technically wrong but
+                    // will only impact the exec configuration output path.
+                    BaselineOptionsFunction.BASELINE_EXEC_CONFIGURATION, defaultBuildOptions))
             .addAll(analysisMock.getPrecomputedValues())
             .build());
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
@@ -156,7 +159,6 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
 
     mockToolsConfig = new MockToolsConfig(rootDirectory);
     analysisMock.setupMockClient(mockToolsConfig);
-    analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
     fragmentFactory = new FragmentFactory();
   }
 
@@ -189,7 +191,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     BuildOptions targetOptions = parseBuildOptions(starlarkOptions, args);
 
     skyframeExecutor.handleDiffsForTesting(reporter);
-    skyframeExecutor.setBaselineConfiguration(targetOptions);
+    skyframeExecutor.setBaselineConfiguration(targetOptions, reporter);
     return skyframeExecutor.createConfiguration(reporter, targetOptions, false);
   }
 
@@ -227,13 +229,11 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   protected BuildConfigurationValue createRaw(
       BuildOptions buildOptions,
       String mnemonic,
-      String workspaceName,
       boolean siblingRepositoryLayout)
       throws Exception {
     return BuildConfigurationValue.createForTesting(
         buildOptions,
         mnemonic,
-        workspaceName,
         siblingRepositoryLayout,
         skyframeExecutor.getBlazeDirectoriesForTesting(),
         skyframeExecutor.getRuleClassProviderForTesting(),

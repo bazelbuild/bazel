@@ -14,60 +14,44 @@
 
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import java.util.HashMap;
-import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * An {@link ExecException} thrown when an action fails to execute because one or more of its inputs
  * was lost. In some cases, Bazel may know how to fix this on its own.
  */
-public class LostInputsExecException extends ExecException {
+public final class LostInputsExecException extends ExecException {
 
-  /** Maps lost input digests to their ActionInputs. */
-  private final ImmutableMap<String, ActionInput> lostInputs;
+  /** Maps lost input digests to their {@link ActionInput}s. */
+  private final ImmutableSetMultimap<String, ActionInput> lostInputs;
 
-  private final ActionInputDepOwners owners;
-
-  public LostInputsExecException(
-      ImmutableMap<String, ActionInput> lostInputs, ActionInputDepOwners owners) {
-    super(getMessage(lostInputs));
-    this.lostInputs = lostInputs;
-    this.owners = owners;
+  public LostInputsExecException(ImmutableSetMultimap<String, ActionInput> lostInputs) {
+    this(lostInputs, /* cause= */ null);
   }
 
   public LostInputsExecException(
-      ImmutableMap<String, ActionInput> lostInputs, ActionInputDepOwners owners, Throwable cause) {
-    super(getMessage(lostInputs), cause);
+      ImmutableSetMultimap<String, ActionInput> lostInputs, @Nullable Throwable cause) {
+    super("lost inputs with digests: " + String.join(",", lostInputs.keySet()), cause);
+    checkArgument(!lostInputs.isEmpty(), "No inputs were lost");
     this.lostInputs = lostInputs;
-    this.owners = owners;
-  }
-
-  private static String getMessage(ImmutableMap<String, ActionInput> lostInputs) {
-    return "lost inputs with digests: " + Joiner.on(",").join(lostInputs.keySet());
   }
 
   @VisibleForTesting
-  public ImmutableMap<String, ActionInput> getLostInputs() {
+  public ImmutableSetMultimap<String, ActionInput> getLostInputs() {
     return lostInputs;
   }
 
-  @VisibleForTesting
-  public ActionInputDepOwners getOwners() {
-    return owners;
-  }
-
-  protected ActionExecutionException fromExecException(
-      String message, Action action, DetailedExitCode code) {
+  ActionExecutionException fromExecException(String message, Action action, DetailedExitCode code) {
     return new LostInputsActionExecutionException(
-        message, lostInputs, owners, action, /*cause=*/ this, code);
+        message, lostInputs, action, /* cause= */ this, code);
   }
 
   @Override
@@ -78,39 +62,19 @@ public class LostInputsExecException extends ExecException {
         .build();
   }
 
-  public void combineAndThrow(LostInputsExecException other) throws LostInputsExecException {
-    // This uses a HashMap when merging the two lostInputs maps because key collisions are expected.
-    // In contrast, ImmutableMap.Builder treats collisions as errors. Collisions will happen when
-    // the two sources of the original exceptions shared knowledge of what was lost. For example,
-    // a SpawnRunner may discover a lost input and look it up in an action filesystem in which it's
-    // also lost. The SpawnRunner and the filesystem may then each throw a LostInputsExecException
-    // with the same information.
-    Map<String, ActionInput> map = new HashMap<>();
-    map.putAll(lostInputs);
-    map.putAll(other.lostInputs);
+  public LostInputsExecException combine(LostInputsExecException other) {
+    ImmutableSetMultimap<String, ActionInput> combinedLostInputs =
+        ImmutableSetMultimap.<String, ActionInput>builder()
+            .putAll(lostInputs)
+            .putAll(other.lostInputs)
+            .build();
     LostInputsExecException combined =
-        new LostInputsExecException(
-            ImmutableMap.copyOf(map), new MergedActionInputDepOwners(owners, other.owners), this);
+        new LostInputsExecException(combinedLostInputs, /* cause= */ this);
     combined.addSuppressed(other);
-    throw combined;
+    return combined;
   }
 
-  private static class MergedActionInputDepOwners implements ActionInputDepOwners {
-
-    private final ActionInputDepOwners left;
-    private final ActionInputDepOwners right;
-
-    MergedActionInputDepOwners(ActionInputDepOwners left, ActionInputDepOwners right) {
-      this.left = left;
-      this.right = right;
-    }
-
-    @Override
-    public ImmutableSet<Artifact> getDepOwners(ActionInput input) {
-      return ImmutableSet.<Artifact>builder()
-          .addAll(left.getDepOwners(input))
-          .addAll(right.getDepOwners(input))
-          .build();
-    }
+  public void combineAndThrow(LostInputsExecException other) throws LostInputsExecException {
+    throw combine(other);
   }
 }

@@ -25,39 +25,17 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.protobuf.GeneratedMessage.GeneratedExtension;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
-import javax.annotation.Nullable;
 
 /** A helper class for analyzing a Python configured target. */
 public final class PyCommon {
   /** Name of the version attribute. */
   public static final String PYTHON_VERSION_ATTRIBUTE = "python_version";
-
-  /**
-   * Returns the Python version based on the {@code python_version} attribute of the given {@code
-   * AttributeMap}.
-   *
-   * <p>It is expected that the attribute is defined, string-typed, and defaults to {@link
-   * PythonVersion#_INTERNAL_SENTINEL}. The returned version is the value of {@code python_version}
-   * if it is not the sentinel (in which case it is either {@code PY2} or {@code PY3}), or null if
-   * it is the sentinel.
-   *
-   * @throws IllegalArgumentException if the attribute is not present, not string-typed, or not
-   *     parsable as a target {@link PythonVersion} value or the sentinel value
-   */
-  @Nullable
-  public static PythonVersion readPythonVersionFromAttribute(AttributeMap attrs) {
-    PythonVersion pythonVersionAttr =
-        PythonVersion.parseTargetOrSentinelValue(attrs.get(PYTHON_VERSION_ATTRIBUTE, Type.STRING));
-    return pythonVersionAttr != PythonVersion._INTERNAL_SENTINEL ? pythonVersionAttr : null;
-  }
 
   private PyCommon() {}
 

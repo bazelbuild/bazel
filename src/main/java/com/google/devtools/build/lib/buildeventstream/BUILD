@@ -16,18 +16,20 @@ java_library(
     name = "buildeventstream",
     srcs = glob(
         ["*.java"],
-        exclude = ["LargeBuildEventSerializedEvent.java"],
+        exclude = [
+            "LargeBuildEventSerializedEvent.java",
+            "BuildEventServiceUploadCompleteEvent.java",
+        ],
     ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/buildeventservice:buildeventservice-options",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice:build_event_service_options",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
@@ -39,13 +41,21 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:netty",
-        "@protobuf//:protobuf_java",
-        "@protobuf//:protobuf_java_util",
+        "@com_google_protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_java_util",
+    ],
+)
+
+java_library(
+    name = "build_event_service_upload_complete_event",
+    srcs = ["BuildEventServiceUploadCompleteEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
     ],
 )
 
 java_library(
     name = "large-buildevent-serialized-event",
     srcs = ["LargeBuildEventSerializedEvent.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib/concurrent"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety"],
 )

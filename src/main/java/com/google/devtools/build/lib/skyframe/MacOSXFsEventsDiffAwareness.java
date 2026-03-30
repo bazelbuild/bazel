@@ -18,49 +18,59 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.jni.JniLoader;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
+import com.google.devtools.build.lib.util.StringEncoding;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsProvider;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.CountDownLatch;
 
 /**
- * A {@link DiffAwareness} that use fsevents to watch the filesystem to use in lieu of
- * {@link LocalDiffAwareness}.
+ * A {@link DiffAwareness} that use fsevents to watch the filesystem to use in lieu of {@link
+ * LocalDiffAwareness}.
  *
  * <p>On OS X, the local diff awareness cannot work because WatchService is dummy and do polling,
  * which is slow (https://bugs.openjdk.java.net/browse/JDK-7133447).
  */
 public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
   private final double latency;
+  private final IgnoredSubdirectories ignoredPaths;
+  private final FsEventsNativeDepsService service;
 
   private boolean closed;
-
-  // Keep a pointer to a native structure in the JNI code (the FsEvents callback needs that
-  // structure).
-  private long nativePointer;
-
   private boolean opened;
 
   /**
    * Watch changes on the file system under <code>watchRoot</code> with a granularity of <code>delay
    * </code> seconds.
    */
-  MacOSXFsEventsDiffAwareness(Path watchRoot, double latency) {
+  MacOSXFsEventsDiffAwareness(
+      Path watchRoot,
+      IgnoredSubdirectories ignoredPaths,
+      double latency,
+      FsEventsNativeDepsService fsEventsNativeDepsService) {
     super(watchRoot);
+    this.ignoredPaths = ignoredPaths;
     this.latency = latency;
+    this.service = fsEventsNativeDepsService;
   }
 
   /** Watch changes on the file system under <code>watchRoot</code> with a granularity of 5ms. */
-  MacOSXFsEventsDiffAwareness(Path watchRoot) {
-    this(watchRoot, 0.005);
+  MacOSXFsEventsDiffAwareness(
+      Path watchRoot,
+      IgnoredSubdirectories ignoredPaths,
+      FsEventsNativeDepsService fsEventsNativeDepsService) {
+    this(watchRoot, ignoredPaths, 0.005, fsEventsNativeDepsService);
   }
 
   /**
    * Helper function to start the watch of <code>paths</code>, which is expected to be an array of
    * byte arrays containing the UTF-8 bytes of the paths to watch, called by the constructor.
    */
-  private native void create(byte[][] paths, double latency);
+  private void create(byte[][] paths, byte[][] excludedPaths, double latency) {
+    service.createFsEvents(paths, excludedPaths, latency);
+  }
 
   /**
    * Runs the main loop to listen for fsevents.
@@ -69,7 +79,9 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
    *     must wait until this happens before polling for events to ensure no events are lost between
    *     when this function returns and when the queue is listening.
    */
-  private native void run(CountDownLatch listening);
+  private void run(CountDownLatch listening) {
+    service.runFsEvents(listening);
+  }
 
   private void init() {
     // The code below is based on the assumption that init() can never fail, which is currently the
@@ -77,7 +89,22 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
     // TODO(jmmv): This can break if the user interrupts as anywhere in this function.
     Preconditions.checkState(!opened);
     opened = true;
-    create(new byte[][] {watchRoot.toAbsolutePath().toString().getBytes(UTF_8)}, latency);
+    // TODO: Also cover otherwise literal patterns of the form dir/**.
+    var excludedPaths =
+        ignoredPaths.prefixes().stream()
+            // FSEvents only supports up to 8 excluded paths.
+            .limit(8)
+            .map(PathFragment::getPathString)
+            // The prefixes are all absolute paths converted to relative paths via
+            // PathFragment#toRelative.
+            .map(path -> "/" + path)
+            .map(StringEncoding::internalToUnicode)
+            .map(path -> path.getBytes(UTF_8))
+            .toArray(byte[][]::new);
+    create(
+        new byte[][] {watchRoot.toAbsolutePath().toString().getBytes(UTF_8)},
+        excludedPaths,
+        latency);
 
     // Start a thread that just contains the OS X run loop.
     CountDownLatch listening = new CountDownLatch(1);
@@ -89,9 +116,7 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
     }
   }
 
-  /**
-   * Close this watch service, this service should not be used any longer after closing.
-   */
+  /** Close this watch service, this service should not be used any longer after closing. */
   @Override
   public void close() {
     if (opened) {
@@ -101,12 +126,10 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
     }
   }
 
-  private static final boolean JNI_AVAILABLE;
-
-  /**
-   * JNI code stopping the main loop and shutting down listening to FSEvents.
-   */
-  private native void doClose();
+  /** JNI code stopping the main loop and shutting down listening to FSEvents. */
+  private void doClose() {
+    service.doCloseFsEvents();
+  }
 
   /**
    * JNI code returning the list of absolute path modified since last call.
@@ -114,27 +137,12 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
    * @return the array of paths (in the form of byte arrays containing the UTF-8 representation)
    *     modified since the last call, or null if we can't precisely tell what changed
    */
-  private native byte[][] poll();
-
-  static {
-    boolean loadJniWorked = false;
-    try {
-      JniLoader.loadJni();
-      loadJniWorked = true;
-    } catch (UnsatisfiedLinkError ignored) {
-      // Unfortunately, we compile this class into the Bazel bootstrap binary, which doesn't have
-      // access to the JNI code (to simplify bootstrap). This is the quick and dirty way to
-      // hard-disable --watchfs in the bootstrap binary.
-    }
-    JNI_AVAILABLE = loadJniWorked;
+  private byte[][] poll() {
+    return service.pollFsEvents();
   }
 
   @Override
-  public View getCurrentView(OptionsProvider options)
-      throws BrokenDiffAwarenessException {
-    if (!JNI_AVAILABLE) {
-      return EVERYTHING_MODIFIED;
-    }
+  public View getCurrentView(OptionsProvider options) throws BrokenDiffAwarenessException {
     // See WatchServiceDiffAwareness#getCurrentView for an explanation of this logic.
     boolean watchFs = options.getOptions(Options.class).watchFS;
     if (watchFs && !opened) {

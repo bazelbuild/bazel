@@ -14,17 +14,21 @@
 
 package com.google.devtools.build.lib.starlarkdocextract;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_KEYWORD_ONLY;
 import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_KWARGS;
 import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_ORDINARY;
 import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_VARARGS;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionDeprecationInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionReturnInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.OriginKey;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.StarlarkFunctionInfo;
 import net.starlark.java.eval.Module;
@@ -83,6 +87,71 @@ public final class StarlarkFunctionInfoExtractorTest {
                         .build())
                 .setOriginKey(OriginKey.newBuilder().setName("fn").setFile(fakeLabelString).build())
                 .build());
+  }
+
+  @Test
+  public void summary_canStartOnFirstOrSecondLine() throws Exception {
+    StarlarkFunction fn1 =
+        exec(
+            """
+            def fn1(x):
+                "Summary."
+                pass
+            """);
+    StarlarkFunction fn2 =
+        exec(
+            """
+            def fn2(x):
+                '''
+                Summary.
+                '''
+                pass
+            """);
+    StarlarkFunctionInfo info1 =
+        StarlarkFunctionInfoExtractor.fromNameAndFunction("fn", fn1, LabelRenderer.DEFAULT);
+    StarlarkFunctionInfo info2 =
+        StarlarkFunctionInfoExtractor.fromNameAndFunction("fn", fn2, LabelRenderer.DEFAULT);
+
+    assertThat(info1.getDocString()).isEqualTo("Summary.");
+    assertThat(info2.getDocString()).isEqualTo("Summary.");
+  }
+
+  @Test
+  public void summary_mustBeFollowedByBlankLine() throws Exception {
+    StarlarkFunction good =
+        exec(
+            """
+            def good(x):
+                '''
+                Summary.
+
+                Details.'''
+                pass
+            """);
+    StarlarkFunction badNoBlankLine =
+        exec(
+            """
+            def bad_no_blank_line(x):
+                '''
+                Summary.
+                Details.
+                '''
+                pass
+            """);
+
+    assertThat(
+            StarlarkFunctionInfoExtractor.fromNameAndFunction("good", good, LabelRenderer.DEFAULT)
+                .getDocString())
+        .isEqualTo("Summary.\n\nDetails.");
+    ExtractionException noBlankLineException =
+        assertThrows(
+            ExtractionException.class,
+            () ->
+                StarlarkFunctionInfoExtractor.fromNameAndFunction(
+                    "bad_no_blank_line", badNoBlankLine, LabelRenderer.DEFAULT));
+    assertThat(noBlankLineException)
+        .hasMessageThat()
+        .contains("the one-line summary should be followed by a blank line");
   }
 
   @Test
@@ -247,5 +316,95 @@ public final class StarlarkFunctionInfoExtractorTest {
                 .setMandatory(false)
                 .build())
         .inOrder();
+  }
+
+  @Test
+  public void returns() throws Exception {
+    StarlarkFunction fn =
+        exec(
+            """
+            def fn(x):
+                '''
+                My function.
+
+                Returns:
+                  The value of x.
+                '''
+                return x
+            """);
+    StarlarkFunctionInfo info =
+        StarlarkFunctionInfoExtractor.fromNameAndFunction("fn", fn, LabelRenderer.DEFAULT);
+    assertThat(info.getReturn())
+        .isEqualTo(FunctionReturnInfo.newBuilder().setDocString("The value of x.").build());
+  }
+
+  @Test
+  public void deprecation() throws Exception {
+    StarlarkFunction fn =
+        exec(
+            """
+            def fn(x):
+                '''
+                My function.
+
+                Deprecated:
+                  Do not use.
+                  Use something else instead.
+                '''
+                pass
+            """);
+    StarlarkFunctionInfo info =
+        StarlarkFunctionInfoExtractor.fromNameAndFunction("fn", fn, LabelRenderer.DEFAULT);
+    assertThat(info.getDeprecated())
+        .isEqualTo(
+            FunctionDeprecationInfo.newBuilder()
+                .setDocString("Do not use.\nUse something else instead.")
+                .build());
+  }
+
+  @Test
+  public void specialSections_canBeSeparatedByAnyNumberOfBlankLines() throws Exception {
+    String extraBlankLines = "";
+    for (int i = 0; i < 2; i++, extraBlankLines += "\n") {
+      StarlarkFunction fn =
+          exec(
+              String.format(
+                  """
+                  def fn%d(x):
+                      '''
+                      My function.
+
+                      Args:
+                        x: X value.%s
+                      Returns:
+                        The value of x.%s
+                      Deprecated:
+                        Do not use.
+                      '''
+                      return x
+                  """,
+                  i, extraBlankLines, extraBlankLines));
+      StarlarkFunctionInfo info =
+          StarlarkFunctionInfoExtractor.fromNameAndFunction("fn" + i, fn, LabelRenderer.DEFAULT);
+      assertThat(info)
+          .isEqualTo(
+              StarlarkFunctionInfo.newBuilder()
+                  .setFunctionName("fn" + i)
+                  .setDocString("My function.")
+                  .addParameter(
+                      FunctionParamInfo.newBuilder()
+                          .setName("x")
+                          .setRole(PARAM_ROLE_ORDINARY)
+                          .setDocString("X value.")
+                          .setMandatory(true)
+                          .build())
+                  .setReturn(
+                      FunctionReturnInfo.newBuilder().setDocString("The value of x.").build())
+                  .setDeprecated(
+                      FunctionDeprecationInfo.newBuilder().setDocString("Do not use.").build())
+                  .setOriginKey(
+                      OriginKey.newBuilder().setName("fn" + i).setFile(fakeLabelString).build())
+                  .build());
+    }
   }
 }

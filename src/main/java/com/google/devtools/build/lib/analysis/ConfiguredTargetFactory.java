@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGro
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.config.RequiredFragmentsUtil;
 import com.google.devtools.build.lib.analysis.configuredtargets.EnvironmentGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
@@ -172,6 +171,44 @@ public final class ConfiguredTargetFactory {
     return null;
   }
 
+  @Nullable
+  private static TransitiveInfoCollection findTransitiveVisibilityPrerequisite(
+      OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap, Label label) {
+    for (ConfiguredTargetAndData prerequisite :
+        prerequisiteMap.get(DependencyKind.TRANSITIVE_VISIBILITY_DEPENDENCY)) {
+      // Just return the first one.
+      if (prerequisite.getTargetLabel().equals(label) && prerequisite.getConfiguration() == null) {
+        return prerequisite.getConfiguredTarget();
+      }
+    }
+    return null;
+  }
+
+  @Nullable
+  private PackageSpecificationProvider getTransitiveVisibilityForCurrentPackage(
+      OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
+      EventHandler reporter,
+      Target target) {
+
+    Label tvLabel = target.getPackageDeclarations().getPackageArgs().transitiveVisibility();
+    TransitiveInfoCollection prerequisite =
+        findTransitiveVisibilityPrerequisite(prerequisiteMap, tvLabel);
+    if (prerequisite == null) {
+      return null;
+    }
+    PackageSpecificationProvider provider =
+        prerequisite.getProvider(PackageSpecificationProvider.class);
+    if (provider == null) {
+      reporter.handle(
+          Event.error(
+              target.getLocation(),
+              String.format(
+                  "Label '%s' in transitive_visibility does not refer to a package group",
+                  tvLabel)));
+    }
+    return provider;
+  }
+
   /**
    * Invokes the appropriate constructor to create a {@link ConfiguredTarget} instance.
    *
@@ -187,9 +224,10 @@ public final class ConfiguredTargetFactory {
       BuildConfigurationValue config,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
+      @Nullable OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> materializerTargets,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
-      @Nullable NestedSet<Package> transitivePackages,
+      @Nullable NestedSet<Package.Metadata> transitivePackages,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
       @Nullable StarlarkAttributeTransitionProvider starlarkExecTransition)
       throws InterruptedException,
@@ -205,6 +243,7 @@ public final class ConfiguredTargetFactory {
             config,
             configuredTargetKey,
             prerequisiteMap,
+            materializerTargets,
             configConditions,
             toolchainContexts,
             transitivePackages,
@@ -219,7 +258,7 @@ public final class ConfiguredTargetFactory {
     // analyzed. (createRule() already enforces this above for rule targets, with optional error
     // interception through analysis_test.)
     try {
-      target.getPackage().checkMacroNamespaceCompliance(target);
+      target.getPackageoid().checkMacroNamespaceCompliance(target);
     } catch (MacroNamespaceViolationException e) {
       analysisEnvironment
           .getEventHandler()
@@ -230,6 +269,15 @@ public final class ConfiguredTargetFactory {
     // Visibility, like all package groups, doesn't have a configuration
     NestedSet<PackageGroupContents> visibility =
         convertVisibility(prerequisiteMap, analysisEnvironment.getEventHandler(), target);
+    // For InputFiles, we're not gating on --experimental_enforce_transitive_visibility because they
+    // have no config, so we can't check whether --experimental_enforce_transitive_visibility is
+    // set. Some unnecessary memory cost here, but no enforcement because we'll also check for the
+    // flag where the provider is read.
+    PackageSpecificationProvider transitiveVisibility =
+        (config != null && config.enforceTransitiveVisibility()) || target instanceof InputFile
+            ? getTransitiveVisibilityForCurrentPackage(
+                prerequisiteMap, analysisEnvironment.getEventHandler(), target)
+            : null;
     if (target instanceof OutputFile outputFile) {
       TargetContext targetContext =
           new TargetContext(
@@ -237,7 +285,11 @@ public final class ConfiguredTargetFactory {
               target,
               config,
               prerequisiteMap.get(DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY),
-              visibility);
+              visibility,
+              transitiveVisibility // We are passing around this object because it looks nice,
+              // but it's
+              // never used. OutputFiles get the transitive visibility from their generating rule.
+              );
       if (analysisEnvironment.getSkyframeEnv().valuesMissing()) {
         return null;
       }
@@ -267,14 +319,15 @@ public final class ConfiguredTargetFactory {
               target,
               config,
               prerequisiteMap.get(DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY),
-              visibility);
+              visibility,
+              transitiveVisibility);
       SourceArtifact artifact =
           artifactFactory.getSourceArtifact(
               inputFile.getExecPath(
                   analysisEnvironment
                       .getStarlarkSemantics()
                       .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT)),
-              inputFile.getPackage().getSourceRoot().get(),
+              inputFile.getPackageMetadata().sourceRoot(),
               ConfiguredTargetKey.builder()
                   .setLabel(target.getLabel())
                   .setConfiguration(config)
@@ -287,7 +340,11 @@ public final class ConfiguredTargetFactory {
               target,
               config,
               prerequisiteMap.get(DependencyKind.VISIBILITY_DEPENDENCY),
-              visibility);
+              visibility,
+              /* transitiveVisibility= */ null);
+      // No transitive visibility checking on package_groups, in part because transitive visibility
+      // groups *are* package_groups, and
+      // we want to avoid circular dependencies.
       return new PackageGroupConfiguredTarget(configuredTargetKey, targetContext, packageGroup);
     } else if (target instanceof EnvironmentGroup) {
       return new EnvironmentGroupConfiguredTarget(configuredTargetKey);
@@ -307,9 +364,10 @@ public final class ConfiguredTargetFactory {
       BuildConfigurationValue configuration,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
+      @Nullable OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> materializerTargets,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
-      @Nullable NestedSet<Package> transitivePackages,
+      @Nullable NestedSet<Package.Metadata> transitivePackages,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
       @Nullable StarlarkAttributeTransitionProvider starlarkExecTransition)
       throws InterruptedException,
@@ -319,6 +377,7 @@ public final class ConfiguredTargetFactory {
     RuleClass ruleClass = rule.getRuleClassObject();
     ConfigurationFragmentPolicy configurationFragmentPolicy =
         ruleClass.getConfigurationFragmentPolicy();
+
     // Visibility computation and checking is done for every rule.
     RuleContext ruleContext =
         new RuleContext.Builder(env, rule, /* aspects= */ ImmutableList.of(), configuration)
@@ -328,8 +387,12 @@ public final class ConfiguredTargetFactory {
             .setMutability(Mutability.create("configured target"))
             .setVisibility(convertVisibility(prerequisiteMap, env.getEventHandler(), rule))
             .setPrerequisites(removeToolchainDeps(prerequisiteMap))
+            .setMaterializerTargets(materializerTargets)
             .setConfigConditions(configConditions)
             .setToolchainContexts(toolchainContexts)
+            .setTransitiveVisibilityImposedByThisPackage(
+                getTransitiveVisibilityForCurrentPackage(
+                    prerequisiteMap, env.getEventHandler(), rule))
             .setExecGroupCollectionBuilder(execGroupCollectionBuilder)
             .setRequiredConfigFragments(
                 RequiredFragmentsUtil.getRuleRequiredFragmentsIfEnabled(
@@ -342,6 +405,7 @@ public final class ConfiguredTargetFactory {
                     starlarkExecTransition))
             .setTransitivePackagesForRunfileRepoMappingManifest(transitivePackages)
             .setConflictFinder(conflictFinder)
+            .setAllowMaterializerRuleRealDeps(ruleClass.materializerRuleAllowsRealDeps())
             .build();
 
     ImmutableList<NestedSet<AnalysisFailure>> analysisFailures =
@@ -354,7 +418,7 @@ public final class ConfiguredTargetFactory {
     }
 
     try {
-      rule.getPackage().checkMacroNamespaceCompliance(rule);
+      rule.getPackageoid().checkMacroNamespaceCompliance(rule);
     } catch (MacroNamespaceViolationException e) {
       ruleContext.ruleError(e.getMessage());
       return erroredConfiguredTarget(ruleContext, null);
@@ -386,15 +450,6 @@ public final class ConfiguredTargetFactory {
       final ConfiguredTarget target;
 
       if (ruleClass.isStarlark()) {
-        if (ruleClass.getRuleClassType().equals(RuleClass.Builder.RuleClassType.WORKSPACE)) {
-          ruleContext.ruleError(
-              "Found reference to a workspace rule in a context where a build"
-                  + " rule was expected; probably a reference to a target in that external"
-                  + " repository, properly specified as @reponame//path/to/package:target,"
-                  + " should have been specified by the requesting rule.");
-          return erroredConfiguredTarget(ruleContext, null);
-        }
-
         final Object rawProviders;
         final boolean isDefaultExecutableCreated;
         @Nullable final RequiredConfigFragmentsProvider requiredConfigFragmentsProvider;
@@ -624,7 +679,7 @@ public final class ConfiguredTargetFactory {
           ToolchainCollection<AspectBaseTargetResolvedToolchainContext> baseTargetToolchainContexts,
       @Nullable ExecGroupCollection.Builder execGroupCollectionBuilder,
       BuildConfigurationValue aspectConfiguration,
-      @Nullable NestedSet<Package> transitivePackages,
+      @Nullable NestedSet<Package.Metadata> transitivePackages,
       AspectKeyCreator.AspectKey aspectKey,
       StarlarkAttributeTransitionProvider starlarkExecTransition)
       throws InterruptedException,

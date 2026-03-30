@@ -16,14 +16,13 @@ package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.rules.java.JavaCompileActionContext;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -31,7 +30,6 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.TriState;
-import java.io.IOException;
 import java.util.List;
 
 /** Module implementing the rule set of Bazel. */
@@ -40,9 +38,106 @@ public final class BazelRulesModule extends BlazeModule {
   /**
    * This is where deprecated options used by both Bazel and Blaze but only needed for the build
    * command go to die.
+   *
+   * <p>To deprecate Bazel-only build command options, use {@link BazelBuildGraveyardOptions}.
+   *
+   * <p>To deprecate Bazel+Blaze options common to all commands, use {@link
+   * AllCommandGraveyardOptions}.
    */
-  @SuppressWarnings("deprecation") // These fields have no JavaDoc by design
   public static class BuildGraveyardOptions extends OptionsBase {
+
+    @Option(
+        name = "incompatible_enable_apple_toolchain_resolution",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean incompatibleUseToolchainResolution;
+
+    @Option(
+        name = "experimental_objc_provider_from_linked",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean objcProviderFromLinked;
+
+    @Option(
+        name = "build_python_zip",
+        defaultValue = "auto",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        deprecationWarning =
+            "The '--no' prefix is no longer supported for this flag. Please use"
+                + " --build_python_zip=false instead.",
+        help = "Deprecated. No-op.")
+    public TriState buildPythonZip;
+
+    @Option(
+        name = "incompatible_default_to_explicit_init_py",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean incompatibleDefaultToExplicitInitPy;
+
+    @Option(
+        name = "python_native_rules_allowlist",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        converter = LabelConverter.class,
+        help = "Deprecated. No-op.")
+    public Label nativeRulesAllowlist;
+
+    @Option(
+        name = "incompatible_python_disallow_native_rules",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean disallowNativeRules;
+
+    @Option(
+        name = "incompatible_remove_ctx_py_fragment",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean disablePyFragment;
+
+    @Option(
+        name = "incompatible_use_python_toolchains",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean incompatibleUsePythonToolchains;
+
+    @Option(
+        name = "experimental_starlark_cc_import",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean experimentalStarlarkCcImport;
+
+    @Option(
+        name = "experimental_platform_cc_test",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean experimentalPlatformCcTest;
+
+    @Option(
+        name = "j2objc_dead_code_removal",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean removeDeadCode;
+
     @Option(
         name = "experimental_proto_extra_actions",
         defaultValue = "false",
@@ -91,9 +186,7 @@ public final class BazelRulesModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
-        help =
-            "Flag for disabling the legacy cc_toolchain Starlark API for accessing legacy "
-                + "CROSSTOOL fields.")
+        help = "Deprecated. No-op.")
     public boolean disableLegacyFlagsCcToolchainApi;
 
     @Option(
@@ -125,7 +218,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "experimental_worker_as_resource",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op, will be removed soon.")
     public boolean workerAsResource;
@@ -133,7 +226,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "high_priority_workers",
         defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op, will be removed soon.",
         allowMultiple = true)
@@ -142,7 +235,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "target_platform_fallback",
         defaultValue = "",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "This option is deprecated and has no effect.")
     public String targetPlatformFallback;
@@ -176,7 +269,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "experimental_collect_local_sandbox_action_metrics",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.LOGGING,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "Deprecated no-op.")
     public boolean collectLocalSandboxExecutionStatistics;
@@ -194,7 +287,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "experimental_parallel_aquery_output",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.QUERY,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op.")
     public boolean parallelAqueryOutput;
@@ -274,7 +367,7 @@ public final class BazelRulesModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "When enabled java_common.compile only accepts JavaPluginInfo for plugins.")
+        help = "Deprecated. No-op.")
     public boolean requireJavaPluginInfo;
 
     @Option(
@@ -285,11 +378,85 @@ public final class BazelRulesModule extends BlazeModule {
         help = "No-op",
         oldName = "incompatible_build_transitive_python_runfiles")
     public boolean buildTransitiveRunfilesTrees;
+
+    @Option(
+        name = "experimental_use_new_worker_pool",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean useNewWorkerPool;
+
+    @Option(
+        name = "host_crosstool_top",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public String hostCrosstoolTop;
+
+    @Option(
+        name = "experimental_use_semaphore_for_jobs",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean useSemaphoreForJobs;
+
+    // TODO(b/410585542): Remove this once there are no more internal users trying to set it.
+    @Option(
+        name = "experimental_skip_ttvs_for_genquery",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "No-op. Will be removed soon.")
+    public boolean skipTtvs;
+
+    @Option(
+        name = "experimental_remote_analysis_cache",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public String remoteAnalysisCache;
+
+    @Option(
+        name = "experimental_remote_analysis_unreachable_cache_retry_interval",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "No-op")
+    public String unreachableCacheRetryInterval;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
-  @SuppressWarnings("deprecation") // These fields have no JavaDoc by design
   public static final class BazelBuildGraveyardOptions extends BuildGraveyardOptions {
+    @Option(
+        name = "python_path",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public String pythonPath;
+
+    @Option(
+        name = "experimental_python_import_all_repositories",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean experimentalPythonImportAllRepositories;
+
+    @Option(
+        name = "python_top",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public String pythonTop;
+
     @Option(
         name = "incompatible_load_python_rules_from_bzl",
         defaultValue = "false",
@@ -361,7 +528,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "incompatible_dont_use_javasourceinfoprovider",
         defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "No-op")
@@ -426,6 +593,15 @@ public final class BazelRulesModule extends BlazeModule {
         help = "No-op",
         deprecationWarning = ANDROID_FLAG_DEPRECATION)
     public List<String> fatApkCpus;
+
+    @Option(
+        name = "incompatible_enable_cgo_toolchain_resolution",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "No-op")
+    public boolean incompatibleEnableGoToolchainResolution;
   }
 
   /**
@@ -435,18 +611,308 @@ public final class BazelRulesModule extends BlazeModule {
   public static final class AllCommandGraveyardOptions extends OptionsBase {
 
     @Option(
+        name = "incompatible_autoload_externally",
+        converter = Converters.CommaSeparatedOptionSetConverter.class,
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "Deprecated. No-op.")
+    public List<String> incompatibleAutoloadExternally;
+
+    @Option(
+        name = "repositories_without_autoloads",
+        converter = Converters.CommaSeparatedOptionSetConverter.class,
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "Deprecated. No-op.")
+    public List<String> repositoriesWithoutAutoloads;
+
+    @Option(
+        name = "incompatible_disable_autoloads_in_main_repo",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "Deprecated. No-op.")
+    public boolean incompatibleDisableAutoloadsInMainRepo;
+
+    @Option(
+        name = "experimental_py_binaries_include_label",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean includeLabelInPyBinariesLinkstamp;
+
+    @Option(
+        name = "incompatible_python_disable_py2",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean disablePy2;
+
+    @Option(
+        name = "force_python",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public String forcePython;
+
+    @Option(
+        name = "host_force_python",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public String hostForcePython;
+
+    @Option(
+        name = "incompatible_py3_is_default",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean incompatiblePy3IsDefault;
+
+    @Option(
+        name = "incompatible_py2_outputs_are_suffixed",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean incompatiblePy2OutputsAreSuffixed;
+
+    @Option(
+        name = "python_version",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public String pythonVersion;
+
+    @Option(
+        name = "incompatible_remove_old_python_version_api",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean incompatibleRemoveOldPythonVersionApi;
+
+    @Option(
+        name = "incompatible_allow_python_version_transitions",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean incompatibleAllowPythonVersionTransitions;
+
+    @Option(
+        name = "incompatible_disallow_legacy_py_provider",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean incompatibleDisallowLegacyPyProvider;
+
+    @Option(
+        name = "experimental_disallow_legacy_java_toolchain_flags",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean experimentalDisallowLegacyJavaToolchainFlags;
+
+    @Option(
+        name = "javabase",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public String javabase;
+
+    @Option(
+        name = "java_toolchain",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public String javaToolchain;
+
+    @Option(
+        name = "host_java_toolchain",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public String hostJavaToolchain;
+
+    @Option(
+        name = "host_javabase",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public String hostJavabase;
+
+    @Option(
+        name = "apple_crosstool_top",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public String appleCrosstoolTop;
+
+    @Option(
+        name = "legacy_bazel_java_test",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean legacyBazelJavaTest;
+
+    @Option(
+        name = "strict_deps_java_protos",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean strictDepsJavaProtos;
+
+    @Option(
+        name = "disallow_strict_deps_for_jpl",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean isDisallowStrictDepsForJpl;
+
+    @Option(
+        name = "experimental_import_deps_checking",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public String importDepsCheckingLevel;
+
+    @Option(
+        name = "experimental_allow_runtime_deps_on_neverlink",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean allowRuntimeDepsOnNeverLink;
+
+    @Option(
+        name = "experimental_limit_android_lint_to_android_constrained_java",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean limitAndroidLintToAndroidCompatible;
+
+    @Option(
+        name = "experimental_java_header_input_pruning",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean experimentalJavaHeaderInputPruning;
+
+    @Deprecated
+    @Option(
+        name = "incompatible_dont_collect_native_libraries_in_data",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean dontCollectDataLibraries;
+
+    @Deprecated
+    @Option(
+        name = "experimental_java_header_compilation_direct_deps",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean javaHeaderCompilationDirectDeps;
+
+    @Option(
+        name = "jplPropagateCcLinkParamsStore",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean jplPropagateCcLinkParamsStore;
+
+    @Option(
+        name = "incompatible_require_linker_input_cc_api",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean incompatibleRequireLinkerInputCcApi;
+
+    @Option(
+        name = "incompatible_depset_for_libraries_to_link_getter",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean incompatibleDepsetForLibrariesToLinkGetter;
+
+    @Option(
+        name = "legacy_external_runfiles",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean legacyExternalRunfiles;
+
+    @Option(
+        name = "incompatible_disable_target_provider_fields",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "No-op")
+    public boolean incompatibleDisableTargetProviderFields;
+
+    @Option(
+        name = "incompatible_disallow_struct_provider_syntax",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "No-op")
+    public boolean incompatibleDisallowStructProviderSyntax;
+
+    @Option(
         name = "auto_cpu_environment_group",
         defaultValue = "",
-        documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help = "No-op")
     public String autoCpuEnvironmentGroup;
 
     @Option(
+        name = "incompatible_top_level_aspects_require_providers",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean incompatibleTopLevelAspectsRequireProviders;
+
+    @Option(
         name = "separate_aspect_deps",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op")
     public boolean separateAspectDeps;
@@ -454,7 +920,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "incompatible_visibility_private_attributes_at_definition",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "No-op")
@@ -463,7 +929,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "incompatible_new_actions_api",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op")
@@ -517,7 +983,7 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "incompatible_depset_for_java_output_source_jars",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "No-op.")
@@ -526,10 +992,27 @@ public final class BazelRulesModule extends BlazeModule {
     @Option(
         name = "incompatible_use_plus_in_repo_names",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
         help = "No-op.")
     public boolean incompatibleUsePlusInRepoNames;
+
+    @Option(
+        name = "enable_bzlmod",
+        oldName = "experimental_enable_bzlmod",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
+        help = "No-op.")
+    public boolean enableBzlmod;
+
+    @Option(
+        name = "enable_workspace",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
+        help = "No-op.")
+    public boolean enableWorkspace;
 
     @Option(
         name = "experimental_announce_profile_path",
@@ -546,29 +1029,83 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op.")
     public boolean incompatibleExistingRulesImmutableView;
+
+    @Option(
+        name = "incompatible_disable_native_repo_rules",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean incompatibleDisableNativeRepoRules;
+
+    // Safe to delete after July 2025
+    @Option(
+        name = "incompatible_no_package_distribs",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean incompatibleNoPackageDistribs;
+
+    @Option(
+        name = "experimental_action_resource_set",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean experimentalActionResourceSet;
+
+    @Option(
+        name = "incompatible_macos_set_install_name",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "No-op.")
+    public boolean macosSetInstallName;
+
+    @Option(
+        name = "verbose_explanations",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "No-op.")
+    public boolean verboseExplanations;
+
+    @Option(
+        name = "experimental_cc_static_library",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean experimentalCcStaticLibrary;
+
+    @Option(
+        name = "incompatible_legacy_local_fallback",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean legacyLocalFallback;
+
+    @Option(
+        name = "proto_toolchain_for_j2objc",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        converter = LabelConverter.class,
+        help = "No-op.")
+    public Label protoToolchainForJ2Objc;
   }
 
   @Override
   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
     BazelRuleClassProvider.setup(builder);
-
-    try {
-      // Load auto-configuration files, it is made outside of the rule class provider so that it
-      // will not be loaded for our Java tests.
-      builder.addWorkspaceFileSuffix(
-          ResourceFileLoader.loadResource(BazelCppRuleClasses.class, "cc_configure.WORKSPACE"));
-      builder.addWorkspaceFileSuffix(
-          ResourceFileLoader.loadResource(BazelRulesModule.class, "xcode_configure.WORKSPACE"));
-      builder.addWorkspaceFileSuffix(
-          ResourceFileLoader.loadResource(BazelRulesModule.class, "rules_suffix.WORKSPACE"));
-    } catch (IOException e) {
-      throw new IllegalStateException(e);
-    }
   }
 
   @Override
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return "build".equals(command.name())
+  public Iterable<Class<? extends OptionsBase>> getCommandOptions(String commandName) {
+    return commandName.equals("build")
         ? ImmutableList.of(BazelBuildGraveyardOptions.class, AllCommandGraveyardOptions.class)
         : ImmutableList.of(AllCommandGraveyardOptions.class);
   }

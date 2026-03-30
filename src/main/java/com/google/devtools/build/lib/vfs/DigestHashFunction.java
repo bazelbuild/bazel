@@ -27,6 +27,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 /**
  * Type of hash function to use for digesting files.
@@ -65,8 +66,15 @@ public class DigestHashFunction {
     }
   }
 
-  public static final DigestHashFunction SHA1 = register(Hashing.sha1(), "SHA-1", "SHA1");
-  public static final DigestHashFunction SHA256 = register(Hashing.sha256(), "SHA-256", "SHA256");
+  public static final DigestHashFunction SHA1;
+  public static final DigestHashFunction SHA256;
+
+  static {
+    SHA1 = register(Hashing.sha1(), "SHA-1", "SHA1", "sha1");
+    SHA256 = register(Hashing.sha256(), "SHA-256", "SHA256", "sha256");
+    register(Hashing.sha384(), "SHA-384", "SHA384", "sha384");
+    register(Hashing.sha512(), "SHA-512", "SHA512", "sha512");
+  }
 
   private final HashFunction hashFunction;
   private final DigestLength digestLength;
@@ -136,7 +144,10 @@ public class DigestHashFunction {
           return possibleFunctions.getValue();
         }
       }
-      throw new OptionsParsingException("Not a valid hash function.");
+      throw new OptionsParsingException(
+          String.format(
+              "'%s' is not a valid hash function. Possible values are: %s",
+              input, getPossibleNames()));
     }
 
     @Override
@@ -196,5 +207,24 @@ public class DigestHashFunction {
 
   public static ImmutableSet<DigestHashFunction> getPossibleHashFunctions() {
     return ImmutableSet.copyOf(hashFunctionRegistry.values());
+  }
+
+  private static String getPossibleNames() {
+    return hashFunctionRegistry.values().stream()
+        .map(DigestHashFunction::toString)
+        .sorted()
+        .distinct()
+        .collect(Collectors.joining(", "));
+  }
+
+  public static HashFunction getHashFunctionFromName(String hashName) {
+    var digestHashFunction = hashFunctionRegistry.get(hashName);
+    if (digestHashFunction == null) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Hash function '%s' is not registered. Possible values are: %s",
+              hashName, getPossibleNames()));
+    }
+    return digestHashFunction.getHashFunction();
   }
 }

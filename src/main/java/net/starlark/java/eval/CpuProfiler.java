@@ -15,16 +15,16 @@
 package net.starlark.java.eval;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import java.io.ByteArrayOutputStream;
-import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.zip.GZIPOutputStream;
@@ -88,15 +88,19 @@ import net.starlark.java.syntax.Location;
 // allowing profiling of a portion of a long-running computation.
 
 /** A CPU profiler for Starlark (POSIX only for now). */
-final class CpuProfiler {
-
-  static {
-    JNI.load();
-  }
+public final class CpuProfiler {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final PprofWriter pprof;
+
+  // Native profiler support, if available.
+  private static volatile CpuProfilerNativeSupport nativeSupport = null;
+
+  /** Installs native profiler support. */
+  public static void setNativeSupport(CpuProfilerNativeSupport nativeSupport) {
+    CpuProfiler.nativeSupport = nativeSupport;
+  }
 
   private CpuProfiler(OutputStream out, Duration period) {
     this.pprof = new PprofWriter(out, period);
@@ -122,15 +126,15 @@ final class CpuProfiler {
   @Nullable
   static StarlarkThread setStarlarkThread(StarlarkThread thread) {
     if (thread == null) {
-      return threads.remove(gettid());
+      return threads.remove(nativeSupport.getThreadId());
     } else {
-      return threads.put(gettid(), thread);
+      return threads.put(nativeSupport.getThreadId(), thread);
     }
   }
 
   /** Start the profiler. */
   static boolean start(OutputStream out, Duration period) {
-    if (!supported()) {
+    if (nativeSupport == null) {
       logger.atWarning().log("--starlark_cpu_profile is unsupported on this platform");
       return false;
     }
@@ -139,7 +143,7 @@ final class CpuProfiler {
     }
 
     startRouter();
-    if (!startTimer(period.toNanos() / 1000L)) {
+    if (!nativeSupport.startTimer(MICROSECONDS.convert(period))) {
       throw new IllegalStateException("profile signal handler already in use");
     }
 
@@ -156,14 +160,14 @@ final class CpuProfiler {
     CpuProfiler profiler = instance;
     instance = null;
 
-    stopTimer();
+    nativeSupport.stopTimer();
 
     // Finish writing the file and fail if there were any I/O errors.
     profiler.pprof.writeEnd();
   }
 
   /** Records a profile event. */
-  void addEvent(int ticks, ImmutableList<Debug.Frame> stack) {
+  void addEvent(int ticks, List<? extends Debug.Frame> stack) {
     pprof.writeEvent(ticks, stack);
   }
 
@@ -175,7 +179,7 @@ final class CpuProfiler {
   // On return, it is safe to install the signal handler.
   private static synchronized void startRouter() {
     if (pipe == null) {
-      pipe = new FileInputStream(createPipe());
+      pipe = new FileInputStream(nativeSupport.createPipe());
       Thread router = new Thread(CpuProfiler::router, "SIGPROF router");
       router.setDaemon(true);
       router.start();
@@ -232,26 +236,6 @@ final class CpuProfiler {
     return b[0] << 24 | (b[1] & 0xff) << 16 | (b[2] & 0xff) << 8 | (b[3] & 0xff);
   }
 
-  // --- native code (see cpu_profiler) ---
-
-  // Reports whether the profiler is supported on this platform.
-  private static native boolean supported();
-
-  // Returns the read end of a pipe from which profile events may be read.
-  // Each event is an operating system thread ID encoded as uint32be.
-  private static native FileDescriptor createPipe();
-
-  // Starts the operating system's interval timer.
-  // The period must be a positive number of microseconds.
-  // Returns false if SIGPROF is already in use.
-  private static native boolean startTimer(long periodMicros);
-
-  // Stops the operating system's interval timer.
-  private static native void stopTimer();
-
-  // Returns the operating system's identifier for the calling thread.
-  private static native int gettid();
-
   // Encoder for pprof format profiles.
   // See https://github.com/google/pprof/tree/master/proto
   // We encode the protocol messages by hand to avoid
@@ -289,12 +273,12 @@ final class CpuProfiler {
       }
     }
 
-    synchronized void writeEvent(int ticks, ImmutableList<Debug.Frame> stack) {
+    synchronized void writeEvent(int ticks, List<? extends Debug.Frame> stack) {
       if (this.error == null) {
         try {
           ByteArrayOutputStream sample = new ByteArrayOutputStream();
           writeLong(sample, SAMPLE_VALUE, ticks * period.toNanos() / 1000L);
-          for (Debug.Frame fr : stack.reverse()) {
+          for (Debug.Frame fr : stack.reversed()) {
             writeLong(sample, SAMPLE_LOCATION_ID, getLocationID(fr));
           }
           writeByteArray(gz, PROFILE_SAMPLE, sample.toByteArray());

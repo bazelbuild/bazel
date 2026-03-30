@@ -15,6 +15,7 @@
 #include "src/tools/one_version/duplicate_class_collector.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -23,6 +24,11 @@
 #include "absl/strings/str_cat.h"
 
 namespace one_version {
+
+DuplicateClassCollector::DuplicateClassCollector(
+    size_t file_count_to_reserve_in_maps) {
+  violations_.reserve(file_count_to_reserve_in_maps);
+}
 
 void DuplicateClassCollector::Add(const std::string& class_name, uint32_t crc32,
                                   const Label& label) {

@@ -18,7 +18,7 @@ java_library(
     name = "fragment_options_for_output",
     srcs = ["FragmentOptionsForOutput.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
     ],
 )
 
@@ -28,11 +28,11 @@ java_library(
     deps = [
         ":fragment_for_output",
         ":fragment_options_for_output",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_class_set",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_class_set",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//third_party:guava",
@@ -44,7 +44,7 @@ java_library(
     name = "fragment_for_output",
     srcs = ["FragmentForOutput.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
     ],
 )

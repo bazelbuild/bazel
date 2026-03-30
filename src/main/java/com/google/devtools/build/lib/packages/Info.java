@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
@@ -35,11 +36,6 @@ import net.starlark.java.syntax.Location;
 //   The StructProvider.createStruct method could be a simple function like depset, select.
 //   StructProviderApi could be eliminated.
 // - eliminate StarlarkInfo + StarlarkInfo.
-// - NativeInfo's get{FieldNames,Value} methods are not needed by the Starlark interpreter,
-//   since all its fields are annotated. They exist for the hash/eq/str implementations
-//   defined in StructImpl over all its subclasses, and for json.encode. More thought is
-//   needed on how to bridge between annotated methods and user-defined Structures so that
-//   they appear similar to clients like json.encode.
 //
 // Info (result of analysis)
 // - StructImpl (structure with fields, to_{json,proto}). Implements Structure, StructApi.
@@ -68,7 +64,7 @@ public interface Info extends StarlarkValue {
   }
 
   @Override
-  default void repr(Printer printer) {
+  default void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<instance of provider ");
     printer.append(getProvider().getPrintableName());
     printer.append(">");

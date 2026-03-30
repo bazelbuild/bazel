@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2023 The Bazel Authors. All rights reserved.
 #
@@ -46,20 +46,15 @@ source "$(rlocation "io_bazel/src/test/shell/bazel/remote_helpers.sh")" \
 source "$(rlocation "io_bazel/src/test/shell/bazel/remote/remote_utils.sh")" \
   || { echo "remote_utils.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  function is_windows() { true; }
-  ;;
-*)
-  function is_windows() { false; }
-  ;;
-esac
-
 function set_up() {
   start_worker
 
+  add_rules_java "MODULE.bazel"
   mkdir -p src/main/java/com/example
   cat > src/main/java/com/example/BUILD <<'EOF'
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_binary(
     name = "Main",
     srcs = ["Main.java"],
@@ -93,6 +88,17 @@ function tear_down() {
   stop_worker
 }
 
+function test_path_stripping_local_fails() {
+  cache_dir=$(mktemp -d)
+
+  bazel build -c fastbuild \
+    --disk_cache=$cache_dir \
+    --experimental_output_paths=strip \
+    --strategy=Javac=local \
+    //src/main/java/com/example:Main &> $TEST_log && fail "build succeeded unexpectedly"
+  expect_log 'Javac spawn, which requires sandboxing due to path mapping, cannot be executed with any of the available strategies'
+}
+
 function test_path_stripping_sandboxed() {
   if is_windows; then
     echo "Skipping test_path_stripping_sandboxed on Windows as it requires sandboxing"
@@ -101,15 +107,17 @@ function test_path_stripping_sandboxed() {
 
   cache_dir=$(mktemp -d)
 
+  # Validate that the sandboxed strategy is preferred over the local strategy
+  # with path mapping.
   bazel run -c fastbuild \
     --disk_cache=$cache_dir \
     --experimental_output_paths=strip \
-    --strategy=Javac=sandboxed \
+    --strategy=Javac=local,sandboxed \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, 1x header compilation and 2x
-  # actual compilation.
-  expect_log '5 \(linux\|darwin\|processwrapper\)-sandbox'
+  # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, JavaToolchainIjarBootclasspath,
+  # 1x header compilation and 2x actual compilation.
+  expect_log '6 \(linux\|darwin\|processwrapper\)-sandbox'
   expect_not_log 'disk cache hit'
 
   bazel run -c opt \
@@ -118,28 +126,24 @@ function test_path_stripping_sandboxed() {
     --strategy=Javac=sandboxed \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  expect_log '5 disk cache hit'
+  expect_log '6 disk cache hit'
   expect_not_log '[0-9] \(linux\|darwin\|processwrapper\)-sandbox'
 }
 
 function test_path_stripping_singleplex_worker() {
-  if is_windows; then
-    echo "Skipping test_path_stripping_singleplex_worker on Windows as it requires sandboxing"
-    return
-  fi
-
   cache_dir=$(mktemp -d)
 
+  # Worker sandboxing is enabled automatically, multiplexing is disabled since
+  # the default toolchain does not support sandboxing yet.
   bazel run -c fastbuild \
     --disk_cache=$cache_dir \
     --experimental_output_paths=strip \
     --strategy=Javac=worker \
-    --worker_sandboxing \
-    --noexperimental_worker_multiplex \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses and header compilation.
-  expect_log '3 \(linux\|darwin\|processwrapper\)-sandbox'
+  # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, JavaToolchainIjarBootclasspath
+  # and header compilation.
+  expect_log '4 \(linux\|darwin\|processwrapper\)-sandbox'
   # Actual compilation actions.
   expect_log '2 worker'
   expect_not_log 'disk cache hit'
@@ -148,24 +152,17 @@ function test_path_stripping_singleplex_worker() {
     --disk_cache=$cache_dir \
     --experimental_output_paths=strip \
     --strategy=Javac=worker \
-    --worker_sandboxing \
-    --noexperimental_worker_multiplex \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  expect_log '5 disk cache hit'
+  expect_log '6 disk cache hit'
   expect_not_log '[0-9] \(linux\|darwin\|processwrapper\)-sandbox'
   expect_not_log '[0-9] worker'
 }
 
 function test_path_stripping_multiplex_worker() {
-  if is_windows; then
-    echo "Skipping test_path_stripping_multiplex_worker on Windows as it requires sandboxing"
-    return
-  fi
-
   mkdir toolchain
   cat > toolchain/BUILD <<'EOF'
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 default_java_toolchain(
     name = "java_toolchain",
     source_version = "17",
@@ -185,8 +182,8 @@ EOF
     --java_language_version=17 \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses and header compilation.
-  expect_log '3 \(linux\|darwin\|processwrapper\)-sandbox'
+  # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, JavaToolchainIjarBootclasspath and header compilation.
+  expect_log '4 \(linux\|darwin\|processwrapper\)-sandbox'
   # Actual compilation actions.
   expect_log '2 worker'
   expect_not_log 'disk cache hit'
@@ -200,7 +197,7 @@ EOF
     --java_language_version=17 \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  expect_log '5 disk cache hit'
+  expect_log '6 disk cache hit'
   expect_not_log '[0-9] \(linux\|darwin\|processwrapper\)-sandbox'
   expect_not_log '[0-9] worker'
 }
@@ -212,14 +209,13 @@ function test_path_stripping_generated_multiplex_worker() {
   fi
 
   cat >> MODULE.bazel <<'EOF'
-bazel_dep(name = "rules_java", version = "8.1.0")
 toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
 use_repo(toolchains, "remote_java_tools")
 EOF
 
   mkdir toolchain
   cat > toolchain/BUILD <<'EOF'
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 genrule(
     name = "gen_javabuilder",
     srcs = ["@remote_java_tools//:JavaBuilder"],
@@ -247,8 +243,8 @@ EOF
     --java_language_version=17 \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  # Genrule, JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses and header compilation.
-  expect_log '4 \(linux\|darwin\|processwrapper\)-sandbox'
+  # Genrule, JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, JavaToolchainIjarBootclasspath and header compilation
+  expect_log '5 \(linux\|darwin\|processwrapper\)-sandbox'
   # Actual compilation actions.
   expect_log '2 worker'
   expect_not_log 'disk cache hit'
@@ -262,7 +258,7 @@ EOF
     --java_language_version=17 \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  expect_log '5 disk cache hit'
+  expect_log '6 disk cache hit'
   expect_not_log '[0-9] \(linux\|darwin\|processwrapper\)-sandbox'
   expect_not_log '[0-9] worker'
 }
@@ -273,9 +269,9 @@ function test_path_stripping_remote() {
     --remote_executor=grpc://localhost:${worker_port} \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, 1x header compilation and 2x
-  # actual compilation.
-  expect_log '5 remote'
+  # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, JavaToolchainIjarBootclasspath,
+  # 1x header compilation and 2x actual compilation.
+  expect_log '6 remote'
   expect_not_log 'remote cache hit'
 
   bazel run -c opt \
@@ -283,7 +279,7 @@ function test_path_stripping_remote() {
     --remote_executor=grpc://localhost:${worker_port} \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
-  expect_log '5 remote cache hit'
+  expect_log '6 remote cache hit'
   # Do not match "5 remote cache hit", which is expected.
   expect_not_log '[0-9] remote[^ ]'
 }
@@ -349,6 +345,9 @@ EOF
   mkdir -p src/main/java/com/example
   cat > src/main/java/com/example/BUILD <<'EOF'
 load("//rules:defs.bzl", "bazelcon_greeting")
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(
     name = "Main",
     srcs = ["Main.java"],
@@ -386,9 +385,9 @@ EOF
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, BazelCon New York!'
   expect_log 'Hello, BazelCon Munich!'
-  # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, 1x header compilation and 2x
-  # actual compilation.
-  expect_log '5 remote'
+  # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, JavaToolchainIjarBootclasspath
+  # 1x header compilation and 2x actual compilation.
+  expect_log '6 remote'
   expect_not_log 'remote cache hit'
 
   bazel run -c opt \
@@ -397,8 +396,9 @@ EOF
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, BazelCon New York!'
   expect_log 'Hello, BazelCon Munich!'
-  # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses and compilation of the binary.
-  expect_log '3 remote cache hit'
+  # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses, JavaToolchainIjarBootclasspath
+  # and compilation of the binary.
+  expect_log '4 remote cache hit'
   # Do not match "[0-9] remote cache hit", which is expected separately.
   # Header and actual compilation of the library, which doesn't use path stripping as it would
   # result in ambiguous paths due to the multiple configs.
@@ -450,12 +450,14 @@ function test_path_stripping_cc_remote() {
   local -r pkg="${FUNCNAME[0]}"
 
   cat > MODULE.bazel <<EOF
-bazel_dep(name = "apple_support", version = "1.15.1")
+bazel_dep(name = "apple_support", version = "1.21.0")
 EOF
+  add_rules_cc "MODULE.bazel"
 
   mkdir -p "$pkg"
   cat > "$pkg/BUILD" <<EOF
 load("//$pkg/common/utils:defs.bzl", "gen_cc", "transition_wrapper")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 
 cc_binary(
     name = "main",
@@ -502,6 +504,7 @@ EOF
   mkdir -p "$pkg"/lib1
   cat > "$pkg/lib1/BUILD" <<EOF
 load("//$pkg/common/utils:defs.bzl", "gen_h", "transition_wrapper")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 cc_library(
     name = "lib1",
@@ -539,6 +542,7 @@ EOF
 
   mkdir -p "$pkg"/lib2
   cat > "$pkg/lib2/BUILD" <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 genrule(
     name = "gen_header",
     srcs = ["lib2.h.tpl"],
@@ -582,6 +586,7 @@ EOF
   mkdir -p "$pkg"/common/utils
   cat > "$pkg/common/utils/BUILD" <<'EOF'
 load(":defs.bzl", "greeting_setting")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 greeting_setting(
     name = "greeting",
@@ -734,9 +739,10 @@ std::string AsGreeting(const std::string& name) {
 EOF
 
   bazel run \
+    --repo_env=CC=clang \
     --verbose_failures \
     --experimental_output_paths=strip \
-    --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping \
+    --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping,CppArchive=+supports-path-mapping \
     --remote_executor=grpc://localhost:${worker_port} \
     --features=layering_check \
     "//$pkg:main" &>"$TEST_log" || fail "Expected success"
@@ -748,11 +754,13 @@ EOF
   expect_not_log 'remote cache hit'
 
   bazel run \
+    --repo_env=CC=clang \
     --verbose_failures \
     --experimental_output_paths=strip \
-    --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping \
+    --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping,CppArchive=+supports-path-mapping \
     --remote_executor=grpc://localhost:${worker_port} \
     --features=layering_check \
+    -s \
     "//$pkg:transitioned_main" &>"$TEST_log" || fail "Expected success"
 
   expect_log 'Hi there, lib1!'
@@ -760,8 +768,22 @@ EOF
   expect_log 'Hello, TreeArtifact!'
   expect_log '42 43'
   # Compilation actions for lib1, lib2 and main should result in cache hits due
-  # to path stripping, utils is legitimately different and should not.
-  expect_log ' 4 remote cache hit'
+  # to path stripping, utils is legitimately different and should not (4 cached
+  # out of 5 total).
+  # Likewise, link actions for lib1 and lib2 should result in cache hits, but
+  # the one for utils does not and the linking action for main doesn't support
+  # path mapping (2 cached out of 4 in total). In CI, the C++ toolchain on Linux
+  # uses --start-lib/--end-lib linker support to avoid the CppArchive actions
+  # entirely (0 cached out of 1 in total).
+  # The two custom actions and the four genrule actions are not path-mapped
+  # (0 cached out of 6 in total).
+  if is_darwin; then
+    expect_log ' 6 remote cache hit'
+    expect_log ' 9 remote'
+  else
+    expect_log ' 4 remote cache hit'
+    expect_log ' 8 remote'
+  fi
 }
 
 function test_path_stripping_action_key_not_stale_for_path_collision() {

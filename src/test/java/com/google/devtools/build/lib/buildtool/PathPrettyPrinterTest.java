@@ -28,6 +28,7 @@ public class PathPrettyPrinterTest {
   public void getPrettyPath_pathUnderSymlinkTarget_returnsPathUnderConvenienceLink() {
     PathPrettyPrinter underTest =
         new PathPrettyPrinter(
+            /* workspaceRelativeWorkingDirectory= */ PathFragment.EMPTY_FRAGMENT,
             /* symlinkPrefix= */ "ignored",
             ImmutableMap.of(
                 PathFragment.create("not-blaze-out"),
@@ -40,9 +41,27 @@ public class PathPrettyPrinterTest {
   }
 
   @Test
+  public void getPrettyPath_workingDirectoryUnderWorkspace_returnsUpLevelReference() {
+    PathPrettyPrinter underTest =
+        new PathPrettyPrinter(
+            PathFragment.create("relative/working/directory"),
+            /* symlinkPrefix= */ "ignored",
+            ImmutableMap.of(
+                PathFragment.create("not-blaze-out"),
+                PathFragment.create("/output/execroot/not-stuff"),
+                PathFragment.create("blaze-out"),
+                PathFragment.create("/output/execroot/stuff")));
+
+    PathFragment path = PathFragment.create("/output/execroot/stuff/really");
+    assertThat(underTest.getPrettyPath(path))
+        .isEqualTo(PathFragment.create("../../../blaze-out/really"));
+  }
+
+  @Test
   public void getPrettyPath_pathNotUnderSymlinkTarget_returnsOriginalPath() {
     PathPrettyPrinter underTest =
         new PathPrettyPrinter(
+            /* workspaceRelativeWorkingDirectory= */ PathFragment.EMPTY_FRAGMENT,
             /* symlinkPrefix= */ "ignored",
             ImmutableMap.of(
                 PathFragment.create("blaze-out"), PathFragment.create("/output/execroot/stuff")));
@@ -55,6 +74,7 @@ public class PathPrettyPrinterTest {
   public void getPrettyPath_noCreateSymlinksPrefix_returnsOriginalPath() {
     PathPrettyPrinter underTest =
         new PathPrettyPrinter(
+            /* workspaceRelativeWorkingDirectory= */ PathFragment.EMPTY_FRAGMENT,
             /* symlinkPrefix= */ "/",
             ImmutableMap.of(
                 PathFragment.create("blaze-out"), PathFragment.create("/output/execroot/stuff")));

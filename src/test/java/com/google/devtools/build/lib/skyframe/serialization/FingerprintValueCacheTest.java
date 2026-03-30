@@ -15,13 +15,19 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint.getFingerprintForTesting;
+import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.immediateWriteStatus;
+import static org.junit.Assert.assertThrows;
 
+import com.google.common.testing.GcFinalization;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.MissingSharedValueBytesException;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SettableWriteStatus;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.lang.ref.WeakReference;
+import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -96,7 +102,7 @@ public final class FingerprintValueCacheTest {
     // Sets the `PutOperation` in `putOp1`, which triggers the first stage of unwrapping and
     // populates the reverse service.
     PackedFingerprint fingerprint = getFingerprintForTesting("foo");
-    SettableFuture<Void> writeStatus = SettableFuture.create();
+    SettableWriteStatus writeStatus = new SettableWriteStatus();
     putOp1.set(new PutOperation(fingerprint, writeStatus));
 
     // A get of `fingerprint` now returns `value` immediately.
@@ -110,7 +116,7 @@ public final class FingerprintValueCacheTest {
     assertThat(putResult).isSameInstanceAs(putOp1);
 
     // Setting the write status fully unwraps the value.
-    writeStatus.set(null);
+    writeStatus.markSuccess();
     putResult = service.getOrClaimPutOperation(value, distinguisher.value(), putOp2);
     assertThat(putResult).isSameInstanceAs(fingerprint);
   }
@@ -143,7 +149,7 @@ public final class FingerprintValueCacheTest {
     // Completing `putOp` overwrites values, but this is benign because `value`s fingerprint should
     // be deterministic.
     PackedFingerprint fingerprint2 = getFingerprintForTesting("foo");
-    putOp.set(new PutOperation(fingerprint2, immediateVoidFuture()));
+    putOp.set(new PutOperation(fingerprint2, immediateWriteStatus()));
 
     SettableFuture<PutOperation> putOp3 = SettableFuture.create();
     putResult = service.getOrClaimPutOperation(value, distinguisher.value(), putOp3);
@@ -160,7 +166,7 @@ public final class FingerprintValueCacheTest {
     PackedFingerprint fingerprint = getFingerprintForTesting("foo");
 
     ListenableFuture<PutOperation> put =
-        immediateFuture(new PutOperation(fingerprint, immediateVoidFuture()));
+        immediateFuture(new PutOperation(fingerprint, immediateWriteStatus()));
 
     Object value1 = new Object();
     Object distinguisher1 = new Object();
@@ -194,7 +200,7 @@ public final class FingerprintValueCacheTest {
         service.getOrClaimPutOperation(
             value,
             distinguisher.value(),
-            immediateFuture(new PutOperation(fingerprint, immediateVoidFuture())));
+            immediateFuture(new PutOperation(fingerprint, immediateWriteStatus())));
     assertThat(result).isNull();
 
     SettableFuture<Object> getOperation = SettableFuture.create();
@@ -234,5 +240,54 @@ public final class FingerprintValueCacheTest {
         assertThat(result).isNull();
         break;
     }
+  }
+
+  @Test(timeout = 30000) // timeout in case GcFinalization#awaitClear doesn't finish for any reason
+  public void missingSharedValueBytesException_isCached(@TestParameter Distinguisher distinguisher)
+      throws InterruptedException {
+    FingerprintValueService service =
+        FingerprintValueService.createForTesting(FingerprintValueCache.SyncMode.NOT_LINKED);
+
+    PackedFingerprint fingerprint = getFingerprintForTesting("missing");
+
+    SettableFuture<Object> op1 = SettableFuture.create();
+    Object result = service.getOrClaimGetOperation(fingerprint, distinguisher.value(), op1);
+    assertThat(result).isNull();
+
+    // Completes op1 with a MissingFingerprintValueException.
+    op1.setException(MissingSharedValueBytesException.INSTANCE);
+
+    // Creates a "control" object that should be collected because there are no
+    // other strong references to it.
+    PackedFingerprint controlFingerprint = getFingerprintForTesting("control");
+    var controlFuture = immediateFuture(new Object());
+    var unused =
+        service.getOrClaimGetOperation(controlFingerprint, distinguisher.value(), controlFuture);
+
+    WeakReference<Object> controlWeakReference = new WeakReference<>(controlFuture);
+    controlFuture = null;
+    GcFinalization.awaitClear(controlWeakReference);
+
+    // Forces Caffeine to remove controlFuture that was just GC'd.
+    service.cacheCleanUpForTesting();
+
+    // The control object should be gone.
+    assertThat(
+            service.getOrClaimGetOperation(
+                controlFingerprint, distinguisher.value(), SettableFuture.create()))
+        .isNull();
+
+    // A second get of `fingerprint` should now return an immediate failed future from
+    // the cache. Note the absence of setting `op2`.
+    SettableFuture<Object> op2 = SettableFuture.create();
+    result = service.getOrClaimGetOperation(fingerprint, distinguisher.value(), op2);
+
+    assertThat(result).isNotNull(); // if this is null, the cache is not working.
+    assertThat(result).isInstanceOf(ListenableFuture.class);
+
+    ListenableFuture<?> cachedFuture = (ListenableFuture<?>) result;
+    assertThat(cachedFuture.isDone()).isTrue();
+    ExecutionException e = assertThrows(ExecutionException.class, cachedFuture::get);
+    assertThat(e).hasCauseThat().isSameInstanceAs(MissingSharedValueBytesException.INSTANCE);
   }
 }

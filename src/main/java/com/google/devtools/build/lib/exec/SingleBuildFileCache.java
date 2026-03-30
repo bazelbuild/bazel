@@ -16,18 +16,24 @@ package com.google.devtools.build.lib.exec;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import java.io.IOException;
+import java.util.Map;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -38,13 +44,13 @@ import javax.annotation.concurrent.ThreadSafe;
  */
 @ThreadSafe
 public class SingleBuildFileCache implements InputMetadataProvider {
-
   private final Path execRoot;
+  private final PathFragment relativeOutputPath;
 
   // If we can't get the digest, we store the exception. This avoids extra file IO for files
   // that are allowed to be missing, as we first check a likely non-existent content file
   // first.  Further we won't need to unwrap the exception in getDigest().
-  private final Cache<String, ActionInputMetadata> pathToMetadata =
+  private final Cache<PathFragment, ActionInputMetadata> pathToMetadata =
       Caffeine.newBuilder()
           // Even small-ish builds, as of 11/21/2011 typically have over 10k artifacts, so it's
           // unlikely that this default will adversely affect memory in most cases.
@@ -52,19 +58,33 @@ public class SingleBuildFileCache implements InputMetadataProvider {
           .build();
   private final XattrProvider xattrProvider;
 
-  public SingleBuildFileCache(String cwd, FileSystem fs, XattrProvider xattrProvider) {
+  public SingleBuildFileCache(
+      String cwd, PathFragment relativeOutputPath, FileSystem fs, XattrProvider xattrProvider) {
     this.xattrProvider = xattrProvider;
     this.execRoot = fs.getPath(cwd);
+    this.relativeOutputPath = relativeOutputPath;
   }
 
   @Override
+  @Nullable
   public FileArtifactValue getInputMetadataChecked(ActionInput input) throws IOException {
-    // TODO(lberki): It would be nice to assert that only source files are passed here.
-    // Unfortunately, that's not quite true at the moment and an unknown amount of work would be
-    // needed to make that true.
+    if (input instanceof Artifact artifact) {
+      if (!artifact.isSourceArtifact()) {
+        throw new IllegalStateException(
+            String.format(
+                "SingleBuildFileCache does not support derived artifact '%s'",
+                input.getExecPathString()));
+      }
+    } else if (input.getExecPath().startsWith(relativeOutputPath)) {
+      throw new IllegalStateException(
+          String.format(
+              "SingleBuildFileCache does not support action input '%s' in the output tree",
+              input.getExecPath()));
+    }
+
     return pathToMetadata
         .get(
-            input.getExecPathString(),
+            input.getExecPath(),
             execPath -> {
               Path path = ActionInputHelper.toInputPath(input, execRoot);
               FileArtifactValue metadata;
@@ -87,6 +107,29 @@ public class SingleBuildFileCache implements InputMetadataProvider {
         .getMetadata();
   }
 
+  @Nullable
+  @Override
+  public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
+    return null;
+  }
+
+  @Nullable
+  @Override
+  public TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath) {
+    return null;
+  }
+
+  @Override
+  @Nullable
+  public FilesetOutputTree getFileset(ActionInput input) {
+    return null;
+  }
+
+  @Override
+  public Map<Artifact, FilesetOutputTree> getFilesets() {
+    return ImmutableMap.of();
+  }
+
   @Override
   @Nullable
   public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
@@ -100,7 +143,7 @@ public class SingleBuildFileCache implements InputMetadataProvider {
 
   @Override
   @Nullable
-  public ActionInput getInput(String execPath) {
+  public ActionInput getInput(PathFragment execPath) {
     ActionInputMetadata metadata = pathToMetadata.getIfPresent(execPath);
     if (metadata == null) {
       return null;

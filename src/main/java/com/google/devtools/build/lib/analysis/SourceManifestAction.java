@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -26,15 +26,24 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.analysis.Runfiles.RunfilesConflictReceiver;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.analysis.starlark.UnresolvedSymlinkAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedWriter;
@@ -75,6 +84,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction
       new CharEscaperBuilder().addEscape('\n', "\\n").addEscape('\\', "\\b").toEscaper();
 
   private final Artifact repoMappingManifest;
+
   /**
    * Interface for defining manifest formatting and reporting specifics. Implementations must be
    * immutable.
@@ -197,11 +207,9 @@ public final class SourceManifestAction extends AbstractFileWriteAction
   }
 
   @VisibleForTesting
-  public void writeOutputFile(OutputStream out, @Nullable EventHandler eventHandler)
-      throws IOException {
+  public void writeTo(OutputStream out, @Nullable EventHandler eventHandler) throws IOException {
     writeFile(
-        out,
-        runfiles.getRunfilesInputs(eventHandler, getOwner().getLocation(), repoMappingManifest));
+        out, runfiles.getRunfilesInputs(repoMappingManifest), /* inputMetadataProvider= */ null);
   }
 
   /**
@@ -212,8 +220,8 @@ public final class SourceManifestAction extends AbstractFileWriteAction
   @Override
   public String getFileContents(@Nullable EventHandler eventHandler) throws IOException {
     ByteArrayOutputStream stream = new ByteArrayOutputStream();
-    writeOutputFile(stream, eventHandler);
-    return stream.toString(UTF_8);
+    writeTo(stream, eventHandler);
+    return stream.toString(ISO_8859_1);
   }
 
   @Override
@@ -222,11 +230,46 @@ public final class SourceManifestAction extends AbstractFileWriteAction
   }
 
   @Override
-  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
-    final Map<PathFragment, Artifact> runfilesInputs =
-        runfiles.getRunfilesInputs(
-            ctx.getEventHandler(), getOwner().getLocation(), repoMappingManifest);
-    return out -> writeFile(out, runfilesInputs);
+  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
+      throws ExecException {
+    StoredEventHandler eventHandler = new StoredEventHandler();
+    boolean[] seenNestedRunfilesTree = new boolean[] {false};
+    RunfilesConflictReceiver receiver =
+        new RunfilesConflictReceiver() {
+          @Override
+          public void nestedRunfilesTree(Artifact runfilesTree) {
+            seenNestedRunfilesTree[0] = true;
+            eventHandler.handle(
+                Event.error(
+                    getOwner().getLocation(),
+                    "Runfiles must not contain runfiles tree artifacts: " + runfilesTree));
+          }
+
+          @Override
+          public void prefixConflict(String message) {
+            EventKind eventKind =
+                switch (runfiles.getConflictPolicy()) {
+                  case ERROR -> EventKind.ERROR;
+                  case WARN -> EventKind.WARNING;
+                };
+            eventHandler.handle(Event.of(eventKind, getOwner().getLocation(), message));
+          }
+        };
+
+    Map<PathFragment, Artifact> runfilesInputs =
+        runfiles.getRunfilesInputs(receiver, repoMappingManifest);
+    eventHandler.replayOn(ctx.getEventHandler());
+    if (seenNestedRunfilesTree[0]) {
+      FailureDetail failureDetail =
+          FailureDetail.newBuilder()
+              .setMessage("Cannot create input manifest for runfiles tree")
+              .setAnalysis(
+                  FailureDetails.Analysis.newBuilder()
+                      .setCode(FailureDetails.Analysis.Code.INVALID_RUNFILES_TREE))
+              .build();
+      throw new UserExecException(failureDetail);
+    }
+    return out -> writeFile(out, runfilesInputs, ctx.getInputMetadataProvider());
   }
 
   @Override
@@ -239,9 +282,14 @@ public final class SourceManifestAction extends AbstractFileWriteAction
    *
    * @param out is the message stream to write errors to.
    * @param output The actual mapping of the output manifest.
+   * @param inputMetadataProvider The input metadata provider if available.
    * @throws IOException
    */
-  private void writeFile(OutputStream out, Map<PathFragment, Artifact> output) throws IOException {
+  private void writeFile(
+      OutputStream out,
+      Map<PathFragment, Artifact> output,
+      @Nullable InputMetadataProvider inputMetadataProvider)
+      throws IOException {
     Writer manifestFile = new BufferedWriter(new OutputStreamWriter(out, ISO_8859_1));
     List<Map.Entry<PathFragment, Artifact>> sortedManifest = new ArrayList<>(output.entrySet());
     sortedManifest.sort(ENTRY_COMPARATOR);
@@ -251,7 +299,17 @@ public final class SourceManifestAction extends AbstractFileWriteAction
       if (artifact == null) {
         symlinkTarget = null;
       } else if (artifact.isSymlink()) {
-        symlinkTarget = artifact.getPath().readSymbolicLink();
+        if (inputMetadataProvider != null) {
+          FileArtifactValue metadata =
+              checkNotNull(
+                  inputMetadataProvider.getInputMetadata(artifact),
+                  "missing metadata for %s",
+                  artifact);
+          symlinkTarget =
+              PathFragment.createAlreadyNormalized(metadata.getUnresolvedSymlinkTarget());
+        } else {
+          symlinkTarget = artifact.getPath().readSymbolicLink();
+        }
       } else {
         symlinkTarget = artifact.getPath().asFragment();
       }
@@ -274,7 +332,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp) {
     fp.addString(GUID);
     fp.addBoolean(remotableSourceManifestActions);

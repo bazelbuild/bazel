@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.query2.cquery;
 
-import static com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.COMMAND_LINE_OPTION_PREFIX;
+import static com.google.devtools.build.lib.cmdline.LabelConstants.COMMAND_LINE_OPTION_PREFIX;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -120,8 +120,6 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
       return ret;
     }
   }
-
-  private static final Object[] NO_ARGS = new Object[0];
 
   // Starlark function with single required parameter "target", a CqueryNode query result.
   private final StarlarkFunction formatFn;
@@ -230,7 +228,7 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
         thread.setMaxExecutionSteps(500_000L);
 
         // Invoke formatFn with `target` argument.
-        Object result = Starlark.fastcall(thread, this.formatFn, new Object[] {target}, NO_ARGS);
+        Object result = Starlark.positionalOnlyCall(thread, this.formatFn, target);
 
         addResult(Starlark.str(result, thread.getSemantics()));
       } catch (EvalException ex) {

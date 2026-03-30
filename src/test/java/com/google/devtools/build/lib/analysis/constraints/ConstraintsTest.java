@@ -1050,6 +1050,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file(
         "deps/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = 'dep_a',
             srcs = [],
@@ -1068,6 +1069,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file(
         "hello/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = 'lib',
             srcs = [],
@@ -1088,6 +1090,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file(
         "hello/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         alias(
             name = 'deps_a_alias',
             actual = '//deps:dep_a')
@@ -1111,6 +1114,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file(
         "hello/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         genrule(
             name = 'src_a',
             outs = ['src_a.c'],
@@ -1139,6 +1143,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file(
         "hello/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = 'lib',
             srcs = [],
@@ -1159,6 +1164,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file(
         "hello/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = 'lib',
             srcs = [],
@@ -1183,6 +1189,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file(
         "hello/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = 'lib',
             srcs = [],
@@ -1204,6 +1211,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file(
         "hello/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = 'lib',
             srcs = [],
@@ -1225,6 +1233,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file(
         "hello/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = 'lib',
             srcs = [],
@@ -1244,7 +1253,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
             + "because of incompatible select() paths:\n"
             + " \n"
             + "  environment: //buildenv/foo:b\n"
-            + "    removed by: //hello:lib (/workspace/hello/BUILD:1:11)\n"
+            + "    removed by: //hello:lib (/workspace/hello/BUILD:2:11)\n"
             + "    because of a select() that chooses dep: //deps:dep_a\n"
             + "    which lacks: //buildenv/foo:b");
   }
@@ -1256,6 +1265,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file(
         "hello/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = 'lib',
             srcs = [],
@@ -1282,6 +1292,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file(
         "hello/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = 'lib',
             srcs = [],
@@ -1305,7 +1316,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
             + " because of incompatible select() paths:\n"
             + " \n"
             + "  environment: //buildenv/foo:b\n"
-            + "    removed by: //hello:lib (/workspace/hello/BUILD:1:11)\n"
+            + "    removed by: //hello:lib (/workspace/hello/BUILD:2:11)\n"
             + "    because of a select() that chooses dep: //deps:dep_a\n"
             + "    which lacks: //buildenv/foo:b");
   }
@@ -1317,6 +1328,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file(
         "hello/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = 'lib2',  # Even though both lib1 and lib2 refine away b, lib2 is the culprit.
             srcs = [],
@@ -1348,7 +1360,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
             + " because of incompatible select() paths:\n"
             + " \n"
             + "  environment: //buildenv/foo:b\n"
-            + "    removed by: //hello:lib2 (/workspace/hello/BUILD:1:11)\n"
+            + "    removed by: //hello:lib2 (/workspace/hello/BUILD:2:11)\n"
             + "    because of a select() that chooses dep: //deps:dep_a\n"
             + "    which lacks: //buildenv/foo:b");
   }
@@ -1360,6 +1372,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file(
         "hello/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = 'lib',
             srcs = [],
@@ -1379,7 +1392,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
             + "because of incompatible select() paths:\n"
             + " \n"
             + "  environment: //buildenv/foo:b\n"
-            + "    removed by: //hello:lib (/workspace/hello/BUILD:1:11)\n"
+            + "    removed by: //hello:lib (/workspace/hello/BUILD:2:11)\n"
             + "    because of a select() that chooses dep: //deps:dep_a\n"
             + "    which lacks: //buildenv/foo:b");
   }
@@ -1391,6 +1404,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file(
         "deps/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = 'dep_a',
             srcs = [],
@@ -1403,6 +1417,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file(
         "hello/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = 'lib',
             srcs = [],
@@ -1423,7 +1438,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
             + "because of incompatible select() paths:\n"
             + " \n"
             + "  environment: //buildenv/bar:c\n"
-            + "    removed by: //hello:lib (/workspace/hello/BUILD:1:11)\n"
+            + "    removed by: //hello:lib (/workspace/hello/BUILD:2:11)\n"
             + "    because of a select() that chooses dep: //deps:dep_a\n"
             + "    which lacks: //buildenv/bar:c");
   }
@@ -1439,6 +1454,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file(
         "hello/BUILD",
         """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
         cc_library(
             name = 'all_groups_gone',
             srcs = [],
@@ -1467,7 +1483,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
             + "environment group: //buildenv/foo:foo:\n"
             + " \n"
             + "  environment: //buildenv/foo:a\n"
-            + "    removed by: //hello:lib (/workspace/hello/BUILD:9:11)\n"
+            + "    removed by: //hello:lib (/workspace/hello/BUILD:10:11)\n"
             + "    because of a select() that chooses dep: //hello:all_groups_gone\n"
             + "    which lacks: //buildenv/foo:a\n");
 
@@ -1475,7 +1491,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "environment group: //buildenv/bar:bar:\n"
             + " \n"
             + "  environment: //buildenv/bar:c\n"
-            + "    removed by: //hello:lib (/workspace/hello/BUILD:9:11)\n"
+            + "    removed by: //hello:lib (/workspace/hello/BUILD:10:11)\n"
             + "    because of a select() that chooses dep: //hello:all_groups_gone\n"
             + "    which lacks: //buildenv/bar:c");
   }
@@ -1487,7 +1503,9 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         .setFulfills("all", "b")
         .setDefaults()
         .make();
-    scratch.file("hello/BUILD",
+    scratch.file(
+        "hello/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(",
         "    name = 'lib',",
         "    srcs = [],",

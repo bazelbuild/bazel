@@ -356,7 +356,7 @@ public class AbstractQueueVisitorTest {
       } else {
       assertThat(e).isSameInstanceAs(THROWABLE);
     }
-    assertWithMessage("got: " + visitedList + "\nwant: " + Arrays.toString(expectedVisited))
+    assertWithMessage("got: %s\nwant: %s", visitedList, Arrays.toString(expectedVisited))
         .that(Sets.newHashSet(visitedList))
         .isEqualTo(Sets.newHashSet(expectedVisited));
 

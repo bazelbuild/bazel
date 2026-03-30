@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -20,29 +20,6 @@ set -eu
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-
-function test_execroot_structure_without_bzlmod() {
-  ws_name="dooby_dooby_doo"
-  cat > WORKSPACE <<EOF
-workspace(name = "$ws_name")
-EOF
-
-  mkdir dir
-  cat > dir/BUILD <<'EOF'
-genrule(
-  name = "use-srcs",
-  srcs = ["BUILD"],
-  cmd = "cp $< $@",
-  outs = ["used-srcs"],
-)
-EOF
-
-  bazel build --noenable_bzlmod --enable_workspace -s //dir:use-srcs &> $TEST_log || fail "expected success"
-  execroot="$(bazel info --noenable_bzlmod --enable_workspace execution_root)"
-  test -e "$execroot/../${ws_name}"
-  ls -l bazel-out | tee out
-  assert_contains "$(dirname $execroot)/${ws_name}/bazel-out" out
-}
 
 function test_execroot_structure_with_bzlmod() {
   cat > WORKSPACE <<EOF
@@ -94,6 +71,7 @@ EOF
 
 # Regression test for b/149771751
 function test_sibling_repository_layout_indirect_dependency() {
+    add_rules_cc MODULE.bazel
     mkdir external
     mkdir -p foo
     cat > BUILD <<'EOF'
@@ -105,6 +83,7 @@ filegroup(
 )
 EOF
     cat > foo/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 # cc_library depends on //external:cc_toolchain
 cc_library(
   name = "srcs",
@@ -117,6 +96,7 @@ EOF
 
 # Regression test for b/149771751
 function test_subdirectory_repository_layout_indirect_dependency() {
+    add_rules_cc MODULE.bazel
     mkdir external
     mkdir -p foo
     cat > BUILD <<'EOF'
@@ -128,6 +108,7 @@ filegroup(
 )
 EOF
     cat > foo/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 # cc_library depends on //external:cc_toolchain
 cc_library(
   name = "srcs",
@@ -184,8 +165,10 @@ EOF
 }
 
 function test_cc_smoke_with_new_layouts() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p external/a
   cat > external/a/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(name='a', srcs=['a.cc'])
 EOF
 
@@ -202,8 +185,10 @@ EOF
 }
 
 function test_java_smoke_with_new_layouts() {
+  add_rules_java "MODULE.bazel"
   mkdir -p external/java/a
   cat > external/java/a/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(name='a', srcs=['A.java'])
 EOF
 

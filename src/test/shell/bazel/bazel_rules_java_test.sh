@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -41,49 +41,6 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-function test_rules_java_can_be_overridden() {
-  # The bazelrc file might contain an --override_repository flag for rules_java,
-  # which would cause this test to fail to override the repo via a WORKSPACE file.
-  sed -i.bak '/override_repository=rules_java=/d' $TEST_TMPDIR/bazelrc
-
-  # We test that a custom repository can override @platforms in their
-  # WORKSPACE file.
-  mkdir -p rules_java_can_be_overridden || fail "couldn't create directory"
-  touch rules_java_can_be_overridden/BUILD || \ fail "couldn't touch BUILD file"
-  cat > rules_java_can_be_overridden/WORKSPACE <<EOF
-local_repository(
-  name = 'rules_java',
-  path = '../override',
-)
-EOF
-
-  mkdir -p override/java || fail "couldn't create override directory"
-  touch override/WORKSPACE || fail "couldn't touch override/WORKSPACE"
-  cat > override/BUILD <<EOF
-filegroup(name = 'yolo')
-EOF
-  touch override/java/BUILD || fail "couldn't touch override/java/BUILD"
-  cat > override/java/repositories.bzl <<EOF
-def rules_java_dependencies():
-    pass
-def rules_java_toolchains():
-    pass
-EOF
-
-  cd rules_java_can_be_overridden || fail "couldn't cd into workspace"
-  bazel build --incompatible_autoload_externally= --noenable_bzlmod --enable_workspace @rules_java//:yolo &> $TEST_log || \
-    fail "Bazel failed to build @rules_java"
-}
-
 function test_rules_java_repository_builds_itself() {
   add_rules_java "MODULE.bazel"
   write_default_bazelrc
@@ -102,6 +59,8 @@ function test_java_library_extension_support() {
   cat >java/java_library.bzl <<EOF
 load("@rules_java//java/common/rules/impl:bazel_java_library_impl.bzl", "bazel_java_library_rule")
 load("@rules_java//java/common/rules:java_library.bzl", "JAVA_LIBRARY_ATTRS")
+load("@rules_java//java/common:java_info.bzl", "JavaInfo")
+
 def _impl(ctx):
     return bazel_java_library_rule(
         ctx,

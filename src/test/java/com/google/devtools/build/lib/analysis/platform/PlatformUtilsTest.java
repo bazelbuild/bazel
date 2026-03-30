@@ -31,18 +31,6 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link PlatformUtils } */
 @RunWith(JUnit4.class)
 public final class PlatformUtilsTest {
-  private static String platformOptionsString() {
-    return String.join(
-        "\n",
-        "properties: {",
-        " name: \"b\"",
-        " value: \"2\"",
-        "}",
-        "properties: {",
-        " name: \"a\"",
-        " value: \"1\"",
-        "}");
-  }
 
   private static RemoteOptions remoteOptions() {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
@@ -50,19 +38,6 @@ public final class PlatformUtilsTest {
         ImmutableList.of(
             new AbstractMap.SimpleEntry<>("b", "2"), new AbstractMap.SimpleEntry<>("a", "1"));
     return remoteOptions;
-  }
-
-  @Test
-  public void testParsePlatformLegacyOptions() throws Exception {
-    Platform expected =
-        Platform.newBuilder()
-            .addProperties(Platform.Property.newBuilder().setName("a").setValue("1"))
-            .addProperties(Platform.Property.newBuilder().setName("b").setValue("2"))
-            .build();
-    PlatformInfo platform =
-        PlatformInfo.builder().setRemoteExecutionProperties(platformOptionsString()).build();
-    Spawn s = new SpawnBuilder("dummy").withPlatform(platform).build();
-    assertThat(PlatformUtils.getPlatformProto(s, null)).isEqualTo(expected);
   }
 
   @Test
@@ -86,7 +61,7 @@ public final class PlatformUtilsTest {
   public void testParsePlatformSortsProperties_execProperties() throws Exception {
     // execProperties are chosen even if there are remoteOptions
     ImmutableMap<String, String> map = ImmutableMap.of("aa", "99", "zz", "66", "dd", "11");
-    Spawn s = new SpawnBuilder("dummy").withExecProperties(map).build();
+    Spawn s = new SpawnBuilder("dummy").withCombinedExecProperties(map).build();
 
     Platform expected =
         Platform.newBuilder()
@@ -100,7 +75,8 @@ public final class PlatformUtilsTest {
 
   @Test
   public void getPlatformProto_mergeTargetExecPropertiesWithPlatform() throws Exception {
-    Spawn spawn = new SpawnBuilder("dummy").withExecProperties(ImmutableMap.of("c", "3")).build();
+    Spawn spawn =
+        new SpawnBuilder("dummy").withCombinedExecProperties(ImmutableMap.of("c", "3")).build();
     Platform expected =
         Platform.newBuilder()
             .addProperties(Platform.Property.newBuilder().setName("a").setValue("1"))
@@ -113,7 +89,8 @@ public final class PlatformUtilsTest {
   @Test
   public void getPlatformProto_targetExecPropertiesConflictWithPlatform_override()
       throws Exception {
-    Spawn spawn = new SpawnBuilder("dummy").withExecProperties(ImmutableMap.of("b", "3")).build();
+    Spawn spawn =
+        new SpawnBuilder("dummy").withCombinedExecProperties(ImmutableMap.of("b", "3")).build();
     Platform expected =
         Platform.newBuilder()
             .addProperties(Platform.Property.newBuilder().setName("a").setValue("1"))

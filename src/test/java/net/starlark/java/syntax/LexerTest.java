@@ -16,7 +16,6 @@ package net.starlark.java.syntax;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.base.Joiner;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -339,6 +338,17 @@ public class LexerTest {
     check("foo.123", "IDENTIFIER(foo) FLOAT(0.123) NEWLINE EOF");
     check("foo.bcd", "IDENTIFIER(foo) DOT IDENTIFIER(bcd) NEWLINE EOF"); // 'b' are hex chars
     check("foo.xyz", "IDENTIFIER(foo) DOT IDENTIFIER(xyz) NEWLINE EOF");
+
+    check("..", "DOT DOT NEWLINE EOF");
+    check("...", "ELLIPSIS NEWLINE EOF");
+    check("....", "ELLIPSIS DOT NEWLINE EOF"); // ellipsis is consumed greedily before dot
+    check(".......", "ELLIPSIS ELLIPSIS DOT NEWLINE EOF");
+    check(". . . ", "DOT DOT DOT NEWLINE EOF");
+
+    check("1...", "FLOAT(1.0) DOT DOT NEWLINE EOF");
+    check("1...1", "FLOAT(1.0) DOT FLOAT(0.1) NEWLINE EOF");
+    check("1....1", "FLOAT(1.0) ELLIPSIS INT(1) NEWLINE EOF");
+    check("foo...bcd", "IDENTIFIER(foo) ELLIPSIS IDENTIFIER(bcd) NEWLINE EOF");
   }
 
   @Test
@@ -686,27 +696,6 @@ public class LexerTest {
         "\t", //
         "NEWLINE EOF",
         " ^ Tab characters are not allowed for indentation. Use spaces instead.");
-  }
-
-  /**
-   * Returns the first error whose string form contains the specified substring, or throws an
-   * informative AssertionError if there is none.
-   *
-   * <p>Exposed for use by other frontend tests.
-   */
-  // TODO(adonovan): move to ParserTest
-  static SyntaxError assertContainsError(List<SyntaxError> errors, String substr) {
-    for (SyntaxError error : errors) {
-      if (error.toString().contains(substr)) {
-        return error;
-      }
-    }
-    if (errors.isEmpty()) {
-      throw new AssertionError("no errors, want '" + substr + "'");
-    } else {
-      throw new AssertionError(
-          "error '" + substr + "' not found, but got these:\n" + Joiner.on("\n").join(errors));
-    }
   }
 
   @Test

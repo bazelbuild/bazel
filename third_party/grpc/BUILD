@@ -17,6 +17,11 @@ load("@rules_license//rules:license.bzl", "license")
 
 licenses(["notice"])  # Apache v2
 
+package(
+    default_applicable_licenses = [":license"],
+    default_visibility = ["//visibility:public"],
+)
+
 license(
     name = "license",
     package_name = "grpc",
@@ -27,16 +32,9 @@ license(
     package_version = "1.48",
 )
 
-package(
-    default_applicable_licenses = [":license"],
-    default_visibility = ["//visibility:public"],
-)
-
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]) + [
-        "//third_party/grpc/bazel:srcs",
-    ],
+    srcs = glob(["**"]),
 )
 
 alias(
@@ -61,12 +59,4 @@ alias(
         "//src/conditions:debian_build": "@debian_cc_deps//:grpc++_unsecure",
         "//conditions:default": "@com_github_grpc_grpc//:grpc++_unsecure",
     }),
-)
-
-filegroup(
-    name = "embedded_tools_srcs",
-    srcs = [
-        "BUILD.tools",
-        "build_defs.bzl",
-    ],
 )

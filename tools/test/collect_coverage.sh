@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -48,6 +48,16 @@ function resolve_links() {
     false  # fail the function
   fi
 }
+
+# tw.exe prefixes the runfiles env variables so that this script can find its
+# own runfiles, which are not part of the test's runfiles.
+for name in RUNFILES_DIR RUNFILES_MANIFEST_FILE JAVA_RUNFILES PYTHON_RUNFILES; do
+  wrapper_name="BAZEL_COVERAGE_INTERNAL_${name}"
+  if [[ -n "${!wrapper_name}" ]]; then
+    export ${name}="${!wrapper_name}"
+    unset BAZEL_COVERAGE_INTERNAL_${name}
+  fi
+done
 
 if [[ -z "$COVERAGE_MANIFEST" ]]; then
   echo --
@@ -169,6 +179,9 @@ fi
 # ------------------EXPERIMENTAL---------------------
 # After this point we can run the code necessary for the coverage spawn
 
+# Make sure no binaries run later produce coverage data.
+unset LLVM_PROFILE_FILE
+
 if [[ "$SPLIT_COVERAGE_POST_PROCESSING" == "1" && "$IS_COVERAGE_SPAWN" == "0" ]]; then
   exit 0
 fi
@@ -179,8 +192,11 @@ fi
 # TODO(bazel-team): cd should be avoided.
 cd $ROOT
 # Call the C++ code coverage collection script.
-if [[ "$CC_CODE_COVERAGE_SCRIPT" ]]; then
-    eval "${CC_CODE_COVERAGE_SCRIPT}"
+if [[ -n "$GENERATE_LLVM_LCOV" && "$CC_CODE_COVERAGE_SCRIPT" ]]; then
+    if ! eval "${CC_CODE_COVERAGE_SCRIPT}" && test -z "${IGNORE_COVERAGE_COLLECTION_FAILURES:-}"; then
+      echo "error: coverage collection script failed" >&2
+      exit 1
+    fi
 fi
 
 if [[ -z "$LCOV_MERGER" ]]; then
@@ -248,7 +264,7 @@ if [[ $DISPLAY_LCOV_CMD ]] ; then
   echo "-----------------"
 fi
 
-# JAVA_RUNFILES is set to the runfiles of the test, which does not necessarily
-# contain a JVM (it does only if the test has a Java binary somewhere). So let
-# the LCOV merger discover where its own runfiles tree is.
-JAVA_RUNFILES= exec $LCOV_MERGER_CMD
+# Runfiles variables are set to the runfiles of the test, which does not contain
+# the runfiles of the LCOV merger. Unset them so that it can find its own
+# runfiles tree.
+JAVA_RUNFILES= RUNFILES_DIR= RUNFILES_MANIFEST_FILE= exec $LCOV_MERGER_CMD

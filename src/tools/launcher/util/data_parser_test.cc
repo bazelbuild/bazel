@@ -112,7 +112,7 @@ class LaunchDataParserTest : public ::testing::Test {
 TEST_F(LaunchDataParserTest, GetLaunchInfoTest) {
   vector<pair<string, string>> launch_info = {
       {"binary_type", "Bash"},
-      {"workspace_name", "__main__"},
+      {"workspace_name", "_main"},
       {"bash_bin_path", "C:\\foo\\bar\\bash.exe"},
       {"bash_main_file", "./bazel-bin/foo/bar/bin.sh"},
       {"empty_value_key", ""},

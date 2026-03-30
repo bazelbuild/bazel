@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.AugmentedModuleBuilder.buildAugmentedModule;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.buildTag;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
@@ -44,12 +43,11 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.util.MaybeCompleteSet;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.StringWriter;
-import java.io.Writer;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Optional;
@@ -65,7 +63,7 @@ public class ModExecutorTest {
   // TODO(andreisolo): Add a Json output test
   // TODO(andreisolo): Add a PATH query test
 
-  private final Writer writer = new StringWriter();
+  private final OutputStream outputStream = new ByteArrayOutputStream();
 
   // Tests for the ModExecutor::expandAndPrune core function.
   //
@@ -95,16 +93,13 @@ public class ModExecutorTest {
             .buildOrThrow();
 
     ModOptions options = ModOptions.getDefaultOptions();
-    ModExecutor executor = new ModExecutor(depGraph, options, writer);
+    ModExecutor executor = new ModExecutor(depGraph, options, outputStream);
 
     // RESULT:
     // <root> ...> ccc -> ddd
     //       \___> bbb -> ccc ...
     assertThat(
-            executor.expandAndPrune(
-                ImmutableSet.of(ModuleKey.ROOT, createModuleKey("ccc", "1.0")),
-                MaybeCompleteSet.completeSet(),
-                false))
+            executor.expandAndPrune(ImmutableSet.of(ModuleKey.ROOT, createModuleKey("ccc", "1.0"))))
         .containsExactly(
             ModuleKey.ROOT,
             ResultNode.builder()
@@ -173,15 +168,14 @@ public class ModExecutorTest {
     ModOptions options = ModOptions.getDefaultOptions();
     options.cycles = true;
     options.depth = 1;
-    ModExecutor executor = new ModExecutor(depGraph, options, writer);
-    MaybeCompleteSet<ModuleKey> targets =
-        MaybeCompleteSet.copyOf(
-            ImmutableSet.of(createModuleKey("eee", "1.0"), createModuleKey("hhh", "1.0")));
+    ModExecutor executor = new ModExecutor(depGraph, options, outputStream);
+    ImmutableSet<ModuleKey> targets =
+        ImmutableSet.of(createModuleKey("eee", "1.0"), createModuleKey("hhh", "1.0"));
 
     // RESULT:
     // <root> --> bbb ..> ddd --> eee --> ddd (cycle)
     //                               \..> ggg --> hhh
-    assertThat(executor.expandAndPrune(ImmutableSet.of(ModuleKey.ROOT), targets, false))
+    assertThat(executor.expandPathsToTargets(ImmutableSet.of(ModuleKey.ROOT), targets, false))
         .containsExactly(
             ModuleKey.ROOT,
             ResultNode.builder()
@@ -199,7 +193,6 @@ public class ModExecutorTest {
             ResultNode.builder()
                 .setTarget(true)
                 .addChild(createModuleKey("ggg", "1.0"), IsExpanded.TRUE, IsIndirect.TRUE)
-                .addCycle(createModuleKey("ddd", "1.0"))
                 .build(),
             createModuleKey("ggg", "1.0"),
             ResultNode.builder()
@@ -251,15 +244,14 @@ public class ModExecutorTest {
     ModOptions options = ModOptions.getDefaultOptions();
     options.cycles = true;
     options.depth = 1;
-    ModExecutor executor = new ModExecutor(depGraph, options, writer);
-    MaybeCompleteSet<ModuleKey> targets =
-        MaybeCompleteSet.copyOf(ImmutableSet.of(createModuleKey("eee", "1.0")));
+    ModExecutor executor = new ModExecutor(depGraph, options, outputStream);
+    ImmutableSet<ModuleKey> targets = ImmutableSet.of(createModuleKey("eee", "1.0"));
 
     // RESULT:
     // <root> --> bbb --- ddd --> eee --> ddd (c)
     //             \
     //              \..> ddd ...
-    assertThat(executor.expandAndPrune(ImmutableSet.of(ModuleKey.ROOT), targets, false))
+    assertThat(executor.expandPathsToTargets(ImmutableSet.of(ModuleKey.ROOT), targets, false))
         .containsExactly(
             ModuleKey.ROOT,
             ResultNode.builder()
@@ -268,14 +260,13 @@ public class ModExecutorTest {
             createModuleKey("bbb", "1.0"),
             ResultNode.builder()
                 .addChild(createModuleKey("ddd", "1.0"), IsExpanded.TRUE, IsIndirect.FALSE)
-                .addChild(createModuleKey("ddd", "1.0"), IsExpanded.FALSE, IsIndirect.TRUE)
                 .build(),
             createModuleKey("ddd", "1.0"),
             ResultNode.builder()
                 .addChild(createModuleKey("eee", "1.0"), IsExpanded.TRUE, IsIndirect.FALSE)
                 .build(),
             createModuleKey("eee", "1.0"),
-            ResultNode.builder().setTarget(true).addCycle(createModuleKey("ddd", "1.0")).build())
+            ResultNode.builder().setTarget(true).build())
         .inOrder();
   }
 
@@ -297,7 +288,7 @@ public class ModExecutorTest {
                 buildAugmentedModule("B", "1.0")
                     .addStillDependant(ModuleKey.ROOT)
                     .addChangedDep("C", "1.0", "0.1", ResolutionReason.MINIMAL_VERSION_SELECTION)
-                    .addChangedDep("E", "", "1.0", ResolutionReason.LOCAL_PATH_OVERRIDE)
+                    .addChangedDep("E", "", "1.0", ResolutionReason.NON_REGISTRY_OVERRIDE)
                     .buildEntry())
             .put(
                 buildAugmentedModule("C", "1.0")
@@ -359,13 +350,13 @@ public class ModExecutorTest {
     assertThat(
             formatter.getExtraResolutionExplanation(
                 createModuleKey("E", "1.0"), createModuleKey("B", "1.0"), depGraph, options))
-        .isEqualTo(Explanation.create(Version.EMPTY, ResolutionReason.LOCAL_PATH_OVERRIDE, null));
+        .isEqualTo(Explanation.create(Version.EMPTY, ResolutionReason.NON_REGISTRY_OVERRIDE, null));
 
     assertThat(
             formatter.getExtraResolutionExplanation(
                 createModuleKey("E", ""), createModuleKey("B", "1.0"), depGraph, options))
         .isEqualTo(
-            Explanation.create(Version.parse("1.0"), ResolutionReason.LOCAL_PATH_OVERRIDE, null));
+            Explanation.create(Version.parse("1.0"), ResolutionReason.NON_REGISTRY_OVERRIDE, null));
   }
 
   @Test
@@ -449,12 +440,11 @@ public class ModExecutorTest {
             ResultNode.builder()
                 .setTarget(true)
                 .addChild(createModuleKey("G", "1.0"), IsExpanded.TRUE, IsIndirect.TRUE)
-                .addCycle(createModuleKey("D", "1.0"))
                 .build(),
             createModuleKey("G", "1.0"),
             ResultNode.builder()
                 .addChild(createModuleKey("H", "1.0"), IsExpanded.TRUE, IsIndirect.FALSE)
-                .addChild(createModuleKey("Y", "2.0"), IsExpanded.FALSE, IsIndirect.FALSE)
+                .addChild(createModuleKey("Y", "2.0"), IsExpanded.TRUE, IsIndirect.FALSE)
                 .build(),
             createModuleKey("H", "1.0"),
             ResultNode.builder().setTarget(true).build(),
@@ -472,50 +462,51 @@ public class ModExecutorTest {
 
     File file = File.createTempFile("output_text", "txt");
     file.deleteOnExit();
-    Writer writer = new OutputStreamWriter(new FileOutputStream(file), UTF_8);
 
-    ModExecutor executor = new ModExecutor(depGraph, options, writer);
-    MaybeCompleteSet<ModuleKey> targets =
-        MaybeCompleteSet.copyOf(
-            ImmutableSet.of(
-                createModuleKey("C", "0.1"),
-                createModuleKey("C", "1.0"),
-                createModuleKey("Y", "1.0"),
-                createModuleKey("Y", "2.0"),
-                createModuleKey("E", "1.0"),
-                createModuleKey("H", "1.0")));
+    ImmutableSet<ModuleKey> targets =
+        ImmutableSet.of(
+            createModuleKey("C", "0.1"),
+            createModuleKey("C", "1.0"),
+            createModuleKey("Y", "1.0"),
+            createModuleKey("Y", "2.0"),
+            createModuleKey("E", "1.0"),
+            createModuleKey("H", "1.0"));
 
-    // Double check for human error
-    assertThat(executor.expandAndPrune(ImmutableSet.of(ModuleKey.ROOT), targets, false))
-        .isEqualTo(result);
+    try (var outputStream = new FileOutputStream(file)) {
+      ModExecutor executor = new ModExecutor(depGraph, options, outputStream);
 
-    executor.allPaths(ImmutableSet.of(ModuleKey.ROOT), targets.getElementsIfNotComplete());
+      // Double check for human error
+      assertThat(executor.expandPathsToTargets(ImmutableSet.of(ModuleKey.ROOT), targets, false))
+          .isEqualTo(result);
+
+      executor.allPaths(ImmutableSet.of(ModuleKey.ROOT), targets);
+    }
+
     List<String> textOutput = Files.readAllLines(file.toPath());
 
     assertThat(textOutput)
         .containsExactly(
             "<root> (A@1.0)",
             "└───B@1.0 ",
-            "    ├───C@0.1 (to 1.0, cause single_version_override)",
+            "    ├───C@0.1 # (to 1.0, cause single_version_override)",
             "    ├───C@1.0 # (was 0.1, cause single_version_override)",
             "    │   └───D@1.0 ",
             "    │       └───E@1.0 # ",
-            "    │           ├───D@1.0 (cycle) ",
             "    │           └╌╌╌G@1.0 ",
-            "    │               ├───Y@2.0 (*) ",
-            "    │               └───H@1.0 ",
-            "    ├───Y@1.0 (to 2.0, cause G@1.0)",
-            "    └───Y@2.0 (was 1.0, cause G@1.0)",
+            "    │               ├───H@1.0 # ",
+            "    │               └───Y@2.0 # ",
+            "    ├───Y@1.0 # (to 2.0, cause G@1.0)",
+            "    └───Y@2.0 # (was 1.0, cause G@1.0)",
             "")
         .inOrder();
 
     options.outputFormat = OutputFormat.GRAPH;
     File fileGraph = File.createTempFile("output_graph", "txt");
     fileGraph.deleteOnExit();
-    writer = new OutputStreamWriter(new FileOutputStream(fileGraph), UTF_8);
-    executor = new ModExecutor(depGraph, options, writer);
-
-    executor.allPaths(ImmutableSet.of(ModuleKey.ROOT), targets.getElementsIfNotComplete());
+    try (var outputStream = new FileOutputStream(fileGraph)) {
+      var executor = new ModExecutor(depGraph, options, outputStream);
+      executor.allPaths(ImmutableSet.of(ModuleKey.ROOT), targets);
+    }
     List<String> graphOutput = Files.readAllLines(fileGraph.toPath());
 
     assertThat(graphOutput)
@@ -536,7 +527,6 @@ public class ModExecutorTest {
             "  \"Y@2.0\" [ shape=diamond style=solid ]",
             "  \"D@1.0\" -> \"E@1.0\" [  ]",
             "  \"E@1.0\" [ shape=diamond style=solid ]",
-            "  \"E@1.0\" -> \"D@1.0\" [  ]",
             "  \"E@1.0\" -> \"G@1.0\" [ style=dashed ]",
             "  \"G@1.0\" -> \"H@1.0\" [  ]",
             "  \"G@1.0\" -> \"Y@2.0\" [  ]",
@@ -673,7 +663,6 @@ public class ModExecutorTest {
 
     File file = File.createTempFile("output_text", "txt");
     file.deleteOnExit();
-    Writer writer = new OutputStreamWriter(new FileOutputStream(file), UTF_8);
 
     // Contains the already-filtered map of target extensions along with their full list of repos
     ImmutableSetMultimap<ModuleExtensionId, String> extensionRepos =
@@ -686,11 +675,12 @@ public class ModExecutorTest {
     options.outputFormat = OutputFormat.TEXT;
     options.extensionInfo = ExtensionShow.ALL;
 
-    ModExecutor executor =
-        new ModExecutor(
-            depGraph, extensionUsages, extensionRepos, Optional.empty(), options, writer);
-
-    executor.graph(ImmutableSet.of(ModuleKey.ROOT));
+    try (var outputStream = new FileOutputStream(file)) {
+      ModExecutor executor =
+          new ModExecutor(
+              depGraph, extensionUsages, extensionRepos, Optional.empty(), options, outputStream);
+      executor.graph(ImmutableSet.of(ModuleKey.ROOT));
+    }
 
     List<String> textOutput = Files.readAllLines(file.toPath());
 
@@ -725,12 +715,13 @@ public class ModExecutorTest {
     options.outputFormat = OutputFormat.GRAPH;
     File fileGraph = File.createTempFile("output_graph", "txt");
     fileGraph.deleteOnExit();
-    writer = new OutputStreamWriter(new FileOutputStream(fileGraph), UTF_8);
-    executor =
-        new ModExecutor(
-            depGraph, extensionUsages, extensionRepos, Optional.empty(), options, writer);
 
-    executor.graph(ImmutableSet.of(ModuleKey.ROOT));
+    try (var outputStream = new FileOutputStream(fileGraph)) {
+      var executor =
+          new ModExecutor(
+              depGraph, extensionUsages, extensionRepos, Optional.empty(), options, outputStream);
+      executor.graph(ImmutableSet.of(ModuleKey.ROOT));
+    }
     List<String> graphOutput = Files.readAllLines(fileGraph.toPath());
 
     assertThat(graphOutput)
@@ -775,18 +766,19 @@ public class ModExecutorTest {
     options.depth = 1;
     File fileText2 = File.createTempFile("output_text2", "txt");
     fileText2.deleteOnExit();
-    writer = new OutputStreamWriter(new FileOutputStream(fileText2), UTF_8);
-    executor =
-        new ModExecutor(
-            depGraph,
-            extensionUsages,
-            extensionRepos,
-            Optional.of(MaybeCompleteSet.copyOf(ImmutableSet.of(mavenId))),
-            options,
-            writer);
+    try (var outputStream = new FileOutputStream(fileText2)) {
+      var executor =
+          new ModExecutor(
+              depGraph,
+              extensionUsages,
+              extensionRepos,
+              Optional.of(MaybeCompleteSet.copyOf(ImmutableSet.of(mavenId))),
+              options,
+              outputStream);
+      executor.allPaths(
+          ImmutableSet.of(ModuleKey.ROOT), ImmutableSet.of(createModuleKey("Y", "2.0")));
+    }
 
-    executor.allPaths(
-        ImmutableSet.of(ModuleKey.ROOT), ImmutableSet.of(createModuleKey("Y", "2.0")));
     List<String> textOutput2 = Files.readAllLines(fileText2.toPath());
 
     assertThat(textOutput2)
@@ -804,7 +796,9 @@ public class ModExecutorTest {
             "    │       │   ├───repo1",
             "    │       │   └───repo2",
             "    │       └╌╌╌G@1.0 ",
-            "    │           └───Y@2.0 (*) ",
+            "    │           └───Y@2.0 # ",
+            "    │               └───$@@//extensions:extensions%maven ... ",
+            "    │                   └───repo5",
             "    └───Y@2.0 # ",
             "        └───$@@//extensions:extensions%maven ... ",
             "            └───repo5",
@@ -818,5 +812,389 @@ public class ModExecutorTest {
         Label.create(PackageIdentifier.createInMainRepo(targetName), targetName),
         extensionName,
         Optional.empty());
+  }
+
+  private ModuleExtensionId createExtensionId(
+      String moduleName, String version, String path, String extensionName)
+      throws LabelSyntaxException {
+    return ModuleExtensionId.create(
+        Label.parseCanonical("@@" + moduleName + "+" + version + "//" + path + ":" + path),
+        extensionName,
+        Optional.empty());
+  }
+
+  @Test
+  public void testModCommandPath_complexGraphFiltersCorrectly() throws ParseException, IOException {
+    // <root> -> A -> B -> C -> D
+    //   |       |         ^
+    //   |       `-> E -> F/
+    //   |
+    //   `-> G -> H
+    //   |
+    //   `-> I -> D
+    ImmutableMap<ModuleKey, AugmentedModule> depGraph =
+        new ImmutableMap.Builder<ModuleKey, AugmentedModule>()
+            .put(
+                buildAugmentedModule(ModuleKey.ROOT, "main", Version.parse("1.0"), true)
+                    .addDep("A", "1.0")
+                    .addDep("G", "1.0")
+                    .addDep("I", "1.0")
+                    .buildEntry())
+            .put(
+                buildAugmentedModule("A", "1.0")
+                    .addStillDependant(ModuleKey.ROOT)
+                    .addDep("B", "1.0")
+                    .addDep("E", "1.0")
+                    .buildEntry())
+            .put(
+                buildAugmentedModule("B", "1.0")
+                    .addStillDependant("A", "1.0")
+                    .addDep("C", "1.0")
+                    .buildEntry())
+            .put(
+                buildAugmentedModule("C", "1.0")
+                    .addStillDependant("B", "1.0")
+                    .addStillDependant("F", "1.0")
+                    .addDep("D", "1.0")
+                    .buildEntry())
+            .put(
+                buildAugmentedModule("D", "1.0")
+                    .addStillDependant("C", "1.0")
+                    .addStillDependant("I", "1.0")
+                    .buildEntry())
+            .put(
+                buildAugmentedModule("E", "1.0")
+                    .addStillDependant("A", "1.0")
+                    .addDep("F", "1.0")
+                    .buildEntry())
+            .put(
+                buildAugmentedModule("F", "1.0")
+                    .addStillDependant("E", "1.0")
+                    .addDep("C", "1.0")
+                    .buildEntry())
+            .put(
+                buildAugmentedModule("G", "1.0")
+                    .addStillDependant(ModuleKey.ROOT)
+                    .addDep("H", "1.0")
+                    .buildEntry())
+            .put(buildAugmentedModule("H", "1.0").addStillDependant("G", "1.0").buildEntry())
+            .put(
+                buildAugmentedModule("I", "1.0")
+                    .addStillDependant(ModuleKey.ROOT)
+                    .addDep("D", "1.0")
+                    .buildEntry())
+            .buildOrThrow();
+
+    ModOptions options = ModOptions.getDefaultOptions();
+    options.outputFormat = OutputFormat.TEXT;
+
+    File file = File.createTempFile("output_text", "txt");
+    file.deleteOnExit();
+
+    try (var outputStream = new FileOutputStream(file)) {
+      ModExecutor executor = new ModExecutor(depGraph, options, outputStream);
+      // Test `executor.allPaths`, it should output all "interesting" paths to the target modules.
+      executor.allPaths(
+          ImmutableSet.of(ModuleKey.ROOT), ImmutableSet.of(createModuleKey("D", "1.0")));
+    }
+
+    List<String> textOutput = Files.readAllLines(file.toPath());
+
+    assertThat(textOutput)
+        .containsExactly(
+            "<root> (main@1.0)",
+            "├───A@1.0 ",
+            "│   └───B@1.0 ",
+            "│       └───C@1.0 ",
+            "│           └───D@1.0 # ",
+            "└───I@1.0 ",
+            "    └───D@1.0 # ",
+            "")
+        .inOrder();
+
+    // Also test `executor.path`, it should output a single path to the target module and it should
+    // be the shortest one
+    File file2 = File.createTempFile("output_text", "txt");
+    file2.deleteOnExit();
+    try (var outputStream2 = new FileOutputStream(file2)) {
+      ModExecutor executor2 = new ModExecutor(depGraph, options, outputStream2);
+      executor2.path(ImmutableSet.of(ModuleKey.ROOT), ImmutableSet.of(createModuleKey("D", "1.0")));
+    }
+
+    List<String> textOutput2 = Files.readAllLines(file2.toPath());
+    assertThat(textOutput2)
+        .containsExactly("<root> (main@1.0)", "└───I@1.0 ", "    └───D@1.0 # ", "")
+        .inOrder();
+
+    // Test multiple targets D and G for allPaths
+    File file3 = File.createTempFile("output_text_multi_all", "txt");
+    file3.deleteOnExit();
+    try (var outputStream3 = new FileOutputStream(file3)) {
+      ModExecutor executor3 = new ModExecutor(depGraph, options, outputStream3);
+      executor3.allPaths(
+          ImmutableSet.of(ModuleKey.ROOT),
+          ImmutableSet.of(createModuleKey("D", "1.0"), createModuleKey("G", "1.0")));
+    }
+
+    List<String> textOutput3 = Files.readAllLines(file3.toPath());
+    assertThat(textOutput3)
+        .containsExactly(
+            "<root> (main@1.0)",
+            "├───A@1.0 ",
+            "│   └───B@1.0 ",
+            "│       └───C@1.0 ",
+            "│           └───D@1.0 # ",
+            "├───G@1.0 # ",
+            "└───I@1.0 ",
+            "    └───D@1.0 # ",
+            "")
+        .inOrder();
+
+    // Test multiple targets D and G for path (shortest path)
+    File file4 = File.createTempFile("output_text_multi_path", "txt");
+    file4.deleteOnExit();
+    try (var outputStream4 = new FileOutputStream(file4)) {
+      ModExecutor executor4 = new ModExecutor(depGraph, options, outputStream4);
+      executor4.path(
+          ImmutableSet.of(ModuleKey.ROOT),
+          ImmutableSet.of(createModuleKey("D", "1.0"), createModuleKey("G", "1.0")));
+    }
+
+    List<String> textOutput4 = Files.readAllLines(file4.toPath());
+    assertThat(textOutput4)
+        .containsExactly("<root> (main@1.0)", "├───G@1.0 # ", "└───I@1.0 ", "    └───D@1.0 # ", "")
+        .inOrder();
+
+    // Test starting from E to D for allPaths
+    File file5 = File.createTempFile("output_text_E_to_D_all", "txt");
+    file5.deleteOnExit();
+    try (var outputStream5 = new FileOutputStream(file5)) {
+      ModExecutor executor5 = new ModExecutor(depGraph, options, outputStream5);
+      executor5.allPaths(
+          ImmutableSet.of(createModuleKey("E", "1.0")),
+          ImmutableSet.of(createModuleKey("D", "1.0")));
+    }
+
+    List<String> textOutput5 = Files.readAllLines(file5.toPath());
+    assertThat(textOutput5)
+        .containsExactly(
+            "<root> (main@1.0)",
+            "└╌╌╌E@1.0 ",
+            "    └───F@1.0 ",
+            "        └───C@1.0 ",
+            "            └───D@1.0 # ",
+            "")
+        .inOrder();
+  }
+
+  @Test
+  public void testModCommandGraph_withCycle() throws ParseException, IOException {
+    // <root> -> A -> B -> A (cycle)
+    ImmutableMap<ModuleKey, AugmentedModule> depGraph =
+        new ImmutableMap.Builder<ModuleKey, AugmentedModule>()
+            .put(
+                buildAugmentedModule(ModuleKey.ROOT, "main", Version.parse("1.0"), true)
+                    .addDep("A", "1.0")
+                    .buildEntry())
+            .put(
+                buildAugmentedModule("A", "1.0")
+                    .addStillDependant(ModuleKey.ROOT)
+                    .addStillDependant("B", "1.0")
+                    .addDep("B", "1.0")
+                    .buildEntry())
+            .put(
+                buildAugmentedModule("B", "1.0")
+                    .addStillDependant("A", "1.0")
+                    .addDep("A", "1.0")
+                    .buildEntry())
+            .buildOrThrow();
+
+    ModOptions options = ModOptions.getDefaultOptions();
+    options.outputFormat = OutputFormat.TEXT;
+    options.cycles = true;
+
+    File file = File.createTempFile("output_text_cycle", "txt");
+    file.deleteOnExit();
+    try (var outputStream = new FileOutputStream(file)) {
+      ModExecutor executor = new ModExecutor(depGraph, options, outputStream);
+      executor.graph(ImmutableSet.of(ModuleKey.ROOT));
+    }
+
+    List<String> textOutput = Files.readAllLines(file.toPath());
+
+    assertThat(textOutput)
+        .containsExactly(
+            "<root> (main@1.0)", "└───A@1.0 ", "    └───B@1.0 ", "        └───A@1.0 (cycle) ", "")
+        .inOrder();
+  }
+
+  @Test
+  public void testGraphWithExtensionFilterOnRoot() throws Exception {
+    ImmutableMap<ModuleKey, AugmentedModule> depGraph =
+        new ImmutableMap.Builder<ModuleKey, AugmentedModule>()
+            .put(
+                buildAugmentedModule(ModuleKey.ROOT, "main", Version.parse("1.0"), true)
+                    .buildEntry())
+            .buildOrThrow();
+
+    ModuleExtensionId mavenId = createExtensionId("extensions", "maven");
+    ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsages =
+        new ImmutableTable.Builder<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>()
+            .put(
+                mavenId,
+                ModuleKey.ROOT,
+                ModuleExtensionUsage.builder()
+                    .setExtensionBzlFile("//extensions:extensions.bzl")
+                    .setExtensionName("maven")
+                    .setRepoOverrides(ImmutableMap.of())
+                    .addProxy(
+                        ModuleExtensionUsage.Proxy.builder()
+                            .setLocation(Location.fromFileLineColumn("MODULE.bazel", 1, 1))
+                            .setImports(ImmutableBiMap.of("repo1", "repo1"))
+                            .setDevDependency(false)
+                            .setContainingModuleFilePath(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
+                            .build())
+                    .build())
+            .buildOrThrow();
+
+    ImmutableSetMultimap<ModuleExtensionId, String> extensionRepos =
+        new ImmutableSetMultimap.Builder<ModuleExtensionId, String>()
+            .putAll(mavenId, ImmutableSet.of("repo1"))
+            .build();
+
+    ModOptions options = ModOptions.getDefaultOptions();
+    options.outputFormat = OutputFormat.TEXT;
+    options.extensionInfo = ExtensionShow.ALL;
+
+    File file = File.createTempFile("output_text_repro", "txt");
+    file.deleteOnExit();
+    try (var outputStream = new FileOutputStream(file)) {
+      ModExecutor executor =
+          new ModExecutor(
+              depGraph,
+              extensionUsages,
+              extensionRepos,
+              Optional.of(MaybeCompleteSet.copyOf(ImmutableSet.of(mavenId))),
+              options,
+              outputStream);
+      // This should not throw NPE
+      executor.graph(ImmutableSet.of(ModuleKey.ROOT));
+    }
+
+    List<String> textOutput = Files.readAllLines(file.toPath());
+    assertThat(textOutput)
+        .containsExactly(
+            "<root> (main@1.0)", "└───$@@//extensions:extensions%maven ", "    └───repo1", "")
+        .inOrder();
+  }
+
+  @Test
+  public void testGraphWithExtensionFilterAndCycle() throws Exception {
+    // <root> -> A -> B -> A (cycle)
+    // A and B both use extension defined in A.
+    ImmutableMap<ModuleKey, AugmentedModule> depGraph =
+        new ImmutableMap.Builder<ModuleKey, AugmentedModule>()
+            .put(
+                buildAugmentedModule(ModuleKey.ROOT, "main", Version.parse("1.0"), true)
+                    .addDep("A", "1.0")
+                    .addDep("B", "1.0")
+                    .buildEntry())
+            .put(
+                buildAugmentedModule("A", "1.0")
+                    .addStillDependant(ModuleKey.ROOT)
+                    .addStillDependant("B", "1.0")
+                    .addDep("B", "1.0")
+                    .buildEntry())
+            .put(
+                buildAugmentedModule("B", "1.0")
+                    .addStillDependant(ModuleKey.ROOT)
+                    .addStillDependant("A", "1.0")
+                    .addDep("A", "1.0")
+                    .buildEntry())
+            .buildOrThrow();
+
+    ModuleExtensionId extensionId = createExtensionId("A", "1.0", "extensions", "ext");
+    ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsages =
+        new ImmutableTable.Builder<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>()
+            .put(
+                extensionId,
+                createModuleKey("A", "1.0"),
+                ModuleExtensionUsage.builder()
+                    .setExtensionBzlFile("//extensions:extensions.bzl")
+                    .setExtensionName("ext")
+                    .setRepoOverrides(ImmutableMap.of())
+                    .addProxy(
+                        ModuleExtensionUsage.Proxy.builder()
+                            .setLocation(Location.fromFileLineColumn("MODULE.bazel", 1, 1))
+                            .setImports(ImmutableBiMap.of("repo1", "repo1"))
+                            .setDevDependency(false)
+                            .setContainingModuleFilePath(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
+                            .build())
+                    .build())
+            .put(
+                extensionId,
+                createModuleKey("B", "1.0"),
+                ModuleExtensionUsage.builder()
+                    .setExtensionBzlFile("//extensions:extensions.bzl")
+                    .setExtensionName("ext")
+                    .setRepoOverrides(ImmutableMap.of())
+                    .addProxy(
+                        ModuleExtensionUsage.Proxy.builder()
+                            .setLocation(Location.fromFileLineColumn("MODULE.bazel", 1, 1))
+                            .setImports(ImmutableBiMap.of("repo2", "repo2"))
+                            .setDevDependency(false)
+                            .setContainingModuleFilePath(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
+                            .build())
+                    .build())
+            .buildOrThrow();
+
+    ImmutableSetMultimap<ModuleExtensionId, String> extensionRepos =
+        new ImmutableSetMultimap.Builder<ModuleExtensionId, String>()
+            .putAll(extensionId, ImmutableSet.of("repo1", "repo2"))
+            .build();
+
+    ModOptions options = ModOptions.getDefaultOptions();
+    options.outputFormat = OutputFormat.TEXT;
+    options.extensionInfo = ExtensionShow.ALL;
+    options.cycles = true;
+
+    File file = File.createTempFile("output_text_cycle_ext", "txt");
+    file.deleteOnExit();
+    try (var outputStream = new FileOutputStream(file)) {
+      ModExecutor executor =
+          new ModExecutor(
+              depGraph,
+              extensionUsages,
+              extensionRepos,
+              Optional.of(MaybeCompleteSet.copyOf(ImmutableSet.of(extensionId))),
+              options,
+              outputStream);
+      executor.graph(ImmutableSet.of(ModuleKey.ROOT));
+    }
+
+    List<String> textOutput = Files.readAllLines(file.toPath());
+    assertThat(textOutput)
+        .containsExactly(
+            "<root> (main@1.0)",
+            "├───A@1.0 # ",
+            "│   ├───$@@A+1.0//extensions:extensions%ext ",
+            "│   │   └───repo1",
+            "│   ├───B@1.0 (cycle) ",
+            "│   └───B@1.0 # ",
+            "│       ├───$@@A+1.0//extensions:extensions%ext ... ",
+            "│       │   └───repo2",
+            "│       ├───A@1.0 (cycle) ",
+            "│       └───A@1.0 (cycle) ",
+            "└───B@1.0 # ",
+            "    ├───$@@A+1.0//extensions:extensions%ext ... ",
+            "    │   └───repo2",
+            "    ├───A@1.0 (cycle) ",
+            "    └───A@1.0 # ",
+            "        ├───$@@A+1.0//extensions:extensions%ext ... ",
+            "        │   └───repo1",
+            "        ├───B@1.0 (cycle) ",
+            "        └───B@1.0 (cycle) ",
+            "")
+        .inOrder();
   }
 }

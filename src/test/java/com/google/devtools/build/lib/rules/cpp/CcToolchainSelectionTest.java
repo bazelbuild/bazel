@@ -49,13 +49,16 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
         "--experimental_platforms=//mock_platform:mock-k8-platform",
         "--extra_toolchains=//mock_platform:toolchain_cc-compiler-k8");
     ConfiguredTarget target =
-        ScratchAttributeWriter.fromLabelString(this, "cc_library", "//lib")
+        ScratchAttributeWriter.fromLabelString(
+                this,
+                "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+                "cc_library",
+                "//lib")
             .setList("srcs", "a.cc")
             .write();
     ToolchainInfo toolchainInfo =
         getRuleContext(target).getToolchainInfo(Label.parseCanonical(CPP_TOOLCHAIN_TYPE));
-    CcToolchainProvider toolchain =
-        CcToolchainProvider.PROVIDER.wrap((Info) toolchainInfo.getValue("cc"));
+    CcToolchainProvider toolchain = CcToolchainProvider.wrap((Info) toolchainInfo.getValue("cc"));
 
     assertThat(toolchain.getToolchainIdentifier()).endsWith("k8");
   }
@@ -67,13 +70,16 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
         "--experimental_platforms=//mock_platform:mock-k8-platform",
         "--extra_toolchains=//mock_platform:toolchain_cc-compiler-k8");
     ConfiguredTarget target =
-        ScratchAttributeWriter.fromLabelString(this, "cc_library", "//lib")
+        ScratchAttributeWriter.fromLabelString(
+                this,
+                "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+                "cc_library",
+                "//lib")
             .setList("srcs", "a.cc")
             .write();
     ToolchainInfo toolchainInfo =
         getRuleContext(target).getToolchainInfo(Label.parseCanonical(CPP_TOOLCHAIN_TYPE));
-    CcToolchainProvider toolchain =
-        CcToolchainProvider.PROVIDER.wrap((Info) toolchainInfo.getValue("cc"));
+    CcToolchainProvider toolchain = CcToolchainProvider.wrap((Info) toolchainInfo.getValue("cc"));
     ;
     assertThat(toolchain.getToolchainIdentifier()).endsWith("k8");
   }

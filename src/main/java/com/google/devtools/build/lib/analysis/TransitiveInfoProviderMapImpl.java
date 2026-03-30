@@ -46,10 +46,14 @@ public class TransitiveInfoProviderMapImpl extends ImmutableSharedKeyMap<Object,
     super(keys, values);
   }
 
+  static TransitiveInfoProviderMapImpl empty() {
+    return EMPTY_TRANSITIVE_INFO_PROVIDER_MAP;
+  }
+
   static TransitiveInfoProviderMapImpl create(Map<Object, Object> map) {
     int count = map.size();
     if (count == 0) {
-      return EMPTY_TRANSITIVE_INFO_PROVIDER_MAP;
+      return empty();
     }
     Object[] keys = new Object[count];
     Object[] values = new Object[count];
@@ -124,7 +128,7 @@ public class TransitiveInfoProviderMapImpl extends ImmutableSharedKeyMap<Object,
         throws SerializationException, IOException {
       context.putSharedValue(
           obj.getKeys(), /* distinguisher= */ null, DeferredKeysCodec.INSTANCE, codedOut);
-      context.serialize(obj.values, codedOut);
+      context.serialize(obj.getValuesAsArray(), codedOut);
     }
 
     @Override
@@ -205,7 +209,7 @@ public class TransitiveInfoProviderMapImpl extends ImmutableSharedKeyMap<Object,
         SerializationContext context, TransitiveInfoProviderMapImpl obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
       context.serialize(obj.getKeys(), codedOut);
-      context.serialize(obj.values, codedOut);
+      context.serialize(obj.getValuesAsArray(), codedOut);
     }
 
     @Override
