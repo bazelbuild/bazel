@@ -5,6 +5,11 @@ load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
 
 package(default_visibility = ["//visibility:private"])
 
+sh_test(
+    name = "ggvdp_test",
+    srcs = ["ggvdp_test.sh"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
