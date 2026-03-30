@@ -63,12 +63,12 @@ public final class ThreadDumpModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
     var commandOptions = env.getOptions().getOptions(CommonCommandOptions.class);
-    if (commandOptions == null || !commandOptions.enableThreadDump) {
+    if (commandOptions == null || !commandOptions.getEnableThreadDump()) {
       return;
     }
 
-    if (commandOptions.threadDumpInterval.isZero()
-        && commandOptions.threadDumpActionExecutionInactivityDuration.isZero()) {
+    if (commandOptions.getThreadDumpInterval().isZero()
+        && commandOptions.getThreadDumpActionExecutionInactivityDuration().isZero()) {
       env.getReporter()
           .handle(
               Event.warn(
@@ -96,8 +96,8 @@ public final class ThreadDumpModule extends BlazeModule {
             ProcessHandle.current().pid(),
             env.getRuntime().getClock(),
             outputBaseRelativeDumpDirectory,
-            commandOptions.threadDumpActionExecutionInactivityDuration,
-            commandOptions.threadDumpInterval,
+            commandOptions.getThreadDumpActionExecutionInactivityDuration(),
+            commandOptions.getThreadDumpInterval(),
             uploader);
     var oldThreadDumpTask = threadDumpTaskRef.getAndSet(threadDumpTask);
     checkState(oldThreadDumpTask == null);

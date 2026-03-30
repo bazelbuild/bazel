@@ -115,7 +115,7 @@ java_library(
 
 java_library(
     name = "common_command_options",
-    srcs = ["CommonCommandOptions.java"],
+    srcs = ["CommonCommandOptionsFields.java"],
     deps = [
         ":command_line_event",
         "//src/main/java/com/google/devtools/build/lib/profiler",

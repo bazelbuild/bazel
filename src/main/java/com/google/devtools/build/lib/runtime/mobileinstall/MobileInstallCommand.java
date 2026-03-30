@@ -269,8 +269,8 @@ public class MobileInstallCommand implements BlazeCommand {
 
     // Collect relevant common command options.
     CommonCommandOptions commonCommandOptions = options.getOptions(CommonCommandOptions.class);
-    if (!commonCommandOptions.toolTag.isEmpty()) {
-      cmdLine.add("--tool_tag=" + commonCommandOptions.toolTag);
+    if (!commonCommandOptions.getToolTag().isEmpty()) {
+      cmdLine.add("--tool_tag=" + commonCommandOptions.getToolTag());
     }
 
     // Collect relevant adb options.

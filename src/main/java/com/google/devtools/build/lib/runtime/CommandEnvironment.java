@@ -291,18 +291,18 @@ public class CommandEnvironment {
       this.relativeWorkingDirectory = PathFragment.EMPTY_FRAGMENT;
     }
 
-    this.waitTime = Duration.ofMillis(waitTimeInMs + commandOptions.waitTime);
-    this.commandStartTime = commandStartTime - commandOptions.startupTime;
+    this.waitTime = Duration.ofMillis(waitTimeInMs + commandOptions.getWaitTime());
+    this.commandStartTime = commandStartTime - commandOptions.getStartupTime();
     this.commandExtensions = ImmutableList.copyOf(commandExtensions);
     workspace.getSkyframeExecutor().setEventBus(eventBus);
     eventBus.register(this);
-    float httpTimeoutScaling = (float) commandOptions.httpTimeoutScaling;
-    if (commandOptions.httpTimeoutScaling <= 0) {
+    float httpTimeoutScaling = (float) commandOptions.getHttpTimeoutScaling();
+    if (commandOptions.getHttpTimeoutScaling() <= 0) {
       reporter.handle(
           Event.warn("Ignoring request to scale http timeouts by a non-positive factor"));
       httpTimeoutScaling = 1.0f;
     }
-    if (commandOptions.httpMaxParallelDownloads <= 0) {
+    if (commandOptions.getHttpMaxParallelDownloads() <= 0) {
       this.blazeModuleEnvironment.exit(
           new AbruptExitException(
               DetailedExitCode.of(
@@ -316,9 +316,9 @@ public class CommandEnvironment {
 
     this.httpDownloader =
         new HttpDownloader(
-            commandOptions.httpConnectorAttempts,
-            commandOptions.httpConnectorRetryMaxTimeout,
-            commandOptions.httpMaxParallelDownloads,
+            commandOptions.getHttpConnectorAttempts(),
+            commandOptions.getHttpConnectorRetryMaxTimeout(),
+            commandOptions.getHttpMaxParallelDownloads(),
             httpTimeoutScaling);
     this.delegatingDownloader = new DelegatingDownloader(httpDownloader);
 
@@ -328,17 +328,17 @@ public class CommandEnvironment {
             "CommandEnvironment needs its options provider to have ClientOptions loaded.");
 
     this.clientEnv = makeMapFromMapEntries(clientOptions.clientEnv);
-    this.commandId = computeCommandId(commandOptions.invocationId, warnings, attemptNumber);
+    this.commandId = computeCommandId(commandOptions.getInvocationId(), warnings, attemptNumber);
     this.buildRequestId =
-        commandOptions.buildRequestId != null
-            ? commandOptions.buildRequestId
+        commandOptions.getBuildRequestId() != null
+            ? commandOptions.getBuildRequestId()
             : buildRequestIdOverride != null
                 ? buildRequestIdOverride
                 : UUID.randomUUID().toString();
 
     var repoEnvBuilder =
         new TreeMap<>(
-            commandOptions.useStrictRepoEnv
+            commandOptions.getUseStrictRepoEnv()
                 ? Maps.filterKeys(clientEnv, ALWAYS_INHERITED_REPO_ENV::contains)
                 : clientEnv);
     var nonstrictRepoEnvBuilder = new TreeMap<>(clientEnv);
@@ -353,7 +353,7 @@ public class CommandEnvironment {
         switch (envVar) {
           case Converters.EnvVar.Set(String name, String value) -> {
             visibleActionEnv.remove(name);
-            if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
+            if (!options.getOptions(CommonCommandOptions.class).getRepoEnvIgnoresActionEnv()) {
               repoEnvBuilder.put(name, value);
               nonstrictRepoEnvBuilder.put(name, value);
             }
@@ -363,7 +363,7 @@ public class CommandEnvironment {
           }
           case Converters.EnvVar.Unset(String name) -> {
             visibleActionEnv.remove(name);
-            if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
+            if (!options.getOptions(CommonCommandOptions.class).getRepoEnvIgnoresActionEnv()) {
               repoEnvBuilder.remove(name);
               nonstrictRepoEnvBuilder.remove(name);
             }
@@ -387,7 +387,7 @@ public class CommandEnvironment {
         bazelWorkspace = bazelWorkspace.replace('/', '\\');
       }
     }
-    for (var envVar : commandOptions.repositoryEnvironment) {
+    for (var envVar : commandOptions.getRepositoryEnvironment()) {
       switch (envVar) {
         case Converters.EnvVar.Set(String name, String value) -> {
           if (bazelWorkspace != null) {
@@ -426,7 +426,7 @@ public class CommandEnvironment {
     Path workspace = getWorkspace();
     Path workingDirectory;
     if (directories.inWorkspace()) {
-      PathFragment clientCwd = commandOptions.clientCwd;
+      PathFragment clientCwd = commandOptions.getClientCwd();
       if (clientCwd.containsUplevelReferences()) {
         throw new AbruptExitException(
             DetailedExitCode.of(
@@ -878,8 +878,8 @@ public class CommandEnvironment {
     skyframeExecutor.decideKeepIncrementalState(
         runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).getBatch(),
         keepStateAfterBuildOption.keepStateAfterBuild,
-        commonOptions.trackIncrementalState,
-        commonOptions.heuristicallyDropNodes,
+        commonOptions.getTrackIncrementalState(),
+        commonOptions.getHeuristicallyDropNodes(),
         analysisOptions != null && analysisOptions.discardAnalysisCache,
         reporter);
   }
@@ -895,7 +895,7 @@ public class CommandEnvironment {
   @VisibleForTesting
   public void beforeCommand(InvocationPolicy invocationPolicy) throws AbruptExitException {
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
-    eventBus.post(new BuildMetadataEvent(makeMapFromMapEntries(commonOptions.buildMetadata)));
+    eventBus.post(new BuildMetadataEvent(makeMapFromMapEntries(commonOptions.getBuildMetadata())));
     eventBus.post(
         new GotOptionsEvent(runtime.getStartupOptionsProvider(), options, invocationPolicy));
     throwPendingException();

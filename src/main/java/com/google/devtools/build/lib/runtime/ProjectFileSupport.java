@@ -58,7 +58,7 @@ public final class ProjectFileSupport {
       if (targets.size() > 1) {
         throw new OptionsParsingException("Cannot handle more than one +<file> argument yet");
       }
-      if (!optionsParser.getOptions(CommonCommandOptions.class).allowProjectFiles) {
+      if (!optionsParser.getOptions(CommonCommandOptions.class).getAllowProjectFiles()) {
         throw new OptionsParsingException(
             "project file support is not enabled. "
                 + "Pass --experimental_allow_project_files to enable.");

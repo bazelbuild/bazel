@@ -217,7 +217,7 @@ public class BlazeRuntimeTest {
     BlazeRuntime runtime = createRuntime();
     CommandEnvironment env = createCommandEnvironment(runtime);
     CommonCommandOptions options = new CommonCommandOptions();
-    options.installBaseGcMaxAge = Duration.ZERO;
+    options.setInstallBaseGcMaxAge(Duration.ZERO);
 
     runtime.beforeCommand(env, options);
 
@@ -233,7 +233,7 @@ public class BlazeRuntimeTest {
     BlazeRuntime runtime = createRuntime();
     CommandEnvironment env = createCommandEnvironment(runtime);
     CommonCommandOptions options = new CommonCommandOptions();
-    options.installBaseGcMaxAge = Duration.ofDays(365);
+    options.setInstallBaseGcMaxAge(Duration.ofDays(365));
 
     runtime.beforeCommand(env, options);
 
@@ -256,9 +256,9 @@ public class BlazeRuntimeTest {
     BlazeRuntime runtime = createRuntime();
     CommandEnvironment env = createCommandEnvironment(runtime);
     CommonCommandOptions options = new CommonCommandOptions();
-    options.actionCacheGcMaxAge = Duration.ZERO;
-    options.actionCacheGcIdleDelay = Duration.ofMinutes(5);
-    options.actionCacheGcThreshold = 10;
+    options.setActionCacheGcMaxAge(Duration.ZERO);
+    options.setActionCacheGcIdleDelay(Duration.ofMinutes(5));
+    options.setActionCacheGcThreshold(10);
 
     runtime.beforeCommand(env, options);
 
@@ -274,9 +274,9 @@ public class BlazeRuntimeTest {
     BlazeRuntime runtime = createRuntime();
     CommandEnvironment env = createCommandEnvironment(runtime);
     CommonCommandOptions options = new CommonCommandOptions();
-    options.actionCacheGcMaxAge = Duration.ofDays(7);
-    options.actionCacheGcIdleDelay = Duration.ofMinutes(5);
-    options.actionCacheGcThreshold = 10;
+    options.setActionCacheGcMaxAge(Duration.ofDays(7));
+    options.setActionCacheGcIdleDelay(Duration.ofMinutes(5));
+    options.setActionCacheGcThreshold(10);
 
     runtime.beforeCommand(env, options);
 
