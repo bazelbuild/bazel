@@ -1057,16 +1057,13 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "lib",
     srcs = ["lib.cc"],
-    # missing header declaration
+    # intentionally missing header declaration
     visibility = ["//baz:__subpackages__"],
 )
 EOF
 
   bazel build --experimental_sibling_repository_layout --spawn_strategy=standalone //external/foo:lib &> "$TEST_log" \
-    && fail "build should not have succeeded with missing header file"
-
-  expect_log "undeclared inclusion(s) in rule '//external/foo:lib'" \
-     "could not find 'undeclared inclusion' error message in bazel output"
+    || fail "expected build success"
 }
 
 function test_sibling_repository_layout_include_external_repo_output() {

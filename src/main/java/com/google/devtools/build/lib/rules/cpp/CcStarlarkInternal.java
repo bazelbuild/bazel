@@ -712,7 +712,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       Object modmapFile,
       Object modmapInputFile,
       Sequence<?> additionalOutputs,
-      boolean needsIncludeValidation,
+      boolean unusedNeedsIncludeValidation,
       String toolchainType)
       throws EvalException, TypeException {
     CcActionContext ccActionContext;
@@ -747,7 +747,6 @@ public class CcStarlarkInternal implements StarlarkValue {
             dwoFile,
             ltoIndexingFile,
             usePic,
-            needsIncludeValidation,
             ccActionContext.getExecutionInfo());
     if (additionalCompilationInputsSet instanceof Depset additionalCompilationInputsDepset) {
       builder.addMandatoryInputs(additionalCompilationInputsDepset.getSet(Artifact.class));
@@ -922,7 +921,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       Object diagnosticsTreeArtifact,
       Object ltoIndexingTreeArtifact,
       Object coptsFilterObject,
-      boolean needsIncludeValidation,
+      boolean unusedNeedsIncludeValidation,
       String toolchainType)
       throws RuleErrorException, EvalException {
     CoptsFilter coptsFilter =
@@ -970,7 +969,6 @@ public class CcStarlarkInternal implements StarlarkValue {
             /* dwoFile= */ null,
             /* ltoIndexingFile= */ null,
             usePic,
-            needsIncludeValidation,
             executionInfo);
     RuleContext ruleContext = starlarkRuleContext.getRuleContext();
     SpecialArtifact sourceArtifact = (SpecialArtifact) source;
@@ -1010,7 +1008,6 @@ public class CcStarlarkInternal implements StarlarkValue {
       Object dwoFile,
       Object ltoIndexingFile,
       boolean usePic,
-      boolean needsIncludeValidation,
       ImmutableMap<String, String> executionInfo)
       throws EvalException {
     CppCompileActionBuilder builder =
@@ -1038,7 +1035,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         nullIfNone(dotdFile, Artifact.class),
         nullIfNone(diagnosticsFile, Artifact.class));
     builder.setPicMode(usePic);
-    builder.setNeedsIncludeValidation(needsIncludeValidation);
     return builder;
   }
 

@@ -103,7 +103,6 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -146,7 +145,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   private final boolean shouldScanIncludes;
   private final boolean usePic;
   private final boolean useHeaderModules;
-  private final boolean needsIncludeValidation;
 
   private final CcCompilationContext ccCompilationContext;
   private final ImmutableList<Artifact> builtinIncludeFiles;
@@ -265,7 +263,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       ImmutableList<Artifact> additionalIncludeScanningRoots,
       ImmutableMap<String, String> executionInfo,
       String actionName,
-      boolean needsIncludeValidation,
       ImmutableList<PathFragment> builtInIncludeDirectories,
       @Nullable Artifact grepIncludes,
       ImmutableList<Artifact> additionalOutputs,
@@ -301,7 +298,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.executionInfo = executionInfo;
     this.actionName = actionName;
     this.featureConfiguration = featureConfiguration;
-    this.needsIncludeValidation = needsIncludeValidation;
     this.builtInIncludeDirectories = builtInIncludeDirectories;
     this.additionalInputs = null;
     this.usedModules = null;
@@ -356,7 +352,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       boolean shouldScanIncludes,
       boolean usePic,
       boolean useHeaderModules,
-      boolean needsIncludeValidation,
       CcCompilationContext ccCompilationContext,
       ImmutableList<Artifact> builtinIncludeFiles,
       ImmutableList<Artifact> additionalIncludeScanningRoots,
@@ -382,7 +377,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.shouldScanIncludes = shouldScanIncludes;
     this.usePic = usePic;
     this.useHeaderModules = useHeaderModules;
-    this.needsIncludeValidation = needsIncludeValidation;
     this.ccCompilationContext = ccCompilationContext;
     this.builtinIncludeFiles = builtinIncludeFiles;
     this.additionalIncludeScanningRoots = additionalIncludeScanningRoots;
@@ -654,11 +648,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       }
       commandLineKey = computeCommandLineKey(options);
       ImmutableList<PathFragment> systemIncludeDirs = getSystemIncludeDirs(options);
-      boolean siblingLayout =
-          actionExecutionContext
-              .getOptions()
-              .getOptions(BuildLanguageOptions.class)
-              .experimentalSiblingRepositoryLayout;
       if (!shouldScanIncludes) {
         usedCpp20Modules = computeUsedCpp20Modules(actionExecutionContext);
         // When not actually doing include scanning, add all prunable headers to additionalInputs.
@@ -670,9 +659,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
                 .addTransitive(additionalPrunableHeaders)
                 .addAll(usedCpp20Modules)
                 .build();
-        if (needsIncludeValidation) {
-          verifyActionIncludePaths(systemIncludeDirs, siblingLayout);
-        }
         return additionalInputs;
       }
       IncludeScanningHeaderData.Builder includeScanningHeaderDataBuilder =
@@ -682,11 +668,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
               useHeaderModules);
       if (includeScanningHeaderDataBuilder == null) {
         return null;
-      }
-      // In theory, we could verify include paths even earlier, but we want to avoid the restart
-      // above necessitating a double-execution.
-      if (needsIncludeValidation) {
-        verifyActionIncludePaths(systemIncludeDirs, siblingLayout);
       }
       IncludeScanningHeaderData includeScanningHeaderData =
           includeScanningHeaderDataBuilder
@@ -1088,76 +1069,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return mergeMaps(super.getExecutionInfo(), executionInfo);
   }
 
-  private static boolean validateInclude(
-      Set<Artifact> allowedIncludes, Iterable<PathFragment> ignoreDirs, Artifact include) {
-    // Only declared modules are added to an action and so they are always valid.
-    return include.isFileType(CppFileTypes.CPP_MODULE)
-        ||
-        // TODO(b/145253507): Exclude objc module maps from check, due to bad interaction with
-        // local_objc_modules feature.
-        include.isFileType(CppFileTypes.OBJC_MODULE_MAP)
-        ||
-        // It's a declared include/
-        allowedIncludes.contains(include)
-        ||
-        // Ignore headers from built-in include directories.
-        FileSystemUtils.startsWithAny(include.getExecPath(), ignoreDirs);
-  }
-
-  /**
-   * Enforce that the includes actually visited during the compile were properly declared in the
-   * rules.
-   *
-   * <p>The technique is to walk through all of the reported includes that gcc emits into the .d
-   * file, and verify that they came from acceptable relative include directories. This is done in
-   * two steps:
-   *
-   * <p>First, each included file is stripped of any include path prefix from {@code
-   * quoteIncludeDirs} to produce an effective relative include dir+name.
-   *
-   * <p>Second, the remaining directory is looked up in {@code declaredIncludeDirs}, a list of
-   * acceptable dirs. This list contains a set of dir fragments that have been calculated by the
-   * configured target to be allowable for inclusion by this source. If no match is found, an error
-   * is reported and an exception is thrown.
-   *
-   * @throws ActionExecutionException iff there was an undeclared dependency
-   */
-  @VisibleForTesting
-  public void validateInclusions(
-      ActionExecutionContext actionExecutionContext, NestedSet<Artifact> inputsForValidation)
-      throws ActionExecutionException {
-    if (!needsIncludeValidation) {
-      return;
-    }
-    IncludeProblems errors = new IncludeProblems();
-    Set<Artifact> allowedIncludes = new HashSet<>();
-    allowedIncludes.addAll(mandatoryInputs.toList());
-    allowedIncludes.addAll(ccCompilationContext.getDeclaredIncludeSrcs().toList());
-    allowedIncludes.addAll(additionalPrunableHeaders.toList());
-
-    Iterable<PathFragment> ignoreDirs =
-        cppConfiguration().isStrictSystemIncludes()
-            ? getBuiltInIncludeDirectories()
-            : getValidationIgnoredDirs();
-
-    // Copy the nested sets to hash sets for fast contains checking, but do so lazily.
-    // Avoid immutable sets here to limit memory churn.
-    for (Artifact input : inputsForValidation.toList()) {
-      if (!validateInclude(allowedIncludes, ignoreDirs, input)) {
-        errors.add(input.getExecPath().toString());
-      }
-    }
-    errors.assertProblemFree(
-        "undeclared inclusion(s) in rule '"
-            + this.getOwner().getLabel()
-            + "':\n"
-            + "this rule is missing dependency declarations for the following files "
-            + "included by '"
-            + getSourceFile().prettyPrint()
-            + "':",
-        this);
-  }
-
   private Iterable<PathFragment> getValidationIgnoredDirs() {
     List<PathFragment> cxxSystemIncludeDirs = getBuiltInIncludeDirectories();
     return Iterables.concat(
@@ -1412,9 +1323,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
     /*
      * getArguments() above captures all changes which affect the compilation command and hence the
-     * contents of the object file. But we need to also make sure that we re-execute the action if
-     * any of the fields that affect whether {@link #validateInclusions} will report an error or
-     * warning have changed, otherwise we might miss some errors.
+     * contents of the object file. Builtin include directories also influence post-processing of
+     * discovered includes because they determine which absolute headers are treated as system
+     * headers and ignored for input discovery.
      */
     fp.addPaths(builtInIncludeDirectories);
 
@@ -1553,7 +1464,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
               siblingRepositoryLayout,
               pathMapper);
       updateActionInputs(discoveredInputs);
-      validateInclusions(actionExecutionContext, discoveredInputs);
       return ActionResult.create(spawnResults);
     }
 
@@ -1582,10 +1492,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     updateActionInputs(discoveredInputs);
 
-    // hdrs_check: This cannot be switched off for C++ build actions,
-    // because doing so would allow for incorrect builds.
-    // HeadersCheckingMode.NONE should only be used for ObjC build actions.
-    validateInclusions(actionExecutionContext, discoveredInputs);
     return ActionResult.create(spawnResults);
   }
 
@@ -1786,7 +1692,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return HeaderDiscovery.discoverInputsFromDependencies(
         this,
         getSourceFile(),
-        needsIncludeValidation,
         ImmutableList.<Path>builderWithExpectedSize(stdoutDeps.size() + stderrDeps.size())
             .addAll(stdoutDeps)
             .addAll(stderrDeps)
@@ -1812,7 +1717,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return HeaderDiscovery.discoverInputsFromDependencies(
         this,
         getSourceFile(),
-        needsIncludeValidation,
         processDepset(actionExecutionContext, execRoot, dotDContents).getDependencies(),
         getPermittedSystemIncludePrefixes(execRoot),
         getAllowedDerivedInputs(),

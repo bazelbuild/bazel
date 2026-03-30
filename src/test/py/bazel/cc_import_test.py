@@ -234,17 +234,11 @@ class CcImportTest(test_base.TestBase):
     )
     self.assertEqual(stdout[0], 'HelloWorld')
 
-  def testCcImportHeaderCheck(self):
+  def testCcImportMissingHeaderDeclarationDoesNotFailBuild(self):
     self.createProjectFiles(provide_header=False)
-    # Build should fail, because lib/a.h is not declared in BUILD file, disable
-    # sandbox so that bazel produces same error across different platforms.
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '//main:B', '--spawn_strategy=standalone'], allow_failure=True
+    self.RunBazel(
+        ['build', '//main:B', '--spawn_strategy=standalone']
     )
-    self.AssertExitCode(exit_code, 1, stderr)
-    self.assertIn('this rule is missing dependency declarations for the'
-                  ' following files included by \'main/b.cc\':',
-                  ''.join(stderr))
 
 
 if __name__ == '__main__':
