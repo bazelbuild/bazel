@@ -51,6 +51,18 @@ public class RemoteOptionsTest {
   }
 
   @Test
+  public void testRemoteDefaultExecPropertiesWithDuplicates() throws Exception {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.remoteDefaultExecProperties =
+        Arrays.asList(
+            Maps.immutableEntry("foo", "bar"),
+            Maps.immutableEntry("qux", "quux"),
+            Maps.immutableEntry("foo", "baz"));
+    SortedMap<String, String> properties = options.getRemoteDefaultExecProperties();
+    assertThat(properties).isEqualTo(ImmutableSortedMap.of("foo", "baz", "qux", "quux"));
+  }
+
+  @Test
   public void testRemoteTimeoutOptionsConverterWithoutUnit() {
     try {
       int seconds = 60;

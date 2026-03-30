@@ -35,6 +35,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -876,9 +877,15 @@ public final class RemoteOptions extends CommonRemoteOptions {
    * specified. Use this method instead of directly accessing the field.
    */
   public ImmutableSortedMap<String, String> getRemoteDefaultExecProperties() {
-    return remoteDefaultExecProperties != null
-        ? ImmutableSortedMap.copyOf(remoteDefaultExecProperties)
-        : ImmutableSortedMap.of();
+    if (remoteDefaultExecProperties == null) {
+      return ImmutableSortedMap.of();
+    }
+    // Don't use `ImmutableSortedMap.copyOf` directly because it crashes on duplicate keys.
+    var map = new HashMap<String, String>();
+    for (Map.Entry<String, String> entry : remoteDefaultExecProperties) {
+      map.put(entry.getKey(), entry.getValue());
+    }
+    return ImmutableSortedMap.copyOf(map);
   }
 
   /** An enum for specifying different modes for printing remote execution messages. */
