@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -43,15 +44,58 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestRule;
+import org.junit.runner.Description;
 import org.junit.runner.RunWith;
+import org.junit.runners.model.Statement;
 
 /** Integration tests for Build without the Bytes. */
 @RunWith(TestParameterInjector.class)
 public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesIntegrationTestBase {
-  @ClassRule @Rule public static final WorkerInstance worker = IntegrationTestUtils.createWorker();
+  private static final WorkerInstance workerRule = IntegrationTestUtils.createWorker();
+
+  @ClassRule @Rule
+  public static final TestRule worker =
+      new TestRule() {
+        @Override
+        public Statement apply(Statement base, Description description) {
+          return new Statement() {
+            @Override
+            public void evaluate() throws Throwable {
+              Stopwatch sw = Stopwatch.createStarted();
+              final AtomicLong setupTime = new AtomicLong();
+              Statement profilingBase =
+                  new Statement() {
+                    @Override
+                    public void evaluate() throws Throwable {
+                      setupTime.set(sw.elapsed(TimeUnit.MILLISECONDS));
+                      base.evaluate();
+                    }
+                  };
+              workerRule.apply(profilingBase, description).evaluate();
+              long totalTime = sw.elapsed(TimeUnit.MILLISECONDS);
+              if (description.isSuite()) {
+                System.err.println("[PERF_DBG] Worker suite setup took " + setupTime.get() + " ms");
+              } else if (description.isTest()) {
+                System.err.println(
+                    "[PERF_DBG] Worker test teardown took " + (totalTime - setupTime.get()) + " ms");
+              }
+            }
+          };
+        }
+      };
+
+  @Before
+  public void setUp() throws Exception {
+    Stopwatch sw = Stopwatch.createStarted();
+    System.err.println("[PERF_DBG] setUp() finished in " + sw.elapsed(TimeUnit.MILLISECONDS) + " ms");
+  }
 
   @TestParameter public boolean useDiskCache;
 
@@ -68,7 +112,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     super.setupOptions();
 
     addOptions(
-        "--remote_executor=grpc://localhost:" + worker.getPort(),
+        "--remote_executor=grpc://localhost:" + workerRule.getPort(),
         "--remote_download_minimal",
         "--dynamic_local_strategy=standalone",
         "--dynamic_remote_strategy=remote");
@@ -132,7 +176,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
   @Override
   protected void evictAllBlobs() throws Exception {
-    worker.reset();
+    workerRule.reset();
     if (useDiskCache) {
       addOptions("--disk_cache=" + UUID.randomUUID());
     }
@@ -1079,7 +1123,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // {@link DiskCacheClient#getPath()}.
     var blobPath =
         getFileSystem()
-            .getPath(worker.getCasPath())
+            .getPath(workerRule.getCasPath())
             .getChild("cas")
             .getChild(digest.substring(0, 2))
             .getChild(digest);
