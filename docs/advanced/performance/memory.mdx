@@ -59,11 +59,11 @@ changes to files outside of the working set will be disallowed, until you issue
 `bazel clean` or restart the Bazel server.
 
 If you want to specify an exact set of files or directories, use the
-`--experimental_working_set` flag, like so:
+`--experimental_active_directories` flag, like so:
 
 ```sh
 bazel build //pkg:target --experimental_enable_skyfocus
---experimental_working_set=path/to/another/dir,path/to/tests/dir
+--experimental_active_directories=path/to/another/dir,path/to/tests/dir
 ```
 
 You can also pass `--experimental_skyfocus_dump_post_gc_stats` to show the
@@ -72,7 +72,7 @@ memory reduction amount:
 Putting it altogether, you should see something like this:
 
 ```none
-$ bazel test //pkg:target //tests/... --experimental_enable_skyfocus --experimental_working_set dir1,dir2,dir3/subdir --experimental_skyfocus_dump_post_gc_stats
+$ bazel test //pkg:target //tests/... --experimental_enable_skyfocus --experimental_active_directories=dir1,dir2,dir3/subdir --experimental_skyfocus_dump_post_gc_stats
 INFO: --experimental_enable_skyfocus is enabled. Blaze will reclaim memory not needed to build the working set. Run 'blaze dump --skyframe=working_set' to show the working set, after this command.
 WARNING: Changes outside of the working set will cause a build error.
 INFO: Analyzed 149 targets (4533 packages loaded, 169438 targets configured).
