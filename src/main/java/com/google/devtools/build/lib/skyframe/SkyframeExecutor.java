@@ -606,18 +606,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       return;
     }
 
-    ImmutableSet<SkyKey> keysToLookup;
-    try (SilentCloseable c = Profiler.instance().profile("getDeserializedKeys")) {
-      keysToLookup =
-          getEvaluator().getInMemoryGraph().getAllNodeEntries().parallelStream()
-              .filter(e -> e.isDone() && e.getValue() instanceof DeserializedSkyValue)
-              .map(InMemoryNodeEntry::getKey)
-              .collect(toImmutableSet());
-    }
+    Supplier<ImmutableSet<SkyKey>> keysToLookupSupplier =
+        () -> {
+          try (SilentCloseable c = Profiler.instance().profile("getDeserializedKeys")) {
+            return getEvaluator().getInMemoryGraph().getAllNodeEntries().parallelStream()
+                .filter(e -> e.isDone() && e.getValue() instanceof DeserializedSkyValue)
+                .map(InMemoryNodeEntry::getKey)
+                .collect(toImmutableSet());
+          }
+        };
 
     if (!remoteAnalysisCachingCurrentlyEnabled) {
       // If skycache is currently disabled, we need to delete all the deserialized nodes
       // because they do not have transitive edges to File/Directory nodes.
+      ImmutableSet<SkyKey> keysToLookup = keysToLookupSupplier.get();
       if (!keysToLookup.isEmpty()) {
         // Only scan the graph for deletion if there are keys to delete,
         // otherwise it'll be a wasteful iteration.
@@ -628,7 +630,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     Set<SkyKey> keysToInvalidate =
         remoteAnalysisCachingDependenciesProvider.lookupKeysToInvalidate(
-            keysToLookup, remoteAnalysisCachingState);
+            keysToLookupSupplier, remoteAnalysisCachingState);
 
     if (keysToInvalidate.isEmpty()) {
       return;

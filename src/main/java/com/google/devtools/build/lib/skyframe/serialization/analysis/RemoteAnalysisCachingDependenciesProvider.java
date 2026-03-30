@@ -25,6 +25,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -42,7 +43,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
    * <p>May call the remote analysis cache to get the set of keys to invalidate.
    */
   Set<SkyKey> lookupKeysToInvalidate(
-      ImmutableSet<SkyKey> keysToLookup,
+      Supplier<ImmutableSet<SkyKey>> keysToLookupSupplier,
       RemoteAnalysisCachingServerState remoteAnalysisCachingState)
       throws InterruptedException;
 

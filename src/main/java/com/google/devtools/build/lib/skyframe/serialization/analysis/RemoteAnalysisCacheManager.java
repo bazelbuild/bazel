@@ -33,6 +33,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 /** A collection of dependencies and minor bits of functionality for remote analysis caching. */
 // Non-final for mockability
@@ -147,7 +148,7 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
 
   @Override
   public Set<SkyKey> lookupKeysToInvalidate(
-      ImmutableSet<SkyKey> keysToLookup,
+      Supplier<ImmutableSet<SkyKey>> keysToLookupSupplier,
       RemoteAnalysisCachingServerState remoteAnalysisCachingState)
       throws InterruptedException {
     checkEnabled();
@@ -158,9 +159,9 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
       // We need to know which keys to invalidate but we don't have an invalidator, presumably
       // because the backend services couldn't be contacted. Play if safe and invalidate every
       // value retrieved from the remote cache.
-      return keysToLookup;
+      return keysToLookupSupplier.get();
     }
-    return invalidator.lookupKeysToInvalidate(keysToLookup, remoteAnalysisCachingState);
+    return invalidator.lookupKeysToInvalidate(keysToLookupSupplier, remoteAnalysisCachingState);
   }
 
   @Override
