@@ -29,6 +29,8 @@ LIBRARY_JARS=$(find $ADDITIONAL_JARS -name '*.jar' | sort | grep -Fv JavaBuilder
 MAVEN_JARS=$(find "derived/maven" -name '*.jar' | sort | grep -Fv netty-tcnative | tr "\n" " ")
 LIBRARY_JARS="${LIBRARY_JARS} ${MAVEN_JARS}"
 
+ANNOTATION_PROCESSOR_FILES=$(echo src/main/java/com/google/devtools/common/options/processor/OptionsClassProcessor.java src/main/java/com/google/devtools/common/options/{Option.java,OptionMetadataTag.java,OptionEffectTag.java,OptionDocumentationCategory.java,OptionsClass.java,Converter.java,OptionsParsingException.java})
+ANNOTATION_PROCESSORS="com.google.devtools.common.options.processor.OptionsClassProcessor,com.google.auto.value.processor.AutoValueProcessor,com.google.auto.value.processor.AutoBuilderProcessor,com.google.auto.value.processor.AutoOneOfProcessor,com.google.auto.service.processor.AutoServiceProcessor"
 DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java,tools/starlark/java} tools/java/runfiles ${OUTPUT_DIR}/src)
 # Exclude source files that are not needed for Bazel itself, which avoids dependencies like truth.
 # Also exclude TreeArtifactValueCodec.java which requires AutoCodec to run, but that's not needed during bootstrap.
@@ -95,6 +97,8 @@ function java_compilation() {
   local excludes=$3
   local library_jars=$4
   local output=$5
+  local extract=$6
+  local run_annotation_processors=$7
 
   local classpath=${library_jars// /$PATHSEP}${PATHSEP}$5
   local sourcepath=${directories// /$PATHSEP}
@@ -119,6 +123,17 @@ function java_compilation() {
 
   comm -23 "$filelist" "$excludefile" > "$paramfile"
 
+  # We explicitly list annotation processors so that no matter the javac
+  # version, they are active. For some reason -proc:full doesn't work.
+  local annotation_processor_args
+  if [[ "$run_annotation_processors" -eq 1 ]]; then
+    annotation_processor_args="-processor $ANNOTATION_PROCESSORS"
+  else
+    # ...but we do this only when we are not compiling the annotation processors
+    # themselves.
+    annotation_processor_args=""
+  fi
+
   if [ ! -z "$BAZEL_DEBUG_JAVA_COMPILATION" ]; then
     echo "directories=${directories}" >&2
     echo "classpath=${classpath}" >&2
@@ -139,13 +154,17 @@ function java_compilation() {
   run "${JAVAC}" -classpath "${classpath}" -sourcepath "${sourcepath}" \
       -d "${output}/classes" -source "$JAVA_VERSION" -target "$JAVA_VERSION" \
       -encoding UTF-8 --add-exports=java.base/jdk.internal.misc=ALL-UNNAMED \
+      --processor-path "${output}/classes:${classpath}" $annotation_processor_args \
       --add-exports=java.base/jdk.internal.vm=ALL-UNNAMED \
       ${BAZEL_JAVAC_OPTS} "@${paramfile}"
 
-  log "Extracting helper classes for $name..."
-  for f in ${library_jars} ; do
-    run unzip -qn ${f} -d "${output}/classes"
-  done
+  if [[ "$extract" -eq 1 ]]; then
+    echo EXTRACTING
+    log "Extracting helper classes for $name..."
+    for f in ${library_jars} ; do
+      run unzip -qn ${f} -d "${output}/classes"
+    done
+  fi
 }
 
 # Build the JNI library.
@@ -269,7 +288,11 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
         link_children ${OUTPUT_DIR}/src com derived/src/java
     fi
 
-  java_compilation "Bazel Java" "$DIRS" "$EXCLUDE_FILES" "$LIBRARY_JARS" "${OUTPUT_DIR}"
+  # Compile the annotation processors
+  java_compilation "Annotation processors" "${ANNOTATION_PROCESSOR_FILES}" "" "$LIBRARY_JARS" "${OUTPUT_DIR}" 0 0
+
+  # Compile enough of Bazel to build the rest of itself
+  java_compilation "Bazel Java" "$DIRS" "$EXCLUDE_FILES" "$LIBRARY_JARS" "${OUTPUT_DIR}" 1 1
 
   # help files: all non java and BUILD files in src/main/java.
   for i in $(find src/main/java -type f -a \! -name '*.java' -a \! -name 'BUILD' | sed 's|src/main/java/||'); do
