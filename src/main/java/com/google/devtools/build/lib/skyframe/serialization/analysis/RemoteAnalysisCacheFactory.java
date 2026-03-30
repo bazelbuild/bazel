@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie.PathFragment
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackagePathCodecDependencies;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -125,10 +126,18 @@ public final class RemoteAnalysisCacheFactory {
             .orElse(new LongVersionClientId(workspaceInfoFromDiff.getEvaluatingVersion().getVal()));
     HashCode blazeInstallMD5 = computeBlazeInstallMD5(env, options);
 
+    byte[] starlarkSemanticsFingerprint =
+        BuildLanguageOptions.stableFingerprint(
+                env.getSkyframeExecutor()
+                    .getEffectiveStarlarkSemantics(
+                        env.getOptions().getOptions(BuildLanguageOptions.class)))
+            .toByteArray();
+
     FrontierNodeVersion frontierNodeVersion =
         new FrontierNodeVersion(
             topLevelOptions.checksum(),
             blazeInstallMD5,
+            starlarkSemanticsFingerprint,
             workspaceInfoFromDiff.getEvaluatingVersion(),
             nullToEmpty(options.getAnalysisCacheKeyDistinguisherForTesting()),
             env.getUseFakeStampData(),

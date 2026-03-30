@@ -87,6 +87,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:round-tripping",
         "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
@@ -376,6 +377,7 @@ java_test(
     srcs = ["ProfileCollectorTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -458,6 +460,18 @@ java_library(
         "@com_google_protobuf//:protobuf_java",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
         "@maven//:org_apache_commons_commons_lang3",
+    ],
+)
+
+java_test(
+    name = "FrontierNodeVersionTest",
+    size = "small",
+    srcs = ["FrontierNodeVersionTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:frontier_node_version",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+        "//third_party:junit4",
     ],
 )
 

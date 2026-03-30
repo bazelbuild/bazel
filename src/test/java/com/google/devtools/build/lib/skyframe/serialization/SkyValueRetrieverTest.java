@@ -315,6 +315,7 @@ public final class SkyValueRetrieverTest {
         new FrontierNodeVersion(
             /* topLevelConfigChecksum= */ "42",
             /* blazeInstallMD5= */ HashCode.fromInt(42),
+            /* starlarkSemanticsFingerprint= */ new byte[] {1, 2, 3},
             /* evaluatingVersion= */ IntVersion.of(9000),
             /* distinguisherBytesForTesting= */ "distinguisher",
             /* useFakeStampData= */ true,
@@ -346,6 +347,7 @@ public final class SkyValueRetrieverTest {
         new FrontierNodeVersion(
             /* topLevelConfigChecksum= */ "42",
             /* blazeInstallMD5= */ HashCode.fromInt(42),
+            /* starlarkSemanticsFingerprint= */ new byte[] {1, 2, 3},
             /* evaluatingVersion= */ IntVersion.of(1234),
             /* distinguisherBytesForTesting= */ "distinguisher",
             /* useFakeStampData= */ true,
@@ -364,6 +366,7 @@ public final class SkyValueRetrieverTest {
             /* frontierNodeVersion= */ new FrontierNodeVersion(
                 /* topLevelConfigChecksum= */ "9000",
                 /* blazeInstallMD5= */ HashCode.fromInt(9000),
+                /* starlarkSemanticsFingerprint= */ new byte[] {1, 2, 3},
                 /* evaluatingVersion= */ IntVersion.of(5678),
                 /* distinguisherBytesForTesting= */ "distinguisher",
                 /* useFakeStampData= */ true,
@@ -952,6 +955,7 @@ public final class SkyValueRetrieverTest {
         new FrontierNodeVersion(
             "foo",
             HashCode.fromInt(42),
+            new byte[] {1, 2, 3},
             IntVersion.of(9000),
             "distinguisher",
             true,
@@ -960,6 +964,7 @@ public final class SkyValueRetrieverTest {
         new FrontierNodeVersion(
             "foo",
             HashCode.fromInt(42),
+            new byte[] {1, 2, 3},
             IntVersion.of(9000),
             "distinguisher",
             true,
@@ -975,6 +980,7 @@ public final class SkyValueRetrieverTest {
         new FrontierNodeVersion(
             "foo",
             HashCode.fromInt(42),
+            new byte[] {1, 2, 3},
             IntVersion.of(9000),
             "distinguisher",
             true,
@@ -983,6 +989,7 @@ public final class SkyValueRetrieverTest {
         new FrontierNodeVersion(
             "CHANGED",
             HashCode.fromInt(42),
+            new byte[] {1, 2, 3},
             IntVersion.of(9000),
             "distinguisher",
             true,
@@ -998,6 +1005,7 @@ public final class SkyValueRetrieverTest {
         new FrontierNodeVersion(
             "foo",
             HashCode.fromInt(42),
+            new byte[] {1, 2, 3},
             IntVersion.of(9000),
             "distinguisher",
             true,
@@ -1006,6 +1014,32 @@ public final class SkyValueRetrieverTest {
         new FrontierNodeVersion(
             "foo",
             HashCode.fromInt(9000),
+            new byte[] {1, 2, 3},
+            IntVersion.of(9000),
+            "distinguisher",
+            true,
+            Optional.empty());
+
+    assertThat(first.getPrecomputedFingerprint()).isNotEqualTo(second.getPrecomputedFingerprint());
+    assertThat(first).isNotEqualTo(second);
+  }
+
+  @Test
+  public void frontierNodeVersions_areNotEqual_ifStarlarkSemanticsIsDifferent() {
+    var first =
+        new FrontierNodeVersion(
+            "foo",
+            HashCode.fromInt(42),
+            new byte[] {1, 2, 3},
+            IntVersion.of(9000),
+            "distinguisher",
+            true,
+            Optional.empty());
+    var second =
+        new FrontierNodeVersion(
+            "foo",
+            HashCode.fromInt(42),
+            new byte[] {4, 5, 6},
             IntVersion.of(9000),
             "distinguisher",
             true,
@@ -1021,6 +1055,7 @@ public final class SkyValueRetrieverTest {
         new FrontierNodeVersion(
             "foo",
             HashCode.fromInt(42),
+            new byte[] {1, 2, 3},
             IntVersion.of(9000),
             "distinguisher",
             true,
@@ -1028,7 +1063,8 @@ public final class SkyValueRetrieverTest {
     var second =
         new FrontierNodeVersion(
             "foo",
-            HashCode.fromInt(9000),
+            HashCode.fromInt(42),
+            new byte[] {1, 2, 3},
             IntVersion.of(10000),
             "distinguisher",
             true,
@@ -1044,13 +1080,20 @@ public final class SkyValueRetrieverTest {
         new FrontierNodeVersion(
             "foo",
             HashCode.fromInt(42),
+            new byte[] {1, 2, 3},
             IntVersion.of(9000),
             "distinguisher",
             true,
             Optional.empty());
     var second =
         new FrontierNodeVersion(
-            "foo", HashCode.fromInt(42), IntVersion.of(9000), "changed", true, Optional.empty());
+            "foo",
+            HashCode.fromInt(42),
+            new byte[] {1, 2, 3},
+            IntVersion.of(9000),
+            "changed",
+            true,
+            Optional.empty());
     assertThat(first.getPrecomputedFingerprint()).isNotEqualTo(second.getPrecomputedFingerprint());
     assertThat(first).isNotEqualTo(second);
   }
@@ -1061,6 +1104,7 @@ public final class SkyValueRetrieverTest {
         new FrontierNodeVersion(
             "foo",
             HashCode.fromInt(42),
+            new byte[] {1, 2, 3},
             IntVersion.of(9000),
             "distinguisher",
             true,
@@ -1069,6 +1113,7 @@ public final class SkyValueRetrieverTest {
         new FrontierNodeVersion(
             "foo",
             HashCode.fromInt(42),
+            new byte[] {1, 2, 3},
             IntVersion.of(9000),
             "distinguisher",
             false,
@@ -1083,6 +1128,7 @@ public final class SkyValueRetrieverTest {
         new FrontierNodeVersion(
             "foo",
             HashCode.fromInt(42),
+            new byte[] {1, 2, 3},
             IntVersion.of(9000),
             "distinguisher",
             true,
@@ -1090,14 +1136,15 @@ public final class SkyValueRetrieverTest {
     var second =
         new FrontierNodeVersion(
             "foo",
-            HashCode.fromInt(9000),
+            HashCode.fromInt(42),
+            new byte[] {1, 2, 3},
             IntVersion.of(9000),
             "distinguisher",
             true,
             Optional.empty());
 
-    assertThat(first.getPrecomputedFingerprint()).isNotEqualTo(second.getPrecomputedFingerprint());
-    assertThat(first).isNotEqualTo(second);
+    assertThat(first.getPrecomputedFingerprint()).isEqualTo(second.getPrecomputedFingerprint());
+    assertThat(first).isEqualTo(second);
   }
 
   @CanIgnoreReturnValue

@@ -190,6 +190,7 @@ public final class AnalysisCacheInvalidatorTest {
         new FrontierNodeVersion(
             "123",
             HashCode.fromInt(42),
+            new byte[] {1, 2, 3},
             IntVersion.of(9000),
             "distinguisher",
             /* useFakeStampData= */ true,
@@ -198,7 +199,51 @@ public final class AnalysisCacheInvalidatorTest {
         new FrontierNodeVersion(
             "123",
             HashCode.fromInt(42),
+            new byte[] {1, 2, 3},
             IntVersion.of(9001), // changed
+            "distinguisher",
+            /* useFakeStampData= */ true,
+            Optional.of(new SnapshotClientId("for_testing", 123)));
+    AnalysisCacheInvalidator invalidator =
+        new AnalysisCacheInvalidator(
+            mockAnalysisCacheClient,
+            objectCodecs,
+            fingerprintService,
+            currentVersion,
+            baseClientId,
+            mockEventHandler);
+
+    assertThat(
+            invalidator.lookupKeysToInvalidate(
+                () -> ImmutableSet.of(key1, key2),
+                new RemoteAnalysisCachingServerState(
+                    previousVersion, new SnapshotClientId("for_testing", 2))))
+        .containsExactly(key1, key2);
+
+    // No RPCs should be sent.
+    verify(mockAnalysisCacheClient, never()).lookup(any());
+  }
+
+  @Test
+  public void lookupKeysToInvalidate_differentStarlarkSemantics_returnsAllKeys() throws Exception {
+    TrivialKey key1 = new TrivialKey("key1");
+    TrivialKey key2 = new TrivialKey("key2");
+
+    var previousVersion =
+        new FrontierNodeVersion(
+            "123",
+            HashCode.fromInt(42),
+            new byte[] {1, 2, 3},
+            IntVersion.of(9000),
+            "distinguisher",
+            /* useFakeStampData= */ true,
+            Optional.of(new SnapshotClientId("for_testing", 123)));
+    var currentVersion =
+        new FrontierNodeVersion(
+            "123",
+            HashCode.fromInt(42),
+            new byte[] {4, 5, 6}, // changed starlark semantics
+            IntVersion.of(9000),
             "distinguisher",
             /* useFakeStampData= */ true,
             Optional.of(new SnapshotClientId("for_testing", 123)));
