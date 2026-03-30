@@ -44,6 +44,16 @@ public class QueryOptions extends CommonQueryOptions {
   public String outputFormat;
 
   @Option(
+      name = "output:display_full_kind",
+      defaultValue = "False",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "When displaying rule kind, whether to display the short rule name, or the full name for"
+              + " Starlark rules.")
+  public boolean displayFullKind;
+
+  @Option(
       name = "null",
       defaultValue = "null",
       expansion = {"--line_terminator_null=true"},
