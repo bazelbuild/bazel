@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.remote.disk;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.devtools.build.lib.remote.util.Utils.bytesCountToDisplayString;
+import static com.google.devtools.build.lib.util.StringUtilities.bytesCountToDisplayString;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ComparisonChain;
