@@ -169,6 +169,8 @@ your PATH so that you can run "bazel" everywhere.)
 
 You can also build Bazel from scratch, without using an existing Bazel binary.
 
+*   The bootstrap script now explicitly enables required annotation processors during compilation. This improves bootstrap reliability across different JDK versions.
+
 ### Step 1: Download Bazel's sources (distribution archive) {#download-distfile}
 
 (This step is the same for all platforms.)

@@ -139,6 +139,10 @@ not happening across machines, do the following:
     for discrepancies as well as properties from the host environment leaking
     into either of the builds.
 
+*   `RemoteAnalysisCachingOptions`: The `mode` field is now private and accessed via the `getMode()` method.
+
+
+*   The remote repository contents cache now supports all reproducible repository rules, including those that dynamically discover their inputs (e.g., via `repository_ctx.execute`).
 ## Comparing the execution logs {:#compare-logs}
 
 The execution log contains records of actions executed during the build.

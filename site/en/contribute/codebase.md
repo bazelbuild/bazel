@@ -144,6 +144,10 @@ execute, the following sequence of events happens:
 3.  The command line options are parsed. Each command has different command line
     options, which are described in the `@Command` annotation.
 
+*   Internal API Change: Direct field access on `BuildRequestOptions` and `BlazeServerStartupOptions` is replaced by getter and setter methods.
+
+*   Native build options can now be defined using getter and setter methods in addition to public fields, allowing for more flexible option implementation.
+
 4.  An event bus is created. The event bus is a stream for events that happen
     during the build. Some of these are exported to outside of Bazel under the
     aegis of the Build Event Protocol in order to tell the world how the build

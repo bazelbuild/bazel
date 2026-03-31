@@ -42,6 +42,10 @@ prevent most re-execution).
  incremental builds have to build from scratch (except for the on-disk action
  cache). Alone, it does not affect the high-water mark of the current build.
 
+
+*   The `SparseAggregateWriteStatusBuilder` is now a public API. This change helps reduce memory usage when writing to the remote analysis cache.
+
+*   The `--experimental_skycache_minimize_memory` flag now also reduces memory usage in the default execution mode (non-Skymeld).
 ### Trade build flexibility for memory with Skyfocus (Experimental) {:#trade-flexibility}
 
 If you want to make Bazel use less memory *and* retain incremental build speeds,

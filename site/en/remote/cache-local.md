@@ -18,6 +18,8 @@ logs between two Bazel invocations, see
 Everything presented in that guide also applies to remote caching with local
 execution. However, local execution presents some additional challenges.
 
+*   The `--disk_cache` flag can now be used without a path to enable the disk cache at a default location (`<outputUserRoot>/cache/disk`).
+
 ## Checking your cache hit rate {:#cache-hits}
 
 Successful remote cache hits will show up in the status line, similar to

@@ -90,6 +90,10 @@ communicate with the server is in `src/main/protobuf/command_server.proto` .
 The main entry point of the server is `BlazeRuntime.main()` and the gRPC calls
 from the client are handled by `CommandServer.serveAndAwaitTermination()`.
 
+*   Internal API Change: Direct field access on `BuildRequestOptions` and `BlazeServerStartupOptions` is replaced by getter and setter methods.
+
+*   Native build options can now be defined using getter and setter methods in addition to public fields, allowing for more flexible option implementation.
+
 ## Directory layout {#directory-layout}
 
 Bazel creates a somewhat complicated set of directories during a build. A full

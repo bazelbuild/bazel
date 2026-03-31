@@ -120,6 +120,8 @@ This is useful, for example, if one changes a comment in a C++ file: then the
 `.o` file generated from it will be the same, thus, it is unnecessary to call
 the linker again.
 
+
+*   **Options:** The `MethodOptionDefinition.getDeclaringClass()` method now works correctly, returning the `OptionsBase` subclass that declares the option.
 ## Incremental Linking / Compilation
 
 The main limitation of this model is that the invalidation of a node is an

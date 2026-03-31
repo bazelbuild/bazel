@@ -23,6 +23,8 @@ The data model consists of the following items:
 *   `Skyframe`. Code name for the incremental evaluation framework Bazel is
     based on.
 
+*   **Options:** The `MethodOptionDefinition.getDeclaringClass()` method now works correctly, returning the `OptionsBase` subclass that declares the option.
+
 ## Evaluation
 
 A build is achieved by evaluating the node that represents the build request.

@@ -97,6 +97,8 @@ fully fledged C++ features in Bazel without modifying the
 Bazel binary. C++ rules support multiple unique actions documented in detail
 [in the Bazel source code](https://source.bazel.build/bazel/+/4f547a7ea86df80e4c76145ffdbb0c8b75ba3afa:tools/build_defs/cc/action_names.bzl).
 
+*   **C++:** The iteration order of toolchain features and action configurations is now deterministic, improving build reproducibility.
+
 ## Features {:#features}
 
 A feature is an entity that requires command-line flags, actions,
