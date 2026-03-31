@@ -34,7 +34,7 @@ jobs:
         run: |
           cd bazel_src
           # Extracts hashes and bodies for the last 2 days
-          git log --since="1 day ago" --format="COMMIT_DELIMITER%n%H%n%s%n%b" > ../weekly_notes.txt
+          git log --since="2 day ago" --format="COMMIT_DELIMITER%n%H%n%s%n%b" > ../weekly_notes.txt
 
       - name: 🧠 Run Gemini Doc Updater
         env:
