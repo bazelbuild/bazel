@@ -33,7 +33,7 @@ jobs:
       - name: 🔍 Fetch 15 Days of Commits
         run: |
           cd bazel_src
-          git log --since="15 days ago" --format="COMMIT_DELIMITER%n%H%n%s%n%b" > ../weekly_notes.txt
+          git log --since="1 day ago" --format="COMMIT_DELIMITER%n%H%n%s%n%b" > ../weekly_notes.txt
 
       - name: 🧠 Run Gemini Doc Updater (Secure Mode)
         env:
@@ -63,7 +63,7 @@ jobs:
           
           # Force a new branch in case the self-hosted runner has state
           git checkout -b "$BRANCH_NAME"
-          git add site/en/
+          git add site/en/ docs/
           git commit -m "docs: Automated documentation sync from recent RELNOTES"
 
           # FIX: Branch name must be on the same line or use a backslash
