@@ -11,7 +11,7 @@ def setup_gemini():
         print("Error: GEMINI_API_KEY environment variable not set.")
         return None
     genai.configure(api_key=api_key)
-    # Using 1.5 models as they are currently standard
+    # Using 1.5/2.5 models as they are currently standard
     return genai.GenerativeModel('gemini-2.5-flash'), genai.GenerativeModel('gemini-2.5-pro')
 
 def get_all_doc_paths():
@@ -64,11 +64,11 @@ def find_best_docs_with_gemini(model, commit_subject, relnote, all_paths):
             final_paths.add(mintlify_path)
 
         return final_paths
-    except:
+    except Exception:
         return set()
 
 def rewrite_docs_with_gemini(model, commit_subject, relnote_text, commit_diff, target_docs):
-    """PHASE 2: Writes the update ONCE, then applies it to both files."""
+    """PHASE 2: Writes the update ONCE, then applies it safely to both files."""
 
     # 1. Generate the text ONCE to ensure consistency between .md and .mdx
     prompt_text = f"""
@@ -88,6 +88,7 @@ def rewrite_docs_with_gemini(model, commit_subject, relnote_text, commit_diff, t
         time.sleep(2)
         response_text = model.generate_content(prompt_text, generation_config={"temperature": 0.0})
         new_text = response_text.text.strip()
+        
         # Clean markdown formatting if AI added it
         new_text = re.sub(r'^```(?:markdown|mdx)?\s*', '', new_text, flags=re.IGNORECASE)
         new_text = re.sub(r'\s*```$', '', new_text).strip()
@@ -117,6 +118,7 @@ def rewrite_docs_with_gemini(model, commit_subject, relnote_text, commit_diff, t
 
         numbered_content = "".join([f"{i+1}: {line}" for i, line in enumerate(original_lines)])
 
+        # FIX: Explicitly forcing "insert_after" only.
         prompt_placement = f"""
         Where should this text be inserted in the document below?
 
@@ -124,51 +126,55 @@ def rewrite_docs_with_gemini(model, commit_subject, relnote_text, commit_diff, t
         {new_text}
 
         CRITICAL RULES:
-         1. ALWAYS prefer "insert_after". ONLY use "replace" if the old line is outdated.
-         2. Return ONLY JSON:
+          1. You MUST use "insert_after". Do not replace existing text.
+          2. Return ONLY JSON:
         {{
-            "action": "insert_after" or "replace",
+            "action": "insert_after",
             "line_number": 123
         }}
 
         --- DOCUMENT ({doc_path}) ---
-        {numbered_content}
+        {numbered_content[:8000]} # Truncate massive docs just for placement to avoid token errors
         """
 
         try:
             time.sleep(1)
             response = model.generate_content(prompt_placement, generation_config={"temperature": 0.0})
             raw_json = response.text.strip()
-            raw_json = re.sub(r'^```(?:json)?\s*', '', raw_json, flags=re.IGNORECASE)
-            raw_json = re.sub(r'\s*```$', '', raw_json).strip()
 
-            try:
-                update = json.loads(raw_json)
-            except json.JSONDecodeError:
-                match = re.search(r'\{.*\}', raw_json, re.DOTALL)
-                if match: 
-                    update = json.loads(match.group(0))
-                else: 
-                    raise ValueError("Invalid JSON")
+            # Robust JSON extraction to prevent 'Expecting property name enclosed in double quotes' errors
+            json_match = re.search(r'\{.*\}', raw_json, re.DOTALL)
+            if not json_match: raise ValueError("No JSON found")
+            json_str = json_match.group(0)
 
-            line_idx = int(update['line_number']) - 1
+            # Auto-fix missing quotes around property names (e.g. {action: -> {"action":)
+            json_str = re.sub(r'([{,])\s*(\w+)\s*:', r'\1"\2":', json_str)
+
+            update = json.loads(json_str)
+
+            # Default to 0 if the AI returns garbage for the line number
+            line_idx = int(update.get('line_number', 0)) - 1
+
+            if line_idx < 0:
+                print(f"  ⚠️ AI returned invalid line number: {update.get('line_number')}")
+                continue
 
             # Apply MDX escaping only if it's the .mdx file
             file_text = new_text
             if doc_path.endswith('.mdx'):
                 file_text = file_text.replace('{', '\\{').replace('}', '\\}')
 
-            if update['action'] == "replace":
-                if 0 <= line_idx < len(original_lines):
-                    original_lines[line_idx] = file_text + "\n"
-            else: # insert_after
-                if 0 <= line_idx < len(original_lines):
-                    original_lines.insert(line_idx + 1, "\n" + file_text + "\n")
+            # FIX: Force insert_after regardless of AI suggestion to ensure 100% safety
+            if 0 <= line_idx < len(original_lines):
+                original_lines.insert(line_idx + 1, "\n" + file_text + "\n")
+            else:
+                print(f"  ⚠️ Suggested line number {line_idx+1} is out of bounds for {doc_path}")
+                continue
 
             with open(full_path, 'w', encoding='utf-8') as f:
                 f.writelines(original_lines)
 
-            print(f"  ✅ Surgical Update: {doc_path} ({len(lines_to_add)} lines synced)")
+            print(f"  ✅ Surgical Update: {doc_path} ({len(lines_to_add)} lines synced safely)")
 
         except Exception as e:
             print(f"  ❌ Error applying to {doc_path}: {e}")
@@ -198,9 +204,9 @@ def run_rulebook():
         match = re.search(r'RELNOTES(?:\[.*?\])?[:\s]+(.*)', body, re.IGNORECASE)
         if not match: continue
         note = match.group(1).strip()
-        
+
         # Filter out "None" or "N/A" notes
-        if re.sub(r'[*`]', '', note).lower().strip() in ['none', 'n/a', 'no']: 
+        if re.sub(r'[*`]', '', note).lower().strip() in ['none', 'n/a', 'no']:
             continue
 
         print(f"\n🚀 Processing: {commit_hash[:7]} - {commit_subject[:50]}...")
@@ -212,10 +218,10 @@ def run_rulebook():
             print(f"  🎯 Target Pair: {list(target_docs)}")
             try:
                 diff = subprocess.check_output(
-                    ['git', '-C', 'bazel_src', 'show', '--format=', commit_hash], 
+                    ['git', '-C', 'bazel_src', 'show', '--format=', commit_hash],
                     text=True
                 ).strip()
-            except:
+            except Exception:
                 diff = "No diff available."
 
             # Phase 2: Rewrite
