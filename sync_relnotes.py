@@ -9,9 +9,9 @@ def setup_gemini():
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         print("Error: GEMINI_API_KEY environment variable not set.")
-        return None, None
+        return None
     genai.configure(api_key=api_key)
-    # Flash for mapping, Pro for high-quality writing
+    # Using 1.5 models as they are currently standard
     return genai.GenerativeModel('gemini-2.5-flash'), genai.GenerativeModel('gemini-2.5-pro')
 
 def get_all_doc_paths():
@@ -30,46 +30,80 @@ def get_all_doc_paths():
 def find_best_docs_with_gemini(model, commit_subject, relnote, all_paths):
     """PHASE 1: Picks exactly one .md and auto-maps its .mdx twin."""
     paths_str = "\n".join(all_paths)
-    prompt = f"Subject: {commit_subject}\nNote: {relnote}\nPick EXACTLY one file path from this list: {paths_str}\nReturn ONLY the path."
+    prompt = f"""
+    You are an expert Bazel engineer.
+    Commit: {commit_subject}
+    Release Note: {relnote}
+
+    TASK:
+    Find the MOST relevant DevSite documentation file for this change.
+    You MUST return EXACTLY ONE file starting with 'site/en/' and ending in '.md'.
+
+    Return ONLY a JSON string of the path. Example: "site/en/ref.md"
+    If no relevant docs exist, return "".
+
+    --- FILES ---
+    {paths_str}
+    """
     try:
         time.sleep(1)
         response = model.generate_content(prompt, generation_config={"temperature": 0.0})
         raw_text = response.text.strip()
 
-        match = re.search(r'site/en/[a-zA-Z0-9_/-]+\.md', raw_text)
-        if not match: return set()
+        match = re.search(r'site/en/[\w./-]+\.md', raw_text)
+        if not match:
+            return set()
 
         devsite_path = match.group(0)
         mintlify_path = devsite_path.replace("site/en/", "docs/").replace(".md", ".mdx")
 
         final_paths = set()
-        if os.path.exists(os.path.join('bazel_src', devsite_path)): 
+        if os.path.exists(os.path.join('bazel_src', devsite_path)):
             final_paths.add(devsite_path)
         if os.path.exists(os.path.join('bazel_src', mintlify_path)):
             final_paths.add(mintlify_path)
 
         return final_paths
-    except Exception: 
+    except:
         return set()
 
 def rewrite_docs_with_gemini(model, commit_subject, relnote_text, commit_diff, target_docs):
-    """PHASE 2: Writes the update ONCE, then applies it safely using string matching."""
+    """PHASE 2: Writes the update ONCE, then applies it to both files."""
 
-    # 1. Generate the text ONCE to ensure consistency
-    prompt_text = f"Draft a 4-line doc update for: {commit_subject}\nNote: {relnote_text}\nDiff: {commit_diff[:2000]}\nRULES: MAX 4 lines. RAW markdown only."
+    # 1. Generate the text ONCE to ensure consistency between .md and .mdx
+    prompt_text = f"""
+    You are a technical writer. Draft a MINIMAL note for the Bazel documentation based on this commit.
+
+    Commit: {commit_subject}
+    Note: {relnote_text}
+    Diff: {commit_diff[:2000]}
+
+    CRITICAL RULES:
+    1. Write a MAXIMUM of 4 lines. DO NOT write paragraphs.
+    2. Be extremely concise. Use one bullet point or two short sentences.
+    3. Return ONLY the raw markdown text. No explanations.
+    """
 
     try:
         time.sleep(2)
         response_text = model.generate_content(prompt_text, generation_config={"temperature": 0.0})
         new_text = response_text.text.strip()
-        new_text = re.sub(r'^```(?:markdown|mdx)?\s*|\s*```$', '', new_text, flags=re.IGNORECASE).strip()
-        new_text = "\n".join(new_text.split('\n')[:4]) # Strict 4-line limit
+        # Clean markdown formatting if AI added it
+        new_text = re.sub(r'^```(?:markdown|mdx)?\s*', '', new_text, flags=re.IGNORECASE)
+        new_text = re.sub(r'\s*```$', '', new_text).strip()
+
+        # Hard enforcement of 4-line limit in Python
+        lines_to_add = new_text.split('\n')
+        if len(lines_to_add) > 4:
+            print(f"  ⚠️ AI tried to add {len(lines_to_add)} lines. Truncating to 4.")
+            new_text = "\n".join(lines_to_add[:4])
+            lines_to_add = lines_to_add[:4]
+
     except Exception as e:
         print(f"  ❌ Error generating text: {e}")
-        return False
+        return
 
-    success = False
-    # 2. Apply that exact text to both files via exact string matching
+    # 2. Ask where to put that text in each file individually
     for doc_path in target_docs:
         full_path = os.path.join('bazel_src', doc_path)
         if not os.path.exists(full_path): continue
@@ -77,101 +111,117 @@ def rewrite_docs_with_gemini(model, commit_subject, relnote_text, commit_diff, t
         with open(full_path, 'r', encoding='utf-8') as f:
             original_lines = f.readlines()
 
-        if len(original_lines) > 2500:
+        if len(original_lines) > 3000:
              print(f"  ⚠️ Skipping {doc_path}: File too large.")
              continue
 
-        content = "".join(original_lines)
+        numbered_content = "".join([f"{i+1}: {line}" for i, line in enumerate(original_lines)])
+
         prompt_placement = f"""
-        Document: {doc_path}
-        TEXT TO ADD: {new_text}
+        Where should this text be inserted in the document below?
 
-        RULES:
-         1. If this new text REPLACES old info, provide the EXACT old sentence from the doc.
-         2. If this is NEW info, set action to 'insert_after' and provide the EXACT existing line it follows.
-         3. Output ONLY JSON: {{"action": "replace"|"insert_after", "exact_old_line": "..."}}
+        TEXT TO INSERT:
+        {new_text}
 
-        DOC CONTENT:
-        {content[:8000]}
+        CRITICAL RULES:
+         1. ALWAYS prefer "insert_after". ONLY use "replace" if the old line is outdated.
+         2. Return ONLY JSON:
+        {{
+            "action": "insert_after" or "replace",
+            "line_number": 123
+        }}
+
+        --- DOCUMENT ({doc_path}) ---
+        {numbered_content}
         """
 
         try:
             time.sleep(1)
             response = model.generate_content(prompt_placement, generation_config={"temperature": 0.0})
-            json_match = re.search(r'\{.*\}', response.text.strip(), re.DOTALL)
-            if not json_match: continue
-            
-            update = json.loads(json_match.group(0))
-            action = update.get("action", "insert_after")
-            old_line = update.get("exact_old_line", "").strip()
+            raw_json = response.text.strip()
+            raw_json = re.sub(r'^```(?:json)?\s*', '', raw_json, flags=re.IGNORECASE)
+            raw_json = re.sub(r'\s*```$', '', raw_json).strip()
 
-            # Escape for MDX
-            file_text = new_text.replace('{', '\\{') if doc_path.endswith('.mdx') else new_text
+            try:
+                update = json.loads(raw_json)
+            except json.JSONDecodeError:
+                match = re.search(r'\{.*\}', raw_json, re.DOTALL)
+                if match: 
+                    update = json.loads(match.group(0))
+                else: 
+                    raise ValueError("Invalid JSON")
 
-            # Find matching line index
-            line_idx = -1
-            for i, line in enumerate(original_lines):
-                if old_line in line:
-                    line_idx = i
-                    break
+            line_idx = int(update['line_number']) - 1
 
-            if line_idx == -1:
-                print(f"  ⚠️ Match not found in {doc_path}. Fallback to append.")
-                original_lines.append("\n" + file_text + "\n")
-            else:
-                if action == "replace":
+            # Apply MDX escaping only if it's the .mdx file
+            file_text = new_text
+            if doc_path.endswith('.mdx'):
+                file_text = file_text.replace('{', '\\{').replace('}', '\\}')
+
+            if update['action'] == "replace":
+                if 0 <= line_idx < len(original_lines):
                     original_lines[line_idx] = file_text + "\n"
-                    print(f"  ✅ Safely replaced line in {doc_path}")
-                else:
+            else: # insert_after
+                if 0 <= line_idx < len(original_lines):
                     original_lines.insert(line_idx + 1, "\n" + file_text + "\n")
-                    print(f"  ✅ Safely inserted in {doc_path}")
 
             with open(full_path, 'w', encoding='utf-8') as f:
                 f.writelines(original_lines)
-            success = True
+
+            print(f"  ✅ Surgical Update: {doc_path} ({len(lines_to_add)} lines synced)")
 
         except Exception as e:
             print(f"  ❌ Error applying to {doc_path}: {e}")
 
-    return success
-
 def run_rulebook():
-    flash_model, pro_model = setup_gemini()
-    if not flash_model: return
-    
+    models = setup_gemini()
+    if not models: return
+    flash_model, pro_model = models
+
     log_path = 'weekly_notes.txt'
-    if not os.path.exists(log_path): return
+    if not os.path.exists(log_path):
+        print(f"Error: {log_path} not found.")
+        return
 
     all_doc_paths = get_all_doc_paths()
-    with open(log_path, 'r', encoding='utf-8') as f:
-        commits = f.read().split('COMMIT_DELIMITER\n')[1:]
 
-    processed_list = []
-    for commit_block in commits:
+    with open(log_path, 'r', encoding='utf-8') as f:
+        commits_data = f.read().split('COMMIT_DELIMITER\n')[1:]
+
+    for commit_block in commits_data:
         lines = commit_block.strip().split('\n')
         if len(lines) < 3: continue
+
         commit_hash, commit_subject = lines[0].strip(), lines[1].strip()
         body = '\n'.join(lines[2:])
 
         match = re.search(r'RELNOTES(?:\[.*?\])?[:\s]+(.*)', body, re.IGNORECASE)
-        if not match or match.group(1).lower().strip() in ['none', 'n/a']: continue
+        if not match: continue
+        note = match.group(1).strip()
+        
+        # Filter out "None" or "N/A" notes
+        if re.sub(r'[*`]', '', note).lower().strip() in ['none', 'n/a', 'no']: 
+            continue
 
         print(f"\n🚀 Processing: {commit_hash[:7]} - {commit_subject[:50]}...")
-        target_docs = find_best_docs_with_gemini(flash_model, commit_subject, match.group(1).strip(), all_doc_paths)
+
+        # Phase 1: Identify the file pair
+        target_docs = find_best_docs_with_gemini(flash_model, commit_subject, note, all_doc_paths)
 
         if target_docs:
             print(f"  🎯 Target Pair: {list(target_docs)}")
             try:
-                diff = subprocess.check_output(['git', '-C', 'bazel_src', 'show', '--format=', commit_hash], text=True).strip()
-                if rewrite_docs_with_gemini(pro_model, commit_subject, match.group(1).strip(), diff, target_docs):
-                    processed_list.append(f"- {commit_hash[:7]}: {commit_subject}")
-            except Exception as e: 
-                print(f"  ⚠️ Error: {e}")
+                diff = subprocess.check_output(
+                    ['git', '-C', 'bazel_src', 'show', '--format=', commit_hash], 
+                    text=True
+                ).strip()
+            except:
+                diff = "No diff available."
 
-    if processed_list:
-        with open("processed_commits.txt", "w") as f: 
-            f.write("\n".join(processed_list))
-        print(f"\n✅ {len(processed_list)} commits processed and saved.")
+            # Phase 2: Rewrite
+            rewrite_docs_with_gemini(pro_model, commit_subject, note, diff, target_docs)
+        else:
+            print("  ⏭️ No matching documentation pair found.")
 
 if __name__ == "__main__":
     run_rulebook()
