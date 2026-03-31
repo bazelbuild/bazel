@@ -96,8 +96,8 @@ public class TestPolicy {
     // Rule-specified test env.
     testAction.getExtraTestEnv().resolve(env, clientEnv);
 
-    // Setup any test-specific env variables; note that this does not overwrite existing values for
-    // TEST_RANDOM_SEED or TEST_SIZE if they're already set.
+    // Setup bazel test-specific env variables; note that this does not overwrite
+    // some values if they're already set.
     testAction.setupEnvVariables(env, timeout);
 
     return env;

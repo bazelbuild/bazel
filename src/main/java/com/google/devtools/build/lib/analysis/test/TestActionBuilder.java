@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -247,7 +248,7 @@ public final class TestActionBuilder {
     inputsBuilder.add(testXmlGeneratorExecutable);
 
     FilesToRunProvider collectCoverageScript = null;
-    TreeMap<String, String> extraTestEnv = new TreeMap<>();
+    TreeMap<String, String> coverageTestEnv = new TreeMap<>();
 
     int runsPerTest = getRunsPerTest(ruleContext);
     int shardCount = getShardCount(ruleContext);
@@ -278,7 +279,7 @@ public final class TestActionBuilder {
       if (ruleContext.isAttrDefined("$collect_cc_coverage", LABEL)) {
         Artifact collectCcCoverage = ruleContext.getPrerequisiteArtifact("$collect_cc_coverage");
         inputsBuilder.add(collectCcCoverage);
-        extraTestEnv.put(CC_CODE_COVERAGE_SCRIPT, collectCcCoverage.getExecPathString());
+        coverageTestEnv.put(CC_CODE_COVERAGE_SCRIPT, collectCcCoverage.getExecPathString());
       }
 
       if (!instrumentedFiles.getReportedToActualSources().isEmpty()) {
@@ -292,13 +293,13 @@ public final class TestActionBuilder {
                 instrumentedFiles.getReportedToActualSources(),
                 ":"));
         inputsBuilder.add(reportedToActualSourcesArtifact);
-        extraTestEnv.put(
+        coverageTestEnv.put(
             COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE,
             reportedToActualSourcesArtifact.getExecPathString());
       }
 
       // lcov is the default CC coverage tool unless otherwise specified on the command line.
-      extraTestEnv.put(BAZEL_CC_COVERAGE_TOOL, GCOV_TOOL);
+      coverageTestEnv.put(BAZEL_CC_COVERAGE_TOOL, GCOV_TOOL);
 
       // We don't add this attribute to non-supported test target
       String lcovMergerAttr = null;
@@ -316,7 +317,7 @@ public final class TestActionBuilder {
               lcovMergerAttr,
               "the LCOV merger should be either an executable or a single artifact");
         }
-        extraTestEnv.put(LCOV_MERGER, lcovFilesToRun.getExecutable().getExecPathString());
+        coverageTestEnv.put(LCOV_MERGER, lcovFilesToRun.getExecutable().getExecPathString());
         inputsBuilder.addTransitive(lcovFilesToRun.getFilesToRun());
         lcovMergerFilesToRun = lcovFilesToRun.getFilesToRun();
       }
@@ -334,14 +335,12 @@ public final class TestActionBuilder {
               runsPerTest);
       inputsBuilder.add(instrumentedFileManifest);
       // TODO(ulfjack): Is this even ever set? If yes, does this cost us a lot of memory?
-      extraTestEnv.putAll(instrumentedFiles.getCoverageEnvironment());
+      coverageTestEnv.putAll(instrumentedFiles.getCoverageEnvironment());
     } else {
       executionSettings =
           new TestTargetExecutionSettings(
               ruleContext, runfilesSupport, executable, null, shardCount, runsPerTest);
     }
-
-    extraTestEnv.putAll(extraEnv);
 
     if (config.getRunUnder() != null) {
       Artifact runUnderExecutable = executionSettings.getRunUnderExecutable();
@@ -425,9 +424,10 @@ public final class TestActionBuilder {
                 coverageDirectory,
                 undeclaredOutputsDir,
                 testProperties,
+                ImmutableMap.copyOf(coverageTestEnv),
                 runfilesSupport
                     .getActionEnvironment()
-                    .withAdditionalVariables(extraTestEnv, extraInheritedEnv),
+                    .withAdditionalVariables(extraEnv, extraInheritedEnv),
                 executionSettings,
                 shard,
                 run,
