@@ -37,6 +37,8 @@ strategy. Local cache hits are not included in this summary. If you are getting
 0 processes (or a number lower than expected), run `bazel clean` followed by
 your build/test command.
 
+
+*   The `--disk_cache` flag can now be used without a value. This enables the disk cache at a default location under the output user root (`<outputUserRoot>/cache/disk`).
 ## Troubleshooting cache hits {:#troubleshooting-cache-hits}
 
 If you are not getting the cache hit rate you are expecting, do the following:

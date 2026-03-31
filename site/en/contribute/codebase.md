@@ -53,6 +53,8 @@ server instance. This can be circumvented by specifying a custom output base
 (see the "Directory layout" section for more information).
 
 Bazel is distributed as a single ELF executable that is also a valid .zip file.
+
+*   The bootstrap script now explicitly enables a fixed set of annotation processors. This ensures a consistent build regardless of the `javac` version.
 When you type `bazel`, the above ELF executable implemented in C++ (the
 "client") gets control. It sets up an appropriate server process using the
 following steps:

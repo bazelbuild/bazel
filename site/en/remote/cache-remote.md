@@ -12,6 +12,8 @@ This page assumes that you have a build and/or test that successfully
 utilizes remote execution, and you want to ensure that you are effectively
 utilizing remote cache.
 
+
+*   The `mode` field in `RemoteAnalysisCachingOptions` is now private. Use the `getMode()` method instead.
 ## Checking your cache hit rate {:#check-cache-hits}
 
 In the standard output of your Bazel run, look at the `INFO` line that lists

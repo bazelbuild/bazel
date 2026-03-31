@@ -29,6 +29,8 @@ Contributions are accepted through the regular GitHub pull request mechanism,
 and manually imported by a Googler into the internal source tree, then
 re-exported back out to GitHub.
 
+
+*   The bootstrap script now explicitly enables a fixed set of annotation processors. This ensures a consistent build regardless of the `javac` version.
 ## Client/server architecture {#client-architecture}
 
 The bulk of Bazel resides in a server process that stays in RAM between builds.
