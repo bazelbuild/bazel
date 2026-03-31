@@ -41,7 +41,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           # Runs the python script from your action repo
-          python3 action_repo/sync_relnotes.py
+          gtech-launch python3 action_repo/sync_relnotes.py          
 
       - name: 🚀 Create Pull Request
         env:
