@@ -121,14 +121,7 @@ changes:
         to be watched in other ways.
 *   When `bazel fetch --force` is executed.
 
-There are two parameters of `repository_rule` that control when the repositories
-are re-fetched:
-
-*   If the `configure` flag is set, the repository is re-fetched on `bazel
-    fetch --force --configure` (non-`configure` repositories are not
-    re-fetched).
-*   If the `local` flag is set, in addition to the above cases, the repo is also
-    re-fetched when the Bazel server restarts.
+*   **Remote Caching:** The remote repository contents cache (`--experimental_remote_repo_cache`) now supports all reproducible repository rules, including those with dynamic inputs discovered during execution.
 
 ## Forcing refetch of external repos
 

@@ -68,6 +68,8 @@ Every repo rule requires an `implementation` function. It contains the actual
 logic of the rule and is executed strictly in the Loading Phase.
 
 The function has exactly one input parameter, `repository_ctx`. The function
+
+*   **Remote Caching:** The remote repository contents cache (`--experimental_remote_repo_cache`) now supports all reproducible repository rules, including those with dynamic inputs discovered during execution.
 returns either `None` to signify that the rule is reproducible given the
 specified parameters, or a dict with a set of parameters for that rule that
 would turn that rule into a reproducible one generating the same repo. For
