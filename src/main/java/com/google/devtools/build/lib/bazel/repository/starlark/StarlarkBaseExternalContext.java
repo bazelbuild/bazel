@@ -683,7 +683,7 @@ with the fields <code>sha256</code> and <code>integrity</code>. If the value \
 of the <code>success</code> field is false, the <code>error</code> field will be set \
 with a message indicating why the download failed. The message in the <code>error</code> \
 field is for debugging purposes only and should not be relied upon as a stable API (the \
-format of the string can change between minor versions of Bazel). \
+format of the string can change between patch versions of Bazel). \
 When <code>sha256</code> or <code>integrity</code> is user specified, setting an explicit \
 <code>canonical_id</code> is highly recommended. e.g. \
 <a href='/rules/lib/repo/cache#get_default_canonical_id'><code>get_default_canonical_id</code></a>
@@ -905,7 +905,7 @@ fields <code>sha256</code> and <code>integrity</code>. If the value \
 of the <code>success</code> field is false, the <code>error</code> field will be set \
 with a message indicating why the download failed. The message in the <code>error</code> \
 field is for debugging purposes only and should not be relied upon as a stable API (the \
-format of the string can change between minor versions of Bazel). \
+format of the string can change between patch versions of Bazel). \
 When <code>sha256</code> or <code>integrity</code> is user specified, setting an explicit \
 <code>canonical_id</code> is highly recommended. e.g. \
 <a href='/rules/lib/repo/cache#get_default_canonical_id'><code>get_default_canonical_id</code></a>
