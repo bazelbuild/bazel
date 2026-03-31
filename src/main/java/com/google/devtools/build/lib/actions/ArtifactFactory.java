@@ -116,41 +116,43 @@ public class ArtifactFactory implements ArtifactResolver {
     private Entry computeEntry(
         PathFragment execPath, BiFunction<PathFragment, Entry, Entry> computeFunction) {
       return unwrapCacheObject(
-          execPath,
-          pathToSourceArtifact.compute(
-              execPath,
-              (key, cacheObject) ->
-                  switch (cacheObject) {
-                    // No entry for this case-insensitive path, thus also not for this exact casing.
-                    case null -> computeFunction.apply(execPath, null);
-                    // The lookup was case-insensitive, so the single cache entry may not be valid
-                    // for this exact casing. If it isn't, switch to a list.
-                    case Entry entry ->
-                        entry.artifact().getExecPath().equals(execPath)
-                            ? computeFunction.apply(execPath, entry)
-                            : new CopyOnWriteArrayList<>(
-                                new Entry[] {entry, computeFunction.apply(execPath, null)});
-                    case CopyOnWriteArrayList<?> rawEntries -> {
-                      var entries = (CopyOnWriteArrayList<Entry>) rawEntries;
-                      for (Entry entry : entries) {
-                        // Update the existing entry for this exact casing if it exists.
-                        if (entry.artifact().getExecPath().equals(execPath)) {
-                          Entry newEntry = computeFunction.apply(execPath, entry);
-                          if (newEntry != entry) {
-                            entries.set(entries.indexOf(entry), newEntry);
-                          }
-                          yield entries;
-                        }
-                      }
-                      // No entry for this exact casing, add a new one.
-                      entries.add(computeFunction.apply(execPath, null));
-                      yield entries;
-                    }
-                    default ->
-                        throw new IllegalStateException(
-                            "Unexpected cache object type: %s, value: %s"
-                                .formatted(cacheObject.getClass(), cacheObject));
-                  }));
+          execPath, pathToSourceArtifact.compute(execPath, liftToCacheObject(computeFunction)));
+    }
+
+    private static BiFunction<PathFragment, Object, Object> liftToCacheObject(
+        BiFunction<PathFragment, Entry, Entry> computeFunction) {
+      return (execPath, cacheObject) ->
+          switch (cacheObject) {
+            // No entry for this case-insensitive path, thus also not for this exact casing.
+            case null -> computeFunction.apply(execPath, null);
+            // The lookup was case-insensitive, so the single cache entry may not be valid
+            // for this exact casing. If it isn't, switch to a list.
+            case Entry entry ->
+                entry.artifact().getExecPath().equals(execPath)
+                    ? computeFunction.apply(execPath, entry)
+                    : new CopyOnWriteArrayList<>(
+                        new Entry[] {entry, computeFunction.apply(execPath, null)});
+            case CopyOnWriteArrayList<?> rawEntries -> {
+              var entries = (CopyOnWriteArrayList<Entry>) rawEntries;
+              for (Entry entry : entries) {
+                // Update the existing entry for this exact casing if it exists.
+                if (entry.artifact().getExecPath().equals(execPath)) {
+                  Entry newEntry = computeFunction.apply(execPath, entry);
+                  if (newEntry != entry) {
+                    entries.set(entries.indexOf(entry), newEntry);
+                  }
+                  yield entries;
+                }
+              }
+              // No entry for this exact casing, add a new one.
+              entries.add(computeFunction.apply(execPath, null));
+              yield entries;
+            }
+            default ->
+                throw new IllegalStateException(
+                    "Unexpected cache object type: %s, value: %s"
+                        .formatted(cacheObject.getClass(), cacheObject));
+          };
     }
 
     /** Returns artifact if it present in the cache, otherwise null. */
@@ -204,7 +206,7 @@ public class ArtifactFactory implements ArtifactResolver {
      * declared them as inputs).
      */
     @ThreadSafe
-    ImmutableList<SourceArtifact> getValidArtifactsWithAsciiCaseInsensitivePath(
+    private ImmutableList<SourceArtifact> getValidArtifactsWithAsciiCaseInsensitivePath(
         PathFragment execPath) {
       return getEntriesWithAsciiCaseInsensitivePath(execPath).stream()
           .filter(entry -> !entry.isInvalid(buildId))
@@ -587,8 +589,7 @@ public class ArtifactFactory implements ArtifactResolver {
     // The case-insensitive cache may have artifacts from a previous build that aren't valid yet.
     // Try to revalidate them using their original (correct-casing) exec paths before falling back
     // to creating a new artifact with the queried (potentially wrong-casing) exec path.
-    var staleArtifacts =
-        sourceArtifactCache.getAllArtifactsWithAsciiCaseInsensitivePath(execPath);
+    var staleArtifacts = sourceArtifactCache.getAllArtifactsWithAsciiCaseInsensitivePath(execPath);
     if (!staleArtifacts.isEmpty()) {
       var revalidated = ImmutableList.<SourceArtifact>builder();
       for (SourceArtifact stale : staleArtifacts) {
