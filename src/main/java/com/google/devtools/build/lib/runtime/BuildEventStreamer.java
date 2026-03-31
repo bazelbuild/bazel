@@ -418,7 +418,7 @@ public class BuildEventStreamer {
         // AbortedEvent.
         ImmutableList.Builder<BuildEventId> children = ImmutableList.builder();
         for (BuildEventId bufferedId : bufferedEventsPendingOnThisType) {
-          if (!announcedEvents.contains(bufferedId)) {
+          if (announcedEvents == null || !announcedEvents.contains(bufferedId)) {
             children.add(bufferedId);
           }
         }
