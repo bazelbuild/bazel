@@ -11,7 +11,6 @@ def setup_gemini():
         print("Error: GEMINI_API_KEY environment variable not set.")
         return None
     genai.configure(api_key=api_key)
-    # Changed to gemini-1.5 versions as 2.5 is not currently a release version
     return genai.GenerativeModel('gemini-2.5-flash'), genai.GenerativeModel('gemini-2.5-pro')
 
 def get_all_doc_paths():
@@ -28,15 +27,22 @@ def get_all_doc_paths():
         return []
 
 def find_best_docs_with_gemini(model, commit_subject, relnote, all_paths):
-    """PHASE 1: Asks Gemini to pick exactly 1 .md and 1 .mdx file."""
+    """PHASE 1: Picks exactly one .md and its corresponding .mdx file."""
     paths_str = "\n".join(all_paths)
     prompt = f"""
     You are an expert Bazel engineer. 
     Commit: {commit_subject}
-    Note: {relnote}
+    Release Note: {relnote}
 
-    Select EXACTLY ONE 'site/en/*.md' file and EXACTLY ONE 'docs/*.mdx' file that should be updated.
-    Return ONLY a JSON array of the two paths. If no match, return [].
+    TASK:
+    Find the MOST relevant documentation file for this change.
+    You MUST return EXACTLY TWO files:
+    1. One DevSite file (starts with 'site/en/' and ends in '.md').
+    2. One Mintlify file (starts with 'docs/' and ends in '.mdx').
+    These two files MUST cover the same topic.
+
+    Return ONLY a JSON array of strings. Example: ["site/en/ref.md", "docs/ref.mdx"]
+    If no relevant docs exist, return [].
 
     --- FILES ---
     {paths_str}
@@ -44,12 +50,13 @@ def find_best_docs_with_gemini(model, commit_subject, relnote, all_paths):
     try:
         response = model.generate_content(prompt, generation_config={"temperature": 0.0})
         raw_json = re.sub(r'^```(?:json)?\s*|\s*```$', '', response.text.strip(), flags=re.IGNORECASE)
-        return set(json.loads(raw_json))
+        paths = json.loads(raw_json)
+        return set(paths)
     except:
         return set()
 
 def rewrite_docs_with_gemini(model, commit_subject, relnote_text, commit_diff, target_docs):
-    """PHASE 2: Surgically updates the file with minimal (4-5 lines) changes."""
+    """PHASE 2: Surgically updates the file with a strict 4-line limit."""
 
     for doc_path in target_docs:
         full_path = os.path.join('bazel_src', doc_path)
@@ -58,26 +65,24 @@ def rewrite_docs_with_gemini(model, commit_subject, relnote_text, commit_diff, t
         with open(full_path, 'r', encoding='utf-8') as f:
             original_lines = f.readlines()
 
-        # Provide the file with line numbers to Gemini for surgical accuracy
         numbered_content = "".join([f"{i+1}: {line}" for i, line in enumerate(original_lines)])
 
         prompt = f"""
-        You are an expert technical writer. Update the documentation based on this code change.
-
-        Commit Subject: {commit_subject}
-        Release Note: {relnote_text}
-        Code Diff: {commit_diff[:3000]}
+        You are a technical writer. Update this Bazel doc with a MINIMAL note.
+        
+        Commit: {commit_subject}
+        Note: {relnote_text}
+        Diff: {commit_diff[:2000]}
 
         CRITICAL RULES:
-        1. Make a MINIMAL change (exactly 4 to 5 lines).
-        2. Do not rewrite the whole file.
-        3. Identify the most relevant line number to insert or replace text.
-        4. If it's an MDX file, escape bare braces ({{ -> \\{{).
-        5. Output your response in EXACTLY this JSON format:
+        1. Add or Replace a MAXIMUM of 4 lines. DO NOT write paragraphs.
+        2. Be extremely concise. Use one bullet point or two short sentences.
+        3. If this is an MDX file, escape braces ({{ -> \\{{).
+        4. Return ONLY JSON:
         {{
             "action": "insert_after" or "replace",
             "line_number": 123,
-            "new_text": "The 4-5 lines of documentation content..."
+            "new_text": "Your 1-4 lines of text here"
         }}
 
         --- DOCUMENT ({doc_path}) ---
@@ -91,35 +96,37 @@ def rewrite_docs_with_gemini(model, commit_subject, relnote_text, commit_diff, t
             update = json.loads(raw_json)
 
             line_idx = int(update['line_number']) - 1
-            new_text = update['new_text']
+            new_text = update['new_text'].strip()
             
-            # Perform surgical edit
+            # Hard enforcement of 4-line limit in Python
+            lines_to_add = new_text.split('\n')
+            if len(lines_to_add) > 4:
+                print(f"  ⚠️ AI tried to add {len(lines_to_add)} lines. Truncating to 4.")
+                new_text = "\n".join(lines_to_add[:4])
+
             if update['action'] == "replace":
                 original_lines[line_idx] = new_text + "\n"
-            else: # insert_after
+            else:
+                # insert_after
                 original_lines.insert(line_idx + 1, "\n" + new_text + "\n")
 
             with open(full_path, 'w', encoding='utf-8') as f:
                 f.writelines(original_lines)
 
-            print(f"  ✅ Surgically updated {doc_path} (Line {update['line_number']})")
+            print(f"  ✅ Surgical Update: {doc_path} ({len(lines_to_add)} lines added/changed)")
 
         except Exception as e:
-            print(f"  ❌ Gemini Error for {doc_path}: {e}")
+            print(f"  ❌ Error for {doc_path}: {e}")
 
 def run_rulebook():
-    models = setup_gemini()
-    if not models: return
-    flash_model, pro_model = models
-
+    flash_model, pro_model = setup_gemini()
     log_path = 'weekly_notes.txt'
     if not os.path.exists(log_path): return
 
-    with open(log_path, 'r', encoding='utf-8') as f:
-        raw_data = f.read()
-
     all_doc_paths = get_all_doc_paths()
-    commits = raw_data.split('COMMIT_DELIMITER\n')[1:]
+    
+    with open(log_path, 'r', encoding='utf-8') as f:
+        commits = f.read().split('COMMIT_DELIMITER\n')[1:]
 
     for commit_block in commits:
         lines = commit_block.strip().split('\n')
@@ -127,23 +134,27 @@ def run_rulebook():
 
         commit_hash, commit_subject = lines[0].strip(), lines[1].strip()
         body = '\n'.join(lines[2:])
-
+        
         match = re.search(r'RELNOTES(?:\[.*?\])?[:\s]+(.*)', body, re.IGNORECASE)
         if not match: continue
         note = match.group(1).strip()
+        if re.sub(r'[*`]', '', note).lower().strip() in ['none', 'n/a']: continue
 
-        # Skip trivial notes
-        if re.sub(r'[*`]', '', note).lower().strip() in ['none', 'n/a', 'no']: continue
-
-        print(f"\n✅ Processing: {commit_hash[:7]}")
+        print(f"\n🚀 Processing: {commit_hash[:7]} - {commit_subject[:50]}...")
+        
+        # Phase 1: Force find the .md / .mdx PAIR
         target_docs = find_best_docs_with_gemini(flash_model, commit_subject, note, all_doc_paths)
 
         if target_docs:
+            print(f"  🎯 Target Pair: {list(target_docs)}")
             try:
                 diff = subprocess.check_output(['git', '-C', 'bazel_src', 'show', '--format=', commit_hash], text=True).strip()
+                # Phase 2: Perform minimal edit on BOTH files in the pair
                 rewrite_docs_with_gemini(pro_model, commit_subject, note, diff, target_docs)
             except Exception as e:
-                print(f"  ⚠️ Error fetching diff: {e}")
+                print(f"  ⚠️ Error: {e}")
+        else:
+            print("  ⏭️ No matching documentation pair found.")
 
 if __name__ == "__main__":
     run_rulebook()
