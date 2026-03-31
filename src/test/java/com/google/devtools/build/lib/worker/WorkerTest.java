@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.actions.ExecutionRequirements.Worker
 import static com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat.PROTO;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertNull;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -200,7 +201,7 @@ public final class WorkerTest {
   public void testGetResponse_badJson_throws()
       throws IOException, InterruptedException, UserExecException {
     verifyGetResponseFailure(
-        "{ \"output\": \"I'm missing a bracket\"", "Could not parse json work request correctly");
+        "{ \"output\": \"I'm missing a bracket\"", "Could not parse json work response");
   }
 
   @Test
@@ -237,5 +238,13 @@ public final class WorkerTest {
         WorkResponse.newBuilder().setExitCode(1).setOutput("test output").setRequestId(1).build();
 
     assertThat(readResponse).isEqualTo(response);
+  }
+
+  @Test
+  public void testGetResponse_json_eof_returnsNull() throws IOException {
+    ByteArrayOutputStream workerStdin = new ByteArrayOutputStream();
+    ByteArrayInputStream workerStdout = new ByteArrayInputStream(new byte[0]);
+    JsonWorkerProtocol protocol = new JsonWorkerProtocol(workerStdin, workerStdout);
+    assertNull(protocol.getResponse());
   }
 }

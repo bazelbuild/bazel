@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.worker.WorkerProtocol.Input;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.MalformedJsonException;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.util.JsonFormat;
@@ -107,7 +108,20 @@ public final class JsonWorkerMessageProcessor implements WorkRequestHandler.Work
     Integer verbosity = null;
     String sandboxDir = null;
     try {
+      // After reading at least one ndjson message, gson returns END_DOCUMENT at EOF instead of
+      // throwing EOFException. Check for it before beginObject() to signal clean shutdown.
+      if (reader.peek() == JsonToken.END_DOCUMENT) {
+        return null;
+      }
       reader.beginObject();
+    } catch (EOFException e) {
+      // Clean EOF on an empty stream (no prior messages): Bazel closed stdin before starting
+      // any message. Return null to signal shutdown, matching proto behavior.
+      return null;
+    } catch (MalformedJsonException | IllegalStateException e) {
+      throw new IOException(e);
+    }
+    try {
       while (reader.hasNext()) {
         String name = reader.nextName();
         switch (name) {
@@ -149,7 +163,8 @@ public final class JsonWorkerMessageProcessor implements WorkRequestHandler.Work
         }
       }
       reader.endObject();
-    } catch (MalformedJsonException | IllegalStateException | EOFException e) {
+    } catch (MalformedJsonException | EOFException | IllegalStateException e) {
+      // EOF after beginObject() means a truncated message, not a clean shutdown.
       throw new IOException(e);
     }
 

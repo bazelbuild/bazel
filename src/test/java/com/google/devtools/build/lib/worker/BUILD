@@ -130,6 +130,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/worker:worker_pool_impl",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_metrics",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_status",
+        "//src/main/java/com/google/devtools/build/lib/worker:worker_protocol",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_spawn_runner",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:worker_protocol_java_proto",
@@ -169,6 +170,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/worker:work_request_handlers",
         "//src/main/protobuf:worker_protocol_java_proto",
+        "//third_party:gson",
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
