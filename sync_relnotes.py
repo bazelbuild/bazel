@@ -110,6 +110,7 @@ def run_rulebook():
         raw_data = f.read()
 
     commits = raw_data.split('COMMIT_DELIMITER\n')[1:]
+    actionable_commits = []
 
     for commit_block in commits:
         lines = commit_block.strip().split('\n')
@@ -124,8 +125,8 @@ def run_rulebook():
 
         print(f"\n✅ Processing: {commit_hash[:7]} - {commit_subject}")
 
+        # Extract Keywords
         try:
-            # Fixed the format flag syntax
             cmd_files = ['git', '-C', 'bazel_src', 'show', '--name-only', '--format=', commit_hash]
             changed_files_out = subprocess.check_output(cmd_files, text=True).strip()
             changed_files = [f for f in changed_files_out.split('\n') if f]
@@ -141,7 +142,7 @@ def run_rulebook():
         # Primary Search
         for kw in list(keywords)[:5]:
             try:
-                # Fixed the command string formatting and line wrap
+                # Fixed string formatting and shell command
                 search_cmd = f"gh search code '{kw}' --repo bazelbuild/bazel --extension mdx --extension md --limit 5"
                 search_out = subprocess.check_output(search_cmd, shell=True, text=True, stderr=subprocess.DEVNULL)
                 for line in search_out.strip().split('\n'):
@@ -149,6 +150,21 @@ def run_rulebook():
                     path = line.split(':')[0].strip()
                     if '/versions/' in path or '/archive/' in path: continue
                     if ('docs/' in path or 'site/en/' in path or 'site/content/en/' in path) and path.endswith(('.md', '.mdx')):
+                        target_docs.add(path)
+            except: pass
+
+        # Fallback Search
+        if not target_docs:
+            clean_subject = commit_subject.replace('`', '').replace("'", "")
+            subject_query = ' '.join(clean_subject.split()[:3])
+            try:
+                fb_cmd = f"gh search code '{subject_query}' --repo bazelbuild/bazel --extension mdx --extension md --limit 3"
+                search_out = subprocess.check_output(fb_cmd, shell=True, text=True, stderr=subprocess.DEVNULL)
+                for line in search_out.strip().split('\n'):
+                    if not line: continue
+                    path = line.split(':')[0].strip()
+                    if '/versions/' in path or '/archive/' in path: continue
+                    if ('docs/' in path or 'site/' in path) and path.endswith(('.md', '.mdx')):
                         target_docs.add(path)
             except: pass
 
@@ -160,6 +176,7 @@ def run_rulebook():
             except: commit_diff = "No diff."
 
             rewrite_docs_with_gemini(pro_model, commit_subject, note, commit_diff, target_docs)
+            actionable_commits.append({"hash": commit_hash})
 
     print("\n🎉 Documentation rewrite run complete.")
 
