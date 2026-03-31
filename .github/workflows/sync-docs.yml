@@ -2,8 +2,8 @@ name: Sync RELNOTES to Documentation
 
 on:
   schedule:
-    - cron: '0 0 * * *'
-  workflow_dispatch:
+    - cron: '0 0 * * *' # Runs daily at midnight
+  workflow_dispatch: # Allows manual triggering
 
 jobs:
   update-docs:
@@ -30,17 +30,18 @@ jobs:
         run: |
           pip install google-generativeai
 
-      - name: 🔍 Fetch 15 Days of Commits
+      - name: 🔍 Fetch Recent Commits
         run: |
           cd bazel_src
-          git log --since="10 days ago" --format="COMMIT_DELIMITER%n%H%n%s%n%b" > ../weekly_notes.txt
+          # Extracts hashes and bodies for the last 2 days
+          git log --since="2 days ago" --format="COMMIT_DELIMITER%n%H%n%s%n%b" > ../weekly_notes.txt
 
-      - name: 🧠 Run Gemini Doc Updater (Secure Mode)
+      - name: 🧠 Run Gemini Doc Updater
         env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          # Use absolute path or ensure it's in PATH
-          gtech-launch python3 action_repo/sync_relnotes.py
+          # Runs the python script from your action repo
+          python3 action_repo/sync_relnotes.py
 
       - name: 🚀 Create Pull Request
         env:
@@ -48,55 +49,52 @@ jobs:
         run: |
           cd bazel_src
           
-          # 1. Check if changes exist
+          # 1. Safety Check: Only proceed if files actually changed
           if [[ -z $(git status -s) ]]; then
             echo "No documentation changes detected. Skipping PR."
             exit 0
           fi
 
+          # 2. Gather context for the PR description
+          if [ -f ../processed_commits.txt ]; then
+            COMMIT_DETAILS=$(cat ../processed_commits.txt)
+          else
+            COMMIT_DETAILS="Automated updates based on recent RELNOTES."
+          fi
+
           echo "Changes detected! Preparing PR..."
-          
-          # 2. Setup Variables
           BRANCH_NAME="auto-doc-sync-$(date +%s)"
-          COMMIT_DETAILS=$(cat ../weekly_notes.txt)
           
           git config user.name "deepalak56"
           git config user.email "deepalak56@users.noreply.github.com"
           
-          # 3. Commit and Push
+          # 3. Commit and Push to Fork
           git checkout -b "$BRANCH_NAME"
           git add site/en/ docs/
           git commit -m "docs: Automated documentation sync from recent RELNOTES"
-          
-          # Use GH_TOKEN for authentication in the push URL
           git push -f "https://x-access-token:${GH_TOKEN}@github.com/deepalak56/bazel_deepa.git" "$BRANCH_NAME"
 
           # 4. Construct PR Body
-          # We use a quoted heredoc 'EOF' to prevent shell expansion issues
           PR_BODY=$(cat <<EOF
-          Description:
-          Automated documentation synchronization. This PR updates recent Bazel release notes to the
-          corresponding DevSite and Mintlify documentation files.
-          
-          Motivation:
-          Ensures technical documentation remains in sync with code changes automatically.
-          
-          Commits Processed in this run:
+          ### Description
+          Automated documentation synchronization. This PR maps recent Bazel release notes to the 
+          corresponding DevSite (.md) and Mintlify (.mdx) documentation files using Gemini AI.
+
+          **Commits processed in this run:**
           $COMMIT_DETAILS
-          
-          Build API Changes:
-          No
-          
-          Checklist:
+
+          ### Motivation
+          Ensures technical documentation remains in sync with code changes automatically.
+
+          ### Checklist
           - [x] I have updated the documentation (if applicable).
-          
-          Release Notes:
+
+          ### Release Notes
           RELNOTES: None
           EOF
           )
 
-          # 5. Create PR (Targeting master as per Bazel standards)
-          # 'gh' uses GH_TOKEN automatically if it is set in the environment
+          # 5. Create PR against Upstream
           gh pr create --repo bazelbuild/bazel \
                        --title "Docs: Sync RELNOTES to Documentation" \
                        --body "$PR_BODY" \
