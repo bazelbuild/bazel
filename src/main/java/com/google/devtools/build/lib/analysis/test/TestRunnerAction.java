@@ -155,6 +155,9 @@ public class TestRunnerAction extends AbstractAction
    */
   @Nullable private Optional<TestResultData> cachedTestResultData;
 
+  /** Environment variables specific to running code coverage */
+  private final ImmutableMap<String, String> coverageEnv;
+
   /** Any extra environment variables (and values) added by the rule that created this action. */
   private final ActionEnvironment extraTestEnv;
 
@@ -205,6 +208,7 @@ public class TestRunnerAction extends AbstractAction
       @Nullable Artifact coverageDirectory,
       Artifact undeclaredOutputsDir,
       TestTargetProperties testProperties,
+      ImmutableMap<String, String> coverageEnv,
       ActionEnvironment extraTestEnv,
       TestTargetExecutionSettings executionSettings,
       int shardNum,
@@ -269,6 +273,7 @@ public class TestRunnerAction extends AbstractAction
     this.testInfrastructureFailure = baseDir.getChild("test.infrastructure_failure");
     this.workspaceName = workspaceName;
 
+    this.coverageEnv = coverageEnv;
     this.extraTestEnv = extraTestEnv;
     this.requiredClientEnvVariables =
         LazySetConcatenation.from(
@@ -511,6 +516,7 @@ public class TestRunnerAction extends AbstractAction
     fp.addBoolean(executionSettings.getTestRunnerFailFast());
     RunUnder runUnder = executionSettings.getRunUnder();
     fp.addString(runUnder == null ? "" : runUnder.value());
+    fp.addStringMap(coverageEnv);
     extraTestEnv.addTo(fp);
     // TODO(ulfjack): It might be better for performance to hash the action and test envs in config,
     // and only add a hash here.
@@ -716,6 +722,9 @@ public class TestRunnerAction extends AbstractAction
   }
 
   public void setupEnvVariables(Map<String, String> env) {
+    // Allow --test_env and rules to overwite these values
+    coverageEnv.forEach(env::putIfAbsent);
+
     env.put("TEST_TARGET", Label.print(getOwner().getLabel()));
     env.put("TEST_SIZE", getTestProperties().getSize().toString());
     env.put("TEST_TIMEOUT", Long.toString(getTimeout().toSeconds()));
