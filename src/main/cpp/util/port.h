@@ -141,7 +141,10 @@ char (&ArraySizeHelper(const T (&array)[N]))[N];
 // either by making PID handling platform-independent or some other idea; remove
 // the following typedef afterwards.
 #ifndef __MINGW32__
+#ifndef _PID_T_
+#define _PID_T_
 typedef int pid_t;
+#endif  // _PID_T_
 #endif  // __MINGW32__
 #endif  // _WIN32
 
