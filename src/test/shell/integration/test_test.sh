@@ -202,6 +202,43 @@ EOF
   expect_log "//$pkg:test_b"
 }
 
+function test_test_suite_no_target_compatible_with() {
+  add_rules_shell "MODULE.bazel"
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg || fail "mkdir -p $pkg failed"
+  cat > $pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(
+    name = 'test_a',
+    srcs = [':a.sh'],
+)
+
+constraint_setting(
+    name = 'gate',
+)
+
+constraint_value(
+    name = 'requires_opt_in',
+    constraint_setting = ':gate',
+)
+
+test_suite(
+    name = 'suite',
+    target_compatible_with = [':requires_opt_in'],
+)
+EOF
+  cat > $pkg/a.sh <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+
+  chmod +x $pkg/a.sh
+  bazel test //$pkg:suite &> $TEST_log \
+      && fail "expected failure" || true
+  expect_log "//$pkg:suite: no such attribute 'target_compatible_with' in 'test_suite' rule"
+}
+
 function test_print_relative_test_log_paths() {
   add_rules_shell "MODULE.bazel"
   local -r pkg="$FUNCNAME"
