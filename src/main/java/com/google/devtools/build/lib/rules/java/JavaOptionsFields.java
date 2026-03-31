@@ -28,11 +28,13 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
 import java.util.Map;
 
 /** Command-line options for building Java targets */
-public class JavaOptions extends FragmentOptions {
+@OptionsClass
+public abstract class JavaOptionsFields extends FragmentOptions {
   /** Converter for the --java_classpath option. */
   public static class JavaClasspathModeConverter extends EnumConverter<JavaClasspathMode> {
     public JavaClasspathModeConverter() {
@@ -55,7 +57,7 @@ public class JavaOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Additional options to pass to javac.")
-  public List<String> javacOpts;
+  public abstract List<String> getJavacOpts();
 
   @Option(
       name = "host_javacopt",
@@ -66,7 +68,7 @@ public class JavaOptions extends FragmentOptions {
       help =
           "Additional options to pass to javac when building tools that are executed during a"
               + " build.")
-  public List<String> hostJavacOpts;
+  public abstract List<String> getHostJavacOpts();
 
   @Option(
       name = "jvmopt",
@@ -77,7 +79,7 @@ public class JavaOptions extends FragmentOptions {
       help =
           "Additional options to pass to the Java VM. These options will get added to the "
               + "VM startup options of each java_binary target.")
-  public List<String> jvmOpts;
+  public abstract List<String> getJvmOpts();
 
   @Option(
       name = "host_jvmopt",
@@ -89,7 +91,7 @@ public class JavaOptions extends FragmentOptions {
           "Additional options to pass to the Java VM when building tools that are executed during "
               + " the build. These options will get added to the VM startup options of each "
               + " java_binary target.")
-  public List<String> hostJvmOpts;
+  public abstract List<String> getHostJvmOpts();
 
   @Option(
       name = "use_ijars",
@@ -100,7 +102,7 @@ public class JavaOptions extends FragmentOptions {
           "If enabled, this option causes Java compilation to use interface jars. "
               + "This will result in faster incremental compilation, "
               + "but error messages can be different.")
-  public boolean useIjars;
+  public abstract boolean getUseIjars();
 
   @Option(
       name = "java_header_compilation",
@@ -109,7 +111,7 @@ public class JavaOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Compile ijars directly from source.",
       oldName = "experimental_java_header_compilation")
-  public boolean headerCompilation;
+  public abstract boolean getHeaderCompilation();
 
   @Option(
       name = "java_deps",
@@ -117,7 +119,7 @@ public class JavaOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Generate dependency information (for now, compile-time classpath) per Java target.")
-  public boolean javaDeps;
+  public abstract boolean getJavaDeps();
 
   @Option(
       name = "experimental_java_classpath",
@@ -128,7 +130,7 @@ public class JavaOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Enables reduced classpaths for Java compilations.",
       oldName = "java_classpath")
-  public JavaClasspathMode javaClasspath;
+  public abstract JavaClasspathMode getJavaClasspath();
 
   @Option(
       name = "experimental_inmemory_jdeps_files",
@@ -144,7 +146,7 @@ public class JavaOptions extends FragmentOptions {
           "If enabled, the dependency (.jdeps) files generated from Java compilations will be "
               + "passed through in memory directly from the remote build nodes instead of being "
               + "written to disk.")
-  public boolean inmemoryJdepsFiles;
+  public abstract boolean getInmemoryJdepsFiles();
 
   @Option(
       name = "java_debug",
@@ -162,7 +164,7 @@ public class JavaOptions extends FragmentOptions {
           "Causes the Java virtual machine of a java test to wait for a connection from a "
               + "JDWP-compliant debugger (such as jdb) before starting the test. Implies "
               + "-test_output=streamed.")
-  public Void javaTestDebug;
+  public abstract Void getJavaTestDebug();
 
   @Option(
       name = "experimental_strict_java_deps",
@@ -175,7 +177,7 @@ public class JavaOptions extends FragmentOptions {
           "If true, checks that a Java target explicitly declares all directly used "
               + "targets as dependencies.",
       oldName = "strict_java_deps")
-  public StrictDepsMode strictJavaDeps;
+  public abstract StrictDepsMode getStrictJavaDeps();
 
   @Option(
       name = "experimental_fix_deps_tool",
@@ -183,7 +185,7 @@ public class JavaOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       help = "Specifies which tool should be used to resolve missing dependencies.")
-  public String fixDepsTool;
+  public abstract String getFixDepsTool();
 
   // TODO(bazel-team): This flag should ideally default to true (and eventually removed). We have
   // been accidentally supplying JUnit and Hamcrest deps to java_test targets indirectly via the
@@ -197,7 +199,7 @@ public class JavaOptions extends FragmentOptions {
           "Explicitly specify a dependency to JUnit or Hamcrest in a java_test instead of "
               + " accidentally obtaining from the TestRunner's deps. Only works for bazel right "
               + "now.")
-  public boolean explicitJavaTestDeps;
+  public abstract boolean getExplicitJavaTestDeps();
 
   @Option(
       name = "host_java_launcher",
@@ -206,7 +208,7 @@ public class JavaOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Java launcher used by tools that are executed during a build.")
-  public Label hostJavaLauncher;
+  public abstract Label getHostJavaLauncher();
 
   @Option(
       name = "java_launcher",
@@ -218,7 +220,7 @@ public class JavaOptions extends FragmentOptions {
           "The Java launcher to use when building Java binaries. "
               + " If this flag is set to the empty string, the JDK launcher is used. "
               + "The \"launcher\" attribute overrides this flag. ")
-  public Label javaLauncher;
+  public abstract Label getJavaLauncher();
 
   @Option(
       name = "proguard_top",
@@ -229,7 +231,7 @@ public class JavaOptions extends FragmentOptions {
       help =
           "Specifies which version of ProGuard to use for code removal when building a Java "
               + "binary.")
-  public Label proguard;
+  public abstract Label getProguard();
 
   /**
    * Comma-separated list of Mnemonic=label pairs of optimizers to run in the given order, treating
@@ -244,7 +246,7 @@ public class JavaOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Do not use.",
       oldName = "experimental_bytecode_optimizers")
-  public Map<String, Label> bytecodeOptimizers;
+  public abstract Map<String, Label> getBytecodeOptimizers();
 
   /**
    * If true, the bytecode optimizer will be used to incrementally optimize each compiled Java
@@ -257,7 +259,7 @@ public class JavaOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Do not use.")
-  public boolean runLocalJavaOptimizations;
+  public abstract boolean getRunLocalJavaOptimizations();
 
   /**
    * Configuration for the bytecode optimizer if --experimental_local_java_optimizations is enabled.
@@ -269,7 +271,7 @@ public class JavaOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Do not use.")
-  public Label localJavaOptimizationConfiguration;
+  public abstract Label getLocalJavaOptimizationConfiguration();
 
   // TODO(b/237004872) Remove this after rollout of bytecode_optimization_pass_actions.
   /** If true, the OPTIMIZATION stage of the bytecode optimizer will be split across two actions. */
@@ -279,7 +281,7 @@ public class JavaOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Do not use.")
-  public boolean splitBytecodeOptimizationPass;
+  public abstract boolean getSplitBytecodeOptimizationPass();
 
   /**
    * This specifies the number of actions to divide the OPTIMIZATION stage of the bytecode optimizer
@@ -292,7 +294,7 @@ public class JavaOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Do not use.")
-  public int bytecodeOptimizationPassActions;
+  public abstract int getBytecodeOptimizationPassActions();
 
   @Option(
       name = "enforce_proguard_file_extension",
@@ -302,7 +304,7 @@ public class JavaOptions extends FragmentOptions {
       help =
           "If enabled, requires that ProGuard configuration files outside of third_party/ use the"
               + " *.pgcfg file extension.")
-  public boolean enforceProguardFileExtension;
+  public abstract boolean getEnforceProguardFileExtension();
 
   @Option(
       name = "experimental_one_version_enforcement",
@@ -314,7 +316,7 @@ public class JavaOptions extends FragmentOptions {
           "When enabled, enforce that a java_binary rule can't contain more than one version "
               + "of the same class file on the classpath. This enforcement can break the build, or "
               + "can just result in warnings.")
-  public OneVersionEnforcementLevel enforceOneVersion;
+  public abstract OneVersionEnforcementLevel getEnforceOneVersion();
 
   @Option(
       name = "one_version_enforcement_on_java_tests",
@@ -326,7 +328,7 @@ public class JavaOptions extends FragmentOptions {
               + " enforce one version on java_test targets. This flag can be disabled to improve"
               + " incremental test performance at the expense of missing potential one version"
               + " violations.")
-  public boolean enforceOneVersionOnJavaTests;
+  public abstract boolean getEnforceOneVersionOnJavaTests();
 
   @Option(
       name = "experimental_add_test_support_to_compile_time_deps",
@@ -337,7 +339,7 @@ public class JavaOptions extends FragmentOptions {
       help =
           "Flag to help transition away from adding test support libraries to the compile-time"
               + " deps of Java test rules.")
-  public boolean addTestSupportToCompileTimeDeps;
+  public abstract boolean getAddTestSupportToCompileTimeDeps();
 
   @Option(
       name = "experimental_run_android_lint_on_java_rules",
@@ -346,7 +348,7 @@ public class JavaOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Whether to validate java_* sources.")
-  public boolean runAndroidLint;
+  public abstract boolean getRunAndroidLint();
 
   // Plugins are built using the exec config. To avoid cycles we just don't propagate this option to
   // the exec config. If one day we decide to use plugins when building exec tools, we can improve
@@ -359,7 +361,7 @@ public class JavaOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Plugins to use in the build. Currently works with java_plugin.")
-  public List<Label> pluginList;
+  public abstract List<Label> getPluginList();
 
   @Option(
       name = "experimental_turbine_annotation_processing",
@@ -368,7 +370,7 @@ public class JavaOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "If enabled, turbine is used for all annotation processing")
-  public boolean experimentalTurbineAnnotationProcessing;
+  public abstract boolean getExperimentalTurbineAnnotationProcessing();
 
   @Option(
       name = "java_runtime_version",
@@ -376,7 +378,7 @@ public class JavaOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Java runtime version")
-  public String javaRuntimeVersion;
+  public abstract String getJavaRuntimeVersion();
 
   @Option(
       name = "tool_java_runtime_version",
@@ -384,7 +386,7 @@ public class JavaOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Java runtime version used to execute tools during the build")
-  public String hostJavaRuntimeVersion;
+  public abstract String getHostJavaRuntimeVersion();
 
   @Option(
       name = "java_language_version",
@@ -392,7 +394,7 @@ public class JavaOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Java language version")
-  public String javaLanguageVersion;
+  public abstract String getJavaLanguageVersion();
 
   @Option(
       name = "tool_java_language_version",
@@ -400,7 +402,7 @@ public class JavaOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Java language version used to execute the tools that are needed during a build")
-  public String hostJavaLanguageVersion;
+  public abstract String getHostJavaLanguageVersion();
 
   @Option(
       name = "incompatible_multi_release_deploy_jars",
@@ -409,7 +411,7 @@ public class JavaOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "When enabled, java_binary creates Multi-Release deploy jars.")
-  public boolean multiReleaseDeployJars;
+  public abstract boolean getMultiReleaseDeployJars();
 
   @Option(
       name = "incompatible_disallow_java_import_exports",
@@ -418,7 +420,7 @@ public class JavaOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "When enabled, java_import.exports is not supported.")
-  public boolean disallowJavaImportExports;
+  public abstract boolean getDisallowJavaImportExports();
 
   @Option(
       name = "experimental_enable_jspecify",
@@ -427,7 +429,7 @@ public class JavaOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Enable experimental jspecify integration.")
-  public boolean experimentalEnableJspecify;
+  public abstract boolean getExperimentalEnableJspecify();
 
   @Option(
       name = "experimental_java_test_auto_create_deploy_jar",
@@ -436,5 +438,5 @@ public class JavaOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "DO NOT USE")
-  public boolean autoCreateDeployJarForJavaTests;
+  public abstract boolean getAutoCreateDeployJarForJavaTests();
 }

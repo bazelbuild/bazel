@@ -20,6 +20,7 @@ import static com.google.common.util.concurrent.Futures.immediateCancelledFuture
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+import static com.google.devtools.build.lib.util.StringUtilities.bytesCountToDisplayString;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
@@ -38,7 +39,6 @@ import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
-import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.DetailedIOException;
@@ -709,7 +709,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
 
             @Override
             public String getProgress() {
-              return "(%s)".formatted(Utils.bytesCountToDisplayString(info.getSize()));
+              return "(%s)".formatted(bytesCountToDisplayString(info.getSize()));
             }
 
             @Override

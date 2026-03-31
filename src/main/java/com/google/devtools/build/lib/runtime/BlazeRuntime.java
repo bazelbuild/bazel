@@ -370,20 +370,20 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     BuildEventProtocolOptions bepOptions = options.getOptions(BuildEventProtocolOptions.class);
     CommonCommandOptions commandOptions = options.getOptions(CommonCommandOptions.class);
     OutputStream out = null;
-    boolean recordFullProfilerData = commandOptions.recordFullProfilerData;
+    boolean recordFullProfilerData = commandOptions.getRecordFullProfilerData();
     ImmutableSet.Builder<ProfilerTask> profiledTasksBuilder = ImmutableSet.builder();
     Format format = Format.JSON_TRACE_FILE_FORMAT;
     InstrumentationOutput profile = null;
     try {
       if (tracerEnabled) {
-        if (commandOptions.profilePath == null) {
+        if (commandOptions.getProfilePath() == null) {
           String profileName = "command.profile.gz";
           format = Format.JSON_TRACE_FILE_COMPRESSED_FORMAT;
           if (bepOptions != null && bepOptions.streamingLogFileUploads) {
             profile =
                 instrumentationOutputFactory.createBuildEventArtifactInstrumentationOutput(
                     profileName, newUploader(env, bepOptions.buildEventUploadStrategy));
-          } else if (commandOptions.redirectLocalInstrumentationOutputWrites) {
+          } else if (commandOptions.getRedirectLocalInstrumentationOutputWrites()) {
             profile =
                 instrumentationOutputFactory.createInstrumentationOutput(
                     profileName,
@@ -398,14 +398,14 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                 manageProfiles(
                     workspace.getOutputBase(),
                     env.getCommandId().toString(),
-                    commandOptions.profilesToRetain);
+                    commandOptions.getProfilesToRetain());
             profile =
                 instrumentationOutputFactory.createLocalOutputWithConvenientName(
                     profileName, profilePath, /* convenienceName= */ profileName);
           }
         } else {
           format =
-              commandOptions.profilePath.toString().endsWith(".gz")
+              commandOptions.getProfilePath().toString().endsWith(".gz")
                   ? Format.JSON_TRACE_FILE_COMPRESSED_FORMAT
                   : Format.JSON_TRACE_FILE_FORMAT;
           profile =
@@ -413,7 +413,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                   (format == Format.JSON_TRACE_FILE_COMPRESSED_FORMAT)
                       ? "command.profile.gz"
                       : "command.profile.json",
-                  /* destination= */ commandOptions.profilePath,
+                  /* destination= */ commandOptions.getProfilePath(),
                   DestinationRelativeTo.WORKSPACE_OR_HOME,
                   env,
                   eventHandler,
@@ -429,11 +429,11 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             profiledTasksBuilder.add(profilerTask);
           }
         }
-        profiledTasksBuilder.addAll(commandOptions.additionalProfileTasks);
-        if (commandOptions.recordFullProfilerData) {
+        profiledTasksBuilder.addAll(commandOptions.getAdditionalProfileTasks());
+        if (commandOptions.getRecordFullProfilerData()) {
           profiledTasksBuilder.addAll(EnumSet.allOf(ProfilerTask.class));
         }
-      } else if (commandOptions.alwaysProfileSlowOperations) {
+      } else if (commandOptions.getAlwaysProfileSlowOperations()) {
         recordFullProfilerData = false;
         out = null;
         for (ProfilerTask profilerTask : ProfilerTask.values()) {
@@ -444,7 +444,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       }
       ImmutableSet<ProfilerTask> profiledTasks = profiledTasksBuilder.build();
       if (!profiledTasks.isEmpty()) {
-        if (commandOptions.slimProfile && commandOptions.includePrimaryOutput) {
+        if (commandOptions.getSlimProfile() && commandOptions.getIncludePrimaryOutput()) {
           eventHandler.handle(
               Event.warn(
                   "Enabling both --slim_profile and"
@@ -458,7 +458,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         LocalResourceUsageCollectors localResourceUsageCollectors =
             new LocalResourceUsageCollectors(
                 bugReporter,
-                commandOptions.collectSkyframeCounts
+                commandOptions.getCollectSkyframeCounts()
                     ? env.getSkyframeExecutor().getEvaluator().getInMemoryGraph()
                     : null,
                 workerProcessMetricsCollector,
@@ -466,12 +466,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                 getBlazeService(SystemNetworkStatsService.class));
 
         localResourceUsageCollectors.addCollectors(
-            /* collectWorkerDataInProfiler= */ commandOptions.collectWorkerDataInProfiler,
-            /* collectLoadAverage= */ commandOptions.collectLoadAverageInProfiler,
-            /* collectSystemNetworkUsage= */ commandOptions.collectSystemNetworkUsage,
-            /* collectResourceManagerEstimation= */ commandOptions.collectResourceEstimation,
-            /* collectPressureStallIndicators= */ commandOptions.collectPressureStallIndicators,
-            /* collectSkyframeCounts= */ commandOptions.collectSkyframeCounts);
+            /* collectWorkerDataInProfiler= */ commandOptions.getCollectWorkerDataInProfiler(),
+            /* collectLoadAverage= */ commandOptions.getCollectLoadAverageInProfiler(),
+            /* collectSystemNetworkUsage= */ commandOptions.getCollectSystemNetworkUsage(),
+            /* collectResourceManagerEstimation= */ commandOptions.getCollectResourceEstimation(),
+            /* collectPressureStallIndicators= */ commandOptions
+                .getCollectPressureStallIndicators(),
+            /* collectSkyframeCounts= */ commandOptions.getCollectSkyframeCounts());
 
         // TODO(b/457644247): Encapsulate the start params into a config object.
         Profiler.instance()
@@ -484,16 +485,16 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                 recordFullProfilerData,
                 clock,
                 execStartTimeNanos,
-                /* slimProfile= */ commandOptions.slimProfile,
-                /* includePrimaryOutput= */ commandOptions.includePrimaryOutput,
-                /* includeTargetLabel= */ commandOptions.profileIncludeTargetLabel,
-                /* includeConfiguration= */ commandOptions.profileIncludeTargetConfiguration,
-                /* collectTaskHistograms= */ commandOptions.alwaysProfileSlowOperations);
+                /* slimProfile= */ commandOptions.getSlimProfile(),
+                /* includePrimaryOutput= */ commandOptions.getIncludePrimaryOutput(),
+                /* includeTargetLabel= */ commandOptions.getProfileIncludeTargetLabel(),
+                /* includeConfiguration= */ commandOptions.getProfileIncludeTargetConfiguration(),
+                /* collectTaskHistograms= */ commandOptions.getAlwaysProfileSlowOperations());
 
         // Instead of logEvent() we're calling the low level function to pass the timings we took in
         // the launcher. We're setting the INIT phase marker so that it follows immediately the
         // LAUNCH phase.
-        long startupTimeNanos = commandOptions.startupTime * 1000000L;
+        long startupTimeNanos = commandOptions.getStartupTime() * 1000000L;
         long waitTimeNanos = waitTimeInMs * 1000000L;
         long clientStartTimeNanos = execStartTimeNanos - startupTimeNanos - waitTimeNanos;
         Profiler.instance()
@@ -502,19 +503,19 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                 Duration.ofNanos(startupTimeNanos),
                 ProfilerTask.PHASE,
                 ProfilePhase.LAUNCH.description);
-        if (commandOptions.extractDataTime > 0) {
+        if (commandOptions.getExtractDataTime() > 0) {
           Profiler.instance()
               .logSimpleTaskDuration(
                   clientStartTimeNanos,
-                  Duration.ofMillis(commandOptions.extractDataTime),
+                  Duration.ofMillis(commandOptions.getExtractDataTime()),
                   ProfilerTask.PHASE,
                   "Extracting Bazel binary");
         }
-        if (commandOptions.waitTime > 0) {
+        if (commandOptions.getWaitTime() > 0) {
           Profiler.instance()
               .logSimpleTaskDuration(
                   clientStartTimeNanos,
-                  Duration.ofMillis(commandOptions.waitTime),
+                  Duration.ofMillis(commandOptions.getWaitTime()),
                   ProfilerTask.PHASE,
                   "Blocking on busy Bazel server (in client)");
         }
@@ -652,11 +653,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    */
   void beforeCommand(CommandEnvironment env, CommonCommandOptions options) {
     this.env = env;
-    if (options.memoryProfilePath != null) {
-      Path memoryProfilePath = env.getWorkingDirectory().getRelative(options.memoryProfilePath);
+    if (options.getMemoryProfilePath() != null) {
+      Path memoryProfilePath =
+          env.getWorkingDirectory().getRelative(options.getMemoryProfilePath());
       MemoryProfiler.instance()
           .setStableMemoryParameters(
-              options.memoryProfileStableHeapParameters,
+              options.getMemoryProfileStableHeapParameters(),
               env.getOptions()
                   .getOptions(MemoryPressureOptions.class)
                   .jvmHeapHistogramInternalObjectPattern
@@ -674,18 +676,18 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             && env.getOptions().getOptions(KeepStateAfterBuildOption.class).keepStateAfterBuild;
     env.addIdleTask(new GcAndInternerShrinkingIdleTask(stateKeptAfterBuild));
 
-    if (options.installBaseGcMaxAge != null && !options.installBaseGcMaxAge.isZero()) {
+    if (options.getInstallBaseGcMaxAge() != null && !options.getInstallBaseGcMaxAge().isZero()) {
       env.addIdleTask(
           InstallBaseGarbageCollectorIdleTask.create(
-              workspace.getDirectories().getInstallBase(), options.installBaseGcMaxAge));
+              workspace.getDirectories().getInstallBase(), options.getInstallBaseGcMaxAge()));
     }
 
-    if (options.actionCacheGcMaxAge != null && !options.actionCacheGcMaxAge.isZero()) {
+    if (options.getActionCacheGcMaxAge() != null && !options.getActionCacheGcMaxAge().isZero()) {
       env.addIdleTask(
           workspace.getActionCacheGcIdleTask(
-              options.actionCacheGcIdleDelay,
-              options.actionCacheGcThreshold / 100.0f,
-              options.actionCacheGcMaxAge));
+              options.getActionCacheGcIdleDelay(),
+              options.getActionCacheGcThreshold() / 100.0f,
+              options.getActionCacheGcMaxAge()));
     }
   }
 
@@ -1652,14 +1654,14 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       return;
     }
     CommonCommandOptions options = localEnv.getOptions().getOptions(CommonCommandOptions.class);
-    if (options.heapDumpOnOom) {
+    if (options.getHeapDumpOnOom()) {
       ctx.setHeapDumpPath(
           workspace
               .getOutputBase()
               .getRelative(env.getCommandId() + ".heapdump.hprof") // Must end in .hprof.
               .getPathString());
     }
-    ctx.withExtraOomInfo(options.oomMessage).reportingTo(localEnv.getReporter());
+    ctx.withExtraOomInfo(options.getOomMessage()).reportingTo(localEnv.getReporter());
   }
 
   public BuildEventArtifactUploaderFactoryMap getBuildEventArtifactUploaderFactoryMap() {

@@ -21,7 +21,8 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptionDetails;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
+import com.google.devtools.build.lib.analysis.config.CoreOptionsFields;
+import com.google.devtools.build.lib.analysis.config.CoreOptionsFields.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
@@ -59,11 +60,11 @@ public final class RequiredFragmentsUtil {
    * {@link RuleConfiguredTargetBuilder#maybeAddRequiredConfigFragmentsProvider} for the remaining
    * pieces of config state.
    *
-   * <p>If {@code configuration} is {@link CoreOptions.IncludeConfigFragmentsEnum#DIRECT}, the
+   * <p>If {@code configuration} is {@link CoreOptionsFields.IncludeConfigFragmentsEnum#DIRECT}, the
    * result includes only the config state considered to be directly required by this target. If
-   * it's {@link CoreOptions.IncludeConfigFragmentsEnum#TRANSITIVE}, it also includes config state
-   * needed by transitive dependencies. If it's {@link CoreOptions.IncludeConfigFragmentsEnum#OFF},
-   * this method returns {@code null}.
+   * it's {@link CoreOptionsFields.IncludeConfigFragmentsEnum#TRANSITIVE}, it also includes config
+   * state needed by transitive dependencies. If it's {@link
+   * CoreOptionsFields.IncludeConfigFragmentsEnum#OFF}, this method returns {@code null}.
    *
    * <p>{@code select()}s and toolchain dependencies are considered when looking at what config
    * state is required.
@@ -319,7 +320,7 @@ public final class RequiredFragmentsUtil {
   private static IncludeConfigFragmentsEnum getRequiredFragmentsMode(
       BuildConfigurationValue config) {
     return checkNotNull(
-        config.getOptions().get(CoreOptions.class).includeRequiredConfigFragmentsProvider);
+        config.getOptions().get(CoreOptions.class).getIncludeRequiredConfigFragmentsProvider());
   }
 
   private RequiredFragmentsUtil() {}

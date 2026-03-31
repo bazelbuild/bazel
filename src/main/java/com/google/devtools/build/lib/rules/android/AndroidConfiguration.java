@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfi
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
-import com.google.devtools.build.lib.rules.cpp.CppOptions.DynamicModeConverter;
+import com.google.devtools.build.lib.rules.cpp.CppOptionsFields.DynamicModeConverter;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidConfigurationApi;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
@@ -786,14 +786,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean useRTxtFromMergedResources;
 
     @Option(
-        name = "output_library_merged_assets",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "If disabled, does not produce merged asset.zip outputs for library targets")
-    public boolean outputLibraryMergedAssets;
-
-    @Option(
         name = "legacy_main_dex_list_generator",
         // TODO(b/147692286): Update this default value to R8's GenerateMainDexList binary after
         // migrating usage.
@@ -814,17 +806,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "Specifies a binary to use to do dexing without sharding.")
     public Label optimizingDexer;
-
-    @Option(
-        name = "experimental_disable_instrumentation_manifest_merge",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help =
-            "Disables manifest merging when an android_binary has instruments set (i.e. is used "
-                + "for instrumentation testing).")
-    public boolean disableInstrumentationManifestMerging;
 
     @Option(
         name = "experimental_get_android_java_resources_from_optimized_jar",
@@ -880,10 +861,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean removeRClassesFromInstrumentationTestJar;
   private final boolean filterLibraryJarWithProgramJar;
   private final boolean useRTxtFromMergedResources;
-  private final boolean outputLibraryMergedAssets;
   private final Label legacyMainDexListGenerator;
   private final Label optimizingDexer;
-  private final boolean disableInstrumentationManifestMerging;
   private final boolean getJavaResourcesFromOptimizedJar;
   private final boolean disableAndroidFragment;
 
@@ -924,10 +903,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         options.removeRClassesFromInstrumentationTestJar;
     this.filterLibraryJarWithProgramJar = options.filterLibraryJarWithProgramJar;
     this.useRTxtFromMergedResources = options.useRTxtFromMergedResources;
-    this.outputLibraryMergedAssets = options.outputLibraryMergedAssets;
     this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
     this.optimizingDexer = options.optimizingDexer;
-    this.disableInstrumentationManifestMerging = options.disableInstrumentationManifestMerging;
     this.getJavaResourcesFromOptimizedJar = options.getJavaResourcesFromOptimizedJar;
     this.disableAndroidFragment = options.disableAndroidFragment;
 
@@ -1132,17 +1109,9 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     return useRTxtFromMergedResources;
   }
 
-  public boolean disableInstrumentationManifestMerging() {
-    return disableInstrumentationManifestMerging;
-  }
-
   @Override
   public boolean getJavaResourcesFromOptimizedJar() {
     return getJavaResourcesFromOptimizedJar;
-  }
-
-  boolean outputLibraryMergedAssets() {
-    return outputLibraryMergedAssets;
   }
 
   /** Returns the label provided with --legacy_main_dex_list_generator, if any. */

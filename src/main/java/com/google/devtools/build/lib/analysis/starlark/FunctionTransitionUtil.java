@@ -112,7 +112,7 @@ public final class FunctionTransitionUtil {
         // transition semantics in the flag definition.
         flagsAliases = ImmutableMap.of();
       } else {
-        flagsAliases = fromOptions.get(CoreOptions.class).getCommandLineFlagAliases();
+        flagsAliases = fromOptions.get(CoreOptions.class).getCommandLineFlagAliasesMap();
       }
 
       validateInputOptions(
@@ -204,19 +204,21 @@ public final class FunctionTransitionUtil {
       defaultBuilder.addFragmentOptions(testOptions);
     }
     BuildOptions ans = defaultBuilder.build();
-    if (fromOptions.get(CoreOptions.class).excludeDefinesFromExecConfig) {
-      ans.get(CoreOptions.class).commandLineBuildVariables =
-          fromOptions.get(CoreOptions.class).commandLineBuildVariables.stream()
-              .filter(
-                  (define) ->
-                      fromOptions
-                          .get(CoreOptions.class)
-                          .customFlagsToPropagate
-                          .contains(define.getKey()))
-              .collect(toImmutableList());
+    if (fromOptions.get(CoreOptions.class).getExcludeDefinesFromExecConfig()) {
+      ans.get(CoreOptions.class)
+          .setCommandLineBuildVariables(
+              fromOptions.get(CoreOptions.class).getCommandLineBuildVariables().stream()
+                  .filter(
+                      (define) ->
+                          fromOptions
+                              .get(CoreOptions.class)
+                              .getCustomFlagsToPropagate()
+                              .contains(define.getKey()))
+                  .collect(toImmutableList()));
     } else {
-      ans.get(CoreOptions.class).commandLineBuildVariables =
-          fromOptions.get(CoreOptions.class).commandLineBuildVariables;
+      ans.get(CoreOptions.class)
+          .setCommandLineBuildVariables(
+              fromOptions.get(CoreOptions.class).getCommandLineBuildVariables());
     }
     return ans;
   }
@@ -233,7 +235,7 @@ public final class FunctionTransitionUtil {
           "No scope info available for Starlark flag %s.",
           flag);
     }
-    if (!options.get(CoreOptions.class).excludeStarlarkFlagsFromExecConfig) {
+    if (!options.get(CoreOptions.class).getExcludeStarlarkFlagsFromExecConfig()) {
       // Starlark flags propagate to exec by default. This can only be changed by a flag explicitly
       // setting "scope = 'target'".
       return starlarkOptions.entrySet().stream()
@@ -250,7 +252,7 @@ public final class FunctionTransitionUtil {
     // to the exec config by default. This can be overridden by a flag setting "scope = 'universal'"
     // or --experimental_propagate_custom_flag. If both are set, the flag setting takes precedence.
     Map<Boolean, List<String>> partitioned =
-        options.get(CoreOptions.class).customFlagsToPropagate.stream()
+        options.get(CoreOptions.class).getCustomFlagsToPropagate().stream()
             .collect(
                 Collectors.partitioningBy(f -> f.endsWith(CustomFlagConverter.SUBPACKAGES_SUFFIX)));
     // Holds --experimental_propagate_custom_flag patterns=//pkg/... patterns. These are rare.
@@ -335,7 +337,7 @@ public final class FunctionTransitionUtil {
   private static Map<Label, Object> handleImplicitPlatformChange(
       BuildOptions options, Map<Label, Object> rawTransitionOutput) {
     Object newCpu = rawTransitionOutput.get(CPU_OPTION);
-    if (newCpu == null || newCpu.equals(options.get(CoreOptions.class).cpu)) {
+    if (newCpu == null || newCpu.equals(options.get(CoreOptions.class).getCpu())) {
       // No effective change to --cpu, so no need to prevent the platform mapping from resetting it.
       return rawTransitionOutput;
     }
@@ -805,7 +807,7 @@ public final class FunctionTransitionUtil {
             .addStarlarkOptions(changedStarlarkOptions)
             .build();
     if (starlarkTransition.isForAnalysisTesting()) {
-      toOptions.get(CoreOptions.class).evaluatingForAnalysisTest = true;
+      toOptions.get(CoreOptions.class).setEvaluatingForAnalysisTest(true);
     }
     return toOptions;
   }

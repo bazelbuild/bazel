@@ -400,7 +400,7 @@ public class BuildRequest implements OptionsProvider {
   public List<String> validateOptions() {
     List<String> warnings = new ArrayList<>();
 
-    int localTestJobs = getExecutionOptions().localTestJobs;
+    int localTestJobs = getExecutionOptions().getLocalTestJobs();
     int jobs = getBuildOptions().getJobs();
     if (localTestJobs > jobs) {
       warnings.add(
@@ -417,7 +417,7 @@ public class BuildRequest implements OptionsProvider {
   public TopLevelArtifactContext getTopLevelArtifactContext() {
     BuildRequestOptions buildOptions = getBuildOptions();
     return new TopLevelArtifactContext(
-        getOptions(ExecutionOptions.class).testStrategy.equals("exclusive"),
+        getOptions(ExecutionOptions.class).getTestStrategy().equals("exclusive"),
         getOptions(BuildEventProtocolOptions.class).expandFilesets,
         OutputGroupInfo.determineOutputGroups(
             buildOptions.getOutputGroups(),

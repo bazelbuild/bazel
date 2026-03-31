@@ -457,14 +457,6 @@ public class RemoteSpawnCacheTest {
       } else {
         remoteCacheClient = mock(RemoteCacheClient.class);
       }
-      combinedCache =
-          spy(
-              new CombinedCache(
-                  remoteCacheClient,
-                  diskCacheClient,
-                  /* symlinkTemplate= */ null,
-                  digestUtil,
-                  /* chunkingEnabled= */ false));
 
       var remoteSpawnCache = remoteSpawnCacheWithOptions(remoteOptions);
       for (String requirement :
@@ -499,14 +491,6 @@ public class RemoteSpawnCacheTest {
     RemoteOptions remoteCacheOptions = Options.getDefaults(RemoteOptions.class);
     remoteCacheOptions.remoteCache = "https://somecache.com";
     RemoteCacheClient remoteCacheClient = mock(RemoteCacheClient.class);
-    combinedCache =
-        spy(
-            new CombinedCache(
-                remoteCacheClient,
-                /* diskCacheClient= */ null,
-                /* symlinkTemplate= */ null,
-                digestUtil,
-                /* chunkingEnabled= */ false));
     RemoteSpawnCache remoteSpawnCache = remoteSpawnCacheWithOptions(remoteCacheOptions);
     for (String requirement :
         ImmutableList.of(
@@ -546,15 +530,6 @@ public class RemoteSpawnCacheTest {
     remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
     RemoteSpawnCache remoteSpawnCache = remoteSpawnCacheWithOptions(remoteOptions);
     RemoteCacheClient remoteCacheClient = mock(RemoteCacheClient.class);
-    DiskCacheClient diskCacheClient = mock(DiskCacheClient.class);
-    combinedCache =
-        spy(
-            new CombinedCache(
-                remoteCacheClient,
-                diskCacheClient,
-                /* symlinkTemplate= */ null,
-                digestUtil,
-                /* chunkingEnabled= */ false));
 
     for (String requirement :
         ImmutableList.of(ExecutionRequirements.NO_CACHE, ExecutionRequirements.LOCAL)) {

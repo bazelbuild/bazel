@@ -133,7 +133,7 @@ public interface CcToolchainProviderApi extends StarlarkValue {
   }
 
   @StarlarkMethod(name = "cpu", structField = true, doc = "Target CPU of the C++ toolchain.")
-  default void getTargetCpu() {
+  default void targetCpu() {
     throw new UnsupportedOperationException(
         "Native CcToolchainInfo API no longer exists, use Starlark provider instead.");
   }

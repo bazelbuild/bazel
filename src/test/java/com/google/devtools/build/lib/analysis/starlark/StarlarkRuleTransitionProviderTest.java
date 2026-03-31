@@ -1741,7 +1741,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
     ConfiguredTarget ct = getConfiguredTarget("//test");
     assertNoEvents();
-    assertThat(getConfiguration(ct).getOptions().get(CppOptions.class).fissionModes).isEmpty();
+    assertThat(getConfiguration(ct).getOptions().get(CppOptions.class).getFissionModes()).isEmpty();
   }
 
   @Test

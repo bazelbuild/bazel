@@ -75,7 +75,7 @@ public class CoverageConfiguration extends Fragment implements CoverageConfigura
   private final CoverageOptions coverageOptions;
 
   public CoverageConfiguration(BuildOptions buildOptions) {
-    if (!buildOptions.get(CoreOptions.class).collectCodeCoverage) {
+    if (!buildOptions.get(CoreOptions.class).getCollectCodeCoverage()) {
       this.coverageOptions = null;
       return;
     }

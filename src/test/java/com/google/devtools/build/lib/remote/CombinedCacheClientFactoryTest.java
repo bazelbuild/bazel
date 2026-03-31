@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import java.io.IOException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.junit.Before;
 import org.junit.Test;
@@ -46,8 +45,6 @@ import org.junit.runners.JUnit4;
 public class CombinedCacheClientFactoryTest {
   private final DigestUtil digestUtil =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
-  private static final ExecutorService executorService =
-      MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(1));
 
   private RemoteOptions remoteOptions;
   private final AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
@@ -78,6 +75,7 @@ public class CombinedCacheClientFactoryTest {
     var blobStore =
         CombinedCacheClientFactory.create(
             remoteOptions,
+            remoteOptions.getDiskCachePath(workingDirectory),
             /* creds= */ null,
             authAndTlsOptions,
             workingDirectory,
@@ -97,6 +95,7 @@ public class CombinedCacheClientFactoryTest {
     var blobStore =
         CombinedCacheClientFactory.create(
             remoteOptions,
+            remoteOptions.getDiskCachePath(workingDirectory),
             /* creds= */ null,
             authAndTlsOptions,
             workingDirectory,
@@ -119,6 +118,9 @@ public class CombinedCacheClientFactoryTest {
         () ->
             CombinedCacheClientFactory.create(
                 remoteOptions,
+                remoteOptions.diskCache != null
+                    ? remoteOptions.getDiskCachePath(/* outputUserRoot= */ null)
+                    : null,
                 /* creds= */ null,
                 authAndTlsOptions,
                 /* workingDirectory= */ null,
@@ -137,6 +139,7 @@ public class CombinedCacheClientFactoryTest {
     var blobStore =
         CombinedCacheClientFactory.create(
             remoteOptions,
+            remoteOptions.getDiskCachePath(workingDirectory),
             /* creds= */ null,
             authAndTlsOptions,
             workingDirectory,
@@ -158,6 +161,7 @@ public class CombinedCacheClientFactoryTest {
                 () ->
                     CombinedCacheClientFactory.create(
                         remoteOptions,
+                        remoteOptions.getDiskCachePath(workingDirectory),
                         /* creds= */ null,
                         authAndTlsOptions,
                         workingDirectory,
@@ -174,6 +178,7 @@ public class CombinedCacheClientFactoryTest {
     var blobStore =
         CombinedCacheClientFactory.create(
             remoteOptions,
+            remoteOptions.getDiskCachePath(workingDirectory),
             /* creds= */ null,
             authAndTlsOptions,
             workingDirectory,
@@ -191,6 +196,7 @@ public class CombinedCacheClientFactoryTest {
     var blobStore =
         CombinedCacheClientFactory.create(
             remoteOptions,
+            remoteOptions.getDiskCachePath(workingDirectory),
             /* creds= */ null,
             authAndTlsOptions,
             workingDirectory,
@@ -262,8 +268,8 @@ public class CombinedCacheClientFactoryTest {
   }
 
   @Test
-  public void isRemoteCacheOptions_diskCacheOptionEmpty() {
-    remoteOptions.diskCache = PathFragment.EMPTY_FRAGMENT;
+  public void isRemoteCacheOptions_diskCacheOptionNull() {
+    remoteOptions.diskCache = null;
     assertThat(CombinedCacheClientFactory.isRemoteCacheOptions(remoteOptions)).isFalse();
   }
 

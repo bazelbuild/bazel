@@ -107,7 +107,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.SerializationDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptionsFields.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisJsonLogWriter;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisMetadataWriter;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -500,8 +500,10 @@ public class BuildTool {
         // problem (and the performance loss may not be a big deal). Notably, one must not call
         // .checksum() before mutating the BuildOptions instance, lest the checksum and the option
         // values get out of sync.
-        buildOptions.get(CoreOptions.class).instrumentationFilter =
-            new RegexFilter.RegexFilterConverter().convert(instrumentationFilter);
+        buildOptions
+            .get(CoreOptions.class)
+            .setInstrumentationFilter(
+                new RegexFilter.RegexFilterConverter().convert(instrumentationFilter));
       } catch (OptionsParsingException e) {
         throw new InvalidConfigurationException(Code.HEURISTIC_INSTRUMENTATION_FILTER_INVALID, e);
       }
@@ -542,7 +544,7 @@ public class BuildTool {
       if (request.getBuildOptions().getPerformAnalysisPhase()) {
         if (!analysisResult.getExclusiveTests().isEmpty()
             && executionTool.getTestActionContext().forceExclusiveTestsInParallel()) {
-          String testStrategy = request.getOptions(ExecutionOptions.class).testStrategy;
+          String testStrategy = request.getOptions(ExecutionOptions.class).getTestStrategy();
           for (ConfiguredTarget test : analysisResult.getExclusiveTests()) {
             getReporter()
                 .handle(
@@ -651,7 +653,7 @@ public class BuildTool {
               new BuildDriverKeyTestContext() {
                 @Override
                 public String getTestStrategy() {
-                  return request.getOptions(ExecutionOptions.class).testStrategy;
+                  return request.getOptions(ExecutionOptions.class).getTestStrategy();
                 }
 
                 @Override
@@ -1110,7 +1112,7 @@ public class BuildTool {
     if (skycacheMetadataParams == null
         || !env.getOptions()
             .getOptions(RemoteAnalysisCachingOptions.class)
-            .analysisCacheEnableMetadataQueries) {
+            .getAnalysisCacheEnableMetadataQueries()) {
       return;
     }
     try (SilentCloseable c = Profiler.instance().profile("skycache.metadata.upload")) {
@@ -1156,7 +1158,7 @@ public class BuildTool {
   }
 
   private static boolean shouldStopOnFailure(BuildRequest request) {
-    return !(request.getKeepGoing() && request.getExecutionOptions().testKeepGoing);
+    return !(request.getKeepGoing() && request.getExecutionOptions().getTestKeepGoing());
   }
 
   /** Initializes the output filter to the value given with {@code --output_filter}. */

@@ -31,6 +31,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
 import java.time.Duration;
@@ -41,7 +42,8 @@ import java.util.logging.Level;
 import javax.annotation.Nullable;
 
 /** Options common to all commands. */
-public class CommonCommandOptions extends OptionsBase {
+@OptionsClass
+public abstract class CommonCommandOptionsFields extends OptionsBase {
 
   // It's by design that this field is unused: this command line option takes effect by reading its
   // value during options parsing based on its (string) name.
@@ -56,7 +58,7 @@ public class CommonCommandOptions extends OptionsBase {
               + "with build:linux. Supported OS identifiers are linux, macos, windows, freebsd, "
               + "and openbsd. Enabling this flag is equivalent to using --config=linux on Linux, "
               + "--config=windows on Windows, etc.")
-  public boolean enablePlatformSpecificConfig;
+  public abstract boolean getEnablePlatformSpecificConfig();
 
   @Option(
       name = "config",
@@ -70,7 +72,7 @@ public class CommonCommandOptions extends OptionsBase {
               + "if this section doesn't exist in any .rc file, Blaze fails with an error. "
               + "The config sections and flag combinations they are equivalent to are "
               + "located in the tools/*.blazerc config files.")
-  public List<String> configs;
+  public abstract List<String> getConfigs();
 
   @Option(
       name = "logging",
@@ -79,7 +81,7 @@ public class CommonCommandOptions extends OptionsBase {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       converter = Converters.LogLevelConverter.class,
       help = "The logging level.")
-  public Level verbosity;
+  public abstract Level getVerbosity();
 
   @Option(
       name = "client_cwd",
@@ -89,7 +91,7 @@ public class CommonCommandOptions extends OptionsBase {
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       converter = OptionsUtils.PathFragmentConverter.class,
       help = "A system-generated parameter which specifies the client's working directory")
-  public PathFragment clientCwd;
+  public abstract PathFragment getClientCwd();
 
   @Option(
       name = "announce_rc",
@@ -97,7 +99,7 @@ public class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Whether to announce rc options.")
-  public boolean announceRcOptions;
+  public abstract boolean getAnnounceRcOptions();
 
   @Option(
       name = "always_profile_slow_operations",
@@ -105,7 +107,7 @@ public class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "Whether profiling slow operations is always turned on")
-  public boolean alwaysProfileSlowOperations;
+  public abstract boolean getAlwaysProfileSlowOperations();
 
   @Option(
       name = "experimental_install_base_gc_max_age",
@@ -117,7 +119,7 @@ public class CommonCommandOptions extends OptionsBase {
           "How long an install base must go unused before it's eligible for garbage collection."
               + " If nonzero, the server will attempt to garbage collect other install bases when"
               + " idle.")
-  public Duration installBaseGcMaxAge;
+  public abstract Duration getInstallBaseGcMaxAge();
 
   @Option(
       name = "experimental_action_cache_gc_idle_delay",
@@ -128,7 +130,7 @@ public class CommonCommandOptions extends OptionsBase {
       help =
           "How long the server must remain idle before a garbage collection of the action cache is"
               + " attempted. Ineffectual unless --experimental_action_cache_gc_max_age is nonzero.")
-  public Duration actionCacheGcIdleDelay;
+  public abstract Duration getActionCacheGcIdleDelay();
 
   @Option(
       name = "experimental_action_cache_gc_threshold",
@@ -139,7 +141,7 @@ public class CommonCommandOptions extends OptionsBase {
       help =
           "The percentage of stale action cache entries required for garbage collection to be"
               + " triggered. Ineffectual unless --experimental_action_cache_gc_max_age is nonzero.")
-  public int actionCacheGcThreshold;
+  public abstract int getActionCacheGcThreshold();
 
   @Option(
       name = "experimental_action_cache_gc_max_age",
@@ -153,7 +155,7 @@ public class CommonCommandOptions extends OptionsBase {
               + " once the server has become idle, as determined by the"
               + " --experimental_action_cache_gc_idle_delay and"
               + " --experimental_action_cache_gc_threshold flags.")
-  public Duration actionCacheGcMaxAge;
+  public abstract Duration getActionCacheGcMaxAge();
 
   @Option(
       name = "experimental_enable_thread_dump",
@@ -166,7 +168,7 @@ public class CommonCommandOptions extends OptionsBase {
               + " or after action execution being inactive for"
               + " --experimental_thread_dump_action_execution_inactivity_duration. The dumps will"
               + " be written to the <output_base>/server/thread_dumps/ directory.")
-  public boolean enableThreadDump;
+  public abstract boolean getEnableThreadDump();
 
   @Option(
       name = "experimental_thread_dump_interval",
@@ -177,7 +179,7 @@ public class CommonCommandOptions extends OptionsBase {
       help =
           "How often to dump the threads periodically. If zero, no thread dumps are written"
               + " periodically.")
-  public Duration threadDumpInterval;
+  public abstract Duration getThreadDumpInterval();
 
   @Option(
       name = "experimental_thread_dump_action_execution_inactivity_duration",
@@ -188,7 +190,7 @@ public class CommonCommandOptions extends OptionsBase {
       help =
           "Dump the threads when action execution being inactive for this duration. If zero, no"
               + " thread dumps are written for action execution being inactive.")
-  public Duration threadDumpActionExecutionInactivityDuration;
+  public abstract Duration getThreadDumpActionExecutionInactivityDuration();
 
   /** Converter for UUID. Accepts values as specified by {@link UUID#fromString(String)}. */
   public static class UUIDConverter extends Converter.Contextless<UUID> {
@@ -259,7 +261,7 @@ public class CommonCommandOptions extends OptionsBase {
           "Unique identifier, in UUID format, for the command being run. If explicitly specified"
               + " uniqueness must be ensured by the caller. The UUID is printed to stderr, the BEP"
               + " and remote execution protocol.")
-  public UUID invocationId;
+  public abstract UUID getInvocationId();
 
   @Option(
       name = "build_request_id",
@@ -269,7 +271,7 @@ public class CommonCommandOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_MONITORING, OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       metadataTags = {OptionMetadataTag.HIDDEN},
       help = "Unique string identifier for the build being run.")
-  public String buildRequestId;
+  public abstract String getBuildRequestId();
 
   @Option(
       name = "build_metadata",
@@ -279,7 +281,7 @@ public class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help = "Custom key-value string pairs to supply in a build event.")
-  public List<Map.Entry<String, String>> buildMetadata;
+  public abstract List<Map.Entry<String, String>> getBuildMetadata();
 
   @Option(
       name = "oom_message",
@@ -288,7 +290,7 @@ public class CommonCommandOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_MONITORING, OptionEffectTag.TERMINAL_OUTPUT},
       metadataTags = {OptionMetadataTag.HIDDEN},
       help = "Custom message to be emitted on an out of memory failure.")
-  public String oomMessage;
+  public abstract String getOomMessage();
 
   @Option(
       name = "generate_json_trace_profile",
@@ -300,7 +302,7 @@ public class CommonCommandOptions extends OptionsBase {
           "If enabled, Bazel profiles the build and writes a JSON-format profile into a file in"
               + " the output base. View profile by loading into chrome://tracing. By default Bazel"
               + " writes the profile for all build-like commands and query.")
-  public TriState enableTracer;
+  public abstract TriState getEnableTracer();
 
   @Option(
       name = "experimental_profile_additional_tasks",
@@ -310,7 +312,7 @@ public class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Specifies additional profile tasks to be included in the profile.")
-  public List<ProfilerTask> additionalProfileTasks;
+  public abstract List<ProfilerTask> getAdditionalProfileTasks();
 
   @Option(
       name = "slim_profile",
@@ -321,7 +323,7 @@ public class CommonCommandOptions extends OptionsBase {
       help =
           "Slims down the size of the JSON profile by merging events if the profile gets "
               + "too large.")
-  public boolean slimProfile;
+  public abstract boolean getSlimProfile();
 
   @Option(
       name = "experimental_profile_include_primary_output",
@@ -332,7 +334,7 @@ public class CommonCommandOptions extends OptionsBase {
       help =
           "Includes the extra \"out\" attribute in action events that contains the exec path "
               + "to the action's primary output.")
-  public boolean includePrimaryOutput;
+  public abstract boolean getIncludePrimaryOutput();
 
   @Option(
       name = "experimental_profile_include_target_label",
@@ -340,7 +342,7 @@ public class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Includes target label in action events' JSON profile data.")
-  public boolean profileIncludeTargetLabel;
+  public abstract boolean getProfileIncludeTargetLabel();
 
   @Option(
       name = "experimental_profile_include_target_configuration",
@@ -348,7 +350,7 @@ public class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Includes target configuration hash in action events' JSON profile data.")
-  public boolean profileIncludeTargetConfiguration;
+  public abstract boolean getProfileIncludeTargetConfiguration();
 
   @Option(
       name = "profiles_to_retain",
@@ -359,7 +361,7 @@ public class CommonCommandOptions extends OptionsBase {
           "Number of profiles to retain in the output base. If there are more than this number of"
               + " profiles in the output base, the oldest are deleted until the total is under the"
               + " limit.")
-  public int profilesToRetain;
+  public abstract int getProfilesToRetain();
 
   @Option(
       name = "profile",
@@ -371,7 +373,7 @@ public class CommonCommandOptions extends OptionsBase {
           "If set, profile Bazel and write data to the specified file. See"
               + " https://bazel.build/advanced/performance/json-trace-profile for more"
               + " information.")
-  public PathFragment profilePath;
+  public abstract PathFragment getProfilePath();
 
   @Option(
       name = "starlark_cpu_profile",
@@ -379,7 +381,7 @@ public class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Writes into the specified file a pprof profile of CPU usage by all Starlark threads.")
-  public String starlarkCpuProfile;
+  public abstract String getStarlarkCpuProfile();
 
   @Option(
       name = "record_full_profiler_data",
@@ -391,7 +393,7 @@ public class CommonCommandOptions extends OptionsBase {
               + "events (such as statting the file). If this option is enabled, profiler will "
               + "record each event - resulting in more precise profiling data but LARGE "
               + "performance hit. Option only has effect if --profile used as well.")
-  public boolean recordFullProfilerData;
+  public abstract boolean getRecordFullProfilerData();
 
   @Option(
       name = "experimental_collect_worker_data_in_profiler",
@@ -399,7 +401,7 @@ public class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "If enabled, the profiler collects worker's aggregated resource data.")
-  public boolean collectWorkerDataInProfiler;
+  public abstract boolean getCollectWorkerDataInProfiler();
 
   @Option(
       name = "experimental_collect_load_average_in_profiler",
@@ -407,7 +409,7 @@ public class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "If enabled, the profiler collects the system's overall load average.")
-  public boolean collectLoadAverageInProfiler;
+  public abstract boolean getCollectLoadAverageInProfiler();
 
   @Option(
       name = "experimental_collect_system_network_usage",
@@ -415,7 +417,7 @@ public class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "If enabled, the profiler collects the system's network usage.")
-  public boolean collectSystemNetworkUsage;
+  public abstract boolean getCollectSystemNetworkUsage();
 
   @Option(
       name = "experimental_collect_resource_estimation",
@@ -423,7 +425,7 @@ public class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "If enabled, the profiler collects CPU and memory usage estimation for local actions.")
-  public boolean collectResourceEstimation;
+  public abstract boolean getCollectResourceEstimation();
 
   @Option(
       name = "experimental_collect_pressure_stall_indicators",
@@ -431,7 +433,7 @@ public class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "If enabled, the profiler collects the Linux PSI data.")
-  public boolean collectPressureStallIndicators;
+  public abstract boolean getCollectPressureStallIndicators();
 
   @Option(
       name = "experimental_collect_skyframe_counts_in_profiler",
@@ -443,7 +445,7 @@ public class CommonCommandOptions extends OptionsBase {
               + " key function types, like configured targets and action executions. May have a"
               + " performance hit as this visits the ENTIRE Skyframe graph at every profiling time"
               + " unit. Do not use this flag with performance-critical measurements.")
-  public boolean collectSkyframeCounts;
+  public abstract boolean getCollectSkyframeCounts();
 
   @Option(
       name = "memory_profile",
@@ -454,7 +456,7 @@ public class CommonCommandOptions extends OptionsBase {
       help =
           "If set, write memory usage data to the specified file at phase ends and stable heap to"
               + " master log at end of build.")
-  public PathFragment memoryProfilePath;
+  public abstract PathFragment getMemoryProfilePath();
 
   @Option(
       name = "memory_profile_stable_heap_parameters",
@@ -468,7 +470,7 @@ public class CommonCommandOptions extends OptionsBase {
               + " number of GCs to perform. The second integer in each pair is the number of"
               + " seconds to wait between GCs. Ex: 2,4,4,0 would 2 GCs with a 4sec pause, followed"
               + " by 4 GCs with zero second pause")
-  public MemoryProfileStableHeapParameters memoryProfileStableHeapParameters;
+  public abstract MemoryProfileStableHeapParameters getMemoryProfileStableHeapParameters();
 
   @Option(
       name = "heap_dump_on_oom",
@@ -480,7 +482,7 @@ public class CommonCommandOptions extends OptionsBase {
               + " reaching --gc_thrashing_limits). The dump will be written to"
               + " <output_base>/<invocation_id>.heapdump.hprof. This option effectively replaces"
               + " -XX:+HeapDumpOnOutOfMemoryError, which has no effect for manual OOMs.")
-  public boolean heapDumpOnOom;
+  public abstract boolean getHeapDumpOnOom();
 
   @Option(
       name = "startup_time",
@@ -489,7 +491,7 @@ public class CommonCommandOptions extends OptionsBase {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
       metadataTags = {OptionMetadataTag.HIDDEN},
       help = "The time in ms the launcher spends before sending the request to the bazel server.")
-  public long startupTime;
+  public abstract long getStartupTime();
 
   @Option(
       name = "extract_data_time",
@@ -498,7 +500,7 @@ public class CommonCommandOptions extends OptionsBase {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
       metadataTags = {OptionMetadataTag.HIDDEN},
       help = "The time in ms spent on extracting the new bazel version.")
-  public long extractDataTime;
+  public abstract long getExtractDataTime();
 
   @Option(
       name = "command_wait_time",
@@ -507,7 +509,7 @@ public class CommonCommandOptions extends OptionsBase {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
       metadataTags = {OptionMetadataTag.HIDDEN},
       help = "The time in ms a command had to wait on a busy Bazel server process.")
-  public long waitTime;
+  public abstract long getWaitTime();
 
   @Option(
       name = "tool_tag",
@@ -515,7 +517,7 @@ public class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
       help = "A tool name to attribute this Bazel invocation to.")
-  public String toolTag;
+  public abstract String getToolTag();
 
   @Option(
       name = "restart_reason",
@@ -524,7 +526,7 @@ public class CommonCommandOptions extends OptionsBase {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
       metadataTags = {OptionMetadataTag.HIDDEN},
       help = "The reason for the server restart.")
-  public String restartReason;
+  public abstract String getRestartReason();
 
   @Option(
       name = "binary_path",
@@ -533,7 +535,7 @@ public class CommonCommandOptions extends OptionsBase {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
       metadataTags = {OptionMetadataTag.HIDDEN},
       help = "The absolute path of the bazel binary.")
-  public String binaryPath;
+  public abstract String getBinaryPath();
 
   @Option(
       name = "experimental_allow_project_files",
@@ -542,7 +544,7 @@ public class CommonCommandOptions extends OptionsBase {
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.HIDDEN},
       help = "Enable processing of +<file> parameters.")
-  public boolean allowProjectFiles;
+  public abstract boolean getAllowProjectFiles();
 
   // We could accept multiple of these, in the event where there's a chain of tools that led to a
   // Bazel invocation. We would not want to expect anything from the order of these, and would need
@@ -563,7 +565,7 @@ public class CommonCommandOptions extends OptionsBase {
           "An extra command line to report with this invocation's command line. Useful for tools "
               + "that invoke Bazel and want the original information that the tool received to be "
               + "logged with the rest of the Bazel invocation.")
-  public ToolCommandLineEvent toolCommandLine;
+  public abstract ToolCommandLineEvent getToolCommandLine();
 
   @Option(
       name = "unconditional_warning",
@@ -577,7 +579,7 @@ public class CommonCommandOptions extends OptionsBase {
               + " effectively deprecate some flag or combination of flags, this is NOT sufficient."
               + " The flag or flags should use the deprecationWarning field in the option"
               + " definition, or the bad combination should be checked for programmatically.")
-  public List<String> deprecationWarnings;
+  public abstract List<String> getDeprecationWarnings();
 
   @Option(
       name = "track_incremental_state",
@@ -590,7 +592,7 @@ public class CommonCommandOptions extends OptionsBase {
               + "on incremental builds in order to save memory on this build. Subsequent builds "
               + "will not have any incrementality with respect to this one. Usually you will want "
               + "to specify --batch when setting this to false.")
-  public boolean trackIncrementalState;
+  public abstract boolean getTrackIncrementalState();
 
   @Option(
       name = "repo_env",
@@ -608,7 +610,7 @@ public class CommonCommandOptions extends OptionsBase {
           The string <code>%bazel_workspace%</code> in a value will be replaced with the absolute \
           path of the workspace as printed by <code>bazel info workspace</code>.
           """)
-  public List<Converters.EnvVar> repositoryEnvironment;
+  public abstract List<Converters.EnvVar> getRepositoryEnvironment();
 
   @Option(
       name = "incompatible_repo_env_ignores_action_env",
@@ -621,7 +623,7 @@ public class CommonCommandOptions extends OptionsBase {
           If true, <code>--action_env=NAME=VALUE</code> will no longer affect repository rule \
           and module extension environments.
           """)
-  public boolean repoEnvIgnoresActionEnv;
+  public abstract boolean getRepoEnvIgnoresActionEnv();
 
   @Option(
       name = "experimental_strict_repo_env",
@@ -637,7 +639,7 @@ public class CommonCommandOptions extends OptionsBase {
           Note that unless `--incompatible_repo_env_ignores_action_env` is true,
           `--action_env=NAME=VALUE` will also be included.
           """)
-  public boolean useStrictRepoEnv;
+  public abstract boolean getUseStrictRepoEnv();
 
   @Option(
       name = "heuristically_drop_nodes",
@@ -651,7 +653,7 @@ public class CommonCommandOptions extends OptionsBase {
               + " and DirectoryListing node is done to save memory. We expect that it is less"
               + " likely that these nodes will be needed again. If so, the program will re-evaluate"
               + " them.")
-  public boolean heuristicallyDropNodes;
+  public abstract boolean getHeuristicallyDropNodes();
 
   @Option(
       name = "http_timeout_scaling",
@@ -659,7 +661,7 @@ public class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "Scale all timeouts related to http downloads by the given factor")
-  public double httpTimeoutScaling;
+  public abstract double getHttpTimeoutScaling();
 
   @Option(
       name = "http_connector_attempts",
@@ -667,7 +669,7 @@ public class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "The maximum number of attempts for http downloads.")
-  public int httpConnectorAttempts;
+  public abstract int getHttpConnectorAttempts();
 
   @Option(
       name = "http_connector_retry_max_timeout",
@@ -677,7 +679,7 @@ public class CommonCommandOptions extends OptionsBase {
       help =
           "The maximum timeout for http download retries. With a value of 0, no timeout maximum is"
               + " defined.")
-  public Duration httpConnectorRetryMaxTimeout;
+  public abstract Duration getHttpConnectorRetryMaxTimeout();
 
   @Option(
       name = "http_max_parallel_downloads",
@@ -685,7 +687,7 @@ public class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "The maximum number parallel http downloads.")
-  public int httpMaxParallelDownloads;
+  public abstract int getHttpMaxParallelDownloads();
 
   /** The option converter to check that the user can only specify legal profiler tasks. */
   public static class ProfilerTaskConverter extends EnumConverter<ProfilerTask> {
@@ -702,7 +704,7 @@ public class CommonCommandOptions extends OptionsBase {
       help =
           "If true and supported, instrumentation output is redirected to be written locally on a"
               + " different machine than where bazel is running on.")
-  public boolean redirectLocalInstrumentationOutputWrites;
+  public abstract boolean getRedirectLocalInstrumentationOutputWrites();
 
   @Option(
       name = "write_command_log",
@@ -710,5 +712,5 @@ public class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Whether or not to write the command.log file")
-  public boolean writeCommandLog;
+  public abstract boolean getWriteCommandLog();
 }

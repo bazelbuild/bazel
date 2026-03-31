@@ -535,7 +535,7 @@ public final class BlazeOptionHandler {
         eventHandler.handle(Event.warn(warning));
       }
       CommonCommandOptions commonOptions = optionsParser.getOptions(CommonCommandOptions.class);
-      for (String warning : commonOptions.deprecationWarnings) {
+      for (String warning : commonOptions.getDeprecationWarnings()) {
         eventHandler.handle(Event.warn(warning));
       }
       exitCode = DetailedExitCode.success();

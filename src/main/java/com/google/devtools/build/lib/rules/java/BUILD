@@ -23,7 +23,7 @@ java_library(
         "JavaConfiguration.java",
         "JavaHeaderCompileAction.java",
         "JavaHelper.java",
-        "JavaOptions.java",
+        "JavaOptionsFields.java",
         "JavaOutput.java",
         "JavaPackageConfigurationProvider.java",
         "JavaPluginInfo.java",
@@ -40,6 +40,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",

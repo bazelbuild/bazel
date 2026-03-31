@@ -334,10 +334,10 @@ public class CircularDependencyTest extends BuildViewTestCase {
                               String define = data.attributes().get("define", STRING);
                               BuildOptionsView newOptions = options.clone();
                               CoreOptions optionsFragment = newOptions.get(CoreOptions.class);
-                              optionsFragment.commandLineBuildVariables =
-                                  optionsFragment.commandLineBuildVariables.stream()
+                              optionsFragment.setCommandLineBuildVariables(
+                                  optionsFragment.getCommandLineBuildVariables().stream()
                                       .filter((pair) -> !pair.getKey().equals(define))
-                                      .collect(toImmutableList());
+                                      .collect(toImmutableList()));
                               return ImmutableMap.of("define_cleaner", newOptions.underlying());
                             }
                           };

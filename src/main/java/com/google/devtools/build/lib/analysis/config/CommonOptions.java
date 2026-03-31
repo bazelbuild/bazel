@@ -37,7 +37,7 @@ public final class CommonOptions {
     // Disable the exec transition. Since this config is empty it shouldn't trigger any exec
     // transitions. More important, the default value this would otherwise propagate may not exist
     // in the repo (if the repo remaps with a repo-wide bazelrc).
-    options.get(CoreOptions.class).starlarkExecConfig = null;
+    options.get(CoreOptions.class).setStarlarkExecConfig(null);
     return options;
   }
 

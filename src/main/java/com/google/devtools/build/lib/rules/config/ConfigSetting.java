@@ -195,7 +195,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
             .getConfiguration()
             .getOptions()
             .get(CoreOptions.class)
-            .getCommandLineFlagAliases();
+            .getCommandLineFlagAliasesMap();
 
     // Partition expected "--foo" settings (native flag style) by whether they're flag aliases.
     var nativeValuesPartitionedByAlias =
@@ -429,7 +429,11 @@ Either remove one of these settings or ensure they match the same value.
       String expectedRawValue) {
 
     ImmutableList<String> disabledSelectOptions =
-        ruleContext.getConfiguration().getOptions().get(CoreOptions.class).disabledSelectOptions;
+        ruleContext
+            .getConfiguration()
+            .getOptions()
+            .get(CoreOptions.class)
+            .getDisabledSelectOptions();
     if (disabledSelectOptions.contains(optionName) || options.isNonConfigurable(optionName)) {
       String message = PARSE_ERROR_MESSAGE + "select() on '%s' is not allowed.";
       if (DEPRECATED_PRE_PLATFORMS_FLAGS.contains(optionName)) {

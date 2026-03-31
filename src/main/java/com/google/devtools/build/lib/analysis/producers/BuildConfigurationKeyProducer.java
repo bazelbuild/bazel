@@ -135,7 +135,7 @@ public final class BuildConfigurationKeyProducer<C>
       tasks.enqueue(
           new PlatformProducer(
               targetPlatforms.getFirst(),
-              options.get(CoreOptions.class).getCommandLineFlagAliases(),
+              options.get(CoreOptions.class).getCommandLineFlagAliasesMap(),
               this,
               this::checkTargetPlatformFlags));
       return runAfter;
@@ -288,7 +288,7 @@ public final class BuildConfigurationKeyProducer<C>
     var resolvedOptions = buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes();
     tasks.lookUp(
         BaselineOptionsValue.key(
-            resolvedOptions.get(CoreOptions.class).isExec,
+            resolvedOptions.get(CoreOptions.class).getIsExec(),
             !resolvedOptions.contains(TestConfiguration.TestOptions.class),
             /* newPlatform= */ null),
         val -> this.baselineConfiguration = ((BaselineOptionsValue) val).toOptions());

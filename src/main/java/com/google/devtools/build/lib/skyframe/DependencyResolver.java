@@ -416,7 +416,7 @@ public final class DependencyResolver {
               .getConfigurationKey()
               .getOptions()
               .get(CoreOptions.class)
-              .execAspects
+              .getExecAspects()
               .isEmpty()) {
         ImmutableList<AspectClass> aspectClasses =
             createAspectClasses(
@@ -424,7 +424,7 @@ public final class DependencyResolver {
                     .getConfigurationKey()
                     .getOptions()
                     .get(CoreOptions.class)
-                    .execAspects);
+                    .getExecAspects());
         if (!aspectClasses.isEmpty()) {
           loadExecAspectsKey =
               LoadAspectsKey.create(

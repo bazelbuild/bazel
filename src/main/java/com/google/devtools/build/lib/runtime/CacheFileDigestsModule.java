@@ -54,14 +54,14 @@ public class CacheFileDigestsModule extends BlazeModule {
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     if (lastKnownCacheSize == null
-        || options.cacheSizeForComputedFileDigests != lastKnownCacheSize) {
+        || options.getCacheSizeForComputedFileDigests() != lastKnownCacheSize) {
       logger.atInfo().log(
-          "Reconfiguring cache with size=%d", options.cacheSizeForComputedFileDigests);
-      DigestUtils.configureCache(options.cacheSizeForComputedFileDigests);
-      lastKnownCacheSize = options.cacheSizeForComputedFileDigests;
+          "Reconfiguring cache with size=%d", options.getCacheSizeForComputedFileDigests());
+      DigestUtils.configureCache(options.getCacheSizeForComputedFileDigests());
+      lastKnownCacheSize = options.getCacheSizeForComputedFileDigests();
     }
 
-    if (options.cacheSizeForComputedFileDigests == 0) {
+    if (options.getCacheSizeForComputedFileDigests() == 0) {
       stats = null;
       logger.atInfo().log("Disabled cache");
     } else {

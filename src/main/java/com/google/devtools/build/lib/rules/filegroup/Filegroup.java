@@ -87,7 +87,7 @@ public class Filegroup implements RuleConfiguredTargetFactory {
         .getConfiguration()
         .getOptions()
         .get(CoreOptions.class)
-        .filegroupRunfilesForData) {
+        .getFilegroupRunfilesForData()) {
       // If you're visiting a filegroup as data, then we also visit its data as data.
       dataRunfilesBuilder.addRunfiles(ruleContext, RunfilesProvider.DATA_RUNFILES);
     } else {

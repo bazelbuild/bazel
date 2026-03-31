@@ -39,6 +39,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
+import java.util.function.Supplier;
 
 /**
  * Helper class for checking which keys should be invalidated using a remote analysis cache service.
@@ -77,13 +78,9 @@ public final class AnalysisCacheInvalidator {
    * @return The subset of keysToLookup that got a cache miss should be invalidated locally.
    */
   public ImmutableSet<SkyKey> lookupKeysToInvalidate(
-      ImmutableSet<SkyKey> keysToLookup, RemoteAnalysisCachingServerState serverState)
+      Supplier<ImmutableSet<SkyKey>> keysToLookupSupplier,
+      RemoteAnalysisCachingServerState serverState)
       throws InterruptedException {
-    if (keysToLookup.isEmpty()) {
-      logger.atInfo().log("Skycache: No keys to lookup for invalidation check.");
-      return ImmutableSet.of();
-    }
-
     var previousVersion = serverState.version();
     if (previousVersion == null) {
       // TODO: b/439857268 - it looks like this can happen if the previous build was interrupted,
@@ -91,7 +88,7 @@ public final class AnalysisCacheInvalidator {
       logger.atWarning().log(
           "Skycache: no previous version was found during invalidation check. Invalidating"
               + " everything");
-      return keysToLookup; // invalidate everything
+      return keysToLookupSupplier.get(); // invalidate everything
     }
 
     if (!previousVersion.equals(currentVersion)) {
@@ -99,12 +96,19 @@ public final class AnalysisCacheInvalidator {
           "Skycache: Version changed during invalidation check. Previous version: %s, current"
               + " version: %s.",
           previousVersion, currentVersion);
-      return keysToLookup; // everything must be invalidated
+      return keysToLookupSupplier.get(); // everything must be invalidated
     }
 
     if (Objects.equals(currentClientId, serverState.clientId())) {
       // The current client state is the same as the previous client state, so
       // no invalidation is needed because all deserialized keys are still valid.
+      return ImmutableSet.of();
+    }
+
+    ImmutableSet<SkyKey> keysToLookup = keysToLookupSupplier.get();
+
+    if (keysToLookup.isEmpty()) {
+      logger.atInfo().log("Skycache: No keys to lookup for invalidation check.");
       return ImmutableSet.of();
     }
 
