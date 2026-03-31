@@ -45,7 +45,7 @@ jobs:
       - name: 🚀 Create Pull Request
         env:
           # Use the PAT for everything to ensure cross-repo permissions
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+          PAT: ${{ secrets.PAT_TOKEN }}
         run: |
           cd bazel_src
           
@@ -67,10 +67,13 @@ jobs:
           git commit -m "docs: Automated documentation sync from recent RELNOTES"
 
           # FIX: Branch name must be on the same line or use a backslash
-          git push -f "https://x-access-token:${GH_TOKEN}@github.com/deepalak56/bazel_deepa.git" "$BRANCH_NAME"
+          git push -f "https://x-access-token:${PAT}@github.com/deepalak56/bazel_deepa.git" "$BRANCH_NAME"
 
+          unset GH_TOKEN
+          unset GITHUB_TOKEN
+          
           # FIX: Authenticate the CLI using the token before creating PR
-          echo "$GH_TOKEN" | gh auth login --with-token
+          echo "$PAT" | gh auth login --with-token
 
           # Create PR (Targeting master as per Bazel standards)
           gh pr create --repo bazelbuild/bazel \
