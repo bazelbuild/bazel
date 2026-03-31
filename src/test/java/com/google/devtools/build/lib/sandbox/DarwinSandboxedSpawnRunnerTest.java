@@ -59,9 +59,6 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
   /** Path to the base of the sandbox to pass to the spawn runner. */
   private Path sandboxBase;
 
-  /** Location of the real {@code getconf} binary; saved while the test is running. */
-  private String oldGetconf;
-
   /** Location of the real {@code sandbox-exec} binary; saved while the test is running. */
   private String oldSandboxExec;
 
@@ -80,15 +77,6 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
     sandboxBase = execRoot.getRelative("sandbox");
     sandboxBase.createDirectory();
 
-    // The mock getconf tool always prints an arbitrary path regardless of the arguments it
-    // receives. We must print a syntactically-valid path, however, to not confuse the consumer
-    // of this output.
-    Path getconf = execRoot.getRelative("getconf");
-    FileSystemUtils.writeContentAsLatin1(getconf, "#!/bin/sh\necho /tmp");
-    getconf.setExecutable(true);
-    oldGetconf = DarwinSandboxedSpawnRunner.getconfBinary;
-    DarwinSandboxedSpawnRunner.getconfBinary = getconf.toString();
-
     // The mock sandbox-exec just executes the given command and returns its output.
     Path sandboxExec = execRoot.getRelative("sandbox-exec");
     FileSystemUtils.writeContentAsLatin1(sandboxExec,
@@ -104,7 +92,6 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
   @After
   public void tearDown() {
     DarwinSandboxedSpawnRunner.sandboxExecBinary = oldSandboxExec;
-    DarwinSandboxedSpawnRunner.getconfBinary = oldGetconf;
   }
 
   private void doSimpleExecutionTest(DarwinSandboxedSpawnRunner runner) throws Exception {
