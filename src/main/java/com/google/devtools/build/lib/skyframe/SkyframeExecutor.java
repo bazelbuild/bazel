@@ -566,6 +566,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       @Nullable WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver,
       @Nullable RecordingDifferencer recordingDiffer,
       @Nullable SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder,
+      Supplier<Path> repoContentsCachePathSupplier,
       boolean globUnderSingleDep) {
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
@@ -609,7 +610,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.skyframeBuildView =
         new SkyframeBuildView(artifactFactory, this, ruleClassProvider, actionKeyContext);
     this.externalFilesHelper =
-        ExternalFilesHelper.create(pkgLocator, externalFileAction, directories);
+        ExternalFilesHelper.create(
+            pkgLocator, externalFileAction, directories, repoContentsCachePathSupplier);
     this.crossRepositoryLabelViolationStrategy = crossRepositoryLabelViolationStrategy;
     this.buildFilesByPriority = buildFilesByPriority;
     this.externalPackageHelper = externalPackageHelper;
@@ -638,6 +640,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction());
     map.put(SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE, new ClientEnvironmentFunction(clientEnv));
     map.put(SkyFunctions.ACTION_ENVIRONMENT_VARIABLE, new ActionEnvironmentFunction());
+    map.put(SkyFunctions.REPOSITORY_ENVIRONMENT_VARIABLE, new RepoEnvironmentFunction());
     map.put(FileStateKey.FILE_STATE, newFileStateFunction());
     map.put(SkyFunctions.DIRECTORY_LISTING_STATE, newDirectoryListingStateFunction());
     map.put(FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
@@ -1920,19 +1923,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Map.Entry<SkyKey, ErrorInfo> firstError = Iterables.get(evalResult.errorMap().entrySet(), 0);
       ErrorInfo error = firstError.getValue();
       Throwable e = error.getException();
-      // Wrap loading failed exceptions
-      if (e != null && e instanceof NoSuchThingException noSuchThingException) {
-        e = new InvalidConfigurationException(noSuchThingException.getDetailedExitCode(), e);
+      if (e instanceof InvalidConfigurationException invalidConfigurationException) {
+        throw invalidConfigurationException;
+      } else if (e instanceof DetailedException detailedException) {
+        throw new InvalidConfigurationException(detailedException.getDetailedExitCode(), e);
       } else if (e == null && !error.getCycleInfo().isEmpty()) {
         cyclesReporter.reportCycles(error.getCycleInfo(), firstError.getKey(), eventHandler);
-        e =
-            new InvalidConfigurationException(
+        throw new InvalidConfigurationException(
                 "cannot load build configuration because of this cycle", Code.CYCLE);
       }
-      if (e != null) {
-        Throwables.throwIfInstanceOf(e, InvalidConfigurationException.class);
-      }
-      throw new IllegalStateException("Unknown error during configuration creation evaluation", e);
+      throw new IllegalStateException(
+          "Unknown error during configuration creation evaluation", e);
     }
 
     // Prepare and return the results.
