@@ -110,6 +110,7 @@ java_library(
         ":cached_bzl_load_value_and_deps_builder_factory",
         ":client_environment_function",
         ":client_environment_value",
+        ":environment_variable_value",
         ":collect_packages_under_directory_function",
         ":collect_packages_under_directory_value",
         ":collect_targets_in_package_function",
@@ -173,6 +174,7 @@ java_library(
         ":recursive_package_provider_backed_target_pattern_resolver",
         ":recursive_pkg_function",
         ":recursive_pkg_value",
+        ":repo_environment_function",
         ":repo_file_function",
         ":repo_package_args_function",
         ":repository_mapping_function",
@@ -1020,6 +1022,16 @@ java_library(
     name = "client_environment_value",
     srcs = ["ClientEnvironmentValue.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "environment_variable_value",
+    srcs = ["EnvironmentVariableValue.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:jsr305",
     ],
@@ -2336,6 +2348,23 @@ java_library(
 )
 
 java_library(
+    name = "repo_environment_function",
+    srcs = ["RepoEnvironmentFunction.java"],
+    deps = [
+        ":client_environment_function",
+        ":client_environment_value",
+        ":environment_variable_value",
+        ":precomputed_value",
+        ":sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "repo_file_function",
     srcs = ["RepoFileFunction.java"],
     deps = [
@@ -2669,6 +2698,7 @@ java_library(
         ":repository_mapping_value",
         ":sky_functions",
         ":starlark_builtins_value",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:repo_rule_value",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
@@ -2677,6 +2707,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/repository:request_repository_information_event",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",

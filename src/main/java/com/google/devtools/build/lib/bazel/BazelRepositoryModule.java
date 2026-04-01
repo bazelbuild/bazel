@@ -99,8 +99,9 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.InfoItem;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
+import com.google.devtools.build.lib.runtime.RemoteRepoContentsCache;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
-import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutorFactory;
+import com.google.devtools.build.lib.runtime.RepositoryRemoteHelpersFactory;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository;
@@ -151,6 +152,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private final ImmutableMap<String, RepositoryFunction> repositoryHandlers;
   private final AtomicBoolean isFetch = new AtomicBoolean(false);
   private final StarlarkRepositoryFunction starlarkRepositoryFunction;
+  private RepositoryDelegatorFunction repositoryDelegatorFunction;
   private final RepositoryCache repositoryCache = new RepositoryCache();
   private final MutableSupplier<Map<String, String>> repoEnvironmentSupplier =
       new MutableSupplier<>();
@@ -247,9 +249,10 @@ public class BazelRepositoryModule extends BlazeModule {
           SkyframeExecutorRepositoryHelpersHolder.create(
               new RepositoryDirectoryDirtinessChecker()));
     }
+    builder.setRepoContentsCachePathSupplier(repositoryCache.getRepoContentsCache()::getPath);
 
     // Create the repository function everything flows through.
-    RepositoryDelegatorFunction repositoryDelegatorFunction =
+    repositoryDelegatorFunction =
         new RepositoryDelegatorFunction(
             repositoryHandlers,
             starlarkRepositoryFunction,
@@ -397,9 +400,9 @@ public class BazelRepositoryModule extends BlazeModule {
       if (repoContentsCachePath != null
           && env.getWorkspace() != null
           && repoContentsCachePath.startsWith(env.getWorkspace())) {
-        // Having the repo contents cache inside the workspace is very dangerous. During the
-        // lifetime of a Bazel invocation, we treat files inside the workspace as immutable. This
-        // can cause mysterious failures if we write files inside the workspace during the
+        // Having the repo contents cache inside the main repo is very dangerous. During the
+        // lifetime of a Bazel invocation, we treat files inside the main repo as immutable. This
+        // can cause mysterious failures if we write files inside the main repo during the
         // invocation, as is often the case with the repo contents cache.
         // TODO: wyv@ - This is a crude check that disables some use cases (such as when the output
         //   base itself is inside the main repo). Investigate a better check.
@@ -407,9 +410,9 @@ public class BazelRepositoryModule extends BlazeModule {
         throw new AbruptExitException(
             detailedExitCode(
                 """
-                The repo contents cache [%s] is inside the workspace [%s]. This can cause spurious \
+                The repo contents cache [%s] is inside the main repo [%s]. This can cause spurious \
                 failures. Disable the repo contents cache with `--repo_contents_cache=`, or \
-                specify `--repo_contents_cache=<path outside the workspace>`.
+                specify `--repo_contents_cache=<path outside the main repo>`.
                 """
                     .formatted(repoContentsCachePath, env.getWorkspace()),
                 Code.BAD_REPO_CONTENTS_CACHE));
@@ -425,14 +428,12 @@ public class BazelRepositoryModule extends BlazeModule {
                   "could not acquire lock on repo contents cache", Code.BAD_REPO_CONTENTS_CACHE),
               e);
         }
-        if (!repoOptions.repoContentsCacheGcMaxAge.isZero()) {
-          env.addIdleTask(
-              repositoryCache
-                  .getRepoContentsCache()
-                  .createGcIdleTask(
-                      repoOptions.repoContentsCacheGcMaxAge,
-                      repoOptions.repoContentsCacheGcIdleDelay));
-        }
+        env.addIdleTask(
+            repositoryCache
+                .getRepoContentsCache()
+                .createGcIdleTask(
+                    repoOptions.repoContentsCacheGcMaxAge,
+                    repoOptions.repoContentsCacheGcIdleDelay));
       }
 
       try {
@@ -657,13 +658,16 @@ public class BazelRepositoryModule extends BlazeModule {
             Optional.of(RootedPath.toRootedPath(Root.absoluteRoot(filesystem), resolvedFile));
       }
 
-      RepositoryRemoteExecutorFactory remoteExecutorFactory =
-          env.getRuntime().getRepositoryRemoteExecutorFactory();
+      RepositoryRemoteHelpersFactory repositoryRemoteHelpersFactory =
+          env.getRuntime().getRepositoryHelpersFactory();
       RepositoryRemoteExecutor remoteExecutor = null;
-      if (remoteExecutorFactory != null) {
-        remoteExecutor = remoteExecutorFactory.create();
+      RemoteRepoContentsCache remoteRepoContentsCache = null;
+      if (repositoryRemoteHelpersFactory != null) {
+        remoteExecutor = repositoryRemoteHelpersFactory.createExecutor();
+        remoteRepoContentsCache = repositoryRemoteHelpersFactory.createRepoContentsCache();
       }
       starlarkRepositoryFunction.setRepositoryRemoteExecutor(remoteExecutor);
+      repositoryDelegatorFunction.setRemoteRepoContentsCache(remoteRepoContentsCache);
       singleExtensionEvalFunction.setRepositoryRemoteExecutor(remoteExecutor);
 
       clock = env.getClock();
