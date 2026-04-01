@@ -161,11 +161,6 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       var lockedExtensionMap = workspaceLockfile.getModuleExtensions().get(extensionId);
       var lockedExtension =
           lockedExtensionMap == null ? null : lockedExtensionMap.get(extension.getEvalFactors());
-      // Only validate workspace lockfile facts when the extension entry itself is in the
-      // workspace lockfile. Reproducible extensions are only stored in the hidden lockfile,
-      // so missing facts in the workspace lockfile are expected for them.
-      Facts factsToValidateAgainst =
-          lockedExtension != null ? workspaceLockfileFacts : lockfileFacts;
       if (lockedExtension == null) {
         lockedExtensionMap = hiddenLockfile.getModuleExtensions().get(extensionId);
         lockedExtension =
@@ -184,7 +179,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                   extension.getEvalFactors(),
                   lockedExtension,
                   lockfileFacts,
-                  factsToValidateAgainst);
+                  workspaceLockfileFacts);
           if (singleExtensionValue != null) {
             return singleExtensionValue;
           }
@@ -343,8 +338,6 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         diffRecorder.record(
             "an input to the extension '" + extensionId + "' changed: " + reason.get());
       }
-      // Facts are never invalidated by Bazel itself, but the workspace lockfile may have been
-      // manually edited (or rolled back via version control) to remove or modify facts.
       if (!facts.equals(workspaceLockfileFacts)) {
         diffRecorder.record(
             "the facts of extension '" + extensionId + "' are not up-to-date");
