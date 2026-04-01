@@ -525,8 +525,6 @@ public class RemoteExecutionService {
                 blobPolicy);
       } catch (CredentialHelperException e) {
         throw createExecExceptionForCredentialHelperException(e);
-      } catch (RemoteExecutionCapabilitiesException e) {
-        throw createExecExceptionFromRemoteExecutionCapabilitiesException(e);
       }
 
       // Get the remote platform properties.
