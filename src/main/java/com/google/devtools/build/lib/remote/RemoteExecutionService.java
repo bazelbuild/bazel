@@ -1828,18 +1828,18 @@ public class RemoteExecutionService {
 
       return UploadManifest.create(
           remoteOptions,
-                combinedCache.getRemoteCacheCapabilities(),
-                digestUtil,
-                action.getRemotePathResolver(),
-                action.getActionKey(),
-                action.getAction(),
-                action.getCommand(),
-                outputFiles.build(),
-                action.getSpawnExecutionContext().getFileOutErr(),
-                spawnResult.exitCode(),
-                spawnResult.getStartTime(),
-                spawnResult.getWallTimeInMs());
-
+          combinedCache.getRemoteCacheCapabilities(),
+          digestUtil,
+          action.getRemotePathResolver(),
+          action.getActionKey(),
+          action.getAction(),
+          action.getCommand(),
+          outputFiles.build(),
+          action.getSpawnExecutionContext().getFileOutErr(),
+          spawnResult.exitCode(),
+          spawnResult.getStartTime(),
+          spawnResult.getWallTimeInMs(),
+          /* preserveExecutableBit= */ false);
     }
   }
 
