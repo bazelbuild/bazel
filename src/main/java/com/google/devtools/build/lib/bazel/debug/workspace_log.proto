@@ -162,6 +162,14 @@ message ExecuteWasmEvent {
   int64 memory_limit_bytes = 5;
 }
 
+// Information on "integrity_hash" event in repository_ctx.
+message IntegrityHashEvent {
+  // The path of the file to hash.
+  string path = 1;
+  // The hash algorithm to use.
+  string algorithm = 2;
+}
+
 message WorkspaceEvent {
   // Location in the code (.bzl file) where the event originates.
   string location = 1;
@@ -186,5 +194,6 @@ message WorkspaceEvent {
     RenameEvent rename_event = 15;
     LoadWasmEvent load_wasm_event = 16;
     ExecuteWasmEvent execute_wasm_event = 17;
+    IntegrityHashEvent integrity_hash_event = 18;
   }
 }
