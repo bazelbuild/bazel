@@ -184,6 +184,18 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
     return pathFragment;
   }
 
+  /**
+   * Returns this path on the host file system, resolving through any overlays. If this path's file
+   * system is already the host file system, returns this path unchanged.
+   */
+  public Path forHostFileSystem() {
+    var hostFs = fileSystem.getHostFileSystem();
+    if (hostFs.equals(fileSystem)) {
+      return this;
+    }
+    return Path.create(asFragment(), hostFs);
+  }
+
   @Override
   public String toString() {
     return pathFragment.getPathString();
@@ -929,7 +941,8 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
   private void checkSameFileSystem(Path that) {
     if (this.fileSystem != that.fileSystem) {
       throw new IllegalArgumentException(
-          "Files are on different filesystems: " + this + ", " + that);
+          "Files are on different filesystems: %s (on %s), %s (on %s)"
+              .formatted(this, this.fileSystem, that, that.fileSystem));
     }
   }
 }
