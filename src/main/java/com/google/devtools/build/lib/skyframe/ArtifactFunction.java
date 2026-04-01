@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValueWithMetadata;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
@@ -312,6 +313,12 @@ public final class ArtifactFunction implements SkyFunction {
     }
     if (!fileValue.exists()) {
       return new MissingArtifactValue(artifact);
+    }
+    if (fileValue.realFileStateValue()
+        instanceof RegularFileStateValueWithMetadata valueWithMetadata) {
+      var metadata = valueWithMetadata.getMetadata();
+      sourceArtifactsSeen.accumulate(metadata);
+      return metadata;
     }
 
     if (fileValue.isDirectory()) {

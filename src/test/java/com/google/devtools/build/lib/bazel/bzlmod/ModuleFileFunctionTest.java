@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.InterimModuleBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
-import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache;
+import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -181,7 +181,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         ImmutableMap::of,
                         directories,
                         BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER,
-                        new RepoContentsCache()))
+                        new LocalRepoContentsCache()))
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(ruleClassProvider, directories))

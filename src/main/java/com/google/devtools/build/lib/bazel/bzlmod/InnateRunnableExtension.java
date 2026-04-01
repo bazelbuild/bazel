@@ -236,9 +236,7 @@ final class InnateRunnableExtension implements RunnableExtension {
               attributesValue));
     }
     return new RunModuleExtensionResult(
-        ImmutableMap.of(),
-        ImmutableMap.of(),
-        ImmutableMap.of(),
+        ImmutableList.of(),
         generatedRepoSpecs.buildOrThrow(),
         ModuleExtensionMetadata.REPRODUCIBLE,
         ImmutableTable.of());
