@@ -44,7 +44,7 @@ class ConcurrentFifo<T> { // Non-final for testing only.
   private static final Integer SKIP_SLOW_APPENDER = 1;
 
   /** The power of 2 backing array capacity. */
-  @VisibleForTesting static final int CAPACITY = 1 << 20;
+  @VisibleForTesting static final int CAPACITY = 1 << 16;
 
   /** AND with this mask performs modulo {@link #CAPACITY}. */
   static final int CAPACITY_MASK = CAPACITY - 1;
