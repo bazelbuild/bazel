@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Collections2;
@@ -37,6 +39,7 @@ import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainVariablesApi;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedHashMap;
@@ -104,6 +107,22 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
   }
 
+  /** A chunk of an exec path that can be mapped upon expansion. */
+  @Immutable
+  @AutoCodec
+  @VisibleForSerialization
+  record RelativePathChunk(PathFragment execPath) implements StringChunk {
+
+    RelativePathChunk {
+      checkArgument(!execPath.isAbsolute(), "execPath is not relative: %s", execPath);
+    }
+
+    @Override
+    public String expand(CcToolchainVariables variables, PathMapper pathMapper) {
+      return pathMapper.map(execPath).getPathString();
+    }
+  }
+
   /**
    * Parser for toolchain string values.
    *
@@ -118,6 +137,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * <p>To get a literal percent character, "%%" can be used in the string.
    */
   public static class StringValueParser {
+
+    private static final String PATH_PREFIX = "path:";
 
     private final String value;
 
@@ -200,8 +221,22 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       }
       int end = value.indexOf('}', current);
       final String name = value.substring(current, end);
-      usedVariables.add(name);
-      chunks.add(new VariableChunk(name));
+      if (name.startsWith(PATH_PREFIX)) {
+        String path = name.substring(PATH_PREFIX.length());
+        if (path.isEmpty()) {
+          abort("expected path after 'path:'");
+        }
+        // The provided path is expected to be an exec path, which always uses '/' as a separator
+        // and is relative. Ensure that it is parsed consistently.
+        var pathFragment = PathFragment.createForOs(path, OS.LINUX);
+        if (pathFragment.isAbsolute()) {
+          abort("expected relative Unix-style path after 'path:'");
+        }
+        chunks.add(new RelativePathChunk(pathFragment));
+      } else {
+        usedVariables.add(name);
+        chunks.add(new VariableChunk(name));
+      }
       current = end + 1;
     }
 
