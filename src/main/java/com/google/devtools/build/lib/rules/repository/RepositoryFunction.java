@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.cmdline.LabelConstants.EXTERNAL_PACK
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -266,7 +267,7 @@ public abstract class RepositoryFunction {
    * registering them as dependencies.
    */
   @Nullable
-  public static ImmutableMap<String, Optional<String>> getEnvVarValues(
+  public static ImmutableSortedMap<String, Optional<String>> getEnvVarValues(
       Environment env, Set<String> keys) throws InterruptedException {
     Map<String, Optional<String>> environ = ActionEnvironmentFunction.getEnvironmentView(env, keys);
     if (environ == null) {
@@ -286,7 +287,7 @@ public abstract class RepositoryFunction {
         repoEnv.put(key, Optional.of(value));
       }
     }
-    return repoEnv.buildKeepingLast();
+    return ImmutableSortedMap.copyOf(repoEnv.buildKeepingLast());
   }
 
   /**
