@@ -112,8 +112,8 @@ public class DirtinessCheckerUtils {
 
     private final UnionDirtinessChecker checker = createBasicFilesystemDirtinessChecker();
 
-    ExternalDirtinessChecker(ExternalFilesHelper externalFilesHelper,
-        EnumSet<FileType> fileTypesToCheck) {
+    ExternalDirtinessChecker(
+        ExternalFilesHelper externalFilesHelper, EnumSet<FileType> fileTypesToCheck) {
       this.externalFilesHelper = externalFilesHelper;
       this.fileTypesToCheck = fileTypesToCheck;
     }
@@ -141,7 +141,8 @@ public class DirtinessCheckerUtils {
         @Nullable Version oldMtsv,
         SyscallCache syscallCache,
         @Nullable TimestampGranularityMonitor tsgm) {
-      FileType fileType = externalFilesHelper.getAndNoteFileType((RootedPath) skyKey.argument());
+      var rootedPath = (RootedPath) skyKey.argument();
+      var fileType = externalFilesHelper.getAndNoteFileType(rootedPath);
       boolean cacheable = isCacheableType(fileType);
       SkyValue newValue =
           checker.createNewValue(skyKey, cacheable ? syscallCache : SyscallCache.NO_CACHE, tsgm);
@@ -158,16 +159,13 @@ public class DirtinessCheckerUtils {
     }
 
     private static boolean isCacheableType(FileType fileType) {
-      switch (fileType) {
-        case INTERNAL:
-        case EXTERNAL:
-        case BUNDLED:
-          return true;
-        case EXTERNAL_REPO:
-        case OUTPUT:
-          return false;
-      }
-      throw new AssertionError("Unknown type " + fileType);
+      return switch (fileType) {
+        case INTERNAL, EXTERNAL, BUNDLED -> true;
+        case EXTERNAL_REPO, OUTPUT -> false;
+        case REPO_CONTENTS_CACHE_DIRS ->
+            throw new IllegalStateException(
+                "Repo contents cache dirs are not expected to be checked for dirtiness");
+      };
     }
   }
 
