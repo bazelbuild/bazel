@@ -102,6 +102,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_environment_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:client_environment_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:repo_environment_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
