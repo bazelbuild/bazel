@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.common.truth.extensions.proto.ProtoTruth;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollector.Colle
 import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollectorIdleTask;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace;
@@ -61,6 +63,7 @@ import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -167,6 +170,13 @@ public final class RemoteModuleTest {
             .addBlazeModule(new CredentialModule())
             .addBlazeModule(remoteModule)
             .addBlazeModule(new BlockWaitingModule())
+            .addBlazeModule(
+                new BlazeModule() {
+                  @Override
+                  public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
+                    builder.setRunfilesPrefix(TestConstants.WORKSPACE_NAME);
+                  }
+                })
             .build();
 
     BlazeDirectories directories =
