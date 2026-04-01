@@ -32,12 +32,14 @@ import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * Stages output files that are stored remotely to the local filesystem.
  *
- * <p>This is necessary when a locally executed action consumes outputs produced by a remotely
- * executed action and {@code --experimental_remote_download_outputs=minimal} is specified.
+ * <p>This is used to ensure that the inputs to a local action are present, even when they are
+ * provided by a remote action when building without the bytes, or by an external repository when
+ * building with a remote repository cache enabled.
  */
 public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
 
@@ -53,7 +55,7 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
       Path execRoot,
       TempPathGenerator tempPathGenerator,
       RemoteOutputChecker remoteOutputChecker,
-      ActionOutputDirectoryHelper outputDirectoryHelper,
+      @Nullable ActionOutputDirectoryHelper outputDirectoryHelper,
       OutputPermissions outputPermissions) {
     super(
         reporter,
@@ -84,7 +86,7 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
 
   @Override
   protected ListenableFuture<Void> doDownloadFile(
-      ActionExecutionMetadata action,
+      @Nullable ActionExecutionMetadata action,
       Reporter reporter,
       Path tempPath,
       PathFragment execPath,
@@ -113,7 +115,11 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
         tempPath,
         digest,
         new CombinedCache.DownloadProgressReporter(
-            progress -> progress.postTo(reporter, action),
+            progress -> {
+              if (action != null) {
+                progress.postTo(reporter, action);
+              }
+            },
             execPath.toString(),
             digest.getSizeBytes()));
   }

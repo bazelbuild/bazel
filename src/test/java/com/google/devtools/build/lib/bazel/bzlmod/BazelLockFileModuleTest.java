@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.Optional;
@@ -45,18 +46,14 @@ public class BazelLockFileModuleTest {
         LockFileModuleExtension.builder()
             .setBzlTransitiveDigest(new byte[] {1, 2, 3})
             .setUsagesDigest(new byte[] {4, 5, 6})
-            .setRecordedFileInputs(ImmutableMap.of())
-            .setRecordedDirentsInputs(ImmutableMap.of())
-            .setEnvVariables(ImmutableMap.of())
+            .setRecordedInputs(ImmutableList.of())
             .setGeneratedRepoSpecs(ImmutableMap.of())
             .build();
     reproducibleResult =
         LockFileModuleExtension.builder()
             .setBzlTransitiveDigest(new byte[] {1, 2, 3})
             .setUsagesDigest(new byte[] {4, 5, 6})
-            .setRecordedFileInputs(ImmutableMap.of())
-            .setRecordedDirentsInputs(ImmutableMap.of())
-            .setEnvVariables(ImmutableMap.of())
+            .setRecordedInputs(ImmutableList.of())
             .setGeneratedRepoSpecs(ImmutableMap.of())
             .setModuleExtensionMetadata(
                 LockfileModuleExtensionMetadata.of(
