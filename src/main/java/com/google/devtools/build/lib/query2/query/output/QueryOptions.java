@@ -44,6 +44,16 @@ public class QueryOptions extends CommonQueryOptions {
   public String outputFormat;
 
   @Option(
+      name = "output:display_full_kind",
+      defaultValue = "False",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "When displaying rule kind, whether to display the short rule name, or the full name for"
+              + " Starlark rules.")
+  public boolean displayFullKind;
+
+  @Option(
       name = "null",
       defaultValue = "null",
       expansion = {"--line_terminator_null=true"},
@@ -52,33 +62,32 @@ public class QueryOptions extends CommonQueryOptions {
       help = "Whether each format is terminated with \\0 instead of newline.")
   public Void isNull;
 
-
   @Option(
-    name = "order_results",
-    defaultValue = "null",
-    deprecationWarning = "Please use --order_output=auto or --order_output=no instead of this flag",
-    expansion = {"--order_output=auto"},
-    documentationCategory = OptionDocumentationCategory.QUERY,
-    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-    help =
-        "Output the results in dependency-ordered (default) or unordered fashion. The "
-            + "unordered output is faster but only supported when --output is not minrank, "
-            + "maxrank, or graph."
-  )
+      name = "order_results",
+      defaultValue = "null",
+      deprecationWarning =
+          "Please use --order_output=auto or --order_output=no instead of this flag",
+      expansion = {"--order_output=auto"},
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Output the results in dependency-ordered (default) or unordered fashion. The "
+              + "unordered output is faster but only supported when --output is not minrank, "
+              + "maxrank, or graph.")
   public Void orderResults;
 
   @Option(
-    name = "noorder_results",
-    defaultValue = "null",
-    deprecationWarning = "Please use --order_output=no or --order_output=auto instead of this flag",
-    expansion = {"--order_output=no"},
-    documentationCategory = OptionDocumentationCategory.QUERY,
-    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-    help =
-        "Output the results in dependency-ordered (default) or unordered fashion. The "
-            + "unordered output is faster but only supported when --output is not minrank, "
-            + "maxrank, or graph."
-  )
+      name = "noorder_results",
+      defaultValue = "null",
+      deprecationWarning =
+          "Please use --order_output=no or --order_output=auto instead of this flag",
+      expansion = {"--order_output=no"},
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Output the results in dependency-ordered (default) or unordered fashion. The "
+              + "unordered output is faster but only supported when --output is not minrank, "
+              + "maxrank, or graph.")
   public Void noOrderResults;
 
   /** Whether and how output should be ordered. */
@@ -134,36 +143,33 @@ public class QueryOptions extends CommonQueryOptions {
   public int graphConditionalEdgesLimit;
 
   @Option(
-    name = "xml:line_numbers",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.QUERY,
-    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-    help =
-        "If true, XML output contains line numbers. Disabling this option may make diffs easier "
-            + "to read.  This option is only applicable to --output=xml."
-  )
+      name = "xml:line_numbers",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "If true, XML output contains line numbers. Disabling this option may make diffs easier "
+              + "to read.  This option is only applicable to --output=xml.")
   public boolean xmlLineNumbers;
 
   @Option(
-    name = "xml:default_values",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.QUERY,
-    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-    help =
-        "If true, rule attributes whose value is not explicitly specified in the BUILD file are "
-            + "printed; otherwise they are omitted."
-  )
+      name = "xml:default_values",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "If true, rule attributes whose value is not explicitly specified in the BUILD file are "
+              + "printed; otherwise they are omitted.")
   public boolean xmlShowDefaultValues;
 
   @Option(
-    name = "strict_test_suite",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.QUERY,
-    effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
-    help =
-        "If true, the tests() expression gives an error if it encounters a test_suite containing "
-            + "non-test targets."
-  )
+      name = "strict_test_suite",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
+      help =
+          "If true, the tests() expression gives an error if it encounters a test_suite containing "
+              + "non-test targets.")
   public boolean strictTestSuite;
 
   @Option(
