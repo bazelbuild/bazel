@@ -1217,7 +1217,7 @@ public abstract class PackageFunction implements SkyFunction {
 
     // read BUILD file
     Path inputFile = buildFilePath.asPath();
-    byte[] buildFileBytes = null;
+    byte[] buildFileBytes;
     try {
       buildFileBytes =
           buildFileValue.isSpecialFile()

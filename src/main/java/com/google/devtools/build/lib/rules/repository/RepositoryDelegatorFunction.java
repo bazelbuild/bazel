@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.bzlmod.VendorFileValue;
-import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache;
-import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache.CandidateRepo;
+import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
+import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache.CandidateRepo;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.NeverUpT
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.AlreadyReportedRepositoryAccessException;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.Reproducibility;
+import com.google.devtools.build.lib.runtime.RemoteRepoContentsCache;
 import com.google.devtools.build.lib.skyframe.AlreadyReportedException;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
@@ -62,7 +63,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TreeMap;
+import java.util.LinkedHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -110,7 +111,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   private final ExternalPackageHelper externalPackageHelper;
   private final Supplier<Map<String, String>> repoEnvironmentSupplier;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
-  private final RepoContentsCache repoContentsCache;
+  private final LocalRepoContentsCache repoContentsCache;
+  @Nullable private RemoteRepoContentsCache remoteRepoContentsCache;
 
   public RepositoryDelegatorFunction(
       ImmutableMap<String, RepositoryFunction> handlers,
@@ -120,7 +122,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       Supplier<Map<String, String>> clientEnvironmentSupplier,
       BlazeDirectories directories,
       ExternalPackageHelper externalPackageHelper,
-      RepoContentsCache repoContentsCache) {
+      LocalRepoContentsCache repoContentsCache) {
     this.handlers = handlers;
     this.starlarkHandler = starlarkHandler;
     this.isFetch = isFetch;
@@ -129,6 +131,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     this.directories = directories;
     this.externalPackageHelper = externalPackageHelper;
     this.repoContentsCache = repoContentsCache;
+  }
+
+  public void setRemoteRepoContentsCache(RemoteRepoContentsCache remoteRepoContentsCache) {
+    this.remoteRepoContentsCache = remoteRepoContentsCache;
   }
 
   @Nullable
@@ -221,9 +227,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
                 || vendorFile.pinnedRepos().contains(repositoryName);
       }
 
-      String predeclaredInputHash =
-          DigestWriter.computePredeclaredInputHash(rule, starlarkSemantics);
-
       if (shouldUseCachedRepos(env, handler, rule)) {
         // Make sure marker file is up-to-date; correctly describes the current repository state
         var repoState = digestWriter.areRepositoryAndMarkerFileConsistent(handler, env);
@@ -238,7 +241,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         // Then check if the global repo contents cache has this.
         if (repoContentsCache.isEnabled()) {
           for (CandidateRepo candidate :
-              repoContentsCache.getCandidateRepos(predeclaredInputHash)) {
+              repoContentsCache.getCandidateRepos(digestWriter.predeclaredInputHash)) {
             repoState =
                 digestWriter.areRepositoryAndMarkerFileConsistent(
                     handler, env, candidate.recordedInputsFile());
@@ -254,6 +257,22 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
               return new RepositoryDirectoryValue.Success(
                   repoRoot, /* isFetchingDelayed= */ false, excludeRepoFromVendoring);
             }
+          }
+        }
+
+        if (remoteRepoContentsCache != null) {
+          try {
+            if (remoteRepoContentsCache.lookupCache(
+                repositoryName, repoRoot, digestWriter.predeclaredInputHash, env.getListener())) {
+              return new RepositoryDirectoryValue.Success(
+                  repoRoot, /* isFetchingDelayed= */ false, excludeRepoFromVendoring);
+            }
+          } catch (IOException e) {
+            env.getListener()
+                .handle(
+                    Event.warn(
+                        "Remote repo contents cache lookup failed for %s: %s"
+                            .formatted(repositoryName, e.getMessage())));
           }
         }
       }
@@ -273,31 +292,40 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           return null;
         }
         digestWriter.writeMarkerFile(result.recordedInputValues());
-        if (repoContentsCache.isEnabled()
-            && result.reproducible() == Reproducibility.YES
-            && !handler.isLocal(rule)) {
-          // This repo is eligible for the repo contents cache.
-          Path cachedRepoDir;
-          try {
-            cachedRepoDir =
-                repoContentsCache.moveToCache(
-                    repoRoot, digestWriter.markerPath, predeclaredInputHash);
-          } catch (IOException e) {
-            throw new RepositoryFunctionException(
-                new IOException(
-                    "error moving repo @@%s into the repo contents cache: %s"
-                        .formatted(rule.getName(), e.getMessage()),
-                    e),
-                Transience.TRANSIENT);
+        if (result.reproducible() == Reproducibility.YES && !handler.isLocal(rule)) {
+          if (repoContentsCache.isEnabled()) {
+            // This repo is eligible for the repo contents cache.
+            Path cachedRepoDir;
+            try {
+              cachedRepoDir =
+                  repoContentsCache.moveToCache(
+                      repoRoot, digestWriter.markerPath, digestWriter.predeclaredInputHash);
+            } catch (IOException e) {
+              throw new RepositoryFunctionException(
+                  new IOException(
+                      "error moving repo @@%s into the repo contents cache: %s"
+                          .formatted(rule.getName(), e.getMessage()),
+                      e),
+                  Transience.TRANSIENT);
+            }
+            // Don't forget to register a FileValue on the cache repo dir, so that we know to
+            // refetch
+            // if the cache entry gets GC'd from under us.
+            if (env.getValue(
+                    FileValue.key(
+                        RootedPath.toRootedPath(
+                            Root.absoluteRoot(cachedRepoDir.getFileSystem()), cachedRepoDir)))
+                == null) {
+              return null;
+            }
           }
-          // Don't forget to register a FileValue on the cache repo dir, so that we know to refetch
-          // if the cache entry gets GC'd from under us.
-          if (env.getValue(
-                  FileValue.key(
-                      RootedPath.toRootedPath(
-                          Root.absoluteRoot(cachedRepoDir.getFileSystem()), cachedRepoDir)))
-              == null) {
-            return null;
+          if (remoteRepoContentsCache != null) {
+            remoteRepoContentsCache.addToCache(
+                repositoryName,
+                repoRoot,
+                digestWriter.markerPath,
+                digestWriter.predeclaredInputHash,
+                env.getListener());
           }
         }
         return new RepositoryDirectoryValue.Success(
@@ -679,8 +707,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         ImmutableMap.of(NeverUpToDateRepoRecordedInput.PARSE_FAILURE, "");
 
     private final BlazeDirectories directories;
-    private final Path markerPath;
-    private final String ruleKey;
+    final String predeclaredInputHash;
+    final Path markerPath;
 
     DigestWriter(
         BlazeDirectories directories,
@@ -688,16 +716,16 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         Rule rule,
         StarlarkSemantics starlarkSemantics) {
       this.directories = directories;
-      ruleKey = computePredeclaredInputHash(rule, starlarkSemantics);
+      predeclaredInputHash = computePredeclaredInputHash(rule, starlarkSemantics);
       markerPath = getMarkerPath(directories, repositoryName);
     }
 
     void writeMarkerFile(Map<? extends RepoRecordedInput, String> recordedInputValues)
         throws RepositoryFunctionException {
       StringBuilder builder = new StringBuilder();
-      builder.append(ruleKey).append("\n");
-      for (Map.Entry<RepoRecordedInput, String> recordedInput :
-          new TreeMap<RepoRecordedInput, String>(recordedInputValues).entrySet()) {
+      builder.append(predeclaredInputHash).append("\n");
+      for (Map.Entry<? extends RepoRecordedInput, String> recordedInput :
+          recordedInputValues.entrySet()) {
         String key = recordedInput.getKey().toString();
         String value = recordedInput.getValue();
         builder.append(escape(key)).append(" ").append(escape(value)).append("\n");
@@ -743,7 +771,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       try {
         String content = FileSystemUtils.readContent(markerPath, ISO_8859_1);
         Map<RepoRecordedInput, String> recordedInputValues =
-            readMarkerFile(content, Preconditions.checkNotNull(ruleKey));
+            readMarkerFile(content, Preconditions.checkNotNull(predeclaredInputHash));
         Optional<String> outdatedReason =
             handler.isAnyRecordedInputOutdated(directories, recordedInputValues, env);
         if (env.valuesMissing()) {
@@ -778,7 +806,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
                 "");
           }
           firstLineVerified = true;
-          recordedInputValues = new TreeMap<>();
+          recordedInputValues = new LinkedHashMap<>();
         } else {
           int sChar = line.indexOf(' ');
           if (sChar > 0) {
