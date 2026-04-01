@@ -767,16 +767,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean removeRClassesFromInstrumentationTestJar;
 
     @Option(
-        name = "experimental_filter_library_jar_with_program_jar",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-        effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help =
-            "Filter the ProGuard ProgramJar to remove any classes also present in the LibraryJar.")
-    public boolean filterLibraryJarWithProgramJar;
-
-    @Option(
         name = "experimental_use_rtxt_from_merged_resources",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -859,7 +849,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean persistentDexDesugar;
   private final boolean persistentMultiplexDexDesugar;
   private final boolean removeRClassesFromInstrumentationTestJar;
-  private final boolean filterLibraryJarWithProgramJar;
   private final boolean useRTxtFromMergedResources;
   private final Label legacyMainDexListGenerator;
   private final Label optimizingDexer;
@@ -901,7 +890,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.persistentMultiplexDexDesugar = options.persistentMultiplexDexDesugar;
     this.removeRClassesFromInstrumentationTestJar =
         options.removeRClassesFromInstrumentationTestJar;
-    this.filterLibraryJarWithProgramJar = options.filterLibraryJarWithProgramJar;
     this.useRTxtFromMergedResources = options.useRTxtFromMergedResources;
     this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
     this.optimizingDexer = options.optimizingDexer;
@@ -1098,11 +1086,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   public boolean removeRClassesFromInstrumentationTestJar() {
     return removeRClassesFromInstrumentationTestJar;
-  }
-
-  @Override
-  public boolean filterLibraryJarWithProgramJar() {
-    return filterLibraryJarWithProgramJar;
   }
 
   boolean useRTxtFromMergedResources() {

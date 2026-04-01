@@ -199,13 +199,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   String getOutputDirectoryName();
 
   @StarlarkMethod(
-      name = "filter_library_jar_with_program_jar",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean filterLibraryJarWithProgramJar();
-
-  @StarlarkMethod(
       name = "get_java_resources_from_optimized_jar",
       structField = true,
       doc = "",
