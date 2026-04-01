@@ -142,13 +142,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   String getManifestMergerValue();
 
   @StarlarkMethod(
-      name = "omit_resources_info_provider_from_android_binary",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean omitResourcesInfoProviderFromAndroidBinary();
-
-  @StarlarkMethod(
       name = "fixed_resource_neverlinking",
       structField = true,
       doc = "",

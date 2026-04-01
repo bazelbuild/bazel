@@ -552,17 +552,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean exportsManifestDefault;
 
     @Option(
-        name = "experimental_omit_resources_info_provider_from_android_binary",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help =
-            "Omit AndroidResourcesInfo provider from android_binary rules."
-                + " Propagating resources out to other binaries is usually unintentional.")
-    public boolean omitResourcesInfoProviderFromAndroidBinary;
-
-    @Option(
         name = "android_fixed_resource_neverlinking",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -841,7 +830,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean compressJavaResources;
   private final boolean exportsManifestDefault;
   private final boolean useParallelDex2Oat;
-  private final boolean omitResourcesInfoProviderFromAndroidBinary;
   private final boolean fixedResourceNeverlinking;
   private final boolean persistentAarExtractor;
   private final boolean persistentBusyboxTools;
@@ -880,8 +868,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.compressJavaResources = options.compressJavaResources;
     this.exportsManifestDefault = options.exportsManifestDefault;
     this.useParallelDex2Oat = options.useParallelDex2Oat;
-    this.omitResourcesInfoProviderFromAndroidBinary =
-        options.omitResourcesInfoProviderFromAndroidBinary;
     this.fixedResourceNeverlinking = options.fixedResourceNeverlinking;
     this.persistentAarExtractor = options.persistentAarExtractor;
     this.persistentBusyboxTools = options.persistentBusyboxTools;
@@ -1032,11 +1018,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean getExportsManifestDefault() {
     return exportsManifestDefault;
-  }
-
-  @Override
-  public boolean omitResourcesInfoProviderFromAndroidBinary() {
-    return this.omitResourcesInfoProviderFromAndroidBinary;
   }
 
   @Override
