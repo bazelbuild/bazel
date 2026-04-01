@@ -20,11 +20,11 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClass;
 
 @OptionsClass
-public abstract class NonPublicOptionMethodFields extends OptionsBase {
+public abstract class InvalidOptionMethodName extends OptionsBase {
   @Option(
       name = "foo",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "42")
-  abstract int getFoo();
+  public abstract int foo();
 }

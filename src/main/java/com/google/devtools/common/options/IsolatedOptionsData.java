@@ -66,8 +66,12 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
         optionsClass,
         optionsBaseClass -> {
           ImmutableList.Builder<OptionDefinition> builder = ImmutableList.builder();
-          Class<?> methodsClass = optionsBaseClass.getSuperclass();
-          if (methodsClass.isAnnotationPresent(OptionsClass.class)) {
+          Class<?> methodsClass = null;
+          if (optionsBaseClass.isAnnotationPresent(OptionsClass.class)) {
+            methodsClass = optionsBaseClass;
+          }
+
+          if (methodsClass != null) {
             for (Method method : methodsClass.getMethods()) {
               try {
                 MethodOptionDefinition optionDefinition =

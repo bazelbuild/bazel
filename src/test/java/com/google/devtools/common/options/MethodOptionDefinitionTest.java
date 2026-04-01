@@ -24,13 +24,15 @@ import org.junit.runners.JUnit4;
 public class MethodOptionDefinitionTest {
   /** Dummy options class for testing method-based options. */
   @OptionsClass
-  public abstract static class MethodOptionsTestFields extends OptionsBase {
+  public abstract static class MethodOptionsTest extends OptionsBase {
     @Option(
         name = "foo",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "42")
     public abstract int getFoo();
+
+    public abstract void setFoo(int foo);
   }
 
   @Test
@@ -45,14 +47,14 @@ public class MethodOptionDefinitionTest {
 
   @Test
   public void testGeneratedClassGettersAndSetters() {
-    MethodOptionsTest options = new MethodOptionsTest();
+    MethodOptionsTest options = new MethodOptionsTestImpl();
     options.setFoo(123);
     assertThat(options.getFoo()).isEqualTo(123);
   }
 
   @Test
   public void testMethodOptionDefinitionAccess() throws Exception {
-    MethodOptionsTest options = new MethodOptionsTest();
+    MethodOptionsTest options = new MethodOptionsTestImpl();
     OptionDefinition fooDefinition = MethodOptionDefinition.get(MethodOptionsTest.class, "getFoo");
 
     fooDefinition.setValue(options, 456);
@@ -61,7 +63,7 @@ public class MethodOptionDefinitionTest {
   }
 
   @Test
-  public void getDeclaringClass_returnsImplementation() throws Exception {
+  public void getDeclaringClass_returnsDeclaringClass() throws Exception {
     MethodOptionDefinition definition =
         MethodOptionDefinition.get(MethodOptionsTest.class, "getFoo");
 

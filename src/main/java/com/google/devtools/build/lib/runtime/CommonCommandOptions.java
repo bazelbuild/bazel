@@ -43,7 +43,7 @@ import javax.annotation.Nullable;
 
 /** Options common to all commands. */
 @OptionsClass
-public abstract class CommonCommandOptionsFields extends OptionsBase {
+public abstract class CommonCommandOptions extends OptionsBase {
 
   // It's by design that this field is unused: this command line option takes effect by reading its
   // value during options parsing based on its (string) name.
@@ -121,6 +121,8 @@ public abstract class CommonCommandOptionsFields extends OptionsBase {
               + " idle.")
   public abstract Duration getInstallBaseGcMaxAge();
 
+  public abstract void setInstallBaseGcMaxAge(Duration value);
+
   @Option(
       name = "experimental_action_cache_gc_idle_delay",
       defaultValue = "5m",
@@ -132,6 +134,8 @@ public abstract class CommonCommandOptionsFields extends OptionsBase {
               + " attempted. Ineffectual unless --experimental_action_cache_gc_max_age is nonzero.")
   public abstract Duration getActionCacheGcIdleDelay();
 
+  public abstract void setActionCacheGcIdleDelay(Duration value);
+
   @Option(
       name = "experimental_action_cache_gc_threshold",
       defaultValue = "10",
@@ -142,6 +146,8 @@ public abstract class CommonCommandOptionsFields extends OptionsBase {
           "The percentage of stale action cache entries required for garbage collection to be"
               + " triggered. Ineffectual unless --experimental_action_cache_gc_max_age is nonzero.")
   public abstract int getActionCacheGcThreshold();
+
+  public abstract void setActionCacheGcThreshold(int value);
 
   @Option(
       name = "experimental_action_cache_gc_max_age",
@@ -156,6 +162,8 @@ public abstract class CommonCommandOptionsFields extends OptionsBase {
               + " --experimental_action_cache_gc_idle_delay and"
               + " --experimental_action_cache_gc_threshold flags.")
   public abstract Duration getActionCacheGcMaxAge();
+
+  public abstract void setActionCacheGcMaxAge(Duration value);
 
   @Option(
       name = "experimental_enable_thread_dump",
@@ -528,6 +536,8 @@ public abstract class CommonCommandOptionsFields extends OptionsBase {
       help = "The reason for the server restart.")
   public abstract String getRestartReason();
 
+  public abstract void setRestartReason(String value);
+
   @Option(
       name = "binary_path",
       defaultValue = "",
@@ -536,6 +546,8 @@ public abstract class CommonCommandOptionsFields extends OptionsBase {
       metadataTags = {OptionMetadataTag.HIDDEN},
       help = "The absolute path of the bazel binary.")
   public abstract String getBinaryPath();
+
+  public abstract void setBinaryPath(String value);
 
   @Option(
       name = "experimental_allow_project_files",

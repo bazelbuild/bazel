@@ -41,7 +41,7 @@ import java.util.Map;
  * <p>The same relationship holds between {@link HostJvmStartupOptions} and the launcher.
  */
 @OptionsClass
-public abstract class BlazeServerStartupOptionsFields extends OptionsBase {
+public abstract class BlazeServerStartupOptions extends OptionsBase {
   /**
    * Converter for the <code>option_sources</code> option. Takes a string in the form of
    * "option_name1:source1:option_name2:source2:.." and converts it into an option name to source

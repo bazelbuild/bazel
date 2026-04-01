@@ -318,7 +318,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     Path err = resolvedPaths.getTestStderr();
     FileOutErr testOutErr = new FileOutErr(out, err);
     Closeable streamed = null;
-    if (executionOptions.getTestOutput().equals(ExecutionOptionsFields.TestOutputFormat.STREAMED)) {
+    if (executionOptions.getTestOutput().equals(ExecutionOptions.TestOutputFormat.STREAMED)) {
       streamed =
           createStreamedTestOutput(
               Reporter.outErrForReporter(actionExecutionContext.getEventHandler()), out);

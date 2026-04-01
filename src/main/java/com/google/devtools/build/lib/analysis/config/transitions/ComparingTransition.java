@@ -215,7 +215,9 @@ public class ComparingTransition implements PatchTransition {
                       .collect(toImmutableList()),
                   "host feature"));
         } else {
-          ans.put(prettyClassName(f.getClass()) + " " + op.getKey(), String.valueOf(op.getValue()));
+          ans.put(
+              prettyClassName(f.getOptionsClass()) + " " + op.getKey(),
+              String.valueOf(op.getValue()));
         }
       }
     }

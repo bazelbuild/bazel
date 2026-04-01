@@ -54,13 +54,22 @@ public abstract class OptionsBase {
   }
 
   /**
+   * Returns the "options class" that this object belongs to. By default it is the object's class.
+   * However, for classes annotated with {@code @OptionsClass}, this returns the base class and not
+   * the generated implementation class.
+   */
+  public Class<? extends OptionsBase> getOptionsClass() {
+    return getClass();
+  }
+
+  /**
    * Returns a mapping from option names to values, for each option on this object, including
    * inherited ones. The mapping is a copy, so subsequent mutations to it or to this object are
    * independent. Entries are sorted alphabetically.
    */
   public final Map<String, Object> asMap() {
     List<? extends OptionDefinition> definitions =
-        OptionsData.getAllOptionDefinitionsForClass(getClass());
+        OptionsData.getAllOptionDefinitionsForClass(getOptionsClass());
     Map<String, Object> map = Maps.newLinkedHashMapWithExpectedSize(definitions.size());
     for (OptionDefinition definition : definitions) {
       map.put(definition.getOptionName(), getValueFromDefinition(definition));
@@ -75,7 +84,7 @@ public abstract class OptionsBase {
 
   @Override
   public final String toString() {
-    return getClass().getName() + asMap();
+    return getOptionsClass().getName() + asMap();
   }
 
   @Override
@@ -84,11 +93,14 @@ public abstract class OptionsBase {
     if (this == that) {
       return true;
     }
-    if (that == null || !getClass().equals(that.getClass())) {
+    if (!(that instanceof OptionsBase other)) {
       return false;
     }
-    OptionsBase other = (OptionsBase) that;
-    for (OptionDefinition def : OptionsParser.getOptionDefinitions(getClass())) {
+
+    if (!getOptionsClass().equals(other.getOptionsClass())) {
+      return false;
+    }
+    for (OptionDefinition def : OptionsParser.getOptionDefinitions(getOptionsClass())) {
       if (!Objects.equals(getValueFromDefinition(def), other.getValueFromDefinition(def))) {
         return false;
       }
@@ -98,6 +110,6 @@ public abstract class OptionsBase {
 
   @Override
   public final int hashCode() {
-    return this.getClass().hashCode() + asMap().hashCode();
+    return getOptionsClass().hashCode() + asMap().hashCode();
   }
 }

@@ -56,7 +56,7 @@ import java.util.Objects;
  * usage strings are identical modulo "part 1", "part 2".
  */
 @OptionsClass
-public abstract class ExecutionOptionsFields extends OptionsBase {
+public abstract class ExecutionOptions extends OptionsBase {
 
   @Option(
       name = "spawn_strategy",
@@ -290,6 +290,8 @@ public abstract class ExecutionOptionsFields extends OptionsBase {
           """)
   public abstract TestOutputFormat getTestOutput();
 
+  public abstract void setTestOutput(TestOutputFormat value);
+
   @Option(
       name = "max_test_output_bytes",
       defaultValue = "-1",
@@ -326,6 +328,8 @@ public abstract class ExecutionOptionsFields extends OptionsBase {
           - `none` to omit the summary.
           """)
   public abstract TestSummaryFormat getTestSummary();
+
+  public abstract void setTestSummary(TestSummaryFormat value);
 
   @Option(
       name = "local_resources",

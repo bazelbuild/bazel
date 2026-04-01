@@ -30,7 +30,7 @@ import javax.annotation.Nullable;
 
 /** Options for caching analysis results remotely. */
 @OptionsClass
-public abstract class RemoteAnalysisCachingOptionsFields extends OptionsBase {
+public abstract class RemoteAnalysisCachingOptions extends OptionsBase {
 
   /** A converter for MD5 checksums. */
   public static final class Md5Converter implements Converter<HashCode> {
@@ -88,6 +88,8 @@ public abstract class RemoteAnalysisCachingOptionsFields extends OptionsBase {
       converter = RemoteAnalysisCacheModeConverter.class,
       help = "The transport direction for the remote analysis cache.")
   public abstract RemoteAnalysisCacheMode getMode();
+
+  public abstract void setMode(RemoteAnalysisCacheMode value);
 
   /** * The transport direction for the remote analysis cache. */
   public enum RemoteAnalysisCacheMode {
@@ -164,6 +166,8 @@ public abstract class RemoteAnalysisCachingOptionsFields extends OptionsBase {
       help = "Deadline to use for remote analysis cache operations.")
   public abstract Duration getDeadline();
 
+  public abstract void setDeadline(Duration value);
+
   @Option(
       name = "experimental_analysis_cache_service",
       defaultValue = "",
@@ -171,6 +175,8 @@ public abstract class RemoteAnalysisCachingOptionsFields extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "Locator for the AnalysisCacheService instance.")
   public abstract String getAnalysisCacheService();
+
+  public abstract void setAnalysisCacheService(String value);
 
   @Option(
       name = "experimental_remote_analysis_cache_storage",
@@ -220,6 +226,8 @@ public abstract class RemoteAnalysisCachingOptionsFields extends OptionsBase {
               + "for uploading analysis cache data.")
   public abstract String getRemoteAnalysisWriteProxy();
 
+  public abstract void setRemoteAnalysisWriteProxy(String value);
+
   @Option(
       name = "experimental_analysis_cache_key_distinguisher_for_testing",
       defaultValue = "null",
@@ -235,6 +243,8 @@ public abstract class RemoteAnalysisCachingOptionsFields extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "A flag to switch on/off inserting and querying the metadata db (b/425247333).")
   public abstract boolean getAnalysisCacheEnableMetadataQueries();
+
+  public abstract void setAnalysisCacheEnableMetadataQueries(boolean value);
 
   @Option(
       name = "experimental_analysis_cache_server_checksum_override",

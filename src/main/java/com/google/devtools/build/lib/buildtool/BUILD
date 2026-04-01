@@ -13,7 +13,7 @@ filegroup(
 
 java_library(
     name = "build_request_options",
-    srcs = ["BuildRequestOptionsFields.java"],
+    srcs = ["BuildRequestOptions.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
@@ -130,7 +130,7 @@ java_library(
     srcs = glob(
         ["*.java"],
         exclude = [
-            "BuildRequestOptionsFields.java",
+            "BuildRequestOptions.java",
             "BuildRequest.java",
             "BuildResult.java",
             "CommandPrecompleteEvent.java",
@@ -148,7 +148,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_prefetcher",
         "//src/main/java/com/google/devtools/build/lib/actions:action_output_directory_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
         "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",

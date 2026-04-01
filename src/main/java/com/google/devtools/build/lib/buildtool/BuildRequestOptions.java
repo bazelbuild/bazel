@@ -43,7 +43,7 @@ import javax.annotation.Nullable;
  * difference between these two sets of options.
  */
 @OptionsClass
-public abstract class BuildRequestOptionsFields extends OptionsBase {
+public abstract class BuildRequestOptions extends OptionsBase {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final int JOBS_TOO_HIGH_WARNING = 2500;
   @VisibleForTesting public static final int MAX_JOBS = 5000;
@@ -354,7 +354,7 @@ public abstract class BuildRequestOptionsFields extends OptionsBase {
           """)
   public abstract List<Map.Entry<String, String>> getAspectsParameters();
 
-  public BuildRequestOptionsFields() {}
+  public BuildRequestOptions() {}
 
   public String getSymlinkPrefix(String productName) {
     return getSymlinkPrefix() == null ? productName + "-" : getSymlinkPrefix();

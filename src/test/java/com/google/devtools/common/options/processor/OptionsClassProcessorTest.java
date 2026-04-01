@@ -33,29 +33,54 @@ public class OptionsClassProcessorTest {
   }
 
   @Test
-  public void invalidClassNameIsRejected() {
-    assertAbout(javaSource())
-        .that(getFile("InvalidClassName.java"))
-        .processedWith(new OptionsClassProcessor())
-        .failsToCompile()
-        .withErrorContaining(
-            "Class InvalidClassName is annotated with @OptionsClass but its name does not end in"
-                + " 'Fields'");
-  }
-
-  @Test
   public void nonPublicOptionMethodIsRejected() {
     assertAbout(javaSource())
-        .that(getFile("NonPublicOptionMethodFields.java"))
+        .that(getFile("NonPublicOptionMethod.java"))
         .processedWith(new OptionsClassProcessor())
         .failsToCompile()
         .withErrorContaining("@Option method must be public");
   }
 
   @Test
+  public void nonAbstractOptionMethodIsRejected() {
+    assertAbout(javaSource())
+        .that(getFile("NonAbstractGetter.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining("@Option method must be abstract");
+  }
+
+  @Test
+  public void nonAbstractSetterIsRejected() {
+    assertAbout(javaSource())
+        .that(getFile("NonAbstractSetter.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining("Setter must be abstract");
+  }
+
+  @Test
+  public void setterWithMultipleArgumentsIsRejected() {
+    assertAbout(javaSource())
+        .that(getFile("SetterWithMultipleArguments.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining("Setter must have exactly one argument");
+  }
+
+  @Test
+  public void setterWithIncorrectArgumentTypeIsRejected() {
+    assertAbout(javaSource())
+        .that(getFile("SetterWithIncorrectArgumentType.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining("Setter argument type must be same as getter return type (int)");
+  }
+
+  @Test
   public void invalidOptionMethodNameIsRejected() {
     assertAbout(javaSource())
-        .that(getFile("InvalidOptionMethodNameFields.java"))
+        .that(getFile("InvalidOptionMethodName.java"))
         .processedWith(new OptionsClassProcessor())
         .failsToCompile()
         .withErrorContaining(
@@ -65,7 +90,7 @@ public class OptionsClassProcessorTest {
   @Test
   public void validOptionsClassCompiles() {
     assertAbout(javaSource())
-        .that(getFile("ValidOptionsFields.java"))
+        .that(getFile("ValidOptions.java"))
         .processedWith(new OptionsClassProcessor())
         .compilesWithoutError();
   }

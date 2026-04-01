@@ -100,6 +100,24 @@ public class Options<O extends OptionsBase> {
     return usage.toString();
   }
 
+  /**
+   * Creates an instance of the given options class. If the class is annotated with {@link
+   * OptionsClass}, an instance of the generated implementation class is returned.
+   */
+  public static <O extends OptionsBase> O createOptions(Class<O> optionsClass) {
+    Class<? extends O> classToInstantiate = optionsClass;
+    if (optionsClass.isAnnotationPresent(OptionsClass.class)) {
+      classToInstantiate =
+          MethodOptionDefinition.getImplClass(optionsClass).asSubclass(optionsClass);
+    }
+
+    try {
+      return classToInstantiate.getConstructor().newInstance();
+    } catch (ReflectiveOperationException e) {
+      throw new IllegalStateException("Error while instantiating options class", e);
+    }
+  }
+
   private final O options;
   private final String[] remainingArgs;
 

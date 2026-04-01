@@ -70,7 +70,7 @@ public final class FakeOptions implements OptionsProvider {
      */
     @CanIgnoreReturnValue
     public <O extends OptionsBase> Builder put(O options) {
-      this.options.put(options.getClass(), options);
+      this.options.put(options.getOptionsClass(), options);
       return this;
     }
 

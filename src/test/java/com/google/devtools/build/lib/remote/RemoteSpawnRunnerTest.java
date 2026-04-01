@@ -263,7 +263,7 @@ public class RemoteSpawnRunnerTest {
 
   private FakeSpawnExecutionContext getSpawnContext(Spawn spawn) {
     AbstractSpawnStrategy fakeLocalStrategy =
-        new AbstractSpawnStrategy(localRunner, new ExecutionOptions()) {};
+        new AbstractSpawnStrategy(localRunner, Options.createOptions(ExecutionOptions.class)) {};
     ClassToInstanceMap<ActionContext> actionContextRegistry =
         ImmutableClassToInstanceMap.of(
             RemoteLocalFallbackRegistry.class, (spawnInput) -> fakeLocalStrategy);

@@ -53,7 +53,7 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptionsFields.ConvenienceSymlinksMode;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions.ConvenienceSymlinksMode;
 import com.google.devtools.build.lib.buildtool.buildevent.ConvenienceSymlinksIdentifiedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;

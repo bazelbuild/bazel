@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import static com.google.devtools.build.lib.exec.ExecutionOptionsFields.TestSummaryFormat.DETAILED;
-import static com.google.devtools.build.lib.exec.ExecutionOptionsFields.TestSummaryFormat.DETAILED_UNCACHED;
-import static com.google.devtools.build.lib.exec.ExecutionOptionsFields.TestSummaryFormat.SHORT;
-import static com.google.devtools.build.lib.exec.ExecutionOptionsFields.TestSummaryFormat.SHORT_UNCACHED;
-import static com.google.devtools.build.lib.exec.ExecutionOptionsFields.TestSummaryFormat.TESTCASE;
+import static com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat.DETAILED;
+import static com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat.DETAILED_UNCACHED;
+import static com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat.SHORT;
+import static com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat.SHORT_UNCACHED;
+import static com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat.TESTCASE;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.ExecutionOptionsFields.TestOutputFormat;
-import com.google.devtools.build.lib.exec.ExecutionOptionsFields.TestSummaryFormat;
+import com.google.devtools.build.lib.exec.ExecutionOptions.TestOutputFormat;
+import com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat;
 import com.google.devtools.build.lib.exec.TestLogHelper;
 import com.google.devtools.build.lib.runtime.TestSummaryPrinter.TestLogPathFormatter;
 import com.google.devtools.build.lib.util.StringUtil;

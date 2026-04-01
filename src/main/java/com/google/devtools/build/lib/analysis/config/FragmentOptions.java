@@ -31,6 +31,12 @@ import javax.annotation.Nullable;
 public abstract class FragmentOptions extends OptionsBase implements Cloneable {
 
   @Override
+  @SuppressWarnings("unchecked") // Reflection doesn't support generics
+  public Class<? extends FragmentOptions> getOptionsClass() {
+    return (Class<? extends FragmentOptions>) super.getOptionsClass();
+  }
+
+  @Override
   public FragmentOptions clone() {
     try {
       return (FragmentOptions) super.clone();
@@ -45,7 +51,7 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
    * values.
    */
   public FragmentOptions getDefault() {
-    return Options.getDefaults(getClass());
+    return Options.getDefaults(getOptionsClass());
   }
 
   /**

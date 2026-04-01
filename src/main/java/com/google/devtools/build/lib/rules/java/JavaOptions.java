@@ -34,7 +34,7 @@ import java.util.Map;
 
 /** Command-line options for building Java targets */
 @OptionsClass
-public abstract class JavaOptionsFields extends FragmentOptions {
+public abstract class JavaOptions extends FragmentOptions {
   /** Converter for the --java_classpath option. */
   public static class JavaClasspathModeConverter extends EnumConverter<JavaClasspathMode> {
     public JavaClasspathModeConverter() {
@@ -59,6 +59,8 @@ public abstract class JavaOptionsFields extends FragmentOptions {
       help = "Additional options to pass to javac.")
   public abstract List<String> getJavacOpts();
 
+  public abstract void setJavacOpts(List<String> value);
+
   @Option(
       name = "host_javacopt",
       allowMultiple = true,
@@ -69,6 +71,8 @@ public abstract class JavaOptionsFields extends FragmentOptions {
           "Additional options to pass to javac when building tools that are executed during a"
               + " build.")
   public abstract List<String> getHostJavacOpts();
+
+  public abstract void setHostJavacOpts(List<String> value);
 
   @Option(
       name = "jvmopt",

@@ -74,7 +74,7 @@ public final class FragmentFactory {
         Fragment.requiredOptions(fragment);
     for (FragmentOptions options : original.getNativeOptions()) {
       // CoreOptions is implicitly required by all fragments.
-      if (options instanceof CoreOptions || requiredOptions.contains(options.getClass())) {
+      if (options instanceof CoreOptions || requiredOptions.contains(options.getOptionsClass())) {
         trimmed.addFragmentOptions(options);
       }
     }

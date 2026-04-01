@@ -39,7 +39,7 @@ import javax.annotation.Nullable;
 
 /** Command-line options for C++. */
 @OptionsClass
-public abstract class CppOptionsFields extends FragmentOptions {
+public abstract class CppOptions extends FragmentOptions {
   /** Converts a comma-separated list of compilation mode settings to a properly typed List. */
   public static class FissionOptionConverter extends Converter.Contextless<List<CompilationMode>> {
     private static final CompilationMode.Converter modeConverter = new CompilationMode.Converter();

@@ -52,7 +52,7 @@ public final class OptionInfo {
 
     ImmutableSet<Class<? extends FragmentOptions>> optionClasses =
         buildOptions.getNativeOptions().stream()
-            .map(FragmentOptions::getClass)
+            .map(FragmentOptions::getOptionsClass)
             .collect(toImmutableSet());
 
     for (Class<? extends FragmentOptions> optionClass : optionClasses) {

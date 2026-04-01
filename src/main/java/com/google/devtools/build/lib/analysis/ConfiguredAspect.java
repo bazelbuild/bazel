@@ -209,7 +209,7 @@ public interface ConfiguredAspect extends ProviderCollection {
     /**
      * Adds {@link RequiredConfigFragmentsProvider} if {@link
      * CoreOptions#includeRequiredConfigFragmentsProvider} isn't {@link
-     * CoreOptionsFields.IncludeConfigFragmentsEnum#OFF} and if the provider was not already added.
+     * CoreOptions.IncludeConfigFragmentsEnum#OFF} and if the provider was not already added.
      *
      * <p>See {@link RequiredFragmentsUtil} for a description of the meaning of this provider's
      * content. That class contains methods that populate the results of {@link
