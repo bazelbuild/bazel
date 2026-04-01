@@ -3769,9 +3769,14 @@ filegroup(
     name = "by_downloaded_name",
     srcs = ["@data_repo//:AvailablePortFinder.java"],
 )
+
+filegroup(
+    name = "by_repo_name",
+    srcs = ["@data_repo"],
+)
 BUILD_FILE
 
-  bazel build //:by_root_alias //:by_downloaded_name >& $TEST_log || fail "Expected build to succeed"
+  bazel build //:by_root_alias //:by_downloaded_name //:by_repo_name >& $TEST_log || fail "Expected build to succeed"
 }
 
 run_suite "local repository tests"
