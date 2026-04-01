@@ -69,7 +69,7 @@ public final class Fingerprint implements BytesSink {
 
   /** Creates and initializes a new instance. */
   public Fingerprint(DigestHashFunction digestFunction) {
-    messageDigest = digestFunction.cloneOrCreateMessageDigest();
+    messageDigest = digestFunction.newMessageDigest();
     // This is a lot of indirection, but CodedOutputStream does a reasonable job of converting
     // strings to bytes without creating a whole bunch of garbage, which pays off.
     codedOut =
@@ -348,7 +348,6 @@ public final class Fingerprint implements BytesSink {
     // use the value from DigestHashFunction.getDefault(). However, this gets called during class
     // loading in a few places, before setDefault() has been called, so these call-sites should be
     // removed before this can be done safely.
-    return hexDigest(
-        DigestHashFunction.SHA256.cloneOrCreateMessageDigest().digest(input.getBytes(UTF_8)));
+    return hexDigest(DigestHashFunction.SHA256.newMessageDigest().digest(input.getBytes(UTF_8)));
   }
 }
