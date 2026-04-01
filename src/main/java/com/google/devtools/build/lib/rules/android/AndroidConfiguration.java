@@ -756,15 +756,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean removeRClassesFromInstrumentationTestJar;
 
     @Option(
-        name = "experimental_use_rtxt_from_merged_resources",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.CHANGES_INPUTS},
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help = "Use R.txt from the merging action, instead of from the validation action.")
-    public boolean useRTxtFromMergedResources;
-
-    @Option(
         name = "legacy_main_dex_list_generator",
         // TODO(b/147692286): Update this default value to R8's GenerateMainDexList binary after
         // migrating usage.
@@ -837,7 +828,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean persistentDexDesugar;
   private final boolean persistentMultiplexDexDesugar;
   private final boolean removeRClassesFromInstrumentationTestJar;
-  private final boolean useRTxtFromMergedResources;
   private final Label legacyMainDexListGenerator;
   private final Label optimizingDexer;
   private final boolean getJavaResourcesFromOptimizedJar;
@@ -876,7 +866,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.persistentMultiplexDexDesugar = options.persistentMultiplexDexDesugar;
     this.removeRClassesFromInstrumentationTestJar =
         options.removeRClassesFromInstrumentationTestJar;
-    this.useRTxtFromMergedResources = options.useRTxtFromMergedResources;
     this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
     this.optimizingDexer = options.optimizingDexer;
     this.getJavaResourcesFromOptimizedJar = options.getJavaResourcesFromOptimizedJar;
@@ -1067,10 +1056,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   public boolean removeRClassesFromInstrumentationTestJar() {
     return removeRClassesFromInstrumentationTestJar;
-  }
-
-  boolean useRTxtFromMergedResources() {
-    return useRTxtFromMergedResources;
   }
 
   @Override
