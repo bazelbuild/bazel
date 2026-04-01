@@ -786,7 +786,7 @@ final class FileDependencySerializer {
       return future.completeWith(result);
     }
     return future.completeWith(
-        Futures.whenAllComplete(allFutures).call(dependencyHandler, directExecutor()));
+        Futures.whenAllComplete(allFutures).call(dependencyHandler, executor));
   }
 
   static OutputStream getCompressedOutputStream(OutputStream outputStream) throws IOException {
