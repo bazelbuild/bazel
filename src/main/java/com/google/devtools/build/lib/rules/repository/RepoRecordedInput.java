@@ -15,13 +15,15 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
+import static java.util.Comparator.naturalOrder;
 import static java.util.Objects.requireNonNull;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -29,8 +31,8 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
-import com.google.devtools.build.lib.skyframe.ClientEnvironmentValue;
+import com.google.devtools.build.lib.skyframe.EnvironmentVariableValue;
+import com.google.devtools.build.lib.skyframe.RepoEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.DirectoryTreeDigestValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -43,7 +45,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -66,7 +67,7 @@ import javax.annotation.Nullable;
  * input is stored as a string, with a prefix denoting its type, followed by a colon, and then the
  * information identifying that specific input.
  */
-public abstract sealed class RepoRecordedInput implements Comparable<RepoRecordedInput> {
+public abstract sealed class RepoRecordedInput {
   /** Represents a parser for a specific type of recorded inputs. */
   public abstract static class Parser {
     /**
@@ -82,14 +83,6 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
      */
     public abstract RepoRecordedInput parse(String s);
   }
-
-  private static final Comparator<RepoRecordedInput> COMPARATOR =
-      (o1, o2) ->
-          o1 == o2
-              ? 0
-              : Comparator.comparing((RepoRecordedInput rri) -> rri.getParser().getPrefix())
-                  .thenComparing(RepoRecordedInput::toStringInternal)
-                  .compare(o1, o2);
 
   /**
    * Parses a recorded input from its string representation.
@@ -112,6 +105,87 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
       }
     }
     return NeverUpToDateRepoRecordedInput.PARSE_FAILURE;
+  }
+
+  /** A recorded input paired with its value. */
+  public record WithValue(RepoRecordedInput input, @Nullable String value) {
+    /** Parses a {@link WithValue} from its string representation. */
+    public static Optional<RepoRecordedInput.WithValue> parse(String s) {
+      int sChar = s.indexOf(' ');
+      if (sChar > 0) {
+        var input = RepoRecordedInput.parse(unescape(s.substring(0, sChar)));
+        if (!input.equals(NeverUpToDateRepoRecordedInput.PARSE_FAILURE)) {
+          return Optional.of(new WithValue(input, unescape(s.substring(sChar + 1))));
+        }
+      }
+      return Optional.empty();
+    }
+
+    /** Converts this {@link WithValue} to a string in a format compatible with {@link #parse}. */
+    @Override
+    public String toString() {
+      return escape(input.toString()) + " " + escape(value);
+    }
+
+    @VisibleForTesting
+    static String escape(String str) {
+      return str == null
+          ? "\\0"
+          : str.replace("\\", "\\\\").replace("\n", "\\n").replace(" ", "\\s");
+    }
+
+    @VisibleForTesting
+    @Nullable
+    static String unescape(String str) {
+      if (str.equals("\\0")) {
+        return null; // \0 == null string
+      }
+      StringBuilder result = new StringBuilder();
+      boolean escaped = false;
+      for (int i = 0; i < str.length(); i++) {
+        char c = str.charAt(i);
+        if (escaped) {
+          if (c == 'n') { // n means new line
+            result.append("\n");
+          } else if (c == 's') { // s means space
+            result.append(" ");
+          } else { // Any other escaped characters are just un-escaped
+            result.append(c);
+          }
+          escaped = false;
+        } else if (c == '\\') {
+          escaped = true;
+        } else {
+          result.append(c);
+        }
+      }
+      return result.toString();
+    }
+  }
+
+  /**
+   * Returns whether all values are still up-to-date for each recorded input. If Skyframe values are
+   * missing, the return value should be ignored; callers are responsible for checking {@code
+   * env.valuesMissing()} and triggering a Skyframe restart if needed.
+   */
+  public static Optional<String> isAnyValueOutdated(
+      Environment env, BlazeDirectories directories, List<WithValue> recordedInputValues)
+      throws InterruptedException {
+    env.getValuesAndExceptions(
+        recordedInputValues.stream()
+            .map(riv -> riv.input().getSkyKey(directories))
+            .collect(toImmutableSet()));
+    if (env.valuesMissing()) {
+      return UNDECIDED;
+    }
+    for (var recordedInput : recordedInputValues) {
+      Optional<String> reason =
+          recordedInput.input().isOutdated(env, directories, recordedInput.value());
+      if (reason.isPresent()) {
+        return reason;
+      }
+    }
+    return Optional.empty();
   }
 
   /**
@@ -151,11 +225,6 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
   @Override
   public final String toString() {
     return getParser().getPrefix() + ":" + toStringInternal();
-  }
-
-  @Override
-  public int compareTo(RepoRecordedInput o) {
-    return COMPARATOR.compare(this, o);
   }
 
   /**
@@ -266,7 +335,7 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
    * of the input contains whether this is a file or a directory or nonexistent, and if it's a file,
    * the digest of its contents.
    */
-  public static final class File extends RepoRecordedInput {
+  public static final class File extends RepoRecordedInput implements Comparable<File> {
     public static final Parser PARSER =
         new Parser() {
           @Override
@@ -310,6 +379,11 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
     @Override
     public int hashCode() {
       return path.hashCode();
+    }
+
+    @Override
+    public int compareTo(File o) {
+      return path.toString().compareTo(o.path.toString());
     }
 
     @Override
@@ -365,7 +439,7 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
   }
 
   /** Represents the list of entries under a directory accessed during the fetch. */
-  public static final class Dirents extends RepoRecordedInput {
+  public static final class Dirents extends RepoRecordedInput implements Comparable<Dirents> {
     public static final Parser PARSER =
         new Parser() {
           @Override
@@ -404,6 +478,11 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
     @Override
     public int hashCode() {
       return path.hashCode();
+    }
+
+    @Override
+    public int compareTo(Dirents o) {
+      return path.toString().compareTo(o.path.toString());
     }
 
     @Override
@@ -456,7 +535,7 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
    * (including adding/removing/renaming files or directories and changing file contents) will cause
    * it to go out of date.
    */
-  public static final class DirTree extends RepoRecordedInput {
+  public static final class DirTree extends RepoRecordedInput implements Comparable<DirTree> {
     public static final Parser PARSER =
         new Parser() {
           @Override
@@ -498,6 +577,11 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
     }
 
     @Override
+    public int compareTo(DirTree o) {
+      return path.toString().compareTo(o.path.toString());
+    }
+
+    @Override
     public String toStringInternal() {
       return path.toString();
     }
@@ -529,7 +613,7 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
   }
 
   /** Represents an environment variable accessed during the repo fetch. */
-  public static final class EnvVar extends RepoRecordedInput {
+  public static final class EnvVar extends RepoRecordedInput implements Comparable<EnvVar> {
     public static final Parser PARSER =
         new Parser() {
           @Override
@@ -545,10 +629,12 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
 
     final String name;
 
-    public static ImmutableMap<EnvVar, Optional<String>> wrap(
+    public static ImmutableSortedMap<EnvVar, Optional<String>> wrap(
         Map<String, Optional<String>> envVars) {
       return envVars.entrySet().stream()
-          .collect(toImmutableMap(e -> new EnvVar(e.getKey()), Map.Entry::getValue));
+          .collect(
+              toImmutableSortedMap(
+                  naturalOrder(), e -> new EnvVar(e.getKey()), Map.Entry::getValue));
     }
 
     private EnvVar(String name) {
@@ -572,6 +658,11 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
     }
 
     @Override
+    public int compareTo(EnvVar o) {
+      return name.compareTo(o.name);
+    }
+
+    @Override
     public Parser getParser() {
       return PARSER;
     }
@@ -583,17 +674,18 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
 
     @Override
     public SkyKey getSkyKey(BlazeDirectories directories) {
-      return ActionEnvironmentFunction.key(name);
+      return RepoEnvironmentFunction.key(name);
     }
 
     @Override
     public Optional<String> isOutdated(
         Environment env, BlazeDirectories directories, @Nullable String oldValue)
         throws InterruptedException {
-      String v = PrecomputedValue.REPO_ENV.get(env).get(name);
-      if (v == null) {
-        v = ((ClientEnvironmentValue) env.getValue(getSkyKey(directories))).getValue();
+      var envValue = (EnvironmentVariableValue) env.getValue(getSkyKey(directories));
+      if (envValue == null) {
+        return Optional.empty();
       }
+      String v = envValue.value();
       // Note that `oldValue` can be null if the env var was not set.
       if (!Objects.equals(oldValue, v)) {
         return Optional.of(

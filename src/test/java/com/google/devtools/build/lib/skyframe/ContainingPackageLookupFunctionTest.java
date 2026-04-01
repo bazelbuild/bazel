@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
-import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache;
+import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -154,7 +154,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
             ImmutableMap::of,
             directories,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER,
-            new RepoContentsCache()));
+            new LocalRepoContentsCache()));
     skyFunctions.put(
         SkyFunctions.REPOSITORY_MAPPING,
         new SkyFunction() {
