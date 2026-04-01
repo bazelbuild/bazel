@@ -369,11 +369,21 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
 
   private static String getExpansionOfFlag(String value, CcToolchainVariables variables)
       throws Exception {
-    return getCommandLineForFlag(value, variables).get(0);
+    return getExpansionOfFlag(value, variables, PathMapper.NOOP);
+  }
+
+  private static String getExpansionOfFlag(
+      String value, CcToolchainVariables variables, PathMapper pathMapper) throws Exception {
+    return getCommandLineForFlag(value, variables, pathMapper).get(0);
   }
 
   private static List<String> getCommandLineForFlagGroups(
       String groups, CcToolchainVariables variables) throws Exception {
+    return getCommandLineForFlagGroups(groups, variables, PathMapper.NOOP);
+  }
+
+  private static List<String> getCommandLineForFlagGroups(
+      String groups, CcToolchainVariables variables, PathMapper pathMapper) throws Exception {
     FeatureConfiguration configuration =
         CcToolchainTestHelper.buildFeatures(
                 "feature {",
@@ -384,12 +394,14 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
                 "  }",
                 "}")
             .getFeatureConfiguration(ImmutableSet.of("a"));
-    return configuration.getCommandLine(CppActionNames.CPP_COMPILE, variables);
+    return configuration.getCommandLine(
+        CppActionNames.CPP_COMPILE, variables, /* expander= */ null, pathMapper);
   }
 
-  private static List<String> getCommandLineForFlag(String value, CcToolchainVariables variables)
-      throws Exception {
-    return getCommandLineForFlagGroups("flag_group { flag: '" + value + "' }", variables);
+  private static List<String> getCommandLineForFlag(
+      String value, CcToolchainVariables variables, PathMapper pathMapper) throws Exception {
+    return getCommandLineForFlagGroups(
+        "flag_group { flag: '" + value + "' }", variables, pathMapper);
   }
 
   private static String getFlagParsingError(String value) {
@@ -429,6 +441,32 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
         .isEmpty();
     assertThat(getFlagExpansionError("%{v}", createVariables()))
         .contains("Invalid toolchain configuration: Cannot find variable named 'v'");
+  }
+
+  @Test
+  public void testPathExpansion() throws Exception {
+    PathMapper pathMapper =
+        (PathFragment path) ->
+            path.startsWith(PathFragment.create("bazel-out"))
+                ? path.subFragment(0, 1).getRelative("cfg").getRelative(path.subFragment(2))
+                : path;
+    assertThat(getExpansionOfFlag("%{path:my/source.c}", CcToolchainVariables.EMPTY, pathMapper))
+        .isEqualTo("my/source.c");
+    assertThat(
+            getExpansionOfFlag(
+                "%{path:bazel-out/foobar/bin/my/artifact.a}",
+                CcToolchainVariables.EMPTY, pathMapper))
+        .isEqualTo("bazel-out/cfg/bin/my/artifact.a");
+
+    assertThat(getFlagParsingError("%{path:/absolute/path}"))
+        .contains(
+            "Invalid toolchain configuration: expected relative Unix-style path after 'path:' at"
+                + " position 2 while parsing a flag containing '%{path:/absolute/path}");
+
+    assertThat(getFlagParsingError("%{path:}"))
+        .contains(
+            "Invalid toolchain configuration: expected path after 'path:' at position 2 while"
+                + " parsing a flag containing '%{path:}");
   }
 
   private static CcToolchainVariables createStructureSequenceVariables(
