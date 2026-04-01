@@ -15,8 +15,11 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.repository.RepoRecordedInput.WithValue.parse;
+import static com.google.devtools.build.lib.rules.repository.RepoRecordedInput.WithValue.splitIntoBatches;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValueWithContentsProxy;
@@ -70,5 +73,23 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
     fv = new RegularFileStateValueWithContentsProxy(3, FileContentsProxy.create(status));
     String expectedDigest = BaseEncoding.base16().lowerCase().encode(path.asPath().getDigest());
     assertThat(RepoRecordedInput.File.fileValueToMarkerValue(path, fv)).isEqualTo(expectedDigest);
+  }
+
+  @Test
+  public void testSplitIntoBatches() {
+    assertThat(splitIntoBatches(ImmutableList.of())).isEmpty();
+    assertThat(
+            splitIntoBatches(
+                ImmutableList.of(
+                    parse("FILE:@@//foo:bar abc").orElseThrow(),
+                    parse("FILE:@@//:baz cba").orElseThrow(),
+                    parse("FILE:@@foo//:baz bac").orElseThrow(),
+                    parse("ENV:KEY value").orElseThrow())))
+        .containsExactly(
+            ImmutableList.of(
+                parse("FILE:@@//foo:bar abc").orElseThrow(),
+                parse("FILE:@@//:baz cba").orElseThrow()),
+            ImmutableList.of(
+                parse("FILE:@@foo//:baz bac").orElseThrow(), parse("ENV:KEY value").orElseThrow()));
   }
 }

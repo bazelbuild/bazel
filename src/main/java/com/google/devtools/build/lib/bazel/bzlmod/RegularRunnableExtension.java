@@ -19,6 +19,7 @@ import static com.google.common.base.StandardSystemProperty.OS_ARCH;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
@@ -316,10 +318,26 @@ final class RegularRunnableExtension implements RunnableExtension {
       }
       moduleContext.markSuccessful();
       env.getListener().post(ModuleExtensionEvaluationProgress.finished(extensionId));
+      // Combine all recorded inputs into a single list, matching the lockfile format.
+      // Static env vars (from the 'environ' attribute) are included alongside dynamically
+      // recorded env vars (from 'getenv' calls).
+      var recordedInputs = new ArrayList<RepoRecordedInput.WithValue>();
+      // Add env vars first (static + dynamic, deduplicating with keepLast semantics).
+      var envVars =
+          ImmutableMap.<RepoRecordedInput.EnvVar, Optional<String>>builder()
+              .putAll(RepoRecordedInput.EnvVar.wrap(staticEnvVars))
+              .putAll(moduleContext.getRecordedEnvVarInputs())
+              .buildKeepingLast();
+      envVars.forEach(
+          (input, value) -> recordedInputs.add(new RepoRecordedInput.WithValue(input, value.orElse(null))));
+      // Add file inputs.
+      moduleContext.getRecordedFileInputs().forEach(
+          (input, value) -> recordedInputs.add(new RepoRecordedInput.WithValue(input, value)));
+      // Add dirents inputs.
+      moduleContext.getRecordedDirentsInputs().forEach(
+          (input, value) -> recordedInputs.add(new RepoRecordedInput.WithValue(input, value)));
       return new RunModuleExtensionResult(
-          moduleContext.getRecordedFileInputs(),
-          moduleContext.getRecordedDirentsInputs(),
-          moduleContext.getRecordedEnvVarInputs(),
+          ImmutableList.copyOf(recordedInputs),
           threadContext.createRepos(starlarkSemantics),
           moduleExtensionMetadata,
           repoMappingRecorder.recordedEntries());
