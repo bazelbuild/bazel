@@ -67,6 +67,9 @@ java_test(
     srcs = ["RewindingTest.java"],
     jvm_flags = ["-Djava.lang.Thread.allowVirtualThreads=true"],
     shard_count = 12,
+    runtime_deps = [
+        "//third_party/grpc-java:grpc-jar",
+    ],
     deps = [
         ":rewinding_tests_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
