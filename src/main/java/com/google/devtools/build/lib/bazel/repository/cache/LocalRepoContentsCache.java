@@ -15,22 +15,27 @@
 package com.google.devtools.build.lib.bazel.repository.cache;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Comparator.comparingLong;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.hash.HashCode;
+import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.util.FileSystemLock;
 import com.google.devtools.build.lib.util.FileSystemLock.LockMode;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
@@ -42,18 +47,15 @@ import javax.annotation.Nullable;
  * transitive bzl digest, repo attrs, starlark semantics, etc). Each distinct predeclared inputs
  * hash is its own entry directory in the first layer.
  *
- * <p>Inside each entry directory are pairs of directories and files {@code <N, N.recorded_inputs>}
- * where {@code N} is an integer. The file {@code N.recorded_inputs} contains the recorded inputs
- * and their values of a cached repo, and the directory {@code N} contains the cached repo contents.
- * There is also a file named {@code counter} that stores the next available {@code N} for this
- * entry directory, and a file named {@code lock} to ensure exclusive access to the {@code counter}
- * file.
+ * <p>Inside each entry directory are pairs of directories and files {@code <UUID,
+ * UUID.recorded_inputs>}. The file {@code UUID.recorded_inputs} contains the recorded inputs and
+ * their values of a cached repo, and the directory {@code UUID} contains the cached repo contents.
  *
  * <p>On a cache hit (that is, the predeclared inputs hash matches, and recorded inputs are
  * up-to-date), the recorded inputs file has its mtime updated. Cached repos whose recorded inputs
  * file is older than {@code --repo_contents_cache_gc_max_age} are garbage collected.
  */
-public final class RepoContentsCache {
+public final class LocalRepoContentsCache {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   public static final String RECORDED_INPUTS_SUFFIX = ".recorded_inputs";
 
@@ -119,17 +121,19 @@ public final class RepoContentsCache {
     Preconditions.checkState(path != null);
     Path entryDir = path.getRelative(predeclaredInputHash);
     try {
+      // Prefer more recently used cache entries over older ones. They're more likely to be
+      // up-to-date; plus, if a repo is force-fetched, we want to use the new repo instead of always
+      // being stuck with the old one. Since the inputs file is touched on use, we can just sort by
+      // mtime. This is slightly more complex than in runGc below as the files may be touched
+      // concurrently and we need to ensure that the equality relation is consistent.
+      var mtimes = new HashMap<Path, Long>();
       return entryDir.getDirectoryEntries().stream()
           .filter(path -> path.getBaseName().endsWith(RECORDED_INPUTS_SUFFIX))
-          // Prefer newer cache entries over older ones. They're more likely to be up-to-date; plus,
-          // if a repo is force-fetched, we want to use the new repo instead of always being stuck
-          // with the old one.
-          // To "prefer newer cache entries", we sort the entry file names by length DESC and then
-          // lexicographically DESC. This approximates sorting by converting to int and then DESC,
-          // but is defensive against non-numerically named entries.
           .sorted(
-              Comparator.comparing((Path path) -> path.getBaseName().length())
-                  .thenComparing(Path::getBaseName)
+              Comparator.comparingLong(
+                      (Path path) ->
+                          mtimes.computeIfAbsent(
+                              path, LocalRepoContentsCache::getLastModifiedTimeOrZero))
                   .reversed())
           .map(CandidateRepo::fromRecordedInputsFile)
           .collect(toImmutableList());
@@ -158,9 +162,9 @@ public final class RepoContentsCache {
     Preconditions.checkState(path != null);
 
     Path entryDir = path.getRelative(predeclaredInputHash);
-    String counter = getNextCounterInDir(entryDir);
-    Path cacheRecordedInputsFile = entryDir.getChild(counter + RECORDED_INPUTS_SUFFIX);
-    Path cacheRepoDir = entryDir.getChild(counter);
+    String uniqueEntryName = UUID.randomUUID().toString();
+    Path cacheRecordedInputsFile = entryDir.getChild(uniqueEntryName + RECORDED_INPUTS_SUFFIX);
+    Path cacheRepoDir = entryDir.getChild(uniqueEntryName);
 
     cacheRepoDir.deleteTree();
     cacheRepoDir.getParentDirectory().createDirectoryAndParents();
@@ -182,27 +186,6 @@ public final class RepoContentsCache {
     return cacheRepoDir;
   }
 
-  private static String getNextCounterInDir(Path entryDir)
-      throws IOException, InterruptedException {
-    Path counterFile = entryDir.getRelative("counter");
-    // This use of FileSystemLock.get is safe since the predeclared input hash is part of entryDir's
-    // path and in particular includes the canonical repository name. This ensures that the same
-    // lock file will not be acquired concurrently by multiple threads, which isn't supported.
-    try (var lock = FileSystemLock.get(entryDir.getRelative("lock"), LockMode.EXCLUSIVE)) {
-      int c = 0;
-      if (counterFile.exists()) {
-        try {
-          c = Integer.parseInt(FileSystemUtils.readContent(counterFile, StandardCharsets.UTF_8));
-        } catch (NumberFormatException e) {
-          // ignored
-        }
-      }
-      String counter = Integer.toString(c + 1);
-      FileSystemUtils.writeContent(counterFile, StandardCharsets.UTF_8, counter);
-      return counter;
-    }
-  }
-
   public void acquireSharedLock() throws IOException, InterruptedException {
     Preconditions.checkState(path != null);
     Preconditions.checkState(sharedLock == null, "this process already has the shared lock");
@@ -217,7 +200,11 @@ public final class RepoContentsCache {
 
   /**
    * Creates a garbage collection {@link IdleTask} that deletes cached repos who are last accessed
-   * more than {@code maxAge} ago, with an idle delay of {@code idleDelay}.
+   * more than {@code maxAge} ago as well as duplicated repos, with an idle delay of {@code
+   * idleDelay}.
+   *
+   * @param maxAge the maximum age of cached repos to keep in the cache. If zero, no repo will be
+   *     garbage collected due to age.
    */
   public IdleTask createGcIdleTask(Duration maxAge, Duration idleDelay) {
     Preconditions.checkState(path != null);
@@ -248,29 +235,50 @@ public final class RepoContentsCache {
 
   private void runGc(Duration maxAge) throws InterruptedException, IOException {
     path.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
-    Instant cutoff = Instant.ofEpochMilli(path.getLastModifiedTime()).minus(maxAge);
+    Instant cutoff =
+        maxAge.isZero()
+            ? Instant.MIN
+            : Instant.ofEpochMilli(path.getLastModifiedTime()).minus(maxAge);
     Path trashDir = ensureTrashDir();
+    HashFunction sha256 = DigestHashFunction.SHA256.getHashFunction();
 
     for (Dirent dirent : path.readdir(Symlinks.NOFOLLOW)) {
       if (dirent.getType() != Dirent.Type.DIRECTORY || dirent.getName().equals(TRASH_PATH)) {
         continue;
       }
-      for (Path recordedInputsFile : path.getChild(dirent.getName()).getDirectoryEntries()) {
-        if (!recordedInputsFile.getBaseName().endsWith(RECORDED_INPUTS_SUFFIX)) {
-          continue;
-        }
+      // Sort all recorded input files by descending mtime, so that deduplication keeps around the
+      // most recent entry.
+      var recordedInputsFiles =
+          path.getChild(dirent.getName()).getDirectoryEntries().stream()
+              .filter(file -> file.getBaseName().endsWith(RECORDED_INPUTS_SUFFIX))
+              .sorted(comparingLong(LocalRepoContentsCache::getLastModifiedTimeOrZero).reversed())
+              .collect(toImmutableList());
+      var seen = new HashSet<HashCode>();
+      for (Path recordedInputsFile : recordedInputsFiles) {
         if (Thread.interrupted()) {
           throw new InterruptedException();
         }
 
-        if (Instant.ofEpochMilli(recordedInputsFile.getLastModifiedTime()).isBefore(cutoff)) {
-          // Sorry buddy, you're out.
+        // In addition to deleting old entries, also remove identical entries. These may be created
+        // when multiple Bazel servers fetch the same repo at the same time. The servers that have
+        // their referenced entry deleted will roll over to the next entry on the next build.
+        if (Instant.ofEpochMilli(recordedInputsFile.getLastModifiedTime()).isBefore(cutoff)
+            || !seen.add(sha256.hashBytes(FileSystemUtils.readContent(recordedInputsFile)))) {
           recordedInputsFile.delete();
           var repoDir = CandidateRepo.fromRecordedInputsFile(recordedInputsFile).contentsDir;
           // Use a UUID to avoid clashes.
           repoDir.renameTo(trashDir.getChild(UUID.randomUUID().toString()));
         }
       }
+    }
+  }
+
+  private static long getLastModifiedTimeOrZero(Path path) {
+    try {
+      return path.getLastModifiedTime();
+    } catch (IOException e) {
+      // If we can't read the mtime from the entry, it's broken and treated as outdated.
+      return 0L;
     }
   }
 }
