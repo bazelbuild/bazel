@@ -319,18 +319,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + "Values > 0 turn the feature on, values > 1 run that many dexbuilder shards.")
     public int incrementalDexingShardsAfterProguard;
 
-    @Option(
-        name = "experimental_android_use_parallel_dex2oat",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.TESTING,
-        effectTags = {
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
-        },
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help = "Use dex2oat in parallel to possibly speed up android_test.")
-    public boolean useParallelDex2Oat;
-
     // Do not use on the command line.
     // This flag is intended to be updated as we add supported flags to the incremental dexing tools
     @Option(
@@ -820,7 +808,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final ApkSigningMethod apkSigningMethod;
   private final boolean compressJavaResources;
   private final boolean exportsManifestDefault;
-  private final boolean useParallelDex2Oat;
   private final boolean fixedResourceNeverlinking;
   private final boolean persistentAarExtractor;
   private final boolean persistentBusyboxTools;
@@ -857,7 +844,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.apkSigningMethod = options.apkSigningMethod;
     this.compressJavaResources = options.compressJavaResources;
     this.exportsManifestDefault = options.exportsManifestDefault;
-    this.useParallelDex2Oat = options.useParallelDex2Oat;
     this.fixedResourceNeverlinking = options.fixedResourceNeverlinking;
     this.persistentAarExtractor = options.persistentAarExtractor;
     this.persistentBusyboxTools = options.persistentBusyboxTools;
@@ -992,11 +978,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Nullable
   public Boolean apkSigningMethodV4() {
     return apkSigningMethod.signV4();
-  }
-
-  @Override
-  public boolean useParallelDex2Oat() {
-    return useParallelDex2Oat;
   }
 
   @Override
