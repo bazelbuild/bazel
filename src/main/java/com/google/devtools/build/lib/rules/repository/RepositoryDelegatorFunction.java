@@ -62,7 +62,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TreeMap;
+import java.util.LinkedHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -696,8 +696,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         throws RepositoryFunctionException {
       StringBuilder builder = new StringBuilder();
       builder.append(ruleKey).append("\n");
-      for (Map.Entry<RepoRecordedInput, String> recordedInput :
-          new TreeMap<RepoRecordedInput, String>(recordedInputValues).entrySet()) {
+      for (Map.Entry<? extends RepoRecordedInput, String> recordedInput :
+          recordedInputValues.entrySet()) {
         String key = recordedInput.getKey().toString();
         String value = recordedInput.getValue();
         builder.append(escape(key)).append(" ").append(escape(value)).append("\n");
@@ -778,7 +778,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
                 "");
           }
           firstLineVerified = true;
-          recordedInputValues = new TreeMap<>();
+          recordedInputValues = new LinkedHashMap<>();
         } else {
           int sChar = line.indexOf(' ');
           if (sChar > 0) {
