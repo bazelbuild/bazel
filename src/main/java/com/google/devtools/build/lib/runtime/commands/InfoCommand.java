@@ -24,7 +24,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -71,6 +75,7 @@ import com.google.devtools.build.lib.runtime.commands.info.WorkerMetricsInfoItem
 import com.google.devtools.build.lib.runtime.commands.info.WorkspaceInfoItem;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -185,10 +190,19 @@ public class InfoCommand implements BlazeCommand {
                 ensureSyncPackageLoading(env, optionsParsingResult);
                 // TODO(bazel-team): What if there are multiple configurations? [multi-config]
                 BuildOptions buildOptions = runtime.createBuildOptions(optionsParsingResult);
-                env.getSkyframeExecutor().setBaselineConfiguration(buildOptions, env.getReporter());
+                populateFlagAliases(buildOptions, env);
+                BuildOptions baselineConfiguration =
+                    env.getSkyframeExecutor().getBaselineConfigurationIfPresent();
+                if (!buildOptions.equals(baselineConfiguration)) {
+                  env.getSkyframeExecutor()
+                      .setBaselineConfiguration(buildOptions, env.getReporter());
+                }
                 return env.getSkyframeExecutor()
                     .getConfiguration(env.getReporter(), buildOptions, /* keepGoing= */ true);
               } catch (InvalidConfigurationException e) {
+                env.getReporter().handle(Event.error(e.getMessage()));
+                throw new AbruptExitRuntimeException(e.getDetailedExitCode());
+              } catch (RepositoryMappingResolutionException e) {
                 env.getReporter().handle(Event.error(e.getMessage()));
                 throw new AbruptExitRuntimeException(e.getDetailedExitCode());
               } catch (AbruptExitException e) {
@@ -276,6 +290,41 @@ public class InfoCommand implements BlazeCommand {
           InterruptedFailureDetails.detailedExitCode("info interrupted"));
     }
     return BlazeCommandResult.success();
+  }
+
+  private static void populateFlagAliases(BuildOptions buildOptions, CommandEnvironment env)
+      throws InterruptedException, RepositoryMappingResolutionException {
+    CoreOptions coreOptions = buildOptions.get(CoreOptions.class);
+    if (coreOptions == null) {
+      return;
+    }
+
+    Map<String, String> flagAliases = env.getSkyframeExecutor().getFlagAliases(env.getReporter());
+    if (flagAliases.isEmpty()) {
+      return;
+    }
+
+    Label.RepoContext repoContext =
+        Label.RepoContext.of(
+            RepositoryName.MAIN, env.getSkyframeExecutor().getMainRepoMapping(env.getReporter()));
+    TreeMap<String, Label> mergedFlagAliases = new TreeMap<>();
+    flagAliases.forEach(
+        (name, rawLabel) -> mergedFlagAliases.put(name, parseFlagAlias(rawLabel, repoContext)));
+    coreOptions
+        .getCommandLineFlagAliases()
+        .forEach(entry -> mergedFlagAliases.put(entry.getKey(), entry.getValue()));
+    coreOptions.setCommandLineFlagAliases(
+        mergedFlagAliases.entrySet().stream()
+            .map(entry -> Map.entry(entry.getKey(), entry.getValue()))
+            .collect(ImmutableList.toImmutableList()));
+  }
+
+  private static Label parseFlagAlias(String rawLabel, Label.RepoContext repoContext) {
+    try {
+      return Label.parseWithRepoContext(rawLabel, repoContext);
+    } catch (LabelSyntaxException e) {
+      throw new IllegalStateException("Failed to reparse --flag_alias value: " + rawLabel, e);
+    }
   }
 
   private static void ensureSyncPackageLoading(CommandEnvironment env, OptionsProvider options)
