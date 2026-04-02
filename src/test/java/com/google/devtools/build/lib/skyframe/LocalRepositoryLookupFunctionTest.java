@@ -17,10 +17,17 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
-import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
+import com.google.devtools.build.lib.bazel.bzlmod.InterimModule;
+import com.google.devtools.build.lib.bazel.bzlmod.LocalPathRepoSpecs;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -59,6 +66,9 @@ import org.junit.runners.JUnit4;
 public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
 
   private MemoizingEvaluator evaluator;
+  private AtomicReference<RepositoryMappingValue> repositoryMappingValue;
+  private AtomicReference<RootModuleFileValue> rootModuleFileValue;
+  private AtomicReference<BazelDepGraphValue> bazelDepGraphValue;
 
   @Before
   public final void setUp() throws Exception {
@@ -79,6 +89,10 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
             pkgLocator,
             ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
             directories);
+    repositoryMappingValue =
+        new AtomicReference<>(RepositoryMappingValue.VALUE_FOR_EMPTY_ROOT_MODULE);
+    rootModuleFileValue = new AtomicReference<>(emptyRootModuleFileValue());
+    bazelDepGraphValue = new AtomicReference<>(BazelDepGraphValue.createEmptyDepGraph());
 
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
     skyFunctions.put(
@@ -98,7 +112,9 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
         new DirectoryListingStateFunction(externalFilesHelper, SyscallCache.NO_CACHE));
-    skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
+    skyFunctions.put(
+        SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
+        new LocalRepositoryLookupFunction(directories.getWorkspace()));
     skyFunctions.put(
         FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
     skyFunctions.put(
@@ -106,15 +122,23 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
         new SkyFunction() {
           @Override
           public SkyValue compute(SkyKey skyKey, Environment env) {
-            return RepositoryMappingValue.VALUE_FOR_EMPTY_ROOT_MODULE;
+            return repositoryMappingValue.get();
           }
         });
     skyFunctions.put(
-        RepoDefinitionValue.REPO_DEFINITION,
+        SkyFunctions.MODULE_FILE,
         new SkyFunction() {
           @Override
           public SkyValue compute(SkyKey skyKey, Environment env) {
-            return RepoDefinitionValue.NOT_FOUND;
+            return rootModuleFileValue.get();
+          }
+        });
+    skyFunctions.put(
+        SkyFunctions.BAZEL_DEP_GRAPH,
+        new SkyFunction() {
+          @Override
+          public SkyValue compute(SkyKey skyKey, Environment env) {
+            return bazelDepGraphValue.get();
           }
         });
 
@@ -145,6 +169,30 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
     return evaluator.evaluate(ImmutableList.of(directoryKey), evaluationContext);
   }
 
+  private void addVisibleLocalRepository(RepositoryName repositoryName, String path) {
+    repositoryMappingValue.set(
+        RepositoryMappingValue.createSpecial(
+            RepositoryMapping.create(
+                ImmutableMap.of("", RepositoryName.MAIN, repositoryName.getName(), repositoryName),
+                RepositoryName.MAIN)));
+    rootModuleFileValue.set(
+        new RootModuleFileValue(
+            InterimModule.builder().build(),
+            ImmutableMap.of("local_repo", new NonRegistryOverride(LocalPathRepoSpecs.create(path))),
+            ImmutableMap.of(repositoryName, "local_repo"),
+            ImmutableMap.of("local_repo", repositoryName.getName()),
+            ImmutableSet.of()));
+  }
+
+  private static RootModuleFileValue emptyRootModuleFileValue() {
+    return new RootModuleFileValue(
+        InterimModule.builder().build(),
+        ImmutableMap.of(),
+        ImmutableMap.of(),
+        ImmutableMap.of(),
+        ImmutableSet.of());
+  }
+
   @Test
   public void testNoPath() throws Exception {
     LocalRepositoryLookupValue repositoryLookupValue =
@@ -166,5 +214,22 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
     assertThat(repositoryLookupValue).isNotNull();
     assertThat(repositoryLookupValue.getRepository()).isEqualTo(RepositoryName.MAIN);
     assertThat(repositoryLookupValue.getPath()).isEqualTo(PathFragment.EMPTY_FRAGMENT);
+  }
+
+  @Test
+  public void testDirectoryInsideVisibleLocalRepository() throws Exception {
+    RepositoryName repositoryName = RepositoryName.createUnvalidated("local_repo");
+    addVisibleLocalRepository(repositoryName, "third_party/local_repo");
+
+    LocalRepositoryLookupValue repositoryLookupValue =
+        lookupDirectory(
+            RootedPath.toRootedPath(
+                Root.fromPath(rootDirectory),
+                PathFragment.create("third_party/local_repo/pkg")));
+
+    assertThat(repositoryLookupValue).isNotNull();
+    assertThat(repositoryLookupValue.getRepository()).isEqualTo(repositoryName);
+    assertThat(repositoryLookupValue.getPath())
+        .isEqualTo(PathFragment.create("third_party/local_repo"));
   }
 }

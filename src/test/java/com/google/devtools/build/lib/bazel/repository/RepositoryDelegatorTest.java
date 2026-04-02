@@ -165,7 +165,9 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                         new AtomicReference<>(ImmutableSet.of()),
                         CrossRepositoryLabelViolationStrategy.ERROR,
                         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
-                .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
+                .put(
+                    SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
+                    new LocalRepositoryLookupFunction(directories.getWorkspace()))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(
                     SkyFunctions.BZL_COMPILE,

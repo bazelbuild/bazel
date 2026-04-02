@@ -23,6 +23,9 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
+import com.google.devtools.build.lib.bazel.bzlmod.InterimModule;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
@@ -115,7 +118,20 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
         new DirectoryListingStateFunction(externalFilesHelper, SyscallCache.NO_CACHE));
-    skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
+    skyFunctions.put(
+        SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
+        new LocalRepositoryLookupFunction(directories.getWorkspace()));
+    skyFunctions.put(
+        SkyFunctions.MODULE_FILE,
+        (skyKey, env) ->
+            new RootModuleFileValue(
+                InterimModule.builder().build(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableSet.of()));
+    skyFunctions.put(
+        SkyFunctions.BAZEL_DEP_GRAPH, (skyKey, env) -> BazelDepGraphValue.createEmptyDepGraph());
     skyFunctions.put(
         FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
     skyFunctions.put(

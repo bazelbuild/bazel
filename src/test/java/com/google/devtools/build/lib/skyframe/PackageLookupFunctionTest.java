@@ -25,12 +25,17 @@ import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
+import com.google.devtools.build.lib.bazel.bzlmod.InterimModule;
+import com.google.devtools.build.lib.bazel.bzlmod.LocalPathRepoSpecs;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
-import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
 import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
@@ -76,6 +81,9 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
   private MemoizingEvaluator evaluator;
   private RecordingDifferencer differencer;
   private Path emptyPackagePath;
+  private AtomicReference<RepositoryMappingValue> repositoryMappingValue;
+  private AtomicReference<RootModuleFileValue> rootModuleFileValue;
+  private AtomicReference<BazelDepGraphValue> bazelDepGraphValue;
 
   protected abstract CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy();
 
@@ -92,6 +100,10 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
                 ImmutableList.of(Root.fromPath(emptyPackagePath), Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     deletedPackages = new AtomicReference<>(ImmutableSet.of());
+    repositoryMappingValue =
+        new AtomicReference<>(RepositoryMappingValue.VALUE_FOR_EMPTY_ROOT_MODULE);
+    rootModuleFileValue = new AtomicReference<>(emptyRootModuleFileValue());
+    bazelDepGraphValue = new AtomicReference<>(BazelDepGraphValue.createEmptyDepGraph());
     BlazeDirectories directories =
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, rootDirectory),
@@ -129,7 +141,9 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
             ruleClassProvider.getBazelStarlarkEnvironment(),
             Root.fromPath(directories.getWorkspace())));
     skyFunctions.put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.INSTANCE);
-    skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
+    skyFunctions.put(
+        SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
+        new LocalRepositoryLookupFunction(directories.getWorkspace()));
     skyFunctions.put(
         FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
 
@@ -142,15 +156,23 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
         new SkyFunction() {
           @Override
           public SkyValue compute(SkyKey skyKey, Environment env) {
-            return RepositoryMappingValue.VALUE_FOR_EMPTY_ROOT_MODULE;
+            return repositoryMappingValue.get();
           }
         });
     skyFunctions.put(
-        RepoDefinitionValue.REPO_DEFINITION,
+        SkyFunctions.MODULE_FILE,
         new SkyFunction() {
           @Override
           public SkyValue compute(SkyKey skyKey, Environment env) {
-            return RepoDefinitionValue.NOT_FOUND;
+            return rootModuleFileValue.get();
+          }
+        });
+    skyFunctions.put(
+        SkyFunctions.BAZEL_DEP_GRAPH,
+        new SkyFunction() {
+          @Override
+          public SkyValue compute(SkyKey skyKey, Environment env) {
+            return bazelDepGraphValue.get();
           }
         });
 
@@ -185,6 +207,30 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     return evaluator.evaluate(ImmutableList.of(packageIdentifierSkyKey), evaluationContext);
+  }
+
+  protected final void addVisibleLocalRepository(RepositoryName repositoryName, String path) {
+    repositoryMappingValue.set(
+        RepositoryMappingValue.createSpecial(
+            RepositoryMapping.create(
+                ImmutableMap.of("", RepositoryName.MAIN, repositoryName.getName(), repositoryName),
+                RepositoryName.MAIN)));
+    rootModuleFileValue.set(
+        new RootModuleFileValue(
+            InterimModule.builder().build(),
+            ImmutableMap.of("local_repo", new NonRegistryOverride(LocalPathRepoSpecs.create(path))),
+            ImmutableMap.of(repositoryName, "local_repo"),
+            ImmutableMap.of("local_repo", repositoryName.getName()),
+            ImmutableSet.of()));
+  }
+
+  private static RootModuleFileValue emptyRootModuleFileValue() {
+    return new RootModuleFileValue(
+        InterimModule.builder().build(),
+        ImmutableMap.of(),
+        ImmutableMap.of(),
+        ImmutableMap.of(),
+        ImmutableSet.of());
   }
 
   @Test
@@ -388,6 +434,23 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     @Override
     protected CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy() {
       return CrossRepositoryLabelViolationStrategy.ERROR;
+    }
+
+    @Test
+    public void testLookupInsideLocalRepositoryReturnsCorrectRepositoryHint() throws Exception {
+      RepositoryName repositoryName = RepositoryName.createUnvalidated("local_repo");
+      addVisibleLocalRepository(repositoryName, "third_party/local_repo");
+      scratch.file("third_party/local_repo/pkg/BUILD");
+
+      PackageLookupValue packageLookupValue = lookupPackage("third_party/local_repo/pkg");
+
+      assertThat(packageLookupValue.packageExists()).isFalse();
+      assertThat(packageLookupValue.getErrorReason()).isEqualTo(ErrorReason.INVALID_PACKAGE_NAME);
+      assertThat(
+              ((PackageLookupValue.IncorrectRepositoryReferencePackageLookupValue)
+                      packageLookupValue)
+                  .getCorrectedPackageIdentifier())
+          .isEqualTo(PackageIdentifier.create(repositoryName, PathFragment.create("pkg")));
     }
   }
 }

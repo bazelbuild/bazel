@@ -43,6 +43,9 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
+import com.google.devtools.build.lib.bazel.bzlmod.InterimModule;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -176,7 +179,20 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     skyFunctions.put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.NOOP);
     skyFunctions.put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build());
-    skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
+    skyFunctions.put(
+        SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
+        new LocalRepositoryLookupFunction(directories.getWorkspace()));
+    skyFunctions.put(
+        SkyFunctions.MODULE_FILE,
+        (skyKey, env) ->
+            new RootModuleFileValue(
+                InterimModule.builder().build(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableSet.of()));
+    skyFunctions.put(
+        SkyFunctions.BAZEL_DEP_GRAPH, (skyKey, env) -> BazelDepGraphValue.createEmptyDepGraph());
     skyFunctions.put(
         FileSymlinkInfiniteExpansionUniquenessFunction.NAME,
         new FileSymlinkInfiniteExpansionUniquenessFunction());

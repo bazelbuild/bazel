@@ -151,7 +151,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         CrossRepositoryLabelViolationStrategy.ERROR,
                         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
                 .put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.NOOP)
-                .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
+                .put(
+                    SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
+                    new LocalRepositoryLookupFunction(directories.getWorkspace()))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
