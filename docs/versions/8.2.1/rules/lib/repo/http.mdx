@@ -34,7 +34,7 @@ http_archive(name = "foo", urls = [...])
 
 ## http_archive
 
-<pre>
+```bash
 load("@bazel//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(<a href="#http_archive-name">name</a>, <a href="#http_archive-add_prefix">add_prefix</a>, <a href="#http_archive-auth_patterns">auth_patterns</a>, <a href="#http_archive-build_file">build_file</a>, <a href="#http_archive-build_file_content">build_file_content</a>, <a href="#http_archive-canonical_id">canonical_id</a>,
@@ -42,7 +42,7 @@ http_archive(<a href="#http_archive-name">name</a>, <a href="#http_archive-add_p
              <a href="#http_archive-patches">patches</a>, <a href="#http_archive-remote_file_integrity">remote_file_integrity</a>, <a href="#http_archive-remote_file_urls">remote_file_urls</a>, <a href="#http_archive-remote_patch_strip">remote_patch_strip</a>, <a href="#http_archive-remote_patches">remote_patches</a>,
              <a href="#http_archive-repo_mapping">repo_mapping</a>, <a href="#http_archive-sha256">sha256</a>, <a href="#http_archive-strip_prefix">strip_prefix</a>, <a href="#http_archive-type">type</a>, <a href="#http_archive-url">url</a>, <a href="#http_archive-urls">urls</a>, <a href="#http_archive-workspace_file">workspace_file</a>,
              <a href="#http_archive-workspace_file_content">workspace_file_content</a>)
-</pre>
+```
 
 Downloads a Bazel repository as a compressed archive file, decompresses it,
 and makes its targets available for binding.
@@ -151,24 +151,24 @@ as the value for the <code>Authorization</code> field of the HTTP request.
 
 Example attribute and netrc for a http download to an oauth2 enabled API using a bearer token:
 
-<pre>
+```bash
 auth_patterns = {
     "storage.cloudprovider.com": "Bearer &lt;password&gt;"
 }
-</pre>
+```
 
 netrc:
 
-<pre>
+```bash
 machine storage.cloudprovider.com
         password RANDOM-TOKEN
-</pre>
+```
 
 The final HTTP request would have the following header:
 
-<pre>
+```bash
 Authorization: Bearer RANDOM-TOKEN
-</pre>
+```
 
 </p>
 </td>
@@ -542,12 +542,12 @@ This repository rule depends on the following environment variables:
 
 ## http_file
 
-<pre>
+```bash
 load("@bazel//tools/build_defs/repo:http.bzl", "http_file")
 
 http_file(<a href="#http_file-name">name</a>, <a href="#http_file-auth_patterns">auth_patterns</a>, <a href="#http_file-canonical_id">canonical_id</a>, <a href="#http_file-downloaded_file_path">downloaded_file_path</a>, <a href="#http_file-executable">executable</a>, <a href="#http_file-integrity">integrity</a>, <a href="#http_file-netrc">netrc</a>,
           <a href="#http_file-repo_mapping">repo_mapping</a>, <a href="#http_file-sha256">sha256</a>, <a href="#http_file-url">url</a>, <a href="#http_file-urls">urls</a>)
-</pre>
+```
 
 Downloads a file from a URL and makes it available to be used as a file
 group.
@@ -611,24 +611,24 @@ as the value for the <code>Authorization</code> field of the HTTP request.
 
 Example attribute and netrc for a http download to an oauth2 enabled API using a bearer token:
 
-<pre>
+```bash
 auth_patterns = {
     "storage.cloudprovider.com": "Bearer &lt;password&gt;"
 }
-</pre>
+```
 
 netrc:
 
-<pre>
+```bash
 machine storage.cloudprovider.com
         password RANDOM-TOKEN
-</pre>
+```
 
 The final HTTP request would have the following header:
 
-<pre>
+```bash
 Authorization: Bearer RANDOM-TOKEN
-</pre>
+```
 
 </p>
 </td>
@@ -798,12 +798,12 @@ This repository rule depends on the following environment variables:
 
 ## http_jar
 
-<pre>
+```bash
 load("@bazel//tools/build_defs/repo:http.bzl", "http_jar")
 
 http_jar(<a href="#http_jar-name">name</a>, <a href="#http_jar-auth_patterns">auth_patterns</a>, <a href="#http_jar-canonical_id">canonical_id</a>, <a href="#http_jar-downloaded_file_name">downloaded_file_name</a>, <a href="#http_jar-integrity">integrity</a>, <a href="#http_jar-netrc">netrc</a>, <a href="#http_jar-repo_mapping">repo_mapping</a>,
          <a href="#http_jar-sha256">sha256</a>, <a href="#http_jar-url">url</a>, <a href="#http_jar-urls">urls</a>)
-</pre>
+```
 
 Downloads a jar from a URL and makes it available as java_import
 
@@ -876,24 +876,24 @@ as the value for the <code>Authorization</code> field of the HTTP request.
 
 Example attribute and netrc for a http download to an oauth2 enabled API using a bearer token:
 
-<pre>
+```bash
 auth_patterns = {
     "storage.cloudprovider.com": "Bearer &lt;password&gt;"
 }
-</pre>
+```
 
 netrc:
 
-<pre>
+```bash
 machine storage.cloudprovider.com
         password RANDOM-TOKEN
-</pre>
+```
 
 The final HTTP request would have the following header:
 
-<pre>
+```bash
 Authorization: Bearer RANDOM-TOKEN
-</pre>
+```
 
 </p>
 </td>
