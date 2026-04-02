@@ -32,6 +32,7 @@ java_library(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
+        "@maven//:org_apache_commons_commons_lang3",
     ],
 )
 

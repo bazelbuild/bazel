@@ -1160,6 +1160,55 @@ EOF
   bazel build @repo//... || fail "Expected integrity check to succeed"
 }
 
+function test_multiple_integrity_hashes_correct() {
+  REPO_PATH=$TEST_TMPDIR/repo
+  mkdir -p "$REPO_PATH"
+  cd "$REPO_PATH"
+  setup_module_dot_bazel
+  touch BUILD
+  zip -r repo.zip *
+  integrity256="sha256-$(cat repo.zip | openssl dgst -sha256 -binary | openssl base64 -A)"
+  integrity384="sha384-$(cat repo.zip | openssl dgst -sha384 -binary | openssl base64 -A)"
+  integrity512="sha512-$(cat repo.zip | openssl dgst -sha512 -binary | openssl base64 -A)"
+  startup_server $PWD
+  cd -
+
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "repo",
+    integrity = "$integrity256 $integrity384 $integrity512",
+    url = "http://127.0.0.1:$fileserver_port/repo.zip",
+)
+EOF
+  bazel build @repo//... || fail "Expected integrity check to succeed"
+}
+
+function test_multiple_integrity_hashes_strongest_used() {
+  REPO_PATH=$TEST_TMPDIR/repo
+  mkdir -p "$REPO_PATH"
+  cd "$REPO_PATH"
+  setup_module_dot_bazel
+  touch BUILD
+  zip -r repo.zip *
+  # Even though the sha256 and sha384 hashes are wrong, only the sha512 integrity is used.
+  integrity512="sha512-$(cat repo.zip | openssl dgst -sha512 -binary | openssl base64 -A)"
+  wrongintegrity256="sha256-O4v8fJvidQTu5H/np7Vl1oly/FDDfzthaP8khIm9PM0="
+  wrongintegrity384="sha384-OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb"
+  startup_server $PWD
+  cd -
+
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "repo",
+    integrity = "$wrongintegrity256 $wrongintegrity384 $integrity512",
+    url = "http://127.0.0.1:$fileserver_port/repo.zip",
+)
+EOF
+  bazel build @repo//... || fail "Expected integrity check to succeed"
+}
+
 function test_integrity_weird() {
   REPO_PATH=$TEST_TMPDIR/repo
   mkdir -p "$REPO_PATH"
@@ -1179,7 +1228,7 @@ http_archive(
 )
 EOF
   bazel build @repo//... &> $TEST_log 2>&1 && fail "Expected to fail"
-  expect_log "Unsupported checksum algorithm: 'a random string'"
+  expect_log "No valid checksums found in integrity 'a random string'"
   shutdown_server
 }
 
@@ -1219,7 +1268,7 @@ http_archive(
 )
 EOF
   bazel build @repo//... &> $TEST_log 2>&1 && fail "Expected to fail"
-  expect_log "Invalid base64 'Yab3Yqr2BlLL8zKHm43MLP2BviEpoGHalX0Dnq538L='"
+  expect_log "No valid checksums found in integrity 'sha256-Yab3Yqr2BlLL8zKHm43MLP2BviEpoGHalX0Dnq538L='"
   shutdown_server
 }
 
