@@ -417,9 +417,12 @@ public final class StarlarkRepositoryContextTest {
     setUpRepo("test");
     StarlarkPath foo = context.getPath("foo");
     StarlarkPath patchFile = context.getPath("my.patch");
-    context.createFile(foo, "line three\n", false, true, thread);
     context.createFile(
-        context.getPath("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
+        foo, "line1\nline2\nWRONG\nALSO WRONG\nline5\nline6\n", false, true, thread);
+    String patch =
+        "--- foo\n+++ foo\n@@ -1,6 +1,7 @@\n line1\n line2\n line3\n line4\n+inserted\n"
+            + " line5\n line6\n";
+    context.createFile(context.getPath("my.patch"), patch, false, true, thread);
     try {
       context.patch(patchFile, StarlarkInt.of(0), "auto", thread);
       fail("Expected RepositoryFunctionException");

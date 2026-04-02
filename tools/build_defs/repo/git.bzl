@@ -125,7 +125,7 @@ _common_attrs = {
         doc =
             "A list of files that are to be applied as patches after " +
             "extracting the archive. By default, it uses the Bazel-native patch implementation " +
-            "which doesn't support fuzz match and binary patch, but Bazel will fall back to use " +
+            "which doesn't support binary patch, but Bazel will fall back to use " +
             "patch command line tool if `patch_tool` attribute is specified or there are " +
             "arguments other than `-p` in `patch_args` attribute.",
     ),
