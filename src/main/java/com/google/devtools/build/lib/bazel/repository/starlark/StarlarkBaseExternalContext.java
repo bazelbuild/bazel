@@ -20,6 +20,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Ascii;
+import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -330,14 +331,14 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
    * measures might be necessary.
    */
   private static ImmutableMap<URI, Map<String, List<String>>> getAuthHeaders(
-      Map<String, Dict<?, ?>> auth) throws RepositoryFunctionException, EvalException {
+      Map<String, Dict<?, ?>> auth) throws EvalException {
     ImmutableMap.Builder<URI, Map<String, List<String>>> headers = new ImmutableMap.Builder<>();
     for (Map.Entry<String, Dict<?, ?>> entry : auth.entrySet()) {
       try {
         URI url = new URI(entry.getKey());
         Dict<?, ?> authMap = entry.getValue();
         if (authMap.containsKey("type")) {
-          if ("basic".equals(authMap.get("type"))) {
+          if (Objects.equals(authMap.get("type"), "basic")) {
             if (!authMap.containsKey("login") || !authMap.containsKey("password")) {
               throw Starlark.errorf(
                   "Found request to do basic auth for %s without 'login' and 'password' being"
@@ -352,7 +353,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
                     ImmutableList.of(
                         "Basic "
                             + Base64.getEncoder().encodeToString(credentials.getBytes(UTF_8)))));
-          } else if ("pattern".equals(authMap.get("type"))) {
+          } else if (Objects.equals(authMap.get("type"), "pattern")) {
             if (!authMap.containsKey("pattern")) {
               throw Starlark.errorf(
                   "Found request to do pattern auth for %s without a pattern being provided",
@@ -426,13 +427,14 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     ImmutableList.Builder<String> result = ImmutableList.builder();
 
     for (Object o : urlList) {
-      if (!(o instanceof String)) {
+      if (o instanceof String s) {
+        result.add(s);
+      } else {
         throw Starlark.errorf(
             "Expected a string or sequence of strings for 'url' argument, but got '%s' item in the"
                 + " sequence",
             Starlark.type(o));
       }
-      result.add((String) o);
     }
 
     return result.build();
@@ -602,7 +604,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
     @Override
     public boolean cancel() {
-      return !future.cancel(true);
+      return !future.cancel(false);
     }
 
     @Override
@@ -632,6 +634,12 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append(String.format("<pending download to '%s'>", outputPath));
     }
+
+    @Override
+    public void debugPrint(Printer printer, StarlarkThread thread) {
+      printer.append(
+          String.format("<pending download (state: %s) to '%s'>", future.state(), outputPath));
+    }
   }
 
   private StructImpl completeDownload(PendingDownload pendingDownload)
@@ -644,8 +652,9 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       }
     } catch (IOException e) {
       if (pendingDownload.allowFail) {
-        return StarlarkInfo.create(
-            StructProvider.STRUCT, ImmutableMap.of("success", false), Location.BUILTIN);
+        ImmutableMap<String, Object> struct =
+            ImmutableMap.of("success", false, "error", e.toString());
+        return StarlarkInfo.create(StructProvider.STRUCT, struct, Location.BUILTIN);
       } else {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
@@ -671,7 +680,11 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 Downloads a file to the output path for the provided url and returns a struct \
 containing <code>success</code>, a flag which is <code>true</code> if the \
 download completed successfully, and if successful, a hash of the file \
-with the fields <code>sha256</code> and <code>integrity</code>. \
+with the fields <code>sha256</code> and <code>integrity</code>. If the value \
+of the <code>success</code> field is false, the <code>error</code> field will be set \
+with a message indicating why the download failed. The message in the <code>error</code> \
+field is for debugging purposes only and should not be relied upon as a stable API (the \
+format of the string can change between patch versions of Bazel). \
 When <code>sha256</code> or <code>integrity</code> is user specified, setting an explicit \
 <code>canonical_id</code> is highly recommended. e.g. \
 <a href='/rules/lib/repo/cache#get_default_canonical_id'><code>get_default_canonical_id</code></a>
@@ -889,7 +902,11 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
 Downloads a file to the output path for the provided url, extracts it, and returns a \
 struct containing <code>success</code>, a flag which is <code>true</code> if the \
 download completed successfully, and if successful, a hash of the file with the \
-fields <code>sha256</code> and <code>integrity</code>. \
+fields <code>sha256</code> and <code>integrity</code>. If the value \
+of the <code>success</code> field is false, the <code>error</code> field will be set \
+with a message indicating why the download failed. The message in the <code>error</code> \
+field is for debugging purposes only and should not be relied upon as a stable API (the \
+format of the string can change between patch versions of Bazel). \
 When <code>sha256</code> or <code>integrity</code> is user specified, setting an explicit \
 <code>canonical_id</code> is highly recommended. e.g. \
 <a href='/rules/lib/repo/cache#get_default_canonical_id'><code>get_default_canonical_id</code></a>
@@ -1122,8 +1139,9 @@ the same path on case-insensitive filesystems.
     } catch (IOException e) {
       env.getListener().post(w);
       if (allowFail) {
-        return StarlarkInfo.create(
-            StructProvider.STRUCT, ImmutableMap.of("success", false), Location.BUILTIN);
+        ImmutableMap<String, Object> struct =
+            ImmutableMap.of("success", false, "error", e.toString());
+        return StarlarkInfo.create(StructProvider.STRUCT, struct, Location.BUILTIN);
       } else {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
@@ -1167,9 +1185,6 @@ the same path on case-insensitive filesystems.
    * because the parent directory being removed was "not empty" (yet). Please see
    * https://github.com/bazelbuild/bazel/issues/23687 and
    * https://github.com/bazelbuild/bazel/issues/20013 for further details.
-   *
-   * @param downloadDirectory
-   * @throws RepositoryFunctionException
    */
   private static void deleteTreeWithRetries(Path downloadDirectory)
       throws RepositoryFunctionException {
@@ -1751,7 +1766,7 @@ the same path on case-insensitive filesystems.
       name = "os",
       structField = true,
       doc = "A struct to access information from the system.")
-  public StarlarkOS getOS() {
+  public StarlarkOS getOs() {
     // Historically this event reported the location of the ctx.os expression, but that's no longer
     // available in the interpreter API. Now we just use a dummy location, and the user must
     // manually inspect the code where this context object is used if they wish to find the
@@ -2202,13 +2217,11 @@ func(
     StarlarkPath path = null;
     StarlarkWasmModule wasmModule = null;
     switch (pathOrModule) {
-      case StarlarkWasmModule m:
+      case StarlarkWasmModule m -> {
         wasmModule = m;
-        path = wasmModule.getPath();
-        break;
-      default:
-        path = getPath(pathOrModule);
-        break;
+        path = m.getPath();
+      }
+      default -> path = getPath(pathOrModule);
     }
     ;
 
@@ -2290,7 +2303,7 @@ func(
     if (pathEnvVariable == null) {
       return null;
     }
-    for (String p : pathEnvVariable.split(File.pathSeparator)) {
+    for (String p : Splitter.on(File.pathSeparator).split(pathEnvVariable)) {
       PathFragment fragment = PathFragment.create(p);
       if (fragment.isAbsolute()) {
         // We ignore relative path as they don't mean much here (relative to where? the workspace
