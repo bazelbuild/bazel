@@ -907,6 +907,157 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
 
+  def doTestMaterializationWithInternalAndExternalSymlinks(
+      self, *, expect_symlinks, watch_dep_file=True
+  ):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'dep_repo_rule = use_repo_rule("//:dep_repo.bzl", "dep_repo_rule")',
+            'dep_repo_rule(name = "dep_repo")',
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            (
+                'repo(name = "my_repo",'
+                ' external_file = "@dep_repo//:dep_data.txt")'
+            ),
+            (
+                'other_repo_rule ='
+                ' use_repo_rule("//:other_repo.bzl", "other_repo_rule")'
+            ),
+            (
+                'other_repo_rule(name = "other",'
+                ' build_file = "@my_repo//:BUILD",'
+                ' dep_file = "@dep_repo//:dep_data.txt")'
+            ),
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'dep_repo.bzl',
+        [
+            'def _dep_repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'dep_data.txt\'])")',
+            '  rctx.file("dep_data.txt", "dep_hello")',
+            '  print("JUST FETCHED DEP_REPO")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'dep_repo_rule = repository_rule(_dep_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            '  rctx.file("data.txt", "hello")',
+            '  rctx.symlink("data.txt", "internal_link.txt")',
+            '  rctx.symlink(rctx.attr.external_file, "external_link.txt")',
+            '  print("JUST FETCHED MY_REPO")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            (
+                'repo = repository_rule(_repo_impl,'
+                ' attrs={"external_file": attr.label()})'
+            ),
+        ],
+    )
+    other_repo_lines = [
+        'def _other_repo_impl(rctx):',
+    ]
+    if watch_dep_file:
+      # Materialize dep_repo before my_repo so that the external
+      # symlink target exists when my_repo is materialized.
+      other_repo_lines.append('  rctx.watch(rctx.attr.dep_file)')
+    other_repo_lines.extend([
+        '  rctx.file("BUILD", rctx.read(rctx.attr.build_file))',
+        # other_repo is not reproducible, so it is always fetched
+        # and triggers materialization of my_repo.
+        '  return rctx.repo_metadata()',
+        (
+            'other_repo_rule = repository_rule(_other_repo_impl,'
+            ' attrs={"build_file": attr.label(),'
+            ' "dep_file": attr.label()})'
+        ),
+    ])
+    self.ScratchFile('other_repo.bzl', other_repo_lines)
+
+    repo_dir = self.RepoDir('my_repo')
+    internal_link = os.path.join(repo_dir, 'internal_link.txt')
+    external_link = os.path.join(repo_dir, 'external_link.txt')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@other//:haha'])
+    stderr_text = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED MY_REPO', stderr_text)
+    self.assertIn('JUST FETCHED DEP_REPO', stderr_text)
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+    if expect_symlinks:
+      self.assertTrue(os.path.islink(internal_link))
+      self.assertTrue(os.path.islink(external_link))
+    with open(internal_link) as f:
+      self.assertEqual(f.read(), 'hello')
+    with open(external_link) as f:
+      self.assertEqual(f.read(), 'dep_hello')
+
+    # After expunging: my_repo cached, not materialized
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertNotIn('JUST FETCHED MY_REPO', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+
+    # Fetch other: my_repo materialized; dep_repo only if watch_dep_file.
+    _, _, stderr = self.RunBazel(['build', '@other//:haha'])
+    stderr_text = '\n'.join(stderr)
+    self.assertNotIn('JUST FETCHED MY_REPO', stderr_text)
+    self.assertNotIn('JUST FETCHED DEP_REPO', stderr_text)
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+    if expect_symlinks:
+      self.assertTrue(os.path.islink(internal_link))
+      self.assertTrue(os.path.islink(external_link))
+    with open(internal_link) as f:
+      self.assertEqual(f.read(), 'hello')
+    if watch_dep_file:
+      with open(external_link) as f:
+        self.assertEqual(f.read(), 'dep_hello')
+    else:
+      # dep_repo was not materialized, so the external symlink is dangling.
+      self.assertFalse(os.path.exists(external_link))
+
+  def testMaterializationWithInternalAndExternalSymlinks(self):
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          [
+              'startup --windows_enable_symlinks',
+          ],
+          mode='a',
+      )
+    self.doTestMaterializationWithInternalAndExternalSymlinks(
+        expect_symlinks=True
+    )
+
+  def testMaterializationWithInternalAndExternalSymlinks_withoutSymlinksOnWindows(
+      self,
+  ):
+    if not self.IsWindows():
+      self.skipTest('This test is only relevant on Windows')
+    self.doTestMaterializationWithInternalAndExternalSymlinks(
+        expect_symlinks=False
+    )
+
+  def testMaterializationWithDanglingExternalSymlink(self):
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          [
+              'startup --windows_enable_symlinks',
+          ],
+          mode='a',
+      )
+    self.doTestMaterializationWithInternalAndExternalSymlinks(
+        expect_symlinks=True, watch_dep_file=False
+    )
+
   def testBzlFilePrefetching(self):
     self.ScratchFile(
         'MODULE.bazel',
