@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import java.text.NumberFormat;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -22,6 +24,13 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <p>Non-final to be mockable.
  */
 public class AnalysisProgressReceiver {
+  private static final ThreadLocal<NumberFormat> COUNT_FORMATTER =
+      ThreadLocal.withInitial(
+          () -> {
+            NumberFormat numberFormat = NumberFormat.getIntegerInstance(Locale.ENGLISH);
+            numberFormat.setGroupingUsed(true);
+            return numberFormat;
+          });
 
   private final AtomicInteger configuredTargetsCompleted = new AtomicInteger();
   private final AtomicInteger configuredTargetsDownloaded = new AtomicInteger();
@@ -69,21 +78,27 @@ public class AnalysisProgressReceiver {
     StringBuilder sb = new StringBuilder();
 
     long targets = configuredTargetsCompleted.get();
-    sb.append(targets).append(targets == 1 ? " target" : " targets").append(" configured");
+    sb.append(COUNT_FORMATTER.get().format(targets))
+        .append(targets == 1 ? " target" : " targets")
+        .append(" configured");
 
     long downloadedTargets = configuredTargetsDownloaded.get();
     if (downloadedTargets > 0) {
-      sb.append(" (").append(downloadedTargets).append(" remote cache hits)");
+      sb.append(" (")
+          .append(COUNT_FORMATTER.get().format(downloadedTargets))
+          .append(" remote cache hits)");
     }
 
     long aspects = configuredAspectsCompleted.get();
     if (aspects > 0) {
       sb.append(", ")
-          .append(aspects)
+          .append(COUNT_FORMATTER.get().format(aspects))
           .append(aspects == 1 ? " aspect application" : " aspect applications");
       long downloadedAspects = configuredAspectsDownloaded.get();
       if (downloadedAspects > 0) {
-        sb.append(" (").append(downloadedAspects).append(" remote cache hits)");
+        sb.append(" (")
+            .append(COUNT_FORMATTER.get().format(downloadedAspects))
+            .append(" remote cache hits)");
       }
     }
 

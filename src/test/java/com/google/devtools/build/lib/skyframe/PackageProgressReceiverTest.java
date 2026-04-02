@@ -73,4 +73,20 @@ public class PackageProgressReceiverTest {
     assertThat(progress.progressState().getFirst()).isEqualTo(defaultState);
     assertThat(progress.progressState().getSecond()).isEqualTo(defaultActivity);
   }
+
+  @Test
+  public void testLargeCountsUseGroupingSeparators() {
+    PackageProgressReceiver progress = new PackageProgressReceiver();
+    for (int i = 0; i < 1234; i++) {
+      PackageIdentifier id = PackageIdentifier.createInMainRepo("foo/bar/pkg" + i);
+      progress.startReadPackage(id);
+      progress.doneReadPackage(id);
+    }
+    for (int i = 0; i < 1234; i++) {
+      progress.startReadPackage(PackageIdentifier.createInMainRepo("pending/pkg" + i));
+    }
+
+    assertThat(progress.progressState().getFirst()).isEqualTo("1,234 packages loaded");
+    assertThat(progress.progressState().getSecond()).contains("(1,234 packages)");
+  }
 }

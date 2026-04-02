@@ -118,4 +118,18 @@ public class AnalysisProgressReceiverTest {
     progress.reset();
     assertThat(progress.getProgressString()).isEqualTo(defaultProgress);
   }
+
+  @Test
+  public void testLargeCountsUseGroupingSeparators() {
+    AnalysisProgressReceiver progress = new AnalysisProgressReceiver();
+    for (int i = 0; i < 1234; i++) {
+      progress.doneConfigureTarget();
+    }
+    for (int i = 0; i < 5678; i++) {
+      progress.doneConfigureAspect();
+    }
+
+    assertThat(progress.getProgressString())
+        .contains("1,234 targets configured, 5,678 aspect applications");
+  }
 }
