@@ -148,24 +148,24 @@ as the value for the <code>Authorization</code> field of the HTTP request.
 
 Example attribute and netrc for a http download to an oauth2 enabled API using a bearer token:
 
-<pre>
+```
 auth_patterns = {
-    "storage.cloudprovider.com": "Bearer &lt;password&gt;"
+    "storage.cloudprovider.com": "Bearer <password>"
 }
-</pre>
+```
 
 netrc:
 
-<pre>
+```
 machine storage.cloudprovider.com
         password RANDOM-TOKEN
-</pre>
+```
 
 The final HTTP request would have the following header:
 
-<pre>
+```
 Authorization: Bearer RANDOM-TOKEN
-</pre>
+```
 """
 
 def _update_integrity_attr(ctx, attrs, download_info):
