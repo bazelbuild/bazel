@@ -103,6 +103,8 @@ SUPPORTED_ARCHIVE_FORMATS = [
     "ar",
     "deb",
     "7z",
+    "tar.br",
+    "br",
 ]
 
 # Put quotes around the formats for documentation (i.e. `"zip"`)

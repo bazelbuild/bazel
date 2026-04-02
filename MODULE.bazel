@@ -230,6 +230,7 @@ maven.install(
         "org.apache.commons:commons-lang3:3.14.0",
         "org.apache.tomcat:tomcat-annotations-api:8.0.5",
         "org.apache.velocity:velocity:1.7",
+        "org.brotli:dec:0.1.2",
         "org.checkerframework:checker-qual:3.49.3",
         "org.commonmark:commonmark:0.25.0",
         "org.openjdk.jmh:jmh-core:1.37",
