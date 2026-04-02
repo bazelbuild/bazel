@@ -811,12 +811,8 @@ swift_binary = rule(
 
         def swift_binary_impl(ctx):
             compilation_mode_copts = ctx.fragments.objc.copts_for_current_compilation_mode
-            ios_simulator_device = ctx.fragments.objc.ios_simulator_device
-            ios_simulator_version = ctx.fragments.objc.ios_simulator_version
             return MyInfo(
                 compilation_mode_copts = compilation_mode_copts,
-                ios_simulator_device = ios_simulator_device,
-                ios_simulator_version = str(ios_simulator_version),
             )
 
         swift_binary = rule(
@@ -838,19 +834,14 @@ swift_binary = rule(
         )
         """);
 
-    useConfiguration(
-        "--compilation_mode=opt",
-        "--ios_simulator_device='iPhone 6'",
-        "--ios_simulator_version=8.4");
+    useConfiguration("--compilation_mode=fastbuild");
     ConfiguredTarget starlarkTarget =
         getConfiguredTarget("//test_starlark/objc_starlark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
 
-    Object iosSimulatorDevice = myInfo.getValue("ios_simulator_device");
-    Object iosSimulatorVersion = myInfo.getValue("ios_simulator_version");
+    Object compilationModeCopts = myInfo.getValue("compilation_mode_copts");
 
-    assertThat(iosSimulatorDevice).isEqualTo("'iPhone 6'");
-    assertThat(iosSimulatorVersion).isEqualTo("8.4");
+    assertThat((List<?>) compilationModeCopts).containsExactly("-O0", "-DDEBUG=1");
   }
 
   @Test
