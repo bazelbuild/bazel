@@ -226,7 +226,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     boolean allowNetworkForThisSpawn =
         allowNetwork
-            || Spawns.requiresNetwork(spawn, getSandboxOptions().defaultSandboxAllowNetwork);
+            || Spawns.requiresNetwork(spawn, getSandboxOptions().getDefaultSandboxAllowNetwork());
 
     return new SymlinkedSandboxedSpawn(
         sandboxPath,

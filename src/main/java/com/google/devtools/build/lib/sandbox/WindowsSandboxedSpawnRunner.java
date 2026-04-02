@@ -87,7 +87,7 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .setWritableFilesAndDirectories(writablePaths.build())
             .setReadableFilesAndDirectories(readablePaths.getFiles())
             .setInaccessiblePaths(getInaccessiblePaths())
-            .setUseDebugMode(getSandboxOptions().sandboxDebug)
+            .setUseDebugMode(getSandboxOptions().getSandboxDebug())
             .setKillDelay(timeoutKillDelay);
 
     if (!timeout.isZero()) {
