@@ -179,6 +179,8 @@ function gcov_coverage() {
       fi
     fi
   done < "${COVERAGE_MANIFEST}"
+
+  rm -f "${GCOV}"
 }
 
 function main() {
