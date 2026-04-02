@@ -38,8 +38,7 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
- * HeaderDiscovery checks whether all header files that a compile action uses are actually declared
- * as inputs.
+ * HeaderDiscovery maps dynamically discovered include paths back to input artifacts.
  *
  * <p>Tree artifacts: a tree artifact with path P causes any header file prefixed by P to be
  * accepted. Testing whether a used header file is prefixed by any tree artifact is linear search,
@@ -56,14 +55,10 @@ final class HeaderDiscovery {
    * has run.
    *
    * <p>Artifacts are considered inputs but not "mandatory" inputs.
-   *
-   * @throws ActionExecutionException iff the .d is missing (when required), malformed, or has
-   *     unresolvable included artifacts.
    */
   static NestedSet<Artifact> discoverInputsFromDependencies(
       Action action,
       Artifact sourceFile,
-      boolean shouldValidateInclusions,
       Collection<Path> dependencies,
       List<Path> permittedSystemIncludePrefixes,
       NestedSet<Artifact> allowedDerivedInputs,
@@ -97,7 +92,6 @@ final class HeaderDiscovery {
     return runDiscovery(
         action,
         sourceFile,
-        shouldValidateInclusions,
         dependencies,
         permittedSystemIncludePrefixes,
         regularDerivedArtifacts,
@@ -111,7 +105,6 @@ final class HeaderDiscovery {
   private static NestedSet<Artifact> runDiscovery(
       Action action,
       Artifact sourceFile,
-      boolean shouldValidateInclusions,
       Collection<Path> dependencies,
       List<Path> permittedSystemIncludePrefixes,
       Map<PathFragment, Artifact> regularDerivedArtifacts,
@@ -147,9 +140,6 @@ final class HeaderDiscovery {
                 .getName()
                 .equals(execRoot.getBaseName());
 
-    // Check inclusions.
-    IncludeProblems absolutePathProblems = new IncludeProblems();
-    IncludeProblems unresolvablePathProblems = new IncludeProblems();
     // Absolute includes from system paths are ignored. On Windows, which has a case-insensitive
     // file system by default, the paths as reported by the compiler may differ in casing from
     // those listed by the toolchain.
@@ -177,11 +167,7 @@ final class HeaderDiscovery {
               LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
                   execPath.relativeTo(execRoot.getParentDirectory()));
         } else {
-          // Since gcc is given only relative paths on the command line, non-builtin include paths
-          // here should never be absolute. If they are, it's probably due to a non-hermetic
-          // #include,
-          // and we should stop the build with an error.
-          absolutePathProblems.add(execPathFragment.getPathString());
+          // Ignore absolute paths outside the execution root. They do not map to declared inputs.
           continue;
         }
       }
@@ -213,31 +199,7 @@ final class HeaderDiscovery {
           findOwningTreeArtifact(execPathFragment, treeArtifacts, pathMapper);
       if (treeArtifact != null) {
         inputs.add(treeArtifact);
-      } else {
-        // Record a problem if we see files that we can't resolve, likely caused by undeclared
-        // includes or illegal include constructs.
-        unresolvablePathProblems.add(execPathFragment.getPathString());
       }
-    }
-    if (shouldValidateInclusions) {
-      absolutePathProblems.assertProblemFree(
-          "absolute path inclusion(s) found in rule '"
-              + action.getOwner().getLabel()
-              + "':\n"
-              + "the source file '"
-              + sourceFile.prettyPrint()
-              + "' includes the following non-builtin files with absolute paths "
-              + "(if these are builtin files, make sure these paths are in your toolchain):",
-          action);
-      unresolvablePathProblems.assertProblemFree(
-          "undeclared inclusion(s) in rule '"
-              + action.getOwner().getLabel()
-              + "':\n"
-              + "this rule is missing dependency declarations for the following files "
-              + "included by '"
-              + sourceFile.prettyPrint()
-              + "':",
-          action);
     }
     return inputs.build();
   }

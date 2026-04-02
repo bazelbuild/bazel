@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
@@ -49,38 +49,36 @@ public final class HeaderDiscoveryTest {
       ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, DERIVED_SEGMENT);
 
   @Test
-  public void errorsWhenMissingHeaders() {
+  public void ignoresMissingHeaders() throws Exception {
     ArtifactResolver artifactResolver = mock(ArtifactResolver.class);
 
-    assertThrows(
-        ActionExecutionException.class,
-        () ->
-            checkHeaderInclusion(
-                artifactResolver,
-                ImmutableList.of(
-                    derivedRoot.getRelative("tree_artifact1/foo.h"),
-                    derivedRoot.getRelative("tree_artifact1/subdir/foo.h")),
-                NestedSetBuilder.create(
-                    Order.STABLE_ORDER, treeArtifact(derivedRoot.getRelative("tree_artifact2")))));
+    NestedSet<Artifact> discoveredInputs =
+        checkHeaderInclusion(
+            artifactResolver,
+            ImmutableList.of(
+                derivedRoot.getRelative("tree_artifact1/foo.h"),
+                derivedRoot.getRelative("tree_artifact1/subdir/foo.h")),
+            NestedSetBuilder.create(
+                Order.STABLE_ORDER, treeArtifact(derivedRoot.getRelative("tree_artifact2"))));
+
+    assertTrue(discoveredInputs.toList().isEmpty());
   }
 
-  private void checkHeaderInclusion(
+  private NestedSet<Artifact> checkHeaderInclusion(
       ArtifactResolver artifactResolver,
       ImmutableList<Path> dependencies,
       NestedSet<Artifact> includedHeaders)
       throws ActionExecutionException {
-    var unused =
-        HeaderDiscovery.discoverInputsFromDependencies(
-            new ActionsTestUtil.NullAction(),
-            ActionsTestUtil.createArtifact(artifactRoot, derivedRoot.getRelative("foo.cc")),
-            /* shouldValidateInclusions= */ true,
-            dependencies,
-            /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
-            includedHeaders,
-            execRoot,
-            artifactResolver,
-            /* siblingRepositoryLayout= */ false,
-            PathMapper.NOOP);
+    return HeaderDiscovery.discoverInputsFromDependencies(
+        new ActionsTestUtil.NullAction(),
+        ActionsTestUtil.createArtifact(artifactRoot, derivedRoot.getRelative("foo.cc")),
+        dependencies,
+        /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
+        includedHeaders,
+        execRoot,
+        artifactResolver,
+        /* siblingRepositoryLayout= */ false,
+        PathMapper.NOOP);
   }
 
   private SpecialArtifact treeArtifact(Path path) {

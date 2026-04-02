@@ -76,7 +76,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
   private NestedSet<Artifact> additionalPrunableHeaders =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private ImmutableList<Artifact> additionalOutputs = ImmutableList.of();
-  private boolean needsIncludeValidation;
 
   // New fields need to be added to the copy constructor.
 
@@ -131,7 +130,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     this.ccToolchain = other.ccToolchain;
     this.actionName = other.actionName;
     this.additionalOutputs = other.additionalOutputs;
-    this.needsIncludeValidation = other.needsIncludeValidation;
     this.moduleFiles = other.moduleFiles;
     this.modmapFile = other.modmapFile;
     this.modmapInputFile = other.modmapInputFile;
@@ -178,12 +176,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
   @CanIgnoreReturnValue
   public CppCompileActionBuilder setAdditionalOutputs(ImmutableList<Artifact> additionalOutputs) {
     this.additionalOutputs = additionalOutputs;
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public CppCompileActionBuilder setNeedsIncludeValidation(boolean needsIncludeValidation) {
-    this.needsIncludeValidation = needsIncludeValidation;
     return this;
   }
 
@@ -336,7 +328,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
         ImmutableList.copyOf(additionalIncludeScanningRoots),
         ImmutableMap.copyOf(executionInfo),
         actionName,
-        needsIncludeValidation,
         getBuiltinIncludeDirectories(),
         ccToolchain.getGrepIncludes(),
         additionalOutputs,

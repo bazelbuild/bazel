@@ -202,7 +202,7 @@ function test_standalone_cpp_build_rebuilds_on_change() {
     || fail "Did not print expected string 'greetings from the modified header'"
 }
 
-function test_standalone_cpp_build_catches_missing_header() {
+function test_standalone_cpp_build_allows_undeclared_header() {
   cat << 'EOF' > examples/cpp/BUILD
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
@@ -212,10 +212,7 @@ cc_library(
 EOF
 
   bazel build $sandbox_flags --spawn_strategy=standalone //examples/cpp:hello-lib &> $TEST_log \
-    && fail "build should not have succeeded with missing header file"
-
-  fgrep "undeclared inclusion(s) in rule '//examples/cpp:hello-lib'" $TEST_log \
-    || fail "could not find 'undeclared inclusion' error message in bazel output"
+    || fail "build should have succeeded with undeclared header file"
 }
 
 # TODO(philwo) disabled for the same reason as test_sandboxed_cpp_build_catches_header_only_in_srcs
