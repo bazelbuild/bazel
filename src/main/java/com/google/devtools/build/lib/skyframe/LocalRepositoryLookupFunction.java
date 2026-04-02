@@ -114,7 +114,8 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
 
   @Nullable
   private LocalRepositoryLookupValue maybeMatchCommandLineOverrides(
-      RootedPath directory, RepositoryMapping repositoryMapping, Environment env) {
+      RootedPath directory, RepositoryMapping repositoryMapping, Environment env)
+      throws InterruptedException {
     var repositoryOverrides = RepoDefinitionFunction.REPOSITORY_OVERRIDES.get(env);
     if (repositoryOverrides == null) {
       return null;
