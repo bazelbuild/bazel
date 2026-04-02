@@ -70,6 +70,9 @@ class RepoContentsCacheTest(test_base.TestBase):
 
     return output_base + '/external/' + canonical_repo_name
 
+  def repoCacheDir(self, repo_name, cwd=None):
+    return os.path.realpath(self.repoDir(repo_name, cwd=cwd))
+
   def assertRepoCached(self, repo_dir):
     """Assert that a repo dir is a symlink into the repo contents cache."""
     try:
@@ -637,6 +640,69 @@ class RepoContentsCacheTest(test_base.TestBase):
 
   def testRepoContentsCacheDeleted_withoutCheckExternalRepositoryFiles(self):
     self.doTestRepoContentsCacheDeleted(check_external_repository_files=False)
+
+  def testImplicitGlobWatchingDoesntBreakCachingAfterRuleChange(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("REPO.bazel")',
+            '  rctx.file("cache/marker", "")',
+            '  rctx.symlink("cache/", "foo/cache")',
+            (
+                '  rctx.file("BUILD", "filegroup(name=\'repo_files\','
+                " srcs=glob(['foo/**']), visibility=['//visibility:public'])\")"
+            ),
+            '  print("JUST FETCHED 1")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:repo_files'])
+    self.assertIn('JUST FETCHED 1', '\n'.join(stderr))
+    self.assertRepoCached(self.repoDir('my_repo'))
+
+    pathlib.Path(self.repoCacheDir('my_repo'), 'cache', 'x.txt').touch()
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:repo_files'])
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('JUST FETCHED', stderr)
+    self.assertNotIn('WARNING', stderr)
+
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("REPO.bazel")',
+            '  rctx.file("cache/marker", "")',
+            '  rctx.symlink("cache/", "foo/cache")',
+            (
+                '  rctx.file("BUILD", "filegroup(name=\'repo_files\','
+                " srcs=glob(['foo/**']), visibility=['//visibility:public'])\")"
+            ),
+            '  print("JUST FETCHED 2")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:repo_files'])
+    self.assertIn('JUST FETCHED 2', '\n'.join(stderr))
+    self.assertRepoCached(self.repoDir('my_repo'))
+
+    pathlib.Path(self.repoCacheDir('my_repo'), 'cache', 'y.txt').touch()
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:repo_files'])
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('JUST FETCHED', stderr)
+    self.assertNotIn('WARNING', stderr)
 
   def doTestCachedRepoWithSymlinks(self, expect_cross_repo_cached=False):
     self.ScratchFile(
