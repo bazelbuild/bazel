@@ -142,6 +142,10 @@ RcFile::ParseError RcFile::ParseFile(
     const absl::string_view command = words[0];
     if (command != kCommandImport && command != kCommandTryImport &&
         command != kCommandTryImportIfBazelVersion) {
+      if (words.size() == 1 && command.find(':') != absl::string_view::npos) {
+        // Preserve empty config declarations so the server can tell they exist.
+        options_[command].push_back({"", rcfile_index});
+      }
       for (absl::string_view word : absl::MakeConstSpan(words).subspan(1)) {
         options_[command].push_back({std::string(word), rcfile_index});
       }

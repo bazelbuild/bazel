@@ -59,7 +59,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -667,7 +669,7 @@ public final class BlazeOptionHandler {
     ListMultimap<String, RcChunkOfArgs> commandToRcArgs = ArrayListMultimap.create();
 
     String lastRcFile = null;
-    ListMultimap<String, String> commandToArgMapForLastRc = null;
+    LinkedHashMap<String, List<String>> commandToArgMapForLastRc = null;
     for (ClientOptions.OptionOverride override : rawOverrides) {
       if (override.blazeRc < 0 || override.blazeRc >= rcFiles.size()) {
         eventHandler.handle(
@@ -714,23 +716,28 @@ public final class BlazeOptionHandler {
         if (lastRcFile != null) {
           // Go through the various commands identified in this rc file (or chunk of file) and
           // store them grouped first by command, then by rc chunk.
-          for (String commandKey : commandToArgMapForLastRc.keySet()) {
+          for (Map.Entry<String, List<String>> entry : commandToArgMapForLastRc.entrySet()) {
             commandToRcArgs.put(
-                commandKey,
-                new RcChunkOfArgs(lastRcFile, commandToArgMapForLastRc.get(commandKey)));
+                entry.getKey(), new RcChunkOfArgs(lastRcFile, ImmutableList.copyOf(entry.getValue())));
           }
         }
         lastRcFile = rcFile;
-        commandToArgMapForLastRc = ArrayListMultimap.create();
+        commandToArgMapForLastRc = new LinkedHashMap<>();
       }
 
-      commandToArgMapForLastRc.put(override.command, override.option);
+      List<String> argsForCommand =
+          commandToArgMapForLastRc.computeIfAbsent(override.command, unused -> new ArrayList<>());
+      if (!override.option.isEmpty()) {
+        argsForCommand.add(override.option);
+      } else if (override.command.indexOf(':') == -1) {
+        commandToArgMapForLastRc.remove(override.command);
+      }
     }
     if (lastRcFile != null) {
       // Once again, for this last rc file chunk, store them grouped by command.
-      for (String commandKey : commandToArgMapForLastRc.keySet()) {
+      for (Map.Entry<String, List<String>> entry : commandToArgMapForLastRc.entrySet()) {
         commandToRcArgs.put(
-            commandKey, new RcChunkOfArgs(lastRcFile, commandToArgMapForLastRc.get(commandKey)));
+            entry.getKey(), new RcChunkOfArgs(lastRcFile, ImmutableList.copyOf(entry.getValue())));
       }
     }
 
