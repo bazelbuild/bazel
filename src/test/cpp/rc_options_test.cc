@@ -143,6 +143,14 @@ TEST_F(RcOptionsTest, EmptyStartupLine) {
                                       no_expected_args);
 }
 
+TEST_F(RcOptionsTest, EmptyConfigLine) {
+  WriteRc("empty_config_line.bazelrc",
+          "common:foo");
+  SuccessfullyParseRcWithExpectedArgs(
+      "empty_config_line.bazelrc",
+      {{"common:foo", {""}}});
+}
+
 TEST_F(RcOptionsTest, StartupWithOnlyCommentedArg) {
   WriteRc("startup_with_comment.bazelrc",
           "startup # bar");
