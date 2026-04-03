@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkIm
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -351,18 +352,17 @@ public class Rule extends RuleOrMacroInstance implements Target {
    */
   @Nullable
   private String getRelativeLocation() {
-    // Determining the workspace root only works reliably if both location and label point to files
-    // in the same package.
-    // It would be preferable to construct the path from the label itself, but this doesn't work for
-    // rules created from function calls in a subincluded file, even if both files share a path
-    // prefix (for example, when //a/package:BUILD subincludes //a/package/with/a/subpackage:BUILD).
-    // We can revert to that approach once subincludes aren't supported anymore.
-    //
-    // TODO(b/151165647): this logic has always been wrong:
-    // it spuriously matches occurrences of the package name earlier in the path.
-    String absolutePath = location.toString();
-    int pos = absolutePath.indexOf(label.getPackageName());
-    return (pos < 0) ? null : absolutePath.substring(pos);
+    PathFragment locationPath = PathFragment.create(location.file());
+    PathFragment sourceRelativePath = locationPath;
+    if (locationPath.isAbsolute()) {
+      if (!pkg.getMetadata().sourceRoot().contains(locationPath)) {
+        return null;
+      }
+      sourceRelativePath = pkg.getMetadata().sourceRoot().relativize(locationPath);
+    }
+    return Location.fromFileLineColumn(
+            sourceRelativePath.getPathString(), location.line(), location.column())
+        .toString();
   }
 
   /**
