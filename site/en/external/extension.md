@@ -100,6 +100,11 @@ The implementation function then calls repo rules to generate repos.
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")  # a repo rule
 def _maven_impl(ctx):
+
+Each tag instance object now has an implicit `_sort_key` integer field.
+This field reflects the tag's declaration order in the `MODULE.bazel` file.
+It can be used to sort a combined list of tags from different classes
+back into their original order.
   # This is a fake implementation for demonstration purposes only
 
   # collect artifacts from across the dependency graph
