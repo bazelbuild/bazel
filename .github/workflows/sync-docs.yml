@@ -33,22 +33,23 @@ jobs:
       - name: 🔍 Fetch Recent Commits
         run: |
           cd bazel_src
-          # Extracts hashes and bodies for the last 2 days
+          # Fixed line break syntax for the output redirection
           git log --since="10 days ago" --format="COMMIT_DELIMITER%n%H%n%s%n%b" > ../weekly_notes.txt
 
       - name: 🧠 Run Gemini Doc Updater
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          # Runs the python script from your action repo
-          gtech-launch python3 action_repo/sync_relnotes.py          
+          # Ensure gtech-launch is in your PATH or use absolute path if required
+          python3 action_repo/sync_relnotes.py
 
       - name: 🚀 Create Pull Request
         env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+          PAT: ${{ secrets.PAT_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }} # Required for 'gh' CLI
         run: |
           cd bazel_src
-          
+
           # 1. Safety Check: Only proceed if files actually changed
           if [[ -z $(git status -s) ]]; then
             echo "No documentation changes detected. Skipping PR."
@@ -56,35 +57,38 @@ jobs:
           fi
 
           # 2. Gather context for the PR description
-          if [ -f ../processed_commits.txt ]; then
-            COMMIT_DETAILS=$(cat ../processed_commits.txt)
+          if [ -f ../pr_report.md ]; then
+            REPORT_CONTENT=$(cat ../pr_report.md)
           else
-            COMMIT_DETAILS="Automated updates based on recent RELNOTES."
+            REPORT_CONTENT="Automated updates based on recent RELNOTES."
           fi
 
           echo "Changes detected! Preparing PR..."
           BRANCH_NAME="auto-doc-sync-$(date +%s)"
-          
+
           git config user.name "deepalak56"
           git config user.email "deepalak56@users.noreply.github.com"
-          
+
           # 3. Commit and Push to Fork
           git checkout -b "$BRANCH_NAME"
           git add site/en/ docs/
           git commit -m "docs: Automated documentation sync from recent RELNOTES"
-          git push -f "https://x-access-token:${GH_TOKEN}@github.com/deepalak56/bazel_deepa.git" "$BRANCH_NAME"
 
-          # 4. Construct PR Body
+          # Use PAT to push to the fork
+          git push -f "https://deepalak56:${PAT}@github.com/deepalak56/bazel_deepa.git" "$BRANCH_NAME"
+
+          # 4. Construct PR Body using heredoc
           PR_BODY=$(cat <<EOF
           ### Description
-          Automated documentation synchronization. This PR maps recent Bazel release notes to the 
-          corresponding DevSite (.md) and Mintlify (.mdx) documentation files using Gemini AI.
+          Automated documentation synchronization. This PR maps recent Bazel release notes to the corresponding DevSite (.md) and Mintlify (.mdx) documentation files using Gemini AI.
 
-          **Commits processed in this run:**
-          $COMMIT_DETAILS
+          $REPORT_CONTENT
 
           ### Motivation
           Ensures technical documentation remains in sync with code changes automatically.
+
+          ### Build API Changes
+          No
 
           ### Checklist
           - [x] I have updated the documentation (if applicable).
@@ -95,6 +99,7 @@ jobs:
           )
 
           # 5. Create PR against Upstream
+          # Note: gh CLI uses GH_TOKEN env var for auth automatically
           gh pr create --repo bazelbuild/bazel \
                        --title "Docs: Sync RELNOTES to Documentation" \
                        --body "$PR_BODY" \
