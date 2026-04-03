@@ -232,6 +232,9 @@ public class StarlarkAction extends SpawnAction {
 
     private final Optional<Artifact> unusedInputsList;
     private final Optional<Action> shadowedAction;
+    private final PathMapper pathMapper;
+    // Lazily computed: null means not yet checked, Boolean.TRUE/FALSE for the result.
+    @Nullable private volatile Boolean unusedInputsListIsInput;
     private boolean inputsDiscovered = false;
     private boolean prunedInputs = false;
 
@@ -271,6 +274,7 @@ public class StarlarkAction extends SpawnAction {
               : null;
       this.unusedInputsList = unusedInputsList;
       this.shadowedAction = shadowedAction;
+      this.pathMapper = PathMappers.create(this, outputPathsMode, true);
     }
 
     @AutoCodec.Instantiator
@@ -311,13 +315,31 @@ public class StarlarkAction extends SpawnAction {
               : null;
       this.unusedInputsList = unusedInputsList;
       this.shadowedAction = shadowedAction;
+      this.pathMapper = PathMappers.create(this, outputPathsMode, true);
+    }
+
+    private boolean isUnusedInputsListAnInput() {
+      if (unusedInputsListIsInput == null) {
+        unusedInputsListIsInput =
+            unusedInputsList.isPresent()
+                && allStarlarkActionInputs.toList().contains(unusedInputsList.get());
+      }
+      return unusedInputsListIsInput;
     }
 
     @Override
     public NestedSet<Artifact> getSchedulingDependencies() {
-      return shadowedAction.isPresent()
-          ? shadowedAction.get().getSchedulingDependencies()
-          : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+      if (!shadowedAction.isPresent() && !isUnusedInputsListAnInput()) {
+        return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+      }
+      NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
+      if (shadowedAction.isPresent()) {
+        builder.addTransitive(shadowedAction.get().getSchedulingDependencies());
+      }
+      if (isUnusedInputsListAnInput()) {
+        builder.add(unusedInputsList.get());
+      }
+      return builder.build();
     }
 
     @Override
@@ -392,8 +414,67 @@ public class StarlarkAction extends SpawnAction {
       }
       // Otherwise, we need to "re-discover" all the original inputs: the unused ones that were
       // removed might now be needed.
-      updateInputs(allStarlarkActionInputs);
-      return allStarlarkActionInputs;
+      NestedSet<Artifact> inputsToUse = allStarlarkActionInputs;
+
+      // If the unused_inputs_list is also an action input (produced by a prior action), read it
+      // to trim inputs before execution, avoiding the need to materialize unused inputs.
+      if (isUnusedInputsListAnInput()) {
+        try {
+          InputStream stream =
+              actionExecutionContext
+                  .getPathResolver()
+                  .toPath(unusedInputsList.get())
+                  .getInputStream();
+          NestedSet<Artifact> pruned = pruneUnusedInputs(stream, allStarlarkActionInputs);
+          if (pruned != null) {
+            inputsToUse = pruned;
+            prunedInputs = true;
+          }
+        } catch (IOException e) {
+          // File not readable (e.g., first build, remote execution without bytes).
+          // Fall back to using all inputs.
+        }
+      }
+
+      updateInputs(inputsToUse);
+      return inputsToUse;
+    }
+
+    /**
+     * Reads the unused inputs list from the given stream and removes them from the given inputs.
+     * Returns the pruned input set, or null if no inputs were pruned.
+     */
+    @Nullable
+    private NestedSet<Artifact> pruneUnusedInputs(
+        InputStream unusedInputsStream, NestedSet<Artifact> inputs) throws IOException {
+      Map<String, Artifact> usedInputsByMappedPath = null;
+      boolean sawUnusedInput = false;
+
+      try (BufferedReader br =
+          new BufferedReader(new InputStreamReader(unusedInputsStream, ISO_8859_1))) {
+        String line;
+        while ((line = br.readLine()) != null) {
+          line = line.trim();
+          if (line.isEmpty()) {
+            continue;
+          }
+          if (usedInputsByMappedPath == null) {
+            ImmutableList<Artifact> allInputs = inputs.toList();
+            usedInputsByMappedPath = Maps.newHashMapWithExpectedSize(allInputs.size());
+            for (Artifact input : allInputs) {
+              usedInputsByMappedPath.put(pathMapper.getMappedExecPathString(input), input);
+            }
+          }
+          if (usedInputsByMappedPath.remove(line) != null) {
+            sawUnusedInput = true;
+          }
+        }
+      }
+
+      if (!sawUnusedInput) {
+        return null;
+      }
+      return NestedSetBuilder.wrap(Order.STABLE_ORDER, usedInputsByMappedPath.values());
     }
 
     private InputStream getUnusedInputListInputStream(
@@ -433,46 +514,19 @@ public class StarlarkAction extends SpawnAction {
         return;
       }
 
-      // Initialized lazily in case there are no unused inputs.
-      Map<String, Artifact> usedInputsByMappedPath = null;
-
-      boolean sawUnusedInput = false;
-
-      // Bazel encodes file system paths as raw bytes stored in a Latin-1 encoded string, so we need
-      // to make sure to also decode the unused input list as Latin-1.
-      try (BufferedReader br =
-          new BufferedReader(
-              new InputStreamReader(
-                  getUnusedInputListInputStream(actionExecutionContext, spawnResults),
-                  ISO_8859_1))) {
-        String line;
-        while ((line = br.readLine()) != null) {
-          line = line.trim();
-          if (line.isEmpty()) {
-            continue;
-          }
-          if (usedInputsByMappedPath == null) {
-            // Get all the action's inputs after execution which will include the shadowed action
-            // discovered inputs.
-            ImmutableList<Artifact> allInputs = getInputs().toList();
-            usedInputsByMappedPath = Maps.newHashMapWithExpectedSize(allInputs.size());
-            for (Artifact input : allInputs) {
-              usedInputsByMappedPath.put(pathMapper.getMappedExecPathString(input), input);
-            }
-          }
-          if (usedInputsByMappedPath.remove(line) != null) {
-            sawUnusedInput = true;
-          }
+      try {
+        NestedSet<Artifact> pruned =
+            pruneUnusedInputs(
+                getUnusedInputListInputStream(actionExecutionContext, spawnResults),
+                getInputs());
+        if (pruned != null) {
+          prunedInputs = true;
+          updateInputs(pruned);
         }
       } catch (IOException e) {
         throw new EnvironmentalExecException(
             e,
             createFailureDetail("Unused inputs read failure", Code.UNUSED_INPUT_LIST_READ_FAILURE));
-      }
-
-      prunedInputs = sawUnusedInput;
-      if (sawUnusedInput) {
-        updateInputs(NestedSetBuilder.wrap(Order.STABLE_ORDER, usedInputsByMappedPath.values()));
       }
     }
 

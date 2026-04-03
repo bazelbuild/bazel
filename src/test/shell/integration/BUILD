@@ -809,6 +809,14 @@ sh_test(
 )
 
 sh_test(
+    name = "starlark_input_discovery_test",
+    srcs = ["starlark_input_discovery_test.sh"],
+    data = [":test-deps"],
+    shard_count = 2,
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
     name = "validation_actions_test",
     srcs = ["validation_actions_test.sh"],
     data = [":test-deps"],
