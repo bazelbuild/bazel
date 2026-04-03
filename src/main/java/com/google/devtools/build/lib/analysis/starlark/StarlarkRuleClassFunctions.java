@@ -1603,7 +1603,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       }
 
       if (!args.isEmpty()) {
-        throw Starlark.errorf("unexpected positional arguments");
+        throw Starlark.errorf(
+            "%s() does not accept positional arguments, but got %d", getName(), args.size());
       }
 
       MacroInstance macroInstance =
@@ -1756,7 +1757,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
       if (!args.isEmpty()) {
-        throw new EvalException("Unexpected positional arguments");
+        throw Starlark.errorf(
+            "%s() does not accept positional arguments, but got %d", getName(), args.size());
       }
       if (ruleClass == null) {
         throw new EvalException("Invalid rule class hasn't been exported by a bzl file");

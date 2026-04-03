@@ -162,7 +162,8 @@ instantiate and return a repository rule. Created by \
     public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
       if (!args.isEmpty()) {
-        throw new EvalException("unexpected positional arguments");
+        throw Starlark.errorf(
+            "%s() does not accept positional arguments, but got %d", getName(), args.size());
       }
       ModuleExtensionEvalStarlarkThreadContext extensionEvalContext =
           ModuleExtensionEvalStarlarkThreadContext.fromOrNull(thread);
