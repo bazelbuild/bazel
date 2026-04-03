@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionType;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -44,6 +45,7 @@ import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.MaterializingDefault;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.SelectorList;
 import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkCallbackHelper;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
@@ -371,6 +373,17 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         //  in package() is replaced by proper package defaults. We don't check the particular
         //  instance to avoid adding a dependency to the C++ package.
         builder.value((NativeComputedDefaultApi) defaultValue);
+      } else if (defaultValue instanceof SelectorList selectorList) {
+        // Unconditionally resolve string keys to Labels relative to the .bzl file defining this
+        // attribute, matching the behavior of --incompatible_resolve_select_keys_eagerly regardless
+        // of the flag's state.
+        LabelConverter labelConverter = LabelConverter.forBzlEvaluatingThread(thread);
+        try {
+          defaultValue = selectorList.resolveKeys(labelConverter);
+        } catch (LabelSyntaxException e) {
+          throw Starlark.errorf("invalid label in select(): %s", e.getMessage());
+        }
+        builder.defaultValue(defaultValue, labelConverter, DEFAULT_ARG);
       } else {
         builder.defaultValue(
             defaultValue, LabelConverter.forBzlEvaluatingThread(thread), DEFAULT_ARG);
@@ -657,7 +670,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   @Override
   public Descriptor intAttribute(
       Object configurable,
-      StarlarkInt defaultValue,
+      Object defaultValue,
       Object doc,
       Boolean mandatory,
       Sequence<?> values,
@@ -797,7 +810,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Boolean mandatory,
       Boolean allowEmpty,
       Object configurable,
-      Sequence<?> defaultValue,
+      Object defaultValue,
       Object doc,
       StarlarkThread thread)
       throws EvalException {
@@ -1017,7 +1030,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   public Descriptor labelListDictAttribute(
       Boolean allowEmpty,
       Object configurable,
-      Dict<?, ?> defaultValue,
+      Object defaultValue,
       Object doc,
       Object allowFiles,
       Object allowRules,
@@ -1070,7 +1083,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   @Override
   public Descriptor boolAttribute(
       Object configurable,
-      Boolean defaultValue,
+      Object defaultValue,
       Object doc,
       Boolean mandatory,
       StarlarkThread thread)
@@ -1120,7 +1133,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   public Descriptor stringDictAttribute(
       Boolean allowEmpty,
       Object configurable,
-      Dict<?, ?> defaultValue,
+      Object defaultValue,
       Object doc,
       Boolean mandatory,
       StarlarkThread thread)
@@ -1146,7 +1159,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   public Descriptor stringListDictAttribute(
       Boolean allowEmpty,
       Object configurable,
-      Dict<?, ?> defaultValue,
+      Object defaultValue,
       Object doc,
       Boolean mandatory,
       StarlarkThread thread)

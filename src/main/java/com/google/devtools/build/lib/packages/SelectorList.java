@@ -23,12 +23,12 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.starlarkbuildapi.SelectApi;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
-import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -58,11 +58,7 @@ import net.starlark.java.syntax.TokenKind;
  *   )
  * </pre>
  */
-@StarlarkBuiltin(
-    name = "select",
-    doc = "A selector between configuration-dependent entities.",
-    documented = false)
-public final class SelectorList implements StarlarkValue, HasBinary {
+public final class SelectorList implements SelectApi, HasBinary {
 
   // TODO(adonovan): combine Selector{List,Value} and BuildType.SelectorList.
   // We don't need three classes for the same concept
@@ -97,12 +93,35 @@ public final class SelectorList implements StarlarkValue, HasBinary {
           "select({}) with an empty dictionary can never resolve because it includes no conditions"
               + " to match");
     }
-    var selectDict = ImmutableMap.builderWithExpectedSize(dict.size());
+    return SelectorList.of(
+        new SelectorValue(
+            resolveSelectKeys(ImmutableMap.copyOf(dict), labelConverter), noMatchError));
+  }
+
+  /**
+   * Resolves string keys in a select dictionary to {@link Label}s using the given {@link
+   * LabelConverter}. If the converter is null, string keys are left as-is. Returns the original map
+   * unchanged if no string keys are present.
+   */
+  private static ImmutableMap<?, ?> resolveSelectKeys(
+      ImmutableMap<?, ?> dict, @Nullable LabelConverter labelConverter)
+      throws EvalException, LabelSyntaxException {
+    boolean allKeysAreLabels = true;
+    for (Object key : dict.keySet()) {
+      if (!(key instanceof Label)) {
+        allKeysAreLabels = false;
+        break;
+      }
+    }
+    if (allKeysAreLabels) {
+      return dict;
+    }
+    var resolved = ImmutableMap.builderWithExpectedSize(dict.size());
     for (var entry : dict.entrySet()) {
       switch (entry.getKey()) {
-        case Label label -> selectDict.put(label, entry.getValue());
+        case Label label -> resolved.put(label, entry.getValue());
         case String labelString ->
-            selectDict.put(
+            resolved.put(
                 labelConverter != null ? labelConverter.convert(labelString) : labelString,
                 entry.getValue());
         default ->
@@ -113,7 +132,37 @@ public final class SelectorList implements StarlarkValue, HasBinary {
     }
     // TODO(#26281): Tighten SelectorValue to accept an ImmutableMap<Label, Object> after flipping
     //  --incompatible_resolve_select_keys_eagerly.
-    return SelectorList.of(new SelectorValue(selectDict.buildOrThrow(), noMatchError));
+    return resolved.buildOrThrow();
+  }
+
+  /**
+   * Returns a new {@link SelectorList} equivalent to this one, but with all string keys in select
+   * dictionaries resolved to {@link Label}s using the given {@link LabelConverter}.
+   *
+   * <p>This is used to unconditionally apply the behavior of {@code
+   * --incompatible_resolve_select_keys_eagerly} to {@code select()} expressions used as attribute
+   * default values: since the select is defined in a .bzl file, the keys must be resolved relative
+   * to that .bzl file, not to the BUILD file that happens to use the rule.
+   */
+  public SelectorList resolveKeys(LabelConverter labelConverter)
+      throws EvalException, LabelSyntaxException {
+    ImmutableList.Builder<Object> resolvedElements = ImmutableList.builder();
+    boolean changed = false;
+    for (Object element : elements) {
+      if (element instanceof SelectorValue selectorValue) {
+        ImmutableMap<?, ?> originalDict = selectorValue.getDictionary();
+        ImmutableMap<?, ?> resolvedDict = resolveSelectKeys(originalDict, labelConverter);
+        if (resolvedDict != originalDict) {
+          resolvedElements.add(new SelectorValue(resolvedDict, selectorValue.getNoMatchError()));
+          changed = true;
+        } else {
+          resolvedElements.add(element);
+        }
+      } else {
+        resolvedElements.add(element);
+      }
+    }
+    return changed ? new SelectorList(type, resolvedElements.build()) : this;
   }
 
   /** Creates a "wrapper" list that consists of a single select. */

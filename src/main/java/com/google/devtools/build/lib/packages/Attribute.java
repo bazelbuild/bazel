@@ -702,11 +702,13 @@ public final class Attribute implements Comparable<Attribute> {
         Object defaultValue, LabelConverter labelConverter, @Nullable String parameterName)
         throws ConversionException {
       value =
-          type.convert(
+          BuildType.selectableConvert(
+              type,
               defaultValue,
               ((parameterName == null) ? "" : String.format("parameter '%s' of ", parameterName))
                   + String.format("attribute '%s'", name),
-              labelConverter);
+              labelConverter,
+              /* simplifyUnconditionalSelects= */ false);
       valueSet = true;
       return this;
     }
@@ -1845,6 +1847,7 @@ public final class Attribute implements Comparable<Attribute> {
   // 4. type.isValid(defaultValue).
   // 5. defaultValue instanceof LateBoundDefault &&
   //    type.isValid(defaultValue.getDefault(configuration))
+  // 6. defaultValue instanceof BuildType.SelectorList (configurable default from select())
   // (We assume a hypothetical Type.isValid(Object) predicate.)
   @Nullable private final Object defaultValue;
 
