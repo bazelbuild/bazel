@@ -232,6 +232,40 @@ filegroup(
 )
 """
 
+_HTTP_FILE_ROOT_BUILD = """\
+package(default_visibility = ["//visibility:public"])
+
+# Convenience target so users can reference @repo//:file and get a useful
+# error message/suggestion instead of "BUILD file not found" when they
+# accidentally reference the repo root.
+alias(
+    name = "file",
+    actual = "//file:file",
+)
+{repo_name_alias}
+{downloaded_file_alias}
+"""
+
+_HTTP_FILE_ROOT_REPO_ALIAS = """
+
+# Expose the repository name at the root so labels like @repo//:repo and
+# the shorthand @repo resolve to the downloaded file.
+alias(
+    name = {target_name},
+    actual = "//file:file",
+)
+"""
+
+_HTTP_FILE_ROOT_NAME_ALIAS = """
+
+# Expose the downloaded file's basename at the repository root so labels like
+# @repo//:<downloaded filename> resolve to the downloaded file.
+alias(
+    name = {target_name},
+    actual = "//file:file",
+)
+"""
+
 def _http_file_impl(ctx):
     """Implementation of the http_file rule."""
     repo_root = ctx.path(".")
@@ -244,6 +278,8 @@ def _http_file_impl(ctx):
         ctx.path("file/BUILD.bazel"),
     ]
     downloaded_file_path = ctx.attr.downloaded_file_path
+    downloaded_file_name = downloaded_file_path.split("/")[-1]
+    apparent_repo_name = ctx.name.rsplit("+", 1)[-1] if ctx.name.startswith("+") else ctx.name
     download_path = ctx.path("file/" + downloaded_file_path)
     if download_path in forbidden_files or not str(download_path).startswith(str(repo_root)):
         fail("'%s' cannot be used as downloaded_file_path in http_file" % ctx.attr.downloaded_file_path)
@@ -257,7 +293,21 @@ def _http_file_impl(ctx):
         auth = get_auth(ctx, source_urls),
         integrity = ctx.attr.integrity,
     )
+    repo_name_alias = ""
+    if apparent_repo_name != "file":
+        repo_name_alias = _HTTP_FILE_ROOT_REPO_ALIAS.format(
+            target_name = repr(apparent_repo_name),
+        )
+    downloaded_file_alias = ""
+    if downloaded_file_name not in ["file", apparent_repo_name]:
+        downloaded_file_alias = _HTTP_FILE_ROOT_NAME_ALIAS.format(
+            target_name = repr(downloaded_file_name),
+        )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
+    ctx.file("BUILD.bazel", _HTTP_FILE_ROOT_BUILD.format(
+        repo_name_alias = repo_name_alias,
+        downloaded_file_alias = downloaded_file_alias,
+    ))
     ctx.file("file/BUILD", _HTTP_FILE_BUILD.format(path = repr(downloaded_file_path)))
 
     return _update_integrity_attr(ctx, _http_file_attrs, download_info)
