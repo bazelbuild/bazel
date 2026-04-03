@@ -2,7 +2,7 @@ name: Sync RELNOTES to Documentation
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Runs daily at midnight
+    - cron: '0 0 * * 5' # Runs every Friday at midnight UTC
   workflow_dispatch: # Allows manual triggering
 
 jobs:
@@ -33,7 +33,7 @@ jobs:
       - name: 🔍 Fetch Recent Commits
         run: |
           cd bazel_src
-          # Fixed line break syntax for the output redirection
+          # Combined the redirection to a single line to prevent syntax errors
           git log --since="10 days ago" --format="COMMIT_DELIMITER%n%H%n%s%n%b" > ../weekly_notes.txt
 
       - name: 🧠 Run Gemini Doc Updater
@@ -41,23 +41,21 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          # Ensure gtech-launch is in your PATH or use absolute path if required
           python3 action_repo/sync_relnotes.py
 
       - name: 🚀 Create Pull Request
         env:
           PAT: ${{ secrets.PAT_TOKEN }}
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }} # Required for 'gh' CLI
         run: |
           cd bazel_src
 
-          # 1. Safety Check: Only proceed if files actually changed
+          # 1. Safety Check
           if [[ -z $(git status -s) ]]; then
             echo "No documentation changes detected. Skipping PR."
             exit 0
           fi
 
-          # 2. Gather context for the PR description
+          # 2. Gather context
           if [ -f ../pr_report.md ]; then
             REPORT_CONTENT=$(cat ../pr_report.md)
           else
@@ -70,15 +68,16 @@ jobs:
           git config user.name "deepalak56"
           git config user.email "deepalak56@users.noreply.github.com"
 
-          # 3. Commit and Push to Fork
+          # 3. Commit and Push
           git checkout -b "$BRANCH_NAME"
           git add site/en/ docs/
           git commit -m "docs: Automated documentation sync from recent RELNOTES"
 
-          # Use PAT to push to the fork
+          # Fixed: Ensure the push URL and branch name are on one line or escaped correctly
           git push -f "https://deepalak56:${PAT}@github.com/deepalak56/bazel_deepa.git" "$BRANCH_NAME"
 
-          # 4. Construct PR Body using heredoc
+          # 4. Construct PR Body
+          # CRITICAL: The closing EOF must be at the very start of the line (no spaces)
           PR_BODY=$(cat <<EOF
           ### Description
           Automated documentation synchronization. This PR maps recent Bazel release notes to the corresponding DevSite (.md) and Mintlify (.mdx) documentation files using Gemini AI.
@@ -99,8 +98,9 @@ jobs:
           EOF
           )
 
-          # 5. Create PR against Upstream
-          # Note: gh CLI uses GH_TOKEN env var for auth automatically
+          # 5. Authenticate and Create PR
+          # Using the GH_TOKEN env var is the cleanest way to auth 'gh'
+          export GH_TOKEN=$PAT
           gh pr create --repo bazelbuild/bazel \
                        --title "Docs: Sync RELNOTES to Documentation" \
                        --body "$PR_BODY" \
