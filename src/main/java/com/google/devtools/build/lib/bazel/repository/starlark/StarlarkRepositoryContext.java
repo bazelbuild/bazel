@@ -480,7 +480,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
           The patch file should be a standard \
           <a href="https://en.wikipedia.org/wiki/Diff#Unified_format"> \
           unified diff format</a> file. \
-          The Bazel-native patch implementation doesn't support fuzz match and binary patch \
+          The Bazel-native patch implementation doesn't support binary patch \
           like the patch command line tool.
           """,
       useStarlarkThread = true,
