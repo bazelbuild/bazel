@@ -36,6 +36,8 @@ public class CppActionNames {
   public static final String OBJCPP_COMPILE = "objc++-compile";
   /** A string constant for the c++ header parsing. */
   public static final String CPP_HEADER_PARSING = "c++-header-parsing";
+  /** A string constant for cuda compilation. */
+  public static final String CUDA_COMPILE = "cuda-compile";
 
   /** A string constant for the c++20 modules deps scanning */
   public static final String CPP_MODULE_DEPS_SCANNING = "c++-module-deps-scanning";

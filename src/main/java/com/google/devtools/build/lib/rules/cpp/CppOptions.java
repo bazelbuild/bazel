@@ -885,6 +885,20 @@ public abstract class CppOptions extends FragmentOptions {
   public abstract boolean getUseSpecificToolFiles();
 
   @Option(
+      name = "incompatible_cuda_compile_action",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.ACTION_COMMAND_LINES,
+        OptionEffectTag.AFFECTS_OUTPUTS
+      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "Compile cuda files using the cuda-compile action in the toolchain.")
+  public boolean useCudaCompileAction;
+
+  @Option(
       name = "incompatible_disable_nocopts",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
