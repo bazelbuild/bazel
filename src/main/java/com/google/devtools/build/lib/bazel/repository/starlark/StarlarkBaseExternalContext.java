@@ -514,13 +514,19 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       return Optional.empty();
     }
 
+    List<String> subresourceIntegrityParseWarnings = new ArrayList<>();
     try {
-      return Optional.of(Checksum.fromSubresourceIntegrity(integrity));
+      return Optional.of(Checksum.fromSubresourceIntegrity(integrity, subresourceIntegrityParseWarnings));
     } catch (Checksum.InvalidChecksumException e) {
       warnAboutChecksumError(urls, e.getMessage());
       throw new RepositoryFunctionException(
           Starlark.errorf("Checksum error in %s: %s", identifyingStringForLogging, e.getMessage()),
           Transience.PERSISTENT);
+    } finally {
+      if (!subresourceIntegrityParseWarnings.isEmpty()) {
+        // Let the user know of any parse errors (these are non-fatal but nice to know).
+        reportProgress(String.join(" ", subresourceIntegrityParseWarnings));
+      }
     }
   }
 
@@ -772,7 +778,10 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
                 easier but should be set before shipping. \
                 If provided, the repository cache will first be checked for a file with the \
                 given checksum; a download will only be attempted if the file was not found in \
-                the cache. After a successful download, the file will be added to the cache.
+                the cache. After a successful download, the file will be added to the cache. \
+                Multiple sets of integrity checksums, separated by spaces, may be provided. \
+                Eg. Providing the sha256, sha384 and sha512 hashes of the download. The \
+                "strongest" known hash will be used.
                 """),
         @Param(
             name = "block",
@@ -1023,6 +1032,9 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
                 If provided, the repository cache will first be checked for a file with the \
                 given checksum; a download will only be attempted if the file was not found in \
                 the cache. After a successful download, the file will be added to the cache. \
+                Multiple sets of integrity checksums, separated by spaces, may be provided. \
+                Eg. Providing the sha256, sha384 and sha512 hashes of the download. The \
+                "strongest" known hash algorithm will be used. \
                 """),
         @Param(
             name = "rename_files",

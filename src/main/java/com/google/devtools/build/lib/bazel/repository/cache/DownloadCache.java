@@ -26,6 +26,11 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
@@ -36,6 +41,25 @@ import javax.annotation.Nullable;
  * that the cache directory is not subject to concurrent file deletion.
  */
 public class DownloadCache {
+
+  /**
+   * An ordering of hash algorithms from "weakest" to "strongest".
+   *
+   * <p>This ordering is used when evaluating multiple hashes in the integrity field per
+   * https://www.w3.org/TR/sri-2/#priority
+   */
+  public static List<KeyType> DEFAULT_KEY_TYPE_ORDERING =
+      new ArrayList<>(
+          Arrays.asList(
+              KeyType.SHA1,
+              KeyType.SHA256,
+              // Blake3 has variable number of bits, but in Bazel, the default of 256 is used.
+              // Arbitrarily added after SHA256 since it has the same number of bits and is
+              // considered more modern.
+              // TODO: allow customizing ordering to avoid this Bazel-imposed ordering.
+              KeyType.BLAKE3,
+              KeyType.SHA384,
+              KeyType.SHA512));
 
   /** The types of cache keys used. */
   public enum KeyType {
@@ -48,11 +72,22 @@ public class DownloadCache {
     private final String stringRepr;
     private final String regexp;
     private final String hashName;
+    private static final Map<String, KeyType> BY_HASH_NAME = new HashMap<>();
+
+    static {
+      for (KeyType k: values()) {
+        BY_HASH_NAME.put(k.hashName, k);
+      }
+    }
 
     KeyType(String stringRepr, String regexp, String hashName) {
       this.stringRepr = stringRepr;
       this.regexp = regexp;
       this.hashName = hashName;
+    }
+
+    public static KeyType getByHashName(String hashName) {
+      return BY_HASH_NAME.get(hashName);
     }
 
     public boolean isValid(@Nullable String checksum) {

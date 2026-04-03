@@ -31,7 +31,9 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 import org.junit.After;
@@ -298,5 +300,15 @@ public class DownloadCacheTest {
         downloadCache.get(
             hash, targetPath, keyType, /* canonicalId= */ null, /* mayHardlink= */ true);
     assertThat(lookupNoId).isEqualTo(targetPath);
+  }
+
+  /**
+   * Ensures that the constant {@link DownloadCache#DEFAULT_KEY_TYPE_ORDERING} is updated whenever a
+   * new {@link DownloadCache.KeyType} is added.
+   */
+  @Test
+  public void keyTypeOrderingComplete() {
+    // Each key should be in the ordering.
+    assertThat(DownloadCache.DEFAULT_KEY_TYPE_ORDERING).containsExactlyElementsIn(KeyType.values());
   }
 }

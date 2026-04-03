@@ -16,12 +16,28 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.common.base.Ascii;
 import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import org.apache.commons.lang3.StringUtils;
 
 /** The content checksum for an HTTP download, which knows its own type. */
 public class Checksum {
+
+  public static final List<String> KNOWN_HASH_NAMES = Arrays.stream(KeyType.values())
+      .map(KeyType::getHashName).toList();
+
   /** Exception thrown to indicate that a string is not a valid checksum for that key type. */
   public static final class InvalidChecksumException extends Exception {
     private InvalidChecksumException(KeyType keyType, String hash) {
@@ -76,47 +92,163 @@ public class Checksum {
     }
   }
 
-  /** Constructs a new Checksum from a hash in Subresource Integrity format. */
+  /**
+   * Constructs a new Checksum from a hash in Subresource Integrity format.
+   *
+   * <p>Generally follows web's <a href="https://www.w3.org/TR/sri-2/">subresource integrity
+   * spec</a> with the following differences:
+   *
+   * <ul>
+   *   <li>Per the spec, multiple integrity hashes with the same hash algorithm are allowed. For
+   *       Bazel, if there are multiple integrity hashes AND they are the strongest hash algorithm,
+   *       an exception will be thrown. In Bazel, dependencies should be deterministic.
+   *   <li>If there are no valid hash algorithms detected, web allows the resource to load. For
+   *       Bazel, an error will be thrown since the intention of setting an integrity is to ensure
+   *       that it is checked.
+   * </ul>
+   */
+  public static Checksum fromSubresourceIntegrity(
+      String integrity, @Nullable List<String> parseWarnings) throws InvalidChecksumException {
+    if (!integrity.isEmpty() && integrity.isBlank()) {
+      throw new InvalidChecksumException(String.format("Provided checksum is blank (%d whitespace characters)", integrity.length()));
+    }
+
+    Map<KeyType, List<Checksum>> metadata = parseMetadata(integrity, parseWarnings);
+    if (metadata.isEmpty()) {
+      throw new InvalidChecksumException(String.format("No valid checksums found in integrity '%s'", integrity));
+    }
+
+    @Nonnull KeyType strongestHashAlgo = findStrongestAlgorithm(metadata.keySet());
+    List<Checksum> checksums = metadata.get(strongestHashAlgo);
+
+    // The SRI spec allows multiple checksums with the "strongest" algorithm to allow for different
+    // payloads from the same resource. This isn't allowed here to keep with the build philosophy of
+    // reproducibility - a resource should always return the same content, so only a single checksum
+    // per algorithm hash should be provided.
+    if (checksums.size() > 1) {
+      Checksum c1 = checksums.get(0);
+      Checksum c2 = checksums.get(1);
+      String sriFormat1 = String.format("%s-%s", c1.getKeyType().getHashName(), Base64.getEncoder()
+          .encodeToString(c1.getHashCode().asBytes()));
+      String sriFormat2 = String.format("%s-%s", c2.getKeyType().getHashName(), Base64.getEncoder()
+          .encodeToString(c2.getHashCode().asBytes()));
+
+      throw new InvalidChecksumException(
+          String.format(
+              "Duplicate hash algorithm in list of integrity hashes:\n\t%s\n\t%s", sriFormat1, sriFormat2));
+    }
+
+    return checksums.getFirst();
+  }
+
+  private static KeyType findStrongestAlgorithm(Set<KeyType> keyTypes) {
+    Optional<KeyType> strongest =
+        keyTypes.stream()
+            .max(
+                new Comparator<KeyType>() {
+                  @Override
+                  public int compare(KeyType o1, KeyType o2) {
+                    return DownloadCache.DEFAULT_KEY_TYPE_ORDERING.indexOf(o1)
+                        - DownloadCache.DEFAULT_KEY_TYPE_ORDERING.indexOf(o2);
+                  }
+                });
+    return strongest.orElse(null);
+  }
+
   public static Checksum fromSubresourceIntegrity(String integrity)
       throws InvalidChecksumException {
-    KeyType keyType;
-    byte[] hash;
-    int expectedLength;
+    return fromSubresourceIntegrity(integrity, null);
+  }
 
-    if (integrity.startsWith("sha1-")) {
-      keyType = KeyType.SHA1;
-      expectedLength = 20;
-      hash = base64Decode(integrity.substring(5));
-    } else if (integrity.startsWith("sha256-")) {
-      keyType = KeyType.SHA256;
-      expectedLength = 32;
-      hash = base64Decode(integrity.substring(7));
-    } else if (integrity.startsWith("sha384-")) {
-      keyType = KeyType.SHA384;
-      expectedLength = 48;
-      hash = base64Decode(integrity.substring(7));
-    } else if (integrity.startsWith("sha512-")) {
-      keyType = KeyType.SHA512;
-      expectedLength = 64;
-      hash = base64Decode(integrity.substring(7));
-    } else if (integrity.startsWith("blake3-")) {
-      keyType = KeyType.BLAKE3;
-      expectedLength = 32;
-      hash = base64Decode(integrity.substring(7));
-    } else {
-      throw new InvalidChecksumException(
-          "Unsupported checksum algorithm: '"
-              + integrity
-              + "' (expected SHA-1, SHA-256, SHA-384, or SHA-512)");
+  /**
+   * Parses the subresource integrity field.
+   *
+   * <p>Generally follows the <a href="https://www.w3.org/TR/sri-2/#parse-metadata-section">SRI spec
+   * for parsing</a>.
+   *
+   * @param integrityAttr The SRI integrity hash (multiple hashes allowed separated by whitespace).
+   * @param parseWarnings If not null, errors in parsing are added to this list.
+   */
+  private static Map<KeyType, List<Checksum>> parseMetadata(
+      String integrityAttr, @Nullable List<String> parseWarnings) {
+    Map<KeyType, List<Checksum>> result = new HashMap<>();
+
+    for (String integrityHash : StringUtils.split(integrityAttr)) {
+      KeyType hashAlgorithm = parseHashAlgorithm(integrityHash);
+      if (hashAlgorithm == null) {
+        if (parseWarnings != null) {
+          parseWarnings.add(
+              String.format("Unknown hash algorithm for integrity: '%s'.", integrityHash));
+        }
+        continue;
+      }
+
+      // The SRI spec allows for future options on the hash after the '?' character. No actual
+      // options are defined for now. Note them and ignore.
+      String hashAndMaybeOptions = integrityHash.substring(hashAlgorithm.getHashName().length()+1);
+      String hash = StringUtils.substringBefore(hashAndMaybeOptions, "?");
+      String options = StringUtils.substringAfter(hashAndMaybeOptions, "?");
+
+      if (!options.isEmpty() && parseWarnings != null) {
+        parseWarnings.add(
+            String.format(
+                "Ignoring unknown integrity options '%s' from integrity '%s'.",
+                options, integrityHash));
+      }
+
+      byte[] hashBytes = null;
+      try {
+        hashBytes = Base64.getDecoder().decode(hash);
+      } catch (IllegalArgumentException e) {
+        if (parseWarnings != null) {
+          parseWarnings.add(String.format("Ignoring invalid base64 '%s'.", integrityHash));
+        }
+        continue;
+      }
+
+      Checksum checksum = null;
+      try {
+        checksum =
+            Checksum.fromString(
+                hashAlgorithm,
+                HashCode.fromBytes(hashBytes).toString(),
+                /* useSubresourceIntegrity= */ true);
+      } catch (InvalidChecksumException e) {
+        if (parseWarnings != null) {
+          parseWarnings.add(String.format("Ignoring invalid checksum '%s'.", integrityHash));
+        }
+        continue;
+      }
+
+      if (!result.containsKey(hashAlgorithm)) {
+        result.put(hashAlgorithm, new ArrayList<>());
+      }
+      result.get(hashAlgorithm).add(checksum);
+    }
+    return result;
+  }
+
+  /**
+   * Parses the {@link KeyType} from the given integrity hash.
+   *
+   * <p>Eg. Given the integrity hash:
+   *
+   * <pre>
+   * <code>sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=</code> returns {@link KeyType.KeyType.SHA256}
+   * <code>invalid-prefixNotValidUnknown</code> returns {@code null}
+   * <code>sha256</code> returns {@code null}
+   * </pre>
+   */
+  private static KeyType parseHashAlgorithm(String integrity) {
+    for (String hashName : KNOWN_HASH_NAMES) {
+      if (integrity.startsWith(hashName)
+          && integrity.length() > hashName.length()
+          && integrity.charAt(hashName.length()) == '-') {
+        return KeyType.getByHashName(hashName);
+      }
     }
 
-    if (hash.length != expectedLength) {
-      throw new InvalidChecksumException(
-          "Invalid " + keyType + " SRI checksum '" + integrity + "'");
-    }
-
-    return Checksum.fromString(
-        keyType, HashCode.fromBytes(hash).toString(), /* useSubresourceIntegrity= */ true);
+    return null;
   }
 
   private static String toSubresourceIntegrity(KeyType keyType, HashCode hashCode) {
