@@ -13,7 +13,7 @@ def setup_gemini():
         return None
     genai.configure(api_key=api_key)
     # Using Pro for complex rule-following and audit logic
-    return genai.GenerativeModel('gemini-1.5-pro')
+    return genai.GenerativeModel('gemini-2.5-pro')
 
 def get_all_doc_paths():
     """Rule 2: Get all DevSite files."""
