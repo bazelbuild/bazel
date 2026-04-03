@@ -146,6 +146,70 @@ date +%s%N > "$1"
 EOF
   chmod +x pkg/write_stamp.sh
 
+  # check_sandbox.sh: verifies files are present or absent in the sandbox.
+  # Arguments: output_file expect_present... -- expect_absent...
+  cat > pkg/check_sandbox.sh << 'SANDBOXEOF'
+#!/bin/sh
+set -eu
+output_file="$1"
+shift
+mode="present"
+for arg in "$@"; do
+  if [ "${arg}" = "--" ]; then
+    mode="absent"
+    continue
+  fi
+  if [ "${mode}" = "present" ]; then
+    if [ ! -f "${arg}" ]; then
+      echo "FAIL: ${arg} should be in sandbox but is missing" >&2
+      exit 1
+    fi
+  else
+    if [ -f "${arg}" ]; then
+      resolved=$(readlink -f "${arg}" 2>/dev/null || echo "${arg}")
+      echo "FAIL: ${arg} should not be in sandbox but exists at ${resolved}" >&2
+      exit 1
+    fi
+  fi
+done
+echo "ok" > "${output_file}"
+SANDBOXEOF
+  chmod +x pkg/check_sandbox.sh
+
+  # Rule that checks file presence/absence in the sandbox.
+  cat > pkg/check_sandbox_rule.bzl << 'EOF'
+def _check_sandbox_impl(ctx):
+    inputs = ctx.attr.inputs.files
+    output = ctx.outputs.out
+    unused_inputs_list = ctx.file.unused_inputs_list
+    args = ctx.actions.args()
+    args.add(output)
+    args.add_all(ctx.files.expect_present)
+    args.add("--")
+    args.add_all(ctx.files.expect_absent)
+    all_inputs = depset([unused_inputs_list], transitive = [inputs])
+    ctx.actions.run(
+        inputs = all_inputs,
+        outputs = [output],
+        arguments = [args],
+        executable = ctx.executable.executable,
+        unused_inputs_list = unused_inputs_list,
+        execution_requirements = {"supports-path-mapping": "1"},
+    )
+
+check_sandbox_rule = rule(
+    attrs = {
+        "inputs": attr.label(),
+        "executable": attr.label(executable = True, cfg = "exec"),
+        "out": attr.output(),
+        "unused_inputs_list": attr.label(allow_single_file = True),
+        "expect_present": attr.label_list(allow_files = True),
+        "expect_absent": attr.label_list(allow_files = True),
+    },
+    implementation = _check_sandbox_impl,
+)
+EOF
+
   echo "contentA" > pkg/a.input
   echo "contentB" > pkg/b.input
   echo "contentC" > pkg/c.input
@@ -350,71 +414,6 @@ function test_input_discovery_unused_change_after_shutdown() {
 # The action script checks that b.input does NOT exist and fails if it does,
 # proving that pre-execution input discovery removed it from the sandbox.
 function test_input_discovery_removes_from_sandbox() {
-  cat > pkg/check_sandbox.sh << 'SANDBOXEOF'
-#!/bin/sh
-set -eu
-output_file="$1"
-shift
-# Arguments: expect_present... -- expect_absent...
-mode="present"
-for arg in "$@"; do
-  if [ "${arg}" = "--" ]; then
-    mode="absent"
-    continue
-  fi
-  if [ "${mode}" = "present" ]; then
-    if [ ! -f "${arg}" ]; then
-      echo "FAIL: ${arg} should be in sandbox but is missing" >&2
-      exit 1
-    fi
-  else
-    if [ -f "${arg}" ]; then
-      resolved=$(readlink -f "${arg}" 2>/dev/null || echo "${arg}")
-      echo "FAIL: ${arg} should not be in sandbox but exists at ${resolved}" >&2
-      exit 1
-    fi
-  fi
-done
-echo "ok" > "${output_file}"
-SANDBOXEOF
-  chmod +x pkg/check_sandbox.sh
-
-  # Rule that passes the unused input paths as arguments so the script
-  # can verify they are absent from the sandbox.
-  cat > pkg/check_sandbox_rule.bzl << 'EOF'
-def _check_sandbox_impl(ctx):
-    inputs = ctx.attr.inputs.files
-    output = ctx.outputs.out
-    unused_inputs_list = ctx.file.unused_inputs_list
-    # Arguments: output expect_present... -- expect_absent...
-    arguments = [output.path]
-    for f in ctx.files.expect_present:
-        arguments.append(f.path)
-    arguments.append("--")
-    for f in ctx.files.expect_absent:
-        arguments.append(f.path)
-    all_inputs = depset([unused_inputs_list], transitive = [inputs])
-    ctx.actions.run(
-        inputs = all_inputs,
-        outputs = [output],
-        arguments = arguments,
-        executable = ctx.executable.executable,
-        unused_inputs_list = unused_inputs_list,
-    )
-
-check_sandbox_rule = rule(
-    attrs = {
-        "inputs": attr.label(),
-        "executable": attr.label(executable = True, cfg = "exec"),
-        "out": attr.output(),
-        "unused_inputs_list": attr.label(allow_single_file = True),
-        "expect_present": attr.label_list(allow_files = True),
-        "expect_absent": attr.label_list(allow_files = True),
-    },
-    implementation = _check_sandbox_impl,
-)
-EOF
-
   cat > pkg/BUILD << 'EOF'
 load(":produce_unused_list.bzl", "produce_unused_list")
 load(":check_sandbox_rule.bzl", "check_sandbox_rule")
@@ -448,6 +447,108 @@ check_sandbox_rule(
 EOF
 
   bazel build --spawn_strategy=sandboxed //pkg:output || fail "build failed — b.input was present in sandbox"
+  local content
+  content=$(cat "${PRODUCT_NAME}-bin/pkg/output.out")
+  assert_equals "ok" "${content}"
+}
+
+# Tests that input discovery works correctly with path mapping
+# (--experimental_output_paths=strip). With path mapping, derived artifact paths
+# are stripped of their configuration segment. The unused_inputs_list producer
+# writes mapped paths (since it sees mapped paths at execution time), and
+# discoverInputs must match against those mapped paths.
+function test_input_discovery_with_path_mapping() {
+  # A rule that generates a derived file by copying a source file.
+  cat > pkg/generate.bzl << 'EOF'
+def _generate_impl(ctx):
+    out = ctx.outputs.out
+    src = ctx.file.src
+    ctx.actions.run_shell(
+        inputs = [src],
+        outputs = [out],
+        command = "cp %s %s" % (src.path, out.path),
+    )
+
+generate = rule(
+    attrs = {
+        "src": attr.label(allow_single_file = True),
+        "out": attr.output(),
+    },
+    implementation = _generate_impl,
+)
+EOF
+
+  # A rule that produces an unused_inputs_list containing the mapped paths of
+  # specified inputs. Uses a shell script to write the paths at execution time
+  # (when path mapping is active), so the paths in the file are mapped.
+  cat > pkg/produce_mapped_unused_list.bzl << 'EOF'
+def _produce_mapped_unused_list_impl(ctx):
+    unused_list = ctx.outputs.unused_list
+    # Write the unused input paths. At execution time with path mapping,
+    # file.path gives the analysis-time (unmapped) path. But the action's
+    # command line sees mapped paths. We use a shell script that receives
+    # the mapped paths as arguments.
+    args = ctx.actions.args()
+    args.add(unused_list)
+    args.add_all(ctx.files.unused_inputs)
+    ctx.actions.run_shell(
+        outputs = [unused_list],
+        inputs = ctx.files.unused_inputs,
+        arguments = [args],
+        command = 'out="$1"; shift; printf "%s\\n" "$@" > "$out"',
+        execution_requirements = {"supports-path-mapping": "1"},
+    )
+
+produce_mapped_unused_list = rule(
+    attrs = {
+        "unused_inputs": attr.label_list(allow_files = True),
+        "unused_list": attr.output(),
+    },
+    implementation = _produce_mapped_unused_list_impl,
+)
+EOF
+
+  cat > pkg/BUILD << 'EOF'
+load(":generate.bzl", "generate")
+load(":produce_mapped_unused_list.bzl", "produce_mapped_unused_list")
+load(":check_sandbox_rule.bzl", "check_sandbox_rule")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+generate(name = "gen_a", src = "a.input", out = "a.gen")
+generate(name = "gen_b", src = "b.input", out = "b.gen")
+generate(name = "gen_c", src = "c.input", out = "c.gen")
+
+filegroup(
+    name = "all_gen",
+    srcs = ["a.gen", "b.gen", "c.gen"],
+)
+
+produce_mapped_unused_list(
+    name = "unused_list",
+    unused_inputs = ["b.gen"],
+    unused_list = "unused.list",
+)
+
+sh_binary(
+    name = "check_sandbox",
+    srcs = ["check_sandbox.sh"],
+)
+
+check_sandbox_rule(
+    name = "output",
+    out = "output.out",
+    executable = ":check_sandbox",
+    inputs = ":all_gen",
+    unused_inputs_list = ":unused.list",
+    expect_present = ["a.gen", "c.gen"],
+    expect_absent = ["b.gen"],
+)
+EOF
+
+  bazel build \
+    --experimental_output_paths=strip \
+    --spawn_strategy=sandboxed \
+    //pkg:output || fail "build failed with path mapping"
   local content
   content=$(cat "${PRODUCT_NAME}-bin/pkg/output.out")
   assert_equals "ok" "${content}"
