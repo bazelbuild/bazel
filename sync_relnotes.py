@@ -5,202 +5,174 @@ import time
 import json
 import google.generativeai as genai
 
+# --- 1. SETUP ---
 def setup_gemini():
-    """Initializes the Gemini API and returns Flash (mapping) and Pro (writing)."""
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
-        print("Error: GEMINI_API_KEY environment variable not set.")
-        return None, None
+        print("❌ Error: GEMINI_API_KEY environment variable not set.")
+        return None
     genai.configure(api_key=api_key)
-    return genai.GenerativeModel('gemini-2.5-flash'), genai.GenerativeModel('gemini-2.5-pro')
+    # Using Pro for complex rule-following and audit logic
+    return genai.GenerativeModel('gemini-1.5-pro')
 
 def get_all_doc_paths():
-    """Gets a list of all current .md files in the Bazel repo."""
+    """Rule 2: Get all DevSite files."""
     try:
-        out = subprocess.check_output(
-            ['git', '-C', 'bazel_src', 'ls-files', 'site/en/**/*.md'],
-            text=True
-        )
+        out = subprocess.check_output(['git', '-C', 'bazel_src', 'ls-files', 'site/en/**/*.md'], text=True)
         return [p for p in out.split('\n') if p and '/versions/' not in p and '/archive/' not in p]
-    except Exception as e:
-        print(f"Error getting file list: {e}")
-        return []
+    except: return []
 
-def find_best_docs_with_gemini(model, commit_subject, relnote, all_paths):
-    """PHASE 1: Identifies the relevant DevSite file and its Mintlify twin."""
+# --- 2. THE AGENT AUDIT LOGIC ---
+def run_agent_audit(model, commit_hash, subject, note, diff):
+    """The AI Agent logic following your 6 strict rules."""
+    
+    # Get master list for Rule 2 (Mapping)
+    all_paths = get_all_doc_paths()
     paths_str = "\n".join(all_paths)
+
     prompt = f"""
-    You are an expert Bazel engineer.
-    Commit: {commit_subject}
-    Note: {relnote}
+    You are a highly intelligent Bazel Documentation Auditor.
+    You MUST follow these 6 rules in order:
 
-    TASK: Find the MOST relevant documentation file for this change.
-    Return ONLY a JSON string of the path. Example: "site/en/ref.md"
-    FILES:
-    {paths_str}
+    1. FILTER: Is this commit a public-facing feature? (Subject: {subject}, Note: {note}). 
+       If internal/test-only, return {{"action": "skip", "reason": "internal"}}.
+    2. MAP: Identify the MOST relevant DevSite file from this list:
+       {paths_str}
+    3. ANALYZE: Study the Git Diff below and find exactly where documentation should be added or changed.
+    4. REMOVALS: If code was removed in the diff, identify the corresponding lines in the doc to remove or update.
+    5. ADDITION LIMIT: Write a MAXIMUM of 3-4 technical lines for the update.
+    6. DELETION LIMIT: Remove a MAXIMUM of 2 lines only if justified by code removal.
+
+    GIT DIFF:
+    {diff[:4000]}
+
+    OUTPUT INSTRUCTIONS:
+    Return ONLY a JSON object with these exact keys:
+    - "action": "update" or "skip"
+    - "file_path": "site/en/..." (The DevSite path)
+    - "edit_type": "insert_after" or "replace" or "delete"
+    - "target_line_text": "Exact verbatim line from the document to target"
+    - "new_content": "Your concise 3-4 lines of documentation"
     """
-    try:
-        time.sleep(1)
-        response = model.generate_content(prompt, generation_config={"temperature": 0.0})
-        match = re.search(r'site/en/[\w./-]+\.md', response.text.strip())
-        if not match: return set()
 
-        devsite_path = match.group(0)
-        mintlify_path = devsite_path.replace("site/en/", "docs/").replace(".md", ".mdx")
-
-        final_paths = set()
-        if os.path.exists(os.path.join('bazel_src', devsite_path)): final_paths.add(devsite_path)
-        if os.path.exists(os.path.join('bazel_src', mintlify_path)): final_paths.add(mintlify_path)
-        return final_paths
-    except Exception: return set()
-
-def rewrite_docs_with_gemini(model, commit_subject, relnote_text, commit_diff, target_docs):
-    """PHASE 2: Performs Multi-line Addition, Replacement, or Deletion."""
-
-    # 1. Generate the concise update text
-    prompt_text = f"""
-    You are a technical writer. Draft a concise documentation update (max 4 lines).
-    Commit: {commit_subject}
-    Note: {relnote_text}
-    Diff: {commit_diff[:3000]}
-
-    Instruction: If the feature is being REMOVED, draft a note about its removal.
-    Return ONLY raw markdown text. No explanations.
-    """
     try:
         time.sleep(2)
-        response_text = model.generate_content(prompt_text, generation_config={"temperature": 0.0})
-        new_text = response_text.text.strip()
-        new_text = re.sub(r'^```(?:markdown|mdx)?\s*|\s*```$', '', new_text, flags=re.IGNORECASE).strip()
-    except Exception as e:
-        print(f"  ❌ Error generating text: {e}")
-        return
-
-    # 2. Contextual Range Replacement / Deletion
-    for doc_path in target_docs:
-        full_path = os.path.join('bazel_src', doc_path)
-        if not os.path.exists(full_path): continue
-
-        with open(full_path, 'r', encoding='utf-8') as f:
-            original_lines = f.readlines()
-
-        content = "".join(original_lines)
-
-        prompt_placement = f"""
-        TASK: Update the document based on this code change.
-        DIFF: {commit_diff[:1500]}
-        NEW TEXT TO ADD: {new_text}
-
-        CRITICAL RULES:
-        1. DELETE: If a feature is removed from the code, find the section describing it and use "delete".
-        2. REPLACE: If a feature is updated, find the old section and use "replace".
-        3. ADD: If it is new, use "insert_after".
+        response = model.generate_content(prompt, generation_config={"temperature": 0.0})
         
-        To target a MULTI-LINE section, provide the EXACT 'start_matching_line' and 'end_matching_line'.
+        # Robust JSON extraction
+        json_match = re.search(r'\{.*\}', response.text.strip(), re.DOTALL)
+        if not json_match:
+            print(f"  ⚠️ AI did not return valid JSON. Skipping.")
+            return False
+        
+        data = json.loads(json_match.group(0))
 
-        JSON STRUCTURE:
-        {{
-            "action": "replace" | "insert_after" | "delete",
-            "start_matching_line": "Exact verbatim first line of the target section",
-            "end_matching_line": "Exact verbatim last line of the target section"
-        }}
+        if data.get("action") == "skip":
+            print(f"  ⏭️ Skipped: {data.get('reason', 'internal')}")
+            return False
 
-        --- DOCUMENT CONTENT ({doc_path}) ---
-        {content[:10000]}
-        """
+        devsite_path = data["file_path"]
+        # Calculate Mintlify twin: site/en/run/bazelrc.md -> docs/run/bazelrc.mdx
+        mintlify_path = devsite_path.replace("site/en/", "docs/").replace(".md", ".mdx")
+        
+        target_files = [devsite_path, mintlify_path]
+        success = False
 
-        try:
-            time.sleep(1)
-            response = model.generate_content(prompt_placement, generation_config={"temperature": 0.0})
-            raw_text = response.text.strip()
-            
-            # Robust JSON extraction
-            start_idx_json = raw_text.find('{')
-            end_idx_json = raw_text.rfind('}')
-            if start_idx_json == -1 or end_idx_json == -1:
-                print(f"  ⚠️ No JSON found for {doc_path}. Fallback: Appending.")
-                original_lines.append("\n" + new_text + "\n")
+        for doc_path in target_files:
+            full_path = os.path.join('bazel_src', doc_path)
+            if not os.path.exists(full_path):
+                print(f"  ⚠️ {doc_path} not found. Skipping twin.")
+                continue
+
+            with open(full_path, 'r', encoding='utf-8') as f:
+                lines = f.read().split('\n')
+
+            # Find the line the AI targeted
+            target_text = data["target_line_text"].strip()
+            line_idx = -1
+            for i, line in enumerate(lines):
+                if target_text in line:
+                    line_idx = i
+                    break
+
+            # Handle MDX escaping for Mintlify
+            final_content = data["new_content"]
+            if doc_path.endswith(".mdx"):
+                final_content = final_content.replace("{", "\\{").replace("}", "\\}")
+
+            if line_idx != -1:
+                # Rule 5 & 6 Enforcement
+                if data["edit_type"] == "delete":
+                    del lines[line_idx]
+                    print(f"  🗑️ Deleted line in {doc_path}")
+                elif data["edit_type"] == "replace":
+                    lines[line_idx] = final_content
+                    print(f"  🔄 Replaced line in {doc_path}")
+                else: # insert_after
+                    lines.insert(line_idx + 1, "\n" + final_content + "\n")
+                    print(f"  ✅ Inserted update into {doc_path}")
+                
+                with open(full_path, 'w', encoding='utf-8') as f:
+                    f.write('\n'.join(lines))
+                success = True
             else:
-                update = json.loads(raw_text[start_idx_json:end_idx_json+1])
-                action = update.get('action', 'insert_after')
-                start_match = update.get('start_matching_line', "").strip()
-                end_match = update.get('end_matching_line', start_match).strip()
+                # Safe Fallback: If no match, append to bottom to preserve work
+                lines.append("\n" + final_content + "\n")
+                with open(full_path, 'w', encoding='utf-8') as f:
+                    f.write('\n'.join(lines))
+                print(f"  ⚠️ Target line not found in {doc_path}. Appended to bottom.")
+                success = True
 
-                # Locate line indices for the range
-                start_line_idx, end_line_idx = -1, -1
-                for i, line in enumerate(original_lines):
-                    if start_match and start_match in line: start_line_idx = i
-                    if end_match and end_match in line: end_line_idx = i
-                    if start_line_idx != -1 and end_line_idx != -1: break
+        return success
+    except Exception as e:
+        print(f"  ❌ Agent Execution Error: {e}")
+        return False
 
-                # Apply MDX escaping
-                file_text = new_text
-                if doc_path.endswith('.mdx'):
-                    file_text = file_text.replace('{', '\\{').replace('}', '\\}')
-
-                if start_line_idx != -1:
-                    # If end_line_idx is before start (AI error), reset it to start
-                    if end_line_idx < start_line_idx: end_line_idx = start_line_idx
-
-                    if action == "delete":
-                        print(f"  🗑️ Deleting lines {start_line_idx+1} to {end_line_idx+1} in {doc_path}")
-                        del original_lines[start_line_idx : end_line_idx + 1]
-                    elif action == "replace":
-                        print(f"  🔄 Replacing range in {doc_path}")
-                        original_lines[start_line_idx : end_line_idx + 1] = [file_text + "\n"]
-                    else: # insert_after
-                        print(f"  ✅ Inserting after match in {doc_path}")
-                        original_lines.insert(start_line_idx + 1, "\n" + file_text + "\n")
-                else:
-                    if action != "delete": 
-                        print(f"  ⚠️ Keyword match failed in {doc_path}. Appending.")
-                        original_lines.append("\n" + file_text + "\n")
-
-            with open(full_path, 'w', encoding='utf-8') as f:
-                f.writelines(original_lines)
-
-        except Exception as e:
-            print(f"  ❌ Error applying to {doc_path}: {e}")
-
+# --- 3. MAIN RUNNER ---
 def run_rulebook():
-    flash_model, pro_model = setup_gemini()
-    if not flash_model: return
+    model = setup_gemini()
+    if not model: return
 
-    if not os.path.exists('weekly_notes.txt'):
-        print("Error: weekly_notes.txt not found.")
+    log_path = 'weekly_notes.txt'
+    if not os.path.exists(log_path):
+        print("❌ weekly_notes.txt not found.")
         return
 
-    all_doc_paths = get_all_doc_paths()
-    with open('weekly_notes.txt', 'r', encoding='utf-8') as f:
-        commits_data = f.read().split('COMMIT_DELIMITER\n')[1:]
+    with open(log_path, 'r', encoding='utf-8') as f:
+        commits_raw = f.read().split('COMMIT_DELIMITER\n').slice(1)
 
-    for commit_block in commits_data:
-        lines = commit_block.strip().split('\n')
+    processed_list = []
+    for block in commits_raw:
+        lines = block.strip().split('\n')
         if len(lines) < 3: continue
-
-        commit_hash, commit_subject = lines[0].strip(), lines[1].strip()
+        
+        hash = lines[0].strip()
+        subj = lines[1].strip()
         body = '\n'.join(lines[2:])
 
+        # Extract RELNOTES
         match = re.search(r'RELNOTES(?:\[.*?\])?[:\s]+(.*)', body, re.IGNORECASE)
         if not match: continue
-        
-        # Robust Filtering for "None.", "N/A", etc.
         note = match.group(1).strip()
-        clean_note = re.sub(r'[.*`#\s]+$', '', note).lower().strip()
-        if clean_note in ['none', 'n/a', 'no', '']: continue
+        if note.lower() in ['none', 'n/a', 'no', '']: continue
 
-        print(f"\n🚀 Processing: {commit_hash[:7]} - {commit_subject[:50]}...")
-        target_docs = find_best_docs_with_gemini(flash_model, commit_subject, note, all_doc_paths)
+        print(f"\n🚀 Agent Auditing: {hash[:7]} - {subj[:60]}...")
+        
+        try:
+            # Fetch Diff
+            diff = subprocess.check_output(['git', '-C', 'bazel_src', 'show', '--format=', hash], text=True).strip()
+            
+            # Execute the 6-rule Agent Audit
+            if run_agent_audit(model, hash, subj, note, diff):
+                processed_list.append(f"- {hash[:7]}: {subj}")
+        except Exception as e:
+            print(f"  ⚠️ System Error for {hash[:7]}: {e}")
 
-        if target_docs:
-            print(f"  🎯 Target Pair: {list(target_docs)}")
-            try:
-                diff = subprocess.check_output(['git', '-C', 'bazel_src', 'show', '--format=', commit_hash], text=True).strip()
-                rewrite_docs_with_gemini(pro_model, commit_subject, note, diff, target_docs)
-            except Exception as e:
-                print(f"  ⚠️ Error: {e}")
-        else:
-            print("  ⏭️ No matching documentation pair found.")
+    # Save findings for the PR description
+    if processed_list:
+        with open("processed_commits.txt", "w") as f:
+            f.write("\n".join(processed_list))
+        print(f"\n✅ Finished. {len(processed_list)} documentation updates applied.")
 
 if __name__ == "__main__":
     run_rulebook()
