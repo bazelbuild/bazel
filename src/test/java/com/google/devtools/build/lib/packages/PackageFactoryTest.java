@@ -1038,6 +1038,15 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
+  public void testExportTwiceCustomVisibilityOK() throws Exception {
+    expectEvalSuccess(
+        "exports_files([\"a.cc\"],",
+        "    visibility = [ \"//friend:__pkg__\" ])",
+        "exports_files([\"a.cc\"],",
+        "    visibility = [ \"//friend:__pkg__\" ])");
+  }
+
+  @Test
   public void testExportTwiceFail() throws Exception {
     expectEvalError(
         "visibility for exported file 'a.cc' declared twice",
