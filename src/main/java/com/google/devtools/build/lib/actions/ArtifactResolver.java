@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.Path;
@@ -23,8 +24,8 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * An interface for resolving artifact names to {@link Artifact} objects. Should only be used
- * in the internal machinery of Blaze: rule implementations are not allowed to do this.
+ * An interface for resolving artifact names to {@link Artifact} objects. Should only be used in the
+ * internal machinery of Blaze: rule implementations are not allowed to do this.
  */
 public interface ArtifactResolver {
   /**
@@ -57,7 +58,11 @@ public interface ArtifactResolver {
    * @return an existing or new source Artifact for the given execPath. Returns null if the root can
    *     not be determined and the artifact did not exist before.
    */
+  @Nullable
   SourceArtifact resolveSourceArtifact(PathFragment execPath, RepositoryName repositoryName);
+
+  ImmutableList<SourceArtifact> resolveSourceArtifactsAsciiCaseInsensitively(
+      PathFragment execPath, RepositoryName repositoryName);
 
   /**
    * Resolves source Artifacts given execRoot-relative paths.
