@@ -227,6 +227,7 @@ public final class ActionCacheCheckerTest {
             inputMetadataProvider,
             outputMetadataStore,
             actionExecutionSalt,
+            /* mnemonicCacheSalts= */ ImmutableMap.of(),
             outputChecker,
             /* useArchivedTreeArtifacts= */ useArchivedTreeArtifacts);
     runAction(
@@ -295,6 +296,7 @@ public final class ActionCacheCheckerTest {
           clientEnv,
           OutputPermissions.READONLY,
           actionExecutionSalt,
+          /* mnemonicCacheSalts= */ ImmutableMap.of(),
           useArchivedTreeArtifacts);
     }
   }
@@ -495,6 +497,7 @@ public final class ActionCacheCheckerTest {
                 fakeMetadataHandler,
                 fakeMetadataHandler,
                 /* actionExecutionSalt= */ "",
+                /* mnemonicCacheSalts= */ ImmutableMap.of(),
                 OutputChecker.TRUST_ALL,
                 /* useArchivedTreeArtifacts= */ false))
         .isNotNull();
@@ -648,6 +651,7 @@ public final class ActionCacheCheckerTest {
             metadataHandler,
             metadataHandler,
             /* actionExecutionSalt= */ "",
+            /* mnemonicCacheSalts= */ ImmutableMap.of(),
             OutputChecker.TRUST_ALL,
             /* useArchivedTreeArtifacts= */ false);
 
@@ -682,6 +686,7 @@ public final class ActionCacheCheckerTest {
             metadataHandler,
             metadataHandler,
             /* actionExecutionSalt= */ "",
+            /* mnemonicCacheSalts= */ ImmutableMap.of(),
             CHECK_TTL,
             /* useArchivedTreeArtifacts= */ false);
 
@@ -711,6 +716,7 @@ public final class ActionCacheCheckerTest {
             metadataHandler,
             metadataHandler,
             /* actionExecutionSalt= */ "",
+            /* mnemonicCacheSalts= */ ImmutableMap.of(),
             /* outputChecker= */ null,
             /* useArchivedTreeArtifacts= */ false);
 
@@ -772,6 +778,7 @@ public final class ActionCacheCheckerTest {
             metadataHandler,
             metadataHandler,
             /* actionExecutionSalt= */ "",
+            /* mnemonicCacheSalts= */ ImmutableMap.of(),
             outputChecker,
             /* useArchivedTreeArtifacts= */ false);
     verify(outputChecker)
@@ -968,6 +975,7 @@ public final class ActionCacheCheckerTest {
             metadataHandler,
             metadataHandler,
             /* actionExecutionSalt= */ "",
+            /* mnemonicCacheSalts= */ ImmutableMap.of(),
             OutputChecker.TRUST_ALL,
             /* useArchivedTreeArtifacts= */ false);
 
@@ -1073,6 +1081,7 @@ public final class ActionCacheCheckerTest {
             metadataHandler,
             metadataHandler,
             /* actionExecutionSalt= */ "",
+            /* mnemonicCacheSalts= */ ImmutableMap.of(),
             OutputChecker.TRUST_ALL,
             /* useArchivedTreeArtifacts= */ false);
 
@@ -1133,6 +1142,7 @@ public final class ActionCacheCheckerTest {
             metadataHandler,
             metadataHandler,
             /* actionExecutionSalt= */ "",
+            /* mnemonicCacheSalts= */ ImmutableMap.of(),
             outputChecker,
             /* useArchivedTreeArtifacts= */ false);
     verify(outputChecker)
@@ -1206,6 +1216,7 @@ public final class ActionCacheCheckerTest {
             metadataHandler,
             metadataHandler,
             /* actionExecutionSalt= */ "",
+            /* mnemonicCacheSalts= */ ImmutableMap.of(),
             outputChecker,
             /* useArchivedTreeArtifacts= */ false);
     when(outputChecker.shouldTrustMetadata(any(), any())).thenReturn(true);
@@ -1271,6 +1282,7 @@ public final class ActionCacheCheckerTest {
             metadataHandler,
             metadataHandler,
             /* actionExecutionSalt= */ "",
+            /* mnemonicCacheSalts= */ ImmutableMap.of(),
             CHECK_TTL,
             /* useArchivedTreeArtifacts= */ false);
 
@@ -1315,6 +1327,7 @@ public final class ActionCacheCheckerTest {
             metadataHandler,
             metadataHandler,
             /* actionExecutionSalt= */ "",
+            /* mnemonicCacheSalts= */ ImmutableMap.of(),
             CHECK_TTL,
             /* useArchivedTreeArtifacts= */ false);
 
@@ -1367,6 +1380,7 @@ public final class ActionCacheCheckerTest {
             metadataHandler,
             metadataHandler,
             /* actionExecutionSalt= */ "",
+            /* mnemonicCacheSalts= */ ImmutableMap.of(),
             CHECK_TTL,
             !initiallyEnabled);
 
@@ -1411,6 +1425,7 @@ public final class ActionCacheCheckerTest {
             metadataHandler,
             metadataHandler,
             /* actionExecutionSalt= */ "",
+            /* mnemonicCacheSalts= */ ImmutableMap.of(),
             OutputChecker.TRUST_ALL,
             /* useArchivedTreeArtifacts= */ false);
 

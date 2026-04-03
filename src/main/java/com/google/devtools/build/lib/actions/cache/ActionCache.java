@@ -291,6 +291,8 @@ public interface ActionCache {
 
       private final String actionExecutionSalt;
 
+      @Nullable private final String mnemonicSalt;
+
       // Discovered inputs.
       // Null if the action does not discover inputs.
       @Nullable private final ImmutableList.Builder<String> discoveredInputPaths;
@@ -311,6 +313,7 @@ public interface ActionCache {
        * Creates a new builder.
        *
        * @param discoversInputs whether the action discovers inputs.
+       * @param mnemonicSalt per-mnemonic salt value for cache invalidation, or null if none.
        * @param outputPermissions the requested output permissions.
        * @param useArchivedTreeArtifacts whether archived tree artifacts are enabled.
        */
@@ -319,11 +322,13 @@ public interface ActionCache {
           boolean discoversInputs,
           ImmutableMap<String, String> clientEnv,
           String actionExecutionSalt,
+          @Nullable String mnemonicSalt,
           OutputPermissions outputPermissions,
           boolean useArchivedTreeArtifacts) {
         this.actionKey = actionKey;
         this.clientEnv = clientEnv;
         this.actionExecutionSalt = actionExecutionSalt;
+        this.mnemonicSalt = mnemonicSalt;
         this.discoveredInputPaths = discoversInputs ? ImmutableList.builder() : null;
         this.outputPermissions = outputPermissions;
         this.useArchivedTreeArtifacts = useArchivedTreeArtifacts;
@@ -414,6 +419,7 @@ public interface ActionCache {
                 metadataMap,
                 clientEnv,
                 actionExecutionSalt,
+                mnemonicSalt,
                 outputPermissions,
                 useArchivedTreeArtifacts),
             discoveredInputPaths != null ? discoveredInputPaths.build() : null,
@@ -429,6 +435,7 @@ public interface ActionCache {
           Map<String, FileArtifactValue> metadataMap,
           Map<String, String> clientEnv,
           String actionExecutionSalt,
+          @Nullable String mnemonicSalt,
           OutputPermissions outputPermissions,
           boolean useArchivedTreeArtifacts) {
         Fingerprint fp = new Fingerprint();
@@ -437,6 +444,9 @@ public interface ActionCache {
         fp.addBytes(MetadataDigestUtils.fromMetadata(metadataMap));
         fp.addBytes(computeMapDigest(clientEnv));
         fp.addString(actionExecutionSalt);
+        if (mnemonicSalt != null) {
+          fp.addString(mnemonicSalt);
+        }
         fp.addInt(outputPermissions.getPermissionsMode());
         fp.addBoolean(useArchivedTreeArtifacts);
         return fp.digestAndReset();

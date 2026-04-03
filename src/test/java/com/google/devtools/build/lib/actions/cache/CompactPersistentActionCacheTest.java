@@ -769,6 +769,7 @@ public class CompactPersistentActionCacheTest {
         discoversInputs,
         /* clientEnv= */ ImmutableMap.of(),
         /* actionExecutionSalt= */ "",
+        /* mnemonicSalt= */ null,
         OutputPermissions.READONLY,
         /* useArchivedTreeArtifacts= */ false);
   }

@@ -526,6 +526,36 @@ public abstract class ExecutionOptions extends OptionsBase {
               + " unavailable.")
   public abstract boolean getAllowOneActionOnResourceUnavailable();
 
+  @Option(
+      name = "mnemonic_cache_salt",
+      allowMultiple = true,
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.ACTION_COMMAND_LINES},
+      help =
+          "Specify a salt value to include in the cache key for actions with a given mnemonic. "
+              + "Format: --mnemonic_cache_salt=Mnemonic=salt. "
+              + "This invalidates both local and remote cache entries for that mnemonic. "
+              + "Example: --mnemonic_cache_salt=Javac=V2 --mnemonic_cache_salt=KotlinCompile=V3")
+  public List<Map.Entry<String, String>> mnemonicCacheSalts;
+
+  /**
+   * Returns the mnemonic cache salts as an immutable map.
+   *
+   * <p>If the same mnemonic is specified multiple times, the last value wins.
+   */
+  public ImmutableMap<String, String> getMnemonicCacheSalts() {
+    if (mnemonicCacheSalts == null || mnemonicCacheSalts.isEmpty()) {
+      return ImmutableMap.of();
+    }
+    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+    for (Map.Entry<String, String> entry : mnemonicCacheSalts) {
+      builder.put(entry.getKey(), entry.getValue());
+    }
+    return builder.buildKeepingLast();
+  }
+
   /** An enum for specifying different formats of test output. */
   public enum TestOutputFormat {
     /**

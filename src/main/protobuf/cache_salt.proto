@@ -40,4 +40,8 @@ message CacheSalt {
   // Ensures that a scrubbed spawn can never collide with a non-scrubbed one.
   // See the documentation for the --experimental_remote_scrub_config flag.
   ScrubSalt scrub_salt = 3;
+
+  // Per-mnemonic cache salt value for targeted cache invalidation.
+  // See the documentation for the --mnemonic_cache_salt flag.
+  string mnemonic_salt = 4;
 }
