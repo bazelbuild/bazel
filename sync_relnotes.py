@@ -139,7 +139,7 @@ def run_rulebook():
         return
 
     with open(log_path, 'r', encoding='utf-8') as f:
-        commits_raw = f.read().split('COMMIT_DELIMITER\n').slice(1)
+        commits_raw = f.read().split('COMMIT_DELIMITER\n')[1:]
 
     processed_list = []
     for block in commits_raw:
