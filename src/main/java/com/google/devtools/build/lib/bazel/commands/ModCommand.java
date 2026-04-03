@@ -31,7 +31,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Ordering;
 import com.google.common.io.CharSource;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -39,10 +41,15 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModTidyValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
+import com.google.devtools.build.lib.bazel.bzlmod.InterimModule;
+import com.google.devtools.build.lib.bazel.bzlmod.Module;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
+import com.google.devtools.build.lib.bazel.bzlmod.Registry;
 import com.google.devtools.build.lib.bazel.bzlmod.RootModuleFileFixup;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionValue;
+import com.google.devtools.build.lib.bazel.bzlmod.Version;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ExtensionArg;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ExtensionArg.ExtensionArgConverter;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.InvalidArgumentException;
@@ -52,11 +59,15 @@ import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.ModSubco
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.ModSubcommandConverter;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg.ModuleArgConverter;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.VersionsRenderer;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.VersionsRenderer.ModuleVersionEntry;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -66,11 +77,13 @@ import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
+import com.google.devtools.build.lib.runtime.UiOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.ModCommand.Code;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.skyframe.BzlLoadCycleReporter;
 import com.google.devtools.build.lib.skyframe.BzlmodRepoCycleReporter;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
@@ -94,12 +107,19 @@ import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.stream.IntStream;
 import javax.annotation.Nullable;
 
@@ -117,6 +137,11 @@ import javax.annotation.Nullable;
     shortDescription = "Queries the Bzlmod external dependency graph",
     allowResidue = true)
 public final class ModCommand implements BlazeCommand {
+  @Nullable private DownloadManager downloadManager;
+
+  public void setDownloadManager(DownloadManager downloadManager) {
+    this.downloadManager = downloadManager;
+  }
 
   public static final String NAME = "mod";
 
@@ -211,6 +236,20 @@ public final class ModCommand implements BlazeCommand {
             Code.INVALID_ARGUMENTS);
       }
     }
+
+    if (subcommand == ModSubcommand.UPGRADE) {
+      if (modOptions.all && !args.isEmpty()) {
+        throw new InvalidArgumentException(
+            "the 'upgrade' command doesn't accept both --all and a list of module names",
+            Code.TOO_MANY_ARGUMENTS);
+      }
+    } else {
+      if (modOptions.all) {
+        throw new InvalidArgumentException(
+            String.format("the '%s' command doesn't take the --all option", subcommand),
+            Code.INVALID_ARGUMENTS);
+      }
+    }
   }
 
   private BlazeCommandResult execInternal(CommandEnvironment env, OptionsParsingResult options) {
@@ -267,6 +306,7 @@ public final class ModCommand implements BlazeCommand {
     BazelDepGraphValue depGraphValue;
     @Nullable BazelModuleInspectorValue moduleInspector;
     @Nullable BazelModTidyValue modTidyValue;
+    @Nullable BazelModuleResolutionValue resolutionValue;
     ImmutableList<RepositoryMappingValue> repoMappingValues;
 
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
@@ -288,6 +328,13 @@ public final class ModCommand implements BlazeCommand {
         keys.add(BazelModTidyValue.KEY);
       } else {
         keys.add(BazelDepGraphValue.KEY, BazelModuleInspectorValue.KEY);
+        if (subcommand.equals(ModSubcommand.UPGRADE)) {
+          keys.add(BazelModuleResolutionValue.KEY);
+          // Only request BazelModTidyValue when we'll actually modify files.
+          if (!args.isEmpty() || modOptions.all) {
+            keys.add(BazelModTidyValue.KEY);
+          }
+        }
       }
       EvaluationResult<SkyValue> evaluationResult =
           skyframeExecutor.prepareAndGet(keys.build(), evaluationContext);
@@ -315,16 +362,16 @@ public final class ModCommand implements BlazeCommand {
 
       modTidyValue = (BazelModTidyValue) evaluationResult.get(BazelModTidyValue.KEY);
 
+      resolutionValue =
+          (BazelModuleResolutionValue) evaluationResult.get(BazelModuleResolutionValue.KEY);
+
       repoMappingValues =
           repoMappingKeys.stream()
               .map(evaluationResult::get)
               .map(RepositoryMappingValue.class::cast)
               .collect(toImmutableList());
     } catch (InterruptedException e) {
-      String errorMessage = "mod command interrupted: " + e.getMessage();
-      env.getReporter().handle(Event.error(errorMessage));
-      return BlazeCommandResult.detailedExitCode(
-          InterruptedFailureDetails.detailedExitCode(errorMessage));
+      return handleInterrupted(env, e);
     } catch (AbruptExitException e) {
       env.getReporter().handle(Event.error(null, "Unknown error: " + e.getMessage()));
       return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
@@ -363,6 +410,23 @@ public final class ModCommand implements BlazeCommand {
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.BZLMOD, "execute mod " + subcommand)) {
         return runTidy(env, modTidyValue);
+      }
+    } else if (subcommand == ModSubcommand.UPGRADE) {
+      if (resolutionValue == null) {
+        return reportAndCreateFailureResult(
+            env, "Failed to compute module resolution.", Code.MOD_COMMAND_UNKNOWN);
+      }
+      boolean willModify = !args.isEmpty() || modOptions.all;
+      if (willModify && modTidyValue == null) {
+        return reportAndCreateFailureResult(
+            env,
+            "Failed to compute buildozer path for MODULE.bazel modification.",
+            Code.MOD_COMMAND_UNKNOWN);
+      }
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.BZLMOD, "execute mod " + subcommand)) {
+        return runUpgrade(
+            env, args, depGraphValue, moduleInspector, resolutionValue, modOptions, modTidyValue);
       }
     }
 
@@ -568,10 +632,7 @@ public final class ModCommand implements BlazeCommand {
         targetRepoDefinitions = resultBuilder.buildOrThrow();
       }
     } catch (InterruptedException e) {
-      String errorMessage = "mod command interrupted: " + e.getMessage();
-      env.getReporter().handle(Event.error(errorMessage));
-      return BlazeCommandResult.detailedExitCode(
-          InterruptedFailureDetails.detailedExitCode(errorMessage));
+      return handleInterrupted(env, e);
     }
 
     // Workaround to allow different default value for DEPS and EXPLAIN, and also use
@@ -700,7 +761,475 @@ public final class ModCommand implements BlazeCommand {
       buildozerInput.append("format\n");
     }
 
-    try (var stdin = CharSource.wrap(buildozerInput).asByteSource(ISO_8859_1).openStream()) {
+    boolean changesMade;
+    try {
+      changesMade = executeBuildozer(env, modTidyValue, buildozerInput);
+    } catch (InterruptedException e) {
+      return handleInterrupted(env, e);
+    } catch (CommandException | IOException e) {
+      return reportAndCreateFailureResult(env, formatBuildozerError(e), Code.BUILDOZER_FAILED);
+    }
+
+    if (changesMade) {
+      for (RootModuleFileFixup fixupEvent : modTidyValue.fixups()) {
+        env.getReporter().handle(Event.info(fixupEvent.getSuccessMessage()));
+      }
+    }
+
+    return reportAndCreateTidyResult(env, modTidyValue);
+  }
+
+  private BlazeCommandResult runUpgrade(
+      CommandEnvironment env,
+      List<String> args,
+      BazelDepGraphValue depGraphValue,
+      BazelModuleInspectorValue moduleInspector,
+      BazelModuleResolutionValue resolutionValue,
+      ModOptions modOptions,
+      @Nullable BazelModTidyValue modTidyValue) {
+    ImmutableMap<ModuleKey, Module> resolvedGraph = depGraphValue.getDepGraph();
+    ImmutableMap<ModuleKey, InterimModule> unprunedGraph = resolutionValue.getUnprunedDepGraph();
+
+    // Identify direct dependency module keys from the root module.
+    AugmentedModule rootModule = moduleInspector.depGraph().get(ModuleKey.ROOT);
+    ImmutableSet<ModuleKey> directDepKeys = ImmutableSet.copyOf(rootModule.deps().values());
+
+    // Collect registries for each non-root module in the resolved graph.
+    // Track modules that are skipped due to overrides (single_version_override,
+    // multiple_version_override, non-registry overrides like local_path_override, etc.).
+    LinkedHashMap<String, Registry> registryByModule = new LinkedHashMap<>();
+    ImmutableSet.Builder<String> overriddenModulesBuilder = ImmutableSet.builder();
+    HashSet<String> seenModuleNames = new HashSet<>();
+    for (ModuleKey moduleKey : resolvedGraph.keySet()) {
+      if (moduleKey.equals(ModuleKey.ROOT)) {
+        continue;
+      }
+      if (!seenModuleNames.add(moduleKey.name())) {
+        // Multiple versions of the same module (multiple_version_override), skip.
+        overriddenModulesBuilder.add(moduleKey.name());
+        registryByModule.remove(moduleKey.name());
+        continue;
+      }
+      InterimModule interim = unprunedGraph.get(moduleKey);
+      if (interim == null) {
+        // Module has a single_version_override or non-registry override, skip.
+        overriddenModulesBuilder.add(moduleKey.name());
+        continue;
+      }
+      Registry registry = interim.getRegistry();
+      if (registry == null) {
+        // Module has a non-registry override (e.g. local_path_override), skip.
+        overriddenModulesBuilder.add(moduleKey.name());
+        continue;
+      }
+      registryByModule.putIfAbsent(moduleKey.name(), registry);
+    }
+    ImmutableSet<String> overriddenModules = overriddenModulesBuilder.build();
+
+    // Fetch available versions from each module's registry in parallel.
+    ImmutableMap<String, Optional<ImmutableList<Version>>> availableVersionsMap;
+    int threads = env.getOptions().getOptions(LoadingPhaseThreadsOption.class).threads;
+    try (var executor =
+        Executors.newFixedThreadPool(
+            Math.min(registryByModule.size(), threads),
+            new ThreadFactoryBuilder().setNameFormat("mod-upgrade-version-fetch-%d").build())) {
+      availableVersionsMap =
+          fetchAllAvailableVersions(registryByModule, executor, env.getReporter());
+    } catch (InterruptedException e) {
+      return handleInterrupted(env, e);
+    }
+
+    // Build version entries, grouped by direct/transitive.
+    ImmutableList.Builder<ModuleVersionEntry> directDepsBuilder = ImmutableList.builder();
+    ImmutableList.Builder<ModuleVersionEntry> transitiveDepsBuilder = ImmutableList.builder();
+
+    for (ModuleKey moduleKey : resolvedGraph.keySet()) {
+      if (moduleKey.equals(ModuleKey.ROOT)) {
+        continue;
+      }
+      if (!registryByModule.containsKey(moduleKey.name())) {
+        continue;
+      }
+
+      Version latest = null;
+      Optional<ImmutableList<Version>> availableVersions =
+          availableVersionsMap.get(moduleKey.name());
+      if (availableVersions != null && availableVersions.isPresent()) {
+        latest = VersionsRenderer.findLatestStable(availableVersions.get());
+      }
+
+      boolean isDirect = directDepKeys.contains(moduleKey);
+      ModuleVersionEntry entry =
+          new ModuleVersionEntry(moduleKey.name(), moduleKey.version(), latest, isDirect);
+      if (isDirect) {
+        directDepsBuilder.add(entry);
+      } else {
+        transitiveDepsBuilder.add(entry);
+      }
+    }
+
+    ImmutableList<ModuleVersionEntry> directDeps = directDepsBuilder.build();
+    ImmutableList<ModuleVersionEntry> transitiveDeps = transitiveDepsBuilder.build();
+
+    boolean willModify = !args.isEmpty() || modOptions.all;
+
+    if (!willModify) {
+      // Display-only mode: show the versions table with a hint message.
+      boolean useColor = env.getOptions().getOptions(UiOptions.class).useColor();
+      VersionsRenderer renderer =
+          new VersionsRenderer(
+              env.getReporter().getOutErr().getOutputStream(),
+              useColor,
+              modOptions.charset == UTF8);
+      renderer.render(directDeps, transitiveDeps);
+      renderer.renderHint();
+      return BlazeCommandResult.success();
+    }
+
+    // Upgrade mode: determine which modules to upgrade.
+    ImmutableMap<String, ModuleVersionEntry> directDepsByName =
+        directDeps.stream()
+            .collect(ImmutableMap.toImmutableMap(ModuleVersionEntry::name, entry -> entry));
+    ImmutableMap<String, ModuleVersionEntry> transitiveDepsByName =
+        transitiveDeps.stream()
+            .collect(ImmutableMap.toImmutableMap(ModuleVersionEntry::name, entry -> entry));
+
+    // Direct deps whose version will be updated in-place.
+    ImmutableList.Builder<ModuleVersionEntry> toUpgradeBuilder = ImmutableList.builder();
+    // Indirect deps that will be promoted to direct deps with the latest version.
+    ImmutableList.Builder<ModuleVersionEntry> toPromoteBuilder = ImmutableList.builder();
+
+    if (modOptions.all) {
+      // Upgrade all direct deps that have a newer version available.
+      for (ModuleVersionEntry entry : directDeps) {
+        if (entry.latest() != null && entry.latest().compareTo(entry.installed()) > 0) {
+          toUpgradeBuilder.add(entry);
+        }
+      }
+    } else {
+      // Upgrade specific named modules.
+      for (String moduleName : args) {
+        ModuleVersionEntry entry = directDepsByName.get(moduleName);
+        if (entry != null) {
+          // Direct dependency: upgrade version in-place.
+          if (entry.latest() == null) {
+            String msg =
+                String.format("Skipping %s: could not determine latest version.", moduleName);
+            env.getReporter().handle(Event.warn(msg));
+            continue;
+          }
+          if (entry.latest().compareTo(entry.installed()) <= 0) {
+            String msg =
+                String.format(
+                    "%s is already at the latest version %s.", moduleName, entry.installed());
+            env.getReporter().handle(Event.info(msg));
+            continue;
+          }
+          toUpgradeBuilder.add(entry);
+          continue;
+        }
+
+        // Check transitive deps: promote to direct dependency with the latest version.
+        entry = transitiveDepsByName.get(moduleName);
+        if (entry == null) {
+          if (overriddenModules.contains(moduleName)) {
+            String msg =
+                String.format(
+                    "Skipping %s: module has an override and won't be upgraded automatically.",
+                    moduleName);
+            env.getReporter().handle(Event.warn(msg));
+            continue;
+          }
+          return reportAndCreateFailureResult(
+              env,
+              String.format(
+                  "Module '%s' is not in the dependency graph. Run '%s mod upgrade' to see"
+                      + " all dependencies.",
+                  moduleName, env.getRuntime().getProductName()),
+              Code.INVALID_ARGUMENTS);
+        }
+        if (entry.latest() == null) {
+          String msg =
+              String.format("Skipping %s: could not determine latest version.", moduleName);
+          env.getReporter().handle(Event.warn(msg));
+          continue;
+        }
+        if (entry.latest().compareTo(entry.installed()) <= 0) {
+          String msg =
+              String.format(
+                  "%s is already at the latest version %s.", moduleName, entry.installed());
+          env.getReporter().handle(Event.info(msg));
+          continue;
+        }
+        toPromoteBuilder.add(entry);
+      }
+    }
+
+    ImmutableList<ModuleVersionEntry> toUpgrade = toUpgradeBuilder.build();
+    ImmutableList<ModuleVersionEntry> toPromote = toPromoteBuilder.build();
+
+    if (toUpgrade.isEmpty() && toPromote.isEmpty()) {
+      env.getReporter().handle(Event.info("All specified modules are already up to date."));
+      return BlazeCommandResult.success();
+    }
+
+    // Generate buildozer commands for all MODULE.bazel modifications.
+    StringBuilder buildozerInput = new StringBuilder();
+
+    // Direct dep upgrades: update version in-place.
+    for (ModuleVersionEntry entry : toUpgrade) {
+      buildozerInput
+          .append("//MODULE.bazel:")
+          .append(entry.name())
+          .append("|set version \"")
+          .append(entry.latest())
+          .append("\"\n");
+    }
+
+    // Indirect dep promotions: create new bazel_dep entries with repo_name = None,
+    // placed at the correct position relative to existing nodep entries.
+    boolean changesMade;
+    try {
+      if (!toPromote.isEmpty()) {
+        generatePromoteCommands(env, modTidyValue, toPromote, buildozerInput);
+      }
+      // Run a format pass on all module file paths.
+      for (PathFragment moduleFilePath : modTidyValue.moduleFilePaths()) {
+        buildozerInput.append("//").append(moduleFilePath).append(":all|format\n");
+      }
+
+      changesMade = executeBuildozer(env, modTidyValue, buildozerInput);
+    } catch (InterruptedException e) {
+      return handleInterrupted(env, e);
+    } catch (CommandException | IOException e) {
+      return reportAndCreateFailureResult(env, formatBuildozerError(e), Code.BUILDOZER_FAILED);
+    }
+
+    if (!changesMade) {
+      env.getReporter().handle(Event.info("No changes were made to MODULE.bazel."));
+      return BlazeCommandResult.success();
+    }
+
+    // Report results.
+    for (ModuleVersionEntry entry : toUpgrade) {
+      env.getReporter()
+          .handle(
+              Event.info(
+                  String.format(
+                      "Upgraded %s from %s to %s.",
+                      entry.name(), entry.installed(), entry.latest())));
+    }
+    for (ModuleVersionEntry entry : toPromote) {
+      env.getReporter()
+          .handle(
+              Event.info(
+                  String.format(
+                      "Upgraded %s from %s to %s (indirect dependency).",
+                      entry.name(), entry.installed(), entry.latest())));
+    }
+    int totalChanges = toUpgrade.size() + toPromote.size();
+    env.getReporter()
+        .handle(
+            Event.info(
+                String.format(
+                    "%d module%s upgraded.", totalChanges, totalChanges == 1 ? "" : "s")));
+
+    return BlazeCommandResult.success();
+  }
+
+  /**
+   * Queries MODULE.bazel via buildozer to find existing {@code bazel_dep(..., repo_name = None)}
+   * entries and generates the buildozer commands to insert each promoted indirect dep at the
+   * correct position. Appends commands to {@code buildozerInput}.
+   *
+   * <p>If the existing indirect deps are in an alphabetically sorted group, new entries are
+   * inserted maintaining the alphabetical order. Otherwise, new entries are appended after the last
+   * existing entry.
+   */
+  private static void generatePromoteCommands(
+      CommandEnvironment env,
+      BazelModTidyValue modTidyValue,
+      List<ModuleVersionEntry> toPromote,
+      StringBuilder buildozerInput)
+      throws InterruptedException {
+    // Run: buildozer 'print name repo_name' //MODULE.bazel:%bazel_dep
+    ImmutableList<String> indirectDeps;
+    try {
+      CommandResult result =
+          new CommandBuilder(env.getClientEnv())
+              .setWorkingDir(env.getWorkspace())
+              .addArg(modTidyValue.buildozer().getPathString())
+              .addArg("print name repo_name")
+              .addArg("//MODULE.bazel:%bazel_dep")
+              .build()
+              .execute();
+      String stdout = new String(result.getStdout(), UTF_8).trim();
+      indirectDeps =
+          stdout
+              .lines()
+              .map(line -> line.trim().split("\\s+"))
+              .filter(parts -> parts.length >= 2 && parts[parts.length - 1].equals("None"))
+              .map(parts -> parts[0])
+              .collect(toImmutableList());
+    } catch (CommandException e) {
+      for (ModuleVersionEntry entry : toPromote) {
+        appendNewBazelDep(buildozerInput, entry, "");
+      }
+      return;
+    }
+
+    // Separate entries that already exist (just need version update) from truly new ones.
+    ImmutableSet<String> existingIndirectDeps = ImmutableSet.copyOf(indirectDeps);
+    ImmutableList.Builder<ModuleVersionEntry> newEntriesBuilder = ImmutableList.builder();
+    for (ModuleVersionEntry entry : toPromote) {
+      if (existingIndirectDeps.contains(entry.name())) {
+        // Already has a bazel_dep(..., repo_name = None) — just update version in-place.
+        buildozerInput
+            .append("//MODULE.bazel:")
+            .append(entry.name())
+            .append("|set version \"")
+            .append(entry.latest())
+            .append("\"\n");
+      } else {
+        newEntriesBuilder.add(entry);
+      }
+    }
+    ImmutableList<ModuleVersionEntry> newEntries = newEntriesBuilder.build();
+
+    // If all upgrades affect only existing indirect deps, we're already done.
+    if (newEntries.isEmpty()) {
+      return;
+    }
+
+    // If no indirect deps, just let buildozer append new entries at the end of the file.
+    if (indirectDeps.isEmpty()) {
+      for (ModuleVersionEntry entry : newEntries) {
+        appendNewBazelDep(buildozerInput, entry, "");
+      }
+      return;
+    }
+
+    // If the existing group is not sorted alphabetically, just append new entries after the last
+    // one.
+    if (!Ordering.natural().isOrdered(indirectDeps)) {
+      String lastEntry = indirectDeps.getLast();
+      for (ModuleVersionEntry entry : newEntries) {
+        appendNewBazelDep(buildozerInput, entry, " after " + lastEntry);
+        lastEntry = entry.name();
+      }
+      return;
+    }
+
+    // Sorted — merge new entries into the sorted order.
+    List<String> allNames = new ArrayList<>(indirectDeps);
+    for (ModuleVersionEntry entry : newEntries) {
+      allNames.add(entry.name());
+    }
+    allNames.sort(String::compareTo);
+
+    ImmutableMap.Builder<String, Integer> nameToIndexBuilder = ImmutableMap.builder();
+    for (int i = 0; i < allNames.size(); i++) {
+      nameToIndexBuilder.put(allNames.get(i), i);
+    }
+    ImmutableMap<String, Integer> nameToIndex = nameToIndexBuilder.buildOrThrow();
+
+    // If any new entry would be first, we need to read the comment from the current first entry
+    // so we can move it to the new first entry after insertion.
+    String currentFirst = indirectDeps.getFirst();
+    String firstEntryComment = readComment(env, modTidyValue, currentFirst);
+
+    for (ModuleVersionEntry entry : newEntries) {
+      int idx = nameToIndex.get(entry.name());
+      if (idx > 0) {
+        appendNewBazelDep(buildozerInput, entry, " after " + allNames.get(idx - 1));
+      } else {
+        // First in sorted order. Move the comment from the current first entry to the new one.
+        if (firstEntryComment != null && !firstEntryComment.isEmpty()) {
+          buildozerInput.append("//MODULE.bazel:").append(currentFirst).append("|remove_comment\n");
+        }
+        appendNewBazelDep(buildozerInput, entry, " before " + currentFirst);
+        if (firstEntryComment != null && !firstEntryComment.isEmpty()) {
+          String escaped = escapeBuildozerString(firstEntryComment);
+          buildozerInput
+              .append("//MODULE.bazel:")
+              .append(entry.name())
+              .append("|comment ")
+              .append(escaped)
+              .append("\n");
+        }
+      }
+    }
+  }
+
+  /**
+   * Reads the comment attached to a rule via {@code buildozer 'print_comment'}. Returns the comment
+   * text (without the leading {@code #}), or {@code null} if none.
+   */
+  @Nullable
+  private static String readComment(
+      CommandEnvironment env, BazelModTidyValue modTidyValue, String ruleName)
+      throws InterruptedException {
+    try {
+      CommandResult result =
+          new CommandBuilder(env.getClientEnv())
+              .setWorkingDir(env.getWorkspace())
+              .addArg(modTidyValue.buildozer().getPathString())
+              .addArg("print_comment")
+              .addArg("//MODULE.bazel:" + ruleName)
+              .build()
+              .execute();
+      String comment = new String(result.getStdout(), UTF_8).trim();
+      return comment.isEmpty() ? null : comment;
+    } catch (CommandException e) {
+      return null;
+    }
+  }
+
+  /** Appends buildozer commands to create a new {@code bazel_dep(..., repo_name = None)} entry. */
+  private static void appendNewBazelDep(
+      StringBuilder buildozerInput, ModuleVersionEntry entry, String position) {
+    buildozerInput
+        .append("//MODULE.bazel:__pkg__|new bazel_dep ")
+        .append(entry.name())
+        .append(position)
+        .append("\n");
+    buildozerInput
+        .append("//MODULE.bazel:")
+        .append(entry.name())
+        .append("|set version \"")
+        .append(entry.latest())
+        .append("\"|set repo_name None\n");
+  }
+
+  /**
+   * Escapes a string for use in a buildozer command file. Handles characters that have special
+   * meaning in buildozer's command syntax: backslashes, pipes (command separator), newlines
+   * (command boundary), double quotes (string delimiter), and spaces.
+   */
+  private static String escapeBuildozerString(String s) {
+    return s.replace("\\", "\\\\")
+        .replace("|", "\\|")
+        .replace("\n", "\\n")
+        .replace("\"", "\\\"")
+        .replace(" ", "\\ ");
+  }
+
+  private static BlazeCommandResult handleInterrupted(
+      CommandEnvironment env, InterruptedException e) {
+    String errorMessage = "mod command interrupted: " + e.getMessage();
+    env.getReporter().handle(Event.error(errorMessage));
+    return BlazeCommandResult.detailedExitCode(
+        InterruptedFailureDetails.detailedExitCode(errorMessage));
+  }
+
+  /**
+   * Executes buildozer with the given commands piped to stdin. Returns {@code true} if buildozer
+   * made changes, {@code false} if no changes were needed (buildozer exit code 3).
+   */
+  private static boolean executeBuildozer(
+      CommandEnvironment env, BazelModTidyValue modTidyValue, CharSequence commands)
+      throws InterruptedException, CommandException, IOException {
+    try (var stdin = CharSource.wrap(commands).asByteSource(ISO_8859_1).openStream()) {
       new CommandBuilder(env.getClientEnv())
           .setWorkingDir(env.getWorkspace())
           .addArg(modTidyValue.buildozer().getPathString())
@@ -709,29 +1238,25 @@ public final class ModCommand implements BlazeCommand {
           .build()
           .executeAsync(stdin, /* killSubprocessOnInterrupt= */ true)
           .get();
-    } catch (InterruptedException | CommandException | IOException e) {
-      String suffix = "";
-      if (e instanceof AbnormalTerminationException abnormalTerminationException) {
-        if (abnormalTerminationException.getResult().terminationStatus().getRawExitCode() == 3) {
-          // Buildozer exits with exit code 3 if it didn't make any changes.
-          return reportAndCreateTidyResult(env, modTidyValue);
-        }
-        suffix =
-            ":\n"
-                + new String(
-                    ((AbnormalTerminationException) e).getResult().getStderr(), ISO_8859_1);
+      return true;
+    } catch (AbnormalTerminationException e) {
+      if (e.getResult().terminationStatus().getRawExitCode() == 3) {
+        // Buildozer exits with exit code 3 if it didn't make any changes.
+        return false;
       }
-      return reportAndCreateFailureResult(
-          env,
-          "Unexpected error while running buildozer: " + e.getMessage() + suffix,
-          Code.BUILDOZER_FAILED);
+      throw e;
     }
+  }
 
-    for (RootModuleFileFixup fixupEvent : modTidyValue.fixups()) {
-      env.getReporter().handle(Event.info(fixupEvent.getSuccessMessage()));
+  /**
+   * Returns a user-friendly error message for an exception thrown during {@link executeBuildozer}.
+   */
+  private static String formatBuildozerError(Exception e) {
+    String suffix = "";
+    if (e instanceof AbnormalTerminationException ate) {
+      suffix = ":\n" + new String(ate.getResult().getStderr(), ISO_8859_1);
     }
-
-    return reportAndCreateTidyResult(env, modTidyValue);
+    return "Unexpected error while running buildozer: " + e.getMessage() + suffix;
   }
 
   private static BlazeCommandResult reportAndCreateTidyResult(
@@ -793,6 +1318,44 @@ public final class ModCommand implements BlazeCommand {
               baseModuleUnusedDeps));
     }
     return extensionsBuilder.build();
+  }
+
+  private ImmutableMap<String, Optional<ImmutableList<Version>>> fetchAllAvailableVersions(
+      Map<String, Registry> registryByModule,
+      ExecutorService executor,
+      ExtendedEventHandler reporter)
+      throws InterruptedException {
+    var futures = ImmutableMap.<String, Future<Optional<ImmutableList<Version>>>>builder();
+    for (var entry : registryByModule.entrySet()) {
+      futures.put(
+          entry.getKey(),
+          executor.submit(
+              () -> fetchAvailableVersions(entry.getKey(), entry.getValue(), reporter)));
+    }
+    var builder = ImmutableMap.<String, Optional<ImmutableList<Version>>>builder();
+    for (var entry : futures.buildOrThrow().entrySet()) {
+      try {
+        builder.put(entry.getKey(), entry.getValue().get());
+      } catch (ExecutionException e) {
+        String msg =
+            String.format(
+                "Could not read metadata file for module %s: %s",
+                entry.getKey(), e.getCause().getMessage());
+        reporter.handle(Event.warn(msg));
+        builder.put(entry.getKey(), Optional.empty());
+      }
+    }
+    return builder.buildOrThrow();
+  }
+
+  private Optional<ImmutableList<Version>> fetchAvailableVersions(
+      String moduleName, Registry registry, ExtendedEventHandler eventHandler)
+      throws IOException, InterruptedException {
+    try (SilentCloseable c =
+        Profiler.instance()
+            .profile(ProfilerTask.BZLMOD, () -> "getting available versions: " + moduleName)) {
+      return registry.getAvailableVersions(moduleName, eventHandler, downloadManager);
+    }
   }
 
   private static BlazeCommandResult reportAndCreateFailureResult(

@@ -16,6 +16,7 @@ The command will display the external dependency graph or parts thereof, structu
     - show_repo <module>...: Prints the rule that generated the specified repos (i.e. http_archive()). The arguments may refer to extension-generated repos.
     - show_extension <extension>...: Prints information about the given extension(s). Usages can be filtered down to only those from modules in --extension_usage.
     - dump_repo_mapping <canonical_repo_name>...: Prints the mappings from apparent repo names to canonical repo names for the given repos in NDJSON format. The order of entries within each JSON object is unspecified. This command is intended for use by tools such as IDEs and Starlark language servers.
+    - upgrade [<module>...]: Without arguments, displays a table of all resolved module versions in the dependency graph, grouped into direct and transitive dependencies, along with the latest version available on the registry for each module. With module names, upgrades the specified dependencies to their latest available versions by modifying the MODULE.bazel file. For direct dependencies the version is updated in-place; for indirect dependencies a new bazel_dep() entry is added. With --all, upgrades all direct dependencies.
 
 
 <module> arguments must be one of the following:

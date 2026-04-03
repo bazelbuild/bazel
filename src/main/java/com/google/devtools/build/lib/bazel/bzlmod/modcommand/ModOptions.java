@@ -197,6 +197,15 @@ public class ModOptions extends OptionsBase {
           """)
   public boolean allVisibleRepos;
 
+  @Option(
+      name = "all",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.MOD_COMMAND,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "For `mod upgrade`: upgrade all direct dependencies to their latest available versions.")
+  public boolean all;
+
   /** Possible subcommands that can be specified for the `mod` command. */
   public enum ModSubcommand {
     DEPS(true),
@@ -207,7 +216,8 @@ public class ModOptions extends OptionsBase {
     SHOW_REPO(false),
     SHOW_EXTENSION(false),
     DUMP_REPO_MAPPING(false),
-    TIDY(false);
+    TIDY(false),
+    UPGRADE(false);
 
     /** Whether this subcommand produces a graph output. */
     private final boolean isGraph;

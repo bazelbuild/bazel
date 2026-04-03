@@ -35,6 +35,9 @@ public class AnsiTerminal {
     CYAN("^[36m", "^[46m"),
     GRAY("^[37m", "^[47m"),
 
+    BOLD("^[1m", "^[1m"),
+    DIM("^[2m", "^[2m"),
+
     DEFAULT("^[0m", "^[0m");
 
     private final byte[] escapeSeq;
