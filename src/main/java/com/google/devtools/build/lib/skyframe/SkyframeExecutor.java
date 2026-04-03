@@ -1558,6 +1558,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         injectable(), adjustForExec(buildOptions, eventHandler));
   }
 
+  @Nullable
+  public BuildOptions getBaselineConfigurationIfPresent() throws InterruptedException {
+    SkyValue value =
+        memoizingEvaluator.getExistingValue(
+            BaselineOptionsFunction.BASELINE_CONFIGURATION.getKey());
+    if (!(value instanceof PrecomputedValue precomputedValue)) {
+      return null;
+    }
+    Object baselineConfiguration = precomputedValue.get();
+    return baselineConfiguration instanceof BuildOptions buildOptions ? buildOptions : null;
+  }
+
   private BuildOptions adjustForExec(BuildOptions buildOptions, ExtendedEventHandler eventHandler)
       throws InvalidConfigurationException, InterruptedException {
     StarlarkAttributeTransitionProvider execTransition;
@@ -3291,7 +3303,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     EvaluationResult<BazelDepGraphValue> evalResult =
         evaluate(
             ImmutableList.of(BazelDepGraphValue.KEY), false, DEFAULT_THREAD_COUNT, eventHandler);
-    var bzlmodDepGraph = evalResult.get(BazelDepGraphValue.KEY).getDepGraph();
+    BazelDepGraphValue bazelDepGraphValue = evalResult.get(BazelDepGraphValue.KEY);
+    if (evalResult.hasError() || bazelDepGraphValue == null) {
+      return ImmutableMap.of();
+    }
+    var bzlmodDepGraph = bazelDepGraphValue.getDepGraph();
     LinkedHashMap<String, String> aliasesMap = new LinkedHashMap<>();
     var rootModule = bzlmodDepGraph.entrySet().iterator().next().getValue();
     for (var module : bzlmodDepGraph.entrySet()) {
