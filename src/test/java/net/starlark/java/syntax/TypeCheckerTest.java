@@ -17,7 +17,6 @@ package net.starlark.java.syntax;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static net.starlark.java.syntax.TestUtils.assertContainsError;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -150,27 +149,6 @@ public final class TypeCheckerTest {
     assertWithMessage("type of %s", expr)
         .that(TypeChecker.inferTypeOf(resolvedExpr, preparedFile.typeTable(), module))
         .isEqualTo(expected);
-  }
-
-  @Test
-  public void staticTypeCheckingFlagRequirements() {
-    var builder =
-        FileOptions.builder()
-            .staticTypeChecking(true)
-            .resolveTypeSyntax(false)
-            .tolerateInvalidTypeExpressions(false);
-    assertThat(assertThrows(IllegalArgumentException.class, builder::build))
-        .hasMessageThat()
-        .contains("staticTypeChecking requires that resolveTypeSyntax is set");
-
-    builder =
-        FileOptions.builder()
-            .staticTypeChecking(true)
-            .resolveTypeSyntax(true)
-            .tolerateInvalidTypeExpressions(true);
-    assertThat(assertThrows(IllegalArgumentException.class, builder::build))
-        .hasMessageThat()
-        .contains("staticTypeChecking requires that tolerateInvalidTypeExpressions is not set");
   }
 
   @Test

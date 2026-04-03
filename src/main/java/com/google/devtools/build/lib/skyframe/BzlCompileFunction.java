@@ -18,12 +18,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.BazelCompileContext;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.skyframe.BzlCompileValue.TypeOptions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -195,7 +195,8 @@ public class BzlCompileFunction implements SkyFunction {
             // matching the error message or reworking the interpreter API to put more structured
             // detail in errors (i.e. new fields or error subclasses).
             .stringLiteralsAreAsciiOnly(key.isSclDialect());
-    setTypeOptions(optionsBuilder, semantics, key);
+    TypeOptions typeOptions = getTypeOptions(semantics, key);
+    updateFileOptions(optionsBuilder, typeOptions);
     StarlarkFile file = StarlarkFile.parse(input, optionsBuilder.build());
 
     // compile
@@ -215,7 +216,7 @@ public class BzlCompileFunction implements SkyFunction {
     }
     try {
       Program prog = Program.compileFile(file, module);
-      return BzlCompileValue.withProgram(prog, digest);
+      return BzlCompileValue.withProgram(prog, digest, typeOptions);
     } catch (SyntaxError.Exception ex) {
       addSyntaxErrorsToListener(env.getListener(), ex.errors(), key);
       return BzlCompileValue.noFile(
@@ -229,7 +230,7 @@ public class BzlCompileFunction implements SkyFunction {
    * Whether the file should permit type syntax (annotations, etc.) based on flags and the type of
    * file.
    */
-  private static boolean shouldUseTypeSyntax(StarlarkSemantics semantics, BzlCompileValue.Key key) {
+  private static TypeOptions getTypeOptions(StarlarkSemantics semantics, BzlCompileValue.Key key) {
     boolean typeSyntaxFlag =
         semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPE_SYNTAX);
     List<String> allowlist =
@@ -246,34 +247,30 @@ public class BzlCompileFunction implements SkyFunction {
             && !key.isBuiltins()
             && !key.label.getRepository().equals(RepositoryName.BAZEL_TOOLS);
 
+    boolean useTypeSyntax = false;
     if (typeSyntaxFlag && okFiletype) {
       if (allowlist.isEmpty()
           || allowlist.stream().anyMatch(s -> key.label.getCanonicalForm().startsWith(s))) {
-        return true;
+        useTypeSyntax = true;
       }
     }
-    return false;
-  }
-
-  private static void setTypeOptions(
-      FileOptions.Builder builder, StarlarkSemantics semantics, BzlCompileValue.Key key) {
-    boolean useTypeSyntax = shouldUseTypeSyntax(semantics, key);
-    // Technically, if we're not using type syntax then the whole file is considered untyped code,
-    // which should be ignored by type checking. But let's gate type checking on the use of the
-    // syntax flag anyway.
     boolean doStaticTypeChecking =
         useTypeSyntax
             && semantics.getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING);
     boolean doDynamicTypeChecking =
         useTypeSyntax
             && semantics.getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING);
-    boolean needsTypeInfo = doStaticTypeChecking || doDynamicTypeChecking;
 
+    return new TypeOptions(useTypeSyntax, doStaticTypeChecking, doDynamicTypeChecking);
+  }
+
+  private static void updateFileOptions(FileOptions.Builder builder, TypeOptions typeOptions) {
+    boolean needsTypeInfo =
+        typeOptions.wantStaticTypeChecking() || typeOptions.wantDynamicTypeChecking();
     builder
-        .allowTypeSyntax(useTypeSyntax)
+        .allowTypeSyntax(typeOptions.useTypeSyntax())
         .resolveTypeSyntax(needsTypeInfo)
-        .tolerateInvalidTypeExpressions(!needsTypeInfo)
-        .staticTypeChecking(doStaticTypeChecking);
+        .tolerateInvalidTypeExpressions(!needsTypeInfo);
   }
 
   /**

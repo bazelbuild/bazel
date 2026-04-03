@@ -1375,6 +1375,7 @@ message StarlarkLoading {
     LABEL_CROSSES_PACKAGE_BOUNDARY = 8 [(metadata) = { exit_code: 1 }];
     BUILTINS_ERROR = 9 [(metadata) = { exit_code: 1 }];
     VISIBILITY_ERROR = 10 [(metadata) = { exit_code: 1 }];
+    TYPING_ERROR = 11 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

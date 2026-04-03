@@ -29,7 +29,10 @@ import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.SyntaxError;
+import net.starlark.java.syntax.TypeChecker;
 import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.TypeTable;
+import net.starlark.java.syntax.TypeTagger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -51,7 +54,6 @@ public final class StaticTypeCheckTest {
       FileOptions.builder()
           .allowTypeSyntax(true)
           .resolveTypeSyntax(true)
-          .staticTypeChecking(true)
           // This lets us construct simpler test cases without wrapper `def` statements.
           .allowToplevelRebinding(true);
 
@@ -62,7 +64,15 @@ public final class StaticTypeCheckTest {
     Preconditions.checkArgument(lines.length > 0);
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
-    return Program.compileFile(file, module);
+    Program prog = Program.compileFile(file, module);
+    TypeTable typeTable = TypeTagger.tagProgram(prog, module);
+    if (typeTable.ok()) {
+      TypeChecker.checkProgram(prog, typeTable, module);
+    }
+    if (!typeTable.ok()) {
+      throw new SyntaxError.Exception(typeTable.errors());
+    }
+    return prog.withTypeTable(typeTable);
   }
 
   private void assertValid(String... lines) {

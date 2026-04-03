@@ -15,7 +15,6 @@
 package net.starlark.java.syntax;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Preconditions;
 
 /**
  * FileOptions is a set of options that affect the static processing---scanning, parsing, validation
@@ -83,10 +82,10 @@ public abstract class FileOptions {
   public abstract boolean allowTypeSyntax();
 
   /**
-   * Whether type annotations are processed by the resolver.
+   * Whether type names in type annotations are processed by the resolver.
    *
-   * <p>This is required for static type checking, but will cause code to fail if it contains type
-   * annotations that are not understood by this version of Bazel.
+   * <p>This is required for any form of type checking, but will cause code to fail if it contains
+   * type annotations that are not understood by this version of Bazel.
    */
   public abstract boolean resolveTypeSyntax();
 
@@ -102,14 +101,6 @@ public abstract class FileOptions {
    */
   public abstract boolean tolerateInvalidTypeExpressions();
 
-  /**
-   * Whether to perform static type checking.
-   *
-   * <p>If this flag is set, then {@link #resolveTypeSyntax} must also be set, and {@link
-   * #tolerateInvalidTypeExpressions} must *not* be set.
-   */
-  public abstract boolean staticTypeChecking();
-
   public static Builder builder() {
     // These are the DEFAULT values.
     return new AutoValue_FileOptions.Builder()
@@ -120,8 +111,7 @@ public abstract class FileOptions {
         .stringLiteralsAreAsciiOnly(false)
         .allowTypeSyntax(false)
         .resolveTypeSyntax(false)
-        .tolerateInvalidTypeExpressions(false)
-        .staticTypeChecking(false);
+        .tolerateInvalidTypeExpressions(false);
   }
 
   public abstract Builder toBuilder();
@@ -146,21 +136,6 @@ public abstract class FileOptions {
 
     public abstract Builder tolerateInvalidTypeExpressions(boolean value);
 
-    public abstract Builder staticTypeChecking(boolean value);
-
-    abstract FileOptions autoBuild();
-
-    public FileOptions build() {
-      FileOptions options = autoBuild();
-      if (options.staticTypeChecking()) {
-        Preconditions.checkArgument(
-            options.resolveTypeSyntax(),
-            "staticTypeChecking requires that resolveTypeSyntax is set");
-        Preconditions.checkArgument(
-            !options.tolerateInvalidTypeExpressions(),
-            "staticTypeChecking requires that tolerateInvalidTypeExpressions is not set");
-      }
-      return options;
-    }
+    public abstract FileOptions build();
   }
 }

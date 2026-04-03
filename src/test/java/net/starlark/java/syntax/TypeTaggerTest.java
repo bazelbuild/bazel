@@ -158,6 +158,19 @@ public class TypeTaggerTest {
   }
 
   @Test
+  public void staticTypeCheckingFlagRequirements() {
+    options = FileOptions.builder().resolveTypeSyntax(false).tolerateInvalidTypeExpressions(false);
+    assertThat(assertThrows(IllegalArgumentException.class, () -> tagFilePossiblyFailing("0")))
+        .hasMessageThat()
+        .contains("type tagging requires that resolveTypeSyntax is set");
+
+    options = FileOptions.builder().resolveTypeSyntax(true).tolerateInvalidTypeExpressions(true);
+    assertThat(assertThrows(IllegalArgumentException.class, () -> tagFilePossiblyFailing("0")))
+        .hasMessageThat()
+        .contains("type tagging requires that tolerateInvalidTypeExpressions is not set");
+  }
+
+  @Test
   public void extractType_primitives() throws Exception {
     assertThat(extractType("None")).isEqualTo(Types.NONE);
     assertThat(extractType("bool")).isEqualTo(Types.BOOL);
