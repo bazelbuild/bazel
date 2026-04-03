@@ -178,7 +178,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                   usagesValue,
                   extension.getEvalFactors(),
                   lockedExtension,
-                  lockfileFacts);
+                  lockfileFacts,
+                  workspaceLockfileFacts);
           if (singleExtensionValue != null) {
             return singleExtensionValue;
           }
@@ -306,7 +307,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       SingleExtensionUsagesValue usagesValue,
       ModuleExtensionEvalFactors evalFactors,
       LockFileModuleExtension lockedExtension,
-      Facts facts)
+      Facts facts,
+      Facts workspaceLockfileFacts)
       throws SingleExtensionEvalFunctionException,
           InterruptedException,
           NeedsSkyframeRestartException {
@@ -336,10 +338,13 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         diffRecorder.record(
             "an input to the extension '" + extensionId + "' changed: " + reason.get());
       }
+      if (!facts.equals(workspaceLockfileFacts)) {
+        diffRecorder.record(
+            "the facts of extension '" + extensionId + "' are not up-to-date");
+      }
     } catch (DiffFoundEarlyExitException ignored) {
       // ignored
     }
-    // There is intentionally no diff check for facts - they are never invalidated by Bazel.
     if (!diffRecorder.anyDiffsDetected()) {
       return createSingleExtensionValue(
           lockedExtension.getGeneratedRepoSpecs(),
