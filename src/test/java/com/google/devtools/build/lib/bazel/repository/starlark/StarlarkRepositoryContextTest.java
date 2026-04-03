@@ -618,4 +618,41 @@ public final class StarlarkRepositoryContextTest {
                 .filter(inputAndValue -> inputAndValue.input() instanceof RepoRecordedInput.File))
         .isEmpty();
   }
+
+  @Test
+  public void testIntegrityHash() throws Exception {
+    setUpRepo("test");
+    context.createFile(context.getPath("foo/bar"), "", false, false, thread);
+
+    String integrity256 =
+        context.integrityHash("sha256", context.getPath("foo/bar"), "auto", thread);
+    String integrity384 =
+        context.integrityHash("sha384", context.getPath("foo/bar"), "auto", thread);
+    String integrity512 =
+        context.integrityHash("sha512", context.getPath("foo/bar"), "auto", thread);
+
+    // This is the hash for an empty file. Example code to generate hashes (change hash alg
+    // accordingly)
+    // $ touch empty.txt
+    // $ shasum -a 256 empty.txt | awk '{ print $1 }' | xxd -r -p | base64
+    // $ openssl dgst -sha256 -binary empty.txt | openssl base64 -A; echo
+    assertThat(integrity256).isEqualTo("sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=");
+    assertThat(integrity384)
+        .isEqualTo("sha384-OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb");
+    assertThat(integrity512)
+        .isEqualTo(
+            "sha512-z4PhNX7vuL3xVChQ1m2AB9Yg5AULVxXcg/SpIdNs6c5H0NE8XYXysP+DGNKHfuwvY7kxvUdBeoGlODJ6+SfaPg==");
+  }
+
+  @Test
+  public void testIntegrityHash_incorrectAlgorithm() throws Exception {
+    setUpRepo("test");
+    context.createFile(context.getPath("foo/bar"), "", false, false, thread);
+
+    EvalException thrown =
+        assertThrows(
+            EvalException.class,
+            () -> context.integrityHash("sha", context.getPath("foo/bar"), "auto", thread));
+    assertThat(thrown).hasMessageThat().contains("algorithm 'sha' is not supported");
+  }
 }
