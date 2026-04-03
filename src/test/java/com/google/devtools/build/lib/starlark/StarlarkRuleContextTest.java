@@ -1130,7 +1130,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   public void testFeatures() throws Exception {
     setRuleContext(createRuleContext("//foo:cc_with_features"));
     Object result = ev.eval("ruleContext.features");
-    assertThat((Sequence) result).containsExactly("f1", "f2");
+    assertThat((Sequence) result).containsExactly("bazel_main_repo", "f1", "f2");
   }
 
   @Test
