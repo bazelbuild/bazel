@@ -186,7 +186,9 @@ public class BazelPackageLoader extends AbstractPackageLoader {
               .put(SkyFunctions.ACTION_ENVIRONMENT_VARIABLE, new ActionEnvironmentFunction())
               .put(SkyFunctions.REPOSITORY_ENVIRONMENT_VARIABLE, new RepoEnvironmentFunction())
               .put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction())
-              .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
+              .put(
+                  SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
+                  new LocalRepositoryLookupFunction(directories.getWorkspace()))
               .put(SkyFunctions.REPOSITORY_DIRECTORY, repositoryFetchFunction)
               .put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction(directories))
               .put(
