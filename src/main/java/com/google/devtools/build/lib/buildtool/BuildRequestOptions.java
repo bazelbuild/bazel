@@ -486,11 +486,11 @@ public abstract class BuildRequestOptions extends OptionsBase {
       name = "experimental_skyframe_error_handling_refactor",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.HIDDEN},
       effectTags = {OptionEffectTag.NO_OP},
       help =
           "Used solely for the safe rollout of simplifying Skyframe error handling. This will be "
-              + "removed once the rollout is complete (expected timeframe: 1 release)")
+              + " removed once the rollout is complete (expected timeframe: 1 release)")
   public abstract boolean getSkyframeErrorHandlingRefactor();
 
   @Option(

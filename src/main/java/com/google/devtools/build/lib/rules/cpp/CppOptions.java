@@ -137,6 +137,9 @@ public abstract class CppOptions extends FragmentOptions {
     }
   }
 
+  // @Deprecated
+  // TODO(https://github.com/bazelbuild/bazel/pull/26854): figure out how to deprecate
+  // this without warning spam because of a globally set bazelrc.
   @Option(
       name = "crosstool_top",
       defaultValue = "@bazel_tools//tools/cpp:toolchain",
@@ -145,6 +148,7 @@ public abstract class CppOptions extends FragmentOptions {
       effectTags = {
         OptionEffectTag.NO_OP,
       },
+      metadataTags = {OptionMetadataTag.HIDDEN},
       help = "No-op flag. Will be removed in a future release.")
   public abstract Label getCrosstoolTop();
 
@@ -357,12 +361,15 @@ public abstract class CppOptions extends FragmentOptions {
       converter = LabelConverter.class)
   public abstract Label getCustomMalloc();
 
+  // @Deprecated
+  // TODO(https://github.com/bazelbuild/bazel/pull/26854): figure out how to deprecate
+  // this without warning spam because of a globally set bazelrc.
   @Option(
       name = "legacy_whole_archive",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.DEPRECATED},
+      metadataTags = {OptionMetadataTag.HIDDEN},
       help =
           "Deprecated, superseded by --incompatible_remove_legacy_whole_archive "
               + "(see https://github.com/bazelbuild/bazel/issues/7362 for details). "
@@ -798,30 +805,33 @@ public abstract class CppOptions extends FragmentOptions {
               + "(see https://github.com/bazelbuild/bazel/issues/7407 for more information).")
   public abstract boolean getDontEnableHostNonhost();
 
+  @Deprecated
   @Option(
       name = "incompatible_make_thinlto_command_lines_standalone",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
       help = "This flag is a noop and scheduled for removal.")
   public abstract boolean getUseStandaloneLtoIndexingCommandLines();
 
+  @Deprecated
   @Option(
       name = "incompatible_require_ctx_in_configure_features",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
       help = "This flag is a noop and scheduled for removal.")
   public abstract boolean getRequireCtxInConfigureFeatures();
 
+  @Deprecated
   @Option(
       name = "incompatible_validate_top_level_header_inclusions",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
       help = "This flag is a noop and scheduled for removal.")
   public abstract boolean getValidateTopLevelHeaderInclusions();
 

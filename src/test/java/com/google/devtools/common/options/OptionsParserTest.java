@@ -1329,32 +1329,32 @@ public final class OptionsParserTest {
   public static class WarningOptions extends OptionsBase {
     @Deprecated
     @Option(
-      name = "first",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
+        name = "first",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        defaultValue = "null")
     public Void first;
 
     @Deprecated
     @Option(
-      name = "second",
-      allowMultiple = true,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
+        name = "second",
+        allowMultiple = true,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        defaultValue = "null")
     public List<String> second;
 
     @Deprecated
     @Option(
-      name = "third",
-      expansion = "--fourth=true",
-      abbrev = 't',
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
+        name = "third",
+        expansion = "--fourth=true",
+        abbrev = 't',
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        defaultValue = "null")
     public Void third;
 
     @Option(

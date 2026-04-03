@@ -45,7 +45,6 @@ class BazelVendorTest(test_base.TestBase):
             'common --java_language_version=8',
             'common --tool_java_language_version=8',
             'common --lockfile_mode=update',
-            'common --incompatible_disable_native_repo_rules',
             'startup --windows_enable_symlinks' if self.IsWindows() else '',
         ],
     )

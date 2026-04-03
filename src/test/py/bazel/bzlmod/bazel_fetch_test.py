@@ -40,7 +40,6 @@ class BazelFetchTest(test_base.TestBase):
             'common --registry=' + self.main_registry.getURL(),
             'common --registry=https://bcr.bazel.build',
             'common --verbose_failures',
-            'common --incompatible_disable_native_repo_rules',
             # Set an explicit Java language version
             'common --java_language_version=8',
             'common --tool_java_language_version=8',

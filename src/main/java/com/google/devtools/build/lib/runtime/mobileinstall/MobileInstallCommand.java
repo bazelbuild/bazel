@@ -132,7 +132,7 @@ public class MobileInstallCommand implements BlazeCommand {
         converter = ModeConverter.class,
         documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-effect flag. Only skylark mode is still supported.")
     public Mode mode;
 

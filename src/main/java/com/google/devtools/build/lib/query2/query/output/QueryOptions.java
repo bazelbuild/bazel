@@ -19,6 +19,7 @@ import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.TriState;
 import java.util.Set;
 
@@ -124,11 +125,13 @@ public class QueryOptions extends CommonQueryOptions {
               + " visited.")
   public OrderOutput orderOutput;
 
+  @Deprecated
   @Option(
       name = "incompatible_lexicographical_output",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
       help = "No-op.")
   public boolean lexicographicalOutput;
 
