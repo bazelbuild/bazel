@@ -471,13 +471,7 @@ public class StarlarkBaseExternalContextTest {
                 /* wrapLength= */ 80,
                 /* newLineStr= */ " \\\n",
                 /* wrapLongWords= */ false)
-            + "\"\"\";";
-
-    // Delimit the quote at the end of the text block (distinguish from ending three quotes """).
-    copyPasteCode =
-        copyPasteCode.substring(0, copyPasteCode.length() - 5)
-            + "\\"
-            + copyPasteCode.substring(copyPasteCode.length() - 5, copyPasteCode.length());
+            + "\\\n\"\"\";";
 
     if (!observed.equals(expected)) {
       fail(

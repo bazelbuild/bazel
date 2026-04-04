@@ -31,6 +31,7 @@ java_library(
         "//third_party:java-diff-utils",
         "//third_party:jsr305",
         "//third_party:xz",
+        "@maven//:org_brotli_dec",
         "@zstd-jni",
     ],
 )
