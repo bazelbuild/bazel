@@ -39,5 +39,6 @@ Return ONLY a JSON object with these exact keys:
 - "file_path": "site/en/..." (The DevSite path)
 - "edit_type": "insert_after" or "insert_at_end_of_section" or "replace" or "delete"
 - "target_anchor": "The EXACT Markdown header (e.g., '## Build C++ with MSVC') to use as an anchor."
+- "fallback_header": "A relevant Markdown header (e.g., '## New Feature') to be used if the target_anchor cannot be found and the content must be appended to the end."
 - "new_content": "Your concise 3-4 lines of documentation"
 - "reason": "If skipped, why? If updated, brief justification of the feature and why this specific section was chosen."
