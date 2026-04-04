@@ -4,34 +4,41 @@ Your job is to analyze merged commits and update the documentation according to 
 **WORKFLOW ORDER:**
 
 1. **FILTER PUBLIC FACING FEATURES:**
-   - First, read the description of the PR/commit.
-   - Filter and identify ONLY public-facing features or changes.
-   - If the commit is internal refactoring, test-only, or non-public, STOP and do not proceed.
+   - First, read the commit subject and description.
+   - Analyze the provided Git Diff to understand the technical impact.
+   - Filter and identify ONLY public-facing features, user-visible bug fixes, or behavioral changes.
+   - If the commit is purely internal refactoring, test-only, documentation-only (outside of site/docs), or non-public, STOP and do not proceed. Output action="skip" and provide the reason.
 
 2. **MAP RELEVANT DOCUMENTATION:**
    - For identified public features, identify the available DevSite documentation files.
-   - Map the most relevant DevSite file (site/en/....md) and its Mintlify twin (docs/....mdx).
-   - Base this mapping on the commit subject and release notes.
+   - Map the most relevant DevSite file (site/en/....md).
+   - **STRICT SEMANTIC MATCHING:** You must ensure the feature matches the section intent. 
+     - Example: 'disk cache' (local) MUST go under '## Disk cache' and NEVER under '### nginx' (remote).
+     - Example: 'remote cache' should go under 'Setting up a server' or 'HTTP caching protocol'.
 
 3. **ANALYZE AND TARGET UPDATE:**
-   - Analyze the committed code changes (the Git diff).
-   - Read the content for the mapped DevSite file.
-   - Identify exactly where the update should be included.
-   - Updates must be logically placed within the existing document structure.
+   - Analyze the committed code changes (the Git diff) in detail.
+   - Identify exactly where the update should be included in the document.
+   - You MUST copy the target line EXACTLY character-for-character as it appears in the document. Do not paraphrase.
+   - **PLACEMENT SAFETY:** 
+     - NEVER target a line inside or immediately adjacent to a markdown code block (```).
+     - **PREFER HEADERS:** Try to target a header (## or ###) to insert the new information at the start of a relevant section.
 
 4. **HANDLE CODE REMOVALS:**
-   - If code was removed in the commit, check for relevant lines in the mapped documentation.
-   - You must remove or update those specific documentation lines using the 'delete' or 'replace' action.
+   - If code was removed in the diff, identify the corresponding lines in the doc to remove or update using 'delete' or 'replace'.
 
 5. **STRICT UPDATION LIMITS:**
-   - MAXIMUM of 3 to 4 lines can be updated or added in each doc file.
-   - DevSite and Mintlify files MUST have similar updates.
+   - MAXIMUM of 3 to 4 lines can be updated or added. DO NOT write paragraphs.
    - Follow Mintlify doc update rules (e.g., escaping bare braces).
 
 6. **STRICT DELETION LIMITS:**
-   - Do NOT remove large chunks of existing documentation.
-   - MAXIMUM of 2 lines can be removed, and ONLY if justified by the code removal in the diff.
+   - Do NOT remove large chunks of existing documentation. MAXIMUM 2 lines removed.
 
 **FINAL ACTION:**
-The script will perform the surgical edit based on your chosen action, exact matching lines, and the concise new text.
-Provide a concise summary starting with "Analysis for Commit [hash]:" followed by your action and reasoning.
+Return ONLY a JSON object with these exact keys:
+- "action": "update" or "skip"
+- "file_path": "site/en/..." (The DevSite path)
+- "edit_type": "insert_after" or "replace" or "delete"
+- "target_line_text": "A SHORT, EXACT substring from a single line in the document (max 10 words) to ensure a perfect string match."
+- "new_content": "Your concise 3-4 lines of documentation"
+- "reason": "If skipped, why? If updated, brief justification of the feature and why this specific section was chosen."
