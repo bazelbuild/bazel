@@ -388,4 +388,30 @@ public final class SpawnStatsTest {
     assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
         .isEqualTo("3 processes: 1 internal, 3 abc, 2 cde.");
   }
+
+  @Test
+  public void largeNumbersFormattedWithCommas() {
+    // Verify that large counts are formatted with comma separators for readability.
+    SpawnResult spawn =
+        new SpawnResult.Builder()
+            .setStatus(SpawnResult.Status.SUCCESS)
+            .setRunnerName("darwin-sandbox")
+            .build();
+
+    // Simulate 2,345 actions with spawns
+    for (int i = 0; i < 2345; i++) {
+      ArrayList<SpawnResult> spawns = new ArrayList<>();
+      spawns.add(spawn);
+      stats.countActionResult(ActionResult.create(spawns));
+      stats.incrementActionCount();
+    }
+
+    // Simulate 1,234 internal actions (no spawns)
+    for (int i = 0; i < 1234; i++) {
+      stats.incrementActionCount();
+    }
+
+    assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
+        .isEqualTo("3,579 processes: 1,234 internal, 2,345 darwin-sandbox.");
+  }
 }

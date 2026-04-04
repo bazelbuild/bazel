@@ -118,4 +118,62 @@ public class AnalysisProgressReceiverTest {
     progress.reset();
     assertThat(progress.getProgressString()).isEqualTo(defaultProgress);
   }
+
+  @Test
+  public void testLargeTargetCountFormattedWithCommas() {
+    // Verify that large target counts are formatted with comma separators for readability.
+    AnalysisProgressReceiver progress = new AnalysisProgressReceiver();
+
+    // Configure 12,345 targets
+    for (int i = 0; i < 12345; i++) {
+      progress.doneConfigureTarget();
+    }
+
+    String progressString = progress.getProgressString();
+    assertThat(progressString).contains("12,345 targets configured");
+  }
+
+  @Test
+  public void testLargeDownloadedTargetCountFormattedWithCommas() {
+    // Verify that large downloaded target counts are formatted with comma separators.
+    AnalysisProgressReceiver progress = new AnalysisProgressReceiver();
+
+    // Download 5,678 configured targets from remote cache
+    for (int i = 0; i < 5678; i++) {
+      progress.doneDownloadedConfiguredTarget();
+    }
+
+    String progressString = progress.getProgressString();
+    assertThat(progressString).contains("5,678 targets configured");
+    assertThat(progressString).contains("(5,678 remote cache hits)");
+  }
+
+  @Test
+  public void testLargeAspectCountFormattedWithCommas() {
+    // Verify that large aspect counts are formatted with comma separators.
+    AnalysisProgressReceiver progress = new AnalysisProgressReceiver();
+
+    // Configure 2,500 aspects
+    for (int i = 0; i < 2500; i++) {
+      progress.doneConfigureAspect();
+    }
+
+    String progressString = progress.getProgressString();
+    assertThat(progressString).contains("2,500 aspect applications");
+  }
+
+  @Test
+  public void testLargeDownloadedAspectCountFormattedWithCommas() {
+    // Verify that large downloaded aspect counts are formatted with comma separators.
+    AnalysisProgressReceiver progress = new AnalysisProgressReceiver();
+
+    // Download 1,234 configured aspects from remote cache
+    for (int i = 0; i < 1234; i++) {
+      progress.doneDownloadedConfiguredAspect();
+    }
+
+    String progressString = progress.getProgressString();
+    assertThat(progressString).contains("1,234 aspect applications");
+    assertThat(progressString).contains("(1,234 remote cache hits)");
+  }
 }
