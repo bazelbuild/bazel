@@ -41,11 +41,11 @@ after fetching and resetting the repo to the specified instance.""",
 def git_repo(ctx, directory):
     """ Fetches data from git repository and checks out file tree.
 
-    Called by git_repository or new_git_repository rules.
+    Called by git_repository rule.
 
     Args:
         ctx: Context of the calling rules, for reading the attributes.
-        Please refer to the git_repository and new_git_repository rules for the description.
+        Please refer to the git_repository rule for the description.
         directory: Directory where to check out the file tree.
     Returns:
         The struct with the following fields:

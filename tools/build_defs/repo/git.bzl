@@ -269,6 +269,3 @@ The reasons are:
    [#5116](https://github.com/bazelbuild/bazel/issues/5116){: .external} for more information.
 """,
 )
-
-# TODO(bazel_7.x): Remove before bazel 7.x
-new_git_repository = git_repository
