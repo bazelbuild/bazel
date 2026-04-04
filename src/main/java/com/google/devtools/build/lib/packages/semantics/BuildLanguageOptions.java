@@ -212,9 +212,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
       help =
-          "If true, enables the <code>isolate</code> parameter in the <a"
-              + " href=\"https://bazel.build/rules/lib/globals/module#use_extension\"><code>use_extension</code></a>"
-              + " function.")
+          "If true, enables the `isolate` parameter in the "
+          + "[`use_extension`](https://bazel.build/rules/lib/globals/module#use_extension) function.")
   public boolean experimentalIsolatedExtensionUsages;
 
   @Option(
@@ -224,11 +223,10 @@ public final class BuildLanguageOptions extends OptionsBase {
       metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
       effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
       help =
-          "If true, then methods on <code>repository_ctx</code> that are passed a Label will no"
+          "If true, then methods on `repository_ctx` that are passed a Label will no"
               + " longer automatically watch the file under that label for changes even if"
-              + " <code>watch = \"no\"</code>, and <code>repository_ctx.path</code> no longer"
-              + " causes the returned path to be watched. Use <code>repository_ctx.watch</code>"
-              + " instead.")
+              + " `watch = \"no\"`, and `repository_ctx.path` no longer"
+              + " causes the returned path to be watched. Use `repository_ctx.watch` instead.")
   public boolean incompatibleNoImplicitWatchLabel;
 
   @Option(
@@ -753,7 +751,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "Whether a target that provides an executable expands to the executable rather than the"
-              + " files in <code>DefaultInfo.files</code> under $(locations ...) expansion if the"
+              + " files in `DefaultInfo.files` under $(locations ...) expansion if the"
               + " number of files is not 1.")
   public boolean incompatibleLocationsPrefersExecutable;
 

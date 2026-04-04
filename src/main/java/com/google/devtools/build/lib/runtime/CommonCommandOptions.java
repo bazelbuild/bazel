@@ -617,10 +617,10 @@ public abstract class CommonCommandOptions extends OptionsBase {
           """
           Specifies additional environment variables to be available only for repository rules. \
           Note that repository rules see the full environment anyway, but in this way \
-          variables can be set via command-line flags and <code>.bazelrc</code> entries. \
-          The special syntax <code>=NAME</code> can be used to explicitly unset a variable. \
-          The string <code>%bazel_workspace%</code> in a value will be replaced with the absolute \
-          path of the workspace as printed by <code>bazel info workspace</code>.
+          variables can be set via command-line flags and `.bazelrc` entries. \
+          The special syntax `=NAME` can be used to explicitly unset a variable. \
+          The string `%bazel_workspace%` in a value will be replaced with the absolute \
+          path of the workspace as printed by `bazel info workspace`.
           """)
   public abstract List<Converters.EnvVar> getRepositoryEnvironment();
 
@@ -632,7 +632,7 @@ public abstract class CommonCommandOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           """
-          If true, <code>--action_env=NAME=VALUE</code> will no longer affect repository rule \
+          If true, `--action_env=NAME=VALUE` will no longer affect repository rule \
           and module extension environments.
           """)
   public abstract boolean getRepoEnvIgnoresActionEnv();
