@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Test git_repository and new_git_repository workspace rules.
+# Test git_repository workspace rules.
 #
 
 set -euo pipefail
@@ -161,31 +161,31 @@ function test_git_repository_shallow_since() {
     # We need the revious day, because git adds current time to the specified date.
     do_git_repository_test "52f9a3f87a2dd17ae0e5847bbae9734f09354afd" "" "2015-07-15"
 }
-function test_new_git_repository_with_build_file() {
-  do_new_git_repository_test "0-initial" "build_file"
+function test_git_repository_with_build_file() {
+  do_git_repository_test_with_build "0-initial" "build_file"
 }
 
-function test_new_git_repository_with_build_file_strip_prefix() {
-  do_new_git_repository_test "3-subdir-bare" "build_file" "pluto"
+function test_git_repository_with_build_file_strip_prefix() {
+  do_git_repository_test_with_build "3-subdir-bare" "build_file" "pluto"
 }
 
-function test_new_git_repository_with_build_file_strip_prefix_default_branch() {
-  do_new_git_repository_test "" "build_file" "pluto"
+function test_git_repository_with_build_file_strip_prefix_default_branch() {
+  do_git_repository_test_with_build "" "build_file" "pluto"
 }
 
-function test_new_git_repository_with_build_file_content() {
-  do_new_git_repository_test "0-initial" "build_file_content"
+function test_git_repository_with_build_file_content() {
+  do_git_repository_test_with_build "0-initial" "build_file_content"
 }
 
-function test_new_git_repository_with_build_file_content_strip_prefix() {
-  do_new_git_repository_test "3-subdir-bare" "build_file_content" "pluto"
+function test_git_repository_with_build_file_content_strip_prefix() {
+  do_git_repository_test_with_build "3-subdir-bare" "build_file_content" "pluto"
 }
 
-function test_new_git_repository_with_build_file_content_strip_prefix_default_branch() {
-  do_new_git_repository_test "" "build_file_content" "pluto"
+function test_git_repository_with_build_file_content_strip_prefix_default_branch() {
+  do_git_repository_test_with_build "" "build_file_content" "pluto"
 }
 
-# Test cloning a Git repository using the new_git_repository rule.
+# Test cloning a Git repository using the git_repository rule with a BUILD file.
 #
 # This test uses the pluto Git repository at tag 0-initial, which contains the
 # following files:
@@ -213,7 +213,7 @@ function test_new_git_repository_with_build_file_content_strip_prefix_default_br
 #
 # //planets has a dependency on a target in the $TEST_TMPDIR/pluto Git
 # repository.
-function do_new_git_repository_test() {
+function do_git_repository_test_with_build() {
   local pluto_repo_dir=$(get_pluto_repo)
   local strip_prefix=""
   local tag=""
@@ -224,8 +224,8 @@ function do_new_git_repository_test() {
 
   if [ "$2" == "build_file" ]; then
     cat >> MODULE.bazel <<EOF
-new_git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
-new_git_repository(
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(
     name = "pluto",
     remote = "$pluto_repo_dir",
     $tag
@@ -246,8 +246,8 @@ filegroup(
 EOF
   else
     cat >> MODULE.bazel <<EOF
-new_git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
-new_git_repository(
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(
     name = "pluto",
     remote = "$pluto_repo_dir",
     $tag
@@ -281,12 +281,12 @@ EOF
       expect_log "Pluto is a dwarf planet"
   fi
 
-  git_repos_count=$(find $(bazel info output_base)/external/+new_git_repository+pluto -type d -name .git | wc -l)
+  git_repos_count=$(find $(bazel info output_base)/external/+git_repository+pluto -type d -name .git | wc -l)
   assert_equals $git_repos_count 0
 }
 
 # Test cloning a Git repository that has a submodule using the
-# new_git_repository rule.
+# git_repository rule.
 #
 # This test uses the outer-planets Git repository at revision 1-submodule, which
 # contains the following files:
@@ -308,13 +308,13 @@ EOF
 #
 # planets has a dependency on targets in the $TEST_TMPDIR/outer_planets Git
 # repository.
-function test_new_git_repository_submodules() {
+function test_git_repository_submodules() {
   local outer_planets_repo_dir=$TEST_TMPDIR/repos/outer-planets
 
   # Create a workspace that clones the outer_planets repository.
   cat >> MODULE.bazel <<EOF
-new_git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
-new_git_repository(
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(
     name = "outer_planets",
     remote = "$outer_planets_repo_dir",
     tag = "1-submodule",
@@ -360,13 +360,13 @@ EOF
   expect_log "Pluto is a planet"
 }
 
-function test_new_git_repository_submodules_with_recursive_init_modules() {
+function test_git_repository_submodules_with_recursive_init_modules() {
   local outer_planets_repo_dir=$TEST_TMPDIR/repos/outer-planets
 
   # Create a workspace that clones the outer_planets repository.
   cat >> MODULE.bazel <<EOF
-new_git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
-new_git_repository(
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(
     name = "outer_planets",
     remote = "$outer_planets_repo_dir",
     tag = "1-submodule",

@@ -29,7 +29,7 @@ import java.nio.file.Path;
 import org.junit.Test;
 
 /**
- * Black box tests for git_repository/new_git_repository. On Windows, runs without MSYS {@link
+ * Black box tests for git_repository. On Windows, runs without MSYS {@link
  * WorkspaceTestUtils#bazel}
  *
  * <p>General approach to testing:
@@ -48,7 +48,7 @@ import org.junit.Test;
  * should appear as a result of the build of the generated target "call_write_text" in the file
  * "out.txt".
  *
- * <p>3. We generate the new_git_repository repository rule, which refers to the git repository,
+ * <p>3. We generate the git_repository repository rule, which refers to the git repository,
  * created in #1, specifying different git repository attributes in each test. We call 'bazel build'
  * for the "call_write_text" target of the external repository, and asserting the contents in the
  * "out.txt" file.
@@ -58,7 +58,7 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
   private static final String HELLO_FROM_BRANCH = "Hello from branch!";
 
   /**
-   * Tests usage of new_git_repository workspace rule with the "tag" attribute. Please see the
+   * Tests usage of git_repository workspace rule with the "tag" attribute. Please see the
    * general approach description in the class javadoc comment.
    */
   @Test
@@ -73,9 +73,9 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     context()
         .write(
             "MODULE.bazel",
-            "new_git_repository = use_repo_rule(\"@bazel_tools//tools/build_defs/repo:git.bzl\","
-                + " \"new_git_repository\")",
-            "new_git_repository(",
+            "git_repository = use_repo_rule(\"@bazel_tools//tools/build_defs/repo:git.bzl\","
+                + " \"git_repository\")",
+            "git_repository(",
             "  name='ext',",
             String.format("  remote='%s',", PathUtils.pathToFileURI(repo.resolve(".git"))),
             "  tag='first',",
@@ -85,12 +85,12 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     // This creates Bazel without MSYS, see implementation for details.
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     bazel.build("@ext//:call_write_text");
-    Path outPath = context().resolveBinPath(bazel, "external/+new_git_repository+ext/out.txt");
+    Path outPath = context().resolveBinPath(bazel, "external/+git_repository+ext/out.txt");
     WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_EXTERNAL_REPOSITORY);
   }
 
   /**
-   * Tests usage of new_git_repository workspace rule with the "commit" attribute. Please see the
+   * Tests usage of git_repository workspace rule with the "commit" attribute. Please see the
    * general approach description in the class javadoc comment.
    */
   @Test
@@ -105,9 +105,9 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     context()
         .write(
             "MODULE.bazel",
-            "new_git_repository = use_repo_rule(\"@bazel_tools//tools/build_defs/repo:git.bzl\","
-                + " \"new_git_repository\")",
-            "new_git_repository(",
+            "git_repository = use_repo_rule(\"@bazel_tools//tools/build_defs/repo:git.bzl\","
+                + " \"git_repository\")",
+            "git_repository(",
             "  name='ext',",
             String.format("  remote='%s',", PathUtils.pathToFileURI(repo.resolve(".git"))),
             String.format("  commit='%s',", commit),
@@ -117,12 +117,12 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     // This creates Bazel without MSYS, see implementation for details.
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     bazel.build("@ext//:call_write_text");
-    Path outPath = context().resolveBinPath(bazel, "external/+new_git_repository+ext/out.txt");
+    Path outPath = context().resolveBinPath(bazel, "external/+git_repository+ext/out.txt");
     WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_EXTERNAL_REPOSITORY);
   }
 
   /**
-   * Tests usage of new_git_repository workspace rule with the "branch" attribute. Please see the
+   * Tests usage of git_repository workspace rule with the "branch" attribute. Please see the
    * general approach description in the class javadoc comment.
    */
   @Test
@@ -137,9 +137,9 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     context()
         .write(
             "MODULE.bazel",
-            "new_git_repository = use_repo_rule(\"@bazel_tools//tools/build_defs/repo:git.bzl\","
-                + " \"new_git_repository\")",
-            "new_git_repository(",
+            "git_repository = use_repo_rule(\"@bazel_tools//tools/build_defs/repo:git.bzl\","
+                + " \"git_repository\")",
+            "git_repository(",
             "  name='ext',",
             String.format("  remote='%s',", PathUtils.pathToFileURI(repo.resolve(".git"))),
             "  branch='main',",
@@ -149,12 +149,12 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     // This creates Bazel without MSYS, see implementation for details.
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     bazel.build("@ext//:call_write_text");
-    Path outPath = context().resolveBinPath(bazel, "external/+new_git_repository+ext/out.txt");
+    Path outPath = context().resolveBinPath(bazel, "external/+git_repository+ext/out.txt");
     WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_EXTERNAL_REPOSITORY);
   }
 
   /**
-   * Tests usage of new_git_repository workspace rule without a "tag", "commit" or "branch"
+   * Tests usage of git_repository workspace rule without a "tag", "commit" or "branch"
    * attribute, which means the repository's default branch is to be checked out. Please see the
    * general approach description in the class javadoc comment.
    */
@@ -170,9 +170,9 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     context()
         .write(
             "MODULE.bazel",
-            "new_git_repository = use_repo_rule(\"@bazel_tools//tools/build_defs/repo:git.bzl\","
-                + " \"new_git_repository\")",
-            "new_git_repository(",
+            "git_repository = use_repo_rule(\"@bazel_tools//tools/build_defs/repo:git.bzl\","
+                + " \"git_repository\")",
+            "git_repository(",
             "  name='ext',",
             String.format("  remote='%s',", PathUtils.pathToFileURI(repo.resolve(".git"))),
             String.format("  build_file_content=\"\"\"%s\"\"\",", buildFileContent),
@@ -181,7 +181,7 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     // This creates Bazel without MSYS, see implementation for details.
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     bazel.build("@ext//:call_write_text");
-    Path outPath = context().resolveBinPath(bazel, "external/+new_git_repository+ext/out.txt");
+    Path outPath = context().resolveBinPath(bazel, "external/+git_repository+ext/out.txt");
     WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_EXTERNAL_REPOSITORY);
   }
 

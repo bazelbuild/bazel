@@ -270,5 +270,37 @@ The reasons are:
 """,
 )
 
-# TODO(bazel_7.x): Remove before bazel 7.x
-new_git_repository = git_repository
+def _new_git_repository_implementation(ctx):
+  fail(
+    """
+    The repository rule 'new_git_repository' is deprecated. To fix, replace usage of
+    'new_git_repository' with the drop-in replacement 'git_repository' in your MODULE.bazel file.
+    Eg.
+
+    Replace the following:
+
+    new_git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+    new_git_repository(
+        name = "bazel",
+        remote = "https://github.com/bazelbuild/bazel.git",
+        commit = "93f38093f8e24875c1d015e67311853756bdb27e"
+    )
+
+    With:
+
+    git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+    git_repository(
+        name = "bazel",
+        remote = "https://github.com/bazelbuild/bazel.git",
+        commit = "93f38093f8e24875c1d015e67311853756bdb27e"
+    )
+""")
+
+# Use was blocked ~April, 2026. After the release of Bazel 9.0 and before Bazel 10.0.
+# TODO: This should eventually be removed within some time frame. Bazel 12.0 - that would be about
+# three years from now.
+new_git_repository = repository_rule(
+  implementation = _new_git_repository_implementation,
+  attrs = _common_attrs,
+  doc = """Deprecated - use the drop-in replacement 'git_repository' instead""",
+)
