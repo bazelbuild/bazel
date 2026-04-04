@@ -34,7 +34,7 @@ jobs:
         run: |
           cd bazel_src
           # Fixed line break syntax for output redirection
-          git log --since="15 days ago" --format="COMMIT_DELIMITER%n%H%n%s%n%b" > ../weekly_notes.txt
+          git log --since="5 days ago" --format="COMMIT_DELIMITER%n%H%n%s%n%b" > ../weekly_notes.txt
 
       - name: 🧠 Run Gemini Doc Updater (Secure Mode)
         env:
