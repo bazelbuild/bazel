@@ -173,3 +173,8 @@ created and run the command again to see how it behaves.
 Note that Bazel does not delete the sandbox directory when you use
 `--sandbox_debug`. Unless you are actively debugging, you should disable
 `--sandbox_debug` because it fills up your disk over time.
+
+
+## Sandboxing on macOS
+
+On macOS, Bazel automatically makes the user-specific temporary and cache directories (`DARWIN_USER_TEMP_DIR` and `DARWIN_USER_CACHE_DIR`) available to actions inside the sandbox. This improves compatibility with tools that rely on these standard locations.
