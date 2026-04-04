@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
@@ -77,6 +78,7 @@ import com.google.devtools.build.lib.remote.CombinedCache.CachedActionResult;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.RemoteExecutionCapabilitiesException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
@@ -1311,5 +1313,40 @@ public class RemoteSpawnCacheTest {
     // assert
     assertThat(cacheHandle.hasResult()).isFalse();
     assertThat(cacheHandle.willStore()).isTrue();
+  }
+
+  @Test
+  public void buildRemoteActionFailure_localFallback() throws Exception {
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.remoteLocalFallback = true;
+    remoteOptions.remoteLocalFallbackForRemoteCache = true;
+    remoteOptions.remoteAcceptCached = true;
+
+    RemoteSpawnCache cache = remoteSpawnCacheWithOptions(remoteOptions);
+    RemoteExecutionService service = cache.getRemoteExecutionService();
+    doThrow(new RemoteExecutionCapabilitiesException(new IOException("capabilities failed")))
+        .when(service)
+        .buildRemoteAction(any(), any(), any());
+
+    CacheHandle handle = cache.lookup(simpleSpawn, simplePolicy);
+
+    assertThat(handle.hasResult()).isFalse();
+    assertThat(handle.willStore()).isFalse();
+    assertThat(handle).isEqualTo(SpawnCache.NO_RESULT_NO_STORE);
+  }
+
+  @Test
+  public void buildRemoteActionFailure_noLocalFallback_shouldThrow() throws Exception {
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.remoteLocalFallback = false;
+    remoteOptions.remoteAcceptCached = true;
+
+    RemoteSpawnCache cache = remoteSpawnCacheWithOptions(remoteOptions);
+    RemoteExecutionService service = cache.getRemoteExecutionService();
+    doThrow(new RemoteExecutionCapabilitiesException(new IOException("capabilities failed")))
+        .when(service)
+        .buildRemoteAction(any(), any(), any());
+
+    assertThrows(ExecException.class, () -> cache.lookup(simpleSpawn, simplePolicy));
   }
 }

@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -89,6 +90,7 @@ import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionR
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.RemoteExecutionCapabilitiesException;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
@@ -441,6 +443,50 @@ public class RemoteSpawnRunnerTest {
         .execLocallyAndUpload(any(), eq(spawn), eq(policy), /* uploadLocalResults= */ eq(true));
     verify(service).uploadOutputs(any(), eq(result), any(), any());
     verify(service, never()).downloadOutputs(any(), any());
+  }
+
+  @Test
+  public void remoteLocalFallback_buildRemoteActionFailure() throws Exception {
+    remoteOptions.remoteLocalFallback = true;
+
+    RemoteSpawnRunner runner = spy(newSpawnRunner());
+    RemoteExecutionService service = runner.getRemoteExecutionService();
+    doThrow(new RemoteExecutionCapabilitiesException(new IOException("capabilities failed")))
+        .when(service)
+        .buildRemoteAction(any(), any(), any());
+
+    Spawn spawn = newSimpleSpawn();
+    SpawnExecutionContext policy = getSpawnContext(spawn);
+
+    SpawnResult localResult =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("local")
+            .build();
+    when(localRunner.exec(spawn, policy)).thenReturn(localResult);
+
+    SpawnResult result = runner.exec(spawn, policy);
+
+    assertThat(result).isEqualTo(localResult);
+    verify(localRunner).exec(spawn, policy);
+    verify(service, never()).uploadOutputs(any(), any(), any(), any());
+  }
+
+  @Test
+  public void buildRemoteActionFailure_noLocalFallback_shouldThrow() throws Exception {
+    remoteOptions.remoteLocalFallback = false;
+
+    RemoteSpawnRunner runner = spy(newSpawnRunner());
+    RemoteExecutionService service = runner.getRemoteExecutionService();
+    doThrow(new RemoteExecutionCapabilitiesException(new IOException("capabilities failed")))
+        .when(service)
+        .buildRemoteAction(any(), any(), any());
+
+    Spawn spawn = newSimpleSpawn();
+    SpawnExecutionContext policy = getSpawnContext(spawn);
+
+    assertThrows(ExecException.class, () -> runner.exec(spawn, policy));
   }
 
   @Test
