@@ -1,9 +1,12 @@
 # The Bazel docs
+load("//:collect_srcs.bzl", "collect_srcs")
 load("@rules_pkg//pkg:pkg.bzl", "pkg_tar")
 
 package(default_applicable_licenses = ["//:license"])
 
 licenses(["notice"])
+
+collect_srcs()
 
 exports_files(
     [
@@ -12,15 +15,6 @@ exports_files(
     visibility = [
         "//scripts/docs:__pkg__",
         "//src/test/java/com/google/devtools/build/lib/packages:__pkg__",
-    ],
-)
-
-filegroup(
-    name = "srcs",
-    srcs = glob(["**"]),
-    visibility = [
-        "//:__pkg__",  # Scheuklappen: keep
-        "//scripts/docs:__pkg__",  # Scheuklappen: keep
     ],
 )
 
