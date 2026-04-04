@@ -131,7 +131,8 @@ public class RunCommand implements BlazeCommand {
                 + " option is set, the target is not run from %{product}. Use '%{product} run"
                 + " --script_path=foo //foo && ./foo' to invoke target '//foo' This differs from"
                 + " '%{product} run //foo' in that the %{product} lock is released and the"
-                + " executable is connected to the terminal's stdin.")
+                + " executable is connected to the terminal's stdin. This option cannot be used"
+                + " with tests that use sharding or --runs_per_test.")
     public PathFragment scriptPath;
 
     @Option(
@@ -211,6 +212,14 @@ public class RunCommand implements BlazeCommand {
   private static final String MULTIPLE_TESTS_MESSAGE =
       "'run' only works with tests with one shard ('--test_sharding_strategy=disabled' is okay) "
           + "and without --runs_per_test";
+
+  private static final String MULTIPLE_TESTS_WITH_SCRIPT_PATH_MESSAGE =
+      "'run --script_path' only works with tests with one shard"
+          + " ('--test_sharding_strategy=disabled' is okay) and without --runs_per_test";
+
+  static String multipleTestsMessage(boolean hasScriptPath) {
+    return hasScriptPath ? MULTIPLE_TESTS_WITH_SCRIPT_PATH_MESSAGE : MULTIPLE_TESTS_MESSAGE;
+  }
 
   private static final ImmutableSortedSet<String> ENV_VARIABLES_TO_CLEAR_UNCONDITIONALLY =
       ImmutableSortedSet.of(
@@ -694,7 +703,13 @@ public class RunCommand implements BlazeCommand {
       TestPolicy testPolicy)
       throws RunCommandException {
     if (builtTargets.targetToRun.getProvider(TestProvider.class) != null) {
-      return getTestCommandLine(env, builtTargets, options, argsFromResidue, testPolicy);
+      return getTestCommandLine(
+          env,
+          builtTargets,
+          options,
+          argsFromResidue,
+          testPolicy,
+          runOptions.scriptPath != null);
     }
 
     ActionEnvironment actionEnvironment = ActionEnvironment.EMPTY;
@@ -756,14 +771,15 @@ public class RunCommand implements BlazeCommand {
       BuiltTargets builtTargets,
       OptionsParsingResult options,
       ImmutableList<String> argsFromResidue,
-      TestPolicy testPolicy)
+      TestPolicy testPolicy,
+      boolean hasScriptPath)
       throws RunCommandException {
     ImmutableList<Artifact.DerivedArtifact> statusArtifacts =
         TestProvider.getTestStatusArtifacts(builtTargets.targetToRun);
     if (statusArtifacts.size() != 1) {
       throw new RunCommandException(
           reportAndCreateFailureResult(
-              env, MULTIPLE_TESTS_MESSAGE, Code.TOO_MANY_TEST_SHARDS_OR_RUNS),
+              env, multipleTestsMessage(hasScriptPath), Code.TOO_MANY_TEST_SHARDS_OR_RUNS),
           builtTargets.stopTime);
     }
 
