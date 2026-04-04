@@ -72,7 +72,7 @@ def run_agent_audit(model, commit_hash, subject, note, diff):
         mintlify_path = devsite_path.replace("site/en/", "docs/").replace(".md", ".mdx")
         target_files = [devsite_path, mintlify_path]
         
-        target_text = data.get("target_line_text", "").strip()
+        target_text = data.get("target_anchor", data.get("target_line_text", "")).strip()
         edit_type = data.get("edit_type", "insert_after")
         ai_text = data.get("new_content", "")
         reason = data.get("reason", "Feature documented.")
@@ -100,7 +100,7 @@ def run_agent_audit(model, commit_hash, subject, note, diff):
                     break
 
             # --- SAFETY SHIELD: Code Block Awareness ---
-            if line_idx != -1 and edit_type == "insert_after":
+            if line_idx != -1 and edit_type in ["insert_after", "insert_at_end_of_section"]:
                 # If target is inside a block, move line_idx down to the closing backticks
                 if target_in_code_block:
                     print(f"  🛡️ Safety Shield: Target line is inside a code block in {doc_path}. Moving out.")
@@ -109,13 +109,44 @@ def run_agent_audit(model, commit_hash, subject, note, diff):
                             line_idx = j
                             break
             
+            if line_idx != -1 and edit_type == "insert_at_end_of_section":
+                # Find the next header of equal or higher level, or EOF
+                header_level = 0
+                match = re.match(r'^(#+)\s', lines[line_idx])
+                if match:
+                    header_level = len(match.group(1))
+                elif lines[line_idx].startswith('##'):
+                    # Fallback if regex fails but it starts with hash
+                    header_level = len(lines[line_idx]) - len(lines[line_idx].lstrip('#'))
+                
+                # If no header level could be determined, fallback to level 2 or treat current as start
+                if header_level == 0:
+                    header_level = 2
+
+                # Scan forward until the next header of equal or higher level
+                insert_idx = line_idx + 1
+                while insert_idx < len(lines):
+                    next_match = re.match(r'^(#+)\s', lines[insert_idx])
+                    if next_match and len(next_match.group(1)) <= header_level:
+                        break
+                    # Also handle standard markdown header without space
+                    elif lines[insert_idx].startswith('#') and len(lines[insert_idx]) - len(lines[insert_idx].lstrip('#')) <= header_level and ' ' in lines[insert_idx]:
+                         break
+                    insert_idx += 1
+                
+                # Move insert_idx back to just before the next header, skipping empty lines
+                while insert_idx > line_idx + 1 and not lines[insert_idx - 1].strip():
+                    insert_idx -= 1
+                
+                line_idx = insert_idx - 1 # Since we insert at line_idx + 1
+
             # Formatting: Apply MDX escaping
             final_text = ai_text
             if doc_path.endswith(".mdx"):
                 final_text = final_text.replace("{", "\\{").replace("}", "\\}")
 
             # Formatting: Ensure we have vertical space if near a code block
-            if line_idx != -1 and edit_type == "insert_after":
+            if line_idx != -1 and edit_type in ["insert_after", "insert_at_end_of_section"]:
                 if line_idx < len(lines) and lines[line_idx].strip().startswith('```'):
                     final_text = "\n" + final_text # Add gap after closing block
                 elif line_idx + 1 < len(lines) and lines[line_idx + 1].strip().startswith('```'):
@@ -129,7 +160,7 @@ def run_agent_audit(model, commit_hash, subject, note, diff):
                 elif edit_type == "replace":
                     lines[line_idx] = lines[line_idx].replace(target_text, final_text)
                     print(f"  🔄 Replaced matched text in {doc_path}")
-                else: # insert_after
+                else: # insert_after or insert_at_end_of_section
                     lines.insert(line_idx + 1, "\n" + final_text + "\n")
                     print(f"  ✅ Inserted update into {doc_path}")
                 
