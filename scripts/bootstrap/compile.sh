@@ -108,9 +108,10 @@ function java_compilation() {
   local paramfile="${tmp}/param"
   local filelist="${tmp}/filelist"
   local excludefile="${tmp}/excludefile"
+  local outdir="${output}/classes"
   touch $paramfile
 
-  mkdir -p "${output}/classes"
+  mkdir -p "${outdir}"
 
   # Compile .java files (incl. generated ones) using javac
   log "Compiling $name code..."
@@ -139,12 +140,12 @@ function java_compilation() {
     echo "classpath=${classpath}" >&2
     echo "sourcepath=${sourcepath}" >&2
     echo "libraries=${library_jars}" >&2
-    echo "output=${output}/classes" >&2
+    echo "output=${outdir}" >&2
     echo "List of compiled files:" >&2
     cat "$paramfile" >&2
   fi
 
-  check_unzip_wont_create_long_paths "${output}/classes" "$library_jars"
+  check_unzip_wont_create_long_paths "${outdir}" "$library_jars"
 
   # Use BAZEL_JAVAC_OPTS to pass additional arguments to javac, e.g.,
   # export BAZEL_JAVAC_OPTS="-J-Xmx2g -J-Xms200m"
@@ -152,17 +153,16 @@ function java_compilation() {
   # We intentionally rely on shell word splitting to allow multiple
   # additional arguments to be passed to javac.
   run "${JAVAC}" -classpath "${classpath}" -sourcepath "${sourcepath}" \
-      -d "${output}/classes" -source "$JAVA_VERSION" -target "$JAVA_VERSION" \
+      -d "${outdir}" -source "$JAVA_VERSION" -target "$JAVA_VERSION" \
       -encoding UTF-8 --add-exports=java.base/jdk.internal.misc=ALL-UNNAMED \
-      --processor-path "${output}/classes:${classpath}" $annotation_processor_args \
+      --processor-path "${outdir}${PATHSEP}${classpath}" $annotation_processor_args \
       --add-exports=java.base/jdk.internal.vm=ALL-UNNAMED \
       ${BAZEL_JAVAC_OPTS} "@${paramfile}"
 
   if [[ "$extract" -eq 1 ]]; then
-    echo EXTRACTING
     log "Extracting helper classes for $name..."
     for f in ${library_jars} ; do
-      run unzip -qn ${f} -d "${output}/classes"
+      run unzip -qn ${f} -d "${outdir}"
     done
   fi
 }

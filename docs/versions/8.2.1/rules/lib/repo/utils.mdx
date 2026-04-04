@@ -26,11 +26,11 @@ load(
 
 ## download_remote_files
 
-<pre>
+```bash
 load("@bazel//tools/build_defs/repo:utils.bzl", "download_remote_files")
 
 download_remote_files(<a href="#download_remote_files-ctx">ctx</a>, <a href="#download_remote_files-auth">auth</a>)
-</pre>
+```
 
 Utility function for downloading remote files.
 
@@ -81,11 +81,11 @@ An optional dict specifying authentication information for some of the URLs.
 
 ## get_auth
 
-<pre>
+```bash
 load("@bazel//tools/build_defs/repo:utils.bzl", "get_auth")
 
 get_auth(<a href="#get_auth-ctx">ctx</a>, <a href="#get_auth-urls">urls</a>)
-</pre>
+```
 
 Utility function to obtain the correct auth dict for a list of urls from .netrc file.
 
@@ -138,11 +138,11 @@ the auth dict which can be passed to repository_ctx.download
 
 ## maybe
 
-<pre>
+```bash
 load("@bazel//tools/build_defs/repo:utils.bzl", "maybe")
 
 maybe(<a href="#maybe-repo_rule">repo_rule</a>, <a href="#maybe-name">name</a>, <a href="#maybe-kwargs">**kwargs</a>)
-</pre>
+```
 
 Utility function for only adding a repository if it's not already present.
 
@@ -208,11 +208,11 @@ Nothing, defines the repository when needed as a side-effect.
 
 ## parse_netrc
 
-<pre>
+```bash
 load("@bazel//tools/build_defs/repo:utils.bzl", "parse_netrc")
 
 parse_netrc(<a href="#parse_netrc-contents">contents</a>, <a href="#parse_netrc-filename">filename</a>)
-</pre>
+```
 
 Utility function to parse at least a basic .netrc file.
 
@@ -264,11 +264,11 @@ about them
 
 ## patch
 
-<pre>
+```bash
 load("@bazel//tools/build_defs/repo:utils.bzl", "patch")
 
 patch(<a href="#patch-ctx">ctx</a>, <a href="#patch-patches">patches</a>, <a href="#patch-patch_cmds">patch_cmds</a>, <a href="#patch-patch_cmds_win">patch_cmds_win</a>, <a href="#patch-patch_tool">patch_tool</a>, <a href="#patch-patch_args">patch_args</a>, <a href="#patch-auth">auth</a>)
-</pre>
+```
 
 Implementation of patching an already extracted repository.
 
@@ -395,11 +395,11 @@ An optional dict specifying authentication information for some of the URLs.
 
 ## read_netrc
 
-<pre>
+```bash
 load("@bazel//tools/build_defs/repo:utils.bzl", "read_netrc")
 
 read_netrc(<a href="#read_netrc-ctx">ctx</a>, <a href="#read_netrc-filename">filename</a>)
-</pre>
+```
 
 Utility function to parse at least a basic .netrc file.
 
@@ -451,11 +451,11 @@ about them
 
 ## read_user_netrc
 
-<pre>
+```bash
 load("@bazel//tools/build_defs/repo:utils.bzl", "read_user_netrc")
 
 read_user_netrc(<a href="#read_user_netrc-ctx">ctx</a>)
-</pre>
+```
 
 Read user's default netrc file.
 
@@ -492,11 +492,11 @@ dict mapping a machine names to a dict with the information provided about them.
 
 ## update_attrs
 
-<pre>
+```bash
 load("@bazel//tools/build_defs/repo:utils.bzl", "update_attrs")
 
 update_attrs(<a href="#update_attrs-orig">orig</a>, <a href="#update_attrs-keys">keys</a>, <a href="#update_attrs-override">override</a>)
-</pre>
+```
 
 Utility function for altering and adding the specified attributes to a particular repository rule invocation.
 
@@ -562,11 +562,11 @@ dict of attributes with the keys from override inserted/updated
 
 ## use_netrc
 
-<pre>
+```bash
 load("@bazel//tools/build_defs/repo:utils.bzl", "use_netrc")
 
 use_netrc(<a href="#use_netrc-netrc">netrc</a>, <a href="#use_netrc-urls">urls</a>, <a href="#use_netrc-patterns">patterns</a>)
-</pre>
+```
 
 Compute an auth dict from a parsed netrc file and a list of URLs.
 
@@ -633,11 +633,11 @@ as well as the mapping of "type" to "basic" or "pattern".
 
 ## workspace_and_buildfile
 
-<pre>
+```bash
 load("@bazel//tools/build_defs/repo:utils.bzl", "workspace_and_buildfile")
 
 workspace_and_buildfile(<a href="#workspace_and_buildfile-ctx">ctx</a>)
-</pre>
+```
 
 Utility function for writing WORKSPACE and, if requested, a BUILD file.
 

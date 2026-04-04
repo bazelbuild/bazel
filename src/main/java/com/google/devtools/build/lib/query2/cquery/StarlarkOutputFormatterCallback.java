@@ -76,7 +76,7 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
 
       // Add all build options from each native configuration fragment.
       for (FragmentOptions fragmentOptions : buildOptions.getNativeOptions()) {
-        Class<? extends FragmentOptions> optionClass = fragmentOptions.getClass();
+        Class<? extends FragmentOptions> optionClass = fragmentOptions.getOptionsClass();
         for (OptionDefinition def : OptionsParser.getOptionDefinitions(optionClass)) {
           String optionName = def.getOptionName();
           String optionKey = COMMAND_LINE_OPTION_PREFIX + optionName;

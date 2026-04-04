@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcConfigurationApi;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkThread;
@@ -45,8 +44,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi 
       ImmutableList.of(
           "-Os", "-DNDEBUG=1", "-Wno-unused-variable", "-Winit-self", "-Wno-extra");
 
-  private final DottedVersion iosSimulatorVersion;
-  private final String iosSimulatorDevice;
   private final CompilationMode compilationMode;
   private final boolean deviceDebugEntitlements;
   private final boolean disallowSdkFrameworksAttributes;
@@ -59,8 +56,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi 
     CoreOptions options = buildOptions.get(CoreOptions.class);
     ObjcCommandLineOptions objcOptions = buildOptions.get(ObjcCommandLineOptions.class);
 
-    this.iosSimulatorDevice = objcOptions.iosSimulatorDevice;
-    this.iosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.iosSimulatorVersion);
     this.compilationMode =
         Preconditions.checkNotNull(options.getCompilationMode(), "compilationMode");
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
@@ -74,21 +69,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi 
   @Override
   public boolean shouldInclude() {
     return !disableObjcFragment;
-  }
-
-  /**
-   * Returns the type of device (e.g. 'iPhone 6') to simulate when running on the simulator.
-   */
-  @Override
-  public String getIosSimulatorDevice() {
-    // TODO(bazel-team): Deprecate in favor of getSimulatorDeviceForPlatformType(IOS).
-    return iosSimulatorDevice;
-  }
-
-  @Override
-  public DottedVersion getIosSimulatorVersion() {
-    // TODO(bazel-team): Deprecate in favor of getSimulatorVersionForPlatformType(IOS).
-    return iosSimulatorVersion;
   }
 
   /**

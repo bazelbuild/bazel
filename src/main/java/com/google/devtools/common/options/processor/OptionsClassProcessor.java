@@ -17,6 +17,8 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsClass;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
@@ -59,24 +61,102 @@ public final class OptionsClassProcessor extends AbstractProcessor {
     String packageName =
         processingEnv.getElementUtils().getPackageOf(typeElement).getQualifiedName().toString();
     String className = typeElement.getSimpleName().toString();
-    if (!className.endsWith("Fields")) {
-      processingEnv
-          .getMessager()
-          .printMessage(
-              Diagnostic.Kind.ERROR,
-              String.format(
-                  "Class %s is annotated with @OptionsClass but its name does not end in"
-                      + " 'Fields'",
-                  className),
-              typeElement);
-      return;
+    String implClassName = className + "Impl";
+
+    record OptionInfo(String fieldType, String capitalizedFieldName, boolean hasSetterInBase) {}
+    List<OptionInfo> options = new ArrayList<>();
+
+    // First pass: collect option info
+    for (Element enclosed : typeElement.getEnclosedElements()) {
+      if (enclosed.getAnnotation(Option.class) == null) {
+        continue;
+      }
+      if (enclosed.getKind() != ElementKind.METHOD) {
+        processingEnv
+            .getMessager()
+            .printMessage(
+                Diagnostic.Kind.ERROR,
+                "@Option must be on a method in @OptionsClass classes",
+                enclosed);
+        continue;
+      }
+
+      ExecutableElement method = (ExecutableElement) enclosed;
+      if (!method.getModifiers().contains(Modifier.ABSTRACT)) {
+        processingEnv
+            .getMessager()
+            .printMessage(Diagnostic.Kind.ERROR, "@Option method must be abstract", enclosed);
+        continue;
+      }
+      if (!method.getModifiers().contains(Modifier.PUBLIC)) {
+        processingEnv
+            .getMessager()
+            .printMessage(Diagnostic.Kind.ERROR, "@Option method must be public", enclosed);
+        continue;
+      }
+
+      String methodName = method.getSimpleName().toString();
+      if (!methodName.startsWith("get")
+          || methodName.length() < 4
+          || !Character.isUpperCase(methodName.charAt(3))) {
+        processingEnv
+            .getMessager()
+            .printMessage(
+                Diagnostic.Kind.ERROR,
+                "Annotated method name must start with 'get' followed by an uppercase letter",
+                enclosed);
+        continue;
+      }
+
+      String fieldType = method.getReturnType().toString();
+      String capitalizedFieldName = methodName.substring("get".length());
+
+      ExecutableElement setter = null;
+      String setterName = "set" + capitalizedFieldName;
+      for (Element e : processingEnv.getElementUtils().getAllMembers(typeElement)) {
+        if (e.getKind() == ElementKind.METHOD && e.getSimpleName().contentEquals(setterName)) {
+          setter = (ExecutableElement) e;
+          break;
+        }
+      }
+
+      if (setter != null) {
+        if (!setter.getModifiers().contains(Modifier.ABSTRACT)) {
+          processingEnv
+              .getMessager()
+              .printMessage(Diagnostic.Kind.ERROR, "Setter must be abstract", setter);
+          continue;
+        }
+
+        if (setter.getParameters().size() != 1) {
+          processingEnv
+              .getMessager()
+              .printMessage(Diagnostic.Kind.ERROR, "Setter must have exactly one argument", setter);
+          continue;
+        }
+
+        if (!processingEnv
+            .getTypeUtils()
+            .isSameType(setter.getParameters().get(0).asType(), method.getReturnType())) {
+          processingEnv
+              .getMessager()
+              .printMessage(
+                  Diagnostic.Kind.ERROR,
+                  String.format(
+                      "Setter argument type must be same as getter return type (%s)", fieldType),
+                  setter);
+          continue;
+        }
+      }
+
+      options.add(new OptionInfo(fieldType, capitalizedFieldName, setter != null));
     }
-    String implClassName = className.substring(0, className.length() - "Fields".length());
 
     try {
-      JavaFileObject jfo =
+      // Generate the Impl class
+      JavaFileObject implJfo =
           processingEnv.getFiler().createSourceFile(packageName + "." + implClassName);
-      try (PrintWriter out = new PrintWriter(jfo.openWriter())) {
+      try (PrintWriter out = new PrintWriter(implJfo.openWriter())) {
         out.printf(
             """
             package %1$s;
@@ -85,51 +165,19 @@ public final class OptionsClassProcessor extends AbstractProcessor {
               public %2$s() {
                 super();
               }
+
+              @Override
+              @SuppressWarnings("unchecked")
+              public Class<? extends %3$s> getOptionsClass() {
+                return (Class<? extends %3$s>) %3$s.class;
+              }
             """,
             packageName, implClassName, typeElement.getQualifiedName());
 
-        // Find all elements annotated with @Option
-        for (Element enclosed : typeElement.getEnclosedElements()) {
-          if (enclosed.getAnnotation(Option.class) == null) {
-            continue;
-          }
-          if (enclosed.getKind() != ElementKind.METHOD) {
-            processingEnv
-                .getMessager()
-                .printMessage(
-                    Diagnostic.Kind.ERROR,
-                    "@Option must be on a method in @OptionsClass classes",
-                    enclosed);
-            continue;
-          }
-
-          ExecutableElement method = (ExecutableElement) enclosed;
-          if (!method.getModifiers().contains(Modifier.PUBLIC)) {
-            processingEnv
-                .getMessager()
-                .printMessage(Diagnostic.Kind.ERROR, "@Option method must be public", enclosed);
-            continue;
-          }
-
-          String methodName = method.getSimpleName().toString();
-          if (!methodName.startsWith("get")
-              || methodName.length() < 4
-              || !Character.isUpperCase(methodName.charAt(3))) {
-            processingEnv
-                .getMessager()
-                .printMessage(
-                    Diagnostic.Kind.ERROR,
-                    "Annotated method name must start with 'get' followed by an uppercase"
-                        + " letter",
-                    enclosed);
-            continue;
-          }
-
+        for (OptionInfo option : options) {
           String fieldName =
-              methodName.substring(3, 4).toLowerCase(Locale.ROOT) + methodName.substring(4);
-          String fieldType = method.getReturnType().toString();
-          String capitalizedFieldName = methodName.substring(3);
-
+              option.capitalizedFieldName.substring(0, 1).toLowerCase(Locale.ROOT)
+                  + option.capitalizedFieldName.substring(1);
           out.printf(
               """
                 private %1$s %2$s;
@@ -139,11 +187,15 @@ public final class OptionsClassProcessor extends AbstractProcessor {
                   return this.%2$s;
                 }
 
+                %4$s
                 public void set%3$s(%1$s %2$s) {
                   this.%2$s = %2$s;
                 }
               """,
-              fieldType, fieldName, capitalizedFieldName);
+              option.fieldType,
+              fieldName,
+              option.capitalizedFieldName,
+              option.hasSetterInBase ? "@Override" : "");
         }
 
         out.println("}");

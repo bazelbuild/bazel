@@ -12,7 +12,7 @@ Rules for cloning external git repositories.
 
 ## git_repository
 
-<pre>
+```bash
 load("@bazel//tools/build_defs/repo:git.bzl", "git_repository")
 
 git_repository(<a href="#git_repository-name">name</a>, <a href="#git_repository-branch">branch</a>, <a href="#git_repository-build_file">build_file</a>, <a href="#git_repository-build_file_content">build_file_content</a>, <a href="#git_repository-commit">commit</a>, <a href="#git_repository-init_submodules">init_submodules</a>, <a href="#git_repository-patch_args">patch_args</a>,
@@ -20,7 +20,7 @@ git_repository(<a href="#git_repository-name">name</a>, <a href="#git_repository
                <a href="#git_repository-recursive_init_submodules">recursive_init_submodules</a>, <a href="#git_repository-remote">remote</a>, <a href="#git_repository-repo_mapping">repo_mapping</a>, <a href="#git_repository-shallow_since">shallow_since</a>, <a href="#git_repository-sparse_checkout_file">sparse_checkout_file</a>,
                <a href="#git_repository-sparse_checkout_patterns">sparse_checkout_patterns</a>, <a href="#git_repository-strip_prefix">strip_prefix</a>, <a href="#git_repository-tag">tag</a>, <a href="#git_repository-verbose">verbose</a>, <a href="#git_repository-workspace_file">workspace_file</a>,
                <a href="#git_repository-workspace_file_content">workspace_file_content</a>)
-</pre>
+```
 
 Clone an external git repository.
 
@@ -358,7 +358,7 @@ The content for the WORKSPACE file for this repository. Either `workspace_file` 
 
 ## new_git_repository
 
-<pre>
+```bash
 load("@bazel//tools/build_defs/repo:git.bzl", "new_git_repository")
 
 new_git_repository(<a href="#new_git_repository-name">name</a>, <a href="#new_git_repository-branch">branch</a>, <a href="#new_git_repository-build_file">build_file</a>, <a href="#new_git_repository-build_file_content">build_file_content</a>, <a href="#new_git_repository-commit">commit</a>, <a href="#new_git_repository-init_submodules">init_submodules</a>,
@@ -366,7 +366,7 @@ new_git_repository(<a href="#new_git_repository-name">name</a>, <a href="#new_gi
                    <a href="#new_git_repository-recursive_init_submodules">recursive_init_submodules</a>, <a href="#new_git_repository-remote">remote</a>, <a href="#new_git_repository-repo_mapping">repo_mapping</a>, <a href="#new_git_repository-shallow_since">shallow_since</a>,
                    <a href="#new_git_repository-sparse_checkout_file">sparse_checkout_file</a>, <a href="#new_git_repository-sparse_checkout_patterns">sparse_checkout_patterns</a>, <a href="#new_git_repository-strip_prefix">strip_prefix</a>, <a href="#new_git_repository-tag">tag</a>, <a href="#new_git_repository-verbose">verbose</a>,
                    <a href="#new_git_repository-workspace_file">workspace_file</a>, <a href="#new_git_repository-workspace_file_content">workspace_file_content</a>)
-</pre>
+```
 
 Clone an external git repository.
 

@@ -46,9 +46,7 @@ public class MethodOptionDefinition extends OptionDefinition {
     Verify.verify(optionsClass.isAnnotationPresent(OptionsClass.class));
     String packageName = optionsClass.getPackage().getName();
     String simpleName = optionsClass.getSimpleName();
-    Verify.verify(simpleName.endsWith("Fields")); // Enforced by the annotation processor
-    String implSimpleName = simpleName.substring(0, simpleName.length() - "Fields".length());
-    String implClassName = packageName + "." + implSimpleName;
+    String implClassName = packageName + "." + simpleName + "Impl";
     try {
       return Class.forName(implClassName).asSubclass(OptionsBase.class);
     } catch (ClassNotFoundException e) {
@@ -62,10 +60,18 @@ public class MethodOptionDefinition extends OptionDefinition {
    * <p>This is intended to be used by the generated implementation classes.
    */
   public static MethodOptionDefinition get(
-      Class<? extends OptionsBase> implClass, String methodName) {
+      Class<? extends OptionsBase> optionsClass, String methodName) {
     try {
-      Class<?> fieldsClass = implClass.getSuperclass();
-      Method method = fieldsClass.getDeclaredMethod(methodName);
+      Class<?> methodsClass;
+      Class<? extends OptionsBase> implClass;
+      if (optionsClass.isAnnotationPresent(OptionsClass.class)) {
+        methodsClass = optionsClass;
+        implClass = getImplClass(optionsClass);
+      } else {
+        throw new IllegalStateException(optionsClass + " is not an @OptionsClass");
+      }
+
+      Method method = methodsClass.getDeclaredMethod(methodName);
       Option result = method.getAnnotation(Option.class);
       if (result == null) {
         throw new IllegalStateException(methodName + " is not an @Option");
@@ -78,13 +84,11 @@ public class MethodOptionDefinition extends OptionDefinition {
 
   private final Method method;
   private final Field field;
-  private final Class<? extends OptionsBase> implClass;
 
   private MethodOptionDefinition(
       Method method, Option optionAnnotation, Class<? extends OptionsBase> implClass) {
     super(optionAnnotation);
     this.method = method;
-    this.implClass = implClass;
     try {
       String methodName = method.getName();
       Verify.verify(methodName.startsWith("get")); // Enforced by the annotation processor
@@ -102,9 +106,10 @@ public class MethodOptionDefinition extends OptionDefinition {
     // The implementation class is not technically the "declaring" class, but it's the one that is
     // referenced everywhere, so this is what needs to be returned. In particular, that's the one
     // that needs to be passed to getOptions().
-    Preconditions.checkArgument(baseClass.isAssignableFrom(implClass));
+    Class<?> methodClass = method.getDeclaringClass();
+    Preconditions.checkArgument(baseClass.isAssignableFrom(methodClass));
     @SuppressWarnings("unchecked") // This should be safe based on the previous check.
-    Class<? extends C> castClass = (Class<? extends C>) implClass;
+    Class<? extends C> castClass = (Class<? extends C>) methodClass;
     return castClass;
   }
 

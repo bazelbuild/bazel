@@ -14,6 +14,7 @@
 //
 package com.google.devtools.build.lib.bazel.repository;
 
+import static com.google.common.base.StandardSystemProperty.OS_NAME;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
@@ -32,6 +33,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -184,7 +186,12 @@ public class DigestWriter {
             .addString(repoDefinition.name())
             .addString(
                 GsonTypeAdapterUtil.SINGLE_EXTENSION_USAGES_VALUE_GSON.toJson(
-                    repoDefinition.attrValues()));
+                    repoDefinition.attrValues()))
+            // This info is accessible via rctx.os.{name,arch} and can also influence the
+            // result of a repo rule in subtle ways (e.g. behavior of host tools, line breaks,
+            // etc).
+            .addString(OS_NAME.value().toLowerCase(Locale.ROOT))
+            .addString(System.getProperty("os.arch").toLowerCase(Locale.ROOT));
     fp.addInt(environInputs.size());
     environInputs.forEach(
         (key, value) -> fp.addString(key.toString()).addNullableString(value.orElse(null)));

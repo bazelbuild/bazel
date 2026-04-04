@@ -182,7 +182,7 @@ is a parent platform:
 1. If `remote_execution_property` is not set on the child platform, the parent's
    `remote_execution_properties` will be used.
 2. If `remote_execution_property` is set on the child platform, and contains the
-   literal string {PARENT\_REMOTE\_EXECUTION\_PROPERTIES}, that macro will be
+   literal string `{PARENT_REMOTE_EXECUTION_PROPERTIES}`, that macro will be
    replaced with the contents of the parent's `remote_execution_property` attribute.
 3. If `remote_execution_property` is set on the child platform, and does not contain
    the macro, the child's `remote_execution_property` will be used unchanged.
@@ -283,7 +283,7 @@ In this example, the child platforms have the following properties:
 | `flags` | List of strings; [nonconfigurable](common-definitions#configurable-attributes); default is `[]` A list of flags that will be enabled when this platform is used as the target platform in a configuration. Only flags that can be set in transitions are allowed to be used. |
 | `missing_toolchain_error` | String; [nonconfigurable](common-definitions#configurable-attributes); default is `"For more information on platforms or toolchains see https://bazel.build/concepts/platforms-intro."` A custom error message that is displayed when a mandatory toolchain requirement cannot be satisfied for this target platform. Intended to point to relevant documentation users can read to understand why their toolchains are misconfigured. Not inherited from parent platforms. |
 | `parents` | List of [labels](/versions/8.2.1/concepts/labels); [nonconfigurable](common-definitions#configurable-attributes); default is `[]` The label of a `platform` target that this platform should inherit from. Although the attribute takes a list, there should be no more than one platform present. Any constraint\_settings not set directly on this platform will be found in the parent platform. See the section on [Platform Inheritance](#platform_inheritance) for details. |
-| `remote_execution_properties` | String; [nonconfigurable](common-definitions#configurable-attributes); default is `""` DEPRECATED. Please use exec\_properties attribute instead. A string used to configure a remote execution platform. Actual builds make no attempt to interpret this, it is treated as opaque data that can be used by a specific SpawnRunner. This can include data from the parent platform's "remote\_execution\_properties" attribute, by using the macro "{PARENT\_REMOTE\_EXECUTION\_PROPERTIES}". See the section on [Platform Inheritance](#platform_inheritance) for details. |
+| `remote_execution_properties` | String; [nonconfigurable](common-definitions#configurable-attributes); default is `""` DEPRECATED. Please use exec\_properties attribute instead. A string used to configure a remote execution platform. Actual builds make no attempt to interpret this, it is treated as opaque data that can be used by a specific SpawnRunner. This can include data from the parent platform's "remote_execution_properties" attribute, by using the macro `{PARENT_REMOTE_EXECUTION_PROPERTIES}`. See the section on [Platform Inheritance](#platform_inheritance) for details. |
 | `required_settings` | List of [labels](/versions/8.2.1/concepts/labels); default is `[]` A list of `config_setting`s that must be satisfied by the target configuration in order for this platform to be used as an execution platform during toolchain resolution. Required settings are not inherited from parent platforms. |
 
 ## toolchain

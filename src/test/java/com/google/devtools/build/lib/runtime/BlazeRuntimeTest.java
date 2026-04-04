@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.Any;
@@ -181,7 +182,7 @@ public class BlazeRuntimeTest {
     BlazeRuntime runtime = createRuntime();
     optionsParser.parse("--nokeep_state_after_build");
     CommandEnvironment env = createCommandEnvironment(runtime);
-    CommonCommandOptions options = new CommonCommandOptions();
+    CommonCommandOptions options = Options.createOptions(CommonCommandOptions.class);
     runtime.beforeCommand(env, options);
 
     ImmutableList<IdleTask> gcIdleTasks =
@@ -199,7 +200,7 @@ public class BlazeRuntimeTest {
     optionsParser.parse("--keep_state_after_build");
     CommandEnvironment env = createCommandEnvironment(runtime);
     env.getOptions().getOptions(KeepStateAfterBuildOption.class).keepStateAfterBuild = true;
-    CommonCommandOptions options = new CommonCommandOptions();
+    CommonCommandOptions options = Options.createOptions(CommonCommandOptions.class);
 
     runtime.beforeCommand(env, options);
 
@@ -216,7 +217,7 @@ public class BlazeRuntimeTest {
   public void doesNotAddInstallBaseGcIdleTaskWhenDisabled() throws Exception {
     BlazeRuntime runtime = createRuntime();
     CommandEnvironment env = createCommandEnvironment(runtime);
-    CommonCommandOptions options = new CommonCommandOptions();
+    CommonCommandOptions options = Options.createOptions(CommonCommandOptions.class);
     options.setInstallBaseGcMaxAge(Duration.ZERO);
 
     runtime.beforeCommand(env, options);
@@ -232,7 +233,7 @@ public class BlazeRuntimeTest {
   public void addsInstallBaseGcIdleTaskWhenEnabled() throws Exception {
     BlazeRuntime runtime = createRuntime();
     CommandEnvironment env = createCommandEnvironment(runtime);
-    CommonCommandOptions options = new CommonCommandOptions();
+    CommonCommandOptions options = Options.createOptions(CommonCommandOptions.class);
     options.setInstallBaseGcMaxAge(Duration.ofDays(365));
 
     runtime.beforeCommand(env, options);
@@ -255,7 +256,7 @@ public class BlazeRuntimeTest {
   public void doesNotAddActionCacheGcIdleTaskWhenDisabled() throws Exception {
     BlazeRuntime runtime = createRuntime();
     CommandEnvironment env = createCommandEnvironment(runtime);
-    CommonCommandOptions options = new CommonCommandOptions();
+    CommonCommandOptions options = Options.createOptions(CommonCommandOptions.class);
     options.setActionCacheGcMaxAge(Duration.ZERO);
     options.setActionCacheGcIdleDelay(Duration.ofMinutes(5));
     options.setActionCacheGcThreshold(10);
@@ -273,7 +274,7 @@ public class BlazeRuntimeTest {
   public void addsActionCacheGcIdleTaskWhenEnabled() throws Exception {
     BlazeRuntime runtime = createRuntime();
     CommandEnvironment env = createCommandEnvironment(runtime);
-    CommonCommandOptions options = new CommonCommandOptions();
+    CommonCommandOptions options = Options.createOptions(CommonCommandOptions.class);
     options.setActionCacheGcMaxAge(Duration.ofDays(7));
     options.setActionCacheGcIdleDelay(Duration.ofMinutes(5));
     options.setActionCacheGcThreshold(10);

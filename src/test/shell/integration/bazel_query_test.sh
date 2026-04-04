@@ -524,7 +524,7 @@ EOF
   done
 }
 
-function test_location_output_relative_locations() {
+function test_location_output() {
   rm -rf foo
   mkdir -p foo
   cat > foo/BUILD <<EOF
@@ -534,15 +534,42 @@ EOF
 
   bazel query --output=location '//foo' >& $TEST_log || fail "Expected success"
   expect_log "${TEST_TMPDIR}/.*/foo/BUILD"
+  expect_log " sh_library rule"
   expect_log "//foo:foo"
+}
+
+function test_location_output_relative_locations() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name='foo')
+EOF
 
   bazel query --output=location --relative_locations '//foo' >& $TEST_log || fail "Expected success"
   # Query with --relative_locations should not show full path
   expect_not_log "${TEST_TMPDIR}/.*/foo/BUILD"
   expect_log "^foo/BUILD"
+  expect_log " sh_library rule"
   expect_log "//foo:foo"
 }
 
+function test_location_output_display_full_kind() {
+  is_bazel || return 0
+
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+load("@rules_shell///shell:sh_library.bzl", "sh_library")
+sh_library(name='foo')
+EOF
+
+  bazel query --output=location \
+      --output:display_full_kind \
+      '//foo' >& $TEST_log || fail "Expected success"
+  expect_log "@@rules_shell+//shell/private:sh_library.bzl%sh_library rule"
+  expect_log "//foo:foo"
+}
 function test_location_output_source_files() {
   add_rules_python "MODULE.bazel"
   rm -rf foo
@@ -597,6 +624,42 @@ EOF
 
   LC_CTYPE=C expect_log "${TEST_TMPDIR}/.*/foo/main.py:1:1" $TEST_log
   LC_CTYPE=C expect_not_log "${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*" $TEST_log
+}
+
+function test_xml_output() {
+  is_bazel || return 0
+  add_rules_python "MODULE.bazel"
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+load("@rules_shell///shell:sh_library.bzl", "sh_library")
+
+sh_library(name = "main")
+EOF
+  touch foo/main.py || fail "Could not touch foo/main.py"
+
+  bazel query --output=xml \
+    '//foo:main' >& $TEST_log || fail "Expected success"
+  expect_log "<rule class=\"sh_library\""
+  expect_log "location=\"${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
+}
+
+function test_xml_output_display_full_kind() {
+  is_bazel || return 0
+  add_rules_python "MODULE.bazel"
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+
+sh_library(name = "main")
+EOF
+
+  bazel query --output=xml \
+    --output:display_full_kind \
+    '//foo:main' >& $TEST_log || fail "Expected success"
+  expect_log "<rule class=\"@@rules_shell+//shell/private:sh_library.bzl%sh_library\""
+  expect_log "location=\"${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
 }
 
 function test_xml_output_source_files() {
@@ -1446,6 +1509,41 @@ EOF
   # Force a C locale to ensure that grep matches the characters byte-by-byte
   # even though the proto file is not valid UTF-8.
   LC_CTYPE=C grep -q "//foo:äöüÄÖÜß🌱" $TEST_log || fail "Expected Unicode target in query output"
+}
+
+function test_label_kind() {
+  is_bazel || return 0
+  mkdir -p foo bar || fail "Couldn't make directories"
+  cat <<'EOF' > foo/BUILD || fail "Couldn't write BUILD file"
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+platform(name = 'p')
+sh_library(name = 'b')
+EOF
+  touch bar/BUILD || fail "Couldn't write BUILD file"
+  bazel query --output=label_kind \
+      '//foo:all' \
+      >& "$TEST_log" || fail "Expected success"
+  expect_log "sh_library rule //foo:b"
+  expect_log "platform rule //foo:p"
+}
+
+function test_label_kind_display_full_kind() {
+  is_bazel || return 0
+  mkdir -p foo bar || fail "Couldn't make directories"
+  cat <<'EOF' > foo/BUILD || fail "Couldn't write BUILD file"
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+platform(name = 'p')
+sh_library(name = 'b')
+EOF
+  touch bar/BUILD || fail "Couldn't write BUILD file"
+  bazel query --keep_going --output=label_kind \
+      --output:display_full_kind \
+      '//foo:all' \
+      >& "$TEST_log" || fail "Expected success"
+  # Starlark rules show the full label to the defining bzl file.
+  expect_log "@@rules_shell+//shell/private:sh_library.bzl%sh_library rule //foo:b"
+  # Native rules only show the name.
+  expect_log "platform rule //foo:p"
 }
 
 run_suite "${PRODUCT_NAME} query tests"

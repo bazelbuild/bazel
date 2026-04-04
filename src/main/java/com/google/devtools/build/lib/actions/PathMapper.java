@@ -18,7 +18,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
 import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
-import com.google.devtools.build.lib.analysis.config.CoreOptionsFields;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CheckReturnValue;
@@ -84,8 +84,8 @@ public interface PathMapper {
   }
 
   /** Returns the instance to use during action key computation. */
-  static PathMapper forActionKey(CoreOptionsFields.OutputPathsMode effectiveOutputPathsMode) {
-    return effectiveOutputPathsMode == CoreOptionsFields.OutputPathsMode.OFF
+  static PathMapper forActionKey(CoreOptions.OutputPathsMode effectiveOutputPathsMode) {
+    return effectiveOutputPathsMode == CoreOptions.OutputPathsMode.OFF
         ? NOOP
         : PathMapperConstants.FOR_FINGERPRINTING;
   }

@@ -14,6 +14,7 @@
 
 package net.starlark.java.syntax;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -199,7 +200,8 @@ public final class TypeTagger extends NodeVisitor {
   /**
    * Statically evaluates a type expression to the {@link StarlarkType} it denotes.
    *
-   * @param expr a valid type expression with binding information resolved
+   * @param expr a valid type expression with binding information resolved, which must have been
+   *     parsed with the appropriate {@link FileOptions} set; see {@link #tagFile}
    * @param exprFunction the resolver function for {@code expr} constructed by {@link
    *     Resolver#resolveExpr()}
    * @param module a static Module containing type information for the bindings used in type
@@ -350,6 +352,16 @@ public final class TypeTagger extends NodeVisitor {
     setType(resolved, type, typeTable);
   }
 
+  private void visitProgram(Program prog) {
+    checkState(
+        functionStack.isEmpty(),
+        "When tagging a Program, functionStack is expected to be initially empty");
+    Resolver.Function toplevel = prog.getResolvedFunction();
+    this.functionStack.push(toplevel);
+    visitBlock(toplevel.getBody());
+    checkState(functionStack.pop().equals(toplevel));
+  }
+
   @Override
   public void visit(StarlarkFile file) {
     checkState(
@@ -444,17 +456,46 @@ public final class TypeTagger extends NodeVisitor {
   // A's binding with the evaluation of type B. It probably should live in outer logic that
   // determines the type environment.
 
+  private static void checkFileOptions(FileOptions options) {
+    checkArgument(
+        options.resolveTypeSyntax(), "type tagging requires that resolveTypeSyntax is set");
+    checkArgument(
+        !options.tolerateInvalidTypeExpressions(),
+        "type tagging requires that tolerateInvalidTypeExpressions is not set");
+  }
+
   /**
    * Determines the Starlark types of the {@link Resolver.Function}s and {@link Resolver.Binding}s
    * in the given AST (which must have already been processed by {@link Resolver}), based on the
    * supplied annotations. Returns the resulting {@link TypeTable} for the file.
    *
    * <p>Any errors are appended to the file's list of errors.
+   *
+   * @throws IllegalArgumentException if the file's {@link FileOptions} don't contain {@link
+   *     FileOptions#resolveTypeSyntax()} or do contain {@link
+   *     FileOptions#tolerateInvalidTypeExpressions()}.
    */
   public static TypeTable tagFile(StarlarkFile file, Module module) {
+    checkFileOptions(file.getOptions());
     TypeTable typeTable = new TypeTable(file);
     TypeTagger r = new TypeTagger(typeTable, module);
     r.visit(file);
+    return typeTable;
+  }
+
+  /**
+   * Like {@link #tagFile}, but on an already-compiled {@link Program}.
+   *
+   * <p>The program is *not* mutated. In particular, the pre-existing {@link Program#getTypeTable}
+   * (if any) is ignored. Any errors are reported in the returned type table's {@link
+   * TypeTable#errors()} list.
+   */
+  public static TypeTable tagProgram(Program prog, Module module) {
+    checkFileOptions(prog.getOptions());
+    Resolver.Function toplevel = prog.getResolvedFunction();
+    TypeTable typeTable = new TypeTable(toplevel);
+    TypeTagger r = new TypeTagger(typeTable, module);
+    r.visitProgram(prog);
     return typeTable;
   }
 
@@ -477,25 +518,6 @@ public final class TypeTagger extends NodeVisitor {
       throw new SyntaxError.Exception(typeTable.errors());
     }
     return typeTable;
-  }
-
-  /**
-   * Sets the Starlark type on a {@link Resolver.Function} that the resolver generated to wrap an
-   * expression.
-   */
-  static void tagExprFunction(
-      Resolver.Function function, StarlarkType exprType, TypeTable typeTable) {
-    Types.CallableType functionType =
-        Types.callable(
-            /* parameterNames= */ ImmutableList.of(),
-            /* parameterTypes= */ ImmutableList.of(),
-            /* numPositionalOnlyParameters= */ 0,
-            /* numPositionalParameters= */ 0,
-            /* mandatoryParams= */ ImmutableSet.of(),
-            /* varargsType= */ null,
-            /* kwargsType= */ null,
-            /* returns= */ exprType);
-    setType(function, functionType, typeTable);
   }
 
   private void setUsesTypeSyntax() {

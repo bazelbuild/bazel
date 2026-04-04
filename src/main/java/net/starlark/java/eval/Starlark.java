@@ -49,6 +49,9 @@ import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.SyntaxError;
 import net.starlark.java.syntax.SyntaxUtils;
+import net.starlark.java.syntax.TypeChecker;
+import net.starlark.java.syntax.TypeTable;
+import net.starlark.java.syntax.TypeTagger;
 import net.starlark.java.syntax.Types;
 
 /**
@@ -1161,11 +1164,54 @@ public final class Starlark {
   }
 
   /**
+   * Tags a program with static type information and performs static type checking, if enabled by
+   * the given semantics; no-op otherwise.
+   *
+   * @return the program with a type table attached if any form of type checking was enabled by
+   *     {@code semantics}; or the original program otherwise.
+   * @throws SyntaxError.Exception if there were type tagging or static type checker errors.
+   */
+  public static Program maybeWithTypeInfo(Program prog, Module module, StarlarkSemantics semantics)
+      throws SyntaxError.Exception {
+    boolean staticTypeChecking =
+        semantics.getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING);
+    boolean dynamicTypeChecking =
+        semantics.getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING);
+    if (staticTypeChecking || dynamicTypeChecking) {
+      return withTypeInfo(prog, module, staticTypeChecking);
+    } else {
+      return prog;
+    }
+  }
+
+  /**
+   * Tags a program with static type information and (if {@code staticTypeChecking} is requested)
+   * performs static type checking.
+   *
+   * <p>This is the unconditionally-type-tagging version of {@link #maybeWithTypeInfo}.
+   *
+   * @return the program with a type table attached
+   * @throws SyntaxError.Exception if there were type tagging or static type checker errors.
+   */
+  public static Program withTypeInfo(Program prog, Module module, boolean staticTypeChecking)
+      throws SyntaxError.Exception {
+    TypeTable typeTable = TypeTagger.tagProgram(prog, module);
+    if (typeTable.ok() && staticTypeChecking) {
+      TypeChecker.checkProgram(prog, typeTable, module);
+    }
+    if (!typeTable.ok()) {
+      throw new SyntaxError.Exception(typeTable.errors());
+    }
+    return prog.withTypeTable(typeTable);
+  }
+
+  /**
    * Parses the input as a file, resolves it in the specified module environment, compiles it, and
    * executes it in the specified thread. On success it returns None, unless the file's final
    * statement is an expression, in which case its value is returned.
    *
-   * @throws SyntaxError.Exception if there were (static) scanner, parser, or resolver errors.
+   * @throws SyntaxError.Exception if there were (static) scanner, parser, resolver, type tagger, or
+   *     static type checker errors.
    * @throws EvalException if there was a (dynamic) evaluation error.
    * @throws InterruptedException if the Java thread was interrupted during evaluation.
    */
@@ -1174,6 +1220,7 @@ public final class Starlark {
       throws SyntaxError.Exception, EvalException, InterruptedException {
     StarlarkFile file = StarlarkFile.parse(input, options);
     Program prog = Program.compileFile(file, module);
+    prog = maybeWithTypeInfo(prog, module, thread.getSemantics());
     return execFileProgram(prog, module, thread);
   }
 
@@ -1193,6 +1240,10 @@ public final class Starlark {
    * Executes a compiled Starlark file (as obtained from {@link Program#compileFile}) in the given
    * StarlarkThread. On success it returns None, unless the file's final statement is an expression,
    * in which case its value is returned.
+   *
+   * <p>This method does not perform type tagging or static type checking. If type tagging or type
+   * checking is needed, first use {@link #typeTagAndStaticTypeCheck} to obtain a
+   * type-tagged/checked version of {@code prog}.
    *
    * @throws EvalException if there was a (dynamic) evaluation error.
    * @throws InterruptedException if the Java thread was interrupted during evaluation.
@@ -1236,14 +1287,17 @@ public final class Starlark {
    * Parses the input as an expression, resolves it in the specified module environment, compiles
    * it, evaluates it, and returns its value.
    *
-   * @throws SyntaxError.Exception if there were (static) scanner, parser, or resolver errors.
+   * @throws SyntaxError.Exception if there were (static) scanner, parser, resolver, type tagger, or
+   *     static type checker errors.
    * @throws EvalException if there was a (dynamic) evaluation error.
    * @throws InterruptedException if the Java thread was interrupted during evaluation.
    */
   public static Object eval(
       ParserInput input, FileOptions options, Module module, StarlarkThread thread)
       throws SyntaxError.Exception, EvalException, InterruptedException {
-    StarlarkFunction fn = newExprFunction(input, options, module, thread.getNextIdentityToken());
+    StarlarkFunction fn =
+        newExprFunction(
+            input, options, module, thread.getSemantics(), thread.getNextIdentityToken());
     return Starlark.positionalOnlyCall(thread, fn);
   }
 
@@ -1264,16 +1318,19 @@ public final class Starlark {
    * a callable no-argument Starlark function value that computes and returns the value of the
    * expression.
    *
-   * @throws SyntaxError.Exception if there were scanner, parser, or resolver errors.
+   * @throws SyntaxError.Exception if there were scanner, parser, resolver, type tagger, or static
+   *     type checker errors.
    */
   private static StarlarkFunction newExprFunction(
       ParserInput input,
       FileOptions options,
       Module module,
+      StarlarkSemantics semantics,
       SymbolGenerator.Symbol<?> referenceIdentity)
       throws SyntaxError.Exception {
     Expression expr = Expression.parse(input);
     Program prog = Program.compileExpr(expr, module, options);
+    prog = maybeWithTypeInfo(prog, module, semantics);
     Resolver.Function rfn = prog.getResolvedFunction();
     int[] globalIndex = module.getIndicesOfGlobals(rfn.getGlobals()); // see execFileProgram
     return new StarlarkFunction(

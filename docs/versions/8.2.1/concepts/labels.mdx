@@ -95,11 +95,15 @@ are two ways (one wrong, one correct) to refer to this file within
 `//my/app:BUILD`:
 
 <p><span class="compare-worse">Wrong</span> — <code>testdata</code> is a different package, so you can't use a relative path</p>
-<pre class="prettyprint">testdata/testdepot.zip</pre>
+```
+testdata/testdepot.zip
+```
 
 <p><span class="compare-better">Correct</span> — refer to <code>testdata</code> with its full path</p>
 
-<pre class="prettyprint">//my/app/testdata:testdepot.zip</pre>
+```
+//my/app/testdata:testdepot.zip
+```
 
 
 Labels starting with `@@//` are references to the main
@@ -242,13 +246,17 @@ _build dependency graph_, and is the domain over which the
 
 <table class="columns">
   <tr>
-    <td><a class="button button-with-icon button-primary"
+    <td>
+      <a class="button button-with-icon button-primary"
            href="/versions/8.2.1/concepts/build-ref">
-        <span class="material-icons" aria-hidden="true">arrow_back</span>Targets</a>
+        <span class="material-icons" aria-hidden="true">arrow_back</span>Targets
+      </a>
     </td>
-    <td><a class="button button-with-icon button-primary"
+    <td>
+      <a class="button button-with-icon button-primary"
            href="/versions/8.2.1/concepts/build-files">
-        BUILD files<span class="material-icons icon-after" aria-hidden="true">arrow_forward</span></a>
+        BUILD files<span class="material-icons icon-after" aria-hidden="true">arrow_forward</span>
+      </a>
     </td>
   </tr>
 </table>

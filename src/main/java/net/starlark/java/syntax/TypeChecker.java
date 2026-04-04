@@ -14,6 +14,7 @@
 
 package net.starlark.java.syntax;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -1156,6 +1157,16 @@ public final class TypeChecker extends NodeVisitor {
     }
   }
 
+  private void visitProgram(Program prog) {
+    checkState(
+        functionStack.isEmpty(),
+        "When type-checkings a Program, functionStack is expected to be initially empty");
+    Resolver.Function toplevel = prog.getResolvedFunction();
+    this.functionStack.push(toplevel);
+    visitBlock(toplevel.getBody());
+    checkState(functionStack.pop().equals(toplevel));
+  }
+
   @Override
   public void visit(StarlarkFile file) {
     checkState(
@@ -1383,15 +1394,43 @@ public final class TypeChecker extends NodeVisitor {
     return functionStack.isEmpty() || typeTable.usesTypeSyntax(functionStack.peek());
   }
 
+  private static void checkFileOptions(FileOptions options) {
+    checkArgument(
+        options.resolveTypeSyntax(), "static type checking requires that resolveTypeSyntax is set");
+    checkArgument(
+        !options.tolerateInvalidTypeExpressions(),
+        "static type checking requires that tolerateInvalidTypeExpressions is not set");
+  }
+
   /**
    * Checks that the given file's AST satisfies the types in the bindings of its identifiers.
    *
    * <p>The file must have already been passed through the {@link TypeTagger} without error
    *
    * <p>Any type checking errors are appended to the type table's errors list.
+   *
+   * @throws IllegalArgumentException if the file's {@link FileOptions} don't contain {@link
+   *     FileOptions#resolveTypeSyntax()} or do contain {@link
+   *     FileOptions#tolerateInvalidTypeExpressions()}.
    */
   public static void checkFile(StarlarkFile file, TypeTable typeTable, TypeContext typeContext) {
+    checkFileOptions(file.getOptions());
     TypeChecker checker = new TypeChecker(typeTable, typeContext);
     checker.visit(file);
+  }
+
+  /**
+   * Like {@link #checkFile}, but on an already-compiled {@link Program}.
+   *
+   * <p>The program is *not* mutated. Any errors are appended to the type table's errors list.
+   *
+   * @throws IllegalArgumentException if the program's {@link FileOptions} don't contain {@link
+   *     FileOptions#resolveTypeSyntax()} or do contain {@link
+   *     FileOptions#tolerateInvalidTypeExpressions()}.
+   */
+  public static void checkProgram(Program prog, TypeTable typeTable, TypeContext typeContext) {
+    checkFileOptions(prog.getOptions());
+    TypeChecker checker = new TypeChecker(typeTable, typeContext);
+    checker.visitProgram(prog);
   }
 }

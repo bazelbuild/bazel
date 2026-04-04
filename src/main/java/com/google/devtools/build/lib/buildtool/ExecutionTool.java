@@ -53,7 +53,7 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptionsFields.ConvenienceSymlinksMode;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions.ConvenienceSymlinksMode;
 import com.google.devtools.build.lib.buildtool.buildevent.ConvenienceSymlinksIdentifiedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
@@ -97,6 +97,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.IncrementalPackageRoots;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.BulkDeleter;
@@ -777,14 +778,14 @@ public class ExecutionTool {
     } else {
       // Collect the configuration of each top-level requested target. These may be different than
       // the build's top-level configuration because of self-transitions.
-      ImmutableSet<BuildConfigurationValue> requestedTargetConfigs =
+      ImmutableSet<BuildConfigurationKey> configurationKeys =
           targetsToBuild.stream()
               .map(ConfiguredTarget::getActual)
               .map(ConfiguredTarget::getConfigurationKey)
               .filter(Objects::nonNull)
-              .distinct()
-              .map((key) -> executor.getConfiguration(reporter, key))
               .collect(toImmutableSet());
+      ImmutableSet<BuildConfigurationValue> requestedTargetConfigs =
+          ImmutableSet.copyOf(executor.getConfigurations(reporter, configurationKeys).values());
       if (requestedTargetConfigs.size() == 1) {
         // All top-level targets have the same configuration, so use that one.
         targetConfigs = requestedTargetConfigs;

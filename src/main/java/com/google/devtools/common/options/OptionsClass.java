@@ -24,13 +24,13 @@ import java.lang.annotation.Target;
  * <p>Classes annotated with this should conform to the following constraints:
  *
  * <ul>
- *   <li>Their name should end in <code>Fields</code>.
  *   <li>Methods annotated with <code>@Option</code> should be public, their name should start with
  *       <code>get</code> and the character after should be in upper case.
  * </ul>
  *
- * The generated options class will have the <code>Fields</code> suffix stripped from its name and
- * will contain a getter and a setter method for each method annotated with <code>@Option</code>.
+ * The generated options class will have the <code>Impl</code> suffix added to its name and will
+ * contain a field, a getter and a setter method for each method annotated with <code>@Option</code>
+ * .
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)

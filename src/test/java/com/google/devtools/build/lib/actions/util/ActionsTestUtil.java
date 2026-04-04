@@ -462,6 +462,10 @@ public final class ActionsTestUtil {
       super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), ImmutableList.copyOf(outputs));
     }
 
+    public NullAction(ActionOwner owner, NestedSet<Artifact> inputs) {
+      super(owner, inputs, ImmutableList.of(DUMMY_ARTIFACT));
+    }
+
     public NullAction(Artifact... outputs) {
       super(
           NULL_ACTION_OWNER,
@@ -926,6 +930,12 @@ public final class ActionsTestUtil {
 
     @Override
     public SourceArtifact resolveSourceArtifact(
+        PathFragment execPath, RepositoryName repositoryName) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ImmutableList<SourceArtifact> resolveSourceArtifactsAsciiCaseInsensitively(
         PathFragment execPath, RepositoryName repositoryName) {
       throw new UnsupportedOperationException();
     }

@@ -52,6 +52,9 @@ _METADATA_PATTERN = re.compile(
 _TITLE_RE = re.compile(r"^title: '", re.MULTILINE)
 _HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 _ANGLE_BRACKET_LINK_RE = re.compile(r"<(https?://[^>]+)>")
+_HTML_PRE_PATTERN = re.compile(r"(?:<pre>)(.*?)(?:</pre>)")
+_HTML_STYLE_PATTERN = re.compile(r"^</?style>", re.MULTILINE)
+_MD_FRONT_MATTER_PATTERN = re.compile(r"^---", re.MULTILINE)
 
 # Across code blocks and similar pre-formatted blocks, these
 # characters must be converted to HTML entities so they don't
@@ -161,18 +164,11 @@ def _pre_markdown_transforms(content):
   # Remove Project: and Book: lines
   no_metadata = _METADATA_PATTERN.sub("", no_comments, count=2).lstrip()
   no_templates = _TEMPLATE_RE.sub("", no_metadata)
-  escaped_pre = re.sub(
-      r"(?:<pre>)(.*?)(?:</pre>)",
+  return _HTML_PRE_PATTERN.sub(
       _escape_chars_in_pre_blocks,
       no_templates,
-      flags=re.DOTALL,
+      re.DOTALL,
   )
-  fixed_headings = (
-      escaped_pre
-      if _TITLE_RE.search(escaped_pre)
-      else _HEADING_RE.sub("---\ntitle: '\\1'\n---", escaped_pre, count=1)
-  )
-  return fixed_headings
 
 
 def _post_markdown_transforms(content):
@@ -187,12 +183,46 @@ def _post_markdown_transforms(content):
   no_html_links = _HTML_LINK_RE.sub(_fix_link, content)
   no_angle_links = _ANGLE_BRACKET_LINK_RE.sub(r"\1", no_html_links)
   no_double_empty_lines = no_angle_links.replace("\n\n\n", "\n\n")
-  return _remove_trailing_whitespaces(no_double_empty_lines)
+  no_trailing_whitespaces = _remove_trailing_whitespaces(no_double_empty_lines)
+  fixed_headings = (
+      no_trailing_whitespaces
+      if _TITLE_RE.search(no_trailing_whitespaces)
+      else _HEADING_RE.sub(_fix_title_heading, no_trailing_whitespaces, count=1)
+  )
+  front_matter_first = _remove_anything_before_front_matter(fixed_headings)
+  return _remove_style_sections(front_matter_first)
 
 
 def _remove_trailing_whitespaces(content):
   lines = (l.rstrip() for l in content.split("\n"))
   return "\n".join(lines)
+
+
+def _fix_title_heading(m):
+  title = m.group(1).replace("'", "\\'")
+  return f"---\ntitle: '{title}'\n---"
+
+
+def _remove_anything_before_front_matter(content):
+  if content.startswith("---\n"):
+    return content
+
+  parts = _MD_FRONT_MATTER_PATTERN.split(content, maxsplit=1)
+  if len(parts) == 1:
+    # Technically this only affects files that we need for the old site,
+    # so the better solution would be to stop generating them.
+    return parts[0]
+
+  return f"---{parts[1]}"
+
+
+def _remove_style_sections(content):
+  m = _HTML_STYLE_PATTERN.search(content)
+  if not m:
+    return content
+
+  parts = _HTML_STYLE_PATTERN.split(content)
+  return f"{parts[0]}{parts[2].lstrip()}"
 
 
 def _escape_chars_in_pre_blocks(matches):

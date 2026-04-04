@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValu
 import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -469,11 +470,21 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   }
 
   private String getExpansionOfFlag(String value, CcToolchainVariables variables) throws Exception {
-    return getCommandLineForFlag(value, variables).get(0);
+    return getExpansionOfFlag(value, variables, PathMapper.NOOP);
+  }
+
+  private String getExpansionOfFlag(
+      String value, CcToolchainVariables variables, PathMapper pathMapper) throws Exception {
+    return getCommandLineForFlag(value, variables, pathMapper).getFirst();
   }
 
   private List<String> getCommandLineForFlagGroups(String groups, CcToolchainVariables variables)
       throws Exception {
+    return getCommandLineForFlagGroups(groups, variables, PathMapper.NOOP);
+  }
+
+  private List<String> getCommandLineForFlagGroups(
+      String groups, CcToolchainVariables variables, PathMapper pathMapper) throws Exception {
     FeatureConfiguration configuration =
         buildFeatures(
                 "features = [",
@@ -488,12 +499,14 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
                 "    ],",
                 ")]")
             .getFeatureConfiguration(ImmutableSet.of("a"));
-    return configuration.getCommandLine(CppActionNames.CPP_COMPILE, variables);
+    return configuration.getCommandLine(
+        CppActionNames.CPP_COMPILE, variables, /* inputMetadataProvider= */ null, pathMapper);
   }
 
-  private List<String> getCommandLineForFlag(String value, CcToolchainVariables variables)
-      throws Exception {
-    return getCommandLineForFlagGroups("flag_group(flags = ['" + value + "'])", variables);
+  private List<String> getCommandLineForFlag(
+      String value, CcToolchainVariables variables, PathMapper pathMapper) throws Exception {
+    return getCommandLineForFlagGroups(
+        "flag_group(flags = ['" + value + "'])", variables, pathMapper);
   }
 
   private String getFlagParsingError(String value) {
@@ -534,6 +547,33 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
         .isEmpty();
     assertThat(getFlagExpansionError("%{v}", createVariables()))
         .contains("Invalid toolchain configuration: Cannot find variable named 'v'");
+  }
+
+  @Test
+  public void testPathExpansion() throws Exception {
+    PathMapper pathMapper =
+        (PathFragment path) ->
+            path.startsWith(PathFragment.create("bazel-out"))
+                ? path.subFragment(0, 1).getRelative("cfg").getRelative(path.subFragment(2))
+                : path;
+    assertThat(getExpansionOfFlag("%{path:my/source.c}", CcToolchainVariables.empty(), pathMapper))
+        .isEqualTo("my/source.c");
+    assertThat(
+            getExpansionOfFlag(
+                "%{path:bazel-out/foobar/bin/my/artifact.a}",
+                CcToolchainVariables.empty(), pathMapper))
+        .isEqualTo("bazel-out/cfg/bin/my/artifact.a");
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(Throwable.class, () -> getExpansionOfFlag("%{path:/absolute/path}"));
+    assertContainsEvent(
+        "Invalid toolchain configuration: expected relative Unix-style path after 'path:' at"
+            + " position 2 while parsing a flag containing '%{path:/absolute/path}");
+
+    assertThrows(Throwable.class, () -> getExpansionOfFlag("%{path:}"));
+    assertContainsEvent(
+        "Invalid toolchain configuration: expected path after 'path:' at position 2 while parsing a"
+            + " flag containing '%{path:}");
   }
 
   private static CcToolchainVariables createStructureSequenceVariables(

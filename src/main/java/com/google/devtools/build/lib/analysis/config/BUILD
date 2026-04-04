@@ -225,7 +225,7 @@ java_library(
 
 java_library(
     name = "core_options",
-    srcs = ["CoreOptionsFields.java"],
+    srcs = ["CoreOptions.java"],
     deps = [
         ":auto_cpu_converter",
         ":compilation_mode",
@@ -331,9 +331,7 @@ java_library(
         ":fragment",
         ":fragment_options",
         ":invalid_configuration_exception",
-        "//third_party:auto_value",
         "//third_party:caffeine",
-        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

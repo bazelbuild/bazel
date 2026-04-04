@@ -45,7 +45,7 @@ public class DigestHashFunctionsTest {
 
   private void assertHashFunctionAndMessageDigestEquivalentForInput(byte[] input) {
     byte[] hashFunctionOutput = digestHashFunction.getHashFunction().hashBytes(input).asBytes();
-    byte[] messageDigestOutput = digestHashFunction.cloneOrCreateMessageDigest().digest(input);
+    byte[] messageDigestOutput = digestHashFunction.newMessageDigest().digest(input);
     assertThat(hashFunctionOutput).isEqualTo(messageDigestOutput);
   }
 

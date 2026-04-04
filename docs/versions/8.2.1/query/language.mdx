@@ -771,14 +771,14 @@ For example, the kinds for the four targets defined by the `BUILD` file
   </tr>
   <tr>
     <td rowspan="4">
-      <pre>
+      ```bash
         genrule(
             name = "a",
             srcs = ["a.in"],
             outs = ["a.out"],
             cmd = "...",
         )
-      </pre>
+      ```
     </td>
     <td><code>//p:a</code></td>
     <td>genrule rule</td>
@@ -1293,7 +1293,7 @@ are specified, respectively.
     <td><img src="/versions/8.2.1/docs/images/out-ranked.svg" alt="Out ranked" />
     </td>
     <td>
-      <pre>
+      ```bash
       minrank
 
       0 //c:c
@@ -1301,10 +1301,10 @@ are specified, respectively.
       1 //a:a
       2 //b:b.cc
       2 //a:a.cc
-      </pre>
+      ```
     </td>
     <td>
-      <pre>
+      ```bash
       maxrank
 
       0 //c:c
@@ -1312,7 +1312,7 @@ are specified, respectively.
       2 //a:a
       2 //b:b.cc
       3 //a:a.cc
-      </pre>
+      ```
     </td>
   </tr>
 </table>

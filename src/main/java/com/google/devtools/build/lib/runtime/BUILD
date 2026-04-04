@@ -13,7 +13,7 @@ filegroup(
 
 java_library(
     name = "blaze_server_startup_options",
-    srcs = ["BlazeServerStartupOptionsFields.java"],
+    srcs = ["BlazeServerStartupOptions.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -115,7 +115,7 @@ java_library(
 
 java_library(
     name = "common_command_options",
-    srcs = ["CommonCommandOptionsFields.java"],
+    srcs = ["CommonCommandOptions.java"],
     deps = [
         ":command_line_event",
         "//src/main/java/com/google/devtools/build/lib/profiler",

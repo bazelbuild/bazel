@@ -20,11 +20,13 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClass;
 
 @OptionsClass
-public abstract class ValidOptionsFields extends OptionsBase {
+public abstract class NonAbstractSetter extends OptionsBase {
   @Option(
       name = "foo",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "42")
   public abstract int getFoo();
+
+  public void setFoo(int foo) {}
 }

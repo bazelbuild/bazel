@@ -60,7 +60,7 @@ public final class BuildOptionDetails {
     ImmutableMap.Builder<String, String> oldNameToCanonicalName = ImmutableMap.builder();
     for (FragmentOptions options : buildOptions) {
       ImmutableList<? extends OptionDefinition> optionDefinitions =
-          OptionsParser.getOptionDefinitions(options.getClass());
+          OptionsParser.getOptionDefinitions(options.getOptionsClass());
 
       for (OptionDefinition optionDefinition : optionDefinitions) {
         if (ImmutableList.copyOf(optionDefinition.getOptionMetadataTags())
@@ -75,7 +75,7 @@ public final class BuildOptionDetails {
         Object value = optionDefinition.getValue(options);
         map.put(
             optionDefinition.getOptionName(),
-            new OptionDetails(options.getClass(), value, optionDefinition.allowsMultiple()));
+            new OptionDetails(options.getOptionsClass(), value, optionDefinition.allowsMultiple()));
       }
     }
     return new BuildOptionDetails(

@@ -18,16 +18,14 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptionsFields.JobsConverter;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions.JobsConverter;
 import com.google.devtools.common.options.OptionsParsingException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests {@link com.google.devtools.build.lib.buildtool.BuildRequestOptionsFields.JobsConverter}.
- */
+/** Tests {@link com.google.devtools.build.lib.buildtool.BuildRequestOptions.JobsConverter}. */
 @RunWith(JUnit4.class)
 public class JobsConverterTest {
 

@@ -62,7 +62,7 @@ import java.util.TreeSet;
  * string.
  */
 @OptionsClass
-public abstract class CoreOptionsFields extends FragmentOptions implements Cloneable {
+public abstract class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "incompatible_filegroup_runfiles_for_data",
@@ -109,6 +109,8 @@ public abstract class CoreOptionsFields extends FragmentOptions implements Clone
           """)
   public abstract String getStarlarkExecConfig();
 
+  public abstract void setStarlarkExecConfig(String value);
+
   @Option(
       name = "incompatible_disable_select_on",
       defaultValue = "",
@@ -118,6 +120,8 @@ public abstract class CoreOptionsFields extends FragmentOptions implements Clone
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.NON_CONFIGURABLE},
       help = "List of flags for which the use in `select()` is disabled.")
   public abstract ImmutableList<String> getDisabledSelectOptions();
+
+  public abstract void setDisabledSelectOptions(ImmutableList<String> value);
 
   @Option(
       name = "experimental_propagate_custom_flag",
@@ -214,6 +218,8 @@ public abstract class CoreOptionsFields extends FragmentOptions implements Clone
           """)
   public abstract List<Map.Entry<Label, String>> getOverridePlatformCpuName();
 
+  public abstract void setOverridePlatformCpuName(List<Map.Entry<Label, String>> value);
+
   @Option(
       name = "incompatible_limit_platforms_in_output_dir_to",
       converter = LabelListConverter.class,
@@ -241,6 +247,8 @@ public abstract class CoreOptionsFields extends FragmentOptions implements Clone
           """)
   public abstract boolean getIncompatibleTargetCpuFromPlatform();
 
+  public abstract void setIncompatibleTargetCpuFromPlatform(boolean value);
+
   @Option(
       name = "incompatible_bep_cpu_from_platform",
       defaultValue = "false",
@@ -267,6 +275,8 @@ public abstract class CoreOptionsFields extends FragmentOptions implements Clone
           """)
   public abstract List<Map.Entry<String, String>> getCommandLineBuildVariables();
 
+  public abstract void setCommandLineBuildVariables(List<Map.Entry<String, String>> value);
+
   // TODO: blaze-configurability-team - Remove this when --cpu is fully deprecated.
   @Option(
       name = "allowed_cpu_values",
@@ -276,6 +286,8 @@ public abstract class CoreOptionsFields extends FragmentOptions implements Clone
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Allowed values for the `--cpu` flag.")
   public abstract ImmutableList<String> getAllowedCpuValues();
+
+  public abstract void setAllowedCpuValues(ImmutableList<String> value);
 
   @Option(
       name = "cpu",
@@ -291,6 +303,8 @@ public abstract class CoreOptionsFields extends FragmentOptions implements Clone
           `--platforms` with an appropriate platform definition.
           """)
   public abstract String getCpu();
+
+  public abstract void setCpu(String value);
 
   @Option(
       name = "min_param_file_size",
@@ -334,6 +348,8 @@ public abstract class CoreOptionsFields extends FragmentOptions implements Clone
       help = "Stamp binaries with the date, username, hostname, workspace information, etc.")
   public abstract boolean getStampBinaries();
 
+  public abstract void setStampBinaries(boolean value);
+
   // This default value is always overwritten in the case of "bazel coverage" by
   // a value returned by InstrumentationFilterSupport.computeInstrumentationFilter.
   @Option(
@@ -350,6 +366,8 @@ public abstract class CoreOptionsFields extends FragmentOptions implements Clone
           instrumented unless `--instrument_test_targets` is enabled.
           """)
   public abstract RegexFilter getInstrumentationFilter();
+
+  public abstract void setInstrumentationFilter(RegexFilter value);
 
   @Option(
       name = "instrument_test_targets",
@@ -426,6 +444,8 @@ public abstract class CoreOptionsFields extends FragmentOptions implements Clone
       help = "Specifies a suffix to be added to the configuration directory.")
   public abstract String getPlatformSuffix();
 
+  public abstract void setPlatformSuffix(String value);
+
   // TODO(bazel-team): The set of available variables from the client environment for actions
   // is computed independently in CommandEnvironment to inject a more restricted client
   // environment to skyframe.
@@ -451,6 +471,8 @@ public abstract class CoreOptionsFields extends FragmentOptions implements Clone
           """)
   public abstract List<Converters.EnvVar> getActionEnvironment();
 
+  public abstract void setActionEnvironment(List<Converters.EnvVar> value);
+
   @Option(
       name = "host_action_env",
       converter = Converters.EnvVarsConverter.class,
@@ -469,6 +491,8 @@ public abstract class CoreOptionsFields extends FragmentOptions implements Clone
           wins, options for different variables accumulate.
           """)
   public abstract List<Converters.EnvVar> getHostActionEnvironment();
+
+  public abstract void setHostActionEnvironment(List<Converters.EnvVar> value);
 
   @Option(
       name = "collect_code_coverage",
@@ -565,6 +589,8 @@ public abstract class CoreOptionsFields extends FragmentOptions implements Clone
           """)
   public abstract RunUnder getRunUnder();
 
+  public abstract void setRunUnder(RunUnder value);
+
   @Option(
       name = "check_visibility",
       defaultValue = "true",
@@ -573,6 +599,8 @@ public abstract class CoreOptionsFields extends FragmentOptions implements Clone
       metadataTags = {OptionMetadataTag.NON_CONFIGURABLE},
       help = "If disabled, visibility errors in target dependencies are demoted to warnings.")
   public abstract boolean getCheckVisibility();
+
+  public abstract void setCheckVisibility(boolean value);
 
   @Option(
       name = "experimental_enforce_transitive_visibility",
@@ -680,6 +708,8 @@ public abstract class CoreOptionsFields extends FragmentOptions implements Clone
           """)
   public abstract boolean getEvaluatingForAnalysisTest();
 
+  public abstract void setEvaluatingForAnalysisTest(boolean value);
+
   @Option(
       name = "analysis_testing_deps_limit",
       defaultValue = "2000",
@@ -707,6 +737,8 @@ public abstract class CoreOptionsFields extends FragmentOptions implements Clone
           """)
   public abstract List<String> getDefaultFeatures();
 
+  public abstract void setDefaultFeatures(List<String> value);
+
   @Option(
       name = "host_features",
       allowMultiple = true,
@@ -719,6 +751,8 @@ public abstract class CoreOptionsFields extends FragmentOptions implements Clone
           Specifying `-{feature}` will disable the feature. Negative features always override positive ones.
           """)
   public abstract List<String> getHostFeatures();
+
+  public abstract void setHostFeatures(List<String> value);
 
   @Option(
       name = "target_environment",
@@ -853,6 +887,8 @@ public abstract class CoreOptionsFields extends FragmentOptions implements Clone
           """)
   public abstract List<ExecutionInfoModifier> getExecutionInfoModifier();
 
+  public abstract void setExecutionInfoModifier(List<ExecutionInfoModifier> value);
+
   @Option(
       name = "incompatible_modify_execution_info_additive",
       defaultValue = "true",
@@ -937,6 +973,8 @@ public abstract class CoreOptionsFields extends FragmentOptions implements Clone
           """)
   public abstract List<Map.Entry<String, Label>> getCommandLineFlagAliases();
 
+  public abstract void setCommandLineFlagAliases(List<Map.Entry<String, Label>> value);
+
   @Option(
       name = "archived_tree_artifact_mnemonics_filter",
       defaultValue = "-.*", // disabled by default
@@ -948,6 +986,8 @@ public abstract class CoreOptionsFields extends FragmentOptions implements Clone
               + " artifacts. This option is a no-op for actions which do not generate tree"
               + " artifacts.")
   public abstract RegexFilter getArchivedArtifactsMnemonicsFilter();
+
+  public abstract void setArchivedArtifactsMnemonicsFilter(RegexFilter value);
 
   @Option(
       name = "experimental_debug_selects_always_succeed",

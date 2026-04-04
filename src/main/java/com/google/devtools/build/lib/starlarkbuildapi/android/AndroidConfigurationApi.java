@@ -121,9 +121,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       documented = false)
   boolean useAndroidResourceNameObfuscation();
 
-  @StarlarkMethod(name = "use_parallel_dex2oat", structField = true, doc = "", documented = false)
-  boolean useParallelDex2Oat();
-
   @StarlarkMethod(
       name = "compress_java_resources",
       structField = true,
@@ -140,13 +137,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(name = "manifest_merger", structField = true, doc = "", documented = false)
   String getManifestMergerValue();
-
-  @StarlarkMethod(
-      name = "omit_resources_info_provider_from_android_binary",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean omitResourcesInfoProviderFromAndroidBinary();
 
   @StarlarkMethod(
       name = "fixed_resource_neverlinking",
@@ -197,13 +187,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       doc = "",
       documented = false)
   String getOutputDirectoryName();
-
-  @StarlarkMethod(
-      name = "filter_library_jar_with_program_jar",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean filterLibraryJarWithProgramJar();
 
   @StarlarkMethod(
       name = "get_java_resources_from_optimized_jar",

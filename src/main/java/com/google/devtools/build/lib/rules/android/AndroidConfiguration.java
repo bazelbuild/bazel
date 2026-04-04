@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfi
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
-import com.google.devtools.build.lib.rules.cpp.CppOptionsFields.DynamicModeConverter;
+import com.google.devtools.build.lib.rules.cpp.CppOptions.DynamicModeConverter;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidConfigurationApi;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
@@ -319,18 +319,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + "Values > 0 turn the feature on, values > 1 run that many dexbuilder shards.")
     public int incrementalDexingShardsAfterProguard;
 
-    @Option(
-        name = "experimental_android_use_parallel_dex2oat",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.TESTING,
-        effectTags = {
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
-        },
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help = "Use dex2oat in parallel to possibly speed up android_test.")
-    public boolean useParallelDex2Oat;
-
     // Do not use on the command line.
     // This flag is intended to be updated as we add supported flags to the incremental dexing tools
     @Option(
@@ -552,17 +540,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean exportsManifestDefault;
 
     @Option(
-        name = "experimental_omit_resources_info_provider_from_android_binary",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help =
-            "Omit AndroidResourcesInfo provider from android_binary rules."
-                + " Propagating resources out to other binaries is usually unintentional.")
-    public boolean omitResourcesInfoProviderFromAndroidBinary;
-
-    @Option(
         name = "android_fixed_resource_neverlinking",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -767,25 +744,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean removeRClassesFromInstrumentationTestJar;
 
     @Option(
-        name = "experimental_filter_library_jar_with_program_jar",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-        effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help =
-            "Filter the ProGuard ProgramJar to remove any classes also present in the LibraryJar.")
-    public boolean filterLibraryJarWithProgramJar;
-
-    @Option(
-        name = "experimental_use_rtxt_from_merged_resources",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.CHANGES_INPUTS},
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help = "Use R.txt from the merging action, instead of from the validation action.")
-    public boolean useRTxtFromMergedResources;
-
-    @Option(
         name = "legacy_main_dex_list_generator",
         // TODO(b/147692286): Update this default value to R8's GenerateMainDexList binary after
         // migrating usage.
@@ -850,8 +808,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final ApkSigningMethod apkSigningMethod;
   private final boolean compressJavaResources;
   private final boolean exportsManifestDefault;
-  private final boolean useParallelDex2Oat;
-  private final boolean omitResourcesInfoProviderFromAndroidBinary;
   private final boolean fixedResourceNeverlinking;
   private final boolean persistentAarExtractor;
   private final boolean persistentBusyboxTools;
@@ -859,8 +815,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean persistentDexDesugar;
   private final boolean persistentMultiplexDexDesugar;
   private final boolean removeRClassesFromInstrumentationTestJar;
-  private final boolean filterLibraryJarWithProgramJar;
-  private final boolean useRTxtFromMergedResources;
   private final Label legacyMainDexListGenerator;
   private final Label optimizingDexer;
   private final boolean getJavaResourcesFromOptimizedJar;
@@ -890,9 +844,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.apkSigningMethod = options.apkSigningMethod;
     this.compressJavaResources = options.compressJavaResources;
     this.exportsManifestDefault = options.exportsManifestDefault;
-    this.useParallelDex2Oat = options.useParallelDex2Oat;
-    this.omitResourcesInfoProviderFromAndroidBinary =
-        options.omitResourcesInfoProviderFromAndroidBinary;
     this.fixedResourceNeverlinking = options.fixedResourceNeverlinking;
     this.persistentAarExtractor = options.persistentAarExtractor;
     this.persistentBusyboxTools = options.persistentBusyboxTools;
@@ -901,8 +852,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.persistentMultiplexDexDesugar = options.persistentMultiplexDexDesugar;
     this.removeRClassesFromInstrumentationTestJar =
         options.removeRClassesFromInstrumentationTestJar;
-    this.filterLibraryJarWithProgramJar = options.filterLibraryJarWithProgramJar;
-    this.useRTxtFromMergedResources = options.useRTxtFromMergedResources;
     this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
     this.optimizingDexer = options.optimizingDexer;
     this.getJavaResourcesFromOptimizedJar = options.getJavaResourcesFromOptimizedJar;
@@ -1032,11 +981,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
   @Override
-  public boolean useParallelDex2Oat() {
-    return useParallelDex2Oat;
-  }
-
-  @Override
   public boolean compressJavaResources() {
     return compressJavaResources;
   }
@@ -1044,11 +988,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean getExportsManifestDefault() {
     return exportsManifestDefault;
-  }
-
-  @Override
-  public boolean omitResourcesInfoProviderFromAndroidBinary() {
-    return this.omitResourcesInfoProviderFromAndroidBinary;
   }
 
   @Override
@@ -1098,15 +1037,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   public boolean removeRClassesFromInstrumentationTestJar() {
     return removeRClassesFromInstrumentationTestJar;
-  }
-
-  @Override
-  public boolean filterLibraryJarWithProgramJar() {
-    return filterLibraryJarWithProgramJar;
-  }
-
-  boolean useRTxtFromMergedResources() {
-    return useRTxtFromMergedResources;
   }
 
   @Override

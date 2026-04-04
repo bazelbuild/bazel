@@ -73,7 +73,7 @@ Should be used for C++ compilation. Returns tuple of (`CompilationContext`, `CcC
 | `private_hdrs` | [sequence](../core/list); default is `[]`  List of headers needed for compilation of srcs and NOT to be included by dependent rules. |
 | `includes` | [sequence](../core/list); or [depset](../builtins/depset); default is `[]`  Search paths for header files referenced both by angle bracket and quotes. Usually passed with -I. Propagated to dependents transitively. |
 | `quote_includes` | [sequence](../core/list); default is `[]`  Search paths for header files referenced by quotes, e.g. #include "foo/bar/header.h". They can be either relative to the exec root or absolute. Usually passed with -iquote. Propagated to dependents transitively. |
-| `system_includes` | [sequence](../core/list); default is `[]`  Search paths for header files referenced by angle brackets, e.g. #include <foo/bar/header.h>. They can be either relative to the exec root or absolute. Usually passed with -isystem. Propagated to dependents transitively. |
+| `system_includes` | [sequence](../core/list); default is `[]`  Search paths for header files referenced by angle brackets, e.g. <code>#include &lt;foo/bar/header.h&gt;</code>. They can be either relative to the exec root or absolute. Usually passed with -isystem. Propagated to dependents transitively. |
 | `framework_includes` | [sequence](../core/list); default is `[]`  Search paths for header files from Apple frameworks. They can be either relative to the exec root or absolute. Usually passed with -F. Propagated to dependents transitively. |
 | `defines` | [sequence](../core/list); default is `[]`  Set of defines needed to compile this target. Each define is a string. Propagated to dependents transitively. |
 | `local_defines` | [sequence](../core/list); default is `[]`  Set of defines needed to compile this target. Each define is a string. Not propagated to dependents transitively. |
@@ -149,7 +149,7 @@ Creates a `CompilationContext`.
 | Parameter | Description |
 | --- | --- |
 | `headers` | default is `unbound`  Set of headers needed to compile this target |
-| `system_includes` | default is `unbound`  Set of search paths for header files referenced by angle brackets, i.e. #include <foo/bar/header.h>. They can be either relative to the exec root or absolute. Usually passed with -isystem |
+| `system_includes` | default is `unbound`  Set of search paths for header files referenced by angle brackets, i.e. <code>#include &lt;foo/bar/header.h&gt;</code>. They can be either relative to the exec root or absolute. Usually passed with -isystem |
 | `includes` | default is `unbound`  Set of search paths for header files referenced both by angle bracket and quotes.Usually passed with -I |
 | `quote_includes` | default is `unbound`  Set of search paths for header files referenced by quotes, i.e. #include "foo/bar/header.h". They can be either relative to the exec root or absolute. Usually passed with -iquote |
 | `framework_includes` | default is `unbound`  Set of framework search paths for header files (Apple platform only) |
@@ -322,7 +322,7 @@ Create LTO compilation context
 
 | Parameter | Description |
 | --- | --- |
-| `objects` | [dict](../core/dict); default is `{}`  map of full object to index object |
+| `objects` | [dict](../core/dict); default is <code>{}</code>  map of full object to index object |
 
 ## do\_not\_use\_tools\_cpp\_compiler\_present
 
@@ -330,7 +330,7 @@ Create LTO compilation context
 None cc_common.do_not_use_tools_cpp_compiler_present
 ```
 
-Do not use this field, its only purpose is to help with migration from config\_setting.values{'compiler') to config\_settings.flag\_values{'@bazel\_tools//tools/cpp:compiler'}
+Do not use this field, its only purpose is to help with migration from config\_setting.values\{'compiler') to config\_settings.flag\_values\{'@bazel\_tools//tools/cpp:compiler'\}
 
 ## get\_environment\_variables
 
@@ -434,7 +434,7 @@ Should be used for C++ transitive linking.
 | `stamp` | [int](../core/int); default is `0`  Whether to include build information in the linked executable, if output\_type is 'executable'. If 1, build information is always included. If 0 (the default build information is always excluded. If -1, uses the default behavior, which may be overridden by the --[no]stamp flag. This should be unset (or set to 0) when generating the executable output for test rules. |
 | `additional_inputs` | [sequence](../core/list); or [depset](../builtins/depset); default is `[]`  For additional inputs to the linking action, e.g.: linking scripts. |
 | `additional_outputs` | [sequence](../core/list); default is `[]`  For additional outputs to the linking action, e.g.: map files. |
-| `variables_extension` | [dict](../core/dict); default is `{}`  Additional variables to pass to the toolchain configuration when create link command line. |
+| `variables_extension` | [dict](../core/dict); default is <code>{}</code>  Additional variables to pass to the toolchain configuration when create link command line. |
 
 ## merge\_compilation\_contexts
 

@@ -189,6 +189,7 @@ public class TestConfiguration extends Fragment {
         defaultValue = "-1", // No expiration by default.
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "This option is deprecated and has no effect.")
     public int testResultExpiration;
 

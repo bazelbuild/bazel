@@ -357,11 +357,11 @@ public class SandboxStash {
 
   public static void initialize(
       String workspaceName, Path sandboxBase, SandboxOptions options, TreeDeleter treeDeleter) {
-    if (options.reuseSandboxDirectories) {
+    if (options.getReuseSandboxDirectories()) {
       if (instance == null) {
         instance =
             new SandboxStash(
-                workspaceName, sandboxBase, options.experimentalInMemorySandboxStashes);
+                workspaceName, sandboxBase, options.getExperimentalInMemorySandboxStashes());
       } else {
         if (!Objects.equals(workspaceName, instance.workspaceName)) {
           Path stashBase = getStashBase(instance.sandboxBase);
@@ -375,9 +375,9 @@ public class SandboxStash {
           }
           instance =
               new SandboxStash(
-                  workspaceName, sandboxBase, options.experimentalInMemorySandboxStashes);
+                  workspaceName, sandboxBase, options.getExperimentalInMemorySandboxStashes());
         }
-        instance.inMemoryStashes = options.experimentalInMemorySandboxStashes;
+        instance.inMemoryStashes = options.getExperimentalInMemorySandboxStashes();
       }
     } else {
       instance = null;

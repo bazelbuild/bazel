@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.analysis.config.CoreOptionsFields;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;
 
@@ -54,7 +54,7 @@ public abstract class AbstractCommandLine extends CommandLine {
   public void addToFingerprint(
       ActionKeyContext actionKeyContext,
       @Nullable InputMetadataProvider inputMetadataProvider,
-      CoreOptionsFields.OutputPathsMode effectiveOutputPathsMode,
+      CoreOptions.OutputPathsMode effectiveOutputPathsMode,
       Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException {
     for (String s :

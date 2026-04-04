@@ -557,7 +557,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
   public void testThatTestLogAndOutputAreReturned() throws Exception {
     ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
     TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
-    executionOptions.setTestOutput(ExecutionOptionsFields.TestOutputFormat.ERRORS);
+    executionOptions.setTestOutput(ExecutionOptions.TestOutputFormat.ERRORS);
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
     TestedStandaloneTestStrategy standaloneTestStrategy =
         new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
@@ -632,7 +632,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
   public void testThatTestLogAndOutputAreReturnedWithSplitXmlGeneration() throws Exception {
     ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
     TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
-    executionOptions.setTestOutput(ExecutionOptionsFields.TestOutputFormat.ERRORS);
+    executionOptions.setTestOutput(ExecutionOptions.TestOutputFormat.ERRORS);
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
     TestedStandaloneTestStrategy standaloneTestStrategy =
         new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
@@ -716,7 +716,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
   public void testEmptyOutputCreatesEmptyLogFile() throws Exception {
     ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
     TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
-    executionOptions.setTestOutput(ExecutionOptionsFields.TestOutputFormat.ALL);
+    executionOptions.setTestOutput(ExecutionOptions.TestOutputFormat.ALL);
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
     TestedStandaloneTestStrategy standaloneTestStrategy =
         new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
@@ -765,7 +765,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
   public void testAppendStdErrDoesNotBusyLoop() throws Exception {
     ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
     TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
-    executionOptions.setTestOutput(ExecutionOptionsFields.TestOutputFormat.ALL);
+    executionOptions.setTestOutput(ExecutionOptions.TestOutputFormat.ALL);
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
     TestedStandaloneTestStrategy standaloneTestStrategy =
         new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);

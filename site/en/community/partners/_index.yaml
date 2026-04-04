@@ -123,3 +123,12 @@ landing_page:
       - label: Learn more
         path:  https://buildkite.com/
         classname: button
+    # Item 11
+    - image_path: /community/images/hermetiq-logo.png
+      heading: Hermetiq
+      description: >
+        Hermetiq is the intelligence platform for Bazel, built for the era of agentic software development. Hermetiq delivers deep observability and analytics across cache performance, remote execution, and build failures — and exposes Bazel build data directly to AI agents via MCP so that you can ask any question about your builds directly to your AI Agent (Claude, Codex, etc) and get answers instantly. Backed by LAUNCH. Available as a cloud service or self-hosted deployment.
+      buttons:
+      - label: Learn more
+        path: https://www.hermetiq.com/
+        classname: button

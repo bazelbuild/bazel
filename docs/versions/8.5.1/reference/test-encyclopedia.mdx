@@ -705,8 +705,10 @@ Some tags in the test rules have a special meaning. See also the
     </tr>
     <tr>
       <td><code>manual *</code></td>
-      <td>don't include test target in wildcard target patterns like
-        <code>:...</code>, <code>:*</code>, or <code>:all</code></td>
+      <td>
+        don't include test target in wildcard target patterns like
+        <code>:...</code>, <code>:*</code>, or <code>:all</code>
+      </td>
     </tr>
     <tr>
       <td><code>medium</code></td>
@@ -718,15 +720,17 @@ Some tags in the test rules have a special meaning. See also the
     </tr>
     <tr>
       <td><code>smoke</code></td>
-      <td><code>test_suite</code> convention; means it should be run before
-        committing code changes into the version control system</td>
+      <td>
+        <code>test_suite</code> convention; means it should be run before
+        committing code changes into the version control system
+        </td>
     </tr>
 </table>
 
 Note: bazel `query` does not respect the manual tag.
 
 ## Runfiles {#runfiles}
-In the following, assume there is a *_binary() rule labeled
+In the following, assume there is a `*_binary()` rule labeled
 `//foo/bar:unittest`, with a run-time dependency on the rule labeled
 `//deps/server:server`.
 

@@ -34,11 +34,11 @@ local_repository(name = "foo", path = "foo")
 
 ## local_repository
 
-<pre>
+```bash
 load("@bazel//tools/build_defs/repo:local.bzl", "local_repository")
 
 local_repository(<a href="#local_repository-name">name</a>, <a href="#local_repository-path">path</a>, <a href="#local_repository-repo_mapping">repo_mapping</a>)
-</pre>
+```
 
 Makes a local directory that already contains Bazel files available as a repo. This directory should contain Bazel BUILD files and a repo boundary file already. If it doesn't contain these files, consider using [`new_local_repository`](#new_local_repository) instead.
 
@@ -102,11 +102,11 @@ This attribute is _not_ supported in `MODULE.bazel` context (when invoking a rep
 
 ## new_local_repository
 
-<pre>
+```bash
 load("@bazel//tools/build_defs/repo:local.bzl", "new_local_repository")
 
 new_local_repository(<a href="#new_local_repository-name">name</a>, <a href="#new_local_repository-build_file">build_file</a>, <a href="#new_local_repository-build_file_content">build_file_content</a>, <a href="#new_local_repository-path">path</a>, <a href="#new_local_repository-repo_mapping">repo_mapping</a>)
-</pre>
+```
 
 Makes a local directory that doesn't contain Bazel files available as a repo. This directory need not contain Bazel BUILD files or a repo boundary file; they will be created by this repo rule. If the directory already contains Bazel files, consider using [`local_repository`](#local_repository) instead.
 
