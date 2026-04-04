@@ -1,82 +1,81 @@
-import re
-import subprocess
 import os
-import time
 import json
+import time
+import subprocess
+import re
+from datetime import datetime
 import google.generativeai as genai
 
-# --- 1. SETUP ---
-def setup_gemini():
+# --- CONFIGURATION ---
+LLM_MODEL_NAME = os.environ.get('LLM_MODEL_NAME', 'gemini-2.5-pro')
+
+def setup_client():
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         print("❌ Error: GEMINI_API_KEY environment variable not set.")
         return None
     genai.configure(api_key=api_key)
-    # Using Pro for complex rule-following and audit logic
-    return genai.GenerativeModel('gemini-2.5-pro')
+    return genai.GenerativeModel(LLM_MODEL_NAME)
 
 def get_all_doc_paths():
-    """Rule 2: Get all DevSite files."""
     try:
         out = subprocess.check_output(['git', '-C', 'bazel_src', 'ls-files', 'site/en/**/*.md'], text=True)
         return [p for p in out.split('\n') if p and '/versions/' not in p and '/archive/' not in p]
     except: return []
 
-# --- 2. THE AGENT AUDIT LOGIC ---
 def run_agent_audit(model, commit_hash, subject, note, diff):
-    """The AI Agent logic following your 6 strict rules."""
-    
-    # Get master list for Rule 2 (Mapping)
     all_paths = get_all_doc_paths()
     paths_str = "\n".join(all_paths)
 
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    instr_path = os.path.join(script_dir, 'PROMPT_INSTRUCTION.txt')
+    instructions = "You are a Bazel documentation agent."
+    if os.path.exists(instr_path):
+        with open(instr_path, 'r', encoding='utf-8') as f:
+            instructions = f.read()
+
     prompt = f"""
-    You are a highly intelligent Bazel Documentation Auditor.
-    You MUST follow these 6 rules in order:
+    {instructions}
 
-    1. FILTER: Is this commit a public-facing feature? (Subject: {subject}, Note: {note}). 
-       If internal/test-only, return {{"action": "skip", "reason": "internal"}}.
-    2. MAP: Identify the MOST relevant DevSite file from this list:
-       {paths_str}
-    3. ANALYZE: Study the Git Diff below and find exactly where documentation should be added or changed.
-    4. REMOVALS: If code was removed in the diff, identify the corresponding lines in the doc to remove or update.
-    5. ADDITION LIMIT: Write a MAXIMUM of 3-4 technical lines for the update.
-    6. DELETION LIMIT: Remove a MAXIMUM of 2 lines only if justified by code removal.
+    You are analyzing this commit:
+    Hash: {commit_hash}
+    Subject: {subject}
+    Note: {note}
 
-    GIT DIFF:
+    --- CODE DIFF ---
     {diff[:4000]}
+    -----------------
 
-    OUTPUT INSTRUCTIONS:
-    Return ONLY a JSON object with these exact keys:
-    - "action": "update" or "skip"
-    - "file_path": "site/en/..." (The DevSite path)
-    - "edit_type": "insert_after" or "replace" or "delete"
-    - "target_line_text": "Exact verbatim line from the document to target"
-    - "new_content": "Your concise 3-4 lines of documentation"
+    AVAILABLE FILES:
+    {paths_str}
     """
 
     try:
         time.sleep(2)
         response = model.generate_content(prompt, generation_config={"temperature": 0.0})
         
-        # Robust JSON extraction
         json_match = re.search(r'\{.*\}', response.text.strip(), re.DOTALL)
         if not json_match:
-            print(f"  ⚠️ AI did not return valid JSON. Skipping.")
-            return False
+            return "error", "AI did not return valid JSON.", []
         
         data = json.loads(json_match.group(0))
 
         if data.get("action") == "skip":
-            print(f"  ⏭️ Skipped: {data.get('reason', 'internal')}")
-            return False
+            reason = data.get('reason', 'Internal change')
+            print(f"  ⏭️ Skipped: {reason}")
+            return "skipped", reason, []
 
-        devsite_path = data["file_path"]
-        # Calculate Mintlify twin: site/en/run/bazelrc.md -> docs/run/bazelrc.mdx
+        devsite_path = data.get("file_path")
+        if not devsite_path:
+            return "error", "No file_path provided by AI.", []
+
         mintlify_path = devsite_path.replace("site/en/", "docs/").replace(".md", ".mdx")
-        
         target_files = [devsite_path, mintlify_path]
-        success = False
+        
+        target_text = data.get("target_line_text", "").strip()
+        edit_type = data.get("edit_type", "insert_after")
+        ai_text = data.get("new_content", "")
+        reason = data.get("reason", "Feature documented.")
 
         for doc_path in target_files:
             full_path = os.path.join('bazel_src', doc_path)
@@ -87,50 +86,75 @@ def run_agent_audit(model, commit_hash, subject, note, diff):
             with open(full_path, 'r', encoding='utf-8') as f:
                 lines = f.read().split('\n')
 
-            # Find the line the AI targeted
-            target_text = data["target_line_text"].strip()
+            # Search for target text and track if we are inside a Markdown Code Block
             line_idx = -1
+            in_code_block = False
+            target_in_code_block = False
+            
             for i, line in enumerate(lines):
-                if target_text in line:
+                if line.strip().startswith('```'):
+                    in_code_block = not in_code_block
+                if target_text and target_text in line:
                     line_idx = i
+                    target_in_code_block = in_code_block
                     break
 
-            # Handle MDX escaping for Mintlify
-            final_content = data["new_content"]
+            # --- SAFETY SHIELD: Code Block Awareness ---
+            if line_idx != -1 and edit_type == "insert_after":
+                # If target is inside a block, move line_idx down to the closing backticks
+                if target_in_code_block:
+                    print(f"  🛡️ Safety Shield: Target line is inside a code block in {doc_path}. Moving out.")
+                    for j in range(line_idx, len(lines)):
+                        if lines[j].strip().startswith('```'):
+                            line_idx = j
+                            break
+            
+            # Formatting: Apply MDX escaping
+            final_text = ai_text
             if doc_path.endswith(".mdx"):
-                final_content = final_content.replace("{", "\\{").replace("}", "\\}")
+                final_text = final_text.replace("{", "\\{").replace("}", "\\}")
+
+            # Formatting: Ensure we have vertical space if near a code block
+            if line_idx != -1 and edit_type == "insert_after":
+                if line_idx < len(lines) and lines[line_idx].strip().startswith('```'):
+                    final_text = "\n" + final_text # Add gap after closing block
+                elif line_idx + 1 < len(lines) and lines[line_idx + 1].strip().startswith('```'):
+                    final_text = final_text + "\n" # Add gap before starting block
 
             if line_idx != -1:
-                # Rule 5 & 6 Enforcement
-                if data["edit_type"] == "delete":
-                    del lines[line_idx]
-                    print(f"  🗑️ Deleted line in {doc_path}")
-                elif data["edit_type"] == "replace":
-                    lines[line_idx] = final_content
-                    print(f"  🔄 Replaced line in {doc_path}")
+                # SAFE SUBSTRING MODIFICATION (Fixes paragraph destruction)
+                if edit_type == "delete":
+                    lines[line_idx] = lines[line_idx].replace(target_text, "")
+                    print(f"  🗑️ Deleted matched text in {doc_path}")
+                elif edit_type == "replace":
+                    lines[line_idx] = lines[line_idx].replace(target_text, final_text)
+                    print(f"  🔄 Replaced matched text in {doc_path}")
                 else: # insert_after
-                    lines.insert(line_idx + 1, "\n" + final_content + "\n")
+                    lines.insert(line_idx + 1, "\n" + final_text + "\n")
                     print(f"  ✅ Inserted update into {doc_path}")
                 
                 with open(full_path, 'w', encoding='utf-8') as f:
                     f.write('\n'.join(lines))
-                success = True
             else:
-                # Safe Fallback: If no match, append to bottom to preserve work
-                lines.append("\n" + final_content + "\n")
+                # Safe Fallback
+                lines.append("\n" + final_text + "\n")
                 with open(full_path, 'w', encoding='utf-8') as f:
                     f.write('\n'.join(lines))
                 print(f"  ⚠️ Target line not found in {doc_path}. Appended to bottom.")
-                success = True
 
-        return success
+        return "processed", reason, target_files
     except Exception as e:
-        print(f"  ❌ Agent Execution Error: {e}")
-        return False
+        print(f"  ❌ Agent Error: {e}")
+        return "error", str(e), []
 
-# --- 3. MAIN RUNNER ---
+def get_git_date(hash):
+    try:
+        date_str = subprocess.check_output(['git', '-C', 'bazel_src', 'show', '-s', '--format=%cs', hash], text=True).strip()
+        return date_str
+    except: return "Unknown Date"
+
 def run_rulebook():
-    model = setup_gemini()
+    model = setup_client()
     if not model: return
 
     log_path = 'weekly_notes.txt'
@@ -142,6 +166,12 @@ def run_rulebook():
         commits_raw = f.read().split('COMMIT_DELIMITER\n')[1:]
 
     processed_list = []
+    skipped_list = []
+    error_list = []
+    
+    first_date = None
+    last_date = None
+
     for block in commits_raw:
         lines = block.strip().split('\n')
         if len(lines) < 3: continue
@@ -150,29 +180,51 @@ def run_rulebook():
         subj = lines[1].strip()
         body = '\n'.join(lines[2:])
 
-        # Extract RELNOTES
-        match = re.search(r'RELNOTES(?:\[.*?\])?[:\s]+(.*)', body, re.IGNORECASE)
-        if not match: continue
-        note = match.group(1).strip()
-        if note.lower() in ['none', 'n/a', 'no', '']: continue
+        # Track dates for PR description
+        c_date = get_git_date(hash)
+        if not last_date: last_date = c_date
+        first_date = c_date
 
         print(f"\n🚀 Agent Auditing: {hash[:7]} - {subj[:60]}...")
         
         try:
-            # Fetch Diff
-            diff = subprocess.check_output(['git', '-C', 'bazel_src', 'show', '--format=', hash], text=True).strip()
+            # -U20 gives the AI 20 lines of context around the code change!
+            diff = subprocess.check_output(['git', '-C', 'bazel_src', 'show', '-U20', '--format=', hash], text=True).strip()
             
-            # Execute the 6-rule Agent Audit
-            if run_agent_audit(model, hash, subj, note, diff):
-                processed_list.append(f"- {hash[:7]}: {subj}")
+            status, reason, files = run_agent_audit(model, hash, subj, "", diff)
+            if status == "processed":
+                processed_list.append(f"- **{hash[:7]}**: {subj}\n  - *Decision:* Documented in `{', '.join(files)}` because {reason}")
+            elif status == "skipped":
+                skipped_list.append(f"- **{hash[:7]}**: {subj}\n  - *Decision:* Filtered out because {reason}")
+            else:
+                error_list.append(f"- **{hash[:7]}**: {subj}\n  - *Error:* {reason}")
+                
         except Exception as e:
             print(f"  ⚠️ System Error for {hash[:7]}: {e}")
 
-    # Save findings for the PR description
-    if processed_list:
-        with open("processed_commits.txt", "w") as f:
-            f.write("\n".join(processed_list))
-        print(f"\n✅ Finished. {len(processed_list)} documentation updates applied.")
+    # Build the Rich PR Report
+    print("\n📝 Generating Rich PR Report...")
+    with open("pr_report.md", "w", encoding='utf-8') as f:
+        f.write("### 📅 Sync Window\n")
+        if first_date and last_date:
+            f.write(f"Analyzed merged commits from **{first_date}** to **{last_date}**.\n\n")
+        else:
+            f.write("Analyzed recent merged commits.\n\n")
+            
+        f.write("### ✅ Documented Features\n")
+        if processed_list:
+            f.write("\n".join(processed_list) + "\n\n")
+        else:
+            f.write("*No public-facing features required documentation updates in this run.*\n\n")
+            
+        f.write("### ⏭️ Filtered / Internal Commits\n")
+        f.write("These commits were identified as internal or test-only by the Agent:\n")
+        if skipped_list:
+            f.write("\n".join(skipped_list) + "\n\n")
+        else:
+            f.write("*None.*\n\n")
+
+    print(f"\n✅ Finished. {len(processed_list)} documentation updates applied.")
 
 if __name__ == "__main__":
     run_rulebook()
