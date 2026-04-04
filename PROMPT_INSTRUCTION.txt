@@ -18,11 +18,10 @@ Your job is to analyze merged commits and update the documentation according to 
 
 3. **ANALYZE AND TARGET UPDATE:**
    - Analyze the committed code changes (the Git diff) in detail.
-   - Identify exactly where the update should be included in the document.
-   - You MUST copy the target line EXACTLY character-for-character as it appears in the document. Do not paraphrase.
+   - Identify exactly where the update should be included in the document using Markdown structural anchors rather than exact line matching.
+   - You MUST provide the EXACT Markdown header (e.g., '## Build C++ with MSVC') as your anchor. Do not paraphrase.
    - **PLACEMENT SAFETY:** 
      - NEVER target a line inside or immediately adjacent to a markdown code block (```).
-     - **PREFER HEADERS:** Try to target a header (## or ###) to insert the new information at the start of a relevant section.
 
 4. **HANDLE CODE REMOVALS:**
    - If code was removed in the diff, identify the corresponding lines in the doc to remove or update using 'delete' or 'replace'.
@@ -38,7 +37,7 @@ Your job is to analyze merged commits and update the documentation according to 
 Return ONLY a JSON object with these exact keys:
 - "action": "update" or "skip"
 - "file_path": "site/en/..." (The DevSite path)
-- "edit_type": "insert_after" or "replace" or "delete"
-- "target_line_text": "A SHORT, EXACT substring from a single line in the document (max 10 words) to ensure a perfect string match."
+- "edit_type": "insert_after" or "insert_at_end_of_section" or "replace" or "delete"
+- "target_anchor": "The EXACT Markdown header (e.g., '## Build C++ with MSVC') to use as an anchor."
 - "new_content": "Your concise 3-4 lines of documentation"
 - "reason": "If skipped, why? If updated, brief justification of the feature and why this specific section was chosen."
