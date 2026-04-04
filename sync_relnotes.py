@@ -76,6 +76,9 @@ def run_agent_audit(model, commit_hash, subject, note, diff):
         edit_type = data.get("edit_type", "insert_after")
         ai_text = data.get("new_content", "")
         reason = data.get("reason", "Feature documented.")
+        fallback_header = data.get("fallback_header", "## Recent Updates").strip()
+        if not fallback_header.startswith("#"):
+            fallback_header = "## " + fallback_header
 
         for doc_path in target_files:
             full_path = os.path.join('bazel_src', doc_path)
@@ -168,10 +171,10 @@ def run_agent_audit(model, commit_hash, subject, note, diff):
                     f.write('\n'.join(lines))
             else:
                 # Safe Fallback
-                lines.append("\n" + final_text + "\n")
+                lines.append(f"\n{fallback_header}\n\n{final_text}\n")
                 with open(full_path, 'w', encoding='utf-8') as f:
                     f.write('\n'.join(lines))
-                print(f"  ⚠️ Target line not found in {doc_path}. Appended to bottom.")
+                print(f"  ⚠️ Target line not found in {doc_path}. Appended to bottom with fallback header '{fallback_header}'.")
 
         return "processed", reason, target_files
     except Exception as e:
