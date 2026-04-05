@@ -39,6 +39,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.logging.Level;
@@ -75,18 +76,43 @@ public class Main {
         flags.coverageDir() != null
             ? getCoverageFilesInDir(flags.coverageDir())
             : ImmutableList.of();
-    Coverage coverage =
-        Coverage.merge(
-            parseFiles(
-                getTracefiles(flags, filesInCoverageDir),
-                LcovParser::parse,
-                flags.parseParallelism()),
-            parseFiles(
-                getGcovInfoFiles(filesInCoverageDir), GcovParser::parse, flags.parseParallelism()),
-            parseFiles(
-                getGcovJsonInfoFiles(filesInCoverageDir),
-                GcovJsonParser::parse,
-                flags.parseParallelism()));
+
+    // Parse all file types in parallel for better performance.
+    int parallelism = flags.parseParallelism();
+    List<File> tracefiles = getTracefiles(flags, filesInCoverageDir);
+    List<File> gcovFiles = getGcovInfoFiles(filesInCoverageDir);
+    List<File> gcovJsonFiles = getGcovJsonInfoFiles(filesInCoverageDir);
+
+    CompletableFuture<Coverage> lcovFuture =
+        CompletableFuture.supplyAsync(
+            () -> {
+              try {
+                return parseFiles(tracefiles, LcovParser::parse, parallelism);
+              } catch (ExecutionException | InterruptedException e) {
+                throw new RuntimeException(e);
+              }
+            });
+    CompletableFuture<Coverage> gcovFuture =
+        CompletableFuture.supplyAsync(
+            () -> {
+              try {
+                return parseFiles(gcovFiles, GcovParser::parse, parallelism);
+              } catch (ExecutionException | InterruptedException e) {
+                throw new RuntimeException(e);
+              }
+            });
+    CompletableFuture<Coverage> gcovJsonFuture =
+        CompletableFuture.supplyAsync(
+            () -> {
+              try {
+                return parseFiles(gcovJsonFiles, GcovJsonParser::parse, parallelism);
+              } catch (ExecutionException | InterruptedException e) {
+                throw new RuntimeException(e);
+              }
+            });
+
+    // Wait for all parsing to complete and merge results.
+    Coverage coverage = Coverage.merge(lcovFuture.get(), gcovFuture.get(), gcovJsonFuture.get());
 
     if (flags.sourcesToReplaceFile() != null) {
       coverage.maybeReplaceSourceFileNames(getMapFromFile(flags.sourcesToReplaceFile()));
@@ -320,7 +346,7 @@ public class Main {
             Level.SEVERE,
             "File " + file.getAbsolutePath() + " could not be parsed due to: " + e.getMessage(),
             e);
-        System.exit(1);
+        throw new RuntimeException("Failed to parse file: " + file.getAbsolutePath(), e);
       }
     }
     return coverage;
@@ -329,15 +355,35 @@ public class Main {
   static Coverage parseFilesInParallel(List<File> files, Parser parser, int parallelism)
       throws ExecutionException, InterruptedException {
     ForkJoinPool pool = new ForkJoinPool(parallelism);
-    int partitionSize = max(1, files.size() / parallelism);
-    List<List<File>> partitions = Lists.partition(files, partitionSize);
-    return pool.submit(
-            () ->
-                partitions.parallelStream()
-                    .map((p) -> parseFilesSequentially(p, parser))
-                    .reduce((c1, c2) -> Coverage.merge(c1, c2))
-                    .orElse(Coverage.create()))
-        .get();
+    try {
+      // Process each file as a separate task to leverage work-stealing.
+      // This provides better load balancing when files vary in size.
+      return pool.submit(
+              () ->
+                  files.parallelStream()
+                      .map(
+                          file -> {
+                            try {
+                              logger.log(Level.FINE, "Parsing file " + file);
+                              return Coverage.create(parser.parse(new FileInputStream(file)));
+                            } catch (IOException e) {
+                              logger.log(
+                                  Level.SEVERE,
+                                  "File "
+                                      + file.getAbsolutePath()
+                                      + " could not be parsed due to: "
+                                      + e.getMessage(),
+                                  e);
+                              throw new RuntimeException(
+                                  "Failed to parse file: " + file.getAbsolutePath(), e);
+                            }
+                          })
+                      .reduce(Coverage::merge)
+                      .orElse(Coverage.create()))
+          .get();
+    } finally {
+      pool.shutdown();
+    }
   }
 
   /**
@@ -349,18 +395,22 @@ public class Main {
     try (Stream<Path> stream = Files.walk(Paths.get(dir))) {
       files =
           stream
-              .filter(
-                  p ->
-                      p.toString().endsWith(TRACEFILE_EXTENSION)
-                          || p.toString().endsWith(GCOV_EXTENSION)
-                          || p.toString().endsWith(GCOV_JSON_EXTENSION)
-                          || p.toString().endsWith(PROFDATA_EXTENSION))
-              .map(path -> path.toFile())
+              .filter(Main::isCoverageFile)
+              .map(Path::toFile)
               .collect(Collectors.toList());
     } catch (IOException ex) {
       logger.log(Level.SEVERE, "Error reading folder " + dir + ": " + ex.getMessage());
     }
     return files;
+  }
+
+  private static boolean isCoverageFile(Path p) {
+    // Get the filename once to avoid repeated path-to-string conversions.
+    String fileName = p.getFileName().toString();
+    return fileName.endsWith(TRACEFILE_EXTENSION)
+        || fileName.endsWith(GCOV_EXTENSION)
+        || fileName.endsWith(GCOV_JSON_EXTENSION)
+        || fileName.endsWith(PROFDATA_EXTENSION);
   }
 
   static List<File> getFilesWithExtension(List<File> files, String extension) {
