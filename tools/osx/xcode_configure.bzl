@@ -45,6 +45,20 @@ def _search_sdk_output(output, sdkname):
     """Returns the SDK version given xcodebuild stdout and an sdkname."""
     return _search_string(output, "(%s" % sdkname, ")")
 
+def _xcodebuild_path(repository_ctx):
+    """Returns the xcodebuild path"""
+    developer_dir = repository_ctx.getenv("DEVELOPER_DIR")
+    if developer_dir:
+        xcodebuild_path = repository_ctx.path("{}/usr/bin/xcodebuild".format(developer_dir))
+        if xcodebuild_path.exists:
+            return str(xcodebuild_path)
+
+    xcodebuild_path = repository_ctx.which("xcodebuild")
+    if xcodebuild_path.exists:
+        return str(xcodebuild_path)
+
+    fail("xcodebuild can't be found neither in DEVELOPER_DIR nor by name")
+
 def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir, timeout):
     """Returns a string containing an xcode_version build target."""
     build_contents = ""
@@ -54,7 +68,7 @@ def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir,
         decorated_aliases.append("'%s'" % alias)
     repository_ctx.report_progress("Fetching SDK information for Xcode %s" % version)
     xcodebuild_result = repository_ctx.execute(
-        ["xcrun", "xcodebuild", "-version", "-sdk"],
+        ["xcrun", _xcodebuild_path(repository_ctx), "-version", "-sdk"],
         timeout,
         {"DEVELOPER_DIR": developer_dir},
     )
@@ -200,6 +214,10 @@ def _darwin_build_file(repository_ctx):
     repository_ctx.report_progress("Fetching the default Xcode version")
     env = repository_ctx.os.environ
 
+    xcrun_path = repository_ctx.which("xcrun")
+    if not xcrun_path.exists:
+        fail("Can't find installed xcrun")
+
     if "BAZEL_OSX_EXECUTE_TIMEOUT" in env:
         timeout = int(env["BAZEL_OSX_EXECUTE_TIMEOUT"])
     else:
@@ -210,7 +228,7 @@ def _darwin_build_file(repository_ctx):
         "-i",
         "DEVELOPER_DIR={}".format(env.get("DEVELOPER_DIR", default = "")),
         "xcrun",
-        "xcodebuild",
+        _xcodebuild_path(repository_ctx),
         "-version",
     ], timeout)
 
