@@ -84,8 +84,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
       return;
     }
     Optional<SandboxContents> sandboxContents =
-        SandboxStash.takeStashedSandbox(
-            sandboxPath, mnemonic, getEnvironment(), outputs, targetLabel);
+        SandboxStash.takeStashedSandbox(sandboxPath, mnemonic, getEnvironment(), targetLabel);
     sandboxExecRoot.createDirectoryAndParents();
 
     if (sandboxContents != null) {
@@ -131,8 +130,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
 
   @Override
   public void delete() {
-    SandboxStash.stashSandbox(
-        sandboxPath, mnemonic, getEnvironment(), outputs, treeDeleter, targetLabel);
+    SandboxStash.stashSandbox(sandboxPath, mnemonic, getEnvironment(), treeDeleter, targetLabel);
     super.delete();
   }
 

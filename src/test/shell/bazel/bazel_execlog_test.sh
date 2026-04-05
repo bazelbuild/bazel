@@ -230,6 +230,32 @@ EOF
   [[ -e output.compact ]] || fail "no compact log produced"
 }
 
+function test_test_spawn_mnemonics() {
+  create_new_workspace
+  add_rules_shell "MODULE.bazel"
+
+  cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(
+    name = "test",
+    srcs = ["test.sh"],
+)
+EOF
+  cat > test.sh <<'EOF'
+echo "hello world"
+EOF
+  chmod +x test.sh
+
+  bazel test //:test --execution_log_json_file=output.json >> $TEST_log 2>&1 || fail "test failed"
+  grep -q '"mnemonic": "TestRunner"' output.json || fail "missing TestRunner mnemonic"
+  grep -q '"mnemonic": "TestXmlGeneration"' output.json || fail "missing TestXmlGeneration mnemonic"
+
+  bazel coverage //:test --experimental_split_coverage_postprocessing --experimental_fetch_all_coverage_outputs \
+    --execution_log_json_file=output.json >> $TEST_log 2>&1 || fail "coverage failed"
+  grep -q '"mnemonic": "TestCoveragePostProcessing"' output.json \
+    || fail "missing TestCoveragePostProcessing mnemonic"
+}
+
 function test_no_remote_cache() {
   cat > BUILD <<'EOF'
 genrule(
