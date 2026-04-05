@@ -672,6 +672,135 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
   }
 
   @Test
+  public void createKey_withScopedBuildOptions_projectFlag_isPreservedForInScopeTarget()
+      throws Exception {
+    // Tests that when a target is evaluated within a flag's project boundary, the project-scoped
+    // flag's value is correctly preserved.
+    createStarlarkFlagRule();
+    scratch.file(
+        "flag/BUILD",
+        """
+        load(":def.bzl", "basic_flag")
+        basic_flag(
+            name = "foo",
+            scope = "project",
+            build_setting_default = "default",
+        )
+        """);
+    scratch.file(
+        "flag/PROJECT.scl",
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create(
+            project_directories = ["//my_project"],
+        )
+        """);
+
+    invalidatePackages(false);
+
+    // The target being built is inside the flag's project boundary.
+    BuildOptions baseOptions = createBuildOptions("--//flag:foo=foo");
+    BuildConfigurationKey result =
+        fetch(baseOptions, Label.parseCanonicalUnchecked("//my_project:my_target"));
+    assertThat(result).isNotNull();
+
+    // The flag is in scope for //my_project:my_target, so its value should be preserved.
+    assertThat(
+            result
+                .getOptions()
+                .getStarlarkOptions()
+                .get(Label.parseCanonicalUnchecked("//flag:foo")))
+        .isEqualTo("foo");
+  }
+
+  @Test
+  public void createKey_withScopedBuildOptions_projectFlag_resetsOutsideProject()
+      throws Exception {
+    // Tests that when a project-scoped flag arrives at a target evaluation,
+    // if the target is outside the flag's project boundary, the project-boundary
+    // enforcement resets the flag to its baseline value.
+    createStarlarkFlagRule();
+    scratch.file(
+        "flag/BUILD",
+        """
+        load(":def.bzl", "basic_flag")
+        basic_flag(
+            name = "foo",
+            scope = "project",
+            build_setting_default = "default",
+        )
+        """);
+    scratch.file(
+        "flag/PROJECT.scl",
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create(
+            project_directories = ["//my_project"],
+        )
+        """);
+
+    invalidatePackages(false);
+
+    // The target being built is outside the flag's project boundary.
+    BuildOptions baseOptions = createBuildOptions("--//flag:foo=foo");
+    BuildConfigurationKey result =
+        fetch(baseOptions, Label.parseCanonicalUnchecked("//other_project:my_target"));
+    assertThat(result).isNotNull();
+
+    // The flag is out of scope and resets to baseline.
+    // Since the baseline doesn't have //flag:foo set, it should be absent from the options.
+    assertThat(
+            result
+                .getOptions()
+                .getStarlarkOptions()
+                .get(Label.parseCanonicalUnchecked("//flag:foo")))
+        .isNull();
+  }
+
+  @Test
+  public void createKey_withNullLabel_resetsProjectScopedFlags() throws Exception {
+    createStarlarkFlagRule();
+    scratch.file(
+        "flag/BUILD",
+        """
+        load(":def.bzl", "basic_flag")
+        basic_flag(
+            name = "foo",
+            scope = "project",
+            build_setting_default = "default",
+        )
+        """);
+    scratch.file(
+        "flag/PROJECT.scl",
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create(
+            project_directories = ["//my_project"],
+        )
+        """);
+
+    invalidatePackages(false);
+
+    // Provide a non-default flag value
+    BuildOptions baseOptions = createBuildOptions("--//flag:foo=foo");
+
+    // Fetching with a null label acts as if evaluating a top-level config or
+    // an exec transitions headless config. The flag should be aggressively reset to baseline
+    // because no project boundary could possibly be validated.
+    BuildConfigurationKey result = fetch(baseOptions, null);
+
+    assertThat(result).isNotNull();
+    // It should have reset to baseline, meaning //flag:foo is absent.
+    assertThat(
+            result
+                .getOptions()
+                .getStarlarkOptions()
+                .get(Label.parseCanonicalUnchecked("//flag:foo")))
+        .isNull();
+  }
+
+
+  @Test
   public void checkFinalizeBuildOptions_haveCorrectScopeTypeMap_noScopingApplied()
       throws Exception {
     createStarlarkFlagRule();
