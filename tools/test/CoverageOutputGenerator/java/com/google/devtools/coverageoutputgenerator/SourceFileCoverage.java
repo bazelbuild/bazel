@@ -35,6 +35,7 @@ class SourceFileCoverage {
   private final SortedMap<String, Long> functionsExecution; // function name to execution count
   private final LineCoverage lineCoverage;
   private final BranchCoverage branchCoverage;
+  private final McdcCoverageData mcdcCoverageData;
 
   public SourceFileCoverage(String sourcefile) {
     this.sourceFileName = sourcefile;
@@ -42,6 +43,7 @@ class SourceFileCoverage {
     this.functionLineNumbers = new TreeMap<>();
     this.lineCoverage = LineCoverage.create();
     this.branchCoverage = BranchCoverage.create();
+    this.mcdcCoverageData = McdcCoverageData.create();
   }
 
   SourceFileCoverage(SourceFileCoverage other) {
@@ -54,6 +56,7 @@ class SourceFileCoverage {
     this.functionsExecution.putAll(other.functionsExecution);
     this.lineCoverage = LineCoverage.copy(other.lineCoverage);
     this.branchCoverage = BranchCoverage.copy(other.branchCoverage);
+    this.mcdcCoverageData = McdcCoverageData.copy(other.mcdcCoverageData);
   }
 
   void changeSourcefileName(String newSourcefileName) {
@@ -97,6 +100,7 @@ class SourceFileCoverage {
     merged.addAllFunctionsExecution(source2.functionsExecution);
     merged.branchCoverage.add(source2.branchCoverage);
     merged.lineCoverage.add(source2.lineCoverage);
+    merged.mcdcCoverageData.add(source2.mcdcCoverageData);
     return merged;
   }
 
@@ -119,6 +123,14 @@ class SourceFileCoverage {
 
   public int nrBranchesHit() {
     return branchCoverage.executedBranchesCount();
+  }
+
+  int nrMcdcFound() {
+    return mcdcCoverageData.size();
+  }
+
+  int nrMcdcHit() {
+    return mcdcCoverageData.nrMcdcHit();
   }
 
   public int nrOfLinesWithNonZeroExecution() {
@@ -156,6 +168,10 @@ class SourceFileCoverage {
       builder.add(branchCoverage.get(branch));
     }
     return builder.build();
+  }
+
+  Collection<McdcCoverage> getAllMcdc() {
+    return mcdcCoverageData.getAllRecords();
   }
 
   @VisibleForTesting
@@ -211,5 +227,9 @@ class SourceFileCoverage {
 
   public void addLine(int lineNumber, long executionCount) {
     lineCoverage.addLine(lineNumber, executionCount);
+  }
+
+  void addMcdc(int lineNumber, McdcCoverage record) {
+    mcdcCoverageData.addMcdc(record);
   }
 }
