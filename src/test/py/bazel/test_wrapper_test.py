@@ -619,18 +619,13 @@ class TestWrapperTest(test_base.TestBase):
 
     test_xml = os.path.join(bazel_testlogs, 'foo', 'xml_test', 'test.xml')
     self.assertTrue(os.path.exists(test_xml))
-    duration = 0
     xml_contents = []
     stdout_lines = []
     stderr_lines = []
     with open(test_xml, 'rt') as f:
       xml_contents = [line.strip() for line in f]
     for line in xml_contents:
-      if 'duration=' in line:
-        line = line[line.find('duration="') + len('duration="'):]
-        line = line[:line.find('"')]
-        duration = int(line)
-      elif 'stdout_line' in line:
+      if 'stdout_line' in line:
         stdout_lines.append(line)
       elif 'stderr_line' in line:
         stderr_lines.append(line)
@@ -642,8 +637,6 @@ class TestWrapperTest(test_base.TestBase):
     # stdout after L1, then it must be strictly ordered after L1 (but not
     # necessarily after L2).
     # Therefore we only assert partial ordering of lines.
-    if duration <= 1:
-      self._FailWithOutput(xml_contents)
     if (len(stdout_lines) != 2 or 'stdout_line_1' not in stdout_lines[0] or
         'stdout_line_2' not in stdout_lines[1]):
       self._FailWithOutput(xml_contents)
