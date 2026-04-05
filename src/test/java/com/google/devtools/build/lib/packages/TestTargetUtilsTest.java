@@ -190,14 +190,59 @@ public final class TestTargetUtilsTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testSortTagsBySenseSeparatesTagsNaively() {
-    // Contrived, but intentional.
+  public void testSortTagsBySense_lastOccurrenceWins() {
+    // When a tag appears multiple times with different polarities, the last occurrence wins
     Pair<Collection<String>, Collection<String>> result =
         TestTargetUtils.sortTagsBySense(
             ImmutableList.of("tag1", "tag2", "tag3", "-tag1", "+tag2", "-tag3"));
 
-    assertThat(result.first).containsExactly("tag1", "tag2", "tag3");
+    // tag1 starts positive, then becomes negative (excluded)
+    // tag2 starts positive, stays positive (the +tag2 is redundant)
+    // tag3 starts positive, then becomes negative (excluded)
+    assertThat(result.first).containsExactly("tag2");
     assertThat(result.second).containsExactly("tag1", "tag3");
+  }
+
+  @Test
+  public void testSortTagsBySense_negativeToPositive() {
+    // A tag can be excluded first, then included later
+    Pair<Collection<String>, Collection<String>> result =
+        TestTargetUtils.sortTagsBySense(ImmutableList.of("-tag1", "tag1"));
+
+    assertThat(result.first).containsExactly("tag1");
+    assertThat(result.second).isEmpty();
+  }
+
+  @Test
+  public void testSortTagsBySense_positiveToNegative() {
+    // A tag can be included first, then excluded later
+    Pair<Collection<String>, Collection<String>> result =
+        TestTargetUtils.sortTagsBySense(ImmutableList.of("tag1", "-tag1"));
+
+    assertThat(result.first).isEmpty();
+    assertThat(result.second).containsExactly("tag1");
+  }
+
+  @Test
+  public void testSortTagsBySense_multipleOverrides() {
+    // A tag can be overridden multiple times
+    Pair<Collection<String>, Collection<String>> result =
+        TestTargetUtils.sortTagsBySense(
+            ImmutableList.of("tag1", "-tag1", "tag1", "-tag1", "+tag1"));
+
+    // Final state: tag1 is included (last occurrence is +tag1)
+    assertThat(result.first).containsExactly("tag1");
+    assertThat(result.second).isEmpty();
+  }
+
+  @Test
+  public void testSortTagsBySense_independentTags() {
+    // Tags that don't override each other
+    Pair<Collection<String>, Collection<String>> result =
+        TestTargetUtils.sortTagsBySense(ImmutableList.of("tag1", "tag2", "-tag3", "-tag4"));
+
+    assertThat(result.first).containsExactly("tag1", "tag2");
+    assertThat(result.second).containsExactly("tag3", "tag4");
   }
 
   private void assertExpandedSuitesSkyframe(Iterable<Target> expected, Collection<Target> suites)
