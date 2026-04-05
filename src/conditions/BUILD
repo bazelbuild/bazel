@@ -85,6 +85,15 @@ config_setting(
 )
 
 config_setting(
+    name = "linux_sw_64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:sw_64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
     name = "linux_x86_64",
     constraint_values = [
         "@platforms//os:linux",
