@@ -17,10 +17,14 @@ package com.google.devtools.build.lib.bazel.repository.decompressor;
 import static java.util.Objects.requireNonNull;
 
 import com.google.auto.value.AutoBuilder;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.UnixGlob;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 /**
  * Description of an archive to be decompressed.
@@ -33,19 +37,67 @@ public record DecompressorDescriptor(
     Path archivePath,
     Path destinationPath,
     Optional<String> prefix,
-    ImmutableMap<String, String> renameFiles) {
+    ImmutableMap<String, String> renameFiles,
+    ImmutableList<String> includes,
+    ImmutableList<String> excludes) {
   public DecompressorDescriptor {
     requireNonNull(context, "context");
     requireNonNull(archivePath, "archivePath");
     requireNonNull(destinationPath, "destinationPath");
     requireNonNull(prefix, "prefix");
     requireNonNull(renameFiles, "renameFiles");
+    requireNonNull(includes, "includes");
+    requireNonNull(excludes, "excludes");
   }
 
   public static Builder builder() {
     return new AutoBuilder_DecompressorDescriptor_Builder()
         .setContext("")
-        .setRenameFiles(ImmutableMap.of());
+        .setRenameFiles(ImmutableMap.of())
+        .setIncludes(ImmutableList.of())
+        .setExcludes(ImmutableList.of());
+  }
+
+  /**
+   * Returns if a given archive entry should be skipped for decompression.
+   *
+   * <p>This follows the BSD tar logic - {@link #includes} is the list of glob patterns that should
+   * be decompressed. If no inclusions are specified, all entries are extracted. {@link #excludes}
+   * takes precedence over inclusions.
+   *
+   * @param archiveEntry The filepath of the archive entry.
+   * @param patternCache A cache for glob patterns.
+   * @return {@code true} if the entry should be skipped.
+   */
+  public boolean skipArchiveEntry(String archiveEntry, Map<String, Pattern> patternCache) {
+    if (!includes.isEmpty()) {
+      boolean include = false;
+      for (String includePattern : includes) {
+        if (UnixGlob.matches(includePattern, archiveEntry, patternCache)) {
+          include = true;
+          break;
+        }
+      }
+      if (!include) {
+        return true;
+      }
+    }
+
+    for (String excludePattern : excludes) {
+      if (UnixGlob.matches(excludePattern, archiveEntry, patternCache)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Returns if a given archive entry should be skipped for decompression.
+   *
+   * @see #skipArchiveEntry(String, Map)
+   */
+  public boolean skipArchiveEntry(String archiveEntry) {
+    return skipArchiveEntry(archiveEntry, null);
   }
 
   /** Builder for describing the file to be decompressed. */
@@ -61,6 +113,10 @@ public record DecompressorDescriptor(
     public abstract Builder setPrefix(String prefix);
 
     public abstract Builder setRenameFiles(Map<String, String> renameFiles);
+
+    public abstract Builder setIncludes(List<String> includes);
+
+    public abstract Builder setExcludes(List<String> excludes);
 
     public abstract DecompressorDescriptor build();
   }

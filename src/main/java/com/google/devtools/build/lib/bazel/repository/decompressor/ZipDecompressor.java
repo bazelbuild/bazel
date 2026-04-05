@@ -35,6 +35,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -83,11 +84,15 @@ public class ZipDecompressor implements Decompressor {
     boolean foundPrefix = false;
     // Store link, target info of symlinks, we create them after regular files are extracted.
     Map<Path, PathFragment> symlinks = new HashMap<>();
+    Map<String, Pattern> patternCache = new HashMap<>();
 
     try (ZipReader reader = new ZipReader(descriptor.archivePath().getPathFile())) {
       Collection<ZipFileEntry> entries = reader.entries();
       for (ZipFileEntry entry : entries) {
         String entryName = entry.getName();
+        if (descriptor.skipArchiveEntry(entryName, patternCache)) {
+          continue;
+        }
         entryName = renameFiles.getOrDefault(entryName, entryName);
         StripPrefixedPath entryPath =
             StripPrefixedPath.maybeDeprefix(entryName.getBytes(UTF_8), prefix);

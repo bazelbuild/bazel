@@ -82,6 +82,22 @@ public class SevenZDecompressorTest {
     assertThat(fileDir.getRelative(REGULAR_FILENAME).getFileSize()).isNotEqualTo(0);
   }
 
+  /** Test decompressing a .7z file with excludes */
+  @Test
+  public void testDecompressWithExcludes() throws Exception {
+    Path outputDir =
+        decompress(
+            archiveDescriptor()
+                .createDescriptorBuilder()
+                .setExcludes(ImmutableList.of("**/" + REGULAR_FILENAME))
+                .build());
+
+    Path fileDir = outputDir.getRelative(ROOT_FOLDER_NAME).getRelative(INNER_FOLDER_NAME);
+    ImmutableList<String> files =
+        fileDir.readdir(Symlinks.NOFOLLOW).stream().map(Dirent::getName).collect(toImmutableList());
+    assertThat(files).isEmpty();
+  }
+
   /** Test decompressing a .7z file and stripping a prefix. */
   @Test
   public void testDecompressWithPrefix() throws Exception {
