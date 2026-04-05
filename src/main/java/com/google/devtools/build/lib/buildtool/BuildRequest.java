@@ -431,6 +431,7 @@ public class BuildRequest implements OptionsProvider {
     if (!aspects.contains(AspectCollection.VALIDATION_ASPECT_NAME) && useValidationAspect()) {
       result.add(AspectCollection.VALIDATION_ASPECT_NAME);
     }
+    result.add("ValidateBzlLibrary");
     return result.build();
   }
 
