@@ -621,6 +621,8 @@ public final class OptionsUsageTest {
                \s
                 `<HTML> "syntax" 'within' &codeblocks&`
                \s
+                <div>HTML is escaped</div>
+               \s
                 [ref]: /url (title)
                 [shorthand reference link]: /url (title)
                 [`complex` shorthand reference link]: /url (title)
@@ -658,6 +660,7 @@ public final class OptionsUsageTest {
             <p>paragraph 1</p>
             <p>paragraph 2</p>
             <p><code>&lt;HTML&gt; &quot;syntax&quot; 'within' &amp;codeblocks&amp;</code></p>
+            <p>&lt;div&gt;HTML is escaped&lt;/div&gt;</p>
             </dd>
             """);
   }
