@@ -273,4 +273,273 @@ public class ConstraintTest extends BuildViewTestCase {
     boolean hasConstraintValue = (boolean) info.getValue("has_default_value");
     assertThat(hasConstraintValue).isFalse();
   }
+
+  @Test
+  public void testConstraint_refinesConstraintValue() throws Exception {
+    scratch.file(
+        "libc/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = ":libc",
+        )
+        """);
+    scratch.file(
+        "libc/glibc/BUILD",
+        """
+        constraint_setting(
+            name = "version",
+            refines_constraint_value = "//libc:glibc",
+        )
+
+        constraint_value(
+            name = "2_42",
+            constraint_setting = ":version",
+        )
+        """);
+
+    ConfiguredTarget setting = getConfiguredTarget("//libc/glibc:version");
+    assertThat(setting).isNotNull();
+    ConstraintSettingInfo constraintSettingInfo = PlatformProviderUtils.constraintSetting(setting);
+    assertThat(constraintSettingInfo).isNotNull();
+    assertThat(constraintSettingInfo.hasRefinesConstraintValue()).isTrue();
+    assertThat(constraintSettingInfo.refinesConstraintValueLabel())
+        .isEqualTo(Label.parseCanonical("//libc:glibc"));
+    assertThat(constraintSettingInfo.hasDefaultConstraintValue()).isFalse();
+  }
+
+  @Test
+  public void testConstraint_refinesConstraintValue_notSet() throws Exception {
+    ConfiguredTarget setting = getConfiguredTarget("//constraint:basic");
+    assertThat(setting).isNotNull();
+    ConstraintSettingInfo constraintSettingInfo = PlatformProviderUtils.constraintSetting(setting);
+    assertThat(constraintSettingInfo.hasRefinesConstraintValue()).isFalse();
+    assertThat(constraintSettingInfo.refinesConstraintValueLabel()).isNull();
+  }
+
+  @Test
+  public void testConstraint_refinesConstraintValue_mutuallyExclusiveWithDefault() throws Exception {
+    checkError(
+        "exclusive",
+        "bad_setting",
+        "mutually exclusive",
+        """
+        constraint_setting(
+            name = "bad_setting",
+            default_constraint_value = ":some_value",
+            refines_constraint_value = "//constraint:foo",
+        )
+
+        constraint_value(
+            name = "some_value",
+            constraint_setting = ":bad_setting",
+        )
+        """);
+  }
+
+  @Test
+  public void testConstraint_refinesConstraintValue_starlark() throws Exception {
+    setBuildLanguageOptions("--experimental_platforms_api=true");
+    scratch.file(
+        "libc/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = ":libc",
+        )
+        """);
+    scratch.file(
+        "libc/glibc/BUILD",
+        """
+        constraint_setting(
+            name = "version",
+            refines_constraint_value = "//libc:glibc",
+        )
+
+        constraint_value(
+            name = "2_42",
+            constraint_setting = ":version",
+        )
+        """);
+
+    scratch.file(
+        "verify/verify.bzl",
+        """
+        result = provider()
+
+        def _impl(ctx):
+            constraint_setting = ctx.attr.constraint_setting[platform_common.ConstraintSettingInfo]
+            refines_value = constraint_setting.refines_constraint_value
+            has_refines_value = constraint_setting.has_refines_constraint_value
+            return [result(
+                refines_value = refines_value,
+                has_refines_value = has_refines_value,
+            )]
+
+        verify = rule(
+            implementation = _impl,
+            attrs = {
+                "constraint_setting": attr.label(
+                    providers = [platform_common.ConstraintSettingInfo],
+                ),
+            },
+        )
+        """);
+    scratch.file(
+        "verify/BUILD",
+        """
+        load(":verify.bzl", "verify")
+
+        verify(
+            name = "verify",
+            constraint_setting = "//libc/glibc:version",
+        )
+        """);
+
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//verify:verify");
+    StructImpl info =
+        (StructImpl)
+            myRuleTarget.get(
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//verify:verify.bzl")), "result"));
+
+    Label refinesValue = (Label) info.getValue("refines_value");
+    assertThat(refinesValue).isEqualTo(Label.parseCanonicalUnchecked("//libc:glibc"));
+
+    boolean hasRefinesValue = (boolean) info.getValue("has_refines_value");
+    assertThat(hasRefinesValue).isTrue();
+  }
+
+  @Test
+  public void testPlatform_refiningConstraintWithoutRefinedValue_fails() throws Exception {
+    scratch.file(
+        "libc/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = ":libc",
+        )
+
+        constraint_value(
+            name = "musl",
+            constraint_setting = ":libc",
+        )
+        """);
+    scratch.file(
+        "libc/glibc/BUILD",
+        """
+        constraint_setting(
+            name = "version",
+            refines_constraint_value = "//libc:glibc",
+        )
+
+        constraint_value(
+            name = "2_42",
+            constraint_setting = ":version",
+        )
+        """);
+    checkError(
+        "plat",
+        "bad_platform",
+        "does not include //libc:glibc",
+        """
+        platform(
+            name = "bad_platform",
+            constraint_values = ["//libc/glibc:2_42"],
+        )
+        """);
+  }
+
+  @Test
+  public void testPlatform_refiningConstraintWithRefinedValue_succeeds() throws Exception {
+    scratch.file(
+        "libc/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = ":libc",
+        )
+        """);
+    scratch.file(
+        "libc/glibc/BUILD",
+        """
+        constraint_setting(
+            name = "version",
+            refines_constraint_value = "//libc:glibc",
+        )
+
+        constraint_value(
+            name = "2_42",
+            constraint_setting = ":version",
+        )
+        """);
+    scratch.file(
+        "plat/BUILD",
+        """
+        platform(
+            name = "good_platform",
+            constraint_values = [
+                "//libc:glibc",
+                "//libc/glibc:2_42",
+            ],
+        )
+        """);
+
+    // Should succeed without errors.
+    getConfiguredTarget("//plat:good_platform");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testPlatform_refiningConstraintWithRefinedValueFromParent_succeeds() throws Exception {
+    scratch.file(
+        "libc/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = ":libc",
+        )
+        """);
+    scratch.file(
+        "libc/glibc/BUILD",
+        """
+        constraint_setting(
+            name = "version",
+            refines_constraint_value = "//libc:glibc",
+        )
+
+        constraint_value(
+            name = "2_42",
+            constraint_setting = ":version",
+        )
+        """);
+    scratch.file(
+        "plat/BUILD",
+        """
+        platform(
+            name = "parent_platform",
+            constraint_values = ["//libc:glibc"],
+        )
+
+        platform(
+            name = "child_platform",
+            parents = [":parent_platform"],
+            constraint_values = ["//libc/glibc:2_42"],
+        )
+        """);
+
+    // Should succeed because parent provides //libc:glibc.
+    getConfiguredTarget("//plat:child_platform");
+    assertNoEvents();
+  }
 }

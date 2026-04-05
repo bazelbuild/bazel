@@ -47,15 +47,21 @@ public class ConstraintSetting implements RuleConfiguredTargetFactory {
         ruleContext
             .attributes()
             .get(ConstraintSettingRule.DEFAULT_CONSTRAINT_VALUE_ATTR, BuildType.NODEP_LABEL);
+    Label refinesConstraintValue =
+        ruleContext
+            .attributes()
+            .get(ConstraintSettingRule.REFINES_CONSTRAINT_VALUE_ATTR, BuildType.NODEP_LABEL);
 
     validateDefaultConstraintValue(ruleContext, constraintSetting, defaultConstraintValue);
+    validateRefinesConstraintValue(ruleContext, defaultConstraintValue, refinesConstraintValue);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .addProvider(FileProvider.class, FileProvider.EMPTY)
         .addProvider(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
         .addNativeDeclaredProvider(
-            ConstraintSettingInfo.create(constraintSetting, defaultConstraintValue))
+            ConstraintSettingInfo.create(
+                constraintSetting, defaultConstraintValue, refinesConstraintValue))
         .build();
   }
 
@@ -92,6 +98,22 @@ public class ConstraintSetting implements RuleConfiguredTargetFactory {
       throw ruleContext.throwWithAttributeError(
           ConstraintSettingRule.DEFAULT_CONSTRAINT_VALUE_ATTR,
           "The default constraint value '" + defaultConstraintValue + "' does not exist");
+    }
+  }
+
+  private void validateRefinesConstraintValue(
+      RuleContext ruleContext,
+      @Nullable Label defaultConstraintValue,
+      @Nullable Label refinesConstraintValue)
+      throws RuleErrorException {
+    if (refinesConstraintValue == null) {
+      return;
+    }
+
+    if (defaultConstraintValue != null) {
+      throw ruleContext.throwWithAttributeError(
+          ConstraintSettingRule.REFINES_CONSTRAINT_VALUE_ATTR,
+          "refines_constraint_value and default_constraint_value are mutually exclusive.");
     }
   }
 }
