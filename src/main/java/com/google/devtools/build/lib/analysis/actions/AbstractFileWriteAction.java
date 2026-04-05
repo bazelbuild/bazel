@@ -24,18 +24,20 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.DeterministicWriter;
+import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
-/**
- * Abstract Action to write to a file.
- */
+/** Abstract Action to write to a file. */
 public abstract class AbstractFileWriteAction extends AbstractAction {
   /** The default mnemonic for a file write action. */
   public static final String MNEMONIC = "FileWrite";
@@ -54,6 +56,34 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
 
   public boolean makeExecutable() {
     return false;
+  }
+
+  // Save memory by requiring subclasses interested in path mapping to store a single bit only
+  // rather than the full execution info and output paths mode, neither of which is needed
+  // otherwise.
+  @ForOverride
+  protected boolean usePathStripping() {
+    return false;
+  }
+
+  protected final CoreOptions.OutputPathsMode getOutputPathsMode() {
+    return usePathStripping() ? CoreOptions.OutputPathsMode.STRIP : CoreOptions.OutputPathsMode.OFF;
+  }
+
+  protected final PathMapper createPathMapper() {
+    // Other actions consuming the written file may have path mapping disabled due to inputs
+    // conflicting across configurations, in which case paths written to the file will not match.
+    // Since this depends on the consumer but the decision is only made at execution time, it is not
+    // clear how to improve that situation. Actions that are prone to such collisions should avoid
+    // depending on such files.
+    return PathMappers.create(this, getOutputPathsMode(), /* isStarlarkAction= */ false);
+  }
+
+  @Override
+  public final ImmutableMap<String, String> getExecutionInfo() {
+    return usePathStripping()
+        ? ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, "")
+        : ImmutableMap.of();
   }
 
   @Override
@@ -89,8 +119,7 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
    *
    * @param actionExecutionContext the execution context
    */
-  protected void afterWrite(ActionExecutionContext actionExecutionContext) {
-  }
+  protected void afterWrite(ActionExecutionContext actionExecutionContext) {}
 
   @Override
   public String getMnemonic() {

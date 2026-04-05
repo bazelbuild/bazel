@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.test;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -20,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
@@ -30,9 +32,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for the instrumented file manifest creation
- */
+/** Tests for the instrumented file manifest creation */
 @RunWith(JUnit4.class)
 public class InstrumentedFileManifestActionTest extends AnalysisTestCase {
 
@@ -95,7 +95,11 @@ public class InstrumentedFileManifestActionTest extends AnalysisTestCase {
             }
             Artifact output = createArtifact("foo/manifest");
             return new InstrumentedFileManifestAction(
-                ActionOwner.SYSTEM_ACTION_OWNER, files.build(), output);
+                ActionOwner.SYSTEM_ACTION_OWNER,
+                files.build(),
+                output,
+                ImmutableMap.of(),
+                CoreOptions.OutputPathsMode.OFF);
           }
         },
         actionKeyContext);
