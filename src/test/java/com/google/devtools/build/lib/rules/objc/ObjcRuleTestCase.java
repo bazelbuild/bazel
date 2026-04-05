@@ -114,18 +114,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     throw new AssertionError();
   }
 
-  protected static ImmutableList<String> legacyCompilationModeCopts(CompilationMode mode) {
-    switch (mode) {
-      case DBG:
-        return ImmutableList.copyOf(ObjcConfiguration.DBG_COPTS);
-      case OPT:
-        return ObjcConfiguration.OPT_COPTS;
-      case FASTBUILD:
-        throw new AssertionError("FASTBUILD is not supported by legacyCompilationModeCopts().");
-    }
-    throw new AssertionError();
-  }
-
   /** Override this to trigger platform-based Apple toolchain resolution. */
   protected boolean platformBasedToolchains() {
     return false;
