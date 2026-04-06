@@ -215,8 +215,10 @@ public final class TestActionBuilder {
               ruleContext.getRulePrerequisitesCollection(), "$test_runtime");
       inputsBuilder.addTransitive(testRuntime);
     }
+
+    ImmutableMap<String, String> testExecProperties = actionOwner.getExecProperties();
     TestTargetProperties testProperties =
-        new TestTargetProperties(ruleContext, executionRequirements);
+        new TestTargetProperties(ruleContext, executionRequirements, testExecProperties);
 
     // If the test rule does not provide InstrumentedFilesProvider, there's not much that we can do.
     final boolean collectCodeCoverage = config.isCodeCoverageEnabled() && instrumentedFiles != null;

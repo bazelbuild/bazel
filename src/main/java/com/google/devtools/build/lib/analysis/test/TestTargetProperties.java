@@ -36,10 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Container for test target properties available to the
- * TestRunnerAction instance.
- */
+/** Container for test target properties available to the TestRunnerAction instance. */
 public class TestTargetProperties {
 
   /**
@@ -49,6 +46,7 @@ public class TestTargetProperties {
    * attributes/test/size.html.
    */
   private static final ResourceSet SMALL_RESOURCES = ResourceSet.create(20, 1, 1);
+
   private static final ResourceSet MEDIUM_RESOURCES = ResourceSet.create(100, 1, 1);
   private static final ResourceSet LARGE_RESOURCES = ResourceSet.create(300, 1, 1);
   private static final ResourceSet ENORMOUS_RESOURCES = ResourceSet.create(800, 1, 1);
@@ -78,7 +76,10 @@ public class TestTargetProperties {
    * Creates test target properties instance. Constructor expects that it will be called only for
    * test configured targets.
    */
-  TestTargetProperties(RuleContext ruleContext, ExecutionInfo executionRequirements) {
+  TestTargetProperties(
+      RuleContext ruleContext,
+      ExecutionInfo executionRequirements,
+      ImmutableMap<String, String> testExecProperties) {
     Rule rule = ruleContext.getRule();
 
     Preconditions.checkState(TargetUtils.isTestRule(rule));
@@ -92,6 +93,7 @@ public class TestTargetProperties {
 
     Map<String, String> executionInfo = Maps.newLinkedHashMap();
     executionInfo.putAll(TargetUtils.getExecutionInfo(rule));
+    executionInfo.putAll(testExecProperties);
 
     boolean incompatibleExclusiveTestSandboxed = false;
 

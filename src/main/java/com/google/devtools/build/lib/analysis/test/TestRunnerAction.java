@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.test;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -964,7 +963,7 @@ public class TestRunnerAction extends AbstractAction
 
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
-    return mergeMaps(super.getExecutionInfo(), testProperties.getExecutionInfo());
+    return testProperties.getExecutionInfo();
   }
 
   public TestTargetExecutionSettings getExecutionSettings() {
