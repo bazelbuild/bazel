@@ -29,8 +29,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
-import com.google.devtools.build.lib.bazel.bzlmod.InterimModule;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -180,13 +179,7 @@ public abstract class GlobTestBase {
         new LocalRepositoryLookupFunction(directories.getWorkspace()));
     skyFunctions.put(
         SkyFunctions.MODULE_FILE,
-        (skyKey, env) ->
-            new RootModuleFileValue(
-                InterimModule.builder().build(),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableSet.of()));
+        (skyKey, env) -> BzlmodTestUtil.emptyRootModuleFileValue());
     skyFunctions.put(
         SkyFunctions.BAZEL_DEP_GRAPH, (skyKey, env) -> BazelDepGraphValue.createEmptyDepGraph());
     skyFunctions.put(

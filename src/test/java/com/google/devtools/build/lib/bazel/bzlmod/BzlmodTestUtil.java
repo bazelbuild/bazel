@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
@@ -56,6 +57,22 @@ public final class BzlmodTestUtil {
         .setExtensionUsages(ImmutableList.of())
         .setExecutionPlatformsToRegister(ImmutableList.of())
         .setToolchainsToRegister(ImmutableList.of());
+  }
+
+  public static ModuleFileValue.RootModuleFileValue emptyRootModuleFileValue() {
+    return createRootModuleFileValue(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
+  }
+
+  public static ModuleFileValue.RootModuleFileValue createRootModuleFileValue(
+      ImmutableMap<String, ? extends ModuleOverride> overrides,
+      ImmutableMap<RepositoryName, String> nonRegistryOverrideCanonicalRepoToModuleName,
+      ImmutableMap<String, String> nonRegistryOverrideModuleToRepoName) {
+    return new ModuleFileValue.RootModuleFileValue(
+        InterimModule.builder().build(),
+        ImmutableMap.copyOf(overrides),
+        nonRegistryOverrideCanonicalRepoToModuleName,
+        nonRegistryOverrideModuleToRepoName,
+        ImmutableSet.of());
   }
 
   /** Builder class to create a {@code Entry<ModuleKey, Module>} entry faster inside UnitTests */

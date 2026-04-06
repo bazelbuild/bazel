@@ -40,8 +40,7 @@ import com.google.devtools.build.lib.actions.FileValue.SymlinkFileValueWithoutSt
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
-import com.google.devtools.build.lib.bazel.bzlmod.InterimModule;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
@@ -188,13 +187,7 @@ public class FileFunctionTest {
                     new LocalRepositoryLookupFunction(directories.getWorkspace()))
                 .put(
                     SkyFunctions.MODULE_FILE,
-                    (skyKey, env) ->
-                        new RootModuleFileValue(
-                            InterimModule.builder().build(),
-                            ImmutableMap.of(),
-                            ImmutableMap.of(),
-                            ImmutableMap.of(),
-                            ImmutableSet.of()))
+                    (skyKey, env) -> BzlmodTestUtil.emptyRootModuleFileValue())
                 .put(
                     SkyFunctions.BAZEL_DEP_GRAPH,
                     (skyKey, env) -> BazelDepGraphValue.createEmptyDepGraph())

@@ -23,9 +23,8 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
-import com.google.devtools.build.lib.bazel.bzlmod.InterimModule;
+import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil;
 import com.google.devtools.build.lib.bazel.bzlmod.LocalPathRepoSpecs;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -67,7 +66,7 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
 
   private MemoizingEvaluator evaluator;
   private AtomicReference<RepositoryMappingValue> repositoryMappingValue;
-  private AtomicReference<RootModuleFileValue> rootModuleFileValue;
+  private AtomicReference<SkyValue> rootModuleFileValue;
   private AtomicReference<BazelDepGraphValue> bazelDepGraphValue;
 
   @Before
@@ -91,7 +90,7 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
             directories);
     repositoryMappingValue =
         new AtomicReference<>(RepositoryMappingValue.VALUE_FOR_EMPTY_ROOT_MODULE);
-    rootModuleFileValue = new AtomicReference<>(emptyRootModuleFileValue());
+    rootModuleFileValue = new AtomicReference<SkyValue>(BzlmodTestUtil.emptyRootModuleFileValue());
     bazelDepGraphValue = new AtomicReference<>(BazelDepGraphValue.createEmptyDepGraph());
 
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
@@ -176,21 +175,10 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
                 ImmutableMap.of("", RepositoryName.MAIN, repositoryName.getName(), repositoryName),
                 RepositoryName.MAIN)));
     rootModuleFileValue.set(
-        new RootModuleFileValue(
-            InterimModule.builder().build(),
+        BzlmodTestUtil.createRootModuleFileValue(
             ImmutableMap.of("local_repo", new NonRegistryOverride(LocalPathRepoSpecs.create(path))),
             ImmutableMap.of(repositoryName, "local_repo"),
-            ImmutableMap.of("local_repo", repositoryName.getName()),
-            ImmutableSet.of()));
-  }
-
-  private static RootModuleFileValue emptyRootModuleFileValue() {
-    return new RootModuleFileValue(
-        InterimModule.builder().build(),
-        ImmutableMap.of(),
-        ImmutableMap.of(),
-        ImmutableMap.of(),
-        ImmutableSet.of());
+            ImmutableMap.of("local_repo", repositoryName.getName())));
   }
 
   @Test
