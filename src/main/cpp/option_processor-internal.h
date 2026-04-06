@@ -38,24 +38,6 @@ std::vector<std::string> DedupeBlazercPaths(
 void WarnAboutDuplicateRcFiles(const std::set<std::string>& read_files,
                                const std::deque<std::string>& loaded_rcs);
 
-// Get the legacy list of rc files that would have been loaded - this is to
-// provide a useful warning if files are being ignored that were loaded in a
-// previous version of Bazel.
-// TODO(b/3616816): Remove this once the warning is no longer useful.
-std::set<std::string> GetOldRcPaths(
-    const WorkspaceLayout* workspace_layout, const std::string& workspace,
-    const std::string& cwd, const std::string& path_to_binary,
-    const std::vector<std::string>& startup_args);
-
-// Returns what the "user bazelrc" would have been in the legacy rc list.
-std::string FindLegacyUserBazelrc(const char* cmd_line_rc_file,
-                                  const std::string& workspace);
-
-std::string FindSystemWideRc();
-
-std::string FindRcAlongsideBinary(const std::string& cwd,
-                                  const std::string& path_to_binary);
-
 blaze_exit_code::ExitCode ParseErrorToExitCode(RcFile::ParseError parse_error);
 
 }  // namespace internal

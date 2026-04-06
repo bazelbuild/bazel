@@ -273,33 +273,6 @@ TEST_F(GetRcFileTest,
   EXPECT_THAT(parsed_rcs, IsEmpty());
 }
 
-TEST_F(GetRcFileTest, GetRcFilesWarnsAboutIgnoredMasterRcFiles) {
-  std::string workspace_rc;
-  ASSERT_TRUE(SetUpLegacyMasterRcFileInWorkspace("", &workspace_rc));
-  std::string binary_rc;
-  ASSERT_TRUE(SetUpLegacyMasterRcFileAlongsideBinary("", &binary_rc));
-
-  const CommandLine cmd_line = CommandLine(binary_path_, {}, "build", {});
-  std::string error = "check that this string is not modified";
-  std::vector<std::unique_ptr<RcFile>> parsed_rcs;
-
-  testing::internal::CaptureStderr();
-  const blaze_exit_code::ExitCode exit_code =
-      option_processor_->GetRcFiles(workspace_layout_.get(), workspace_, cwd_,
-                                    &cmd_line, &parsed_rcs, &error);
-  const std::string output = testing::internal::GetCapturedStderr();
-
-  EXPECT_EQ(blaze_exit_code::SUCCESS, exit_code);
-  EXPECT_EQ("check that this string is not modified", error);
-
-  // Expect that GetRcFiles outputs a warning about these files that are not
-  // read as expected.
-  EXPECT_THAT(output,
-              HasSubstr("The following rc files are no longer being read"));
-  EXPECT_THAT(output, HasSubstr(workspace_rc));
-  EXPECT_THAT(output, HasSubstr(binary_rc));
-}
-
 TEST_F(GetRcFileTest, GetRcFilesReadsCommandLineRc) {
   const std::string cmdline_rc_path =
       blaze_util::JoinPath(workspace_, "mybazelrc");
