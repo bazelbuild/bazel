@@ -621,7 +621,8 @@ TEST_F(ParseOptionsTest, PlatformSpecificBazelrcOptions) {
                            "startup:macos --max_idle_secs=3\n"
                            "startup:windows --max_idle_secs=4\n"
                            "startup:freebsd --max_idle_secs=5\n"
-                           "startup:openbsd --max_idle_secs=6\n",
+                           "startup:openbsd --max_idle_secs=6\n"
+                           "startup --max_idle_secs=7\n",
                            &workspace_rc));
 
   const std::vector<std::string> args = {binary_path_, "build"};
@@ -652,14 +653,14 @@ TEST_F(ParseOptionsTest, PlatformSpecificBazelrcOptions) {
         output,
         MatchesRegex(
             "INFO: Reading 'startup' options from .*workspace.*bazelrc: "
-            "--max_idle_secs=1 --max_idle_secs=" +
+            "--max_idle_secs=1 --max_idle_secs=7 --max_idle_secs=" +
             std::to_string(expected) + "\n"));
   } else {
     EXPECT_THAT(
         output,
         MatchesRegex(
             "INFO: Reading 'startup' options from .*workspace.*bazelrc: "
-            "--max_idle_secs=1\n"));
+            "--max_idle_secs=1 --max_idle_secs=7\n"));
   }
 }
 
