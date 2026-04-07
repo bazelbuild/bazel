@@ -228,13 +228,17 @@ static void SetupUserNamespace() {
     inner_gid = 0;
   } else if (opt.fake_username) {
     // Change our username to 'nobody'.
-    struct passwd *pwd = getpwnam("nobody");
-    if (pwd == nullptr) {
-      DIE("unable to find passwd entry for user nobody")
+    struct passwd pwd;
+    char buf[1024];
+    size_t buflen = sizeof(buf);
+    struct passwd* result;
+    if (getpwnam_r("nobody", &pwd, buf, buflen, &result) != 0 ||
+        result == nullptr) {
+      DIE("getpwnam_r for nobody failed");
     }
 
-    inner_uid = pwd->pw_uid;
-    inner_gid = pwd->pw_gid;
+    inner_uid = pwd.pw_uid;
+    inner_gid = pwd.pw_gid;
   } else {
     // Do not change the username inside the sandbox.
     inner_uid = global_outer_uid;
