@@ -27,7 +27,21 @@ cc_test(
 sh_test(
     name = "daemonize_test",
     srcs = ["daemonize_test.sh"],
-    data = ["//src/main/tools:daemonize"],
+    data = [
+        "//src/main/tools:daemonize",
+    ],
+    deps = [
+        "//src/test/shell:bashunit",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "linux-sandbox_test",
+    srcs = ["linux-sandbox_test.sh"],
+    data = [
+        "//src/main/tools:linux-sandbox",
+    ],
     deps = [
         "//src/test/shell:bashunit",
         "@bazel_tools//tools/bash/runfiles",
