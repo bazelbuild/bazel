@@ -1,5 +1,5 @@
 ---
-title: 'Write bazelrc configuration files'
+title: "Write bazelrc configuration files"
 ---
 
 Bazel accepts many options. Some options are varied frequently (for example,
@@ -20,7 +20,6 @@ before the command (`build`, `test`, etc).
 1.  **The system RC file**, unless `--nosystem_rc` is present.
 
     Path:
-
     - On Linux/macOS/Unixes: `/etc/bazel.bazelrc`
     - On Windows: `%ProgramData%\bazel.bazelrc`
 
@@ -42,7 +41,6 @@ before the command (`build`, `test`, etc).
 3.  **The home RC file**, unless `--nohome_rc` is present.
 
     Path:
-
     - On Linux/macOS/Unixes: `$HOME/.bazelrc`
     - On Windows: `%USERPROFILE%\.bazelrc` if exists, or `%HOME%/.bazelrc`
 
@@ -54,13 +52,16 @@ before the command (`build`, `test`, etc).
     The environment variable can include multiple comma-separated paths.
 
 5.  **The user-specified RC file**, if specified with
-    <code>--bazelrc=<var>file</var></code>
+
+    <code>
+      --bazelrc=<var>file</var>
+    </code>
 
     This flag is optional but can also be specified multiple times.
 
     `/dev/null` indicates that all further `--bazelrc`s will be ignored, which
-     is useful to disable the search for a user rc file, such as in release
-     builds.
+    is useful to disable the search for a user rc file, such as in release
+    builds.
 
     For example:
 
@@ -89,13 +90,13 @@ relative to the workspace root, write `import %workspace%/path/to/bazelrc`.
 
 The difference between the various import statements is as follows:
 
-*   `import` - Bazel will fail if the `import`'ed file is missing (or can't be
-    read)
-*   `try-import` - An attempt to import the file will be made, but unlike
-    `import`, Bazel will NOT fail if the file is missing (or can't be read).
-*   `try-import-if-bazel-version` - Similar to `try-import`, but an additional
-    condition on the current Bazel version is checked before attempting to do
-    the import. See below for the syntax.
+- `import` - Bazel will fail if the `import`'ed file is missing (or can't be
+  read)
+- `try-import` - An attempt to import the file will be made, but unlike
+  `import`, Bazel will NOT fail if the file is missing (or can't be read).
+- `try-import-if-bazel-version` - Similar to `try-import`, but an additional
+  condition on the current Bazel version is checked before attempting to do
+  the import. See below for the syntax.
 
 Conditional Bazel version imports can be useful if a project needs to work under
 several Bazel versions or during the transition from one Bazel version to
@@ -140,30 +141,30 @@ try-import-if-bazel-version ~1 %workspace%/configs/v1_flags.rc
 
 Import precedence:
 
--   Options in the imported file take precedence over options specified before
-    the import statement.
--   Options specified after the import statement take precedence over the
-    options in the imported file.
--   Options in files imported later take precedence over files imported earlier.
+- Options in the imported file take precedence over options specified before
+  the import statement.
+- Options specified after the import statement take precedence over the
+  options in the imported file.
+- Options in files imported later take precedence over files imported earlier.
 
 #### Option defaults {:#option-defaults}
 
 Most lines of a bazelrc define default option values. The first word on each
 line specifies when these defaults are applied:
 
--   `startup`: startup options, which go before the command, and are described
-    in `bazel help startup_options`.
--   `common`: options that should be applied to all Bazel commands that support
-    them. If a command does not support an option specified in this way, the
-    option is ignored so long as it is valid for *some* other Bazel command.
-    Note that this only applies to option names: If the current command accepts
-    an option with the specified name, but doesn't support the specified value,
-    it will fail.
--   `always`: options that apply to all Bazel commands. If a command does not
-    support an option specified in this way, it will fail.
--   _`command`_: Bazel command, such as `build` or `query` to which the options
-    apply. These options also apply to all commands that inherit from the
-    specified command. (For example, `test` inherits from `build`.)
+- `startup`: startup options, which go before the command, and are described
+  in `bazel help startup_options`.
+- `common`: options that should be applied to all Bazel commands that support
+  them. If a command does not support an option specified in this way, the
+  option is ignored so long as it is valid for _some_ other Bazel command.
+  Note that this only applies to option names: If the current command accepts
+  an option with the specified name, but doesn't support the specified value,
+  it will fail.
+- `always`: options that apply to all Bazel commands. If a command does not
+  support an option specified in this way, it will fail.
+- _`command`_: Bazel command, such as `build` or `query` to which the options
+  apply. These options also apply to all commands that inherit from the
+  specified command. (For example, `test` inherits from `build`.)
 
 Each of these lines may be used more than once and the arguments that follow the
 first word are combined as if they had appeared on a single line. (Users of CVS,
@@ -186,44 +187,43 @@ so the effective flags are `--verbose_failures` and `--test_tmpdir=/tmp/bar`.
 
 Option precedence:
 
--   Options on the command line always take precedence over those in rc files.
-    For example, if a rc file says `build -c opt` but the command line flag is
-    `-c dbg`, the command line flag takes precedence.
--   Within the rc file, precedence is governed by specificity: lines for a more
-    specific command take precedence over lines for a less specific command.
+- Options on the command line always take precedence over those in rc files.
+  For example, if a rc file says `build -c opt` but the command line flag is
+  `-c dbg`, the command line flag takes precedence.
+- Within the rc file, precedence is governed by specificity: lines for a more
+  specific command take precedence over lines for a less specific command.
 
-    Specificity is defined by inheritance. Some commands inherit options from
-    other commands, making the inheriting command more specific than the base
-    command. For example `test` inherits from the `build` command, so all `bazel
-    build` flags are valid for `bazel test`, and all `build` lines apply also to
-    `bazel test` unless there's a `test` line for the same option. If the rc
-    file says:
+  Specificity is defined by inheritance. Some commands inherit options from
+  other commands, making the inheriting command more specific than the base
+  command. For example `test` inherits from the `build` command, so all `bazel
+build` flags are valid for `bazel test`, and all `build` lines apply also to
+  `bazel test` unless there's a `test` line for the same option. If the rc
+  file says:
 
-    ```posix-terminal
-    test -c dbg --test_env=PATH
+  ```posix-terminal
+  test -c dbg --test_env=PATH
 
-    build -c opt --verbose_failures
-    ```
+  build -c opt --verbose_failures
+  ```
 
-    then `bazel build //foo` will use `-c opt --verbose_failures`, and `bazel
-    test //foo` will use `--verbose_failures -c dbg --test_env=PATH`.
+  then `bazel build //foo` will use `-c opt --verbose_failures`, and `bazel
+test //foo` will use `--verbose_failures -c dbg --test_env=PATH`.
 
-    The inheritance (specificity) graph is:
+  The inheritance (specificity) graph is:
+  - Every command inherits from `common`
+  - The following commands inherit from (and are more specific than)
+    `build`: `test`, `run`, `clean`, `mobile-install`, `info`,
+    `print_action`, `config`, `cquery`, and `aquery`
+  - `coverage`, `fetch`, and `vendor` inherit from `test`
 
-    *   Every command inherits from `common`
-    *   The following commands inherit from (and are more specific than)
-        `build`: `test`, `run`, `clean`, `mobile-install`, `info`,
-        `print_action`, `config`, `cquery`, and `aquery`
-    *   `coverage`, `fetch`, and `vendor` inherit from `test`
+- Two lines specifying options for the same command at equal specificity are
+  parsed in the order in which they appear within the file.
 
--   Two lines specifying options for the same command at equal specificity are
-    parsed in the order in which they appear within the file.
-
--   Because this precedence rule does not match the file order, it helps
-    readability if you follow the precedence order within rc files: start with
-    `common` options at the top, and end with the most-specific commands at the
-    bottom of the file. This way, the order in which the options are read is the
-    same as the order in which they are applied, which is more intuitive.
+- Because this precedence rule does not match the file order, it helps
+  readability if you follow the precedence order within rc files: start with
+  `common` options at the top, and end with the most-specific commands at the
+  bottom of the file. This way, the order in which the options are read is the
+  same as the order in which they are applied, which is more intuitive.
 
 The arguments specified on a line of an rc file may include arguments that are
 not options, such as the names of build targets, and so on. These, like the
@@ -266,6 +266,11 @@ automatically enabled. Supported OS identifiers are `linux`, `macos`, `windows`,
 `--config=linux` on Linux, `--config=windows` on Windows, and so on.
 
 See [--enable_platform_specific_config](/reference/command-line-reference#flag--enable_platform_specific_config).
+
+Platform specific configurations also apply to `startup` options. For
+example `startup:linux --some_startup_option` will be applied when the
+host OS is Linux. Supported OS identifiers are `linux`, `macos`,
+`windows`, `freebsd`, and `openbsd`. This behavior is always enabled.
 
 #### Example {:#bazelrc-example}
 
