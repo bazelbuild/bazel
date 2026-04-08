@@ -433,21 +433,45 @@ static void MakeFilesystemMostlyReadOnly() {
 }
 
 static void MountProcAndSys() {
-  // Mount a new proc on top of the old one, because the old one still refers to
-  // our parent PID namespace.
-  if (mount("/proc", "/proc", "proc", MS_NODEV | MS_NOEXEC | MS_NOSUID,
-            nullptr) < 0) {
-    DIE("mount /proc");
-  }
+  if (opt.hermetic) {
+    if (CreateTarget("proc", true) < 0) {
+      DIE("CreateTarget proc");
+    }
+    if (mount("proc", "proc", "proc", MS_NODEV | MS_NOEXEC | MS_NOSUID,
+              nullptr) < 0) {
+      DIE("mount proc");
+    }
 
-  if (opt.create_netns == NO_NETNS) {
-    return;
-  }
+    if (CreateTarget("sys", true) < 0) {
+      DIE("CreateTarget sys");
+    }
 
-  // Same for sys, but only if a separate network namespace was requested.
-  if (mount("none", "/sys", "sysfs",
-            MS_NOEXEC | MS_NOSUID | MS_NODEV | MS_RDONLY, nullptr) < 0) {
-    DIE("mount /sys");
+    if (opt.create_netns != NO_NETNS) {
+      if (mount("none", "sys", "sysfs",
+                MS_NOEXEC | MS_NOSUID | MS_NODEV | MS_RDONLY, nullptr) < 0) {
+        DIE("mount sys");
+      }
+    } else {
+      // In hermetic mode without a new network namespace, we cannot mount a
+      // fresh sysfs because we share the network namespace with the host (this
+      // fails with EPERM in a user namespace). Bind-mount the host /sys
+      // instead.
+      if (mount("/sys", "sys", nullptr, MS_BIND | MS_REC, nullptr) < 0) {
+        DIE("bind mount /sys to sys");
+      }
+    }
+  } else {
+    if (mount("proc", "/proc", "proc", MS_NODEV | MS_NOEXEC | MS_NOSUID,
+              nullptr) < 0) {
+      DIE("mount /proc");
+    }
+
+    if (opt.create_netns != NO_NETNS) {
+      if (mount("none", "/sys", "sysfs",
+                MS_NOEXEC | MS_NOSUID | MS_NODEV | MS_RDONLY, nullptr) < 0) {
+        DIE("mount /sys");
+      }
+    }
   }
 }
 
@@ -602,17 +626,31 @@ static void CreateEmptyFile() {
 
 static void MountDev() {
   if (CreateTarget("dev", true) < 0) {
-    DIE("CreateTarget /dev");
+    DIE("CreateTarget dev");
   }
-  const char *devs[] = {"/dev/null", "/dev/random", "/dev/urandom", "/dev/zero",
-                        NULL};
+
+  const char* devs[] = {"/dev/null", "/dev/random", "/dev/urandom",
+                        "/dev/zero", "/dev/full",   NULL};
   for (int i = 0; devs[i] != NULL; i++) {
     LinkFile(devs[i] + 1);
+    PRINT_DEBUG("bind mount: %s -> dev/%s", devs[i], devs[i] + 5);
     if (mount(devs[i], devs[i] + 1, NULL, MS_BIND, NULL) < 0) {
-      DIE("mount");
+      DIE("mount %s", devs[i]);
     }
   }
+
+  if (CreateTarget("dev/shm", true) == 0) {
+    PRINT_DEBUG("mounting tmpfs on dev/shm");
+    if (mount("tmpfs", "dev/shm", "tmpfs", MS_NOSUID | MS_NODEV, "mode=1777") <
+        0) {
+      DIE("mount dev/shm");
+    }
+  }
+
   SymlinkFile("/proc/self/fd", "dev/fd");
+  SymlinkFile("/proc/self/fd/0", "dev/stdin");
+  SymlinkFile("/proc/self/fd/1", "dev/stdout");
+  SymlinkFile("/proc/self/fd/2", "dev/stderr");
 }
 
 static void MountAllMounts() {
