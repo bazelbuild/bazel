@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Nullable;
 
 /**
  * Holds JUnit integration tests context, passed to tests from base class.
@@ -247,11 +248,16 @@ public final class BlackBoxTestContext {
    * @param processToRun path to the binary to run
    * @param expectEmptyError if <code>true</code>, no text is expected in the error stream,
    *     otherwise, ProcessRunnerException is thrown.
+   * @param environmentMap environmental variables to set
    * @param arguments arguments to pass to the binary
    * @return ProcessResult execution result
    */
   public ProcessResult runBinary(
-      Path workingDirectory, String processToRun, boolean expectEmptyError, String... arguments)
+      Path workingDirectory,
+      String processToRun,
+      boolean expectEmptyError,
+      @Nullable Map<String, String> environmentMap,
+      String... arguments)
       throws Exception {
     ProcessParameters parameters =
         ProcessParameters.builder()
@@ -260,8 +266,20 @@ public final class BlackBoxTestContext {
             .setTimeoutMillis(getProcessTimeoutMillis(-1))
             .setArguments(arguments)
             .setExpectedEmptyError(expectEmptyError)
+            .setEnvironment(environmentMap)
             .build();
     return new ProcessRunner(parameters, executorService).runSynchronously();
+  }
+
+  /**
+   * Runs external binary. No environment variables.
+   *
+   * @see #runBinary(Path, String, boolean, Map, String...)
+   */
+  public ProcessResult runBinary(
+      Path workingDirectory, String processToRun, boolean expectEmptyError, String... arguments)
+      throws Exception {
+    return runBinary(workingDirectory, processToRun, expectEmptyError, null, arguments);
   }
 
   /**

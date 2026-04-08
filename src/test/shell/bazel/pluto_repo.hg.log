@@ -1,0 +1,189 @@
+# Run of `hg log --patch --git --debug` after running `setup_hg_pluto_repo.sh`
+changeset:   7:e0fd3d20e082378d786f69319f6b74117ac4dc88
+tag:         tip
+phase:       draft
+parent:      6:fa13513a11636455aa2eeafd811f1706b2d9cf3a
+parent:      -1:0000000000000000000000000000000000000000
+manifest:    7:80737994737f5f58ba4256f64539a0e2c472d2db
+user:        John Doe <john@example.com
+date:        Fri Dec 29 20:33:35 2017 -0500
+files:       .hgtags
+extra:       branch=default
+description:
+tag 3-subdir-bare
+
+
+diff --git a/.hgtags b/.hgtags
+--- a/.hgtags
++++ b/.hgtags
+@@ -1,3 +1,4 @@
+ 6ecbb2073e1194a769c8977505d7239f343a97c0 0-initial
+ 7b0f8b9d8e958d433cedbab71a048b98c169338a 1-build
+ 74f31b81d93c78c158b6961df4235dc4ba50a756 2-subdir
++fa13513a11636455aa2eeafd811f1706b2d9cf3a 3-subdir-bare
+
+changeset:   6:fa13513a11636455aa2eeafd811f1706b2d9cf3a
+tag:         3-subdir-bare
+phase:       draft
+parent:      5:a5c5a6bc585fe5a906aaf40a72f87b9835cfbbc9
+parent:      -1:0000000000000000000000000000000000000000
+manifest:    6:4572169117249e9f3b3e64f0fad8bea9e9a7b32e
+user:        John Doe <john@example.com>
+date:        Fri Dec 29 20:33:35 2017 -0500
+files-:      WORKSPACE pluto/BUILD
+extra:       branch=default
+description:
+Remove BUILD and WORKSPACE files
+
+
+diff --git a/WORKSPACE b/WORKSPACE
+deleted file mode 100644
+diff --git a/pluto/BUILD b/pluto/BUILD
+deleted file mode 100644
+--- a/pluto/BUILD
++++ /dev/null
+@@ -1,5 +0,0 @@
+-filegroup(
+-    name = "pluto",
+-    srcs = ["info"],
+-    visibility = ["//visibility:public"],
+-)
+
+changeset:   5:a5c5a6bc585fe5a906aaf40a72f87b9835cfbbc9
+phase:       draft
+parent:      4:74f31b81d93c78c158b6961df4235dc4ba50a756
+parent:      -1:0000000000000000000000000000000000000000
+manifest:    5:a5ec8b21a7314ba164af8bd267107846e959e5f0
+user:        John Doe <john@example.com
+date:        Wed Dec 27 20:54:31 2017 +0000
+files:       .hgtags
+extra:       branch=default
+description:
+tag 2-subdir
+
+
+diff --git a/.hgtags b/.hgtags
+--- a/.hgtags
++++ b/.hgtags
+@@ -1,2 +1,3 @@
+ 6ecbb2073e1194a769c8977505d7239f343a97c0 0-initial
+ 7b0f8b9d8e958d433cedbab71a048b98c169338a 1-build
++74f31b81d93c78c158b6961df4235dc4ba50a756 2-subdir
+
+changeset:   4:74f31b81d93c78c158b6961df4235dc4ba50a756
+tag:         2-subdir
+phase:       draft
+parent:      3:baa0483a956434b5a104147d52de87eb03cb5654
+parent:      -1:0000000000000000000000000000000000000000
+manifest:    4:6d9ff0a81eb3b35b58fb10a31327ffaaaa952794
+user:        John Doe <john@example.com>
+date:        Wed Dec 27 20:54:31 2017 +0000
+files+:      pluto/BUILD pluto/info
+files-:      BUILD info
+extra:       branch=default
+description:
+Move pluto files into pluto subdirectory
+
+
+diff --git a/BUILD b/pluto/BUILD
+rename from BUILD
+rename to pluto/BUILD
+diff --git a/info b/pluto/info
+rename from info
+rename to pluto/info
+
+changeset:   3:baa0483a956434b5a104147d52de87eb03cb5654
+phase:       draft
+parent:      2:7b0f8b9d8e958d433cedbab71a048b98c169338a
+parent:      -1:0000000000000000000000000000000000000000
+manifest:    3:9e1854f3d155df0c3f4e666dba25849d0dfee5b1
+user:        John Doe <john@example.com
+date:        Thu Jul 16 04:50:53 2015 -0700
+files:       .hgtags
+extra:       branch=default
+description:
+tag 1-build
+
+
+diff --git a/.hgtags b/.hgtags
+--- a/.hgtags
++++ b/.hgtags
+@@ -1,1 +1,2 @@
+ 6ecbb2073e1194a769c8977505d7239f343a97c0 0-initial
++7b0f8b9d8e958d433cedbab71a048b98c169338a 1-build
+
+changeset:   2:7b0f8b9d8e958d433cedbab71a048b98c169338a
+tag:         1-build
+phase:       draft
+parent:      1:16a138603930599de37a8b5ee52ddf903b633c45
+parent:      -1:0000000000000000000000000000000000000000
+manifest:    2:947f8c2a0641796c7ace7b5a20a634699d848019
+user:        John Doe <john@example.com>
+date:        Thu Jul 16 04:50:53 2015 -0700
+files:       info
+files+:      BUILD WORKSPACE
+extra:       branch=default
+description:
+Add WORKSPACE and BUILD file. Update info because Pluto is no longer a planet.
+
+
+diff --git a/BUILD b/BUILD
+new file mode 100644
+--- /dev/null
++++ b/BUILD
+@@ -0,0 +1,5 @@
++filegroup(
++    name = "pluto",
++    srcs = ["info"],
++    visibility = ["//visibility:public"],
++)
+diff --git a/WORKSPACE b/WORKSPACE
+new file mode 100644
+diff --git a/info b/info
+--- a/info
++++ b/info
+@@ -1,1 +1,1 @@
+-Pluto is a planet
++Pluto is a dwarf planet
+
+changeset:   1:16a138603930599de37a8b5ee52ddf903b633c45
+phase:       draft
+parent:      0:6ecbb2073e1194a769c8977505d7239f343a97c0
+parent:      -1:0000000000000000000000000000000000000000
+manifest:    1:016746681fd00e485548c1026745f65b587b4b43
+user:        John Doe <john@example.com
+date:        Thu Jul 16 04:49:35 2015 -0700
+files+:      .hgtags
+extra:       branch=default
+description:
+tag 0-initial
+
+
+diff --git a/.hgtags b/.hgtags
+new file mode 100644
+--- /dev/null
++++ b/.hgtags
+@@ -0,0 +1,1 @@
++6ecbb2073e1194a769c8977505d7239f343a97c0 0-initial
+
+changeset:   0:6ecbb2073e1194a769c8977505d7239f343a97c0
+tag:         0-initial
+phase:       draft
+parent:      -1:0000000000000000000000000000000000000000
+parent:      -1:0000000000000000000000000000000000000000
+manifest:    0:5347542e3a1db51a5b4f609492c80b848bdc651a
+user:        John Doe <john@example.com>
+date:        Thu Jul 16 04:49:35 2015 -0700
+files+:      info
+extra:       branch=default
+description:
+Initial commit.
+
+
+diff --git a/info b/info
+new file mode 100644
+--- /dev/null
++++ b/info
+@@ -0,0 +1,1 @@
++Pluto is a planet
+

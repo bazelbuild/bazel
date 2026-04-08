@@ -80,8 +80,10 @@ public abstract class ProcessParameters {
     public abstract Builder setEnvironment(ImmutableMap<String, String> map);
 
     public Builder setEnvironment(Map<String, String> map) {
-      setEnvironment(ImmutableMap.copyOf(map));
-      return this;
+      if (map == null) {
+        return this;
+      }
+      return setEnvironment(ImmutableMap.copyOf(map));
     }
 
     public abstract Builder setTimeoutMillis(long millis);

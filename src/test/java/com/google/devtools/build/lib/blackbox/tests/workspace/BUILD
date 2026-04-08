@@ -73,6 +73,23 @@ java_test(
 )
 
 java_test(
+    name = "HgRepositoryBlackBoxTest",
+    timeout = "moderate",
+    srcs = [
+        "HgRepositoryBlackBoxTest.java",
+        "HgRepositoryHelper.java",
+        "RepoWithRuleWritingTextGenerator.java",
+        "WorkspaceTestUtils.java",
+    ],
+    tags = ["black_box_test"],
+    deps = common_deps + [
+        "//src/test/java/com/google/devtools/build/lib/events:testutil",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/vfs/util",
+    ],
+)
+
+java_test(
     name = "PatchApiBlackBoxTest",
     timeout = "moderate",
     srcs = [

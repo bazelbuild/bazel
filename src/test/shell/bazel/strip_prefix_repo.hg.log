@@ -1,0 +1,26 @@
+# Run of `hg log --patch --git --debug` after running `setup_hg_strip_prefix_repo.sh`
+changeset:   0:ee31cd98d80d6c9b6a2e1dd0fdfeb27538da3163
+tag:         tip
+phase:       draft
+parent:      -1:0000000000000000000000000000000000000000
+parent:      -1:0000000000000000000000000000000000000000
+manifest:    0:da4484482c254a956aba20a7a4fcb586eac04d25
+user:        Yun Peng <pcloudy@google.com>
+date:        Mon Nov 23 17:31:04 2020 +0100
+files+:      prefix-foo/BUILD prefix-foo/WORKSPACE prefix-foo/defs.bzl
+extra:       branch=default
+description:
+First commit
+
+
+diff --git a/prefix-foo/BUILD b/prefix-foo/BUILD
+new file mode 100644
+diff --git a/prefix-foo/WORKSPACE b/prefix-foo/WORKSPACE
+new file mode 100644
+diff --git a/prefix-foo/defs.bzl b/prefix-foo/defs.bzl
+new file mode 100644
+--- /dev/null
++++ b/prefix-foo/defs.bzl
+@@ -0,0 +1,1 @@
++FOO=123
+

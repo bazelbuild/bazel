@@ -878,6 +878,21 @@ sh_test(
 )
 
 sh_test(
+    name = "starlark_mercurial_repository_test",
+    size = "large",
+    srcs = ["starlark_mercurial_repository_test.sh"],
+    data = [
+        "setup_hg_pluto_repo.sh",
+	      "setup_hg_refetch_repo.sh",
+	      "setup_hg_strip_prefix_repo.sh",
+        ":test-deps",
+        "//src/test/shell/bazel/testdata:git-repos",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    exec_compatible_with = ["//:highcpu_machine"],
+)
+
+sh_test(
     name = "local_repository_test",
     size = "large",
     srcs = ["local_repository_test.sh"],

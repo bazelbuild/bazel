@@ -15,127 +15,126 @@
 
 package com.google.devtools.build.lib.blackbox.tests.workspace;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestContext;
 import com.google.devtools.build.lib.blackbox.framework.ProcessResult;
 import java.nio.file.Path;
 
 /**
- * Helper class for working with local git repository in tests. Should not be used outside of tests.
+ * Helper class for working with local mercurial repository in tests. Should not be used outside of tests.
  */
-class GitRepositoryHelper {
+class HgRepositoryHelper {
   private final BlackBoxTestContext context;
   private final Path root;
 
   /**
    * Constructs the helper.
    *
-   * @param context {@link BlackBoxTestContext} for running git process
-   * @param root working directory for running git process, expected to be existing.
+   * @param context {@link BlackBoxTestContext} for running mercurial process
+   * @param root working directory for running mercurial process, expected to be existing.
    */
-  GitRepositoryHelper(BlackBoxTestContext context, Path root) {
+  HgRepositoryHelper(BlackBoxTestContext context, Path root) {
     this.context = context;
     this.root = root;
   }
 
   /**
-   * Calls 'git init' and 'git config' for specifying test user and email.
+   * Calls 'hg init'.
    *
-   * @throws Exception related to the invocation of the external git process (like IOException or
+   * @throws Exception related to the invocation of the external hg process (like IOException or
    *     TimeoutException) or ProcessRunnerException if the process returned not expected return
    *     code.
    */
   void init() throws Exception {
-    runGit("init");
-    runGit("config", "user.email", "me@example.com");
-    runGit("config", "user.name", "E X Ample");
-    runGit("commit", "--allow-empty", "-m", "Initial commit");
-    runGit("branch", "-M", "main");
+    runHg("init");
+    runHg("commit", "-m", "Initial commit", "--config", "ui.allowemptycommit=1");
   }
 
   /**
-   * Recursively updates git index for all the files and directories under the working directory.
+   * Add all files for the next commit.
    *
-   * @throws Exception related to the invocation of the external git process (like IOException or
+   * @throws Exception related to the invocation of the external hg process (like IOException or
    *     TimeoutException) or ProcessRunnerException if the process returned not expected return
    *     code.
    */
   void addAll() throws Exception {
-    runGit("add", "-A");
+    runHg("add");
   }
 
   /**
    * Commits all staged changed.
    *
    * @param commitMessage commit message
-   * @throws Exception related to the invocation of the external git process (like IOException or
+   * @throws Exception related to the invocation of the external hg process (like IOException or
    *     TimeoutException) or ProcessRunnerException if the process returned not expected return
    *     code.
    */
   void commit(String commitMessage) throws Exception {
-    runGit("commit", "-m", commitMessage);
+    runHg("commit", "-m", commitMessage);
   }
 
   /**
    * Tags the HEAD commit.
    *
    * @param tagName tag name
-   * @throws Exception related to the invocation of the external git process (like IOException or
+   * @throws Exception related to the invocation of the external hg process (like IOException or
    *     TimeoutException) or ProcessRunnerException if the process returned not expected return
    *     code.
    */
   void tag(String tagName) throws Exception {
-    runGit("tag", tagName);
+    runHg("tag", tagName);
   }
 
   /**
    * Creates the new branch with the specified name at HEAD.
    *
    * @param branchName branch name
-   * @throws Exception related to the invocation of the external git process (like IOException or
+   * @throws Exception related to the invocation of the external hg process (like IOException or
    *     TimeoutException) or ProcessRunnerException if the process returned not expected return
    *     code.
    */
   void createNewBranch(String branchName) throws Exception {
-    runGit("checkout", "-b", branchName);
+    runHg("branch", branchName);
   }
 
   /**
-   * Deletes the local branch with the specified name.
+   * Closes the current branch.
    *
-   * @param branchName branch name
-   * @throws Exception related to the invocation of the external git process (like IOException or
+   * @throws Exception related to the invocation of the external hg process (like IOException or
    *     TimeoutException) or ProcessRunnerException if the process returned not expected return
    *     code.
    */
-  void deleteBranch(String branchName) throws Exception {
-    runGit("branch", "-D", branchName);
+  void closeBranch() throws Exception {
+    runHg("commit", "--close-branch", "-m", "Closing feature branch");
   }
 
   /**
    * Checks out specified revision or reference.
    *
    * @param ref reference to check out
-   * @throws Exception related to the invocation of the external git process (like IOException or
+   * @throws Exception related to the invocation of the external hg process (like IOException or
    *     TimeoutException) or ProcessRunnerException if the process returned not expected return
    *     code.
    */
   void checkout(String ref) throws Exception {
-    runGit("checkout", ref);
+    runHg("update", "-r", ref);
   }
 
   /**
    * Returns the HEAD's commit hash.
    *
-   * @throws Exception related to the invocation of the external git process (like IOException or
+   * @throws Exception related to the invocation of the external hg process (like IOException or
    *     TimeoutException) or ProcessRunnerException if the process returned not expected return
    *     code.
    */
   String getHead() throws Exception {
-    return runGit("rev-parse", "--short", "HEAD");
+    return runHg("id", "--id");
   }
 
-  private String runGit(String... arguments) throws Exception {
-    ProcessResult result = context.runBinary(root, "git", false, arguments);
+  private String runHg(String... arguments) throws Exception {
+    ProcessResult result =
+        context.runBinary(
+            root, "hg", false, ImmutableMap.of("HGUSER", "E X Ample <me@example.com>"), arguments);
     return result.outString();
   }
 }

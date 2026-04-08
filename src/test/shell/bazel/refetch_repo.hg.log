@@ -1,0 +1,62 @@
+# Run of `hg log --patch --git --debug` after running `setup_hg_refetch_repo.sh`
+changeset:   2:ddfce8df599ad91e9f3416ed1a89f60321fa3f05
+tag:         tip
+phase:       draft
+parent:      1:e34c5d9fe274c05d6ff499d249a5461770b8be8e
+parent:      -1:0000000000000000000000000000000000000000
+manifest:    2:3dbce3d3a887ef3272ea7d5ab17f9e81af169575
+user:        John Doe <john@example.com>
+date:        Fri Dec 29 18:36:06 2017 -0500
+files+:      gdir/BUILD
+files-:      BUILD
+extra:       branch=default
+description:
+Move BUILD into a subdirectory
+
+
+diff --git a/BUILD b/gdir/BUILD
+rename from BUILD
+rename to gdir/BUILD
+
+changeset:   1:e34c5d9fe274c05d6ff499d249a5461770b8be8e
+phase:       draft
+parent:      0:92872ece5144313d5f29000322ea77c9a7d7159a
+parent:      -1:0000000000000000000000000000000000000000
+manifest:    1:20410c1a3eb4cc1a7fe857e6e55fe6de3832838d
+user:        John Doe <john@example.com>
+date:        Wed Nov 25 13:20:07 2015 +0100
+files:       BUILD
+extra:       branch=default
+description:
+Change 1 to 2
+
+
+diff --git a/BUILD b/BUILD
+--- a/BUILD
++++ b/BUILD
+@@ -1,1 +1,1 @@
+-genrule(name="g", srcs=[], outs=["go"], cmd="echo GIT 1 > $@")
++genrule(name="g", srcs=[], outs=["go"], cmd="echo GIT 2 > $@")
+
+changeset:   0:92872ece5144313d5f29000322ea77c9a7d7159a
+phase:       draft
+parent:      -1:0000000000000000000000000000000000000000
+parent:      -1:0000000000000000000000000000000000000000
+manifest:    0:33941611f9b42a578123ecfd2d3f8d29408f2241
+user:        John Doe <john@example.com>
+date:        Wed Nov 25 13:19:52 2015 +0100
+files+:      BUILD WORKSPACE
+extra:       branch=default
+description:
+Initial checkin.
+
+
+diff --git a/BUILD b/BUILD
+new file mode 100644
+--- /dev/null
++++ b/BUILD
+@@ -0,0 +1,1 @@
++genrule(name="g", srcs=[], outs=["go"], cmd="echo GIT 1 > $@")
+diff --git a/WORKSPACE b/WORKSPACE
+new file mode 100644
+
