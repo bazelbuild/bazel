@@ -51,6 +51,11 @@ fi
 #
 # Creates the Mercurial repositories in the test temporary directory.
 function set_up() {
+  if ! command -v hg &> /dev/null; then
+      echo "Error: hg is not installed."
+      exit 1
+  fi
+
   local repos_dir=$TEST_TMPDIR/repos
   if [ -e "$repos_dir" ]; then
     rm -rf $repos_dir

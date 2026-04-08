@@ -81,7 +81,7 @@ java_test(
         "RepoWithRuleWritingTextGenerator.java",
         "WorkspaceTestUtils.java",
     ],
-    tags = ["black_box_test"],
+    tags = ["black_box_test", "manual"],  # Requires mercurial to be installed.
     deps = common_deps + [
         "//src/test/java/com/google/devtools/build/lib/events:testutil",
         "//src/main/java/com/google/devtools/build/lib/vfs",

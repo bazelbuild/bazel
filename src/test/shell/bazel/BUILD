@@ -890,6 +890,7 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     exec_compatible_with = ["//:highcpu_machine"],
+    tags = ["manual"], # Requires mercurial to be installed.
 )
 
 sh_test(
