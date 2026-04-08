@@ -281,7 +281,7 @@ def _http_file_impl(ctx):
     ]
     downloaded_file_path = ctx.attr.downloaded_file_path
     downloaded_file_name = downloaded_file_path.split("/")[-1]
-    apparent_repo_name = ctx.name.rsplit("+", 1)[-1] if ctx.name.startswith("+") else ctx.name
+    apparent_repo_name = ctx.original_name
     download_path = ctx.path("file/" + downloaded_file_path)
     if download_path in forbidden_files or not str(download_path).startswith(str(repo_root)):
         fail("'%s' cannot be used as downloaded_file_path in http_file" % ctx.attr.downloaded_file_path)
