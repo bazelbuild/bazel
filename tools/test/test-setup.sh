@@ -328,7 +328,7 @@ if [[ -n "$TEST_UNDECLARED_OUTPUTS_DIR" && -n "$TEST_UNDECLARED_OUTPUTS_MANIFEST
       # stat has different flags for different systems. -c is supported by GNU,
       # and -f by BSD (and thus OSX). Try both.
       file_size="$(stat -f%z "$undeclared_output" 2>/dev/null || stat -c%s "$undeclared_output" 2>/dev/null || echo "Could not stat $undeclared_output")"
-      file_type="$(file -L -b --mime-type "$undeclared_output")"
+      file_type="$(file -L -b --mime-type "$undeclared_output" || echo "Could not establish file type for $undeclared_output")"
 
       printf "$rel_path\t$file_size\t$file_type\n"
     done <<< "$undeclared_outputs" \
