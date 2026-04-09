@@ -42,6 +42,10 @@ sh_test(
     data = [
         "//src/main/tools:linux-sandbox",
     ],
+    tags = [
+        "no_macos",
+        "no_windows",
+    ],
     deps = [
         "//src/test/shell:bashunit",
         "@bazel_tools//tools/bash/runfiles",
