@@ -138,6 +138,8 @@ tasks:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
       - ln -sf $OUTPUT_BASE/external $HOME/bazeltest/external
+      - unset ANDROID_HOME
+      - unset ANDROID_NDK_HOME
     build_flags:
       - "--config=ci-macos"
     build_targets:

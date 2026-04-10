@@ -128,9 +128,8 @@ tasks:
       - mkdir $HOME/bazeltest
       - ln -sf $OUTPUT_BASE/external $HOME/bazeltest/external
       - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
-    environment:
-      ANDROID_HOME: ""
-      ANDROID_NDK_HOME: ""
+      - unset ANDROID_HOME
+      - unset ANDROID_NDK_HOME
     build_flags:
       - "--config=ci-macos"
     build_targets:
