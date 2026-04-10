@@ -29,6 +29,9 @@ from src.test.py.bazel import test_base
 class RepoContentsCacheTest(test_base.TestBase):
 
   def assertNoUnexpectedWarning(self, stderr):
+    # On Windows, gRPC and Abseil may occasionally output harmless log initialization warnings
+    # during Bazel startup (e.g., "WARNING: All log messages before absl::InitializeLog() ...").
+    # We explicitly ignore this benign warning to avoid false-positive test failures.
     for line in stderr.splitlines():
       if 'WARNING' in line:
         if 'All log messages before absl::InitializeLog() is called are written to STDERR' not in line:
