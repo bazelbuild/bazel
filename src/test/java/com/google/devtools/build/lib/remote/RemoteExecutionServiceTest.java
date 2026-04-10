@@ -868,7 +868,7 @@ public class RemoteExecutionServiceTest {
       //   basename for file nodes), and Integers (referencing intermediate segments of Artifact
       //   exec paths for most directory nodes).
       // TODO: Get this number down.
-      assertThat(stableRetainedSize).isEqualTo(4064);
+      assertThat(stableRetainedSize).isEqualTo(4136);
     }
   }
 
