@@ -83,13 +83,14 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
     assertThat(tagFilter.apply(tag1)).isTrue();
     assertThat(tagFilter.apply(tag2)).isFalse();
     assertThat(tagFilter.apply(tag1b)).isTrue();
-    // Applying same tag as positive and negative filter produces an empty
-    // result because the negative filter is applied first and positive filter will
-    // not match anything.
+    // With override behavior: applying same tag as positive and then negative means the last
+    // occurrence wins. So "tag2" then "-tag2" results in tag2 being excluded.
+    // Final state: required={}, excluded={tag2}
+    // Targets without tag2 match (tag1, tag1b), targets with tag2 don't match (tag2).
     tagFilter = TargetUtils.tagFilter(Lists.newArrayList("tag2", "-tag2"));
-    assertThat(tagFilter.apply(tag1)).isFalse();
+    assertThat(tagFilter.apply(tag1)).isTrue();
     assertThat(tagFilter.apply(tag2)).isFalse();
-    assertThat(tagFilter.apply(tag1b)).isFalse();
+    assertThat(tagFilter.apply(tag1b)).isTrue();
     tagFilter = TargetUtils.tagFilter(Lists.newArrayList("tag2", "-tag1"));
     assertThat(tagFilter.apply(tag1)).isFalse();
     assertThat(tagFilter.apply(tag2)).isTrue();
