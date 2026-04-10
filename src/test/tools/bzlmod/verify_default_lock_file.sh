@@ -35,20 +35,28 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 # they are tranitive dependencies for all Bazel users (although fetched lazily).
 expected_modules=(
   abseil-cpp
+  abseil-py
   apple_support
+  aspect_bazel_lib
   bazel_features
+  bazel_lib
   bazel_skylib
+  bazel_worker_api
+  bazel_worker_java
   buildozer
+  gawk
+  gazelle
   googletest
+  jq.bzl
   jsoncpp
-  nlohmann_json
+  package_metadata
   platforms
   protobuf
   pybind11_bazel
   re2
   rules_android
-  rules_apple
   rules_cc
+  rules_go
   rules_java
   rules_jvm_external
   rules_kotlin
@@ -56,10 +64,11 @@ expected_modules=(
   rules_pkg
   rules_proto
   rules_python
+  rules_robolectric
   rules_shell
-  rules_swift
   stardoc
-  swift_argument_parser
+  tar.bzl
+  yq.bzl
   zlib
 )
 
