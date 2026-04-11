@@ -110,4 +110,40 @@ function test_invalid_flag_error() {
   expect_log "Invalid registry URL: foobarbaz"
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/28954
+function test_info_with_label_option_referencing_external_repo() {
+  if [[ "$PRODUCT_NAME" != "bazel" ]]; then
+    return 0
+  fi
+
+  local mod1_dir="${TEST_TMPDIR}/mod1"
+  mkdir -p "${mod1_dir}"
+
+  cat > "${mod1_dir}/MODULE.bazel" <<'EOF'
+module(name = "mod1")
+EOF
+
+  cat > "${mod1_dir}/BUILD.bazel" <<'EOF'
+platform(
+    name = "host_platform",
+    constraint_values = [],
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > MODULE.bazel <<EOF
+module(name = "mod2")
+
+bazel_dep(name = "mod1", version = "0.0.0")
+
+local_path_override(
+    module_name = "mod1",
+    path = "${mod1_dir}",
+)
+EOF
+
+  bazel info --host_platform=@mod1//:host_platform >$TEST_log 2>&1 \
+    || fail "${PRODUCT_NAME} info failed with label option referencing external repo"
+}
+
 run_suite "Integration tests for ${PRODUCT_NAME} info."
