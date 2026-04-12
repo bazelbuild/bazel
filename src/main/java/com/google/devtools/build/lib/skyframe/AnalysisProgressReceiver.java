@@ -70,9 +70,7 @@ public class AnalysisProgressReceiver {
     StringBuilder sb = new StringBuilder();
 
     long targets = configuredTargetsCompleted.get();
-    sb.append(StringUtil.formatCount(targets))
-        .append(targets == 1 ? " target" : " targets")
-        .append(" configured");
+    sb.append(StringUtil.formatCount(targets)).append(targets == 1 ? " target" : " targets").append(" configured");
 
     long downloadedTargets = configuredTargetsDownloaded.get();
     if (downloadedTargets > 0) {
@@ -81,9 +79,7 @@ public class AnalysisProgressReceiver {
 
     long aspects = configuredAspectsCompleted.get();
     if (aspects > 0) {
-      sb.append(", ")
-          .append(StringUtil.formatCount(aspects))
-          .append(aspects == 1 ? " aspect application" : " aspect applications");
+      sb.append(", ").append(StringUtil.formatCount(aspects)).append(aspects == 1 ? " aspect application" : " aspect applications");
       long downloadedAspects = configuredAspectsDownloaded.get();
       if (downloadedAspects > 0) {
         sb.append(" (").append(StringUtil.formatCount(downloadedAspects)).append(" remote cache hits)");

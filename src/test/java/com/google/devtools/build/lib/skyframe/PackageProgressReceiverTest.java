@@ -79,7 +79,6 @@ public class PackageProgressReceiverTest {
     // Verify that large package counts (>= 10,000) are formatted with comma separators.
     PackageProgressReceiver progress = new PackageProgressReceiver();
 
-    // Load 11,234 packages (>= 10,000 threshold)
     for (int i = 0; i < 11234; i++) {
       PackageIdentifier id = PackageIdentifier.createInMainRepo("pkg" + i);
       progress.startReadPackage(id);
@@ -95,7 +94,6 @@ public class PackageProgressReceiverTest {
     // Verify that large pending package counts (>= 10,000) are formatted with comma separators.
     PackageProgressReceiver progress = new PackageProgressReceiver();
 
-    // Start loading 11,500 packages without completing them (>= 10,000 threshold)
     for (int i = 0; i < 11500; i++) {
       PackageIdentifier id = PackageIdentifier.createInMainRepo("pending/pkg" + i);
       progress.startReadPackage(id);
@@ -110,7 +108,6 @@ public class PackageProgressReceiverTest {
     // Verify that counts below 10,000 (IEEE style threshold) are NOT formatted with commas.
     PackageProgressReceiver progress = new PackageProgressReceiver();
 
-    // Load 1,234 packages (below 10,000 threshold)
     for (int i = 0; i < 1234; i++) {
       PackageIdentifier id = PackageIdentifier.createInMainRepo("pkg" + i);
       progress.startReadPackage(id);
@@ -118,7 +115,6 @@ public class PackageProgressReceiverTest {
     }
 
     String state = progress.progressState().getFirst();
-    // Numbers below 10,000 should not have commas
     assertThat(state).contains("1234 packages loaded");
     assertThat(state).doesNotContain("1,234");
   }

@@ -398,7 +398,6 @@ public final class SpawnStatsTest {
             .setRunnerName("darwin-sandbox")
             .build();
 
-    // Simulate 12,345 actions with spawns (>= 10,000 threshold)
     for (int i = 0; i < 12345; i++) {
       ArrayList<SpawnResult> spawns = new ArrayList<>();
       spawns.add(spawn);
@@ -406,7 +405,6 @@ public final class SpawnStatsTest {
       stats.incrementActionCount();
     }
 
-    // Simulate 11,234 internal actions (no spawns) (>= 10,000 threshold)
     for (int i = 0; i < 11234; i++) {
       stats.incrementActionCount();
     }
@@ -424,7 +422,6 @@ public final class SpawnStatsTest {
             .setRunnerName("darwin-sandbox")
             .build();
 
-    // Simulate 2,345 actions with spawns (< 10,000 threshold)
     for (int i = 0; i < 2345; i++) {
       ArrayList<SpawnResult> spawns = new ArrayList<>();
       spawns.add(spawn);
@@ -432,12 +429,10 @@ public final class SpawnStatsTest {
       stats.incrementActionCount();
     }
 
-    // Simulate 1,234 internal actions (no spawns) (< 10,000 threshold)
     for (int i = 0; i < 1234; i++) {
       stats.incrementActionCount();
     }
 
-    // Numbers below 10,000 should not have commas
     assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
         .isEqualTo("3579 processes: 1234 internal, 2345 darwin-sandbox.");
   }

@@ -124,7 +124,6 @@ public class AnalysisProgressReceiverTest {
     // Verify that large target counts are formatted with comma separators for readability.
     AnalysisProgressReceiver progress = new AnalysisProgressReceiver();
 
-    // Configure 12,345 targets
     for (int i = 0; i < 12345; i++) {
       progress.doneConfigureTarget();
     }
@@ -138,7 +137,6 @@ public class AnalysisProgressReceiverTest {
     // Verify that large downloaded target counts (>= 10,000) are formatted with comma separators.
     AnalysisProgressReceiver progress = new AnalysisProgressReceiver();
 
-    // Download 15,678 configured targets from remote cache (>= 10,000 threshold)
     for (int i = 0; i < 15678; i++) {
       progress.doneDownloadedConfiguredTarget();
     }
@@ -153,7 +151,6 @@ public class AnalysisProgressReceiverTest {
     // Verify that large aspect counts (>= 10,000) are formatted with comma separators.
     AnalysisProgressReceiver progress = new AnalysisProgressReceiver();
 
-    // Configure 12,500 aspects (>= 10,000 threshold)
     for (int i = 0; i < 12500; i++) {
       progress.doneConfigureAspect();
     }
@@ -167,7 +164,6 @@ public class AnalysisProgressReceiverTest {
     // Verify that large downloaded aspect counts (>= 10,000) are formatted with comma separators.
     AnalysisProgressReceiver progress = new AnalysisProgressReceiver();
 
-    // Download 11,234 configured aspects from remote cache (>= 10,000 threshold)
     for (int i = 0; i < 11234; i++) {
       progress.doneDownloadedConfiguredAspect();
     }
@@ -182,13 +178,11 @@ public class AnalysisProgressReceiverTest {
     // Verify that counts below 10,000 (IEEE style threshold) are NOT formatted with commas.
     AnalysisProgressReceiver progress = new AnalysisProgressReceiver();
 
-    // Configure 5,678 targets (below 10,000 threshold)
     for (int i = 0; i < 5678; i++) {
       progress.doneConfigureTarget();
     }
 
     String progressString = progress.getProgressString();
-    // Numbers below 10,000 should not have commas
     assertThat(progressString).contains("5678 targets configured");
     assertThat(progressString).doesNotContain("5,678");
   }

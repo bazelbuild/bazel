@@ -157,10 +157,7 @@ public class SpawnStats {
       }
       stringSummary.append(separator);
       separator = ", ";
-      stringSummary
-          .append(StringUtil.formatCount(runnerStats.getValue()))
-          .append(' ')
-          .append(runnerStats.getKey());
+      stringSummary.append(StringUtil.formatCount(runnerStats.getValue())).append(' ').append(runnerStats.getKey());
     }
     stringSummary.append('.');
     return stringSummary.toString();
