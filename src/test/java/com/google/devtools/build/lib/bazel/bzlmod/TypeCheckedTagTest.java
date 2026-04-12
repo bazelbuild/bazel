@@ -64,8 +64,10 @@ public class TypeCheckedTagTest {
             createTagClass(attr("foo", Type.INTEGER).build()),
             buildTag("tag_name").addAttr("foo", StarlarkInt.of(3)).setDevDependency().build(),
             /* labelConverter= */ null,
-            "root module");
-    assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo");
+            "root module",
+            /* moduleIndex= */ 0,
+            /* tagIndex= */ 0);
+    assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo", "_sort_key");
     assertThat(getattr(typeCheckedTag, "foo")).isEqualTo(StarlarkInt.of(3));
     assertThat(typeCheckedTag.isDevDependency()).isTrue();
   }
@@ -83,8 +85,10 @@ public class TypeCheckedTagTest {
             new LabelConverter(
                 PackageIdentifier.parse("@myrepo//mypkg"),
                 createRepositoryMapping(createModuleKey("test", "1.0"), "repo", "other_repo")),
-            "root module");
-    assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo");
+            "root module",
+            /* moduleIndex= */ 0,
+            /* tagIndex= */ 0);
+    assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo", "_sort_key");
     assertThat(getattr(typeCheckedTag, "foo"))
         .isEqualTo(
             StarlarkList.immutableOf(
@@ -104,8 +108,10 @@ public class TypeCheckedTagTest {
             new LabelConverter(
                 PackageIdentifier.parse("@myrepo//mypkg"),
                 createRepositoryMapping(createModuleKey("test", "1.0"), "repo", "other_repo")),
-            "root module");
-    assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo");
+            "root module",
+            /* moduleIndex= */ 0,
+            /* tagIndex= */ 0);
+    assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo", "_sort_key");
     assertThat(getattr(typeCheckedTag, "foo")).isEqualTo(Starlark.NONE);
     assertThat(typeCheckedTag.isDevDependency()).isTrue();
   }
@@ -120,8 +126,10 @@ public class TypeCheckedTagTest {
                     .build()),
             buildTag("tag_name").build(),
             null,
-            "root module");
-    assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo");
+            "root module",
+            /* moduleIndex= */ 0,
+            /* tagIndex= */ 0);
+    assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo", "_sort_key");
     assertThat(getattr(typeCheckedTag, "foo"))
         .isEqualTo(
             Dict.builder()
@@ -143,8 +151,10 @@ public class TypeCheckedTagTest {
                 .addAttr("quux", StarlarkList.immutableOf("quuxValue1", "quuxValue2"))
                 .build(),
             /* labelConverter= */ null,
-            "root module");
-    assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo", "bar", "quux");
+            "root module",
+            /* moduleIndex= */ 0,
+            /* tagIndex= */ 0);
+    assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo", "bar", "quux", "_sort_key");
     assertThat(getattr(typeCheckedTag, "foo")).isEqualTo("fooValue");
     assertThat(getattr(typeCheckedTag, "bar")).isEqualTo(StarlarkInt.of(3));
     assertThat(getattr(typeCheckedTag, "quux"))
@@ -162,7 +172,9 @@ public class TypeCheckedTagTest {
                     createTagClass(attr("foo", Type.STRING).mandatory().build()),
                     buildTag("tag_name").build(),
                     /* labelConverter= */ null,
-                    "root module"));
+                    "root module",
+                    /* moduleIndex= */ 0,
+                    /* tagIndex= */ 0));
     assertThat(e).hasMessageThat().contains("mandatory attribute 'foo' isn't being specified");
   }
 
@@ -179,7 +191,9 @@ public class TypeCheckedTagTest {
                             .build()),
                     buildTag("tag_name").addAttr("foo", "maybe").build(),
                     /* labelConverter= */ null,
-                    "root module"));
+                    "root module",
+                    /* moduleIndex= */ 0,
+                    /* tagIndex= */ 0));
     assertThat(e)
         .hasMessageThat()
         .contains(
@@ -196,7 +210,74 @@ public class TypeCheckedTagTest {
                     createTagClass(attr("foo", Type.STRING).build()),
                     buildTag("tag_name").addAttr("bar", "maybe").build(),
                     /* labelConverter= */ null,
-                    "root module"));
+                    "root module",
+                    /* moduleIndex= */ 0,
+                    /* tagIndex= */ 0));
     assertThat(e).hasMessageThat().contains("unknown attribute 'bar' provided");
+  }
+
+  @Test
+  public void sortKey() throws Exception {
+    TypeCheckedTag module1Tag1 =
+        TypeCheckedTag.create(
+            createTagClass(attr("foo", Type.STRING).build()),
+            buildTag("tag_name").addAttr("foo", "value1").build(),
+            /* labelConverter= */ null,
+            "root module",
+            /* moduleIndex= */ 1,
+            /* tagIndex= */ 1);
+    TypeCheckedTag module2Tag1 =
+        TypeCheckedTag.create(
+            createTagClass(attr("foo", Type.STRING).build()),
+            buildTag("tag_name").addAttr("foo", "value2").build(),
+            /* labelConverter= */ null,
+            "root module",
+            /* moduleIndex= */ 2,
+            /* tagIndex= */ 1);
+    TypeCheckedTag module1Tag2 =
+        TypeCheckedTag.create(
+            createTagClass(attr("foo", Type.STRING).build()),
+            buildTag("tag_name").addAttr("foo", "value3").build(),
+            /* labelConverter= */ null,
+            "root module",
+            /* moduleIndex= */ 1,
+            /* tagIndex= */ 2);
+    TypeCheckedTag module2Tag2 =
+        TypeCheckedTag.create(
+            createTagClass(attr("foo", Type.STRING).build()),
+            buildTag("tag_name").addAttr("foo", "value4").build(),
+            /* labelConverter= */ null,
+            "root module",
+            /* moduleIndex= */ 2,
+            /* tagIndex= */ 2);
+
+    @SuppressWarnings("unchecked") // We know that _sort_key is a Comparable.
+    var keyM1T1 = (Comparable<Object>) getattr(module1Tag1, "_sort_key");
+    @SuppressWarnings("unchecked") // We know that _sort_key is a Comparable.
+    var keyM2T1 = (Comparable<Object>) getattr(module2Tag1, "_sort_key");
+    @SuppressWarnings("unchecked") // We know that _sort_key is a Comparable.
+    var keyM1T2 = (Comparable<Object>) getattr(module1Tag2, "_sort_key");
+    @SuppressWarnings("unchecked") // We know that _sort_key is a Comparable.
+    var keyM2T2 = (Comparable<Object>) getattr(module2Tag2, "_sort_key");
+
+    assertThat(keyM1T1).isLessThan(keyM2T1);
+    assertThat(keyM2T1).isGreaterThan(keyM1T1);
+    assertThat(keyM1T1).isLessThan(keyM1T2);
+    assertThat(keyM1T2).isGreaterThan(keyM1T1);
+    assertThat(keyM2T1).isLessThan(keyM2T2);
+    assertThat(keyM2T2).isGreaterThan(keyM2T1);
+  }
+
+  @Test
+  public void sortKeyIsInFieldNames() throws Exception {
+    TypeCheckedTag typeCheckedTag =
+        TypeCheckedTag.create(
+            createTagClass(attr("foo", Type.INTEGER).build()),
+            buildTag("tag_name").addAttr("foo", StarlarkInt.of(3)).build(),
+            /* labelConverter= */ null,
+            "root module",
+            /* moduleIndex= */ 0,
+            /* tagIndex= */ 0);
+    assertThat(typeCheckedTag.getFieldNames()).contains("_sort_key");
   }
 }

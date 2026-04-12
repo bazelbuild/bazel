@@ -98,19 +98,20 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
     this.analysisParallelism =
         loadingPhaseThreadsOption != null ? loadingPhaseThreadsOption.threads : 0;
     var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    this.executionParallelism = buildRequestOptions != null ? buildRequestOptions.jobs : 0;
-    this.useAsyncExecution = buildRequestOptions != null && buildRequestOptions.useAsyncExecution;
+    this.executionParallelism = buildRequestOptions != null ? buildRequestOptions.getJobs() : 0;
+    this.useAsyncExecution =
+        buildRequestOptions != null && buildRequestOptions.getUseAsyncExecution();
     this.asyncExecutionMaxConcurrentActions =
         max(
             buildRequestOptions != null
-                ? min(MAX_JOBS, buildRequestOptions.asyncExecutionMaxConcurrentActions)
+                ? min(MAX_JOBS, buildRequestOptions.getAsyncExecutionMaxConcurrentActions())
                 : 0,
             this.executionParallelism);
     var packageOptions = options.getOptions(PackageOptions.class);
     this.globbingParallelism = packageOptions != null ? packageOptions.globbingThreads : 0;
     var analysisOptions = options.getOptions(AnalysisOptions.class);
     this.cpuHeavySkyKeysThreadPoolSize =
-        analysisOptions != null ? analysisOptions.cpuHeavySkyKeysThreadPoolSize : 0;
+        analysisOptions != null ? analysisOptions.getCpuHeavySkyKeysThreadPoolSize() : 0;
   }
 
   @Override

@@ -112,6 +112,30 @@ message FindMissingBlobsDetails {
   build.bazel.remote.execution.v2.FindMissingBlobsResponse response = 2;
 }
 
+// Details for a call to
+// build.bazel.remote.execution.v2.ContentAddressableStorage.SplitBlob.
+message SplitBlobDetails {
+  // The build.bazel.remote.execution.v2.SplitBlobRequest request
+  // sent.
+  build.bazel.remote.execution.v2.SplitBlobRequest request = 1;
+
+  // The build.bazel.remote.execution.v2.SplitBlobResponse
+  // received.
+  build.bazel.remote.execution.v2.SplitBlobResponse response = 2;
+}
+
+// Details for a call to
+// build.bazel.remote.execution.v2.ContentAddressableStorage.SpliceBlob.
+message SpliceBlobDetails {
+  // The build.bazel.remote.execution.v2.SpliceBlobRequest request
+  // sent.
+  build.bazel.remote.execution.v2.SpliceBlobRequest request = 1;
+
+  // The build.bazel.remote.execution.v2.SpliceBlobResponse
+  // received.
+  build.bazel.remote.execution.v2.SpliceBlobResponse response = 2;
+}
+
 // Details for a call to google.bytestream.Read.
 message ReadDetails {
   // The google.bytestream.ReadRequest sent.
@@ -178,5 +202,7 @@ message RpcCallDetails {
     QueryWriteStatusDetails query_write_status = 14;
     GetCapabilitiesDetails get_capabilities = 12;
     UpdateActionResultDetails update_action_result = 13;
+    SplitBlobDetails split_blob = 15;
+    SpliceBlobDetails splice_blob = 16;
   }
 }

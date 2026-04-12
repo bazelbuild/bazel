@@ -25,9 +25,11 @@ import com.google.devtools.build.lib.remote.http.HttpCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import io.netty.channel.unix.DomainSocketAddress;
 import java.io.IOException;
 import java.net.URI;
+import java.util.Map.Entry;
 import javax.annotation.Nullable;
 
 /** A factory class for providing a {@link CombinedCacheClient}. */
@@ -44,6 +46,7 @@ public final class CombinedCacheClientFactory {
 
   public static CombinedCacheClient create(
       RemoteOptions options,
+      @Nullable PathFragment diskCachePath,
       @Nullable Credentials creds,
       AuthAndTLSOptions authAndTlsOptions,
       Path workingDirectory,
@@ -56,9 +59,8 @@ public final class CombinedCacheClientFactory {
     if (isHttpCache(options)) {
       httpCacheClient = createHttp(options, creds, authAndTlsOptions, digestUtil, retrier);
     }
-    if (isDiskCache(options)) {
-      diskCacheClient =
-          createDiskCache(workingDirectory, options, digestUtil, options.remoteVerifyDownloads);
+    if (diskCachePath != null) {
+      diskCacheClient = createDiskCache(workingDirectory, diskCachePath, digestUtil);
     }
     if (httpCacheClient == null && diskCacheClient == null) {
       throw new IllegalArgumentException(
@@ -69,7 +71,7 @@ public final class CombinedCacheClientFactory {
   }
 
   public static boolean isRemoteCacheOptions(RemoteOptions options) {
-    return isHttpCache(options) || isDiskCache(options);
+    return isHttpCache(options) || options.isDiskCacheEnabled();
   }
 
   private static RemoteCacheClient createHttp(
@@ -94,7 +96,7 @@ public final class CombinedCacheClientFactory {
               Math.toIntExact(options.remoteTimeout.toSeconds()),
               options.remoteMaxConnections,
               options.remoteVerifyDownloads,
-              ImmutableList.copyOf(options.remoteHeaders),
+              effectiveHeaders(options),
               digestUtil,
               retrier,
               creds,
@@ -108,7 +110,7 @@ public final class CombinedCacheClientFactory {
             Math.toIntExact(options.remoteTimeout.toSeconds()),
             options.remoteMaxConnections,
             options.remoteVerifyDownloads,
-            ImmutableList.copyOf(options.remoteHeaders),
+            effectiveHeaders(options),
             digestUtil,
             retrier,
             creds,
@@ -120,19 +122,21 @@ public final class CombinedCacheClientFactory {
   }
 
   public static DiskCacheClient createDiskCache(
-      Path workingDirectory, RemoteOptions options, DigestUtil digestUtil, boolean verifyDownloads)
-      throws IOException {
-    Path cacheDir = workingDirectory.getRelative(Preconditions.checkNotNull(options.diskCache));
-    return new DiskCacheClient(cacheDir, digestUtil, verifyDownloads);
-  }
-
-  public static boolean isDiskCache(RemoteOptions options) {
-    return options.diskCache != null && !options.diskCache.isEmpty();
+      Path workingDirectory, PathFragment diskCachePath, DigestUtil digestUtil) throws IOException {
+    Path cacheDir = workingDirectory.getRelative(Preconditions.checkNotNull(diskCachePath));
+    return new DiskCacheClient(cacheDir, digestUtil);
   }
 
   public static boolean isHttpCache(RemoteOptions options) {
     return options.remoteCache != null
         && (Ascii.toLowerCase(options.remoteCache).startsWith("http://")
             || Ascii.toLowerCase(options.remoteCache).startsWith("https://"));
+  }
+
+  public static ImmutableList<Entry<String, String>> effectiveHeaders(RemoteOptions options) {
+    return ImmutableList.<Entry<String, String>>builder()
+        .addAll(options.remoteHeaders)
+        .addAll(options.remoteCacheHeaders)
+        .build();
   }
 }

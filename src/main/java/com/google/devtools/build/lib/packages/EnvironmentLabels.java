@@ -17,12 +17,10 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -34,18 +32,19 @@ import java.util.Set;
  * <p>Constructor should only be called by {@link EnvironmentGroup}, and this object must never be
  * accessed externally until after {@link EnvironmentGroup#processMemberEnvironments} is called. The
  * mutability of fulfillersMap means that we must take care to wait until it is set before doing
- * anything with this class.
+ * anything with this class.e
  */
 public final class EnvironmentLabels {
   final Label label;
   final ImmutableSet<Label> environments;
   final ImmutableSet<Label> defaults;
+
   /**
    * Maps a member environment to the set of environments that directly fulfill it. Note that we
    * can't set this map until all Target instances for member environments have been initialized,
    * which occurs after group instantiation (this makes the class mutable).
    */
-  private Map<Label, NestedSet<Label>> fulfillersMap;
+  private Map<Label, ImmutableSortedSet<Label>> fulfillersMap;
 
   EnvironmentLabels(Label label, Collection<Label> environments, Collection<Label> defaults) {
     this(label, environments, defaults, null);
@@ -59,11 +58,11 @@ public final class EnvironmentLabels {
       Label label,
       Collection<Label> environments,
       Collection<Label> defaults,
-      Map<Label, NestedSet<Label>> fulfillersMap) {
+      Map<Label, ImmutableSortedSet<Label>> fulfillersMap) {
     this.label = label;
-    this.environments = ImmutableSet.copyOf(environments);
-    this.defaults = ImmutableSet.copyOf(defaults);
-    this.fulfillersMap = fulfillersMap;
+    this.environments = ImmutableSortedSet.copyOf(environments);
+    this.defaults = ImmutableSortedSet.copyOf(defaults);
+    this.fulfillersMap = fulfillersMap == null ? null : ImmutableSortedMap.copyOf(fulfillersMap);
   }
 
   void assertNotInitialized() {
@@ -74,9 +73,9 @@ public final class EnvironmentLabels {
     Preconditions.checkNotNull(fulfillersMap, this);
   }
 
-  void setFulfillersMap(Map<Label, NestedSet<Label>> fulfillersMap) {
+  void setFulfillersMap(Map<Label, ImmutableSortedSet<Label>> fulfillersMap) {
     Preconditions.checkState(this.fulfillersMap == null, this);
-    this.fulfillersMap = Collections.unmodifiableMap(fulfillersMap);
+    this.fulfillersMap = ImmutableSortedMap.copyOf(fulfillersMap);
   }
 
   public Set<Label> getEnvironments() {
@@ -108,10 +107,10 @@ public final class EnvironmentLabels {
    *
    * <p>If no environments fulfill the input, returns an empty set.
    */
-  public NestedSet<Label> getFulfillers(Label environment) {
+  public ImmutableSortedSet<Label> getFulfillers(Label environment) {
     checkInitialized();
-    NestedSet<Label> ans = fulfillersMap.get(environment);
-    return ans == null ? NestedSetBuilder.emptySet(Order.STABLE_ORDER) : ans;
+    ImmutableSortedSet<Label> ans = fulfillersMap.get(environment);
+    return ans == null ? ImmutableSortedSet.of() : ans;
   }
 
   public Label getLabel() {
@@ -136,39 +135,6 @@ public final class EnvironmentLabels {
     return Objects.hash(label, environments, defaults, fulfillersMap.keySet());
   }
 
-  /**
-   * Compares {@code map1} and {@code map2} using deep equality for their values. Should be feasible
-   * because comparison will usually only happen between == objects, so this is hit rarely. If
-   * objects are equal, but have been deserialized separately so not ==, this should still be ok
-   * because these nested sets are not particularly big, and there are very few EnvironmentGroups
-   * (and therefore EnvironmentLabels) in any given build.
-   *
-   * <p>This will have to be revisited if it turns out to be noticeably expensive. It should be
-   * sound to not compare the values of the fulfillerMaps at all, since they are determined from the
-   * package each EnvironmentLabel is associated with, and so as long as EnvironmentLabels from
-   * different source states but the same package are not compared, the values shouldn't be
-   * necessary.
-   */
-  private static boolean fulfillerMapsEqual(
-      Map<Label, NestedSet<Label>> map1, Map<Label, NestedSet<Label>> map2) {
-    if (map1 == map2) {
-      return true;
-    }
-    if (map1.size() != map2.size()) {
-      return false;
-    }
-    for (Map.Entry<Label, NestedSet<Label>> entry : map1.entrySet()) {
-      NestedSet<Label> secondValue = map2.get(entry.getKey());
-      // Do shallowEquals check first for speed.
-      if (secondValue == null
-          || (!entry.getValue().shallowEquals(secondValue)
-              && !entry.getValue().toList().equals(secondValue.toList()))) {
-        return false;
-      }
-    }
-    return true;
-  }
-
   @Override
   public boolean equals(Object o) {
     checkInitialized();
@@ -183,6 +149,6 @@ public final class EnvironmentLabels {
     return label.equals(that.label)
         && environments.equals(that.environments)
         && defaults.equals(that.defaults)
-        && fulfillerMapsEqual(this.fulfillersMap, that.fulfillersMap);
+        && fulfillersMap.equals(that.fulfillersMap);
   }
 }

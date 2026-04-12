@@ -89,7 +89,8 @@ class ParallelEvaluatorContext {
     this.graphInconsistencyReceiver = graphInconsistencyReceiver;
     this.emittedEventState = emittedEventState;
     this.replayingNestedSetEventVisitor =
-        new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState);
+        new NestedSetVisitor<>(
+            new NestedSetEventReceiver(reporter), emittedEventState.asVisitedState());
     this.progressReceiver = checkNotNull(progressReceiver);
     this.storedEventFilter = storedEventFilter;
     this.errorInfoManager = errorInfoManager;

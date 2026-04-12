@@ -50,6 +50,62 @@ _METADATA_PATTERN = re.compile(
     "^((Project|Book):.+\n)", re.MULTILINE
 )
 _TITLE_RE = re.compile(r"^title: '", re.MULTILINE)
+_HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+_ANGLE_BRACKET_LINK_RE = re.compile(r"<(https?://[^>]+)>")
+_HTML_PRE_PATTERN = re.compile(r"(?:<pre>)(.*?)(?:</pre>)")
+_HTML_STYLE_PATTERN = re.compile(r"^</?style>", re.MULTILINE)
+_MD_FRONT_MATTER_PATTERN = re.compile(r"^---", re.MULTILINE)
+
+# Across code blocks and similar pre-formatted blocks, these
+# characters must be converted to HTML entities so they don't
+# look like JavaScript blocks.
+_REPLACED_JS_CHARACTERS = {
+    "{": "&lcub;",
+    "}": "&rcub;",
+}
+
+# Inside code blocks, these characters need to be converted
+# to HTML entities to prevent parser errors.
+_REPLACED_CODE_CHARACTERS = {
+    "<": "&lt;",
+    ">": "&gt;",
+    **_REPLACED_JS_CHARACTERS,
+}
+
+
+def _escape_chars(text, replacements):
+  """Escapes characters in a string.
+
+  Args:
+    text: str; string that needs characters escaped.
+    replacements: dict[str, str]; a dictionary mapping characters to escape with
+      their replacements.
+
+  Returns:
+    The escaped version of `text`.
+  """
+  for c in replacements.keys():
+    text = text.replace(c, replacements[c])
+  return text
+
+
+class AcornSafeMarkdownConverter(markdownify.MarkdownConverter):
+  """Custom converter that produces Acorn-parsable MDX output."""
+
+  def convert_code(self, node, text, parent_tags):
+    """Escape sensitive characters in code blocks so they're not mishandled."""
+    text = super().convert_code(node, text, parent_tags)
+    return _escape_chars(text, _REPLACED_CODE_CHARACTERS)
+
+  def escape(self, text, parent_tags):
+    """Custom escape handling."""
+    if not text:
+      return text
+    escaped = super().escape(text, parent_tags)
+
+    # Unescape underscores that are in the middle of words.
+    escaped = re.sub(r"(\w)\\_(\w)", r"\1_\2", escaped)
+    return _escape_chars(escaped, _REPLACED_CODE_CHARACTERS)
 
 
 def _convert_directory(root_dir, mdx_dir):
@@ -85,39 +141,104 @@ def _convert_file(src, dest):
 
 
 def _transform(path, content):
+  content = _pre_markdown_transforms(content)
   md = _html2md(content) if path.endswith(".html") else content
-  return _fix_markdown(md)
+  return _post_markdown_transforms(md)
 
 
 def _html2md(content):
-  return markdownify.markdownify(content, heading_style="ATX")
+  return AcornSafeMarkdownConverter(heading_style="ATX").convert(content)
 
 
-def _fix_markdown(content):
-  """Turns the given md(x) input into valid mdx.
+def _pre_markdown_transforms(content):
+  """Transforms applied to all sources before any markdown conversion.
 
   Args:
-    content: str; content of an .md(x) file.
+    content: str; content of an HTML or .md file.
+
   Returns:
-    The content as valid mdx (str).
+    The file with invalid content removed.
   """
   no_tags = _TAG_RE.sub("", content)
+  no_comments = _HTML_COMMENT_RE.sub("", no_tags)
   # Remove Project: and Book: lines
-  no_metadata = _METADATA_PATTERN.sub("", no_tags, count=2).lstrip()
+  no_metadata = _METADATA_PATTERN.sub("", no_comments, count=2).lstrip()
   no_templates = _TEMPLATE_RE.sub("", no_metadata)
-  no_html_links = _HTML_LINK_RE.sub(_fix_link, no_templates)
-  fixed_headings = (
-      no_html_links
-      if _TITLE_RE.search(no_html_links)
-      else _HEADING_RE.sub("---\ntitle: '\\1'\n---", no_html_links, count=1)
+  return _HTML_PRE_PATTERN.sub(
+      _escape_chars_in_pre_blocks,
+      no_templates,
+      re.DOTALL,
   )
-  no_double_empty_lines = fixed_headings.replace("\n\n\n", "\n\n")
-  return _remove_trailing_whitespaces(no_double_empty_lines)
+
+
+def _post_markdown_transforms(content):
+  """Transforms applied to all sources after any markdown conversion.
+
+  Args:
+    content: str; content of a converted .mdx file.
+
+  Returns:
+    The content as fully valid .mdx.
+  """
+  no_html_links = _HTML_LINK_RE.sub(_fix_link, content)
+  no_angle_links = _ANGLE_BRACKET_LINK_RE.sub(r"\1", no_html_links)
+  no_double_empty_lines = no_angle_links.replace("\n\n\n", "\n\n")
+  no_trailing_whitespaces = _remove_trailing_whitespaces(no_double_empty_lines)
+  fixed_headings = (
+      no_trailing_whitespaces
+      if _TITLE_RE.search(no_trailing_whitespaces)
+      else _HEADING_RE.sub(_fix_title_heading, no_trailing_whitespaces, count=1)
+  )
+  front_matter_first = _remove_anything_before_front_matter(fixed_headings)
+  return _remove_style_sections(front_matter_first)
 
 
 def _remove_trailing_whitespaces(content):
   lines = (l.rstrip() for l in content.split("\n"))
   return "\n".join(lines)
+
+
+def _fix_title_heading(m):
+  title = m.group(1).replace("'", "\\'")
+  return f"---\ntitle: '{title}'\n---"
+
+
+def _remove_anything_before_front_matter(content):
+  if content.startswith("---\n"):
+    return content
+
+  parts = _MD_FRONT_MATTER_PATTERN.split(content, maxsplit=1)
+  if len(parts) == 1:
+    # Technically this only affects files that we need for the old site,
+    # so the better solution would be to stop generating them.
+    return parts[0]
+
+  return f"---{parts[1]}"
+
+
+def _remove_style_sections(content):
+  m = _HTML_STYLE_PATTERN.search(content)
+  if not m:
+    return content
+
+  parts = _HTML_STYLE_PATTERN.split(content)
+  return f"{parts[0]}{parts[2].lstrip()}"
+
+
+def _escape_chars_in_pre_blocks(matches):
+  """Escapes characters in <pre> blocks that cause mdx parse errors.
+
+  Because some <pre> blocks contain valid HTML elements (e.g. links), < and >
+  are not escaped.
+
+  Args:
+    matches: re.Match; an object matching a <pre> block and its content.
+
+  Returns:
+    The <pre> block with properly escaped content.
+  """
+  content = _escape_chars(matches.group(1), _REPLACED_JS_CHARACTERS)
+  return f"<pre>{content}</pre>"
 
 
 def _fix_link(m):

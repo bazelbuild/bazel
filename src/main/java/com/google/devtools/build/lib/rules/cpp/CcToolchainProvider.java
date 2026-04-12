@@ -13,8 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -181,15 +184,12 @@ public final class CcToolchainProvider {
     return PathFragment.create(value.getValue(key, String.class));
   }
 
-  private static final ImmutableList<PathFragment> convertStarlarkListToPathFragments(
-      StarlarkInfo value, String key) throws EvalException {
-    ImmutableList.Builder<PathFragment> pathFragments = ImmutableList.builder();
-    for (String pathString :
-        Sequence.cast(value.getValue(key, Sequence.class), String.class, key)) {
-      pathFragments.add(PathFragment.create(pathString));
-    }
-    return pathFragments.build();
-  }
+  // Ensures that we use a canonical ImmutableList<PathFragment> instance to save memory.
+  private static final LoadingCache<Sequence<String>, ImmutableList<PathFragment>>
+      builtinIncludeDirectoriesCache =
+          Caffeine.newBuilder()
+              .weakKeys()
+              .build(seq -> seq.stream().map(PathFragment::create).collect(toImmutableList()));
 
   private final StarlarkInfo value;
 
@@ -276,8 +276,13 @@ public final class CcToolchainProvider {
             value.getValue("_tool_paths", Dict.class), String.class, String.class, "_tool_paths"));
   }
 
-  public ImmutableList<PathFragment> getBuiltInIncludeDirectories() throws EvalException {
-    return convertStarlarkListToPathFragments(value, "built_in_include_directories");
+  ImmutableList<PathFragment> getBuiltInIncludeDirectories() throws EvalException {
+    Sequence<String> seq =
+        Sequence.cast(
+            value.getValue("built_in_include_directories", Sequence.class),
+            String.class,
+            "built_in_include_directories");
+    return builtinIncludeDirectoriesCache.get(seq);
   }
 
   /** Returns the identifier of the toolchain as specified in the {@code CToolchain} proto. */

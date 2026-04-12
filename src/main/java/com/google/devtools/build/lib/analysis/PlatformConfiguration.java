@@ -41,18 +41,19 @@ public class PlatformConfiguration extends Fragment implements PlatformConfigura
   }
 
   public PlatformConfiguration(PlatformOptions platformOptions) {
-    this.hostPlatform = platformOptions.hostPlatform;
-    this.extraExecutionPlatforms = ImmutableList.copyOf(platformOptions.extraExecutionPlatforms);
+    this.hostPlatform = platformOptions.getHostPlatform();
+    this.extraExecutionPlatforms =
+        ImmutableList.copyOf(platformOptions.getExtraExecutionPlatforms());
     this.targetPlatform = platformOptions.computeTargetPlatform();
-    this.extraToolchains = ImmutableList.copyOf(platformOptions.extraToolchains);
-    this.toolchainResolutionDebugRegexFilter = platformOptions.toolchainResolutionDebug;
+    this.extraToolchains = ImmutableList.copyOf(platformOptions.getExtraToolchains());
+    this.toolchainResolutionDebugRegexFilter = platformOptions.getToolchainResolutionDebug();
   }
 
   @Override
   public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
     PlatformOptions platformOptions = buildOptions.get(PlatformOptions.class);
     // TODO(https://github.com/bazelbuild/bazel/issues/6519): Implement true multiplatform builds.
-    if (platformOptions.platforms.size() > 1) {
+    if (platformOptions.getPlatforms().size() > 1) {
       reporter.handle(
           Event.warn(
               String.format(

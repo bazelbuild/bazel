@@ -180,6 +180,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
         new InMemoryCacheClient(cacheEntries),
         /* diskCacheClient= */ null,
         /* symlinkTemplate= */ null,
-        digestUtil);
+        digestUtil,
+        /* chunkingEnabled= */ false);
   }
 }

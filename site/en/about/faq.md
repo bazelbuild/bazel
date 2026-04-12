@@ -158,10 +158,6 @@ Bazel returns a non-zero exit code if the build or test invocation fails, and th
 
 Further details on exit codes are in the [User Manual](/docs/user-manual).
 
-## What future features can we expect in Bazel?
-
-See our [Roadmaps](/about/roadmap).
-
 ## Can I use Bazel for my INSERT LANGUAGE HERE project?
 
 Bazel is extensible. Anyone can add support for new languages. Many languages are supported: see the [build encyclopedia](/reference/be/overview) for a list of recommendations and [awesomebazel.com](https://awesomebazel.com/){: .external} for a more comprehensive list.

@@ -79,8 +79,9 @@ public final class TestTrimmingTransitionFactory implements TransitionFactory<Ru
         // nothing to do, already trimmed this fragment
         return originalOptions.underlying();
       }
-      if (!originalTestOptions.trimTestConfiguration
-          || (originalTestOptions.experimentalRetainTestConfigurationAcrossTestonly && testonly)) {
+      if (!originalTestOptions.getTrimTestConfiguration()
+          || (originalTestOptions.getExperimentalRetainTestConfigurationAcrossTestonly()
+              && testonly)) {
         // nothing to do, trimming is disabled
         return originalOptions.underlying();
       }

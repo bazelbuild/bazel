@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
+import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
@@ -109,7 +110,7 @@ public final class Bazel {
     // use of SubprocessBuilder.
     WindowsSubprocessFactory.maybeInstallWindowsSubprocessFactory();
     BlazeVersionInfo.setBuildInfo(tryGetBuildInfo());
-    BlazeRuntime.main(BAZEL_MODULES, BAZEL_SERVICES, args);
+    BlazeRuntime.main(BAZEL_MODULES, BAZEL_SERVICES, args, JniLoader.getJniLoadError());
   }
 
   /**
@@ -139,4 +140,6 @@ public final class Bazel {
       return ImmutableMap.of();
     }
   }
+
+  private Bazel() {}
 }

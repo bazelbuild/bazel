@@ -44,7 +44,7 @@ public final class FingerprintValueService implements KeyValueWriter {
 
   /** A {@link Fingerprinter} implementation for non-production use. */
   public static final Fingerprinter NONPROD_FINGERPRINTER =
-      input -> PackedFingerprint.fromBytesOffsetZeros(murmur3_128().hashBytes(input).asBytes());
+      input -> PackedFingerprint.fromBytes(murmur3_128().hashBytes(input).asBytes());
 
   private final Executor executor;
   private final FingerprintValueStore store;

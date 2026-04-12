@@ -63,9 +63,9 @@ public class InvocationPolicyEnforcerTestBase {
 
     return new InvocationPolicyEnforcer(
         InvocationPolicyParser.parsePolicy(
-            startupOptionsParser.getOptions(BlazeServerStartupOptions.class).invocationPolicy),
+            startupOptionsParser.getOptions(BlazeServerStartupOptions.class).getInvocationPolicy()),
         Level.INFO,
-        /*conversionContext=*/ null);
+        /* conversionContext= */ null);
   }
 
   OptionsParser parser;

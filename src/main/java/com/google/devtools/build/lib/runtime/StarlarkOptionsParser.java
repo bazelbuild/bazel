@@ -24,6 +24,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.config.Scope;
@@ -241,6 +242,13 @@ public class StarlarkOptionsParser {
       boolean allowsMultiple = buildSettingObject.allowsMultiple();
       parsedBuildSettings.put(buildSetting, buildSettingObject);
       Object value = buildSettingAndFinalValue.getSecond();
+      if (value instanceof Collection<?>) {
+        if (buildSettingObject.getType().equals(Types.STRING_SET)) {
+          value = ImmutableSortedSet.copyOf((Collection<?>) value);
+        } else {
+          value = ImmutableList.copyOf((Collection<?>) value);
+        }
+      }
       Object rawDefaultValue =
           buildSettingTarget.getAssociatedRule().getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME);
       if (allowsMultiple) {
@@ -255,7 +263,7 @@ public class StarlarkOptionsParser {
           this.buildSettingDefaults.put(buildSetting, rawDefaultValue);
         }
         if (!value.equals(rawDefaultValue) || includeDefaultValues) {
-          parsedOptions.put(buildSetting, buildSettingAndFinalValue.getSecond());
+          parsedOptions.put(buildSetting, value);
         }
       }
 

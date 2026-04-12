@@ -6,7 +6,7 @@ Vendor mode is a feature of Bzlmod that lets you create a local copy of
 external dependencies. This is useful for offline builds, or when you want to
 control the source of an external dependency.
 
-## Enable vendor mode
+## Enable vendor mode {#enable-vendor-mode}
 
 You can enable vendor mode by specifying `--vendor_dir` flag.
 
@@ -20,7 +20,7 @@ common --vendor_dir=vendor_src
 The vendor directory can be either a relative path to your workspace root or an
 absolute path.
 
-## Vendor a specific external repository
+## Vendor a specific external repository {#vendor-specific-repository}
 
 You can use the `vendor` command with the `--repo` flag to specify which repo
 to vendor, it accepts both [canonical repo
@@ -42,7 +42,7 @@ bazel vendor --vendor_dir=vendor_src --repo=@@rules_cc+
 will both get rules_cc to be vendored under
 `<workspace root>/vendor_src/rules_cc+`.
 
-## Vendor external dependencies for given targets
+## Vendor external dependencies for given targets {#vendor-target-dependencies}
 
 To vendor all external dependencies required for building given target patterns,
 you can run `bazel vendor <target patterns>`.
@@ -60,7 +60,7 @@ Under the hood, it's doing a `bazel build --nobuild` command to analyze the
 target patterns, therefore build flags could be applied to this command and
 affect the result.
 
-### Build the target offline
+### Build the target offline {#build-the-target-offline}
 
 With the external dependencies vendored, you can build the target offline by
 
@@ -78,7 +78,7 @@ Note: If you make changes to the targets to build, the external dependencies,
 the build configuration, or the Bazel version, you may need to re-vendor to make
 sure offline build still works.
 
-## Vendor all external dependencies
+## Vendor all external dependencies {#vendor-all-dependencies}
 
 To vendor all repos in your transitive external dependencies graph, you can
 run:
@@ -95,7 +95,7 @@ Note that vendoring all dependencies has a few **disadvantages**:
 
 Therefore, consider vendoring for specific targets first.
 
-## Configure vendor mode with VENDOR.bazel
+## Configure vendor mode with VENDOR.bazel {#configure-vendor-mode}
 
 You can control how given repos are handled with the VENDOR.bazel file located
 under the vendor directory.
@@ -130,7 +130,7 @@ Note: Repository rules with
 [`configure`](/versions/8.3.1/rules/lib/globals/bzl#repository_rule.configure) set to true are
 always excluded from vendoring.
 
-## Understand how vendor mode works
+## Understand how vendor mode works {#how-vendor-mode-works}
 
 Bazel fetches external dependencies of a project under `$(bazel info
 output_base)/external`. Vendoring external dependencies means moving out
@@ -154,14 +154,14 @@ without pinning the repo, the changed vendored source will be used, but it will
 be overwritten if its existing marker file is
 outdated and the repo is vendored again.
 
-### Vendor registry files
+### Vendor registry files {#vendor-registry-files}
 
 Bazel has to perform the Bazel module resolution in order to fetch external
 dependencies, which may require accessing registry files through internet. To
 achieve offline build, Bazel vendors all registry files fetched from
 network under the `<vendor_dir>/_registries` directory.
 
-### Vendor symlinks
+### Vendor symlinks {#vendor-symlinks}
 
 External repositories may contain symlinks pointing to other files or
 directories. To make sure symlinks work correctly, Bazel uses the following

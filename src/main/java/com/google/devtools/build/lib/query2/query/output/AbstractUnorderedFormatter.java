@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.LabelPrinter;
+import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClassId;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
@@ -30,6 +32,15 @@ import java.io.OutputStream;
 import javax.annotation.Nullable;
 
 abstract class AbstractUnorderedFormatter extends OutputFormatter implements StreamedFormatter {
+
+  static String getKind(QueryOptions options, Target target) {
+    if (options.displayFullKind && target instanceof Rule rule) {
+      RuleClassId ruleClassId = rule.getRuleClassObject().getRuleClassId();
+      return ruleClassId.key() + Rule.targetKindSuffix();
+    }
+
+    return target.getTargetKind();
+  }
 
   @Override
   public void setOptions(

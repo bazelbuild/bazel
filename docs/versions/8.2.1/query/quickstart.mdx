@@ -484,16 +484,15 @@ bazel-bin/src/main/java/com/example/reviews/review
 Going off Bazel queries only, try to find out who wrote the review, and what dish they were describing.
 
 <Accordion title="Hint">
-  <p>Check the tags and dependencies for useful information.</p>
+  Check the tags and dependencies for useful information.
 </Accordion>
 
 <Accordion title="Answer">
-  <p>This review was describing the Pizza and Amir was the reviewer. If you look at what dependencies that this rule had using
-  <code>bazel query --noimplicit\_deps 'deps(//src/main/java/com/example/reviews:review)'</code>
+  This review was describing the Pizza and Amir was the reviewer. If you look at what dependencies that this rule had using
+  `bazel query --noimplicit_deps 'deps(//src/main/java/com/example/reviews:review)'`
   The result of this command reveals that Amir is the reviewer!
   Next, since you know the reviewer is Amir, you can use the query function to seek which tag Amir has in the `BUILD` file to see what dish is there.
-  The command <code>bazel query 'attr(tags, "pizza", //src/main/java/com/example/customers/...)'</code> output that Amir is the only customer that ordered a pizza and is the reviewer which gives us the answer.
-  </p>
+  The command `bazel query 'attr(tags, "pizza", //src/main/java/com/example/customers/...)'` output that Amir is the only customer that ordered a pizza and is the reviewer which gives us the answer.
 </Accordion>
 
 ## Wrapping up

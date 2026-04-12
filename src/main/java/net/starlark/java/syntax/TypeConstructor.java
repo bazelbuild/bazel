@@ -15,6 +15,9 @@
 package net.starlark.java.syntax;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Map;
 
 /**
  * A factory for creating {@link StarlarkType}s, parameterized by zero or more type arguments.
@@ -46,7 +49,7 @@ public interface TypeConstructor {
    */
   // TODO: #27370 - Support other type arguments besides StarlarkType, Ellipsis, and EmptyTuple when
   // we need them
-  sealed interface Arg permits StarlarkType, Arg.Ellipsis, Arg.EmptyTuple {
+  sealed interface Arg permits StarlarkType, Arg.Ellipsis, Arg.EmptyTuple, Arg.TypeDict {
     public static final Ellipsis ELLIPSIS = new Ellipsis();
     public static final EmptyTuple EMPTY_TUPLE = new EmptyTuple();
 
@@ -67,6 +70,41 @@ public interface TypeConstructor {
       @Override
       public String toString() {
         return "()";
+      }
+    }
+
+    /** A dictionary with string keys and type values, e.g. {@code {"foo": T, "bar": U}}. */
+    public static final class TypeDict implements Arg {
+      private final ImmutableMap<String, StarlarkType> types;
+
+      TypeDict(ImmutableMap<String, StarlarkType> types) {
+        this.types = types;
+      }
+
+      public ImmutableMap<String, StarlarkType> getTypes() {
+        return types;
+      }
+
+      @CanIgnoreReturnValue
+      static StringBuilder print(StringBuilder buf, ImmutableMap<String, StarlarkType> types) {
+        buf.append('{');
+        boolean first = true;
+        for (Map.Entry<String, StarlarkType> entry : types.entrySet()) {
+          if (!first) {
+            buf.append(", ");
+          }
+          buf.append(entry.getKey());
+          buf.append(": ");
+          buf.append(entry.getValue());
+          first = false;
+        }
+        buf.append('}');
+        return buf;
+      }
+
+      @Override
+      public String toString() {
+        return print(new StringBuilder(), types).toString();
       }
     }
   }

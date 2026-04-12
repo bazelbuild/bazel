@@ -177,7 +177,7 @@ public final class BuildOptions implements Cloneable {
     // See NoConfigTransition for why CoreOptions stays included.
     return fragmentOptionsMap.size() == 1
         && Iterables.getOnlyElement(fragmentOptionsMap.values())
-            .getClass()
+            .getOptionsClass()
             .getSimpleName()
             .equals("CoreOptions")
         && starlarkOptionsMap.isEmpty();
@@ -208,7 +208,7 @@ public final class BuildOptions implements Cloneable {
 
   /** Returns a string that uniquely identifies the options. */
   public static String optionsToCacheKey(OptionsBase options) {
-    StringBuilder result = new StringBuilder(options.getClass().getName()).append("{");
+    StringBuilder result = new StringBuilder(options.getOptionsClass().getName()).append("{");
     result.append(mapToCacheKey(options.asMap()));
     return result.append("}").toString();
   }
@@ -473,7 +473,7 @@ public final class BuildOptions implements Cloneable {
      */
     @CanIgnoreReturnValue
     public <T extends FragmentOptions> Builder addFragmentOptions(T options) {
-      fragmentOptions.put(options.getClass(), options.getNormalized());
+      fragmentOptions.put(options.getOptionsClass(), options.getNormalized());
       return this;
     }
 

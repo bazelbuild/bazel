@@ -46,7 +46,7 @@ public abstract class SerializationResult<T> {
    * #getObject} can be written remotely.
    */
   @Nullable
-  public abstract ListenableFuture<Void> getFutureToBlockWritesOn();
+  public abstract ListenableFuture<?> getFutureToBlockWritesOn();
 
   /** Returns the stored object that should not be written remotely before the future completes. */
   public T getObject() {
@@ -54,7 +54,7 @@ public abstract class SerializationResult<T> {
   }
 
   public static <T> SerializationResult<T> create(
-      T object, @Nullable ListenableFuture<Void> futureToBlockWritesOn) {
+      T object, @Nullable ListenableFuture<?> futureToBlockWritesOn) {
     return futureToBlockWritesOn != null
         ? new ObjectWithFuture<>(object, futureToBlockWritesOn)
         : createWithoutFuture(object);
@@ -66,7 +66,7 @@ public abstract class SerializationResult<T> {
   }
 
   private static class ObjectWithoutFuture<T> extends SerializationResult<T> {
-    ObjectWithoutFuture(T obj) {
+    private ObjectWithoutFuture(T obj) {
       super(obj);
     }
 
@@ -76,15 +76,15 @@ public abstract class SerializationResult<T> {
     }
 
     @Override
-    public ListenableFuture<Void> getFutureToBlockWritesOn() {
+    public ListenableFuture<?> getFutureToBlockWritesOn() {
       return null;
     }
   }
 
   private static class ObjectWithFuture<T> extends SerializationResult<T> {
-    private final ListenableFuture<Void> futureToBlockWritesOn;
+    private final ListenableFuture<?> futureToBlockWritesOn;
 
-    ObjectWithFuture(T obj, @Nullable ListenableFuture<Void> futureToBlockWritesOn) {
+    private ObjectWithFuture(T obj, ListenableFuture<?> futureToBlockWritesOn) {
       super(obj);
       this.futureToBlockWritesOn = Preconditions.checkNotNull(futureToBlockWritesOn, obj);
     }
@@ -95,7 +95,7 @@ public abstract class SerializationResult<T> {
     }
 
     @Override
-    public ListenableFuture<Void> getFutureToBlockWritesOn() {
+    public ListenableFuture<?> getFutureToBlockWritesOn() {
       return futureToBlockWritesOn;
     }
   }

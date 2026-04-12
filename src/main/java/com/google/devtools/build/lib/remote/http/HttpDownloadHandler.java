@@ -163,6 +163,7 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
     addCredentialHeaders(request, cmd.uri());
     addExtraRemoteHeaders(request);
     addUserAgentHeader(request);
+    addAcceptHeaders(request);
     ctx.writeAndFlush(request)
         .addListener(
             (f) -> {
@@ -186,7 +187,6 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
         new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, path);
     httpRequest.headers().set(HttpHeaderNames.HOST, host);
     httpRequest.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
-    httpRequest.headers().set(HttpHeaderNames.ACCEPT, "*/*");
     httpRequest.headers().set(HttpHeaderNames.ACCEPT_ENCODING, ACCEPT_ENCODING);
     return httpRequest;
   }

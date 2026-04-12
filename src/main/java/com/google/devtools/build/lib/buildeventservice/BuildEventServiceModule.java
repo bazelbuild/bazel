@@ -354,7 +354,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
         Preconditions.checkNotNull(parsingResult.getOptions(BuildEventStreamOptions.class));
     this.isRunsPerTestOverTheLimit =
         parsingResult.getOptions(TestOptions.class) != null
-            && parsingResult.getOptions(TestOptions.class).runsPerTest.stream()
+            && parsingResult.getOptions(TestOptions.class).getRunsPerTest().stream()
                 .anyMatch(
                     (perLabelOptions) ->
                         Integer.parseInt(Iterables.getOnlyElement(perLabelOptions.getOptions()))
@@ -430,7 +430,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
             .outputGroupFileModes(bepOptions.getOutputGroupFileModesMapping())
             .publishTargetSummaries(bepOptions.publishTargetSummary)
             .artifactGroupNamer(artifactGroupNamer)
-            .oomMessage(parsingResult.getOptions(CommonCommandOptions.class).oomMessage)
+            .oomMessage(parsingResult.getOptions(CommonCommandOptions.class).getOomMessage())
             .build();
 
     cmdEnv.getEventBus().register(streamer);

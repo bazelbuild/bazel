@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -56,6 +58,10 @@ public class BootClassPathInfo extends StarlarkInfoWrapper {
         }
       };
 
+  // Ensures that we use a canonical Optional<PathFragment> instance per system path to save memory.
+  private static final LoadingCache<String, Optional<PathFragment>> systemPathCache =
+      Caffeine.newBuilder().weakKeys().build(s -> Optional.of(PathFragment.create(s)));
+
   public static BootClassPathInfo empty() {
     return EMPTY;
   }
@@ -88,8 +94,8 @@ public class BootClassPathInfo extends StarlarkInfoWrapper {
 
   /** An argument to the javac >= 9 {@code --system} flag. */
   public Optional<PathFragment> systemPath() throws RuleErrorException {
-    return Optional.ofNullable(getUnderlyingValue("_system_path", String.class))
-        .map(PathFragment::create);
+    String s = getUnderlyingValue("_system_path", String.class);
+    return s != null ? systemPathCache.get(s) : Optional.empty();
   }
 
   public boolean isEmpty() throws RuleErrorException {

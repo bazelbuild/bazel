@@ -89,7 +89,7 @@ public final class DeferredNestedSetCodecTest {
     SerializationResult<ByteString> serialized =
         codecs.serializeMemoizedAndBlocking(
             fingerprintValueService, top, /* profileCollector= */ null);
-    ListenableFuture<Void> futureToBlockWritesOn = serialized.getFutureToBlockWritesOn();
+    ListenableFuture<?> futureToBlockWritesOn = serialized.getFutureToBlockWritesOn();
     if (futureToBlockWritesOn != null) {
       var unused = futureToBlockWritesOn.get();
     }

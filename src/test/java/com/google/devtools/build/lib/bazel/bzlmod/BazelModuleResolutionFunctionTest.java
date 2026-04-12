@@ -347,12 +347,12 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
         .addModule(createModuleKey("c", "1.1"), "module(name='c', version='1.1')")
         .addModule(
             createModuleKey("b", "1.0"),
-            "module(name='b', version='1.0', compatibility_level = 2)",
+            "module(name='b', version='1.0')",
             "bazel_dep(name='c', version='1.1')",
             "print('hello from b@1.0')")
         .addModule(
             createModuleKey("b", "1.1"),
-            "module(name='b', version='1.1', compatibility_level = 3)",
+            "module(name='b', version='1.1')",
             "bazel_dep(name='c', version='1.0')",
             "print('hello from b@1.1')");
     invalidatePackages(false);

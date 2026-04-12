@@ -140,7 +140,7 @@ When compiled on the command-line, a `proto_library` creates a file
 named `foo-descriptor-set.proto.bin`, which is the descriptor set for
 the messages the rule srcs. The file is a serialized
 `FileDescriptorSet`, which is described in
-<https://developers.google.com/protocol-buffers/docs/techniques#self-description>.
+https://developers.google.com/protocol-buffers/docs/techniques#self-description.
 
 It only contains information about the `.proto` files directly
 mentioned by a `proto_library` rule; the collection of transitive
@@ -212,7 +212,7 @@ srcs = ["foo.proto"],
 proto_lang_toolchain(name, allowlist_different_package, aspect_hints, blacklisted_protos, command_line, compatible_with, denylisted_protos, deprecation, exec_compatible_with, exec_group_compatible_with, exec_properties, features, mnemonic, output_files, package_metadata, plugin, plugin_format_flag, progress_message, protoc_minimal_do_not_use, restricted_to, runtime, tags, target_compatible_with, testonly, toolchain_type, toolchains, visibility)
 ```
 
-If using Bazel, please load the rule from <https://github.com/bazelbuild/rules_proto>.
+If using Bazel, please load the rule from https://github.com/bazelbuild/rules_proto.
 
 Specifies how a LANG\_proto\_library rule (e.g., `java_proto_library`) should invoke the
 proto-compiler.

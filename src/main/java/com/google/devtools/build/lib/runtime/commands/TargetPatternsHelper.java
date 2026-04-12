@@ -51,14 +51,14 @@ public final class TargetPatternsHelper {
       throws TargetPatternsHelperException {
     List<String> targets = options.getResidue();
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    if (!targets.isEmpty() && !buildRequestOptions.targetPatternFile.isEmpty()) {
+    if (!targets.isEmpty() && !buildRequestOptions.getTargetPatternFile().isEmpty()) {
       throw new TargetPatternsHelperException(
           "Command-line target pattern and --target_pattern_file cannot both be specified",
           TargetPatterns.Code.TARGET_PATTERN_FILE_WITH_COMMAND_LINE_PATTERN);
-    } else if (!buildRequestOptions.targetPatternFile.isEmpty()) {
+    } else if (!buildRequestOptions.getTargetPatternFile().isEmpty()) {
       // Works for absolute or relative file.
       Path residuePath =
-          env.getWorkingDirectory().getRelative(buildRequestOptions.targetPatternFile);
+          env.getWorkingDirectory().getRelative(buildRequestOptions.getTargetPatternFile());
       try {
         env.getEventBus()
             .post(

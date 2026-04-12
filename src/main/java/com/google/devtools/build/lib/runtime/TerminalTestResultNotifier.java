@@ -154,16 +154,16 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
    * Returns true iff the --check_tests_up_to_date option is enabled.
    */
   private boolean optionCheckTestsUpToDate() {
-    return options.getOptions(ExecutionOptions.class).testCheckUpToDate;
+    return options.getOptions(ExecutionOptions.class).getTestCheckUpToDate();
   }
 
-  private static final ImmutableSet<ExecutionOptions.TestSummaryFormat> SHOW_ALL_TESTS_FORMATS =
+  private static final ImmutableSet<TestSummaryFormat> SHOW_ALL_TESTS_FORMATS =
       Sets.immutableEnumSet(DETAILED, DETAILED_UNCACHED, SHORT, SHORT_UNCACHED);
-  private static final ImmutableSet<ExecutionOptions.TestSummaryFormat>
-      SHOW_NO_STATUS_TESTS_FORMATS = Sets.immutableEnumSet(DETAILED, DETAILED_UNCACHED);
-  private static final ImmutableSet<ExecutionOptions.TestSummaryFormat>
-      SHOW_ALL_TEST_CASES_FORMATS = Sets.immutableEnumSet(DETAILED, DETAILED_UNCACHED);
-  private static final ImmutableSet<ExecutionOptions.TestSummaryFormat> SHOW_CACHED_TESTS_FORMATS =
+  private static final ImmutableSet<TestSummaryFormat> SHOW_NO_STATUS_TESTS_FORMATS =
+      Sets.immutableEnumSet(DETAILED, DETAILED_UNCACHED);
+  private static final ImmutableSet<TestSummaryFormat> SHOW_ALL_TEST_CASES_FORMATS =
+      Sets.immutableEnumSet(DETAILED, DETAILED_UNCACHED);
+  private static final ImmutableSet<TestSummaryFormat> SHOW_CACHED_TESTS_FORMATS =
       Sets.immutableEnumSet(DETAILED, SHORT);
 
   /**
@@ -180,7 +180,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
 
     ExecutionOptions executionOptions =
         Preconditions.checkNotNull(options.getOptions(ExecutionOptions.class));
-    TestOutputFormat testOutput = executionOptions.testOutput;
+    TestOutputFormat testOutput = executionOptions.getTestOutput();
 
     for (TestSummary summary : summaries) {
       if (summary.isLocalActionCached()
@@ -191,7 +191,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
             testOutput,
             printer,
             testLogPathFormatter,
-            executionOptions.maxTestOutputBytes);
+            executionOptions.getMaxTestOutputBytes());
       }
     }
 
@@ -217,7 +217,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
 
     stats.failedCount = summaries.size() - stats.passCount;
 
-    TestSummaryFormat testSummaryFormat = executionOptions.testSummary;
+    TestSummaryFormat testSummaryFormat = executionOptions.getTestSummary();
     switch (testSummaryFormat) {
       case DETAILED:
       case DETAILED_UNCACHED:
@@ -271,7 +271,8 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
   }
 
   private void printStats(TestResultStats stats) {
-    TestSummaryFormat testSummaryFormat = options.getOptions(ExecutionOptions.class).testSummary;
+    TestSummaryFormat testSummaryFormat =
+        options.getOptions(ExecutionOptions.class).getTestSummary();
     if (testSummaryFormat == DETAILED
         || testSummaryFormat == DETAILED_UNCACHED
         || testSummaryFormat == TESTCASE) {

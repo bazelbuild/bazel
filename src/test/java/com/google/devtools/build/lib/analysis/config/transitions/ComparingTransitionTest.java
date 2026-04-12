@@ -54,13 +54,13 @@ public final class ComparingTransitionTest extends BuildViewTestCase {
     PatchTransition trans1 =
         (options, eventHandler) -> {
           BuildOptions toOptions = options.underlying().clone();
-          toOptions.get(CoreOptions.class).stampBinaries = true;
+          toOptions.get(CoreOptions.class).setStampBinaries(true);
           return toOptions;
         };
     PatchTransition trans2 =
         (options, eventHandler) -> {
           BuildOptions toOptions = options.underlying().clone();
-          toOptions.get(CoreOptions.class).stampBinaries = false;
+          toOptions.get(CoreOptions.class).setStampBinaries(false);
           return toOptions;
         };
     BuildOptionsView fromOptions =
@@ -81,15 +81,17 @@ public final class ComparingTransitionTest extends BuildViewTestCase {
     PatchTransition trans1 =
         (options, eventHandler) -> {
           BuildOptions toOptions = options.underlying().clone();
-          toOptions.get(CoreOptions.class).commandLineBuildVariables =
-              ImmutableList.of(Map.entry("myvar", "1"));
+          toOptions
+              .get(CoreOptions.class)
+              .setCommandLineBuildVariables(ImmutableList.of(Map.entry("myvar", "1")));
           return toOptions;
         };
     PatchTransition trans2 =
         (options, eventHandler) -> {
           BuildOptions toOptions = options.underlying().clone();
-          toOptions.get(CoreOptions.class).commandLineBuildVariables =
-              ImmutableList.of(Map.entry("myvar", "2"));
+          toOptions
+              .get(CoreOptions.class)
+              .setCommandLineBuildVariables(ImmutableList.of(Map.entry("myvar", "2")));
           return toOptions;
         };
     BuildOptionsView fromOptions =
@@ -110,15 +112,19 @@ public final class ComparingTransitionTest extends BuildViewTestCase {
     PatchTransition trans1 =
         (options, eventHandler) -> {
           BuildOptions toOptions = options.underlying().clone();
-          toOptions.get(CoreOptions.class).commandLineBuildVariables =
-              ImmutableList.of(Map.entry("var1", "1"), Map.entry("var2", "2"));
+          toOptions
+              .get(CoreOptions.class)
+              .setCommandLineBuildVariables(
+                  ImmutableList.of(Map.entry("var1", "1"), Map.entry("var2", "2")));
           return toOptions;
         };
     PatchTransition trans2 =
         (options, eventHandler) -> {
           BuildOptions toOptions = options.underlying().clone();
-          toOptions.get(CoreOptions.class).commandLineBuildVariables =
-              ImmutableList.of(Map.entry("var2", "2"), Map.entry("var1", "1"));
+          toOptions
+              .get(CoreOptions.class)
+              .setCommandLineBuildVariables(
+                  ImmutableList.of(Map.entry("var2", "2"), Map.entry("var1", "1")));
           return toOptions;
         };
     BuildOptionsView fromOptions =
@@ -142,13 +148,13 @@ public final class ComparingTransitionTest extends BuildViewTestCase {
     PatchTransition trans1 =
         (options, eventHandler) -> {
           BuildOptions toOptions = options.underlying().clone();
-          toOptions.get(CoreOptions.class).defaultFeatures = ImmutableList.of("a");
+          toOptions.get(CoreOptions.class).setDefaultFeatures(ImmutableList.of("a"));
           return toOptions;
         };
     PatchTransition trans2 =
         (options, eventHandler) -> {
           BuildOptions toOptions = options.underlying().clone();
-          toOptions.get(CoreOptions.class).defaultFeatures = ImmutableList.of("a", "b");
+          toOptions.get(CoreOptions.class).setDefaultFeatures(ImmutableList.of("a", "b"));
           return toOptions;
         };
     BuildOptionsView fromOptions =
@@ -169,13 +175,13 @@ public final class ComparingTransitionTest extends BuildViewTestCase {
     PatchTransition trans1 =
         (options, eventHandler) -> {
           BuildOptions toOptions = options.underlying().clone();
-          toOptions.get(CoreOptions.class).defaultFeatures = ImmutableList.of("a", "b");
+          toOptions.get(CoreOptions.class).setDefaultFeatures(ImmutableList.of("a", "b"));
           return toOptions;
         };
     PatchTransition trans2 =
         (options, eventHandler) -> {
           BuildOptions toOptions = options.underlying().clone();
-          toOptions.get(CoreOptions.class).defaultFeatures = ImmutableList.of("b", "a");
+          toOptions.get(CoreOptions.class).setDefaultFeatures(ImmutableList.of("b", "a"));
           return toOptions;
         };
     BuildOptionsView fromOptions =
@@ -199,13 +205,13 @@ public final class ComparingTransitionTest extends BuildViewTestCase {
     PatchTransition trans1 =
         (options, eventHandler) -> {
           BuildOptions toOptions = options.underlying().clone();
-          toOptions.get(CoreOptions.class).hostFeatures = ImmutableList.of("a");
+          toOptions.get(CoreOptions.class).setHostFeatures(ImmutableList.of("a"));
           return toOptions;
         };
     PatchTransition trans2 =
         (options, eventHandler) -> {
           BuildOptions toOptions = options.underlying().clone();
-          toOptions.get(CoreOptions.class).hostFeatures = ImmutableList.of("a", "b");
+          toOptions.get(CoreOptions.class).setHostFeatures(ImmutableList.of("a", "b"));
           return toOptions;
         };
     BuildOptionsView fromOptions =
@@ -226,13 +232,13 @@ public final class ComparingTransitionTest extends BuildViewTestCase {
     PatchTransition trans1 =
         (options, eventHandler) -> {
           BuildOptions toOptions = options.underlying().clone();
-          toOptions.get(CoreOptions.class).hostFeatures = ImmutableList.of("a", "b");
+          toOptions.get(CoreOptions.class).setHostFeatures(ImmutableList.of("a", "b"));
           return toOptions;
         };
     PatchTransition trans2 =
         (options, eventHandler) -> {
           BuildOptions toOptions = options.underlying().clone();
-          toOptions.get(CoreOptions.class).hostFeatures = ImmutableList.of("b", "a");
+          toOptions.get(CoreOptions.class).setHostFeatures(ImmutableList.of("b", "a"));
           return toOptions;
         };
     BuildOptionsView fromOptions =

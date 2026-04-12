@@ -2001,7 +2001,7 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
                 .getConfigurationKey()
                 .getOptions()
                 .get(PlatformOptions.class)
-                .platforms)
+                .getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked("//platforms:platform_1"));
   }
 
@@ -2080,7 +2080,7 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
                 .getConfigurationKey()
                 .getOptions()
                 .get(PlatformOptions.class)
-                .platforms)
+                .getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked("//platforms:platform_2"));
   }
 
@@ -2155,7 +2155,7 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
                 .getConfigurationKey()
                 .getOptions()
                 .get(PlatformOptions.class)
-                .platforms)
+                .getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked("//platforms:platform_2"));
   }
 
@@ -2213,13 +2213,15 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
     // //test:rule_tool uses //platforms:platform_2
     ConfiguredTargetKey ruleTool =
         Iterables.getOnlyElement(getConfiguredTargetKey("//test:rule_tool"));
-    assertThat(ruleTool.getConfigurationKey().getOptions().get(PlatformOptions.class).platforms)
+    assertThat(
+            ruleTool.getConfigurationKey().getOptions().get(PlatformOptions.class).getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked("//platforms:platform_2"));
 
     // //test:aspect_tool uses //platforms:platform_1
     ConfiguredTargetKey aspectTool =
         Iterables.getOnlyElement(getConfiguredTargetKey("//test:aspect_tool"));
-    assertThat(aspectTool.getConfigurationKey().getOptions().get(PlatformOptions.class).platforms)
+    assertThat(
+            aspectTool.getConfigurationKey().getOptions().get(PlatformOptions.class).getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked("//platforms:platform_1"));
 
     // aspect propagates to the rule's toolchain (with //platforms:platform_2 execution platform)

@@ -6,7 +6,7 @@ Automatic execution groups select an [execution platform][exec_platform]
 for each toolchain type. In other words, one target can have multiple
 execution platforms without defining execution groups.
 
-## Quick summary
+## Quick summary {#quick-summary}
 
 Automatic execution groups are closely connected to toolchains. If you are using
 toolchains, you need to set them on the affected actions (actions which use an
@@ -31,7 +31,7 @@ define [exec_groups][exec_groups] (check
 [When should I use a custom exec_group?][multiple_toolchains_exec_groups]
 section).
 
-## History
+## History {#history}
 
 Before AEGs, the execution platform was selected on a rule level. For example:
 
@@ -52,7 +52,7 @@ platform even if they used tools from different toolchains (execution platform
 is selected for each target). This resulted in failures when there was no
 execution platform supporting all toolchains.
 
-## Current state
+## Current state {#current-state}
 
 With AEGs, the execution platform is selected for each toolchain type. The
 implementation function of the earlier example, `my_rule`, would look like:
@@ -83,13 +83,13 @@ on different execution platforms.
 The same is effective with [ctx.actions.run_shell][run_shell] where `toolchain`
 parameter should be added when `tools` are from a toolchain.
 
-## Difference between custom exec groups and automatic exec groups
+## Difference between custom exec groups and automatic exec groups {#difference-custom}
 
 As the name suggests, AEGs are exec groups created automatically for each
 toolchain type registered on a rule. There is no need to manually specify them,
 unlike the "classic" exec groups.
 
-### When should I use a custom exec_group?
+### When should I use a custom exec_group? {#when-should-use-exec-groups}
 
 Custom exec_groups are needed only in case where multiple toolchains need to
 execute on a single execution platform. In all other cases there's no need to
@@ -116,22 +116,22 @@ my_rule = rule(
 )
 ```
 
-## Migration of AEGs
+## Migration of AEGs {#migration-aegs}
 
 Internally in google3, Blaze is already using AEGs.
 Externally for Bazel, migration is in the process. Some rules are already using
 this feature (e.g. Java and C++ rules).
 
-### Which Bazel versions support this migration?
+### Which Bazel versions support this migration? {#which-bazel}
 
 AEGs are fully supported from Bazel 7.
 
-### How to enable AEGs?
+### How to enable AEGs? {#how-enable}
 
 Set `--incompatible_auto_exec_groups` to true. More information about the flag
 on [the GitHub issue][github_flag].
 
-### How to enable AEGs inside a particular rule?
+### How to enable AEGs inside a particular rule? {#how-enable-particular-rule}
 
 Set the `_use_auto_exec_groups` attribute on a rule.
 
@@ -147,16 +147,16 @@ This enables AEGs only in `my_rule` and its actions start using the new logic
 when selecting the execution platform. Incompatible flag is overridden with this
 attribute.
 
-### How to disable AEGs in case of an error?
+### How to disable AEGs in case of an error? {#how-disable}
 
 Set `--incompatible_auto_exec_groups` to false to completely disable AEGs in
 your project ([flag's GitHub issue][github_flag]), or disable a particular rule
 by setting `_use_auto_exec_groups` attribute to `False`
 ([more details about the attribute](#how-enable-particular-rule)).
 
-### Error messages while migrating to AEGs
+### Error messages while migrating to AEGs {#potential-problems}
 
-#### Couldn't identify if tools are from implicit dependencies or a toolchain. Please set the toolchain parameter. If you're not using a toolchain, set it to 'None'.
+#### Couldn't identify if tools are from implicit dependencies or a toolchain. Please set the toolchain parameter. If you're not using a toolchain, set it to 'None'. {#first-error-message}
   * In this case you get a stack of calls before the error happened and you can
     clearly see which exact action needs the toolchain parameter. Check which
     toolchain is used for the action and set it with the toolchain param. If no
@@ -167,7 +167,7 @@ by setting `_use_auto_exec_groups` attribute to `False`
   * This means that you've set the toolchain parameter on the action but didn't
 register it on the rule. Register the toolchain or set `None` inside the action.
 
-## Additional material
+## Additional material {#additional-material}
 
 For more information, check design document:
 [Automatic exec groups for toolchains][aegs_design_doc].

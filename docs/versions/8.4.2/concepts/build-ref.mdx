@@ -9,7 +9,7 @@ each package is a directory that contains a set of related source files and one
 `BUILD` file. The `BUILD` file specifies what software outputs can be built from
 the source.
 
-### Repositories
+### Repositories {#repositories}
 
 Source files used in a Bazel build are organized in _repositories_ (often
 shortened to _repos_). A repo is a directory tree with a boundary marker file at
@@ -20,7 +20,7 @@ The repo in which the current Bazel command is being run is called the _main
 repo_. Other, (external) repos are defined by _repo rules_; see [external
 dependencies overview](/versions/8.4.2/external/overview) for more information.
 
-## Workspace
+## Workspace {#workspace}
 
 A _workspace_ is the environment shared by all Bazel commands run from the same
 main repo. It encompasses the main repo and the set of all defined external
@@ -30,7 +30,7 @@ Note that historically the concepts of "repository" and "workspace" have been
 conflated; the term "workspace" has often been used to refer to the main
 repository, and sometimes even used as a synonym of "repository".
 
-## Packages
+## Packages {#packages}
 
 The primary unit of code organization in a repository is the _package_. A
 package is a collection of related files and a specification of how they can be
@@ -54,7 +54,7 @@ src/my/app/tests/BUILD
 src/my/app/tests/test.cc
 ```
 
-## Targets
+## Targets {#targets}
 
 A package is a container of _targets_, which are defined in the package's
 `BUILD` file. Most targets are one of two principal kinds, _files_ and _rules_.

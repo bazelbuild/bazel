@@ -252,7 +252,7 @@ public final class ProfileCollectorTest {
     final int runCount = 20;
 
     AtomicInteger totalBytes = new AtomicInteger();
-    var writeStatuses = Collections.synchronizedList(new ArrayList<ListenableFuture<Void>>());
+    var writeStatuses = Collections.synchronizedList(new ArrayList<ListenableFuture<?>>());
 
     var allRunsDone = new CountDownLatch(runCount);
     for (int i = 0; i < runCount; i++) {
@@ -271,7 +271,7 @@ public final class ProfileCollectorTest {
                   }
                   totalBytes.getAndAdd(result.getObject().size());
 
-                  ListenableFuture<Void> writeStatus = result.getFutureToBlockWritesOn();
+                  ListenableFuture<?> writeStatus = result.getFutureToBlockWritesOn();
                   if (writeStatus != null) {
                     writeStatuses.add(writeStatus);
                   }

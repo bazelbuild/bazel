@@ -204,7 +204,7 @@ public class SerializationTester {
     SerializationResult<ByteString> result =
         codecs.serializeMemoizedAndBlocking(
             getFingerprintValueService(), subject, /* profileCollector= */ null);
-    ListenableFuture<Void> writeFuture = result.getFutureToBlockWritesOn();
+    ListenableFuture<?> writeFuture = result.getFutureToBlockWritesOn();
     if (writeFuture != null) {
       var unused = waitForSerializationFuture(writeFuture);
     }

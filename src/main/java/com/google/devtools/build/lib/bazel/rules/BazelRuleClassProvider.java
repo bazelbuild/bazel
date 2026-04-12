@@ -112,8 +112,8 @@ public class BazelRuleClassProvider {
   @VisibleForTesting
   @Nullable
   public static PathFragment getDefaultPathFromOptions(ShellConfiguration.Options options) {
-    if (options.shellExecutable != null) {
-      return options.shellExecutable;
+    if (options.getShellExecutable() != null) {
+      return options.getShellExecutable();
     }
 
     // Honor BAZEL_SH env variable for backwards compatibility.
@@ -184,7 +184,7 @@ public class BazelRuleClassProvider {
         // Shell environment variables specified via options take precedence over the
         // ones inherited from the fragments. In the long run, these fragments will
         // be replaced by appropriate default rc files anyway.
-        for (var envVar : options.get(CoreOptions.class).actionEnvironment) {
+        for (var envVar : options.get(CoreOptions.class).getActionEnvironment()) {
           switch (envVar) {
             case Converters.EnvVar.Set(String name, String value) -> env.put(name, value);
             case Converters.EnvVar.Inherit(String name) -> env.put(name, null);

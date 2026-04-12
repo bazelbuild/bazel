@@ -82,7 +82,8 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
   public AbstractSandboxSpawnRunner(CommandEnvironment cmdEnv) {
     this.sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
-    this.verboseFailures = cmdEnv.getOptions().getOptions(ExecutionOptions.class).verboseFailures;
+    this.verboseFailures =
+        cmdEnv.getOptions().getOptions(ExecutionOptions.class).getVerboseFailures();
     this.inaccessiblePaths =
         sandboxOptions.getInaccessiblePaths(cmdEnv.getRuntime().getFileSystem());
     this.binTools = cmdEnv.getBlazeWorkspace().getBinTools();
@@ -170,7 +171,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       }
       return result;
     } finally {
-      if (!sandboxOptions.sandboxDebug) {
+      if (!sandboxOptions.getSandboxDebug()) {
         try (SilentCloseable c = Profiler.instance().profile("sandbox.delete")) {
           sandbox.delete();
         }
@@ -184,7 +185,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       throws IOException {}
 
   private String makeFailureMessage(Spawn originalSpawn, SandboxedSpawn sandbox) {
-    if (sandboxOptions.sandboxDebug) {
+    if (sandboxOptions.getSandboxDebug()) {
       return CommandFailureUtils.describeCommandFailure(
           true, sandbox.getSandboxExecRoot().getPathString(), sandbox);
     } else {
@@ -391,7 +392,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     }
 
     FileSystem fileSystem = sandboxExecRoot.getFileSystem();
-    for (String writablePath : sandboxOptions.sandboxWritablePath) {
+    for (String writablePath : sandboxOptions.getSandboxWritablePath()) {
       Path path = fileSystem.getPath(writablePath);
       writablePaths.add(path);
       // TODO(laszlocsomor): Remove if guard when path.resolveSymbolicLinks supports non-symlink

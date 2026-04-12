@@ -35,7 +35,10 @@ java_library(
 
 java_library(
     name = "options",
-    exported_plugins = ["//src/main/java/com/google/devtools/common/options/processor:options_preprocessor"],
+    exported_plugins = [
+        "//src/main/java/com/google/devtools/common/options/processor:options_preprocessor",
+        "//src/main/java/com/google/devtools/common/options/processor:options_class_processor",
+    ],
     exports = [":options_internal"],
 )
 

@@ -474,7 +474,7 @@ public class TopLevelConstraintSemantics {
       List<Label> envAndFulfillers = new ArrayList<>();
       envAndFulfillers.add(unsupportedEnv);
       for (EnvironmentLabels envGroup : provider.getStaticEnvironments().getGroups()) {
-        envAndFulfillers.addAll(envGroup.getFulfillers(unsupportedEnv).toList());
+        envAndFulfillers.addAll(envGroup.getFulfillers(unsupportedEnv));
       }
       RemovedEnvironmentCulprit culprit = null;
       for (int i = 0; i < envAndFulfillers.size() && culprit == null; i++) {

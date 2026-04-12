@@ -8,7 +8,7 @@ Bazel 4.0 and higher provides support for two release tracks: long term support
 types of releases, and the benefits of those releases for Bazel users and
 contributors.
 
-## Understanding versioning on Bazel
+## Understanding versioning on Bazel {#bazel-versioning}
 
 Bazel uses a _major.minor.patch_ semantic versioning scheme.
 
@@ -24,7 +24,7 @@ these version numbers:
 * Minor: 3.6
 * Patch: 3.5.2
 
-## Bazel's release cycle
+## Bazel's release cycle {#release-cycle}
 
 Bazel continually publishes rolling releases. Every major version is an LTS
 release. You can choose to follow either release cadence - updating from one
@@ -37,7 +37,7 @@ each.
 
 **Figure 1.** Rolling and LTS releases.
 
-## Release branches
+## Release branches {#release-branches}
 
 Each major version becomes a separate development branch on release. You can
 receive fixes to critical bugs on that branch without having to update to the
@@ -47,7 +47,7 @@ minor releases and the highest version on the branch is the supported version.
 Each Bazel release is paired with a list of recommended rule versions that work
 together and there is strict backwards compatibility within each branch.
 
-## LTS releases
+## LTS releases {#lts-releases}
 
 An LTS release is a major version (such as, 4.0) that is supported for 3 years
 after its release.
@@ -59,7 +59,7 @@ You can choose to pin your project to a major release and update to a newer
 version in your own time. This gives you time to preview upcoming changes and
 adapt to them in advance.
 
-## Rolling releases
+## Rolling releases {#rolling-releases}
 
 Rolling releases are periodically cut from Bazel's main branch.
 This release cadence involves a continuous delivery of preview releases of the
@@ -86,7 +86,7 @@ Alternatively, you can set up
 details, see the
 [Bazelisk documentation](https://github.com/bazelbuild/bazelisk#how-does-bazelisk-know-which-bazel-version-to-run).
 
-## Updating versions
+## Updating versions {#updating-versions}
 
 * For more information on updating your Bazel version, see
   [Updating Bazel](/versions/updating-bazel).

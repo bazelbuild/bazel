@@ -27,7 +27,7 @@ import java.lang.annotation.Target;
  * <p>A number of checks are run on an Option's fields' values at compile time. See {@link
  * com.google.devtools.common.options.processor.OptionProcessor} for details.
  */
-@Target(ElementType.FIELD)
+@Target({ElementType.FIELD, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Option {
   /** The name of the option ("--name"). */
@@ -61,9 +61,9 @@ public @interface Option {
    * annotation values must be compile-time constants.
    *
    * <p>If an option's defaultValue() is the string "null" (see {@link
-   * FieldOptionDefinition#SPECIAL_NULL_DEFAULT_VALUE}), the option's converter will not be invoked
-   * to interpret it; an empty {@link java.util.List} (for {@code allowMultiple = true} options) or
-   * a null reference (for others) will be used instead. (It would be nice if defaultValue could
+   * OptionDefinition#SPECIAL_NULL_DEFAULT_VALUE}), the option's converter will not be invoked to
+   * interpret it; an empty {@link java.util.List} (for {@code allowMultiple = true} options) or a
+   * null reference (for others) will be used instead. (It would be nice if defaultValue could
    * simply return null, but bizarrely, the Java Language Specification does not consider null to be
    * a compile-time constant.) This special interpretation of the string "null" is only applicable
    * when computing the default value; if specified on the command-line, this string will have its

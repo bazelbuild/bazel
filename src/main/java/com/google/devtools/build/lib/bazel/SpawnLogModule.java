@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.eventbus.Subscribe;
 import com.google.common.primitives.Booleans;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.events.Event;
@@ -40,6 +41,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /** Module providing on-demand spawn logging. */
@@ -67,9 +69,9 @@ public final class SpawnLogModule extends BlazeModule {
 
     int numFormats =
         Booleans.countTrue(
-            executionOptions.executionLogCompactFile != null,
-            executionOptions.executionLogBinaryFile != null,
-            executionOptions.executionLogJsonFile != null);
+            executionOptions.getExecutionLogCompactFile() != null,
+            executionOptions.getExecutionLogBinaryFile() != null,
+            executionOptions.getExecutionLogJsonFile() != null);
 
     if (numFormats == 0) {
       // No logging requested.
@@ -96,9 +98,11 @@ public final class SpawnLogModule extends BlazeModule {
     }
 
     Path outputBase = env.getOutputBase();
+    Predicate<Spawn> logSpawnPredicate =
+        spawn -> executionOptions.getExecutionLogMnemonicFilter().test(spawn.getMnemonic());
 
-    if (executionOptions.executionLogCompactFile != null) {
-      outputPath = getAbsolutePath(executionOptions.executionLogCompactFile, env);
+    if (executionOptions.getExecutionLogCompactFile() != null) {
+      outputPath = getAbsolutePath(executionOptions.getExecutionLogCompactFile(), env);
 
       try {
         spawnLogContext =
@@ -113,7 +117,8 @@ public final class SpawnLogModule extends BlazeModule {
                 env.getRuntime().getFileSystem().getDigestFunction(),
                 env.getXattrProvider(),
                 env.getCommandId(),
-                env.getReporter());
+                env.getReporter(),
+                logSpawnPredicate);
       } catch (InterruptedException e) {
         env.getReporter()
             .handle(Event.error("Error while setting up the execution log: " + e.getMessage()));
@@ -121,12 +126,12 @@ public final class SpawnLogModule extends BlazeModule {
     } else {
       Encoding encoding = null;
 
-      if (executionOptions.executionLogBinaryFile != null) {
+      if (executionOptions.getExecutionLogBinaryFile() != null) {
         encoding = Encoding.BINARY;
-        outputPath = getAbsolutePath(executionOptions.executionLogBinaryFile, env);
-      } else if (executionOptions.executionLogJsonFile != null) {
+        outputPath = getAbsolutePath(executionOptions.getExecutionLogBinaryFile(), env);
+      } else if (executionOptions.getExecutionLogJsonFile() != null) {
         encoding = Encoding.JSON;
-        outputPath = getAbsolutePath(executionOptions.executionLogJsonFile, env);
+        outputPath = getAbsolutePath(executionOptions.getExecutionLogJsonFile(), env);
       }
 
       // Use a well-known temporary path to avoid accumulation of potentially large files in /tmp
@@ -138,11 +143,12 @@ public final class SpawnLogModule extends BlazeModule {
               checkNotNull(outputPath),
               tempPath,
               checkNotNull(encoding),
-              /* sorted= */ executionOptions.executionLogSort,
+              /* sorted= */ executionOptions.getExecutionLogSort(),
               env.getExecRoot().asFragment(),
               env.getOptions().getOptions(RemoteOptions.class),
               env.getRuntime().getFileSystem().getDigestFunction(),
-              env.getXattrProvider());
+              env.getXattrProvider(),
+              logSpawnPredicate);
     }
   }
 

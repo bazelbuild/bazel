@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
@@ -59,9 +58,7 @@ public class OptionsDiffTest {
     assertThat(diff.areSame()).isFalse();
     assertThat(diff.getExtraFirstFragmentClassesForTesting()).containsExactly(CppOptions.class);
     assertThat(
-            diff.getExtraSecondFragmentsForTesting().stream()
-                .map(Object::getClass)
-                .collect(toImmutableList()))
+            diff.getExtraSecondFragmentsForTesting().stream().map(FragmentOptions::getOptionsClass))
         .containsExactlyElementsIn(BUILD_CONFIG_OPTIONS);
   }
 

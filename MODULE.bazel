@@ -5,7 +5,7 @@
 
 module(
     name = "bazel",
-    version = "9.0.0-prerelease",
+    version = "10.0.0-prerelease",
     repo_name = "io_bazel",
 )
 
@@ -14,6 +14,7 @@ module(
 # =========================================
 
 bazel_dep(name = "abseil-cpp", version = "20250814.1")
+bazel_dep(name = "bazel_features", version = "1.42.1")
 bazel_dep(name = "bazel_skylib", version = "1.8.2")
 bazel_dep(name = "blake3", version = "1.8.2.bcr.1")
 bazel_dep(name = "googleapis-grpc-java", version = "1.0.0")
@@ -41,7 +42,7 @@ bazel_dep(name = "zstd-jni", version = "1.5.6-9")
 
 # Depend on apple_support first and then rules_cc so that the Xcode toolchain
 # from apple_support wins over the generic Unix toolchain from rules_cc.
-bazel_dep(name = "apple_support", version = "1.24.5")
+bazel_dep(name = "apple_support", version = "2.3.0")
 bazel_dep(name = "rules_cc", version = "0.2.17")
 
 # The starlark rules in @rules_cc are hidden behind macros but docgen needs to
@@ -174,7 +175,7 @@ maven.install(
         "com.google.guava:guava:33.5.0-jre",
         "com.google.http-client:google-http-client:1.42.2",
         "com.google.http-client:google-http-client-gson:1.42.2",
-        "com.google.turbine:turbine:0.14.0",
+        "com.google.turbine:turbine:1.14.1",
         "com.guardsquare:proguard-base:jar:7.8.2",
         "com.ryanharter.auto.value:auto-value-gson-extension:1.3.1",
         "com.ryanharter.auto.value:auto-value-gson-factory:1.3.1",
@@ -229,6 +230,7 @@ maven.install(
         "org.apache.commons:commons-lang3:3.14.0",
         "org.apache.tomcat:tomcat-annotations-api:8.0.5",
         "org.apache.velocity:velocity:1.7",
+        "org.brotli:dec:0.1.2",
         "org.checkerframework:checker-qual:3.49.3",
         "org.commonmark:commonmark:0.25.0",
         "org.openjdk.jmh:jmh-core:1.37",
@@ -368,6 +370,7 @@ use_repo(
     "openjdk_linux_vanilla",
     "openjdk_macos_aarch64_vanilla",
     "openjdk_macos_x86_64_vanilla",
+    "openjdk_win_arm64_jmods",
     "openjdk_win_arm64_vanilla",
     "openjdk_win_vanilla",
 )

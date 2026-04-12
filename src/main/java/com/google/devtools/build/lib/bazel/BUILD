@@ -29,6 +29,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/authandtls",
+        "//src/main/java/com/google/devtools/build/lib/authandtls:grpc",
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper",
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
@@ -129,6 +130,7 @@ java_library(
         "SpawnLogModule.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input_prefetcher",
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
         "//src/main/java/com/google/devtools/build/lib/buildtool/buildevent",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -153,7 +155,6 @@ java_library(
     name = "bazel_filesystem_module",
     srcs = ["BazelFileSystemModule.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_server_startup_options",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
@@ -192,6 +193,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventservice",
         "//src/main/java/com/google/devtools/build/lib/dynamic",
         "//src/main/java/com/google/devtools/build/lib/includescanning",
+        "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/metrics:memory-use-recorder",
         "//src/main/java/com/google/devtools/build/lib/metrics:metrics_module",
         "//src/main/java/com/google/devtools/build/lib/network:noop_connectivity",
@@ -221,6 +223,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkprofiler:cpu_profiler_module",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_module",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -232,7 +235,6 @@ java_binary(
     main_class = "com.google.devtools.build.lib.bazel.Bazel",
     runtime_deps = [
         ":main",
-        "//src/main/java/com/google/devtools/build/lib/server",
         "//src/main/java/com/google/devtools/build/lib/util:simple_log_handler",  # See startup_options.cc
         "//src/main/java/com/google/devtools/build/lib/util:single_line_formatter",  # See startup_options.cc
     ],
@@ -256,6 +258,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler:profiler_impl",
         "//src/main/java/com/google/devtools/build/lib/profiler:system_network_stats_service_impl",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
+        "//src/main/java/com/google/devtools/build/lib/server:grpc_command_server_service_impl",
         "//src/main/java/com/google/devtools/build/lib/skyframe:fs_events_native_deps_service_impl",
         "//src/main/java/com/google/devtools/build/lib/starlarkprofiler:cpu_profiler_service_impl",
         "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",

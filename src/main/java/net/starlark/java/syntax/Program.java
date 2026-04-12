@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.HashSet;
+import javax.annotation.Nullable;
 
 /**
  * An opaque, executable representation of a valid Starlark program. Programs may
@@ -27,27 +28,51 @@ import java.util.HashSet;
  */
 public final class Program {
 
+  private final FileOptions options;
   private final Resolver.Function body;
   private final ImmutableList<String> loads;
   private final ImmutableList<Location> loadLocations;
   private final ImmutableMap<String, DocComments> docCommentsMap;
   private final ImmutableList<Comment> unusedDocCommentLines;
+  // Set by withTypeTable()
+  @Nullable private final TypeTable typeTable;
 
   private Program(
+      FileOptions options,
       Resolver.Function body,
       ImmutableList<String> loads,
       ImmutableList<Location> loadLocations,
       ImmutableMap<String, DocComments> docCommentsMap,
-      ImmutableList<Comment> unusedDocCommentLines) {
+      ImmutableList<Comment> unusedDocCommentLines,
+      @Nullable TypeTable typeTable) {
     Preconditions.checkArgument(
         loads.size() == loadLocations.size(), "each load must have a corresponding location");
 
     // TODO(adonovan): compile here.
+    this.options = options;
     this.body = body;
     this.loads = loads;
     this.loadLocations = loadLocations;
     this.docCommentsMap = docCommentsMap;
     this.unusedDocCommentLines = unusedDocCommentLines;
+    this.typeTable = typeTable;
+  }
+
+  /** Returns a copy of this program with the specified type table. */
+  public Program withTypeTable(@Nullable TypeTable typeTable) {
+    return new Program(
+        this.options,
+        this.body,
+        this.loads,
+        this.loadLocations,
+        this.docCommentsMap,
+        this.unusedDocCommentLines,
+        typeTable);
+  }
+
+  /** Returns the file options under which this program was parsed and compiled. */
+  public FileOptions getOptions() {
+    return options;
   }
 
   // TODO(adonovan): eliminate once Eval no longer needs access to syntax.
@@ -85,6 +110,15 @@ public final class Program {
   }
 
   /**
+   * Returns the static type table of this compiled program, or null if type resolution was not
+   * performed.
+   */
+  @Nullable
+  public TypeTable getTypeTable() {
+    return typeTable;
+  }
+
+  /**
    * Resolves a file syntax tree in the specified environment and compiles it to a Program. This
    * operation mutates the syntax tree by:
    *
@@ -104,23 +138,6 @@ public final class Program {
     if (!file.ok()) {
       throw new SyntaxError.Exception(file.errors());
     }
-
-    if (file.getOptions().resolveTypeSyntax()) {
-      TypeTagger.tagFile(file, env);
-      if (!file.ok()) {
-        throw new SyntaxError.Exception(file.errors());
-      }
-    }
-
-    if (file.getOptions().staticTypeChecking()) {
-      TypeChecker.checkFile(file);
-      if (!file.ok()) {
-        throw new SyntaxError.Exception(file.errors());
-      }
-    }
-
-    // TODO: #28037 - Call the static type checker when --experimental_starlark_type_checking is
-    // enabled. Blocked on having the type checker tolerate all AST nodes.
 
     // Extract load statements.
     ImmutableList.Builder<String> loads = ImmutableList.builder();
@@ -145,11 +162,13 @@ public final class Program {
             .collect(toImmutableList());
 
     return new Program(
+        file.getOptions(),
         file.getResolvedFunction(),
         loads.build(),
         loadLocations.build(),
         docCommentsMap,
-        unusedDocCommentLines);
+        unusedDocCommentLines,
+        /* typeTable= */ null);
   }
 
   /**
@@ -162,21 +181,13 @@ public final class Program {
   public static Program compileExpr(Expression expr, Resolver.Module module, FileOptions options)
       throws SyntaxError.Exception {
     Resolver.Function body = Resolver.resolveExpr(expr, module, options);
-
-    if (options.resolveTypeSyntax()) {
-      TypeTagger.tagExpr(expr, body, module);
-    }
-
-    if (options.staticTypeChecking()) {
-      StarlarkType exprType = TypeChecker.inferTypeOf(expr);
-      TypeTagger.tagExprFunction(body, exprType);
-    }
-
     return new Program(
+        options,
         body,
         /* loads= */ ImmutableList.of(),
         /* loadLocations= */ ImmutableList.of(),
         /* docCommentsMap= */ ImmutableMap.of(),
-        /* unusedDocCommentLines= */ ImmutableList.of());
+        /* unusedDocCommentLines= */ ImmutableList.of(),
+        /* typeTable= */ null);
   }
 }

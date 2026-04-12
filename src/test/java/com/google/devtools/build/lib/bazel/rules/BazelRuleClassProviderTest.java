@@ -226,7 +226,7 @@ public class BazelRuleClassProviderTest extends BuildViewTestCase {
 
   private static PathFragment determineShellExecutable(OS os, PathFragment executableOption) {
     ShellConfiguration.Options options = Options.getDefaults(ShellConfiguration.Options.class);
-    options.shellExecutable = executableOption;
+    options.setShellExecutable(executableOption);
     return BazelRuleClassProvider.getShellExecutableForOs(os, options);
   }
 }

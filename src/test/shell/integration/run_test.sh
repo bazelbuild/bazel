@@ -62,8 +62,14 @@ function write_py_files() {
 load("@rules_python//python:py_binary.bzl", "py_binary")
 load("@rules_python//python:py_test.bzl", "py_test")
 
-py_binary(name = "binary", srcs = ["binary.py"])
-py_test(name = "test", srcs = ["test.py"])
+py_binary(
+    name = "binary",
+    srcs = ["binary.py"],
+)
+py_test(
+    name = "test",
+    srcs = ["test.py"],
+)
 EOF
 
   echo "print('Hello, Python World!')" >py/py.py

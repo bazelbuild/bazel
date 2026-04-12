@@ -22,7 +22,7 @@ rules using the workspace log.
 
 ## Finding non-hermetic rules {:#nonhermetic-rules}
 
-[Workspace rules](/reference/be/workspace) allow the developer to add dependencies to
+[Repository rules](/external/repo) allow the developer to add dependencies to
 external workspaces, but they are rich enough to allow arbitrary processing to
 happen in the process. All related commands are happening locally and can be a
 potential source of non-hermeticity. Usually non-hermetic behavior is

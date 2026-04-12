@@ -19,6 +19,7 @@ import com.google.devtools.common.options.Converters.CommaSeparatedOptionListCon
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import java.util.List;
 import java.util.Set;
@@ -141,14 +142,14 @@ public class LoadingOptions extends OptionsBase {
 
   @Deprecated
   @Option(
-    name = "experimental_skyframe_target_pattern_evaluator",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Use the Skyframe-based target pattern evaluator; implies "
-            + "--experimental_interleave_loading_and_analysis."
-  )
+      name = "experimental_skyframe_target_pattern_evaluator",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
+      help =
+          "Use the Skyframe-based target pattern evaluator; implies "
+              + "--experimental_interleave_loading_and_analysis.")
   public boolean useSkyframeTargetPatternEvaluator;
 
   @Option(

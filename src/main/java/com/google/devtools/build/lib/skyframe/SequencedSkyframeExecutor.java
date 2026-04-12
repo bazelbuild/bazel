@@ -330,7 +330,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       OptionsProvider options) {
     var someNodeDroppingExpected =
         (options.getOptions(AnalysisOptions.class) != null
-                && options.getOptions(AnalysisOptions.class).discardAnalysisCache)
+                && options.getOptions(AnalysisOptions.class).getDiscardAnalysisCache())
             || !trackIncrementalState
             || heuristicallyDropNodes;
     var skymeldInconsistenciesExpected =
@@ -349,7 +349,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   private static boolean rewindingEnabled(OptionsProvider options) {
     var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    return buildRequestOptions != null && buildRequestOptions.rewindLostInputs;
+    return buildRequestOptions != null && buildRequestOptions.getRewindLostInputs();
   }
 
   /**
@@ -729,7 +729,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   private static boolean isExecConfig(@Nullable BuildConfigurationKey bck) {
-    return bck != null && bck.getOptions().get(CoreOptions.class).isExec;
+    return bck != null && bck.getOptions().get(CoreOptions.class).getIsExec();
   }
 
   /**

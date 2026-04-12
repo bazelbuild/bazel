@@ -346,7 +346,7 @@ public final class BlazeWorkspace {
             new ResourceManager());
     skyframeExecutor.setClientEnv(env.getClientEnv());
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    if (buildRequestOptions != null && !buildRequestOptions.useActionCache) {
+    if (buildRequestOptions != null && !buildRequestOptions.getUseActionCache()) {
       // Drop the action cache reference to save memory since we don't need it for this build. If a
       // subsequent build needs it, getOrLoadPersistentActionCache will reload it from disk.
       actionCache = null;

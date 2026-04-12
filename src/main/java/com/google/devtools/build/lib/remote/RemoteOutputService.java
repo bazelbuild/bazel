@@ -51,13 +51,17 @@ import javax.annotation.Nullable;
 public class RemoteOutputService implements OutputService {
 
   private final BlazeDirectories directories;
+  private final boolean rewindLostInputs;
+
+  private RewoundActionSynchronizer rewoundActionSynchronizer = RewoundActionSynchronizer.NOOP;
 
   @Nullable private RemoteOutputChecker remoteOutputChecker;
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
   @Nullable private LeaseService leaseService;
 
-  RemoteOutputService(BlazeDirectories directories) {
+  RemoteOutputService(BlazeDirectories directories, boolean rewindLostInputs) {
     this.directories = checkNotNull(directories);
+    this.rewindLostInputs = rewindLostInputs;
   }
 
   void setRemoteOutputChecker(RemoteOutputChecker remoteOutputChecker) {
@@ -66,6 +70,9 @@ public class RemoteOutputService implements OutputService {
 
   void setActionInputFetcher(RemoteActionInputFetcher actionInputFetcher) {
     this.actionInputFetcher = checkNotNull(actionInputFetcher, "actionInputFetcher");
+    if (rewindLostInputs) {
+      this.rewoundActionSynchronizer = new RemoteRewoundActionSynchronizer(actionInputFetcher);
+    }
   }
 
   void setLeaseService(LeaseService leaseService) {
@@ -225,5 +232,10 @@ public class RemoteOutputService implements OutputService {
     if (actionFileSystem instanceof RemoteActionFileSystem remoteFileSystem) {
       remoteFileSystem.checkForLostInputs(action);
     }
+  }
+
+  @Override
+  public RewoundActionSynchronizer getRewoundActionSynchronizer() {
+    return rewoundActionSynchronizer;
   }
 }

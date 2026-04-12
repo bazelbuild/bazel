@@ -1475,9 +1475,20 @@ public final class ParserTest {
     // type expressions can use list literals
     assertThat(parseTypeExpression("Callable[[int, str], int]"))
         .isInstanceOf(TypeApplication.class);
-    // type expressions can use dict literals
+    // type expressions can use dict literals with string keys and type expression values
     assertThat(parseTypeExpression("TypedDict[{'a': int, 'b': bool}]"))
         .isInstanceOf(TypeApplication.class);
+    // (non-string keys, or non-type-expression values, are a parse-time error)
+    assertThat(
+            assertThrows(
+                SyntaxError.Exception.class, () -> parseTypeExpression("TypedDict[{x: y}]")))
+        .hasMessageThat()
+        .contains("syntax error at 'x': expected string literal");
+    assertThat(
+            assertThrows(
+                SyntaxError.Exception.class, () -> parseTypeExpression("TypedDict[{'x': foo()}]")))
+        .hasMessageThat()
+        .contains("syntax error at '(': expected ,");
     // type expressions can use empty tuple literals
     assertThat(parseTypeExpression("tuple[()]")).isInstanceOf(TypeApplication.class);
     // ...but not non-empty tuples

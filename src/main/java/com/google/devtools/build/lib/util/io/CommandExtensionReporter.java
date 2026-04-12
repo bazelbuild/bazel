@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.util.io;
 
 import com.google.protobuf.Any;
+import java.io.IOException;
 
 /**
  * Consumer of {@link Any} protos that sends messages to the build tool's gRPC client.
@@ -26,6 +27,10 @@ public interface CommandExtensionReporter {
   /** Extension reporter that drops all extensions. */
   CommandExtensionReporter NO_OP_COMMAND_EXTENSION_REPORTER = (any) -> {};
 
-  /** Writes the command extension to the client in a gRPC RunResponse. */
-  void report(Any commandExtension);
+  /**
+   * Writes the command extension to the client in a gRPC RunResponse.
+   *
+   * @throws IOException if an I/O error occurs
+   */
+  void report(Any commandExtension) throws IOException;
 }

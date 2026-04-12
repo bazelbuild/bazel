@@ -14,6 +14,9 @@ filegroup(
 java_library(
     name = "decompressor",
     srcs = glob(["*.java"]),
+    runtime_deps = [
+        "@maven//:org_brotli_dec",
+    ],
     deps = [
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:exception",

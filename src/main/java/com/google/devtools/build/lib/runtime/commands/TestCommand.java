@@ -81,9 +81,9 @@ public class TestCommand implements BlazeCommand {
 
   @Override
   public void editOptions(OptionsParser optionsParser) {
-    TestOutputFormat testOutput = optionsParser.getOptions(ExecutionOptions.class).testOutput;
+    TestOutputFormat testOutput = optionsParser.getOptions(ExecutionOptions.class).getTestOutput();
     try {
-      if (testOutput == ExecutionOptions.TestOutputFormat.STREAMED) {
+      if (testOutput == TestOutputFormat.STREAMED) {
         optionsParser.parse(
             PriorityCategory.SOFTWARE_REQUIREMENT,
             "streamed output requires locally run tests, without sharding",
@@ -96,8 +96,8 @@ public class TestCommand implements BlazeCommand {
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
-    TestOutputFormat testOutput = options.getOptions(ExecutionOptions.class).testOutput;
-    if (testOutput == ExecutionOptions.TestOutputFormat.STREAMED) {
+    TestOutputFormat testOutput = options.getOptions(ExecutionOptions.class).getTestOutput();
+    if (testOutput == TestOutputFormat.STREAMED) {
       env.getReporter()
           .handle(
               Event.warn(
@@ -158,7 +158,7 @@ public class TestCommand implements BlazeCommand {
             .setTargets(targets)
             .setStartTimeMillis(env.getCommandStartTime())
             .setRunTests(true);
-    if (options.getOptions(CoreOptions.class).collectCodeCoverage
+    if (options.getOptions(CoreOptions.class).getCollectCodeCoverage()
         && !options.containsExplicitOption(
             InstrumentationFilterSupport.INSTRUMENTATION_FILTER_FLAG)) {
       builder.setNeedsInstrumentationFilter(true);

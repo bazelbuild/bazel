@@ -32,7 +32,7 @@ public final class BuildOptionsCacheTest {
       new BuildOptionsCache<>(
           (options, context, unused) -> {
             BuildOptionsView clone = options.clone();
-            clone.get(CoreOptions.class).cpu = context.val;
+            clone.get(CoreOptions.class).setCpu(context.val);
             return clone.underlying();
           });
 
@@ -95,11 +95,11 @@ public final class BuildOptionsCacheTest {
   }
 
   private static void assertCpu(BuildOptions options, String expected) {
-    assertThat(options.get(CoreOptions.class).cpu).isEqualTo(expected);
+    assertThat(options.get(CoreOptions.class).getCpu()).isEqualTo(expected);
   }
 
   private static void assertHostCpu(BuildOptions options, String expected) {
-    assertThat(options.get(CoreOptions.class).hostCpu).isEqualTo(expected);
+    assertThat(options.get(CoreOptions.class).getHostCpu()).isEqualTo(expected);
   }
 
   /** Simple value class for testing the context parameter. */

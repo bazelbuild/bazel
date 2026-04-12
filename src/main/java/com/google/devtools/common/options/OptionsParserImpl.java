@@ -1005,18 +1005,35 @@ class OptionsParserImpl {
     // Extracts the <arg> from '--<arg>=<value>' and '--<arg> <value>' formats on the command line
     String actualArg = (equalSign != -1) ? arg.substring(2, equalSign) : arg.substring(2);
 
-    if (!flagAliasMappings.containsKey(actualArg)) {
+    if (flagAliasMappings.containsKey(actualArg)) {
+      String alias = flagAliasMappings.get(actualArg);
+      return (equalSign != -1) ? "--" + alias + arg.substring(equalSign) : "--" + alias;
+    }
+
+    // If a valid alias is not found, check for unsupported --no<alias> flag semantics.
+    // If a native option is aliased and being used in this case, a deprecation
+    // warning will be added to notify the user that this usage is unsupported.
+    if (!actualArg.startsWith("no")) {
+      // If the arg does not start with "no", then the deprecation warning does not apply.
+      return arg;
+    }
+    String nameWithoutNo = actualArg.substring(2);
+    OptionDefinition def = optionsData.getOptionDefinitionFromName(nameWithoutNo);
+    // Only consider adding the deprecation warning if a native option is being aliased.
+    if (!flagAliasMappings.containsKey(nameWithoutNo) || def == null) {
       return arg;
     }
 
-    String alias = flagAliasMappings.get(actualArg);
-    actualArg = alias;
+    maybeAddDeprecationWarning(def, PriorityCategory.COMMAND_LINE);
+    // Only add the general deprecation warning if one wasn't already added for the specific flag.
+    // E.g. a specific deprecationWarning on the option definition.
+    if (def.getDeprecationWarning().isEmpty()) {
+      warnings.add(
+          String.format(
+              "Flag --no%s is deprecated. Use --%s=false instead.", nameWithoutNo, nameWithoutNo));
+    }
 
-    // Converts the arg back into a command line option, accounting for both '--<arg>=<value>' and
-    // '--<arg> <value>' formats
-    actualArg = (equalSign != -1) ? "--" + actualArg + arg.substring(equalSign) : "--" + actualArg;
-
-    return actualArg;
+    return arg;
   }
 
   private boolean containsSkippedPrefix(String arg) {

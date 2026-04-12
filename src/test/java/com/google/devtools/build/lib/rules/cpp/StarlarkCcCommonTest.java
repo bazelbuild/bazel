@@ -2145,8 +2145,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(variable).isNotNull();
     VariableWithValue v = variableWithValueFromStarlark(variable);
     assertThat(v).isNotNull();
-    assertThat(v.variable).isEqualTo("abc");
-    assertThat(v.value).isEqualTo("def");
+    assertThat(v.variable()).isEqualTo("abc");
+    assertThat(v.value()).isEqualTo("def");
 
     createEnvEntryRule("six", /* key= */ "'abc'", /* value= */ "'def'");
     t = getConfiguredTarget("//six:a");
@@ -2692,8 +2692,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(withFeatureSetProvider).isNotNull();
     WithFeatureSet withFeatureSet = withFeatureSetFromStarlark(withFeatureSetProvider);
     assertThat(withFeatureSet).isNotNull();
-    assertThat(withFeatureSet.getFeatures()).containsExactly("f1", "f2");
-    assertThat(withFeatureSet.getNotFeatures()).containsExactly("nf1", "nf2");
+    assertThat(withFeatureSet.features()).containsExactly("f1", "f2");
+    assertThat(withFeatureSet.notFeatures()).containsExactly("nf1", "nf2");
 
     createVariableWithValueRule("six", /* name= */ "'abc'", /* value= */ "'def'");
     t = getConfiguredTarget("//six:a");
@@ -3257,8 +3257,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     StarlarkInfo flagGroupProvider = (StarlarkInfo) getMyInfoFromTarget(t).getValue("flaggroup");
     assertThat(flagGroupProvider).isNotNull();
     FlagGroup flagGroup = flagGroupFromStarlark(flagGroupProvider);
-    assertThat(flagGroup.getExpandables()).isNotEmpty();
-    assertThat(flagGroup.getExpandables().get(0)).isInstanceOf(SingleChunkFlag.class);
+    assertThat(flagGroup.expandables()).isNotEmpty();
+    assertThat(flagGroup.expandables().get(0)).isInstanceOf(SingleChunkFlag.class);
   }
 
   @Test
@@ -3877,7 +3877,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(flagSetStruct).isNotNull();
     FlagSet f = flagSetFromStarlark(flagSetStruct, /* actionName= */ "action");
     assertThat(f).isNotNull();
-    assertThat(f.getActions()).containsExactly("action");
+    assertThat(f.actions()).containsExactly("action");
   }
 
   private void createFlagSetRule(String pkg, String actions, String flagGroups, String withFeatures)
@@ -4131,7 +4131,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(a).isNotNull();
     assertThat(a.getActionName()).isEqualTo("actionname32._++-");
     assertThat(a.getImplies()).containsExactly("a", "b").inOrder();
-    assertThat(Iterables.getOnlyElement(a.getFlagSets()).getActions())
+    assertThat(Iterables.getOnlyElement(a.getFlagSets()).actions())
         .containsExactly("actionname32._++-");
   }
 
@@ -6050,14 +6050,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCustomNameOutputArtifactRaisesError() throws Exception {
-    setupTestTransitiveLink(scratch, "output_type = 'dynamic_library'", " main_output=None");
-
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:bin"));
-    assertThat(e).hasMessageThat().contains("cannot use private API");
-  }
-
-  @Test
   public void testInterfaceLibraryProducedForTransitiveLinkOnWindows() throws Exception {
     getAnalysisMock()
         .ccSupport()
@@ -7312,7 +7304,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             + "feature_configuration=feature_configuration, cc_toolchain=toolchain, %s)";
     ImmutableList<String> calls =
         ImmutableList.of(
-            String.format(callFormatString, "link_artifact_name_suffix='test'"),
             String.format(callFormatString, "never_link=False"),
             String.format(callFormatString, "test_only_target=False"),
             String.format(callFormatString, "always_link=False"),
@@ -7753,7 +7744,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "cc_rule = rule(",
         "  implementation = _impl,",
         "  attrs = { ",
-        "    '_artifact': attr.label(allow_single_file=True, default=Label('//b:foo.soifso')),",
+        "    '_artifact': attr.label(allow_single_file=True, default=Label('//b:foo.soif.so')),",
         "    '_cc_toolchain': attr.label(default=Label('//b:alias'))",
         "  },",
         "  fragments = ['cpp'],",

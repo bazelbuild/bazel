@@ -116,7 +116,9 @@ public final class FrontierSerializer {
             serializationDependenciesProvider.getActiveDirectoriesMatcher(),
             /* traversalMode= */ TraversalMode.PRE_SERIALIZATION);
     ImmutableSet<SkyKey> selectedKeys = selectionResult.selectedKeys();
-    clearActionLookupValues(graph, selectedKeys);
+    if (!keepStateAfterBuild && serializationDependenciesProvider.shouldMinimizeMemory()) {
+      clearActionLookupValues(graph, selectedKeys);
+    }
 
     reporter.handle(
         Event.info(

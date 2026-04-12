@@ -30,6 +30,7 @@ java_library(
     ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
@@ -233,6 +234,7 @@ java_test(
 
 java_test(
     name = "RuntimeTests",
+    shard_count = 2,
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":RuntimeTests_lib",

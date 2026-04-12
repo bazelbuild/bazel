@@ -123,7 +123,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildOptions mapped = platformMappingValue.map(createBuildOptions()).getOptions();
 
-    assertThat(mapped.get(PlatformOptions.class).platforms)
+    assertThat(mapped.get(PlatformOptions.class).getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked("@bazel_tools//tools:host_platform"));
   }
 
@@ -454,7 +454,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
-    assertThat(mapped.get(PlatformOptions.class).platforms).containsExactly(PLATFORM1);
+    assertThat(mapped.get(PlatformOptions.class).getPlatforms()).containsExactly(PLATFORM1);
   }
 
   @Test
@@ -476,7 +476,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
-    assertThat(mapped.get(PlatformOptions.class).platforms).containsExactly(PLATFORM1);
+    assertThat(mapped.get(PlatformOptions.class).getPlatforms()).containsExactly(PLATFORM1);
   }
 
   @Test

@@ -1238,7 +1238,7 @@ EOF
   bazel cquery "kind(rule, deps(//$pkg:foo))" --output=starlark \
     --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
   assert_contains "//$pkg:foo%None" output
-  assert_contains "//$pkg:bar%set(\\[\"b\", \"a\"])" output
+  assert_contains "//$pkg:bar%set(\\[\"a\", \"b\"])" output
 
   bazel cquery "//$pkg:rules.bzl" --output=starlark \
     --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"

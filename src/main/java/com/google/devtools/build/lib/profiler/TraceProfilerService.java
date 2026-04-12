@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 /**
@@ -152,6 +153,9 @@ public interface TraceProfilerService extends BlazeService {
 
   /** Used to log "events" - tasks with zero duration. */
   void logEvent(ProfilerTask type, String description);
+
+  /** Sets the heuristics for determining the filesystem type of a given path. */
+  void setVfsTypeHeuristics(Map<String, ? extends Predicate<? super String>> vfsTypeHeuristics);
 
   /**
    * Enable profiling.

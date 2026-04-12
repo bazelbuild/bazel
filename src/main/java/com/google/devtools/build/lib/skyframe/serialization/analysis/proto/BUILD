@@ -12,14 +12,37 @@ proto_library(
     srcs = ["analysis_cache_service_metadata_status.proto"],
 )
 
+proto_library(
+    name = "analysis_cache_service_miss_reason_proto",
+    srcs = ["analysis_cache_service_miss_reason.proto"],
+)
+
 java_proto_library(
     name = "analysis_cache_service_metadata_status_java_proto",
     deps = [":analysis_cache_service_metadata_status_proto"],
 )
 
+java_proto_library(
+    name = "analysis_cache_service_miss_reason_java_proto",
+    deps = [":analysis_cache_service_miss_reason_proto"],
+)
+
 java_library_srcs(
-    name = "dist_jars",
+    name = "metadata_status_dist_jars",
     deps = [":analysis_cache_service_metadata_status_java_proto"],
+)
+
+java_library_srcs(
+    name = "miss_reason_dist_jars",
+    deps = [":analysis_cache_service_miss_reason_java_proto"],
+)
+
+filegroup(
+    name = "dist_jars",
+    srcs = [
+        ":metadata_status_dist_jars",
+        ":miss_reason_dist_jars",
+    ],
 )
 
 filegroup(

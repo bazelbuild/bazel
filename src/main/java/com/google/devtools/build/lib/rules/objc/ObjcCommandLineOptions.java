@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.rules.apple.DottedVersionConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -24,28 +22,6 @@ import com.google.devtools.common.options.OptionMetadataTag;
 
 /** Command-line options for building Objective-C targets. */
 public class ObjcCommandLineOptions extends FragmentOptions {
-  @Option(
-      name = "ios_simulator_version",
-      defaultValue = "null",
-      converter = DottedVersionConverter.class,
-      documentationCategory = OptionDocumentationCategory.TESTING,
-      effectTags = {OptionEffectTag.TEST_RUNNER},
-      help =
-          "The version of iOS to run on the simulator when running or testing. This is ignored "
-              + "for ios_test rules if a target device is specified in the rule.")
-  public DottedVersion.Option iosSimulatorVersion;
-
-  @Option(
-      name = "ios_simulator_device",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.TESTING,
-      effectTags = {OptionEffectTag.TEST_RUNNER},
-      help =
-          "The device to simulate when running an iOS application in the simulator, e.g. "
-              + "'iPhone 6'. You can get a list of devices by running 'xcrun simctl list "
-              + "devicetypes' on the machine the simulator will be run on.")
-  public String iosSimulatorDevice;
-
   @Option(
     name = "device_debug_entitlements",
     defaultValue = "true",
@@ -78,6 +54,21 @@ public class ObjcCommandLineOptions extends FragmentOptions {
           "If true, make the default value true for alwayslink attributes in objc_library and"
               + " objc_import.")
   public boolean incompatibleObjcAlwayslinkByDefault;
+
+  /**
+   * @deprecated delete when we are sure it's not used anywhere.
+   */
+  @Deprecated
+  @Option(
+      name = "incompatible_disable_native_apple_binary_rule",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {
+        OptionEffectTag.EAGERNESS_TO_EXIT,
+      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
+      help = "No-op. Kept here for backwards compatibility.")
+  public boolean incompatibleDisableNativeAppleBinaryRule;
 
   @Option(
       name = "incompatible_strip_executable_safely",

@@ -36,7 +36,7 @@ public final class FingerprintValueServiceTest {
     PackedFingerprint key = service.fingerprint("key".getBytes(UTF_8));
     byte[] value = new byte[] {0, 1, 2};
 
-    Void unused = service.put(key, value).get();
+    Boolean unused = service.put(key, value).get();
 
     assertThat(service.get(key).get()).isSameInstanceAs(value);
   }

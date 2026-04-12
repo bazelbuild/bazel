@@ -609,7 +609,7 @@ public final class NestedSet<E> {
   /** Implementation of {@link #toList} for sets with > 1 element. */
   private ImmutableList<E> expand(Object[] children) {
     CompactHashSet<E> members = CompactHashSet.createWithExpectedSize(128);
-    VisitedArraySet arrays = new VisitedArraySet(128);
+    VisitedArraySet arrays = new VisitedArraySet();
     arrays.add(children);
     walk(arrays, members, children);
     return ImmutableList.copyOf(members);
@@ -639,16 +639,12 @@ public final class NestedSet<E> {
    * <p>Implements the set data structure via a hash table with open addressing and linear probing,
    * using the identity of the arrays for equals/hashCode.
    */
-  private static final class VisitedArraySet {
+  static final class VisitedArraySet {
     private Object[][] data;
     private int size = 0;
 
-    VisitedArraySet(int sizeHint) {
-      int size = 1;
-      while (size <= sizeHint) {
-        size *= 2;
-      }
-      this.data = new Object[size * 2][];
+    VisitedArraySet() {
+      this.data = new Object[256][];
     }
 
     @CanIgnoreReturnValue

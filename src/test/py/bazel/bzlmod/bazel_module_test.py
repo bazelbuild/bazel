@@ -51,7 +51,6 @@ class BazelModuleTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'build --incompatible_disable_native_repo_rules',
             'build --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
@@ -1070,7 +1069,7 @@ class BazelModuleTest(test_base.TestBase):
     self.assertIn(
         'include() directive found at '
         + self.main_registry.getURL()
-        + '/modules/foo/1.0/MODULE.bazel:6:1, but it can only be used in the '
+        + '/modules/foo/1.0/MODULE.bazel:5:1, but it can only be used in the '
         + 'root module or in modules with non-registry overrides',
         '\n'.join(stderr),
     )

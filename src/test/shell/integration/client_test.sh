@@ -31,8 +31,6 @@ function strip_lines_from_bazel_cc() {
   clean_log=$(\
     sed \
     -e '/^WARNING: ignoring JAVA_TOOL_OPTIONS in environment.$/d' \
-    -e '/^WARNING: The following rc files are no longer being read, please transfer their contents or import their path into one of the standard rc files:$/d' \
-    -e '/^\/etc\/bazel.bazelrc$/d' \
     $TEST_log)
 
   echo "$clean_log" > $TEST_log

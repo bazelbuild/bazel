@@ -10,7 +10,7 @@ source files and one `BUILD` file. The `BUILD` file specifies what software
 outputs can be built from the source.
 
 
-## Workspace
+## Workspace {#workspace}
 
 A _workspace_ is a directory tree on your filesystem that contains the source
 files for the software you want to build. Each workspace has a text file named
@@ -24,7 +24,7 @@ a subdirectory containing a `WORKSPACE` file, as they form another workspace.
 Bazel also supports `WORKSPACE.bazel` file as an alias of `WORKSPACE` file. If
 both files exist, `WORKSPACE.bazel` is used.
 
-### Repositories
+### Repositories {#repositories}
 
 Code is organized in _repositories_. The directory containing the `WORKSPACE`
 file is the root of the main repository, also called `@`. Other, (external)
@@ -42,7 +42,7 @@ As external repositories are repositories themselves, they often contain a
 ignored by Bazel. In particular, repositories depended upon transitively are not
 added automatically.
 
-## Packages
+## Packages {#packages}
 
 The primary unit of code organization in a repository is the _package_. A
 package is a collection of related files and a specification of how they can be
@@ -66,7 +66,7 @@ src/my/app/tests/BUILD
 src/my/app/tests/test.cc
 ```
 
-## Targets
+## Targets {#targets}
 
 A package is a container of _targets_, which are defined in the package's
 `BUILD` file. Most targets are one of two principal kinds, _files_ and _rules_.

@@ -251,14 +251,12 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
-    # Change back to previous recorded inputs: not cached
-    # TODO: This is the current behavior, but it's not desired. Support for
-    #  caching repos with dynamic deps should be added.
+    # Change back to previous recorded inputs: cached (even after expunging)
     self.RunBazel(['clean', '--expunge'])
     self.ScratchFile('data.txt', ['one'])
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
-    self.assertIn('JUST FETCHED', '\n'.join(stderr))
-    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
   def testNotCachedWhenRecordedInputsChange_staticDep(self):
     self.ScratchFile(
@@ -304,6 +302,211 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     )
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+
+  def testRecordedInputs_differentValues(self):
+    platform_file = self.ScratchFile('platform.txt')
+
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            (
+                'platform_dependent_repo ='
+                ' use_repo_rule("//:platform_dependent_repo.bzl",'
+                ' "platform_dependent_repo")'
+            ),
+            'platform_dependent_repo(name = "platform_dependent_repo")',
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "show_platform",',
+            '  outs = ["platform.txt"],',
+            '  cmd = "cat $(location @my_repo//:data.txt) > $@",',
+            '  srcs = ["@my_repo//:data.txt"],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'platform_dependent_repo.bzl',
+        [
+            'def _platform_dependent_repo_impl(rctx):',
+            '  rctx.file("BUILD")',
+            '  print("DETERMINING PLATFORM")',
+            '  platform = rctx.read(rctx.path("%s"))'
+            % platform_file.replace('\\', '\\\\'),
+            '  rctx.file("data.txt", platform)',
+            (
+                'platform_dependent_repo ='
+                ' repository_rule(_platform_dependent_repo_impl)'
+            ),
+        ],
+    )
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            (
+                '  platform ='
+                ' rctx.read(Label("@platform_dependent_repo//:data.txt"))'
+            ),
+            '  print("JUST FETCHED ON " + platform)',
+            '  rctx.file("data.txt", platform)',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # First fetch on Linux: not cached
+    self.ScratchFile('platform.txt', ['Linux'])
+    _, _, stderr = self.RunBazel(['build', '//:show_platform'])
+    self.assertIn('DETERMINING PLATFORM', '\n'.join(stderr))
+    self.assertIn('JUST FETCHED ON Linux', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    with open(self.Path('bazel-bin/platform.txt')) as f:
+      self.assertEqual(f.read().strip(), 'Linux')
+
+    # First fetch on macOS: not cached
+    self.ScratchFile('platform.txt', ['macOS'])
+    _, _, stderr = self.RunBazel(['build', '//:show_platform'])
+    self.assertIn('DETERMINING PLATFORM', '\n'.join(stderr))
+    self.assertIn('JUST FETCHED ON macOS', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    with open(self.Path('bazel-bin/platform.txt')) as f:
+      self.assertEqual(f.read().strip(), 'macOS')
+
+    # Second fetch on Linux: cached
+    self.ScratchFile('platform.txt', ['Linux'])
+    _, _, stderr = self.RunBazel(['build', '//:show_platform'])
+    self.assertIn('DETERMINING PLATFORM', '\n'.join(stderr))
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    with open(self.Path('bazel-bin/platform.txt')) as f:
+      self.assertEqual(f.read().strip(), 'Linux')
+
+    # Second fetch on macOS: cached
+    self.ScratchFile('platform.txt', ['macOS'])
+    _, _, stderr = self.RunBazel(['build', '//:show_platform'])
+    self.assertIn('DETERMINING PLATFORM', '\n'.join(stderr))
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    with open(self.Path('bazel-bin/platform.txt')) as f:
+      self.assertEqual(f.read().strip(), 'macOS')
+
+  def testRecordedInputs_differentInputs(self):
+    platform_file = self.ScratchFile('platform.txt')
+
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            (
+                'platform_dependent_binary ='
+                ' use_repo_rule("//:platform_dependent_binary.bzl",'
+                ' "platform_dependent_binary")'
+            ),
+            'platform_dependent_binary(name = "platform_dependent_binary")',
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "show_data",',
+            '  outs = ["data.txt"],',
+            '  cmd = "cat $(location @my_repo//:data.txt) > $@",',
+            '  srcs = ["@my_repo//:data.txt"],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'platform_dependent_binary.bzl',
+        [
+            'def _platform_dependent_binary_impl(rctx):',
+            '  rctx.file("BUILD")',
+            '  platform = rctx.read(rctx.path("%s")).strip()'
+            % platform_file.replace('\\', '\\\\'),
+            '  print("DETERMINED PLATFORM (%s)" % platform)',
+            '  if platform == "Windows":',
+            '    rctx.file("binary.exe", "PE")',
+            '  else:',
+            '    rctx.file("binary.sh", "ELF")',
+            (
+                'platform_dependent_binary ='
+                ' repository_rule(_platform_dependent_binary_impl)'
+            ),
+        ],
+    )
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            # Simulate a uname -s by reading from a file instead of using
+            # rctx.execute (more complex to mock) or rctx.os.name (which may be
+            # tracked as an input in the future, making this test vacuous).
+            '  platform = rctx.read(rctx.path("%s"), watch = "no").strip()'
+            % platform_file.replace('\\', '\\\\'),
+            '  ext = ".exe" if platform == "Windows" else ".sh"',
+            # Simulate rctx.execute with a watched binary.
+            (
+                '  out = rctx.read(Label("@platform_dependent_binary//:binary"'
+                ' + ext))'
+            ),
+            '  rctx.file("data.txt", out)',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # First fetch on Linux: not cached
+    self.ScratchFile('platform.txt', ['Linux'])
+    _, _, stderr = self.RunBazel(['build', '//:show_data'])
+    self.assertIn('DETERMINED PLATFORM (Linux)', '\n'.join(stderr))
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    with open(self.Path('bazel-bin/data.txt')) as f:
+      self.assertEqual(f.read().strip(), 'ELF')
+
+    # First fetch on Windows: not cached
+    self.RunBazel(['clean', '--expunge'])
+    self.ScratchFile('platform.txt', ['Windows'])
+    _, _, stderr = self.RunBazel(['build', '//:show_data'])
+    self.assertIn('DETERMINED PLATFORM (Windows)', '\n'.join(stderr))
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    with open(self.Path('bazel-bin/data.txt')) as f:
+      self.assertEqual(f.read().strip(), 'PE')
+
+    # Second fetch on Linux: cached
+    self.RunBazel(['clean', '--expunge'])
+    self.ScratchFile('platform.txt', ['Linux'])
+    _, _, stderr = self.RunBazel(['build', '//:show_data'])
+    self.assertIn('DETERMINED PLATFORM (Linux)', '\n'.join(stderr))
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    with open(self.Path('bazel-bin/data.txt')) as f:
+      self.assertEqual(f.read().strip(), 'ELF')
+
+    # Second fetch on Windows: cached
+    self.RunBazel(['clean', '--expunge'])
+    self.ScratchFile('platform.txt', ['Windows'])
+    _, _, stderr = self.RunBazel(['build', '//:show_data'])
+    self.assertIn('DETERMINED PLATFORM (Windows)', '\n'.join(stderr))
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    with open(self.Path('bazel-bin/data.txt')) as f:
+      self.assertEqual(f.read().strip(), 'PE')
 
   def testNoThrashingBetweenWorkspaces(self):
     module_bazel_lines = [
@@ -665,7 +868,7 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@my_repo//:root'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
-    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'root.txt')))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'root.txt')))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
 
@@ -702,7 +905,158 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'root.txt')))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
-    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
+
+  def doTestMaterializationWithInternalAndExternalSymlinks(
+      self, *, expect_symlinks, watch_dep_file=True
+  ):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'dep_repo_rule = use_repo_rule("//:dep_repo.bzl", "dep_repo_rule")',
+            'dep_repo_rule(name = "dep_repo")',
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            (
+                'repo(name = "my_repo",'
+                ' external_file = "@dep_repo//:dep_data.txt")'
+            ),
+            (
+                'other_repo_rule ='
+                ' use_repo_rule("//:other_repo.bzl", "other_repo_rule")'
+            ),
+            (
+                'other_repo_rule(name = "other",'
+                ' build_file = "@my_repo//:BUILD",'
+                ' dep_file = "@dep_repo//:dep_data.txt")'
+            ),
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'dep_repo.bzl',
+        [
+            'def _dep_repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'dep_data.txt\'])")',
+            '  rctx.file("dep_data.txt", "dep_hello")',
+            '  print("JUST FETCHED DEP_REPO")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'dep_repo_rule = repository_rule(_dep_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            '  rctx.file("data.txt", "hello")',
+            '  rctx.symlink("data.txt", "internal_link.txt")',
+            '  rctx.symlink(rctx.attr.external_file, "external_link.txt")',
+            '  print("JUST FETCHED MY_REPO")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            (
+                'repo = repository_rule(_repo_impl,'
+                ' attrs={"external_file": attr.label()})'
+            ),
+        ],
+    )
+    other_repo_lines = [
+        'def _other_repo_impl(rctx):',
+    ]
+    if watch_dep_file:
+      # Materialize dep_repo before my_repo so that the external
+      # symlink target exists when my_repo is materialized.
+      other_repo_lines.append('  rctx.watch(rctx.attr.dep_file)')
+    other_repo_lines.extend([
+        '  rctx.file("BUILD", rctx.read(rctx.attr.build_file))',
+        # other_repo is not reproducible, so it is always fetched
+        # and triggers materialization of my_repo.
+        '  return rctx.repo_metadata()',
+        (
+            'other_repo_rule = repository_rule(_other_repo_impl,'
+            ' attrs={"build_file": attr.label(),'
+            ' "dep_file": attr.label()})'
+        ),
+    ])
+    self.ScratchFile('other_repo.bzl', other_repo_lines)
+
+    repo_dir = self.RepoDir('my_repo')
+    internal_link = os.path.join(repo_dir, 'internal_link.txt')
+    external_link = os.path.join(repo_dir, 'external_link.txt')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@other//:haha'])
+    stderr_text = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED MY_REPO', stderr_text)
+    self.assertIn('JUST FETCHED DEP_REPO', stderr_text)
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+    if expect_symlinks:
+      self.assertTrue(os.path.islink(internal_link))
+      self.assertTrue(os.path.islink(external_link))
+    with open(internal_link) as f:
+      self.assertEqual(f.read(), 'hello')
+    with open(external_link) as f:
+      self.assertEqual(f.read(), 'dep_hello')
+
+    # After expunging: my_repo cached, not materialized
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertNotIn('JUST FETCHED MY_REPO', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+
+    # Fetch other: my_repo materialized; dep_repo only if watch_dep_file.
+    _, _, stderr = self.RunBazel(['build', '@other//:haha'])
+    stderr_text = '\n'.join(stderr)
+    self.assertNotIn('JUST FETCHED MY_REPO', stderr_text)
+    self.assertNotIn('JUST FETCHED DEP_REPO', stderr_text)
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+    if expect_symlinks:
+      self.assertTrue(os.path.islink(internal_link))
+      self.assertTrue(os.path.islink(external_link))
+    with open(internal_link) as f:
+      self.assertEqual(f.read(), 'hello')
+    if watch_dep_file:
+      with open(external_link) as f:
+        self.assertEqual(f.read(), 'dep_hello')
+    else:
+      # dep_repo was not materialized, so the external symlink is dangling.
+      self.assertFalse(os.path.exists(external_link))
+
+  def testMaterializationWithInternalAndExternalSymlinks(self):
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          [
+              'startup --windows_enable_symlinks',
+          ],
+          mode='a',
+      )
+    self.doTestMaterializationWithInternalAndExternalSymlinks(
+        expect_symlinks=True
+    )
+
+  def testMaterializationWithInternalAndExternalSymlinks_withoutSymlinksOnWindows(
+      self,
+  ):
+    if not self.IsWindows():
+      self.skipTest('This test is only relevant on Windows')
+    self.doTestMaterializationWithInternalAndExternalSymlinks(
+        expect_symlinks=False
+    )
+
+  def testMaterializationWithDanglingExternalSymlink(self):
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          [
+              'startup --windows_enable_symlinks',
+          ],
+          mode='a',
+      )
+    self.doTestMaterializationWithInternalAndExternalSymlinks(
+        expect_symlinks=True, watch_dep_file=False
+    )
 
   def testBzlFilePrefetching(self):
     self.ScratchFile(
@@ -778,6 +1132,91 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertTrue(
         os.path.exists(os.path.join(repo_dir, 'subdir/more_nested.bzl'))
     )
+
+  def testRun(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "buildozer", version = "8.5.1")',
+        ],
+    )
+
+    # First fetch: not cached
+    _, stdout, _ = self.RunBazel(['run', '@buildozer', '--', '--version'])
+    self.assertIn('buildozer version: 8.5.1', '\n'.join(stdout))
+
+    # After expunging: cached
+    self.RunBazel(['clean', '--expunge'])
+    _, stdout, _ = self.RunBazel(['run', '@buildozer', '--', '--version'])
+    self.assertIn('buildozer version: 8.5.1', '\n'.join(stdout))
+    repo_dir = self.RepoDir('buildozer')
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'MODULE.bazel')))
+
+  def testReverseDependencyDirection(self):
+    # Set up two repos that retain their predeclared input hashes across two
+    # builds but still reverse their dependency direction. Depending on how repo
+    # cache candidates are checked, this could lead to a Skyframe cycle.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(',
+            '  name = "foo",',
+            '  deps_file = "//:foo_deps.txt",',
+            ')',
+            'repo(',
+            '  name = "bar",',
+            '  deps_file = "//:bar_deps.txt",',
+            ')',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  deps = rctx.read(rctx.attr.deps_file).splitlines()',
+            '  output = ""',
+            '  for dep in deps:',
+            '    if dep:',
+            '      output += "{}: {}\\n".format(dep, rctx.read(Label(dep)))',
+            '  rctx.file("output.txt", output)',
+            '  rctx.file("BUILD", "exports_files([\'output.txt\'])")',
+            '  print("JUST FETCHED: %s" % rctx.original_name)',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(',
+            '  implementation = _repo_impl,',
+            '  attrs = {',
+            '    "deps_file": attr.label(),  }',
+            ')',
+        ],
+    )
+
+    self.ScratchFile('foo_deps.txt', ['@bar//:output.txt'])
+    self.ScratchFile('bar_deps.txt', [''])
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@foo//:output.txt'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED: bar', stderr)
+    self.assertIn('JUST FETCHED: foo', stderr)
+
+    # After expunging and reversing the dependency direction: not cached
+    self.RunBazel(['clean', '--expunge'])
+    self.ScratchFile('foo_deps.txt', [''])
+    self.ScratchFile('bar_deps.txt', ['@foo//:output.txt'])
+    _, _, stderr = self.RunBazel(['build', '@foo//:output.txt'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED: foo', stderr)
+    self.assertNotIn('JUST FETCHED: bar', stderr)
+
+    # After expunging and reversing the dependency direction: both cached
+    self.RunBazel(['clean', '--expunge'])
+    self.ScratchFile('foo_deps.txt', ['@bar//:output.txt'])
+    self.ScratchFile('bar_deps.txt', [''])
+    _, _, stderr = self.RunBazel(['build', '@foo//:output.txt'])
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('JUST FETCHED', stderr)
 
 
 if __name__ == '__main__':

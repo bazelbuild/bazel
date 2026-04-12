@@ -5,7 +5,7 @@ title: 'Using the Android Native Development Kit with Bazel'
 _If you're new to Bazel, please start with the [Building Android with
 Bazel](/versions/7.6.1/start/android-app ) tutorial._
 
-## Overview
+## Overview {#overview}
 
 Bazel can run in many different build configurations, including several that use
 the Android Native Development Kit (NDK) toolchain. This means that normal
@@ -13,7 +13,7 @@ the Android Native Development Kit (NDK) toolchain. This means that normal
 Bazel. Bazel accomplishes this by using the `android_ndk_repository` repository
 rule.
 
-## Prerequisites
+## Prerequisites {#prerequisites}
 
 Please ensure that you have installed the Android SDK and NDK.
 
@@ -39,7 +39,7 @@ Starlark implementation of `android_ndk_repository`.
 Follow the instructions in
 [its README](https://github.com/bazelbuild/rules_android_ndk).
 
-## Quick start
+## Quick start {#quick-start}
 
 To build C++ for Android, simply add `cc_library` dependencies to your
 `android_binary` or `android_library` rules.
@@ -104,7 +104,7 @@ targeted for the `armeabi-v7a` ABI by default. To change this or build for
 multiple ABIs at the same time, see the section on [configuring the target
 ABI](#configuring-target-abi).
 
-## Example setup
+## Example setup {#example-setup}
 
 This example is available in the [Bazel examples
 repository](https://github.com/bazelbuild/examples/tree/master/android/ndk).
@@ -163,7 +163,7 @@ level `android_binary` target. In this example, it is `app`.
 To configure the C++ STL, use the flag `--android_crosstool_top`.
 
 ```posix-terminal
-bazel build //:app --android_crosstool_top={{ "<var>" }}target label{{ "</var>" }}
+bazel build //:app --android_crosstool_top=<var>target label</var>
 ```
 
 The available STLs in `@androidndk` are:
@@ -186,12 +186,12 @@ See the [NDK
 documentation](https://developer.android.com/ndk/guides/cpp-support)
 for more information on these STLs.
 
-## Configuring the target ABI
+## Configuring the target ABI {#configuring-target-abi}
 
 To configure the target ABI, use the `--fat_apk_cpu` flag as follows:
 
 ```posix-terminal
-bazel build //:app --fat_apk_cpu={{ "<var>" }}comma-separated list of ABIs{{ "</var>" }}
+bazel build //:app --fat_apk_cpu=<var>comma-separated list of ABIs</var>
 ```
 
 By default, Bazel builds native Android code for `armeabi-v7a`. To build for x86
@@ -215,7 +215,7 @@ for more information on these ABIs.
 Multi-ABI Fat APKs are not recommended for release builds since they increase
 the size of the APK, but can be useful for development and QA builds.
 
-## Selecting a C++ standard
+## Selecting a C++ standard {#selecting-c-standard}
 
 Use the following flags to build according to a C++ standard:
 
@@ -350,7 +350,7 @@ dependency without any flags, you may encounter an error about a missing JNI
 header:
 
 ```
-ERROR: {{ "<var>" }}project{{ "</var>" }}/app/src/main/BUILD.bazel:16:1: C++ compilation of rule '//app/src/main:jni_lib' failed (Exit 1)
+ERROR: <var>project</var>/app/src/main/BUILD.bazel:16:1: C++ compilation of rule '//app/src/main:jni_lib' failed (Exit 1)
 app/src/main/cpp/native-lib.cpp:1:10: fatal error: 'jni.h' file not found
 #include <jni.h>
          ^~~~~~~
@@ -364,7 +364,7 @@ majority of cases. However, if the target on the Bazel command-line is already
 below any of these transition rules, such as C++ developers testing a specific
 `cc_library`, then a custom `--crosstool_top` must be used.
 
-## Building a `cc_library` for Android without using `android_binary`
+## Building a `cc_library` for Android without using `android_binary` {#cclibrary-android}
 
 To build a standalone `cc_binary` or `cc_library` for Android without using an
 `android_binary`, use the `--crosstool_top`, `--cpu` and `--host_crosstool_top`
@@ -394,7 +394,7 @@ use [Bazel wild-cards](/versions/7.6.1/run/build#specifying-build-targets) like
 `/...` and `:all`.
 
 These flags can be put into a `bazelrc` config (one for each ABI), in
-`{{ "<var>" }}project{{ "</var>" }}/.bazelrc`:
+`<var>project</var>/.bazelrc`:
 
 ```
 common:android_x86 --crosstool_top=@androidndk//:default_crosstool

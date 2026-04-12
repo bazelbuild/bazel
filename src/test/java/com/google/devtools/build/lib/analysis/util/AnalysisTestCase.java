@@ -374,7 +374,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     AnalysisOptions viewOptions = optionsParser.getOptions(AnalysisOptions.class);
     // update --keep_going option if test requested it.
     boolean keepGoing = flags.contains(Flag.KEEP_GOING);
-    boolean discardAnalysisCache = viewOptions.discardAnalysisCache;
+    boolean discardAnalysisCache = viewOptions.getDiscardAnalysisCache();
 
     PackageOptions packageOptions = optionsParser.getOptions(PackageOptions.class);
     PathPackageLocator pathPackageLocator =

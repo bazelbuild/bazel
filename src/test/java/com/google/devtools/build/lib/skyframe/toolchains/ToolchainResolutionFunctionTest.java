@@ -793,8 +793,9 @@ To debug, rerun with --toolchain_resolution_debug='\\Q@@repo+//toolchain:test_to
     // Manually create a configuration key: trying to call `useConfiguration` will immediately throw
     // the exception this is checking for.
     BuildOptions newOptions = targetConfigKey.getOptions().clone();
-    newOptions.get(PlatformOptions.class).platforms =
-        ImmutableList.of(Label.parseCanonicalUnchecked("//invalid:not_a_platform"));
+    newOptions
+        .get(PlatformOptions.class)
+        .setPlatforms(ImmutableList.of(Label.parseCanonicalUnchecked("//invalid:not_a_platform")));
     BuildConfigurationKey configKey = BuildConfigurationKey.create(newOptions);
 
     // Create the toolchain context key and evaluate it.
@@ -828,8 +829,9 @@ To debug, rerun with --toolchain_resolution_debug='\\Q@@repo+//toolchain:test_to
     // Manually create a configuration key: trying to call `useConfiguration` will immediately throw
     // the exception this is checking for.
     BuildOptions newOptions = targetConfigKey.getOptions().clone();
-    newOptions.get(PlatformOptions.class).platforms =
-        ImmutableList.of(Label.parseCanonicalUnchecked("//invalid:not_a_platform"));
+    newOptions
+        .get(PlatformOptions.class)
+        .setPlatforms(ImmutableList.of(Label.parseCanonicalUnchecked("//invalid:not_a_platform")));
     BuildConfigurationKey configKey = BuildConfigurationKey.create(newOptions);
 
     // Create the toolchain context key and evaluate it.
@@ -909,8 +911,9 @@ To debug, rerun with --toolchain_resolution_debug='\\Q@@repo+//toolchain:test_to
     // Manually create a configuration key: trying to call `useConfiguration` will immediately throw
     // the exception this is checking for.
     BuildOptions newOptions = targetConfigKey.getOptions().clone();
-    newOptions.get(PlatformOptions.class).hostPlatform =
-        Label.parseCanonicalUnchecked("//invalid:not_a_platform");
+    newOptions
+        .get(PlatformOptions.class)
+        .setHostPlatform(Label.parseCanonicalUnchecked("//invalid:not_a_platform"));
     BuildConfigurationKey configKey = BuildConfigurationKey.create(newOptions);
 
     ToolchainContextKey key =

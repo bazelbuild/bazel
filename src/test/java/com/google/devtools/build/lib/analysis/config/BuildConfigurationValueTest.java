@@ -239,7 +239,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   public void testNormalization_definesWithDifferentNames() throws Exception {
     BuildConfigurationValue config = create("--define", "a=1", "--define", "b=2");
     CoreOptions options = config.getOptions().get(CoreOptions.class);
-    assertThat(ImmutableMap.copyOf(options.commandLineBuildVariables))
+    assertThat(options.getNormalizedCommandLineBuildVariables())
         .containsExactly("a", "1", "b", "2");
   }
 
@@ -247,7 +247,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   public void testNormalization_definesWithSameName() throws Exception {
     BuildConfigurationValue config = create("--define", "a=1", "--define", "a=2");
     CoreOptions options = config.getOptions().get(CoreOptions.class);
-    assertThat(ImmutableMap.copyOf(options.commandLineBuildVariables)).containsExactly("a", "2");
+    assertThat(options.getNormalizedCommandLineBuildVariables()).containsExactly("a", "2");
     assertThat(config).isEqualTo(create("--define", "a=2"));
   }
 

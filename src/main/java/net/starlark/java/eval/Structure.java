@@ -15,7 +15,10 @@
 package net.starlark.java.eval;
 
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableMap;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.Types;
 
 /**
  * An interface for Starlark values (such as Bazel structs) with fields that may be accessed using
@@ -78,5 +81,24 @@ public interface Structure extends StarlarkValue {
    */
   default void setField(String field, Object value) throws EvalException {
     throw Starlark.errorf("%s value does not support field assignment", Starlark.type(this));
+  }
+
+  /**
+   * Returns the Starlark type of this struct. For efficiency, implementations should override this
+   * method to return a memoized value.
+   */
+  @Override
+  default Types.StructType getStarlarkType() {
+    ImmutableMap.Builder<String, StarlarkType> fieldTypes =
+        ImmutableMap.builderWithExpectedSize(getFieldNames().size());
+    for (String fieldName : getFieldNames()) {
+      try {
+        fieldTypes.put(fieldName, Starlark.getStarlarkType(getValue(fieldName)));
+      } catch (EvalException e) {
+        // Ignore; if retrieving some internal-only field is an evaluation error, then retrieving it
+        // should be a type checking error too.
+      }
+    }
+    return Types.struct(fieldTypes.buildOrThrow());
   }
 }

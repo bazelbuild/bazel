@@ -64,7 +64,7 @@ import net.starlark.java.syntax.Types;
             + "use <code>==</code> to test for equality.")
 final class StringModule implements StarlarkValue {
 
-  public static TypeConstructor getBaseTypeConstructor() {
+  public static TypeConstructor getAssociatedTypeConstructor() {
     return Types.STR_CONSTRUCTOR;
   }
 
@@ -589,7 +589,7 @@ final class StringModule implements StarlarkValue {
   }
 
   private static final Pattern SPLIT_LINES_PATTERN =
-      Pattern.compile("(?<line>.*)(?<break>(\\r\\n|\\r|\\n)?)");
+      Pattern.compile("(?<line>[^\\r\\n]*)(?<break>(\\r\\n|\\r|\\n)?)");
 
   @StarlarkMethod(
       name = "rfind",

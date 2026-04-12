@@ -1,5 +1,4 @@
 ---
-
 tasks:
   rockylinux8:
     shell_commands:

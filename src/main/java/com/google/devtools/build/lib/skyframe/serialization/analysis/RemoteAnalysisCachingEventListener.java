@@ -26,11 +26,11 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.CacheMissReason;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.NoCachedData;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Restart;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievedValue;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Set;
@@ -62,7 +62,7 @@ public class RemoteAnalysisCachingEventListener {
   private final ConcurrentHashMap<SkyFunctionName, AtomicLong> missesBySkyFunctionName =
       new ConcurrentHashMap<>();
 
-  private final ConcurrentHashMap<CacheMissReason, AtomicLong> missesByReason =
+  private final ConcurrentHashMap<MissReason, AtomicLong> missesByReason =
       new ConcurrentHashMap<>();
 
   private final AtomicReference<FrontierNodeVersion> skyValueVersion = new AtomicReference<>();
@@ -130,7 +130,7 @@ public class RemoteAnalysisCachingEventListener {
             .computeIfAbsent(key.functionName(), k -> new AtomicLong())
             .incrementAndGet();
       }
-      case NoCachedData(CacheMissReason reason) -> recordCacheMiss(key, reason);
+      case NoCachedData(MissReason reason) -> recordCacheMiss(key, reason);
       case Restart.RESTART -> {}
     }
   }
@@ -145,9 +145,10 @@ public class RemoteAnalysisCachingEventListener {
     return ImmutableMap.copyOf(missesBySkyFunctionName);
   }
 
-  public ImmutableMap<CacheMissReason, AtomicLong> getMissesByReason() {
+  public ImmutableMap<MissReason, AtomicLong> getMissesByReason() {
     return ImmutableMap.copyOf(missesByReason);
   }
+
 
   /** Records a {@link SerializationException} encountered during SkyValue retrievals. */
   public void recordSerializationException(SerializationException e, SkyKey key) {
@@ -178,8 +179,8 @@ public class RemoteAnalysisCachingEventListener {
     return clientId;
   }
 
-  private void recordCacheMiss(SkyKey key, CacheMissReason reason) {
-    if (reason == CacheMissReason.NOT_ATTEMPTED) {
+  private void recordCacheMiss(SkyKey key, MissReason reason) {
+    if (reason == MissReason.MISS_REASON_NOT_ATTEMPTED) {
       // Not actually a cache miss
       return;
     }

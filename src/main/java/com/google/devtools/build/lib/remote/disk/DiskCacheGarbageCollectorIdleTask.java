@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.server.IdleTaskException;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Optional;
@@ -50,14 +51,14 @@ public final class DiskCacheGarbageCollectorIdleTask implements IdleTask {
    * Creates a new {@link DiskCacheGarbageCollectorIdleTask} according to the options.
    *
    * @param remoteOptions the remote options
+   * @param diskCachePath the resolved disk cache path, or {@code null} if disabled
    * @param workingDirectory the working directory
-   * @param executorService the executor service to schedule I/O operations onto
    * @return the idle task, or null if garbage collection is disabled
    */
   @Nullable
   public static DiskCacheGarbageCollectorIdleTask create(
-      RemoteOptions remoteOptions, Path workingDirectory) {
-    if (remoteOptions.diskCache == null || remoteOptions.diskCache.isEmpty()) {
+      RemoteOptions remoteOptions, @Nullable PathFragment diskCachePath, Path workingDirectory) {
+    if (diskCachePath == null || diskCachePath.isEmpty()) {
       return null;
     }
     Optional<Long> maxSizeBytes = Optional.empty();
@@ -75,7 +76,7 @@ public final class DiskCacheGarbageCollectorIdleTask implements IdleTask {
     var policy = new CollectionPolicy(maxSizeBytes, maxAge);
     var gc =
         new DiskCacheGarbageCollector(
-            workingDirectory.getRelative(remoteOptions.diskCache), executorService, policy);
+            workingDirectory.getRelative(diskCachePath), executorService, policy);
     return new DiskCacheGarbageCollectorIdleTask(delay, gc);
   }
 

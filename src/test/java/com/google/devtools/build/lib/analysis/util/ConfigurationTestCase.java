@@ -125,8 +125,9 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     BuildOptions defaultBuildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(buildOptionClasses).clone();
-    defaultBuildOptions.get(CoreOptions.class).starlarkExecConfig =
-        TestConstants.STARLARK_EXEC_TRANSITION;
+    defaultBuildOptions
+        .get(CoreOptions.class)
+        .setStarlarkExecConfig(TestConstants.STARLARK_EXEC_TRANSITION);
     skyframeExecutor.injectExtraPrecomputedValues(
         new ImmutableList.Builder<PrecomputedValue.Injected>()
             .add(

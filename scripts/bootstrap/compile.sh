@@ -29,6 +29,8 @@ LIBRARY_JARS=$(find $ADDITIONAL_JARS -name '*.jar' | sort | grep -Fv JavaBuilder
 MAVEN_JARS=$(find "derived/maven" -name '*.jar' | sort | grep -Fv netty-tcnative | tr "\n" " ")
 LIBRARY_JARS="${LIBRARY_JARS} ${MAVEN_JARS}"
 
+ANNOTATION_PROCESSOR_FILES=$(echo src/main/java/com/google/devtools/common/options/processor/OptionsClassProcessor.java src/main/java/com/google/devtools/common/options/{Option.java,OptionMetadataTag.java,OptionEffectTag.java,OptionDocumentationCategory.java,OptionsClass.java,Converter.java,OptionsParsingException.java})
+ANNOTATION_PROCESSORS="com.google.devtools.common.options.processor.OptionsClassProcessor,com.google.auto.value.processor.AutoValueProcessor,com.google.auto.value.processor.AutoBuilderProcessor,com.google.auto.value.processor.AutoOneOfProcessor,com.google.auto.service.processor.AutoServiceProcessor"
 DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java,tools/starlark/java} tools/java/runfiles ${OUTPUT_DIR}/src)
 # Exclude source files that are not needed for Bazel itself, which avoids dependencies like truth.
 # Also exclude TreeArtifactValueCodec.java which requires AutoCodec to run, but that's not needed during bootstrap.
@@ -95,6 +97,8 @@ function java_compilation() {
   local excludes=$3
   local library_jars=$4
   local output=$5
+  local extract=$6
+  local run_annotation_processors=$7
 
   local classpath=${library_jars// /$PATHSEP}${PATHSEP}$5
   local sourcepath=${directories// /$PATHSEP}
@@ -104,9 +108,10 @@ function java_compilation() {
   local paramfile="${tmp}/param"
   local filelist="${tmp}/filelist"
   local excludefile="${tmp}/excludefile"
+  local outdir="${output}/classes"
   touch $paramfile
 
-  mkdir -p "${output}/classes"
+  mkdir -p "${outdir}"
 
   # Compile .java files (incl. generated ones) using javac
   log "Compiling $name code..."
@@ -119,17 +124,28 @@ function java_compilation() {
 
   comm -23 "$filelist" "$excludefile" > "$paramfile"
 
+  # We explicitly list annotation processors so that no matter the javac
+  # version, they are active. For some reason -proc:full doesn't work.
+  local annotation_processor_args
+  if [[ "$run_annotation_processors" -eq 1 ]]; then
+    annotation_processor_args="-processor $ANNOTATION_PROCESSORS"
+  else
+    # ...but we do this only when we are not compiling the annotation processors
+    # themselves.
+    annotation_processor_args=""
+  fi
+
   if [ ! -z "$BAZEL_DEBUG_JAVA_COMPILATION" ]; then
     echo "directories=${directories}" >&2
     echo "classpath=${classpath}" >&2
     echo "sourcepath=${sourcepath}" >&2
     echo "libraries=${library_jars}" >&2
-    echo "output=${output}/classes" >&2
+    echo "output=${outdir}" >&2
     echo "List of compiled files:" >&2
     cat "$paramfile" >&2
   fi
 
-  check_unzip_wont_create_long_paths "${output}/classes" "$library_jars"
+  check_unzip_wont_create_long_paths "${outdir}" "$library_jars"
 
   # Use BAZEL_JAVAC_OPTS to pass additional arguments to javac, e.g.,
   # export BAZEL_JAVAC_OPTS="-J-Xmx2g -J-Xms200m"
@@ -137,15 +153,47 @@ function java_compilation() {
   # We intentionally rely on shell word splitting to allow multiple
   # additional arguments to be passed to javac.
   run "${JAVAC}" -classpath "${classpath}" -sourcepath "${sourcepath}" \
-      -d "${output}/classes" -source "$JAVA_VERSION" -target "$JAVA_VERSION" \
+      -d "${outdir}" -source "$JAVA_VERSION" -target "$JAVA_VERSION" \
       -encoding UTF-8 --add-exports=java.base/jdk.internal.misc=ALL-UNNAMED \
+      --processor-path "${outdir}${PATHSEP}${classpath}" $annotation_processor_args \
       --add-exports=java.base/jdk.internal.vm=ALL-UNNAMED \
       ${BAZEL_JAVAC_OPTS} "@${paramfile}"
 
-  log "Extracting helper classes for $name..."
-  for f in ${library_jars} ; do
-    run unzip -qn ${f} -d "${output}/classes"
-  done
+  if [[ "$extract" -eq 1 ]]; then
+    log "Extracting helper classes for $name..."
+    for f in ${library_jars} ; do
+      run unzip -qn ${f} -d "${outdir}"
+    done
+  fi
+}
+
+# Build the JNI library.
+function build_jni() {
+  local -r output_dir=$1
+
+  log "Building JNI library..."
+
+  local output
+  if [[ $PLATFORM == "windows" ]]; then
+    output="${output_dir}/classes/main/native/windows/windows_jni.dll"
+  elif [[ $PLATFORM == "darwin" ]]; then
+    output="${output_dir}/classes/main/native/libunix_jni.dylib"
+  else
+    output="${output_dir}/classes/main/native/libunix_jni.so"
+  fi
+
+  local -r tmp_output="${NEW_TMPDIR}/jni/$(basename "${output}")"
+  mkdir -p "$(dirname "$tmp_output")"
+  mkdir -p "$(dirname "$output")"
+
+  if [[ $PLATFORM == "windows" ]]; then
+    scripts/bootstrap/build_windows_jni.sh "$tmp_output"
+  else
+    scripts/bootstrap/build_unix_jni.sh "$JAVA_HOME" "$PLATFORM" "$tmp_output"
+  fi
+
+  cp "$tmp_output" "$output"
+  chmod 0555 "$output"
 }
 
 # Create the deploy JAR
@@ -240,7 +288,11 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
         link_children ${OUTPUT_DIR}/src com derived/src/java
     fi
 
-  java_compilation "Bazel Java" "$DIRS" "$EXCLUDE_FILES" "$LIBRARY_JARS" "${OUTPUT_DIR}"
+  # Compile the annotation processors
+  java_compilation "Annotation processors" "${ANNOTATION_PROCESSOR_FILES}" "" "$LIBRARY_JARS" "${OUTPUT_DIR}" 0 0
+
+  # Compile enough of Bazel to build the rest of itself
+  java_compilation "Bazel Java" "$DIRS" "$EXCLUDE_FILES" "$LIBRARY_JARS" "${OUTPUT_DIR}" 1 1
 
   # help files: all non java and BUILD files in src/main/java.
   for i in $(find src/main/java -type f -a \! -name '*.java' -a \! -name 'BUILD' | sed 's|src/main/java/||'); do
@@ -315,6 +367,8 @@ EOF
   # Set up @maven properly
   cp derived/maven/BUILD.vendor derived/maven/BUILD
 
+  build_jni ${OUTPUT_DIR}
+
   create_deploy_jar "libblaze" "com.google.devtools.build.lib.bazel.Bazel" \
       ${OUTPUT_DIR}
 fi
@@ -322,40 +376,6 @@ fi
 log "Creating Bazel install base..."
 ARCHIVE_DIR=${OUTPUT_DIR}/archive
 mkdir -p ${ARCHIVE_DIR}
-
-function build_jni() {
-  local -r output_dir=$1
-
-  if [ "${PLATFORM}" = "windows" ]; then
-    # We need JNI on Windows because some filesystem operations are not (and
-    # cannot be) implemented in native Java.
-    log "Building Windows JNI library..."
-
-    local -r jni_lib_name="windows_jni.dll"
-    local -r output="${output_dir}/${jni_lib_name}"
-    local -r tmp_output="${NEW_TMPDIR}/jni/${jni_lib_name}"
-    mkdir -p "$(dirname "$tmp_output")"
-    mkdir -p "$(dirname "$output")"
-
-    # Keep this in sync with the `srcs` of //src/main/native/windows:windows_jni
-    local -r srcs="src/main/native/common.cc $(find src/main/native/windows -name '*.cc' -o -name '*.h')"
-    [ -n "$srcs" ] || fail "Could not find sources for Windows JNI library"
-
-    # do not quote $srcs because we need to expand it to multiple args
-    src/main/native/windows/build_windows_jni.sh "$tmp_output" ${srcs}
-
-    cp "$tmp_output" "$output"
-    chmod 0555 "$output"
-
-    JNI_FLAGS="-Djava.library.path=${output_dir}"
-  else
-    # We don't need JNI on other platforms. The Java NIO file system fallback is
-    # sufficient.
-    true
-  fi
-}
-
-build_jni "${ARCHIVE_DIR}"
 
 cp $OUTPUT_DIR/libblaze.jar ${ARCHIVE_DIR}
 
@@ -395,7 +415,7 @@ function run_bazel_jar() {
       -XX:HeapDumpPath=${OUTPUT_DIR} \
       -Djava.util.logging.config.file=${OUTPUT_DIR}/javalog.properties \
       --add-opens java.base/java.lang=ALL-UNNAMED \
-      ${JNI_FLAGS} \
+      --add-exports java.base/jdk.internal.misc=ALL-UNNAMED \
       -jar ${ARCHIVE_DIR}/libblaze.jar \
       --batch \
       --install_base=${ARCHIVE_DIR} \

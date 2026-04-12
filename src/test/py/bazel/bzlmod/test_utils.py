@@ -182,7 +182,6 @@ class BazelRegistry:
             'module(',
             '  name = "%s",' % name,
             '  version = "%s",' % version,
-            '  compatibility_level = 1,',
             ')',
         ]
         + [

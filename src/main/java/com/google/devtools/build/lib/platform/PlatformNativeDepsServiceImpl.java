@@ -25,118 +25,84 @@ public class PlatformNativeDepsServiceImpl implements PlatformNativeDepsService 
 
   @Override
   public int pushDisableSleep() {
-    if (JniLoader.isJniAvailable()) {
-      return pushDisableSleepNative();
-    }
-
-    return -1;
+    return pushDisableSleepNative();
   }
 
   private native int pushDisableSleepNative();
 
   @Override
   public int popDisableSleep() {
-    if (JniLoader.isJniAvailable()) {
-      return popDisableSleepNative();
-    }
-    return -1;
+    return popDisableSleepNative();
   }
 
   private native int popDisableSleepNative();
 
   @Override
   public void registerCPUSpeedJni(IntConsumer callback) {
-    if (JniLoader.isJniAvailable()) {
-      registerCPUSpeedNative(callback);
-    }
+    registerCPUSpeedNative(callback);
   }
 
   private native void registerCPUSpeedNative(IntConsumer callback);
 
   @Override
   public int cpuSpeed() {
-    if (JniLoader.isJniAvailable()) {
-      return cpuSpeedNative();
-    }
-    return -1;
+    return cpuSpeedNative();
   }
 
   private native int cpuSpeedNative();
 
   @Override
   public void registerDiskSpaceJni(IntConsumer callback) {
-    if (JniLoader.isJniAvailable()) {
-      registerDiskSpaceNative(callback);
-    }
+    registerDiskSpaceNative(callback);
   }
 
   private native void registerDiskSpaceNative(IntConsumer callback);
 
   @Override
   public void registerLoadAdvisoryJni(IntConsumer callback) {
-    if (JniLoader.isJniAvailable()) {
-      registerLoadAdvisoryNative(callback);
-    }
+    registerLoadAdvisoryNative(callback);
   }
 
   private native void registerLoadAdvisoryNative(IntConsumer callback);
 
   @Override
   public int systemLoadAdvisory() {
-    if (JniLoader.isJniAvailable()) {
-      return systemLoadAdvisoryNative();
-    }
-
-    return -1;
+    return systemLoadAdvisoryNative();
   }
 
   private native int systemLoadAdvisoryNative();
 
   @Override
   public void registerMemoryPressureJni(IntConsumer callback) {
-    if (JniLoader.isJniAvailable()) {
-      registerMemoryPressureNative(callback);
-    }
+    registerMemoryPressureNative(callback);
   }
 
   private native void registerMemoryPressureNative(IntConsumer callback);
 
   @Override
   public int systemMemoryPressure() {
-    if (JniLoader.isJniAvailable()) {
-      return systemMemoryPressureNative();
-    }
-
-    return -1;
+    return systemMemoryPressureNative();
   }
 
   private native int systemMemoryPressureNative();
 
   @Override
   public void registerSuspensionJni(IntConsumer callback) {
-    if (JniLoader.isJniAvailable()) {
-      registerSuspensionNative(callback);
-    }
+    registerSuspensionNative(callback);
   }
 
   private native void registerSuspensionNative(IntConsumer callback);
 
   @Override
   public void registerThermalJni(IntConsumer callback) {
-    if (JniLoader.isJniAvailable()) {
-      registerThermalNative(callback);
-    }
+    registerThermalNative(callback);
   }
 
   private native void registerThermalNative(IntConsumer callback);
 
   @Override
   public int thermalLoad() {
-    if (JniLoader.isJniAvailable()) {
-      return thermalLoadNative();
-    }
-
-    return -1;
+    return thermalLoadNative();
   }
 
   private native int thermalLoadNative();

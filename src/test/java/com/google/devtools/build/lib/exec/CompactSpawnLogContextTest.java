@@ -49,6 +49,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.UUID;
+import java.util.function.Predicate;
 import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -282,8 +283,45 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
     assertThat(storedEventHandler.getPosts()).isEmpty();
   }
 
+  @Test
+  public void testMnemonicFilter() throws Exception {
+    SpawnBuilder spawn1 = defaultSpawnBuilder().withMnemonic("Mnemonic1");
+    SpawnBuilder spawn2 = defaultSpawnBuilder().withMnemonic("Mnemonic2");
+
+    SpawnLogContext context =
+        createSpawnLogContext(spawn -> spawn.getMnemonic().equals("Mnemonic1"));
+
+    context.logSpawn(
+        spawn1.build(),
+        createInputMetadataProvider(),
+        createInputMap(),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+    context.logSpawn(
+        spawn2.build(),
+        createInputMetadataProvider(),
+        createInputMap(),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(context, defaultSpawnExecBuilder().setMnemonic("Mnemonic1").build());
+  }
+
   @Override
   protected SpawnLogContext createSpawnLogContext(ImmutableMap<String, String> platformProperties)
+      throws IOException, InterruptedException {
+    return createSpawnLogContext(platformProperties, /* logSpawnPredicate= */ spawn -> true);
+  }
+
+  SpawnLogContext createSpawnLogContext(Predicate<Spawn> logSpawnPredicate)
+      throws IOException, InterruptedException {
+    return createSpawnLogContext(ImmutableMap.of(), logSpawnPredicate);
+  }
+
+  SpawnLogContext createSpawnLogContext(
+      ImmutableMap<String, String> platformProperties, Predicate<Spawn> logSpawnPredicate)
       throws IOException, InterruptedException {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.remoteDefaultExecProperties = platformProperties.entrySet().asList();
@@ -297,7 +335,8 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
         DigestHashFunction.SHA256,
         SyscallCache.NO_CACHE,
         UUID.fromString("00000000-0000-0000-0000-000000000000"),
-        storedEventHandler);
+        storedEventHandler,
+        logSpawnPredicate);
   }
 
   @Override

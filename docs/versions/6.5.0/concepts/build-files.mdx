@@ -44,7 +44,7 @@ team. `BUILD` file authors should comment liberally to document the role
 of each build target, whether or not it is intended for public use, and to
 document the role of the package itself.
 
-## Loading an extension
+## Loading an extension {#load}
 
 Bazel extensions are files ending in `.bzl`. Use the `load` statement to import
 a symbol from an extension.
@@ -86,7 +86,7 @@ loaded from another file.
 You can use [load visibility](/versions/6.5.0/concepts/visibility#load-visibility) to restrict
 who may load a `.bzl` file.
 
-## Types of build rules
+## Types of build rules {#types-of-build-rules}
 
 The majority of build rules come in families, grouped together by
 language. For example, `cc_binary`, `cc_library`
@@ -128,13 +128,7 @@ for anyone to create new rules.
 
 <table class="columns">
   <tr>
-    <td><a class="button button-with-icon button-primary"
-           href="/versions/6.5.0/concepts/labels">
-        <span class="material-icons" aria-hidden="true">arrow_back</span>Labels</a>
-    </td>
-    <td><a class="button button-with-icon button-primary"
-           href="/versions/6.5.0/concepts/dependencies">
-        Dependencies<span class="material-icons icon-after" aria-hidden="true">arrow_forward</span></a>
-    </td>
+    <td><a class="button button-with-icon button-primary" href="/versions/6.5.0/concepts/labels"><span class="material-icons" aria-hidden="true">arrow_back</span>Labels</a></td>
+    <td><a class="button button-with-icon button-primary" href="/versions/6.5.0/concepts/dependencies">Dependencies<span class="material-icons icon-after" aria-hidden="true">arrow_forward</span></a></td>
   </tr>
 </table>

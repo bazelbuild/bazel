@@ -194,7 +194,7 @@ public final class RemoteModule extends BlazeModule {
   @Override
   public void globalInit(
       OptionsParsingResult startupOptions, Iterable<BlazeService> blazeServices) {
-    outputBase = startupOptions.getOptions(BlazeServerStartupOptions.class).outputBase;
+    outputBase = startupOptions.getOptions(BlazeServerStartupOptions.class).getOutputBase();
     useRemoteRepoContentsCache =
         startupOptions.getOptions(RemoteStartupOptions.class).useRemoteRepoContentsCache;
   }
@@ -271,6 +271,7 @@ public final class RemoteModule extends BlazeModule {
       Credentials credentials,
       AuthAndTLSOptions authAndTlsOptions,
       RemoteOptions remoteOptions,
+      @Nullable PathFragment diskCachePath,
       DigestUtil digestUtil) {
     CombinedCacheClient combinedCacheClient;
     Retrier.CircuitBreaker circuitBreaker =
@@ -279,6 +280,7 @@ public final class RemoteModule extends BlazeModule {
       combinedCacheClient =
           CombinedCacheClientFactory.create(
               remoteOptions,
+              diskCachePath,
               credentials,
               authAndTlsOptions,
               Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory"),
@@ -294,7 +296,8 @@ public final class RemoteModule extends BlazeModule {
             combinedCacheClient.remoteCacheClient(),
             combinedCacheClient.diskCacheClient(),
             Strings.emptyToNull(remoteOptions.remoteDownloadSymlinkTemplate),
-            digestUtil);
+            digestUtil,
+            remoteOptions.experimentalRemoteCacheChunking);
     actionContextProvider =
         RemoteActionContextProvider.createForRemoteCaching(
             env,
@@ -314,7 +317,7 @@ public final class RemoteModule extends BlazeModule {
     }
     var coreOptions = env.getOptions().getOptions(CoreOptions.class);
     var outputPermissions =
-        coreOptions != null && coreOptions.experimentalWritableOutputs
+        coreOptions != null && coreOptions.getExperimentalWritableOutputs()
             ? OutputPermissions.WRITABLE
             : OutputPermissions.READONLY;
     return new RemoteActionInputFetcher(
@@ -364,6 +367,11 @@ public final class RemoteModule extends BlazeModule {
     this.remoteOptions = remoteOptions;
     this.env = env;
 
+    // Resolve default disk cache location from --disk_cache / --disk_cache=true, etc.
+    PathFragment diskCachePath =
+        remoteOptions.getDiskCachePath(
+            env.getDirectories().getServerDirectories().getOutputUserRoot());
+
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
     DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
     DigestUtil digestUtil = new DigestUtil(env.getXattrProvider(), hashFn);
@@ -371,7 +379,7 @@ public final class RemoteModule extends BlazeModule {
     boolean verboseFailures = false;
     ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
     if (executionOptions != null) {
-      verboseFailures = executionOptions.verboseFailures;
+      verboseFailures = executionOptions.getVerboseFailures();
     }
 
     // If --remote_cache is empty but --remote_executor is not, reuse the latter for the former.
@@ -381,8 +389,8 @@ public final class RemoteModule extends BlazeModule {
     }
 
     if (shouldEnableRemoteOutputService(remoteOptions)) {
-      if (CombinedCacheClientFactory.isDiskCache(remoteOptions)) {
-        remoteOptions.diskCache = null;
+      if (diskCachePath != null) {
+        diskCachePath = null;
         env.getReporter()
             .handle(
                 Event.warn(
@@ -397,7 +405,7 @@ public final class RemoteModule extends BlazeModule {
       }
     }
 
-    boolean enableDiskCache = CombinedCacheClientFactory.isDiskCache(remoteOptions);
+    boolean enableDiskCache = diskCachePath != null;
     boolean enableHttpCache = CombinedCacheClientFactory.isHttpCache(remoteOptions);
     boolean enableRemoteExecution = shouldEnableRemoteExecution(remoteOptions);
     boolean enableGrpcCache = GrpcCacheClient.isRemoteCacheOptions(remoteOptions);
@@ -419,7 +427,7 @@ public final class RemoteModule extends BlazeModule {
             "Failed to resolve output base: %s".formatted(e.getMessage()),
             FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
       }
-      Path resolvedDiskCache = env.getWorkingDirectory().getRelative(remoteOptions.diskCache);
+      Path resolvedDiskCache = env.getWorkingDirectory().getRelative(diskCachePath);
       try {
         resolvedDiskCache = resolvedDiskCache.resolveSymbolicLinks();
       } catch (FileNotFoundException ignored) {
@@ -437,7 +445,8 @@ public final class RemoteModule extends BlazeModule {
             FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
       }
       var gcIdleTask =
-          DiskCacheGarbageCollectorIdleTask.create(remoteOptions, env.getWorkingDirectory());
+          DiskCacheGarbageCollectorIdleTask.create(
+              remoteOptions, diskCachePath, env.getWorkingDirectory());
       if (gcIdleTask != null) {
         env.addIdleTask(gcIdleTask);
       }
@@ -518,7 +527,7 @@ public final class RemoteModule extends BlazeModule {
 
     int jobs = 0;
     if (buildRequestOptions != null) {
-      jobs = buildRequestOptions.jobs;
+      jobs = buildRequestOptions.getJobs();
     }
 
     ThreadFactory threadFactory =
@@ -605,11 +614,15 @@ public final class RemoteModule extends BlazeModule {
               bazelOutputServiceChannel,
               lastBuildId);
     } else {
-      outputService = new RemoteOutputService(env.getDirectories());
+      outputService =
+          new RemoteOutputService(
+              env.getDirectories(),
+              buildRequestOptions != null && buildRequestOptions.getRewindLostInputs());
     }
 
     if ((enableHttpCache || enableDiskCache) && !enableGrpcCache) {
-      initHttpAndDiskCache(env, credentials, authAndTlsOptions, remoteOptions, digestUtil);
+      initHttpAndDiskCache(
+          env, credentials, authAndTlsOptions, remoteOptions, diskCachePath, digestUtil);
       return;
     }
 
@@ -724,10 +737,7 @@ public final class RemoteModule extends BlazeModule {
         try {
           diskCacheClient =
               CombinedCacheClientFactory.createDiskCache(
-                  env.getWorkingDirectory(),
-                  remoteOptions,
-                  digestUtil,
-                  remoteOptions.remoteVerifyDownloads);
+                  env.getWorkingDirectory(), diskCachePath, digestUtil);
         } catch (Exception e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
           return;
@@ -745,7 +755,8 @@ public final class RemoteModule extends BlazeModule {
               remoteCacheClient,
               diskCacheClient,
               Strings.emptyToNull(remoteOptions.remoteDownloadSymlinkTemplate),
-              digestUtil);
+              digestUtil,
+              remoteOptions.experimentalRemoteCacheChunking);
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteExecution(
               env,
@@ -762,10 +773,7 @@ public final class RemoteModule extends BlazeModule {
         try {
           diskCacheClient =
               CombinedCacheClientFactory.createDiskCache(
-                  env.getWorkingDirectory(),
-                  remoteOptions,
-                  digestUtil,
-                  remoteOptions.remoteVerifyDownloads);
+                  env.getWorkingDirectory(), diskCachePath, digestUtil);
         } catch (Exception e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
           return;
@@ -777,7 +785,8 @@ public final class RemoteModule extends BlazeModule {
               remoteCacheClient,
               diskCacheClient,
               Strings.emptyToNull(remoteOptions.remoteDownloadSymlinkTemplate),
-              digestUtil);
+              digestUtil,
+              remoteOptions.experimentalRemoteCacheChunking);
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteCaching(
               env,
@@ -793,6 +802,7 @@ public final class RemoteModule extends BlazeModule {
 
     repositoryRemoteHelpersFactoryDelegate.init(
         new RepositoryRemoteHelpersFactoryImpl(
+            env.getDirectories(),
             actionContextProvider.getCombinedCache(),
             actionContextProvider.getRemoteExecutionClient(),
             buildRequestId,
@@ -810,7 +820,8 @@ public final class RemoteModule extends BlazeModule {
           env.getReporter(),
           buildRequestId,
           invocationId,
-          env.getSkyframeExecutor().getEvaluator());
+          env.getSkyframeExecutor().getEvaluator(),
+          remoteOptions.remoteCacheTtl);
     }
 
     buildEventArtifactUploaderFactoryDelegate.init(
@@ -1089,7 +1100,8 @@ public final class RemoteModule extends BlazeModule {
           new RemoteImportantOutputHandler(
               SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor()),
               remoteOutputChecker,
-              actionInputFetcher));
+              actionInputFetcher,
+              Preconditions.checkNotNull(outputService).getRewoundActionSynchronizer()));
     }
   }
 

@@ -215,7 +215,8 @@ public class BuildEventServiceProtoUtilTest {
     Instant firstEventTimestamp = clock.now();
     ByteString payload = ByteString.fromHex("deadbeef");
     assertThat(
-            BuildEventServiceProtoUtil.bazelEvent(COMMAND_CONTEXT, firstEventTimestamp, 1, payload))
+            BuildEventServiceProtoUtil.bazelEvent(
+                COMMAND_CONTEXT, firstEventTimestamp, 1, payload.toByteArray()))
         .isEqualTo(
             PublishBuildToolEventStreamRequest.newBuilder()
                 .addAllNotificationKeywords(KEYWORDS)
@@ -243,7 +244,7 @@ public class BuildEventServiceProtoUtilTest {
     Instant secondEventTimestamp = clock.now();
     assertThat(
             BuildEventServiceProtoUtil.bazelEvent(
-                COMMAND_CONTEXT, secondEventTimestamp, 2, payload))
+                COMMAND_CONTEXT, secondEventTimestamp, 2, payload.toByteArray()))
         .isEqualTo(
             PublishBuildToolEventStreamRequest.newBuilder()
                 .setProjectId(PROJECT_ID)
@@ -292,7 +293,7 @@ public class BuildEventServiceProtoUtilTest {
 
   @Test
   public void testStreamEventsWithCheckPrecedingLifecycleEventsEnabled() {
-    ByteString payload = ByteString.fromHex("deadbeef");
+    byte[] payload = ByteString.fromHex("deadbeef").toByteArray();
     CommandContext commandContext =
         CommandContext.builder()
             .setBuildId(BUILD_REQUEST_ID)

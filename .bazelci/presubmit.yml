@@ -1,5 +1,5 @@
 ---
-
+check_docs: 0
 tasks:
   rockylinux8:
     shell_commands:
@@ -184,7 +184,7 @@ tasks:
       - build
       - test
   windows:
-    shards: 8
+    shards: 10
     setup:
       - mkdir C:\b
       - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external

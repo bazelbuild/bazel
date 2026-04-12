@@ -83,7 +83,7 @@ public final class StarlarkExecTransitionLoader {
     }
     String userRef =
         Verify.verifyNotNull(
-            options.get(CoreOptions.class).starlarkExecConfig,
+            options.get(CoreOptions.class).getStarlarkExecConfig(),
             "Cannot apply the exec transition since no transition is defined for this build.");
     final String flagName = "--experimental_exec_config";
     TransitionReference parsedRef = TransitionReference.create(userRef, flagName);

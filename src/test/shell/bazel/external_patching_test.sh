@@ -429,8 +429,8 @@ EOF
 +echo There are dragons...
 EOF
   cat > $(setup_module_dot_bazel) <<EOF
-new_git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
-new_git_repository(
+git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+git_repository(
   name="ext",
   remote="${EXTREPODIR}/extgit/.git",
   tag="mytag",
@@ -470,8 +470,8 @@ EOF
 
   # Verify that changes to the patches attribute trigger enough rebuilding
   cat > $(setup_module_dot_bazel) <<EOF
-new_git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
-new_git_repository(
+git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+git_repository(
   name="ext",
   remote="${EXTREPODIR}/extgit/.git",
   tag="mytag",
@@ -633,8 +633,8 @@ EOF
   mkdir main
   cd main
   cat > $(setup_module_dot_bazel) <<EOF
-new_git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
-new_git_repository(
+git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+git_repository(
   name="withbuild",
   remote="${EXTREPODIR}/withbuild/.git",
   tag="mytag",
@@ -701,8 +701,8 @@ EOF
   mkdir main
   cd main
   cat > $(setup_module_dot_bazel) <<EOF
-new_git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
-new_git_repository(
+git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+git_repository(
   name="withbuild",
   remote="${EXTREPODIR}/withbuild/.git",
   tag="mytag",

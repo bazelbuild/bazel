@@ -18,19 +18,17 @@ import static com.google.devtools.build.lib.analysis.constraints.ConstraintConst
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME;
 
-import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
@@ -199,7 +197,8 @@ public final class TestActionBuilder {
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     ArtifactRoot root = ruleContext.getTestLogsDirectory();
     ActionOwner actionOwner =
-        getTestActionOwner(config.getOptions().get(CoreOptions.class).useTargetPlatformForTests);
+        getTestActionOwner(
+            config.getOptions().get(CoreOptions.class).getUseTargetPlatformForTests());
     boolean isExecutedOnWindows =
         getOsFromConstraintsOrHost(actionOwner.getExecutionPlatform()) == OS.WINDOWS;
 
@@ -232,7 +231,7 @@ public final class TestActionBuilder {
     inputsBuilder.add(testXmlGeneratorExecutable);
 
     FilesToRunProvider collectCoverageScript = null;
-    TreeMap<String, String> extraTestEnv = new TreeMap<>();
+    TreeMap<String, String> coverageTestEnv = new TreeMap<>();
 
     int runsPerTest = getRunsPerTest(ruleContext);
     int shardCount = getShardCount(ruleContext);
@@ -263,7 +262,7 @@ public final class TestActionBuilder {
       if (ruleContext.isAttrDefined("$collect_cc_coverage", LABEL)) {
         Artifact collectCcCoverage = ruleContext.getPrerequisiteArtifact("$collect_cc_coverage");
         inputsBuilder.add(collectCcCoverage);
-        extraTestEnv.put(CC_CODE_COVERAGE_SCRIPT, collectCcCoverage.getExecPathString());
+        coverageTestEnv.put(CC_CODE_COVERAGE_SCRIPT, collectCcCoverage.getExecPathString());
       }
 
       if (!instrumentedFiles.getReportedToActualSources().isEmpty()) {
@@ -277,13 +276,13 @@ public final class TestActionBuilder {
                 instrumentedFiles.getReportedToActualSources(),
                 ":"));
         inputsBuilder.add(reportedToActualSourcesArtifact);
-        extraTestEnv.put(
+        coverageTestEnv.put(
             COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE,
             reportedToActualSourcesArtifact.getExecPathString());
       }
 
       // lcov is the default CC coverage tool unless otherwise specified on the command line.
-      extraTestEnv.put(BAZEL_CC_COVERAGE_TOOL, GCOV_TOOL);
+      coverageTestEnv.put(BAZEL_CC_COVERAGE_TOOL, GCOV_TOOL);
 
       // We don't add this attribute to non-supported test target
       String lcovMergerAttr = null;
@@ -301,7 +300,7 @@ public final class TestActionBuilder {
               lcovMergerAttr,
               "the LCOV merger should be either an executable or a single artifact");
         }
-        extraTestEnv.put(LCOV_MERGER, lcovFilesToRun.getExecutable().getExecPathString());
+        coverageTestEnv.put(LCOV_MERGER, lcovFilesToRun.getExecutable().getExecPathString());
         inputsBuilder.addTransitive(lcovFilesToRun.getFilesToRun());
         lcovMergerFilesToRun = lcovFilesToRun.getFilesToRun();
       }
@@ -320,7 +319,7 @@ public final class TestActionBuilder {
               actionOwner.getExecutionPlatform());
       inputsBuilder.add(instrumentedFileManifest);
       // TODO(ulfjack): Is this even ever set? If yes, does this cost us a lot of memory?
-      extraTestEnv.putAll(instrumentedFiles.getCoverageEnvironment());
+      coverageTestEnv.putAll(instrumentedFiles.getCoverageEnvironment());
     } else {
       executionSettings =
           new TestTargetExecutionSettings(
@@ -412,7 +411,8 @@ public final class TestActionBuilder {
                 coverageDirectory,
                 undeclaredOutputsDir,
                 testProperties,
-                runfilesSupport.getActionEnvironment().withAdditionalFixedVariables(extraTestEnv),
+                ImmutableMap.copyOf(coverageTestEnv),
+                runfilesSupport.getActionEnvironment(),
                 executionSettings,
                 shard,
                 run,
@@ -424,13 +424,7 @@ public final class TestActionBuilder {
                     : null,
                 cancelConcurrentTests,
                 splitCoveragePostProcessing,
-                lcovMergerFilesToRun,
-                // Network allowlist only makes sense in workspaces which explicitly add it, use an
-                // empty one as a fallback.
-                MoreObjects.firstNonNull(
-                    Allowlist.fetchPackageSpecificationProviderOrNull(
-                        ruleContext, "external_network"),
-                    PackageSpecificationProvider.EMPTY));
+                lcovMergerFilesToRun);
 
         testOutputs.addAll(testRunnerAction.getSpawnOutputs());
         testOutputs.addAll(testRunnerAction.getOutputs());

@@ -20,6 +20,7 @@ import static com.google.common.util.concurrent.Futures.immediateCancelledFuture
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+import static com.google.devtools.build.lib.util.StringUtilities.bytesCountToDisplayString;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
@@ -38,7 +39,6 @@ import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
-import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.DetailedIOException;
@@ -60,6 +60,8 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.nio.channels.SeekableByteChannel;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -98,6 +100,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
   @Nullable private String buildRequestId;
   @Nullable private String commandId;
   @Nullable private MemoizingEvaluator evaluator;
+  @Nullable private Duration remoteCacheTtl;
   @Nullable private ExecutorService materializationExecutor;
 
   public RemoteExternalOverlayFileSystem(PathFragment externalDirectory, FileSystem nativeFs) {
@@ -115,7 +118,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
       Reporter reporter,
       String buildRequestId,
       String commandId,
-      MemoizingEvaluator evaluator) {
+      MemoizingEvaluator evaluator,
+      Duration remoteCacheTtl) {
     checkState(
         this.cache == null
             && this.inputPrefetcher == null
@@ -123,6 +127,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
             && this.buildRequestId == null
             && this.commandId == null
             && this.evaluator == null
+            && this.remoteCacheTtl == null
             && this.materializationExecutor == null);
     this.cache = cache;
     this.inputPrefetcher = inputPrefetcher;
@@ -130,6 +135,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     this.evaluator = evaluator;
+    this.remoteCacheTtl = remoteCacheTtl;
     this.materializationExecutor =
         Executors.newThreadPerTaskExecutor(
             Thread.ofVirtual().name("remote-repo-materialization-", 0).factory());
@@ -146,6 +152,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     this.reporter = null;
     this.buildRequestId = null;
     this.commandId = null;
+    this.remoteCacheTtl = null;
     // Materializations happen synchronously and upon request by other repo rules, so there is no
     // reason to await their orderly completion in afterCommand.
     materializationExecutor.shutdownNow();
@@ -186,14 +193,21 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
    */
   public boolean injectRemoteRepo(RepositoryName repo, Tree remoteContents, String markerFile)
       throws IOException, InterruptedException {
+    var repoDir = externalDirectory.getChild(repo.getName());
+    deleteTree(repoDir);
+    var unused = delete(externalDirectory.getChild(repo.getMarkerFileName()));
     var childMap =
         remoteContents.getChildrenList().stream()
             .collect(
                 toImmutableMap(cache.digestUtil::compute, directory -> directory, (a, b) -> a));
-    var repoDir = externalDirectory.getChild(repo.getName());
     var filesToPrefetch = new ArrayList<PathFragment>();
     injectRecursively(
-        externalFs, repoDir, remoteContents.getRoot(), childMap, filesToPrefetch::add);
+        externalFs,
+        repoDir,
+        remoteContents.getRoot(),
+        childMap,
+        filesToPrefetch::add,
+        Instant.now().plus(remoteCacheTtl));
     try {
       // TODO: This prefetches a large number of small files. Investigate whether BatchReadBlobs
       // would be more efficient.
@@ -208,7 +222,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     }
     // Create the repo directory on disk so that readdir reflects the overlaid state of the external
     // directory.
-    nativeFs.createDirectoryAndParents(externalDirectory.getChild(repo.getName()));
+    nativeFs.createDirectoryAndParents(repoDir);
     // Keep the marker file contents in memory so that it can be written out when the repo is
     // materialized. This doubles as a presence marker for the in-memory repo contents.
     markerFileContents.put(repo.getName(), markerFile);
@@ -220,7 +234,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
       PathFragment path,
       Directory dir,
       ImmutableMap<Digest, Directory> childMap,
-      Consumer<PathFragment> filesToPrefetch)
+      Consumer<PathFragment> filesToPrefetch,
+      Instant expirationTime)
       throws IOException {
     fs.createDirectoryAndParents(path);
     for (var file : dir.getFilesList()) {
@@ -230,10 +245,15 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
       }
       fs.injectFile(
           filePath,
-          FileArtifactValue.createForRemoteFile(
+          // Using the *WithMaterializationData variant ensures that the file benefits from the
+          // FileContentsProxy optimization to avoid widespread invalidation when it is
+          // materialized later, even if expiration times aren't relevant (depends on the usage
+          // of the lease extension).
+          FileArtifactValue.createForRemoteFileWithMaterializationData(
               DigestUtil.toBinaryDigest(file.getDigest()),
               file.getDigest().getSizeBytes(),
-              /* locationIndex= */ 1));
+              /* locationIndex= */ 1,
+              expirationTime));
       fs.setExecutable(filePath, file.getIsExecutable());
       // The RE API does not track whether a file is readable or writable. We choose to make all
       // files readable and not writable to ensure that other repo rules can't accidentally modify
@@ -253,7 +273,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
             "Directory %s with digest %s not found in tree"
                 .formatted(subdirPath, subdirNode.getDigest().getHash()));
       }
-      injectRecursively(fs, subdirPath, subdir, childMap, filesToPrefetch);
+      injectRecursively(fs, subdirPath, subdir, childMap, filesToPrefetch, expirationTime);
     }
   }
 
@@ -295,12 +315,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     }
     prefetch(walkResult.files());
     // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
-    // target. A symlink may have already been created as an input to an action.
-    for (var remoteSymlink : walkResult.symlinks()) {
-      var nativeSymlink = nativeFs.getPath(remoteSymlink);
-      FileSystemUtils.ensureSymbolicLink(
-          nativeSymlink, externalFs.getPath(remoteSymlink).readSymbolicLink());
-    }
+    // target.
+    prefetch(walkResult.symlinks());
 
     // After the repo has been copied, atomically materialize the marker file. This ensures that the
     // repo doesn't have to be refetched after the next server restart.
@@ -667,9 +683,11 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     }
 
     private FileArtifactValue getMetadata(PathFragment path) throws IOException {
-      var info =
-          (RemoteActionFileSystem.RemoteInMemoryFileInfo) stat(path, /* followSymlinks= */ true);
-      return info.getMetadata();
+      var status = stat(path, /* followSymlinks= */ false);
+      if (!status.isSymbolicLink()) {
+        return ((RemoteActionFileSystem.RemoteInMemoryFileInfo) status).getMetadata();
+      }
+      return FileArtifactValue.createForUnresolvedSymlink(externalFs.getPath(path));
     }
 
     @Override
@@ -689,7 +707,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
 
             @Override
             public String getProgress() {
-              return "(%s)".formatted(Utils.bytesCountToDisplayString(info.getSize()));
+              return "(%s)".formatted(bytesCountToDisplayString(info.getSize()));
             }
 
             @Override

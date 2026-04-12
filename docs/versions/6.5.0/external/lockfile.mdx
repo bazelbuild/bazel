@@ -1,4 +1,3 @@
-keywords: product:Bazel,lockfile,Bzlmod
 ---
 title: 'Bazel Lockfile'
 ---
@@ -15,7 +14,7 @@ dependencies. Furthermore, the lockfile improves stability by preventing
 unexpected updates or breaking changes in external libraries, thereby reducing
 the risk of introducing bugs.
 
-## Lockfile Generation
+## Lockfile Generation {#lockfile-generation}
 
 The lockfile is generated under the workspace root with the name
 `MODULE.bazel.lock`. It is created or updated during the build process,
@@ -30,7 +29,7 @@ remains focused on the specific set of dependencies required for the current
 build, providing an accurate representation of the project's resolved
 dependencies.
 
-## Lockfile Usage
+## Lockfile Usage {#lockfile-usage}
 
 The lockfile can be controlled by the flag
 [`--lockfile_mode`](/reference/command-line-reference#flag--lockfile_mode) to
@@ -48,7 +47,7 @@ lockfile. The available modes are:
     unchanged, and any differences are treated as errors.
 *   `off`: The lockfile is not checked at all.
 
-## Lockfile Benefits
+## Lockfile Benefits {#lockfile-benefits}
 
 The lockfile offers several benefits and can be utilized in various ways:
 
@@ -67,7 +66,7 @@ The lockfile offers several benefits and can be utilized in various ways:
     locking the dependencies to specific versions, the risk of introducing bugs
     due to incompatible or untested updates is reduced.
 
-## Lockfile Contents
+## Lockfile Contents {#lockfile-contents}
 
 The lockfile contains all the necessary information to determine whether the
 project state has changed. It also includes the result of building the project
@@ -151,7 +150,7 @@ The `moduleDepGraph` represents the result of the resolution process using the
 inputs mentioned above. It forms the dependency graph of all the modules
 required to run the project.
 
-### Module Extensions
+### Module Extensions {#module-extensions}
 
 The `moduleExtensions` section is a map that includes only the extensions used
 in the current invocation or previously invoked, while excluding any extensions
@@ -172,7 +171,7 @@ An additional factor that can affect the extension results is their _usages_.
 Although not stored in the lockfile, the usages are considered when comparing
 the current state of the extension with the one in the lockfile.
 
-## Best Practices
+## Best Practices {#best-practices}
 
 To maximize the benefits of the lockfile feature, consider the following best
 practices:

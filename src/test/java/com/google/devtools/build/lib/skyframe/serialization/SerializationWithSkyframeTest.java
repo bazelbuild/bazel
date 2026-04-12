@@ -143,8 +143,8 @@ public final class SerializationWithSkyframeTest {
     SerializationResult<ByteString> serialized =
         codecs.serializeMemoizedAndBlocking(
             fingerprintValueService, sharedValue, /* profileCollector= */ null);
-    ListenableFuture<Void> writeStatus = serialized.getFutureToBlockWritesOn();
-    assertThat(writeStatus.get()).isNull();
+    ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
+    writeStatus.get(); // ensures that the future succeeds
 
     var futureResult =
         (ListenableFuture<?>)
@@ -203,8 +203,8 @@ public final class SerializationWithSkyframeTest {
       SerializationResult<ByteString> serialized =
           codecs.serializeMemoizedAndBlocking(
               fingerprintValueService, sharedValue, /* profileCollector= */ null);
-      ListenableFuture<Void> writeStatus = serialized.getFutureToBlockWritesOn();
-      assertThat(writeStatus.get()).isNull();
+      ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
+      writeStatus.get(); // ensures that the future succeeds
       serializedBytes.add(serialized.getObject());
     }
 
@@ -311,8 +311,8 @@ public final class SerializationWithSkyframeTest {
     SerializationResult<ByteString> serialized =
         codecs.serializeMemoizedAndBlocking(
             fingerprintValueService, subject, /* profileCollector= */ null);
-    ListenableFuture<Void> writeStatus = serialized.getFutureToBlockWritesOn();
-    assertThat(writeStatus.get()).isNull();
+    ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
+    writeStatus.get(); // ensures that the future succeeds
 
     var futureResult =
         (ListenableFuture<?>)

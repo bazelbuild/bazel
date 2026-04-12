@@ -410,7 +410,7 @@ Basic use is as follows:
 ```
 sh_binary(
     name = "mytarget",
-    srcs = select({
+    srcs = select(\{
         ":conditionA": ["mytarget_a.sh"],
         ":conditionB": ["mytarget_b.sh"],
         "//conditions:default": ["mytarget_default.sh"]
@@ -445,7 +445,7 @@ Notes:
   is left out, some other rule must match to avoid an error.
 * `select` can be embedded *inside* a larger
   attribute assignment. So `srcs = ["common.sh"]
-  + select({ ":conditionA": ["myrule_a.sh"], ...})` and `srcs = select({ ":conditionA": ["a.sh"]}) + select({ ":conditionB":
+  + select(\{ ":conditionA": ["myrule_a.sh"], ...})` and `srcs = select(\{ ":conditionA": ["a.sh"]}) + select(\{ ":conditionB":
   ["b.sh"]})` are valid expressions.
 * `select` works with most, but not all, attributes. Incompatible
   attributes are marked `nonconfigurable` in their documentation.

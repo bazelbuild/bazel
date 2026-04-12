@@ -178,6 +178,7 @@ java_library(
     srcs = ["SpawnInputUtils.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
@@ -298,7 +299,9 @@ java_library(
         "TestConstants.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/bazel:bazel_services",  # unuseddeps: keep
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//third_party:guava",
     ],

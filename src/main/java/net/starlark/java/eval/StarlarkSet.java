@@ -153,7 +153,7 @@ operations that attempt to update it will fail.
 public final class StarlarkSet<E> extends AbstractSet<E>
     implements Mutability.Freezable, StarlarkMembershipTestable, StarlarkIterable<E> {
 
-  public static TypeConstructor getBaseTypeConstructor() {
+  public static TypeConstructor getAssociatedTypeConstructor() {
     return Types.SET_CONSTRUCTOR;
   }
 

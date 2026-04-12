@@ -17,7 +17,7 @@ logs between two Bazel invocations, see
 Everything presented in that guide also applies to remote caching with local
 execution. However, local execution presents some additional challenges.
 
-## Checking your cache hit rate
+## Checking your cache hit rate {#cache-hits}
 
 Successful remote cache hits will show up in the status line, similar to
 [Cache Hits rate with Remote
@@ -36,11 +36,11 @@ strategy. Local cache hits are not included in this summary. If you are getting
 0 processes (or a number lower than expected), run `bazel clean` followed by
 your build/test command.
 
-## Troubleshooting cache hits
+## Troubleshooting cache hits {#troubleshooting-cache-hits}
 
 If you are not getting the cache hit rate you are expecting, do the following:
 
-### Ensure successful communication with the remote endpoint
+### Ensure successful communication with the remote endpoint {#remote-endpoint-success}
 
 To ensure your build is successfully communicating with the remote cache, follow
 the steps in this section.

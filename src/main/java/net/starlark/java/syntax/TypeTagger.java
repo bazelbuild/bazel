@@ -14,16 +14,17 @@
 
 package net.starlark.java.syntax;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.LinkedHashMap;
 import javax.annotation.Nullable;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Resolver.Module;
@@ -46,9 +47,9 @@ import net.starlark.java.syntax.Resolver.Scope;
  */
 public final class TypeTagger extends NodeVisitor {
 
-  private final Module module;
+  private final TypeTable typeTable;
 
-  private final List<SyntaxError> errors;
+  private final Module module;
 
   // Empty if we are tagging a type expression (inside which no function definitions are allowed).
   // Populated and mutated by visitation.
@@ -63,17 +64,21 @@ public final class TypeTagger extends NodeVisitor {
   // Formats and reports an error at the specified location.
   @FormatMethod
   private void errorf(Location loc, String format, Object... args) {
-    errors.add(new SyntaxError(loc, String.format(format, args)));
+    typeTable.errors.add(new SyntaxError(loc, String.format(format, args)));
   }
 
-  private TypeTagger(List<SyntaxError> errors, Module module) {
-    this.errors = errors;
+  private TypeTagger(TypeTable typeTable, Module module) {
+    this.typeTable = typeTable;
     this.module = module;
   }
 
-  private TypeTagger(List<SyntaxError> errors, Module module, Resolver.Function toplevel) {
-    this(errors, module);
+  private TypeTagger(TypeTable typeTable, Module module, Resolver.Function toplevel) {
+    this(typeTable, module);
     functionStack.push(toplevel);
+  }
+
+  TypeTable getTypeTable() {
+    return typeTable;
   }
 
   /**
@@ -158,6 +163,22 @@ public final class TypeTagger extends NodeVisitor {
           return TypeConstructor.Arg.EMPTY_TUPLE;
         }
       }
+      case DICT_EXPR -> {
+        DictExpression dictExpr = (DictExpression) expr;
+        LinkedHashMap<String, StarlarkType> types = new LinkedHashMap<>();
+        for (DictExpression.Entry entry : dictExpr.getEntries()) {
+          if (entry.getKey() instanceof StringLiteral str) {
+            String key = str.getValue();
+            @Nullable var previous = types.put(key, extractType(entry.getValue()));
+            if (previous != null) {
+              errorf(str, "dictionary expression has duplicate key: %s", str);
+            }
+          } else {
+            errorf(entry.getKey(), "expected a string literal but got '%s'", entry.getKey());
+          }
+        }
+        return new TypeConstructor.Arg.TypeDict(ImmutableMap.copyOf(types));
+      }
       default -> {
         // fall through
       }
@@ -179,19 +200,21 @@ public final class TypeTagger extends NodeVisitor {
   /**
    * Statically evaluates a type expression to the {@link StarlarkType} it denotes.
    *
-   * @param expr a valid type expression with binding information resolved
+   * @param expr a valid type expression with binding information resolved, which must have been
+   *     parsed with the appropriate {@link FileOptions} set; see {@link #tagFile}
+   * @param exprFunction the resolver function for {@code expr} constructed by {@link
+   *     Resolver#resolveExpr()}
    * @param module a static Module containing type information for the bindings used in type
    *     expressions
    * @throws SyntaxError.Exception if expr is not a type expression or if it could not be evaluated
    *     to a type.
    */
-  public static StarlarkType extractType(Expression expr, Module module)
+  static StarlarkType extractType(Expression expr, Resolver.Function exprFunction, Module module)
       throws SyntaxError.Exception {
-    List<SyntaxError> errors = new ArrayList<>();
-    TypeTagger r = new TypeTagger(errors, module);
+    TypeTagger r = new TypeTagger(new TypeTable(exprFunction), module);
     StarlarkType result = r.extractType(expr);
-    if (!errors.isEmpty()) {
-      throw new SyntaxError.Exception(r.errors);
+    if (!r.getTypeTable().ok()) {
+      throw new SyntaxError.Exception(r.getTypeTable().errors());
     }
     return result;
   }
@@ -274,7 +297,7 @@ public final class TypeTagger extends NodeVisitor {
    */
   private void setType(Node node, Identifier id, StarlarkType type) {
     Resolver.Binding binding = id.getBinding();
-    Preconditions.checkNotNull(binding, "no binding set on identifier '%s'", id.getName());
+    checkNotNull(binding, "no binding set on identifier '%s'", id.getName());
 
     if (binding.getFirst() != id) {
       if (node instanceof DefStatement) {
@@ -299,12 +322,12 @@ public final class TypeTagger extends NodeVisitor {
       return;
     }
 
-    if (binding.getType() != null) {
+    @Nullable StarlarkType prevType = typeTable.getType(binding);
+    if (prevType != null) {
       throw new IllegalArgumentException(
-          String.format(
-              "Expected type of binding %s to be null but was %s", binding, binding.getType()));
+          String.format("Expected type of binding %s to be null but was %s", binding, prevType));
     }
-    binding.setType(type);
+    typeTable.setDeclaredType(binding, type);
   }
 
   /**
@@ -312,15 +335,31 @@ public final class TypeTagger extends NodeVisitor {
    *
    * <p>Throws {@link IllegalArgumentException} if the type is already set.
    */
-  private static void setType(Resolver.Function resolved, Types.CallableType type) {
-    Preconditions.checkNotNull(resolved);
-    if (resolved.getFunctionType() != null) {
+  private static void setType(
+      Resolver.Function resolved, Types.CallableType type, TypeTable typeTable) {
+    checkNotNull(resolved);
+    @Nullable StarlarkType prevType = typeTable.getType(resolved);
+    if (prevType != null) {
       throw new IllegalArgumentException(
           String.format(
               "Expected type of resolved function %s to be null but was %s",
-              resolved.getName(), resolved.getFunctionType()));
+              resolved.getName(), prevType));
     }
-    resolved.setFunctionType(type);
+    typeTable.setType(resolved, type);
+  }
+
+  private void setType(Resolver.Function resolved, Types.CallableType type) {
+    setType(resolved, type, typeTable);
+  }
+
+  private void visitProgram(Program prog) {
+    checkState(
+        functionStack.isEmpty(),
+        "When tagging a Program, functionStack is expected to be initially empty");
+    Resolver.Function toplevel = prog.getResolvedFunction();
+    this.functionStack.push(toplevel);
+    visitBlock(toplevel.getBody());
+    checkState(functionStack.pop().equals(toplevel));
   }
 
   @Override
@@ -417,18 +456,47 @@ public final class TypeTagger extends NodeVisitor {
   // A's binding with the evaluation of type B. It probably should live in outer logic that
   // determines the type environment.
 
+  private static void checkFileOptions(FileOptions options) {
+    checkArgument(
+        options.resolveTypeSyntax(), "type tagging requires that resolveTypeSyntax is set");
+    checkArgument(
+        !options.tolerateInvalidTypeExpressions(),
+        "type tagging requires that tolerateInvalidTypeExpressions is not set");
+  }
+
   /**
-   * Sets the Starlark types of the {@link Resolver.Function}s and {@link Resolver.Binding}s in the
-   * given AST (which must have already been processed by {@link Resolver}), based on the supplied
-   * annotations.
-   *
-   * <p>The file must not have any existing type information in its resolved functions and bindings.
+   * Determines the Starlark types of the {@link Resolver.Function}s and {@link Resolver.Binding}s
+   * in the given AST (which must have already been processed by {@link Resolver}), based on the
+   * supplied annotations. Returns the resulting {@link TypeTable} for the file.
    *
    * <p>Any errors are appended to the file's list of errors.
+   *
+   * @throws IllegalArgumentException if the file's {@link FileOptions} don't contain {@link
+   *     FileOptions#resolveTypeSyntax()} or do contain {@link
+   *     FileOptions#tolerateInvalidTypeExpressions()}.
    */
-  public static void tagFile(StarlarkFile file, Module module) {
-    TypeTagger r = new TypeTagger(file.errors, module);
+  public static TypeTable tagFile(StarlarkFile file, Module module) {
+    checkFileOptions(file.getOptions());
+    TypeTable typeTable = new TypeTable(file);
+    TypeTagger r = new TypeTagger(typeTable, module);
     r.visit(file);
+    return typeTable;
+  }
+
+  /**
+   * Like {@link #tagFile}, but on an already-compiled {@link Program}.
+   *
+   * <p>The program is *not* mutated. In particular, the pre-existing {@link Program#getTypeTable}
+   * (if any) is ignored. Any errors are reported in the returned type table's {@link
+   * TypeTable#errors()} list.
+   */
+  public static TypeTable tagProgram(Program prog, Module module) {
+    checkFileOptions(prog.getOptions());
+    Resolver.Function toplevel = prog.getResolvedFunction();
+    TypeTable typeTable = new TypeTable(toplevel);
+    TypeTagger r = new TypeTagger(typeTable, module);
+    r.visitProgram(prog);
+    return typeTable;
   }
 
   /**
@@ -439,42 +507,25 @@ public final class TypeTagger extends NodeVisitor {
    * @param function the {@link Resolver.Function} that the resolver generated to wrap an
    *     expression.
    */
-  public static void tagExpr(Expression expr, Resolver.Function function, Module module)
+  public static TypeTable tagExpr(Expression expr, Resolver.Function function, Module module)
       throws SyntaxError.Exception {
-    List<SyntaxError> errors = new ArrayList<>();
-    TypeTagger r = new TypeTagger(errors, module, function);
+    TypeTable typeTable = new TypeTable(function);
+    TypeTagger r = new TypeTagger(typeTable, module, function);
 
     r.visit(expr);
 
-    if (!errors.isEmpty()) {
-      throw new SyntaxError.Exception(errors);
+    if (!typeTable.ok()) {
+      throw new SyntaxError.Exception(typeTable.errors());
     }
-  }
-
-  /**
-   * Sets the Starlark type on a {@link Resolver.Function} that the resolver generated to wrap an
-   * expression.
-   */
-  public static void tagExprFunction(Resolver.Function function, StarlarkType exprType) {
-    Types.CallableType functionType =
-        Types.callable(
-            /* parameterNames= */ ImmutableList.of(),
-            /* parameterTypes= */ ImmutableList.of(),
-            /* numPositionalOnlyParameters= */ 0,
-            /* numPositionalParameters= */ 0,
-            /* mandatoryParams= */ ImmutableSet.of(),
-            /* varargsType= */ null,
-            /* kwargsType= */ null,
-            /* returns= */ exprType);
-    setType(function, functionType);
+    return typeTable;
   }
 
   private void setUsesTypeSyntax() {
     // If anything in the file (or in the expr if TypeTagger is invoked via tagExpr()) uses type
     // syntax, the toplevel is considered to use type syntax.
-    functionStack.peekLast().setUsesTypeSyntax();
+    typeTable.setUsesTypeSyntax(functionStack.peekLast());
     // If anything nested in the most proximate def statement uses type syntax, the def statement
     // is considered to use type syntax
-    functionStack.peek().setUsesTypeSyntax();
+    typeTable.setUsesTypeSyntax(functionStack.peek());
   }
 }

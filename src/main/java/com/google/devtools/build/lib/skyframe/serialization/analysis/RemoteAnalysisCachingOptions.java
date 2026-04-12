@@ -23,12 +23,14 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.time.Duration;
 import javax.annotation.Nullable;
 
 /** Options for caching analysis results remotely. */
-public class RemoteAnalysisCachingOptions extends OptionsBase {
+@OptionsClass
+public abstract class RemoteAnalysisCachingOptions extends OptionsBase {
 
   /** A converter for MD5 checksums. */
   public static final class Md5Converter implements Converter<HashCode> {
@@ -65,7 +67,7 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Dump a profile of serialized frontier bytes. Specifies the output path.")
-  public String serializedFrontierProfile;
+  public abstract String getSerializedFrontierProfile();
 
   @Option(
       name = "remote_analysis_json_log",
@@ -76,7 +78,7 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
           "If set, a JSON file is written to this location that contains a detailed log of "
               + "the behavior of remote analysis caching. It's interpreted as a path relative "
               + "to the current working directory.")
-  public String jsonLog;
+  public abstract String getJsonLog();
 
   @Option(
       name = "experimental_remote_analysis_cache_mode",
@@ -85,7 +87,9 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       converter = RemoteAnalysisCacheModeConverter.class,
       help = "The transport direction for the remote analysis cache.")
-  public RemoteAnalysisCacheMode mode;
+  public abstract RemoteAnalysisCacheMode getMode();
+
+  public abstract void setMode(RemoteAnalysisCacheMode value);
 
   /** * The transport direction for the remote analysis cache. */
   public enum RemoteAnalysisCacheMode {
@@ -138,20 +142,12 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
   }
 
   @Option(
-      name = "experimental_remote_analysis_cache",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help = "The URL for the remote analysis caching backend.")
-  public String remoteAnalysisCache;
-
-  @Option(
       name = "experimental_remote_analysis_cache_max_batch_size",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       defaultValue = "4095",
       help = "Batch size limit for remote analysis caching RPCs.")
-  public int maxBatchSize;
+  public abstract int getMaxBatchSize();
 
   @Option(
       name = "experimental_remote_analysis_cache_concurrency",
@@ -159,7 +155,7 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       defaultValue = "4",
       help = "Target concurrency for remote analysis caching RPCs.")
-  public int concurrency;
+  public abstract int getConcurrency();
 
   @Option(
       name = "experimental_remote_analysis_cache_deadline",
@@ -168,20 +164,9 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
       defaultValue = "120s",
       converter = DurationConverter.class,
       help = "Deadline to use for remote analysis cache operations.")
-  public Duration deadline;
+  public abstract Duration getDeadline();
 
-  // TODO: b/443947033 - add a way to disable retries
-  @Option(
-      name = "experimental_remote_analysis_unreachable_cache_retry_interval",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      defaultValue = "250ms",
-      converter = DurationConverter.class,
-      help =
-          "How long to wait before retrying a cache get request that failed due to an UNREACHABLE"
-              + " channel. This is a workaround for the client library reporting 'ready' "
-              + "prematurely.")
-  public Duration unreachableCacheRetryInterval;
+  public abstract void setDeadline(Duration value);
 
   @Option(
       name = "experimental_analysis_cache_service",
@@ -189,7 +174,9 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "Locator for the AnalysisCacheService instance.")
-  public String analysisCacheService;
+  public abstract String getAnalysisCacheService();
+
+  public abstract void setAnalysisCacheService(String value);
 
   @Option(
       name = "experimental_remote_analysis_cache_storage",
@@ -198,7 +185,7 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       converter = RemoteAnalysisCacheStorageTypeConverter.class,
       help = "The storage type for the remote analysis cache.")
-  public RemoteAnalysisCacheStorageType storageType;
+  public abstract RemoteAnalysisCacheStorageType getStorageType();
 
   /** The storage type for the remote analysis cache. */
   public enum RemoteAnalysisCacheStorageType {
@@ -228,10 +215,6 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
   // 2. Read Proxy: If --experimental_analysis_cache_service is set but
   //    --experimental_remote_analysis_cache is NOT set, downloads are proxied through the
   //    AnalysisCacheService. --experimental_remote_analysis_cache_mode must be DOWNLOAD.
-  //
-  // 3. Legacy Direct: Otherwise, connections are made directly to storage (specified by
-  //    --experimental_remote_analysis_cache) and AnalysisCacheService (specified by
-  //    --experimental_analysis_cache_service, if provided).
 
   @Option(
       name = "experimental_remote_analysis_write_proxy",
@@ -241,7 +224,9 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
       help =
           "The address of the SkycacheStorageWriteProxyService. If set, this service will be used "
               + "for uploading analysis cache data.")
-  public String remoteAnalysisWriteProxy;
+  public abstract String getRemoteAnalysisWriteProxy();
+
+  public abstract void setRemoteAnalysisWriteProxy(String value);
 
   @Option(
       name = "experimental_analysis_cache_key_distinguisher_for_testing",
@@ -249,7 +234,7 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "An opaque string used as part of the cache key. Should only be used for testing.")
-  public String analysisCacheKeyDistinguisherForTesting;
+  public abstract String getAnalysisCacheKeyDistinguisherForTesting();
 
   @Option(
       name = "experimental_analysis_cache_enable_metadata_queries",
@@ -257,7 +242,9 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "A flag to switch on/off inserting and querying the metadata db (b/425247333).")
-  public boolean analysisCacheEnableMetadataQueries;
+  public abstract boolean getAnalysisCacheEnableMetadataQueries();
+
+  public abstract void setAnalysisCacheEnableMetadataQueries(boolean value);
 
   @Option(
       name = "experimental_analysis_cache_server_checksum_override",
@@ -271,7 +258,7 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
               + " debugging. It's best if the difference between the writer and the reader is only"
               + " additional logging. In particular, the data structures that are being serialized "
               + " and the observable behavior of the serialization machinery must not change.")
-  public HashCode serverChecksumOverride;
+  public abstract HashCode getServerChecksumOverride();
 
   @Option(
       name = "experimental_skycache_minimize_memory",
@@ -283,7 +270,7 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
           "DO NOT USE: This flag is currently in development and does not work with every target."
               + " If enabled, Blaze will discard values after the analysis phase is"
               + " complete to provide Skycache writers with more headroom.")
-  public boolean skycacheMinimizeMemory;
+  public abstract boolean getSkycacheMinimizeMemory();
 
   @Option(
       name = "experimental_analysis_cache_bail_on_missing_fingerprint",
@@ -293,5 +280,5 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
       help =
           "If true, bails out from remote analysis cache retrieval if a single fingerprint is"
               + " missing.")
-  public boolean analysisCacheBailOnMissingFingerprint;
+  public abstract boolean getAnalysisCacheBailOnMissingFingerprint();
 }

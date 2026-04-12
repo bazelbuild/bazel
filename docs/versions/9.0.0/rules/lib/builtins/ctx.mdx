@@ -284,9 +284,9 @@ Label ctx.package_relative_label(input)
 
 Converts the input string into a [Label](../builtins/Label) object, in the context of the package of the target currently being analyzed. If the input is already a `Label`, it is returned unchanged.
 
-The result of this function is the same `Label` value as would be produced by passing the given string to a label-valued attribute of the rule and accessing the corresponding [Label()](../builtins/Target#label><code>label</code></a> field.
-<p><i>Usage note:</i> The difference between this function and <a href=) is that `Label()` uses the context of the package of the `.bzl` file that called it, not the package of the target currently being analyzed. This function has the same behavior as [`native.package_relative_label()`](../toplevel/native#package_relative_label), which cannot be used in a rule or
-aspect implementation function.
+The result of this function is the same `Label` value as would be produced by passing the given string to a label-valued attribute of the rule and accessing the corresponding [`Target.label`](../builtins/Target#label) field.
+<p><i>Usage note:</i> The difference between this function and [`Label()`](../builtins/Label) is that `Label()` uses the context of the package of the `.bzl` file that called it, not the package of the target currently being analyzed. This function has the same behavior as [`native.package_relative_label()`](../toplevel/native#package_relative_label), which cannot be used in a rule or
+aspect implementation function.</p>
 
 ### Parameters
 

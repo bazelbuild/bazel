@@ -103,6 +103,8 @@ SUPPORTED_ARCHIVE_FORMATS = [
     "ar",
     "deb",
     "7z",
+    "tar.br",
+    "br",
 ]
 
 # Put quotes around the formats for documentation (i.e. `"zip"`)
@@ -148,24 +150,24 @@ as the value for the <code>Authorization</code> field of the HTTP request.
 
 Example attribute and netrc for a http download to an oauth2 enabled API using a bearer token:
 
-<pre>
+```
 auth_patterns = {
-    "storage.cloudprovider.com": "Bearer &lt;password&gt;"
+    "storage.cloudprovider.com": "Bearer <password>"
 }
-</pre>
+```
 
 netrc:
 
-<pre>
+```
 machine storage.cloudprovider.com
         password RANDOM-TOKEN
-</pre>
+```
 
 The final HTTP request would have the following header:
 
-<pre>
+```
 Authorization: Bearer RANDOM-TOKEN
-</pre>
+```
 """
 
 def _update_integrity_attr(ctx, attrs, download_info):
@@ -224,9 +226,11 @@ def _http_archive_impl(ctx):
 _HTTP_FILE_BUILD = """\
 package(default_visibility = ["//visibility:public"])
 
+exports_files([{path}])
+
 filegroup(
     name = "file",
-    srcs = ["{}"],
+    srcs = [{path}],
 )
 """
 
@@ -256,7 +260,7 @@ def _http_file_impl(ctx):
         integrity = ctx.attr.integrity,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
-    ctx.file("file/BUILD", _HTTP_FILE_BUILD.format(downloaded_file_path))
+    ctx.file("file/BUILD", _HTTP_FILE_BUILD.format(path = repr(downloaded_file_path)))
 
     return _update_integrity_attr(ctx, _http_file_attrs, download_info)
 
@@ -375,7 +379,7 @@ following: """ + READABLE_ARCHIVE_FORMATS + ".",
         doc =
             "A list of files that are to be applied as patches after " +
             "extracting the archive. By default, it uses the Bazel-native patch implementation " +
-            "which doesn't support fuzz match and binary patch, but Bazel will fall back to use " +
+            "which doesn't support binary patch, but Bazel will fall back to use " +
             "patch command line tool if `patch_tool` attribute is specified or there are " +
             "arguments other than `-p` in `patch_args` attribute.",
     ),

@@ -47,7 +47,7 @@ import net.starlark.java.syntax.Types;
 public abstract class Tuple extends AbstractList<Object>
     implements Sequence<Object>, Comparable<Tuple> {
 
-  public static TypeConstructor getBaseTypeConstructor() {
+  public static TypeConstructor getAssociatedTypeConstructor() {
     return Types.TUPLE_CONSTRUCTOR;
   }
 

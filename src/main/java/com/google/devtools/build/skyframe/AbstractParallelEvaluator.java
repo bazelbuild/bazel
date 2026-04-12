@@ -466,13 +466,10 @@ abstract class AbstractParallelEvaluator {
         try (var s =
             Profiler.instance()
                 .profile(ProfilerTask.SKYFUNCTION, skyKey.functionName().getName())) {
-          String originalThreadName = Thread.currentThread().getName();
           try {
             evaluatorContext.getProgressReceiver().stateStarting(skyKey, NodeState.COMPUTE);
-            Thread.currentThread().setName(originalThreadName + "-" + skyKey);
             value = skyFunction.compute(skyKey, env);
           } finally {
-            Thread.currentThread().setName(originalThreadName);
             evaluatorContext.getProgressReceiver().stateEnding(skyKey, NodeState.COMPUTE);
           }
         } catch (SkyFunctionException builderException) {
@@ -825,11 +822,9 @@ abstract class AbstractParallelEvaluator {
         reverseDepDump.append("'");
       }
 
-      return "Unrecoverable error while evaluating node '"
-          + skyKey
-          + "' (requested by nodes "
-          + reverseDepDump
-          + ")";
+      return String.format(
+          "Unrecoverable error while evaluating node '%s' (requested by nodes %s)",
+          skyKey, reverseDepDump);
     }
 
     private static final int MAX_REVERSEDEP_DUMP_LENGTH = 1000;

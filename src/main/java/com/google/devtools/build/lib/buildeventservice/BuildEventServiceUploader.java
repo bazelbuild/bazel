@@ -18,9 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.FutureCallback;
@@ -31,11 +29,14 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
+import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.AbortReason;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.CommandContext;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.InvocationStatus;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.LifecycleEvent;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.StreamContext;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.StreamEvent;
+import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.StreamException;
+import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.StreamStatus;
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
@@ -57,13 +58,9 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Sleeper;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import io.grpc.Status;
-import io.grpc.Status.Code;
-import io.grpc.StatusException;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.EnumSet;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -73,6 +70,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 /**
@@ -92,7 +90,7 @@ public final class BuildEventServiceUploader implements Runnable {
     record OpenStream() implements Command {}
 
     /** Tells the event loop that the streaming RPC completed. */
-    record StreamComplete(Status status) implements Command {}
+    record StreamComplete(StreamStatus status) implements Command {}
 
     /** Tells the event loop that an ACK was received. */
     record AckReceived(long sequenceNumber) implements Command {}
@@ -113,10 +111,6 @@ public final class BuildEventServiceUploader implements Runnable {
   }
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
-  private static final ImmutableSet<Code> RETRYABLE_STATUS_CODES =
-      Sets.immutableEnumSet(
-          EnumSet.complementOf(EnumSet.of(Code.INVALID_ARGUMENT, Code.PERMISSION_DENIED)));
 
   private final BuildEventServiceClient besClient;
   private final BuildEventArtifactUploader buildEventUploader;
@@ -310,19 +304,6 @@ public final class BuildEventServiceUploader implements Runnable {
     return halfCloseFuture;
   }
 
-  private DetailedExitCode logAndSetException(
-      String message, BuildProgress.Code bpCode, Throwable cause) {
-    logger.atSevere().log("%s", message);
-    DetailedExitCode detailedExitCode =
-        DetailedExitCode.of(
-            FailureDetail.newBuilder()
-                .setMessage(message + " " + besClient.userReadableError(cause))
-                .setBuildProgress(BuildProgress.newBuilder().setCode(bpCode).build())
-                .build());
-    closeFuture.setException(new AbruptExitException(detailedExitCode, cause));
-    return detailedExitCode;
-  }
-
   @Override
   public void run() {
     try {
@@ -350,22 +331,36 @@ public final class BuildEventServiceUploader implements Runnable {
         Preconditions.checkState(
             interruptCausedByCancel, "Unexpected interrupt on BES uploader thread");
       }
-    } catch (DetailedStatusException e) {
-      boolean isTransient = shouldRetryStatus(e.getStatus());
+    } catch (BuildEventUploadException e) {
+      boolean isTransient = e.getStatus().isRetriable();
       ExitCode exitCode =
           isTransient
               ? ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR
               : ExitCode.PERSISTENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR;
-      DetailedExitCode detailedExitCode = logAndSetException(e.extendedMessage, e.bpCode, e);
+      DetailedExitCode detailedExitCode =
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(e.getMessage())
+                  .setBuildProgress(BuildProgress.newBuilder().setCode(e.getCode()).build())
+                  .build());
+      logger.atSevere().withCause(e).log();
+      closeFuture.setException(new AbruptExitException(detailedExitCode, e));
       eventBus.post(
           new BuildEventServiceAvailabilityEvent(exitCode, detailedExitCode.getFailureDetail()));
+
     } catch (LocalFileUploadException e) {
       Throwables.throwIfUnchecked(e.getCause());
       DetailedExitCode detailedExitCode =
-          logAndSetException(
-              "The Build Event Protocol local file upload failed:",
-              BuildProgress.Code.BES_UPLOAD_LOCAL_FILE_ERROR,
-              e.getCause());
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(e.getMessage())
+                  .setBuildProgress(
+                      BuildProgress.newBuilder()
+                          .setCode(BuildProgress.Code.BES_UPLOAD_LOCAL_FILE_ERROR)
+                          .build())
+                  .build());
+      logger.atSevere().withCause(e).log();
+      closeFuture.setException(new AbruptExitException(detailedExitCode, e));
       eventBus.post(
           new BuildEventServiceAvailabilityEvent(
               ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR,
@@ -424,7 +419,7 @@ public final class BuildEventServiceUploader implements Runnable {
   }
 
   private void publishBuildEvents()
-      throws DetailedStatusException, LocalFileUploadException, InterruptedException {
+      throws BuildEventUploadException, LocalFileUploadException, InterruptedException {
     commandQueue.addFirst(new Command.OpenStream());
 
     // Every build event sent to the server needs to be acknowledged by it. This queue stores
@@ -473,7 +468,7 @@ public final class BuildEventServiceUploader implements Runnable {
                 new StreamEvent.BazelEvent(
                     sendRegularBuildEventCmd.creationTime(),
                     sendRegularBuildEventCmd.sequenceNumber(),
-                    serializedRegularBuildEvent.toByteString());
+                    serializedRegularBuildEvent.toByteArray());
             ackQueue.addLast(new Command.SendSerializedBuildEvent(bazelEvent));
             streamContext.sendOverStream(bazelEvent);
           }
@@ -506,32 +501,32 @@ public final class BuildEventServiceUploader implements Runnable {
                 ackQueue.addFirst(expected);
                 String message =
                     String.format(
-                        "Expected ACK with seqNum=%d but received ACK with seqNum=%d",
+                        "expected ACK with seqNum=%d but received ACK with seqNum=%d",
                         expected.request.sequenceNumber(), actualSeqNum);
                 logger.atInfo().log("%s", message);
-                streamContext.abortStream(Status.FAILED_PRECONDITION.withDescription(message));
+                streamContext.abortStream(AbortReason.FAILED_PRECONDITION, message);
               }
             } else {
               String message =
                   String.format(
-                      "Received ACK (seqNum=%d) when no ACK was expected",
+                      "received ACK (seqNum=%d) when no ACK was expected",
                       ackReceivedCmd.sequenceNumber());
               logger.atInfo().log("%s", message);
-              streamContext.abortStream(Status.FAILED_PRECONDITION.withDescription(message));
+              streamContext.abortStream(AbortReason.FAILED_PRECONDITION, message);
             }
           }
           case Command.StreamComplete streamCompleteCmd -> {
             // Invariant: the commandQueue only contains commands of type SendRegularBuildEvent or
             // SendLastBuildEvent.
             streamContext = null;
-            Status streamStatus = streamCompleteCmd.status();
+            StreamStatus streamStatus = streamCompleteCmd.status();
             if (streamStatus.isOk()) {
               if (lastEventSent && ackQueue.isEmpty()) {
                 logger.atInfo().log("publishBuildEvents was successful");
                 // Upload successful. Break out from the while(true) loop.
                 return;
               } else {
-                Status status =
+                StreamStatus status =
                     lastEventSent
                         ? ackQueueNotEmptyStatus(ackQueue.size())
                         : lastEventNotSentStatus();
@@ -539,35 +534,26 @@ public final class BuildEventServiceUploader implements Runnable {
                     lastEventSent
                         ? BuildProgress.Code.BES_STREAM_COMPLETED_WITH_UNACK_EVENTS_ERROR
                         : BuildProgress.Code.BES_STREAM_COMPLETED_WITH_UNSENT_EVENTS_ERROR;
-                throw withFailureDetail(status.asException(), bpCode, status.getDescription());
+                throw new BuildEventUploadException(status, bpCode);
               }
             } else if (lastEventSent && ackQueue.isEmpty()) {
-              throw withFailureDetail(
-                  streamStatus.asException(),
-                  BuildProgress.Code.BES_STREAM_COMPLETED_WITH_REMOTE_ERROR,
-                  streamStatus.getDescription());
+              throw new BuildEventUploadException(
+                  streamStatus, BuildProgress.Code.BES_STREAM_COMPLETED_WITH_REMOTE_ERROR);
             }
 
-            if (!shouldRetryStatus(streamStatus) || shouldStartNewInvocation(streamStatus)) {
-              String message =
-                  String.format("Not retrying publishBuildEvents: status='%s'", streamStatus);
-              logger.atInfo().log("%s", message);
-              BuildProgress.Code detailedCode =
-                  shouldStartNewInvocation(streamStatus)
+            if (!streamStatus.isRetriable() || streamStatus.isFailedPrecondition()) {
+              BuildProgress.Code bpCode =
+                  streamStatus.isFailedPrecondition()
                       ? BuildProgress.Code.BES_UPLOAD_TIMEOUT_ERROR
                       : BuildProgress.Code.BES_STREAM_NOT_RETRYING_FAILURE;
-              throw withFailureDetail(streamStatus.asException(), detailedCode, message);
+              throw new BuildEventUploadException(
+                  streamStatus, bpCode, "not retrying publishBuildEvents");
             }
             if (retryAttempt == buildEventProtocolOptions.besUploadMaxRetries) {
-              String message =
-                  String.format(
-                      "Not retrying publishBuildEvents, no more attempts left: status='%s'",
-                      streamStatus);
-              logger.atInfo().log("%s", message);
-              throw withFailureDetail(
-                  streamStatus.asException(),
+              throw new BuildEventUploadException(
+                  streamStatus,
                   BuildProgress.Code.BES_UPLOAD_RETRY_LIMIT_EXCEEDED_FAILURE,
-                  message);
+                  "no publishBuildEvents retry attempts left");
             }
 
             // Retry logic
@@ -606,7 +592,7 @@ public final class BuildEventServiceUploader implements Runnable {
           commandQueue.size(),
           Iterables.limit(commandQueue, limit));
       if (streamContext != null) {
-        streamContext.abortStream(Status.CANCELLED);
+        streamContext.abortStream(AbortReason.CANCELLED, null);
       }
       throw e;
     } finally {
@@ -648,37 +634,38 @@ public final class BuildEventServiceUploader implements Runnable {
 
   /** Sends a {@link LifecycleEvent} to the BES backend. */
   private void publishLifecycleEvent(LifecycleEvent lifecycleEvent)
-      throws DetailedStatusException, InterruptedException {
+      throws BuildEventUploadException, InterruptedException {
     int retryAttempt = 0;
-    StatusException cause = null;
+    StreamException cause = null;
     while (retryAttempt <= this.buildEventProtocolOptions.besUploadMaxRetries) {
       try {
         besClient.publish(commandContext, lifecycleEvent);
         return;
-      } catch (StatusException e) {
-        if (!shouldRetryStatus(e.getStatus()) || shouldStartNewInvocation(e.getStatus())) {
-          String message =
-              String.format("Not retrying publishLifecycleEvent: status='%s'", e.getStatus());
-          logger.atInfo().log("%s", message);
-          throw withFailureDetail(e, BuildProgress.Code.BES_STREAM_NOT_RETRYING_FAILURE, message);
+      } catch (StreamException e) {
+        StreamStatus status = e.getStatus();
+        if (!status.isRetriable() || status.isFailedPrecondition()) {
+          throw new BuildEventUploadException(
+              status,
+              BuildProgress.Code.BES_STREAM_NOT_RETRYING_FAILURE,
+              "not retrying publishLifecycleEvent");
         }
 
         cause = e;
 
         long sleepMillis = retrySleepMillis(retryAttempt);
         logger.atInfo().log(
-            "Retrying publishLifecycleEvent: status='%s', sleepMillis=%d",
-            e.getStatus(), sleepMillis);
+            "Retrying publishLifecycleEvent: status='%s', sleepMillis=%d", status, sleepMillis);
+
         sleeper.sleepMillis(sleepMillis);
         retryAttempt++;
       }
     }
 
     // All retry attempts failed
-    throw withFailureDetail(
-        cause,
+    throw new BuildEventUploadException(
+        cause.getStatus(),
         BuildProgress.Code.BES_UPLOAD_RETRY_LIMIT_EXCEEDED_FAILURE,
-        String.format("All %d retry attempts failed.", retryAttempt - 1));
+        String.format("all %d publishLifecycleEvent retry attempts failed", retryAttempt - 1));
   }
 
   private void ensureUploadThreadStarted() {
@@ -707,25 +694,30 @@ public final class BuildEventServiceUploader implements Runnable {
     }
   }
 
-  private static Status lastEventNotSentStatus() {
-    return Status.FAILED_PRECONDITION.withDescription(
-        "Server closed stream with status OK but not all events have been sent");
+  private StreamStatus lastEventNotSentStatus() {
+    return new LocalStreamStatus(
+        "server closed stream with status OK but not all events have been sent",
+        /* isRetriable= */ false,
+        /* isFailedPrecondition= */ true);
   }
 
-  private static Status ackQueueNotEmptyStatus(int ackQueueSize) {
-    return Status.FAILED_PRECONDITION.withDescription(
+  private StreamStatus ackQueueNotEmptyStatus(int ackQueueSize) {
+    return new LocalStreamStatus(
         String.format(
-            "Server closed stream with status OK but not all ACKs have been"
+            "server closed stream with status OK but not all ACKs have been"
                 + " received (ackQueue=%d)",
-            ackQueueSize));
+            ackQueueSize),
+        /* isRetriable= */ false,
+        /* isFailedPrecondition= */ true);
   }
 
-  private static void addStreamStatusListener(Future<Status> stream, Consumer<Status> onDone) {
+  private static void addStreamStatusListener(
+      Future<StreamStatus> stream, Consumer<StreamStatus> onDone) {
     Futures.addCallback(
         JdkFutureAdapters.listenInPoolThread(stream),
-        new FutureCallback<Status>() {
+        new FutureCallback<StreamStatus>() {
           @Override
-          public void onSuccess(Status result) {
+          public void onSuccess(StreamStatus result) {
             onDone.accept(result);
           }
 
@@ -733,14 +725,6 @@ public final class BuildEventServiceUploader implements Runnable {
           public void onFailure(Throwable t) {}
         },
         MoreExecutors.directExecutor());
-  }
-
-  private static boolean shouldRetryStatus(Status status) {
-    return RETRYABLE_STATUS_CODES.contains(status.getCode());
-  }
-
-  private static boolean shouldStartNewInvocation(Status status) {
-    return status.getCode().equals(Code.FAILED_PRECONDITION);
   }
 
   private long retrySleepMillis(int attempt) {
@@ -751,16 +735,48 @@ public final class BuildEventServiceUploader implements Runnable {
             * Math.pow(1.6, attempt));
   }
 
-  private DetailedStatusException withFailureDetail(
-      StatusException exception, BuildProgress.Code bpCode, String message) {
-    return new DetailedStatusException(
-        exception, bpCode, message + " " + besClient.userReadableError(exception));
+  /** Throws when a problem is encountered while uploading a build event. */
+  private static class BuildEventUploadException extends Exception {
+    private final BuildProgress.Code code;
+    private final StreamStatus status;
+
+    BuildEventUploadException(StreamStatus status, BuildProgress.Code code) {
+      this(status, code, null);
+    }
+
+    BuildEventUploadException(
+        StreamStatus status, BuildProgress.Code code, @Nullable String additionalMessage) {
+      super(getMessage(status, additionalMessage));
+      this.status = status;
+      this.code = code;
+    }
+
+    private static String getMessage(StreamStatus status, @Nullable String additionalMessage) {
+      StringBuilder sb = new StringBuilder();
+      sb.append("The Build Event Protocol upload failed");
+      if (additionalMessage != null) {
+        sb.append(": ").append(additionalMessage);
+      }
+      sb.append(": ").append(status.getErrorMessage());
+      return sb.toString();
+    }
+
+    BuildProgress.Code getCode() {
+      return code;
+    }
+
+    StreamStatus getStatus() {
+      return status;
+    }
   }
 
-  /** Thrown when encountered problems while uploading build event artifacts. */
-  private class LocalFileUploadException extends Exception {
+  /**
+   * Thrown when a problem is encountered while uploading a local file associated with a build
+   * event.
+   */
+  private static class LocalFileUploadException extends Exception {
     LocalFileUploadException(Throwable cause) {
-      super(cause);
+      super("The Build Event Protocol local file upload failed: " + cause.getMessage(), cause);
     }
   }
 
@@ -851,19 +867,36 @@ public final class BuildEventServiceUploader implements Runnable {
     }
   }
 
-  /**
-   * A wrapper Exception class that contains the {@link StatusException}, the {@link
-   * BuildProgress.Code}, and a message.
-   */
-  static class DetailedStatusException extends StatusException {
-    private final BuildProgress.Code bpCode;
-    private final String extendedMessage;
+  private static final class LocalStreamStatus implements StreamStatus {
+    private final String message;
+    private final boolean isRetriable;
+    private final boolean isFailedPrecondition;
 
-    DetailedStatusException(
-        StatusException statusException, BuildProgress.Code bpCode, String message) {
-      super(statusException.getStatus(), statusException.getTrailers());
-      this.bpCode = bpCode;
-      this.extendedMessage = "The Build Event Protocol upload failed: " + message;
+    LocalStreamStatus(String message, boolean isRetriable, boolean isFailedPrecondition) {
+      this.message = message;
+      this.isRetriable = isRetriable;
+      this.isFailedPrecondition = isFailedPrecondition;
+    }
+
+    @Override
+    public boolean isOk() {
+      return false;
+    }
+
+    @Override
+    public boolean isRetriable() {
+      return isRetriable;
+    }
+
+    @Override
+    public boolean isFailedPrecondition() {
+      return isFailedPrecondition;
+    }
+
+    @Override
+    public String getErrorMessage() {
+      return message;
     }
   }
 }
+

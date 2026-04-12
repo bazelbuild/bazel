@@ -132,7 +132,7 @@ public class MobileInstallCommand implements BlazeCommand {
         converter = ModeConverter.class,
         documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-effect flag. Only skylark mode is still supported.")
     public Mode mode;
 
@@ -269,8 +269,8 @@ public class MobileInstallCommand implements BlazeCommand {
 
     // Collect relevant common command options.
     CommonCommandOptions commonCommandOptions = options.getOptions(CommonCommandOptions.class);
-    if (!commonCommandOptions.toolTag.isEmpty()) {
-      cmdLine.add("--tool_tag=" + commonCommandOptions.toolTag);
+    if (!commonCommandOptions.getToolTag().isEmpty()) {
+      cmdLine.add("--tool_tag=" + commonCommandOptions.getToolTag());
     }
 
     // Collect relevant adb options.
@@ -290,10 +290,10 @@ public class MobileInstallCommand implements BlazeCommand {
     // Collect relevant test options.
     TestOptions testOptions = options.getOptions(TestOptions.class);
     // Default value of testFilter is null.
-    if (!Strings.isNullOrEmpty(testOptions.testFilter)) {
-      cmdLine.add("--test_filter=" + testOptions.testFilter);
+    if (!Strings.isNullOrEmpty(testOptions.getTestFilter())) {
+      cmdLine.add("--test_filter=" + testOptions.getTestFilter());
     }
-    for (String arg : testOptions.testArguments) {
+    for (String arg : testOptions.getTestArguments()) {
       if (!arg.isEmpty()) {
         cmdLine.add("--test_arg=" + arg);
       }

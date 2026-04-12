@@ -17,9 +17,11 @@ package net.starlark.java.syntax;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static net.starlark.java.syntax.TestUtils.assertContainsError;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ObjectArrays;
 import java.util.Objects;
 import net.starlark.java.syntax.Resolver.Module;
@@ -51,19 +53,34 @@ public final class TypeCheckerTest {
   }
 
   /**
-   * Parses, resolve, and type-resolves a file, without typechecking it.
+   * Throws {@link AssertionError} if a type table has errors, with an exception message that
+   * includes {@code what} and the errors.
+   */
+  private void assertNoErrors(String what, TypeTable typeTable) {
+    if (!typeTable.ok()) {
+      throw new AssertionError(
+          String.format(
+              "Unexpected errors: %s:\n%s", what, Joiner.on("\n").join(typeTable.errors())));
+    }
+  }
+
+  private record PreparedFile(StarlarkFile file, TypeTable typeTable) {}
+
+  /**
+   * Parses, resolves, and type-tags a file, without typechecking it.
    *
    * <p>Returns a file without errors or else asserts failure.
    */
-  private StarlarkFile prepareFile(String... lines) throws Exception {
+  private PreparedFile prepareFile(String... lines) throws Exception {
+    Preconditions.checkArgument(lines.length > 0);
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
     assertNoErrors("parsing", file);
     Resolver.resolveFile(file, module);
     assertNoErrors("resolving", file);
-    TypeTagger.tagFile(file, module);
-    assertNoErrors("type-resolving", file);
-    return file;
+    TypeTable typeTable = TypeTagger.tagFile(file, module);
+    assertNoErrors("type-tagging", typeTable);
+    return new PreparedFile(file, typeTable);
   }
 
   /**
@@ -72,24 +89,28 @@ public final class TypeCheckerTest {
    * <p>Asserts that steps before typechecking succeeded, but the typechecking itself may fail. The
    * resulting errors are available in the returned {@code StarlarkFile}.
    */
-  private StarlarkFile typecheckFilePossiblyFailing(String... lines) throws Exception {
-    StarlarkFile file = prepareFile(lines);
-    TypeChecker.checkFile(file);
-    return file;
+  private PreparedFile typecheckFilePossiblyFailing(String... lines) throws Exception {
+    PreparedFile preparedFile = prepareFile(lines);
+    TypeChecker.checkFile(preparedFile.file(), preparedFile.typeTable(), module);
+    return preparedFile;
   }
 
   /** As in {@link #typecheckFilePossiblyFailing} but asserts that even type checking succeeded. */
   private StarlarkFile assertValid(String... lines) throws Exception {
-    StarlarkFile file = typecheckFilePossiblyFailing(lines);
-    assertThat(file.errors()).isEmpty();
-    return file;
+    PreparedFile preparedFile = typecheckFilePossiblyFailing(lines);
+    assertThat(preparedFile.file().errors()).isEmpty();
+    assertThat(preparedFile.typeTable().errors()).isEmpty();
+    return preparedFile.file();
   }
 
   /** Asserts that type checking fails with at least the specified error. */
   private void assertInvalid(String expectedError, String... lines) throws Exception {
-    StarlarkFile file = typecheckFilePossiblyFailing(lines);
-    assertWithMessage("type checking suceeded unexpectedly").that(file.ok()).isFalse();
-    assertContainsError(file.errors(), expectedError);
+    PreparedFile preparedFile = typecheckFilePossiblyFailing(lines);
+    assertThat(preparedFile.file().errors()).isEmpty();
+    assertWithMessage("type checking suceeded unexpectedly")
+        .that(preparedFile.typeTable().ok())
+        .isFalse();
+    assertContainsError(preparedFile.typeTable().errors(), expectedError);
   }
 
   /**
@@ -97,9 +118,10 @@ public final class TypeCheckerTest {
    * identifiers appearing within the expression.
    */
   private StarlarkType inferTypeGivenDecls(String expr, String... decls) throws Exception {
-    StarlarkFile file = prepareFile(ObjectArrays.concat(decls, expr));
-    var resolvedExpr = ((ExpressionStatement) file.getStatements().getLast()).getExpression();
-    return TypeChecker.inferTypeOf(resolvedExpr);
+    PreparedFile preparedFile = prepareFile(ObjectArrays.concat(decls, expr));
+    var resolvedExpr =
+        ((ExpressionStatement) preparedFile.file().getStatements().getLast()).getExpression();
+    return TypeChecker.inferTypeOf(resolvedExpr, preparedFile.typeTable(), module);
   }
 
   /**
@@ -119,34 +141,14 @@ public final class TypeCheckerTest {
    */
   private void assertTypeAfterTypecheck(String expr, StarlarkType expected, String... decls)
       throws Exception {
-    StarlarkFile file = prepareFile(ObjectArrays.concat(decls, expr));
-    TypeChecker.checkFile(file);
-    assertThat(file.errors()).isEmpty();
-    var resolvedExpr = ((ExpressionStatement) file.getStatements().getLast()).getExpression();
+    PreparedFile preparedFile = prepareFile(ObjectArrays.concat(decls, expr));
+    TypeChecker.checkFile(preparedFile.file(), preparedFile.typeTable(), module);
+    assertThat(preparedFile.file().errors()).isEmpty();
+    var resolvedExpr =
+        ((ExpressionStatement) preparedFile.file().getStatements().getLast()).getExpression();
     assertWithMessage("type of %s", expr)
-        .that(TypeChecker.inferTypeOf(resolvedExpr))
+        .that(TypeChecker.inferTypeOf(resolvedExpr, preparedFile.typeTable(), module))
         .isEqualTo(expected);
-  }
-
-  @Test
-  public void staticTypeCheckingFlagRequirements() {
-    var builder =
-        FileOptions.builder()
-            .staticTypeChecking(true)
-            .resolveTypeSyntax(false)
-            .tolerateInvalidTypeExpressions(false);
-    assertThat(assertThrows(IllegalArgumentException.class, builder::build))
-        .hasMessageThat()
-        .contains("staticTypeChecking requires that resolveTypeSyntax is set");
-
-    builder =
-        FileOptions.builder()
-            .staticTypeChecking(true)
-            .resolveTypeSyntax(true)
-            .tolerateInvalidTypeExpressions(true);
-    assertThat(assertThrows(IllegalArgumentException.class, builder::build))
-        .hasMessageThat()
-        .contains("staticTypeChecking requires that tolerateInvalidTypeExpressions is not set");
   }
 
   @Test
@@ -346,17 +348,24 @@ public final class TypeCheckerTest {
     // TODO: #28037 - Check break/continue, once we support for and def statements
   }
 
-  /** A dummy type having a single field 'f' of type int. */
+  /** A dummy type having a single field 'f' of a given type. */
   private static sealed class FooType extends StarlarkType permits FooType.Mutable {
     protected final StarlarkType fieldType;
+    private final ImmutableList<StarlarkType> supertypes;
 
     FooType(StarlarkType fieldType) {
       this.fieldType = fieldType;
+      this.supertypes = ImmutableList.of(Types.struct(ImmutableMap.of("f", fieldType)));
     }
 
     @Override
-    public StarlarkType getField(String name) {
+    public StarlarkType getField(String name, TypeContext context) {
       return name.equals("f") ? fieldType : null;
+    }
+
+    @Override
+    public ImmutableList<StarlarkType> getSupertypes() {
+      return supertypes;
     }
 
     @Override
@@ -396,6 +405,8 @@ public final class TypeCheckerTest {
 
   private final Module fooModule =
       TestUtils.Module.withUniversalTypesAnd(
+          "struct",
+          Types.STRUCT_CONSTRUCTOR,
           "Foo",
           Types.wrapTypeConstructor("Foo", t -> new FooType(t)),
           "MutableFoo",
@@ -409,6 +420,7 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls(
         "o.f", Types.union(Types.STR, Types.INT, Types.BOOL), "o: Foo[str] | MutableFoo[int|bool]");
     assertTypeGivenDecls("o.f", Types.ANY, "o: Any");
+    assertTypeGivenDecls("o.f + o.g", Types.FLOAT, "o: struct[{'f': int, 'g': float}]");
 
     assertInvalid(
         ":2:2: 'n' of type 'int' does not have field 'f'",
@@ -469,6 +481,28 @@ public final class TypeCheckerTest {
         """
         o: MutableFoo[int] | MutableFoo[bool]
         o.f = 123
+        """);
+  }
+
+  @Test
+  public void assignment_to_struct() throws Exception {
+    module = fooModule;
+
+    assertValid(
+        """
+        lhs: struct[{"f": int | str}]
+        rhs: Foo[int]
+
+        lhs = rhs
+        """);
+
+    assertInvalid(
+        ":4:1: cannot assign type 'Foo[int]' to 'lhs' of type 'struct[{f: int, g: str}]'",
+        """
+        lhs: struct[{"f": int, "g": str}]
+        rhs: Foo[int]
+
+        lhs = rhs
         """);
   }
 
@@ -1640,6 +1674,20 @@ public final class TypeCheckerTest {
         "'f()' missing 2 required arguments: y, z",
         """
         def f(x: int, y: int, *, z) -> int:
+            return 0
+        f(42)
+        """);
+    assertInvalid(
+        "'f()' missing 1 required argument: y",
+        """
+        def f(x: int, y: int, z: str = "has_default") -> int:
+            return 0
+        f(42)
+        """);
+    assertInvalid(
+        "'f()' missing 1 required argument: y",
+        """
+        def f(x: int, y: int, *, z: str = "has_default") -> int:
             return 0
         f(42)
         """);

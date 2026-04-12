@@ -319,55 +319,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + "Values > 0 turn the feature on, values > 1 run that many dexbuilder shards.")
     public int incrementalDexingShardsAfterProguard;
 
-    /** Whether to use a separate tool to shard classes before merging them into final dex files. */
-    @Option(
-        name = "experimental_use_dex_splitter_for_incremental_dexing",
-        defaultValue = "true",
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        help = "Do not use.")
-    public boolean incrementalDexingUseDexSharder;
-
-    @Option(
-        name = "experimental_incremental_dexing_after_proguard_by_default",
-        defaultValue = "true",
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        help =
-            "Whether to use incremental dexing for proguarded Android binaries by default.  "
-                + "Use incremental_dexing attribute to override default for a particular "
-                + "android_binary.")
-    public boolean incrementalDexingAfterProguardByDefault;
-
-    // TODO(b/31711689): Remove this flag when this optimization is proven to work globally.
-    @Option(
-        name = "experimental_android_assume_minsdkversion",
-        defaultValue = "false",
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {
-          OptionEffectTag.ACTION_COMMAND_LINES,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-        },
-        help =
-            "When enabled, the minSdkVersion is parsed from the merged AndroidManifest and used to "
-                + "instruct Proguard on valid Android build versions.")
-    public boolean assumeMinSdkVersion;
-
-    @Option(
-        name = "experimental_android_use_parallel_dex2oat",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.TESTING,
-        effectTags = {
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
-        },
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help = "Use dex2oat in parallel to possibly speed up android_test.")
-    public boolean useParallelDex2Oat;
-
     // Do not use on the command line.
     // This flag is intended to be updated as we add supported flags to the incremental dexing tools
     @Option(
@@ -429,15 +380,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         },
         help = "dx flags supported in tool that groups classes for inclusion in final .dex files.")
     public List<String> dexoptsSupportedInDexSharder;
-
-    @Deprecated
-    @Option(
-        name = "experimental_allow_android_library_deps_without_srcs",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "No-op. Kept here for backwards compatibility.")
-    public boolean allowAndroidLibraryDepsWithoutSrcs;
 
     @Option(
         name = "experimental_android_resource_shrinking",
@@ -585,21 +527,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean dataBindingUpdatedArgs;
 
     @Option(
-        name = "android_databinding_use_androidx",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-        effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        },
-        metadataTags = OptionMetadataTag.EXPERIMENTAL,
-        help =
-            "Generate AndroidX-compatible data-binding files. "
-                + "This is only used with databinding v2. This flag is a no-op.")
-    public boolean dataBindingAndroidX;
-
-    @Option(
         name = "experimental_android_library_exports_manifest_default",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -613,17 +540,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean exportsManifestDefault;
 
     @Option(
-        name = "experimental_omit_resources_info_provider_from_android_binary",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help =
-            "Omit AndroidResourcesInfo provider from android_binary rules."
-                + " Propagating resources out to other binaries is usually unintentional.")
-    public boolean omitResourcesInfoProviderFromAndroidBinary;
-
-    @Option(
         name = "android_fixed_resource_neverlinking",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -634,57 +550,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + " resource-related attributes are specified in the neverlink library"
                 + " will be preserved.")
     public boolean fixedResourceNeverlinking;
-
-    @Option(
-        name = "android_migration_tag_check",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {
-          OptionEffectTag.EAGERNESS_TO_EXIT,
-        },
-        help =
-            "If enabled, strict usage of the Starlark migration tag is enabled for android rules. "
-                + "Prefer using --incompatible_disable_native_android_rules.")
-    public boolean checkForMigrationTag;
-
-    @Option(
-        name = "incompatible_disable_native_android_rules",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-        effectTags = {
-          OptionEffectTag.EAGERNESS_TO_EXIT,
-        },
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help =
-            "If enabled, direct usage of the native Android rules is disabled. Please use the"
-                + " Starlark Android rules from https://github.com/bazelbuild/rules_android")
-    public boolean disableNativeAndroidRules;
-
-    @Option(
-        name = "experimental_filter_r_jars_from_android_test",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {
-          OptionEffectTag.CHANGES_INPUTS,
-        },
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help = "If enabled, R Jars will be filtered from the test apk built by android_test.")
-    public boolean filterRJarsFromAndroidTest;
-
-    // TODO(eaftan): enable this by default and delete it
-    @Option(
-        name = "experimental_one_version_enforcement_use_transitive_jars_for_binary_under_test",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {
-          OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-          OptionEffectTag.ACTION_COMMAND_LINES
-        },
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help =
-            "If enabled, one version enforcement for android_test uses the binary_under_test's "
-                + "transitive classpath, otherwise it uses the deploy jar")
-    public boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
 
     @Option(
         name = "experimental_persistent_aar_extractor",
@@ -879,47 +744,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean removeRClassesFromInstrumentationTestJar;
 
     @Option(
-        name = "experimental_always_filter_duplicate_classes_from_android_test",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {
-          OptionEffectTag.CHANGES_INPUTS,
-        },
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help =
-            "If enabled and the android_test defines a binary_under_test, the class filterering "
-                + "applied to the test's deploy jar will always filter duplicate classes based "
-                + "solely on matching class and package name, ignoring hash values.")
-    public boolean alwaysFilterDuplicateClassesFromAndroidTest;
-
-    @Option(
-        name = "experimental_filter_library_jar_with_program_jar",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-        effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help =
-            "Filter the ProGuard ProgramJar to remove any classes also present in the LibraryJar.")
-    public boolean filterLibraryJarWithProgramJar;
-
-    @Option(
-        name = "experimental_use_rtxt_from_merged_resources",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.CHANGES_INPUTS},
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help = "Use R.txt from the merging action, instead of from the validation action.")
-    public boolean useRTxtFromMergedResources;
-
-    @Option(
-        name = "output_library_merged_assets",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "If disabled, does not produce merged asset.zip outputs for library targets")
-    public boolean outputLibraryMergedAssets;
-
-    @Option(
         name = "legacy_main_dex_list_generator",
         // TODO(b/147692286): Update this default value to R8's GenerateMainDexList binary after
         // migrating usage.
@@ -942,17 +766,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public Label optimizingDexer;
 
     @Option(
-        name = "experimental_disable_instrumentation_manifest_merge",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help =
-            "Disables manifest merging when an android_binary has instruments set (i.e. is used "
-                + "for instrumentation testing).")
-    public boolean disableInstrumentationManifestMerging;
-
-    @Option(
         name = "experimental_get_android_java_resources_from_optimized_jar",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -962,14 +775,23 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
             "Get Java resources from _proguard.jar instead of _deploy.jar in android_binary when "
                 + "bundling the final APK.")
     public boolean getJavaResourcesFromOptimizedJar;
+
+    @Option(
+        name = "incompatible_remove_ctx_android_fragment",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help =
+            "When true, Android build flags are defined with Android rules (in BUIILD files) and"
+                + " ctx.fragments.android is undefined. This is a migration flag to move all"
+                + " Android flags  from core Bazel to Python rules.")
+    public boolean disableAndroidFragment;
   }
 
   private final ConfigurationDistinguisher configurationDistinguisher;
   private final boolean incrementalDexing;
   private final int incrementalDexingShardsAfterProguard;
-  private final boolean incrementalDexingUseDexSharder;
-  private final boolean incrementalDexingAfterProguardByDefault;
-  private final boolean assumeMinSdkVersion;
   private final ImmutableList<String> dexoptsSupportedInIncrementalDexing;
   private final ImmutableList<String> targetDexoptsThatPreventIncrementalDexing;
   private final ImmutableList<String> dexoptsSupportedInDexMerger;
@@ -986,35 +808,23 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final ApkSigningMethod apkSigningMethod;
   private final boolean compressJavaResources;
   private final boolean exportsManifestDefault;
-  private final boolean useParallelDex2Oat;
-  private final boolean omitResourcesInfoProviderFromAndroidBinary;
   private final boolean fixedResourceNeverlinking;
-  private final boolean checkForMigrationTag;
-  private final boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
   private final boolean persistentAarExtractor;
   private final boolean persistentBusyboxTools;
   private final boolean persistentMultiplexBusyboxTools;
   private final boolean persistentDexDesugar;
   private final boolean persistentMultiplexDexDesugar;
-  private final boolean filterRJarsFromAndroidTest;
   private final boolean removeRClassesFromInstrumentationTestJar;
-  private final boolean alwaysFilterDuplicateClassesFromAndroidTest;
-  private final boolean filterLibraryJarWithProgramJar;
-  private final boolean useRTxtFromMergedResources;
-  private final boolean outputLibraryMergedAssets;
   private final Label legacyMainDexListGenerator;
   private final Label optimizingDexer;
-  private final boolean disableInstrumentationManifestMerging;
   private final boolean getJavaResourcesFromOptimizedJar;
+  private final boolean disableAndroidFragment;
 
   public AndroidConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
     Options options = buildOptions.get(Options.class);
     this.configurationDistinguisher = options.configurationDistinguisher;
     this.incrementalDexing = options.incrementalDexing;
     this.incrementalDexingShardsAfterProguard = options.incrementalDexingShardsAfterProguard;
-    this.incrementalDexingUseDexSharder = options.incrementalDexingUseDexSharder;
-    this.incrementalDexingAfterProguardByDefault = options.incrementalDexingAfterProguardByDefault;
-    this.assumeMinSdkVersion = options.assumeMinSdkVersion;
     this.dexoptsSupportedInIncrementalDexing =
         ImmutableList.copyOf(options.dexoptsSupportedInIncrementalDexing);
     this.targetDexoptsThatPreventIncrementalDexing =
@@ -1034,46 +844,33 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.apkSigningMethod = options.apkSigningMethod;
     this.compressJavaResources = options.compressJavaResources;
     this.exportsManifestDefault = options.exportsManifestDefault;
-    this.useParallelDex2Oat = options.useParallelDex2Oat;
-    this.omitResourcesInfoProviderFromAndroidBinary =
-        options.omitResourcesInfoProviderFromAndroidBinary;
     this.fixedResourceNeverlinking = options.fixedResourceNeverlinking;
-    // use --incompatible_disable_native_android_rules, and also the old flag for backwards
-    // compatibility
-    this.checkForMigrationTag = options.checkForMigrationTag || options.disableNativeAndroidRules;
-    this.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
-        options.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
     this.persistentAarExtractor = options.persistentAarExtractor;
     this.persistentBusyboxTools = options.persistentBusyboxTools;
     this.persistentMultiplexBusyboxTools = options.persistentMultiplexBusyboxTools;
     this.persistentDexDesugar = options.persistentDexDesugar;
     this.persistentMultiplexDexDesugar = options.persistentMultiplexDexDesugar;
-    this.filterRJarsFromAndroidTest = options.filterRJarsFromAndroidTest;
     this.removeRClassesFromInstrumentationTestJar =
         options.removeRClassesFromInstrumentationTestJar;
-    this.alwaysFilterDuplicateClassesFromAndroidTest =
-        options.alwaysFilterDuplicateClassesFromAndroidTest;
-    this.filterLibraryJarWithProgramJar = options.filterLibraryJarWithProgramJar;
-    this.useRTxtFromMergedResources = options.useRTxtFromMergedResources;
-    this.outputLibraryMergedAssets = options.outputLibraryMergedAssets;
     this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
     this.optimizingDexer = options.optimizingDexer;
-    this.disableInstrumentationManifestMerging = options.disableInstrumentationManifestMerging;
     this.getJavaResourcesFromOptimizedJar = options.getJavaResourcesFromOptimizedJar;
+    this.disableAndroidFragment = options.disableAndroidFragment;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
           "--experimental_incremental_dexing_after_proguard must be a positive number");
     }
-    if (incrementalDexingAfterProguardByDefault && incrementalDexingShardsAfterProguard == 0) {
-      throw new InvalidConfigurationException(
-          "--experimental_incremental_dexing_after_proguard_by_default requires "
-              + "--experimental_incremental_dexing_after_proguard to be at least 1");
-    }
+
     if (desugarJava8Libs && !desugarJava8) {
       throw new InvalidConfigurationException(
           "Java 8 library support requires --desugar_java8 to be enabled.");
     }
+  }
+
+  @Override
+  public boolean shouldInclude() {
+    return !disableAndroidFragment;
   }
 
   /** Returns whether to use incremental dexing. */
@@ -1086,27 +883,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public int incrementalDexingShardsAfterProguard() {
     return incrementalDexingShardsAfterProguard;
-  }
-
-  /** Whether to use a separate tool to shard classes before merging them into final dex files. */
-  @Override
-  public boolean incrementalDexingUseDexSharder() {
-    return incrementalDexingUseDexSharder;
-  }
-
-  /** Whether to use incremental dexing to build proguarded binaries by default. */
-  @Override
-  public boolean incrementalDexingAfterProguardByDefault() {
-    return incrementalDexingAfterProguardByDefault;
-  }
-
-  /**
-   * Returns true if an -assumevalues should be generated for Proguard based on the minSdkVersion of
-   * the merged AndroidManifest.
-   */
-  @Override
-  public boolean assumeMinSdkVersion() {
-    return assumeMinSdkVersion;
   }
 
   /** dx flags supported in incremental dexing actions. */
@@ -1205,11 +981,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
   @Override
-  public boolean useParallelDex2Oat() {
-    return useParallelDex2Oat;
-  }
-
-  @Override
   public boolean compressJavaResources() {
     return compressJavaResources;
   }
@@ -1220,23 +991,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
   @Override
-  public boolean omitResourcesInfoProviderFromAndroidBinary() {
-    return this.omitResourcesInfoProviderFromAndroidBinary;
-  }
-
-  @Override
   public boolean fixedResourceNeverlinking() {
     return this.fixedResourceNeverlinking;
-  }
-
-  @Override
-  public boolean checkForMigrationTag() {
-    return checkForMigrationTag;
-  }
-
-  @Override
-  public boolean getOneVersionEnforcementUseTransitiveJarsForBinaryUnderTest() {
-    return oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
   }
 
   @Override
@@ -1279,38 +1035,13 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     }
   }
 
-  public boolean filterRJarsFromAndroidTest() {
-    return filterRJarsFromAndroidTest;
-  }
-
   public boolean removeRClassesFromInstrumentationTestJar() {
     return removeRClassesFromInstrumentationTestJar;
-  }
-
-  public boolean alwaysFilterDuplicateClassesFromAndroidTest() {
-    return alwaysFilterDuplicateClassesFromAndroidTest;
-  }
-
-  @Override
-  public boolean filterLibraryJarWithProgramJar() {
-    return filterLibraryJarWithProgramJar;
-  }
-
-  boolean useRTxtFromMergedResources() {
-    return useRTxtFromMergedResources;
-  }
-
-  public boolean disableInstrumentationManifestMerging() {
-    return disableInstrumentationManifestMerging;
   }
 
   @Override
   public boolean getJavaResourcesFromOptimizedJar() {
     return getJavaResourcesFromOptimizedJar;
-  }
-
-  boolean outputLibraryMergedAssets() {
-    return outputLibraryMergedAssets;
   }
 
   /** Returns the label provided with --legacy_main_dex_list_generator, if any. */

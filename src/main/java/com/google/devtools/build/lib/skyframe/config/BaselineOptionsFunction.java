@@ -86,8 +86,9 @@ public final class BaselineOptionsFunction implements SkyFunction {
     if (key.newPlatform() != null) {
       // Clone for safety as-is the standard for all transitions.
       adjustedBaselineOptions = adjustedBaselineOptions.clone();
-      adjustedBaselineOptions.get(PlatformOptions.class).platforms =
-          ImmutableList.of(key.newPlatform());
+      adjustedBaselineOptions
+          .get(PlatformOptions.class)
+          .setPlatforms(ImmutableList.of(key.newPlatform()));
     }
 
     // Re-apply platform_mappings if we updated the platform.

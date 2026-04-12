@@ -16,7 +16,7 @@ of _actual dependencies_ and the graph of _declared dependencies_. Most of the
 time, the two graphs are so similar that this distinction need not be made, but
 it is useful for the discussion below.
 
-## Actual and declared dependencies
+## Actual and declared dependencies {#actual-and-declared-dependencies}
 
 A target `X` is _actually dependent_ on target `Y` if `Y` must be present,
 built, and up-to-date in order for `X` to be built correctly. _Built_ could
@@ -57,7 +57,7 @@ dependencies don't appear in the `BUILD` file. Because the rule doesn't
 directly depend on the provider, there is no way to track changes, as shown in
 the following example timeline:
 
-### 1. Declared dependencies match actual dependencies
+### 1. Declared dependencies match actual dependencies {#this-is-fine}
 
 At first, everything works. The code in package `a` uses code in package `b`.
 The code in package `b` uses code in package `c`, and thus `a` transitively
@@ -70,21 +70,22 @@ depends on `c`.
   </tr>
   <tr>
     <td>
-      <pre>rule(
+```python
+rule(
     name = "a",
     srcs = "a.in",
     deps = "//b:b",
 )
-      </pre>
+```
     </td>
     <td>
-      <pre>
+```python
 rule(
     name = "b",
     srcs = "b.in",
     deps = "//c:c",
 )
-      </pre>
+```
     </td>
   </tr>
   <tr class="alt">
@@ -92,25 +93,26 @@ rule(
     <td><code>b / b.in</code></td>
   </tr>
   <tr>
-    <td><pre>
+    <td>
+```javascript
 import b;
 b.foo();
-    </pre>
+```
     </td>
     <td>
-      <pre>
+```javascript
 import c;
 function foo() {
   c.bar();
 }
-      </pre>
+```
     </td>
   </tr>
   <tr>
     <td>
       <figure>
         <img src="/versions/9.0.0/docs/images/a_b_c.svg"
-             alt="Declared dependency graph with arrows connecting a, b, and c">
+             alt="Declared dependency graph with arrows connecting a, b, and c" />
         <figcaption><b>Declared</b> dependency graph</figcaption>
       </figure>
     </td>
@@ -118,7 +120,7 @@ function foo() {
       <figure>
         <img src="/versions/9.0.0/docs/images/a_b_c.svg"
              alt="Actual dependency graph that matches the declared dependency
-                  graph with arrows connecting a, b, and c">
+                  graph with arrows connecting a, b, and c" />
         <figcaption><b>Actual</b> dependency graph</figcaption>
       </figure>
     </td>
@@ -127,7 +129,7 @@ function foo() {
 
 The declared dependencies overapproximate the actual dependencies. All is well.
 
-### 2. Adding an undeclared dependency
+### 2. Adding an undeclared dependency {#undeclared-dependency}
 
 A latent hazard is introduced when someone adds code to `a` that creates a
 direct _actual_ dependency on `c`, but forgets to declare it in the build file
@@ -140,12 +142,12 @@ direct _actual_ dependency on `c`, but forgets to declare it in the build file
   </tr>
   <tr>
     <td>
-      <pre>
-        import b;
-        import c;
-        b.foo();
-        c.garply();
-      </pre>
+```javascript
+import b;
+import c;
+b.foo();
+c.garply();
+```
     </td>
     <td>&nbsp;</td>
   </tr>
@@ -153,7 +155,7 @@ direct _actual_ dependency on `c`, but forgets to declare it in the build file
     <td>
       <figure>
         <img src="/versions/9.0.0/docs/images/a_b_c.svg"
-             alt="Declared dependency graph with arrows connecting a, b, and c">
+             alt="Declared dependency graph with arrows connecting a, b, and c" />
         <figcaption><b>Declared</b> dependency graph</figcaption>
       </figure>
     </td>
@@ -162,7 +164,7 @@ direct _actual_ dependency on `c`, but forgets to declare it in the build file
         <img src="/versions/9.0.0/docs/images/a_b_c_ac.svg"
              alt="Actual dependency graph with arrows connecting a, b, and c. An
                   arrow now connects A to C as well. This does not match the
-                  declared dependency graph">
+                  declared dependency graph" />
         <figcaption><b>Actual</b> dependency graph</figcaption>
       </figure>
     </td>
@@ -173,7 +175,7 @@ The declared dependencies no longer overapproximate the actual dependencies.
 This may build ok, because the transitive closures of the two graphs are equal,
 but masks a problem: `a` has an actual but undeclared dependency on `c`.
 
-### 3. Divergence between declared and actual dependency graphs
+### 3. Divergence between declared and actual dependency graphs {#divergence}
 
 The hazard is revealed when someone refactors `b` so that it no longer depends on
 `c`, inadvertently breaking `a` through no
@@ -187,12 +189,13 @@ fault of their own.
   <tr>
     <td>&nbsp;</td>
     <td>
-      <pre>rule(
+```python
+rule(
     name = "b",
     srcs = "b.in",
-    <strong>deps = "//d:d",</strong>
+    deps = "//d:d",
 )
-      </pre>
+```
     </td>
   </tr>
   <tr class="alt">
@@ -202,12 +205,12 @@ fault of their own.
   <tr>
     <td>&nbsp;</td>
     <td>
-      <pre>
-      import d;
-      function foo() {
-        d.baz();
-      }
-      </pre>
+```javascript
+import d;
+function foo() {
+  d.baz();
+}
+```
     </td>
   </tr>
   <tr>
@@ -215,7 +218,7 @@ fault of their own.
       <figure>
         <img src="/versions/9.0.0/docs/images/ab_c.svg"
              alt="Declared dependency graph with arrows connecting a and b.
-                  b no longer connects to c, which breaks a's connection to c">
+                  b no longer connects to c, which breaks a's connection to c" />
         <figcaption><b>Declared</b> dependency graph</figcaption>
       </figure>
     </td>
@@ -223,7 +226,7 @@ fault of their own.
       <figure>
         <img src="/versions/9.0.0/docs/images/a_b_a_c.svg"
              alt="Actual dependency graph that shows a connecting to b and c,
-                  but b no longer connects to c">
+                  but b no longer connects to c" />
         <figcaption><b>Actual</b> dependency graph</figcaption>
       </figure>
     </td>
@@ -236,7 +239,7 @@ dependencies, even when transitively closed; the build is likely to fail.
 The problem could have been averted by ensuring that the actual dependency from
 `a` to `c` introduced in Step 2 was properly declared in the `BUILD` file.
 
-## Types of dependencies
+## Types of dependencies {#types-of-dependencies}
 
 Most build rules have three attributes for specifying different kinds of
 generic dependencies: `srcs`, `deps` and `data`. These are explained below. For
@@ -247,16 +250,16 @@ Many rules also have additional attributes for rule-specific kinds of
 dependencies, for example, `compiler` or `resources`. These are detailed in the
 [Build Encyclopedia](/versions/9.0.0/reference/be/).
 
-### `srcs` dependencies
+### `srcs` dependencies {#srcs-dependencies}
 
 Files consumed directly by the rule or rules that output source files.
 
-### `deps` dependencies
+### `deps` dependencies {#deps-dependencies}
 
 Rule pointing to separately-compiled modules providing header files,
 symbols, libraries, data, etc.
 
-### `data` dependencies
+### `data` dependencies {#data-dependencies}
 
 A build target might need some data files to run correctly. These data files
 aren't source code: they don't affect how the target is built. For example, a
@@ -293,23 +296,17 @@ you can refer to these files by joining the paths of the test's source
 directory and the workspace-relative path, for example,
 `${TEST_SRCDIR}/workspace/path/to/data/file`.
 
-## Using labels to reference directories
+## Using labels to reference directories {#using-labels-reference-directories}
 
 As you look over our `BUILD` files, you might notice that some `data` labels
 refer to directories. These labels end with `/.` or `/` like these examples,
 which you should not use:
 
-<p><span class="compare-worse">Not recommended</span> —
-  <code>data = ["//data/regression:unittest/."]</code>
-</p>
+<p><span class="compare-worse">Not recommended</span> — <code>data = ["//data/regression:unittest/."]</code></p>
 
-<p><span class="compare-worse">Not recommended</span> —
-  <code>data = ["testdata/."]</code>
-</p>
+<p><span class="compare-worse">Not recommended</span> — <code>data = ["testdata/."]</code></p>
 
-<p><span class="compare-worse">Not recommended</span> —
-  <code>data = ["testdata/"]</code>
-</p>
+<p><span class="compare-worse">Not recommended</span> — <code>data = ["testdata/"]</code></p>
 
 This seems convenient, particularly for tests because it allows a test to
 use all the data files in the directory.
@@ -325,9 +322,7 @@ enumerate the set of files contained within them, either explicitly or using the
 [`glob()`](/versions/9.0.0/reference/be/functions#glob) function. (Use `**` to force the
 `glob()` to be recursive.)
 
-<p><span class="compare-better">Recommended</span> —
-  <code>data = glob(["testdata/**"])</code>
-</p>
+<p><span class="compare-better">Recommended</span> — <code>data = glob(["testdata/**"])</code></p>
 
 Unfortunately, there are some scenarios where directory labels must be used.
 For example, if the `testdata` directory contains files whose names don't
@@ -360,14 +355,8 @@ You can then reference the label `my_data` as the data dependency in your test.
 
 <table class="columns">
   <tr>
-    <td><a class="button button-with-icon button-primary"
-           href="/versions/9.0.0/concepts/build-files">
-        <span class="material-icons" aria-hidden="true">arrow_back</span>BUILD files</a>
-    </td>
-    <td><a class="button button-with-icon button-primary"
-           href="/versions/9.0.0/concepts/visibility">
-        Visibility<span class="material-icons icon-after" aria-hidden="true">arrow_forward</span></a>
-    </td>
+    <td><a class="button button-with-icon button-primary" href="/versions/9.0.0/concepts/build-files"><span class="material-icons" aria-hidden="true">arrow_back</span>BUILD files</a></td>
+    <td><a class="button button-with-icon button-primary" href="/versions/9.0.0/concepts/visibility">Visibility<span class="material-icons icon-after" aria-hidden="true">arrow_forward</span></a></td>
   </tr>
 </table>
 

@@ -15,21 +15,23 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.CacheMissReason;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
 import java.util.ArrayList;
 
 /** Exception signaling a failure to Serialize or Deserialize an Object. */
 public class SerializationException extends Exception {
   private final ArrayList<String> trail = new ArrayList<>();
-  private final CacheMissReason reason;
+  private final MissReason reason;
 
-  private static CacheMissReason maybePropagateReason(Throwable cause) {
-    return cause instanceof SerializationException se ? se.reason : CacheMissReason.UNKNOWN;
+  private static MissReason maybePropagateReason(Throwable cause) {
+    return cause instanceof SerializationException se
+        ? se.getReason()
+        : MissReason.MISS_REASON_UNSPECIFIED;
   }
 
   public SerializationException(String msg) {
     super(msg);
-    this.reason = CacheMissReason.UNKNOWN;
+    this.reason = MissReason.MISS_REASON_UNSPECIFIED;
   }
 
   public SerializationException(Throwable cause) {
@@ -37,7 +39,7 @@ public class SerializationException extends Exception {
     this.reason = maybePropagateReason(cause);
   }
 
-  public SerializationException(String msg, CacheMissReason reason) {
+  public SerializationException(String msg, MissReason reason) {
     super(msg);
     this.reason = reason;
   }
@@ -47,12 +49,12 @@ public class SerializationException extends Exception {
     this.reason = maybePropagateReason(cause);
   }
 
-  public SerializationException(String msg, Throwable cause, CacheMissReason reason) {
+  public SerializationException(String msg, Throwable cause, MissReason reason) {
     super(msg, cause);
     this.reason = reason;
   }
 
-  public CacheMissReason getReason() {
+  public MissReason getReason() {
     return reason;
   }
 

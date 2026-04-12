@@ -16,6 +16,7 @@ filegroup(
 
 java_test(
     name = "credentialhelper",
+    timeout = "long",
     srcs = glob(["*.java"]),
     data = [
         ":test_credential_helper",

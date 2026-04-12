@@ -70,6 +70,10 @@ public class LoggingInterceptor implements ClientInterceptor {
       return new UpdateActionResultHandler(); // <UpdateActionResultRequest, ActionResult>
     } else if (method == ContentAddressableStorageGrpc.getFindMissingBlobsMethod()) {
       return new FindMissingBlobsHandler(); // <FindMissingBlobsRequest, FindMissingBlobsResponse>
+    } else if (method == ContentAddressableStorageGrpc.getSplitBlobMethod()) {
+      return new SplitBlobHandler(); // <SplitBlobRequest, SplitBlobResponse>
+    } else if (method == ContentAddressableStorageGrpc.getSpliceBlobMethod()) {
+      return new SpliceBlobHandler(); // <SpliceBlobRequest, SpliceBlobResponse>
     } else if (method == ByteStreamGrpc.getReadMethod()) {
       return new ReadHandler(); // <ReadRequest, ReadResponse>
     } else if (method == ByteStreamGrpc.getWriteMethod()) {
