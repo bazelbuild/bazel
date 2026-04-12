@@ -21,10 +21,10 @@ import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
+import com.google.devtools.build.lib.util.StringUtil;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -145,7 +145,7 @@ public class SpawnStats {
     }
 
     StringBuilder stringSummary = new StringBuilder();
-    stringSummary.append(String.format(Locale.ENGLISH, "%,d", total)).append(" process");
+    stringSummary.append(StringUtil.formatCount(total)).append(" process");
     if (total > 1) {
       stringSummary.append("es");
     }
@@ -158,7 +158,7 @@ public class SpawnStats {
       stringSummary.append(separator);
       separator = ", ";
       stringSummary
-          .append(String.format(Locale.ENGLISH, "%,d", runnerStats.getValue()))
+          .append(StringUtil.formatCount(runnerStats.getValue()))
           .append(' ')
           .append(runnerStats.getKey());
     }

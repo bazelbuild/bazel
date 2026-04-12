@@ -22,11 +22,11 @@ import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.PositionAwareAnsiTerminalWriter;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
-import java.util.Locale;
 import javax.annotation.concurrent.GuardedBy;
 
 /** Tracks the state of Skymeld builds and determines what to display at each state in the UI. */
@@ -182,7 +182,7 @@ final class SkymeldUiStateTracker extends UiStateTracker {
     if (labelsCount == 1) {
       additionalMessage = "target " + Iterables.getOnlyElement(event.getLabels());
     } else {
-      additionalMessage = String.format(Locale.ENGLISH, "%,d targets", labelsCount);
+      additionalMessage = StringUtil.formatCount(labelsCount) + " targets";
     }
     mainRepositoryMapping = event.getMainRepositoryMapping();
   }

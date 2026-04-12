@@ -391,14 +391,40 @@ public final class SpawnStatsTest {
 
   @Test
   public void largeNumbersFormattedWithCommas() {
-    // Verify that large counts are formatted with comma separators for readability.
+    // Verify that large counts (>= 10,000 per IEEE style) are formatted with comma separators.
     SpawnResult spawn =
         new SpawnResult.Builder()
             .setStatus(SpawnResult.Status.SUCCESS)
             .setRunnerName("darwin-sandbox")
             .build();
 
-    // Simulate 2,345 actions with spawns
+    // Simulate 12,345 actions with spawns (>= 10,000 threshold)
+    for (int i = 0; i < 12345; i++) {
+      ArrayList<SpawnResult> spawns = new ArrayList<>();
+      spawns.add(spawn);
+      stats.countActionResult(ActionResult.create(spawns));
+      stats.incrementActionCount();
+    }
+
+    // Simulate 11,234 internal actions (no spawns) (>= 10,000 threshold)
+    for (int i = 0; i < 11234; i++) {
+      stats.incrementActionCount();
+    }
+
+    assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
+        .isEqualTo("23,579 processes: 11,234 internal, 12,345 darwin-sandbox.");
+  }
+
+  @Test
+  public void smallNumbersNotFormattedWithCommas() {
+    // Verify that counts below 10,000 (IEEE style threshold) are NOT formatted with commas.
+    SpawnResult spawn =
+        new SpawnResult.Builder()
+            .setStatus(SpawnResult.Status.SUCCESS)
+            .setRunnerName("darwin-sandbox")
+            .build();
+
+    // Simulate 2,345 actions with spawns (< 10,000 threshold)
     for (int i = 0; i < 2345; i++) {
       ArrayList<SpawnResult> spawns = new ArrayList<>();
       spawns.add(spawn);
@@ -406,12 +432,13 @@ public final class SpawnStatsTest {
       stats.incrementActionCount();
     }
 
-    // Simulate 1,234 internal actions (no spawns)
+    // Simulate 1,234 internal actions (no spawns) (< 10,000 threshold)
     for (int i = 0; i < 1234; i++) {
       stats.incrementActionCount();
     }
 
+    // Numbers below 10,000 should not have commas
     assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
-        .isEqualTo("3,579 processes: 1,234 internal, 2,345 darwin-sandbox.");
+        .isEqualTo("3579 processes: 1234 internal, 2345 darwin-sandbox.");
   }
 }

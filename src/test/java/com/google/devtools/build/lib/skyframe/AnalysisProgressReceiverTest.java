@@ -135,45 +135,61 @@ public class AnalysisProgressReceiverTest {
 
   @Test
   public void testLargeDownloadedTargetCountFormattedWithCommas() {
-    // Verify that large downloaded target counts are formatted with comma separators.
+    // Verify that large downloaded target counts (>= 10,000) are formatted with comma separators.
     AnalysisProgressReceiver progress = new AnalysisProgressReceiver();
 
-    // Download 5,678 configured targets from remote cache
-    for (int i = 0; i < 5678; i++) {
+    // Download 15,678 configured targets from remote cache (>= 10,000 threshold)
+    for (int i = 0; i < 15678; i++) {
       progress.doneDownloadedConfiguredTarget();
     }
 
     String progressString = progress.getProgressString();
-    assertThat(progressString).contains("5,678 targets configured");
-    assertThat(progressString).contains("(5,678 remote cache hits)");
+    assertThat(progressString).contains("15,678 targets configured");
+    assertThat(progressString).contains("(15,678 remote cache hits)");
   }
 
   @Test
   public void testLargeAspectCountFormattedWithCommas() {
-    // Verify that large aspect counts are formatted with comma separators.
+    // Verify that large aspect counts (>= 10,000) are formatted with comma separators.
     AnalysisProgressReceiver progress = new AnalysisProgressReceiver();
 
-    // Configure 2,500 aspects
-    for (int i = 0; i < 2500; i++) {
+    // Configure 12,500 aspects (>= 10,000 threshold)
+    for (int i = 0; i < 12500; i++) {
       progress.doneConfigureAspect();
     }
 
     String progressString = progress.getProgressString();
-    assertThat(progressString).contains("2,500 aspect applications");
+    assertThat(progressString).contains("12,500 aspect applications");
   }
 
   @Test
   public void testLargeDownloadedAspectCountFormattedWithCommas() {
-    // Verify that large downloaded aspect counts are formatted with comma separators.
+    // Verify that large downloaded aspect counts (>= 10,000) are formatted with comma separators.
     AnalysisProgressReceiver progress = new AnalysisProgressReceiver();
 
-    // Download 1,234 configured aspects from remote cache
-    for (int i = 0; i < 1234; i++) {
+    // Download 11,234 configured aspects from remote cache (>= 10,000 threshold)
+    for (int i = 0; i < 11234; i++) {
       progress.doneDownloadedConfiguredAspect();
     }
 
     String progressString = progress.getProgressString();
-    assertThat(progressString).contains("1,234 aspect applications");
-    assertThat(progressString).contains("(1,234 remote cache hits)");
+    assertThat(progressString).contains("11,234 aspect applications");
+    assertThat(progressString).contains("(11,234 remote cache hits)");
+  }
+
+  @Test
+  public void testSmallCountsNotFormattedWithCommas() {
+    // Verify that counts below 10,000 (IEEE style threshold) are NOT formatted with commas.
+    AnalysisProgressReceiver progress = new AnalysisProgressReceiver();
+
+    // Configure 5,678 targets (below 10,000 threshold)
+    for (int i = 0; i < 5678; i++) {
+      progress.doneConfigureTarget();
+    }
+
+    String progressString = progress.getProgressString();
+    // Numbers below 10,000 should not have commas
+    assertThat(progressString).contains("5678 targets configured");
+    assertThat(progressString).doesNotContain("5,678");
   }
 }

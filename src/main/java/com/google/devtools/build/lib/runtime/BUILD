@@ -538,6 +538,7 @@ java_library(
     srcs = ["SpawnStats.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/protobuf:action_cache_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -576,6 +577,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:configuration_phase_started_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:loading_phase_started_event",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
@@ -604,6 +606,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_progress_receiver",
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/protobuf:crash_debugging_java_proto",
         "//src/main/protobuf:test_status_java_proto",
