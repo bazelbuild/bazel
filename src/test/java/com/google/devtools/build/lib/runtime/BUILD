@@ -222,6 +222,16 @@ java_test(
 )
 
 java_test(
+    name = "RunCommandTest",
+    srcs = ["commands/RunCommandTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "RunCommandLineTest",
     srcs = ["commands/RunCommandLineTest.java"],
     deps = [
