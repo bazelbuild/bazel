@@ -252,12 +252,18 @@ public class ProxyHelper {
     }
 
     Proxy.Type proxyType = Proxy.Type.HTTP;
-    int defaultPort = 80;
+    int defaultPort;
 
     if (protocol != null) {
       switch (protocol) {
-        case "https://" -> defaultPort = 443;
-        case "http://" -> defaultPort = 80;
+        case "https://" -> {
+          proxyType = Proxy.Type.HTTP;
+          defaultPort = 443;
+        }
+        case "http://" -> {
+          proxyType = Proxy.Type.HTTP;
+          defaultPort = 80;
+        }
         case "socks://", "socks4://", "socks5://" -> {
           proxyType = Proxy.Type.SOCKS;
           defaultPort = 1080;
