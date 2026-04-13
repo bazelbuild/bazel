@@ -993,14 +993,17 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       if (!(o instanceof StarlarkActionResourceSetBuilder that)) {
         return false;
       }
-      return Objects.equal(fn, that.fn)
+      // Use identity comparison for fn to avoid interning stale callbacks across builds.
+      // StarlarkFunction.equals() is based on GlobalSymbol identity (label + name), which
+      // doesn't change when the function body is edited.
+      return fn == that.fn
           && Objects.equal(mnemonic, that.mnemonic)
           && Objects.equal(semantics, that.semantics);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(fn, mnemonic, semantics);
+      return Objects.hashCode(System.identityHashCode(fn), mnemonic, semantics);
     }
   }
 
