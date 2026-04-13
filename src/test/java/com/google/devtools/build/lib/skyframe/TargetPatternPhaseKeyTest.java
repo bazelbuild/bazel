@@ -53,6 +53,7 @@ public final class TargetPatternPhaseKeyTest {
                 ImmutableList.of(),
                 PathFragment.EMPTY_FRAGMENT,
                 ImmutableList.of(),
+                ImmutableList.of(),
                 false,
                 true,
                 null,
@@ -62,6 +63,7 @@ public final class TargetPatternPhaseKeyTest {
                 ImmutableList.of(),
                 PathFragment.EMPTY_FRAGMENT,
                 ImmutableList.of(),
+                ImmutableList.of(),
                 false,
                 false,
                 null,
@@ -70,6 +72,7 @@ public final class TargetPatternPhaseKeyTest {
             of(
                 ImmutableList.of(),
                 PathFragment.EMPTY_FRAGMENT,
+                ImmutableList.of(),
                 ImmutableList.of(),
                 true,
                 true,
@@ -80,6 +83,7 @@ public final class TargetPatternPhaseKeyTest {
                 ImmutableList.of(),
                 PathFragment.EMPTY_FRAGMENT,
                 ImmutableList.of(),
+                ImmutableList.of(),
                 true,
                 false,
                 null,
@@ -88,6 +92,7 @@ public final class TargetPatternPhaseKeyTest {
             of(
                 ImmutableList.of(),
                 PathFragment.EMPTY_FRAGMENT,
+                ImmutableList.of(),
                 ImmutableList.of(),
                 false,
                 true,
@@ -98,6 +103,7 @@ public final class TargetPatternPhaseKeyTest {
                 ImmutableList.of(),
                 PathFragment.EMPTY_FRAGMENT,
                 ImmutableList.of(),
+                ImmutableList.of(),
                 true,
                 true,
                 emptyTestFilter(),
@@ -106,6 +112,7 @@ public final class TargetPatternPhaseKeyTest {
             of(
                 ImmutableList.of(),
                 PathFragment.EMPTY_FRAGMENT,
+                ImmutableList.of(),
                 ImmutableList.of(),
                 false,
                 true,
@@ -115,6 +122,7 @@ public final class TargetPatternPhaseKeyTest {
             of(
                 ImmutableList.of(),
                 PathFragment.EMPTY_FRAGMENT,
+                ImmutableList.of(),
                 ImmutableList.of(),
                 true,
                 true,
@@ -125,6 +133,7 @@ public final class TargetPatternPhaseKeyTest {
                 ImmutableList.of(),
                 PathFragment.EMPTY_FRAGMENT,
                 ImmutableList.of("a"),
+                ImmutableList.of("a"),
                 false,
                 true,
                 null))
@@ -132,6 +141,7 @@ public final class TargetPatternPhaseKeyTest {
             of(
                 ImmutableList.of(),
                 PathFragment.EMPTY_FRAGMENT,
+                ImmutableList.of("a"),
                 ImmutableList.of("a"),
                 true,
                 true,
@@ -143,6 +153,7 @@ public final class TargetPatternPhaseKeyTest {
       ImmutableList<String> targetPatterns,
       PathFragment offset,
       ImmutableList<String> buildTagFilter,
+      ImmutableList<String> buildRuleFilter,
       boolean includeManualTests,
       boolean expandTestSuites,
       @Nullable TestFilter testFilter,
@@ -158,6 +169,7 @@ public final class TargetPatternPhaseKeyTest {
         buildTestsOnly,
         determineTests,
         buildTagFilter,
+        buildRuleFilter,
         includeManualTests,
         expandTestSuites,
         testFilter);
@@ -165,7 +177,7 @@ public final class TargetPatternPhaseKeyTest {
 
   private static TargetPatternPhaseKey of(
       ImmutableList<String> targetPatterns, PathFragment offset) {
-    return of(targetPatterns, offset, ImmutableList.of(), false, true, null);
+    return of(targetPatterns, offset, ImmutableList.of(), ImmutableList.of(), false, true, null);
   }
 
   private static TestFilter emptyTestFilter() {

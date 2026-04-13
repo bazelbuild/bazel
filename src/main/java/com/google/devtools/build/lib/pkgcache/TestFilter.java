@@ -46,13 +46,15 @@ public final class TestFilter implements com.google.common.base.Predicate<Target
         ImmutableSet.copyOf(options.testSizeFilterSet),
         ImmutableSet.copyOf(options.testTimeoutFilterSet),
         ImmutableList.copyOf(options.testTagFilterList),
-        ImmutableList.copyOf(options.testLangFilterList));
+        ImmutableList.copyOf(options.testLangFilterList),
+        ImmutableList.copyOf(options.testRuleFilterList));
   }
 
   private final ImmutableSet<TestSize> testSizeFilterSet;
   private final ImmutableSet<TestTimeout> testTimeoutFilterSet;
   private final ImmutableList<String> testTagFilterList;
   private final ImmutableList<String> testLangFilterList;
+  private final ImmutableList<String> testRuleFilterList;
   private final Predicate<Target> impl;
 
   @VisibleForSerialization
@@ -60,11 +62,13 @@ public final class TestFilter implements com.google.common.base.Predicate<Target
       ImmutableSet<TestSize> testSizeFilterSet,
       ImmutableSet<TestTimeout> testTimeoutFilterSet,
       ImmutableList<String> testTagFilterList,
-      ImmutableList<String> testLangFilterList) {
+      ImmutableList<String> testLangFilterList,
+      ImmutableList<String> testRuleFilterList) {
     this.testSizeFilterSet = testSizeFilterSet;
     this.testTimeoutFilterSet = testTimeoutFilterSet;
     this.testTagFilterList = testTagFilterList;
     this.testLangFilterList = testLangFilterList;
+    this.testRuleFilterList = testRuleFilterList;
     Predicate<Target> testFilter = ALWAYS_TRUE;
     if (!testSizeFilterSet.isEmpty()) {
       testFilter = testFilter.and(testSizeFilter(testSizeFilterSet));
@@ -78,6 +82,9 @@ public final class TestFilter implements com.google.common.base.Predicate<Target
     if (!testLangFilterList.isEmpty()) {
       testFilter = testFilter.and(testLangFilter(testLangFilterList));
     }
+    if (!testRuleFilterList.isEmpty()) {
+      testFilter = testFilter.and(testRuleFilter(testRuleFilterList));
+    }
     impl = testFilter;
   }
 
@@ -89,7 +96,7 @@ public final class TestFilter implements com.google.common.base.Predicate<Target
   @Override
   public int hashCode() {
     return Objects.hash(testSizeFilterSet, testTimeoutFilterSet, testTagFilterList,
-        testLangFilterList);
+        testLangFilterList, testRuleFilterList);
   }
 
   @Override
@@ -103,7 +110,8 @@ public final class TestFilter implements com.google.common.base.Predicate<Target
     return f.testSizeFilterSet.equals(testSizeFilterSet)
         && f.testTimeoutFilterSet.equals(testTimeoutFilterSet)
         && f.testTagFilterList.equals(testTagFilterList)
-        && f.testLangFilterList.equals(testLangFilterList);
+        && f.testLangFilterList.equals(testLangFilterList)
+        && f.testRuleFilterList.equals(testRuleFilterList);
   }
 
   @Override
@@ -113,6 +121,7 @@ public final class TestFilter implements com.google.common.base.Predicate<Target
         .add("testTimeoutFilterSet", testTimeoutFilterSet)
         .add("testTagFilterList", testTagFilterList)
         .add("testLangFilterList", testLangFilterList)
+        .add("testRuleFilterList", testRuleFilterList)
         .toString();
   }
 
@@ -157,6 +166,30 @@ public final class TestFilter implements com.google.common.base.Predicate<Target
       String ruleLang = TargetUtils.getRuleLanguage(rule);
       return (requiredLangs.isEmpty() || requiredLangs.contains(ruleLang))
           && !excludedLangs.contains(ruleLang);
+    };
+  }
+
+    /**
+   * Returns a predicate to be used for test rule filtering, i.e., that only accepts tests of
+   * the specified rule names.
+   */
+  private static Predicate<Target> testRuleFilter(List<String> ruleFilterList) {
+    final Set<String> requiredRules = new HashSet<>();
+    final Set<String> excludedRules = new HashSet<>();
+
+    for (String ruleFilter : ruleFilterList) {
+      if (ruleFilter.startsWith("-")) {
+        ruleFilter = ruleFilter.substring(1);
+        excludedRules.add(ruleFilter);
+      } else {
+        requiredRules.add(ruleFilter);
+      }
+    }
+
+    return rule -> {
+      String ruleName = rule.getRuleClass();
+      return (requiredRules.isEmpty() || requiredRules.contains(ruleName))
+          && !excludedRules.contains(ruleName);
     };
   }
 }

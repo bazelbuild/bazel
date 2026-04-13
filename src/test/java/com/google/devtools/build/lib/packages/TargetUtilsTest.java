@@ -97,6 +97,48 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
   }
 
   @Test
+  public void testFilterByRuleName() throws Exception {
+    scratch.file(
+        "tests/BUILD",
+        """
+        load("//test_defs:foo_binary.bzl", "foo_binary")
+        load("//test_defs:foo_test.bzl", "foo_test")
+        foo_binary(
+            name = "foo_binary",
+        )
+
+        foo_test(
+            name = "foo_test",
+        )
+        """);
+
+    Target fooBinary = getTarget("//tests:foo_binary");
+    Target fooTest = getTarget("//tests:foo_test");
+
+    Predicate<Target> ruleFilter = TargetUtils.ruleFilter(Lists.<String>newArrayList());
+    assertThat(ruleFilter.apply(fooBinary)).isTrue();
+    assertThat(ruleFilter.apply(fooTest)).isTrue();
+    ruleFilter = TargetUtils.ruleFilter(Lists.newArrayList("foo_binary", "foo_test"));
+    assertThat(ruleFilter.apply(fooBinary)).isTrue();
+    assertThat(ruleFilter.apply(fooTest)).isTrue();
+    ruleFilter = TargetUtils.ruleFilter(Lists.newArrayList("foo_binary"));
+    assertThat(ruleFilter.apply(fooBinary)).isTrue();
+    assertThat(ruleFilter.apply(fooTest)).isFalse();
+    ruleFilter = TargetUtils.ruleFilter(Lists.newArrayList("-foo_test"));
+    assertThat(ruleFilter.apply(fooBinary)).isTrue();
+    assertThat(ruleFilter.apply(fooTest)).isFalse();
+    // Applying same tag as positive and negative filter produces an empty
+    // result because the negative filter is applied first and positive filter will
+    // not match anything.
+    ruleFilter = TargetUtils.ruleFilter(Lists.newArrayList("foo_test", "-foo_test"));
+    assertThat(ruleFilter.apply(fooBinary)).isFalse();
+    assertThat(ruleFilter.apply(fooTest)).isFalse();
+    ruleFilter = TargetUtils.ruleFilter(Lists.newArrayList("foo_test", "-foo_binary"));
+    assertThat(ruleFilter.apply(fooBinary)).isFalse();
+    assertThat(ruleFilter.apply(fooTest)).isTrue();
+  }
+
+  @Test
   public void testExecutionInfo() throws Exception {
     scratch.file(
         "tests/BUILD",
