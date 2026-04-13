@@ -251,7 +251,7 @@ public class ProxyHelper {
           proxyAddress.replace(idAndPassword, ""); // Used to remove id+pwd from logging
     }
 
-    Proxy.Type proxyType = Proxy.Type.HTTP;
+    Proxy.Type proxyType;
     int defaultPort;
 
     if (protocol != null) {
