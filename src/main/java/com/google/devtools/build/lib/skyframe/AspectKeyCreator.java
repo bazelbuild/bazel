@@ -13,10 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.Comparators.lexicographical;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Comparator.comparing;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -34,6 +35,8 @@ import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /** The class responsible for creating & interning the various types of AspectKeys. */
@@ -100,6 +103,9 @@ public final class AspectKeyCreator {
   @AutoCodec
   public abstract static class AspectKey extends AspectBaseKey implements CqueryNode {
     private static final SkyKeyInterner<AspectKey> interner = SkyKey.newInterner();
+    public static final Comparator<AspectKey> ORDERING =
+        comparing(AspectKey::getBaseConfiguredTargetKey, ConfiguredTargetKey.ORDERING)
+            .thenComparing((left, right) -> new DescriptorGraphComparator().compare(left, right));
 
     private final AspectDescriptor aspectDescriptor;
 
@@ -215,9 +221,9 @@ public final class AspectKeyCreator {
         return false;
       }
       return hashCode() == that.hashCode()
-          && Objects.equal(getBaseKeys(), that.getBaseKeys())
-          && Objects.equal(getBaseConfiguredTargetKey(), that.getBaseConfiguredTargetKey())
-          && Objects.equal(aspectDescriptor, that.aspectDescriptor);
+          && Objects.equals(getBaseKeys(), that.getBaseKeys())
+          && Objects.equals(getBaseConfiguredTargetKey(), that.getBaseConfiguredTargetKey())
+          && Objects.equals(aspectDescriptor, that.aspectDescriptor);
     }
 
     public String prettyPrint() {
@@ -303,6 +309,41 @@ public final class AspectKeyCreator {
             baseKeys.stream().map(AspectKey::getDescription).collect(toImmutableList()));
       }
     }
+
+    /**
+     * Compares the {@link AspectKey} graph structure for specific dependencies.
+     *
+     * <p>An {@link AspectKey} for a dependency is determined by {@link
+     * com.google.devtools.build.lib.analysis.AspectCollection#buildAspectKey}. This means that the
+     * {@link AspectKey} is structured like a DAG with the following properties.
+     *
+     * <ul>
+     *   <li>The {@link AspectKey#getBaseConfiguredTargetKey} is the same across all nodes.
+     *   <li>Each DAG node has a unique {@link AspectKey#getAspectDescriptor}.
+     * </ul>
+     *
+     * <p>Given the above, it's sufficient to traverse unique {@link AspectDescriptor}s to
+     * understand the toplogy of both graphs.
+     *
+     * <p>NB: a new instance of this comparator must be constructed for each comparison.
+     */
+    private static class DescriptorGraphComparator implements Comparator<AspectKey> {
+      private final HashSet<AspectDescriptor> visited = new HashSet<>();
+
+      @Override
+      public int compare(AspectKey left, AspectKey right) {
+        AspectDescriptor leftDescriptor = left.getAspectDescriptor();
+        AspectDescriptor rightDescriptor = right.getAspectDescriptor();
+        if (!leftDescriptor.equals(rightDescriptor)) {
+          return leftDescriptor.getDescription().compareTo(rightDescriptor.getDescription());
+        }
+        if (!visited.add(leftDescriptor)) {
+          return 0;
+        }
+
+        return lexicographical(this).compare(left.getBaseKeys(), right.getBaseKeys());
+      }
+    }
   }
 
   /**
@@ -386,11 +427,12 @@ public final class AspectKeyCreator {
       if (!(o instanceof TopLevelAspectsKey that)) {
         return false;
       }
+
       return hashCode() == that.hashCode()
-          && Objects.equal(targetLabel, that.targetLabel)
-          && Objects.equal(getBaseConfiguredTargetKey(), that.getBaseConfiguredTargetKey())
-          && Objects.equal(topLevelAspectsClasses, that.topLevelAspectsClasses)
-          && Objects.equal(topLevelAspectsParameters, that.topLevelAspectsParameters);
+          && Objects.equals(targetLabel, that.targetLabel)
+          && Objects.equals(getBaseConfiguredTargetKey(), that.getBaseConfiguredTargetKey())
+          && Objects.equals(topLevelAspectsClasses, that.topLevelAspectsClasses)
+          && Objects.equals(topLevelAspectsParameters, that.topLevelAspectsParameters);
     }
 
     @Override

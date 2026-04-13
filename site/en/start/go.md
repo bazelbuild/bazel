@@ -431,7 +431,6 @@ INFO: Build completed successfully, 1 total action
 //fortune:fortune_test                                          PASSED in 0.3s
 
 Executed 0 out of 1 test: 1 test passes.
-There were tests whose specified size is too big. Use the --test_verbose_timeout_warnings command line option to see which ones these are.
 ```
 
 You can use the `...` wildcard to run all tests. Bazel will also build targets

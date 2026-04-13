@@ -26,22 +26,19 @@ code base.
    we restrict permissions to create branches on the main Bazel repository, so
    you will need to push your commit to [your own fork of the
    repository](https://help.github.com/articles/working-with-forks/).
-1. A Bazel maintainer should assign you a reviewer within two business days
+1. A Bazel maintainer should assign you a reviewer within 7 business days
    (excluding holidays in the USA and Germany). If you aren't assigned a
-   reviewer in that time, you can request one by emailing
-   [bazel-discuss@googlegroups.com]
-   (mailto:bazel-discuss@googlegroups.com).
+   reviewer in that time, you can ping `@bazelbuild/triage` on the PR.
 1. Work with the reviewer to complete a code review. For each change, create a
    new commit and push it to make changes to your pull request. If the review
-   takes too long (for instance, if the reviewer is unresponsive), send an email to
-   [bazel-discuss@googlegroups.com]
-   (mailto:bazel-discuss@googlegroups.com).
+   takes too long (for instance, if the reviewer is unresponsive), you can ping
+   `@bazelbuild/triage` on the PR.
 1. After your review is complete, a Bazel maintainer applies your patch to
    Google's internal version control system.
 
    This triggers internal presubmit checks
    that may suggest more changes. If you haven't expressed a preference, the
-   maintainer submitting your change  adds "trivial" changes (such as
+   maintainer submitting your change may add "trivial" changes (such as
    [linting](https://en.wikipedia.org/wiki/Lint_(software))) that don't affect
    design. If deeper changes are required or you'd prefer to apply
    changes directly, you and the reviewer should communicate preferences

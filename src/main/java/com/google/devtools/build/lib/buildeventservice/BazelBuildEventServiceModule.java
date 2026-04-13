@@ -130,7 +130,7 @@ public class BazelBuildEventServiceModule
                   .setEventReporter(env.getReporter())
                   .setWorkspacePath(env.getWorkspace())
                   .setClientEnvironment(env.getClientEnv())
-                  .setHelperExecutionTimeout(authAndTLSOptions.credentialHelperTimeout)
+                  .setHelperExecutionTimeout(authAndTLSOptions.getCredentialHelperTimeout())
                   .build(),
               credentialModule.getCredentialCache(),
               env.getCommandLinePathFactory(),

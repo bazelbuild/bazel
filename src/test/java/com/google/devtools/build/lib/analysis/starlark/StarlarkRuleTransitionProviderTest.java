@@ -1741,7 +1741,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
     ConfiguredTarget ct = getConfiguredTarget("//test");
     assertNoEvents();
-    assertThat(getConfiguration(ct).getOptions().get(CppOptions.class).fissionModes).isEmpty();
+    assertThat(getConfiguration(ct).getOptions().get(CppOptions.class).getFissionModes()).isEmpty();
   }
 
   @Test
@@ -2082,7 +2082,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
             getConfiguration(getConfiguredTarget("//test:test"))
                 .getOptions()
                 .get(PlatformOptions.class)
-                .platforms)
+                .getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked(TestConstants.PLATFORM_LABEL));
   }
 
@@ -2139,7 +2139,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
             getConfiguration(getConfiguredTarget("//test:test"))
                 .getOptions()
                 .get(PlatformOptions.class)
-                .platforms)
+                .getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked("//platforms:my_other_platform"));
   }
 
@@ -2183,7 +2183,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
             getConfiguration(getConfiguredTarget("//test:test"))
                 .getOptions()
                 .get(PlatformOptions.class)
-                .platforms)
+                .getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked("//platforms:my_platform"));
   }
 

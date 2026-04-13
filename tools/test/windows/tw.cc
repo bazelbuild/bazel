@@ -332,6 +332,12 @@ bool IsReadableFile(const Path& p) {
   return true;
 }
 
+bool DirectoryExists(const Path& p) {
+  DWORD attrs = GetFileAttributesW(AddUncPrefixMaybe(p).c_str());
+  return attrs != INVALID_FILE_ATTRIBUTES &&
+         ((attrs & FILE_ATTRIBUTE_DIRECTORY) != 0);
+}
+
 // Gets an environment variable's value.
 // Returns:
 // - true, if the envvar is defined and successfully fetched, or it's empty or
@@ -469,6 +475,14 @@ bool ChdirToRunfiles(const Path& abs_exec_root, const Path& abs_test_srcdir) {
   // dependencies.
   std::wstring coverage_dir;
   if (!GetEnv(L"COVERAGE_DIR", &coverage_dir) || coverage_dir.empty()) {
+    if (!DirectoryExists(dir)) {
+      LogError(
+          __LINE__,
+          L"ERROR: RUNFILES_DIR does not exist. This can happen when using "
+          L"--nobuild_runfile_manifests with local execution. Use a different "
+          L"execution strategy, or build with runfile manifests.");
+      return false;
+    }
     if (!SetCurrentDirectoryW(dir.Get().c_str())) {
       DWORD err = GetLastError();
       LogErrorWithArgAndValue(__LINE__, "Could not chdir", dir.Get(), err);
@@ -907,7 +921,7 @@ bool AppendFileTo(const Path& file, const size_t total_size, HANDLE output) {
 // If the MIME type is unknown or an error occurs, the method returns
 // "application/octet-stream".
 std::string GetMimeType(const std::string& filename) {
-  static constexpr char* kDefaultMimeType = "application/octet-stream";
+  static constexpr const char* kDefaultMimeType = "application/octet-stream";
   std::string::size_type pos = filename.find_last_of('.');
   if (pos == std::string::npos) {
     return kDefaultMimeType;
@@ -1131,9 +1145,6 @@ bool PrintTestLogStartMarker() {
   return true;
 }
 
-inline bool GetWorkspaceName(std::wstring* result) {
-  return GetEnv(L"TEST_WORKSPACE", result) && !result->empty();
-}
 
 inline void ComputeRunfilePath(const std::wstring& test_workspace,
                                std::wstring* s) {
@@ -1218,24 +1229,6 @@ bool FindTestBinary(const Path& argv0, const Path& cwd, std::wstring test_path,
   return true;
 }
 
-bool CreateCommandLine(const Path& path, const std::wstring& args,
-                       std::unique_ptr<WCHAR[]>* result) {
-  // kMaxCmdline value: see lpCommandLine parameter of CreateProcessW.
-  static constexpr size_t kMaxCmdline = 32767;
-
-  if (path.Get().size() + args.size() > kMaxCmdline) {
-    LogErrorWithValue(__LINE__, L"Command is too long",
-                      path.Get().size() + args.size());
-    return false;
-  }
-
-  // Add an extra character for the final null-terminator.
-  result->reset(new WCHAR[path.Get().size() + args.size() + 1]);
-
-  wcsncpy(result->get(), path.Get().c_str(), path.Get().size());
-  wcsncpy(result->get() + path.Get().size(), args.c_str(), args.size() + 1);
-  return true;
-}
 
 bool StartSubprocess(const Path& path, const std::wstring& args,
                      const Path& outerr, std::unique_ptr<Tee>* tee,

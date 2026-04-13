@@ -8,7 +8,7 @@ Book: /_book.yaml
 This tutorial uses an example scenario to describe how to configure C++
 toolchains for a project.
 
-## What you'll learn {: #what-you-learn }
+## What you'll learn {:#what-you-learn}
 
 In this tutorial you learn how to:
 
@@ -22,13 +22,13 @@ In this tutorial you learn how to:
 *   Cross-compile the binary for android by running `bazel build
     //main:hello-world --platforms=//:android_x86_64`
 
-## Before you begin {: #before-you-begin }
+## Before you begin {:#before-you-begin}
 
 This tutorial assumes you are on Linux and have successfully built C++
 applications and installed the appropriate tooling and libraries. The tutorial
 uses `clang version 19`, which you can install on your system.
 
-### Set up the build environment {: #setup-build-environment }
+### Set up the build environment {:#setup-build-environment}
 
 Set up your build environment as follows:
 
@@ -72,7 +72,7 @@ Set up your build environment as follows:
     `@platforms//host` using
     `@bazel_tools+cc_configure_extension+local_config_cc//:cc-compiler-k8`.
 
-## Configure the C++ toolchain {: #configure-cc-toolchain }
+## Configure the C++ toolchain {:#configure-cc-toolchain}
 
 To configure the C++ toolchain, repeatedly build the application and eliminate
 each error one by one as described as following.
@@ -448,7 +448,7 @@ can either modify the existing `cc_toolchain_config` for the differences or
 create a separate rules (i.e. `CcToolchainConfigInfo` provider) for separate
 platforms.
 
-## Review your work {: #review-your-work }
+## Review your work {:#review-your-work}
 
 In this tutorial you learned how to configure a basic C++ toolchain, but
 toolchains are more powerful than this example.
@@ -469,7 +469,7 @@ The key takeaways are:
 -   You can create features to customize which flags should be passed to
     different actions, be it linking or any other type of action.
 
-## Further reading {: #further-reading }
+## Further reading {:#further-reading}
 
 For more details, see [C++ toolchain
 configuration](/docs/cc-toolchain-config-reference)

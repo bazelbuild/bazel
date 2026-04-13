@@ -136,7 +136,8 @@ public final class JavaHeaderCompileAction extends SpawnAction {
   @Override
   protected void afterExecute(
       ActionExecutionContext context, List<SpawnResult> spawnResults, PathMapper pathMapper) {
-    SpawnResult spawnResult = Iterables.getOnlyElement(spawnResults);
+    // The first entry represents the successful execution, see SpawnStrategy#exec
+    SpawnResult spawnResult = spawnResults.get(0);
     Artifact outputDepsProto = Iterables.get(getOutputs(), 1);
     try {
       Deps.Dependencies fullOutputDeps =
@@ -480,7 +481,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
               : javaToolchain.getHeaderCompiler();
       // The header compiler is either a jar file that needs to be executed using
       // `java -jar <path>`, or an executable that can be run directly.
-      headerCompiler.addInputs(javaToolchain, mandatoryInputsBuilder);
+      headerCompiler.addInputs(mandatoryInputsBuilder);
       CustomCommandLine.Builder commandLine =
           CustomCommandLine.builder()
               .addExecPath("--output", outputJar)
@@ -554,7 +555,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
         commandLine.add("--reduce_classpath_mode", "NONE");
 
         NestedSet<Artifact> allInputs = mandatoryInputsBuilder.build();
-        CustomCommandLine executableLine = headerCompiler.getCommandLine(javaToolchain);
+        CustomCommandLine executableLine = headerCompiler.getCommandLine();
 
         ruleContext.registerAction(
             new JavaHeaderCompileAction(
@@ -610,7 +611,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
 
       NestedSet<Artifact> mandatoryInputs = mandatoryInputsBuilder.build();
 
-      CustomCommandLine executableLine = headerCompiler.getCommandLine(javaToolchain);
+      CustomCommandLine executableLine = headerCompiler.getCommandLine();
 
       ruleContext.registerAction(
           new JavaCompileAction(

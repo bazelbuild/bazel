@@ -22,13 +22,14 @@ import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 import static com.google.devtools.build.lib.packages.Types.STRING_SET;
+import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_PREFIXES;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -47,15 +48,22 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkInt;
-import net.starlark.java.eval.StarlarkValue;
 
 /**
  * {@link Converter}s for {@link com.google.devtools.common.options.Option}s that aren't
  * domain-specific (i.e. aren't consumed within a single {@link FragmentOptions}).
  */
 public class CoreOptionConverters {
+
+  /**
+   * The name of the flag used for shorthand aliasing in blaze. {@link
+   * com.google.devtools.build.lib.analysis.config.CoreOptions#commandLineFlagAliases} for the
+   * option definition.
+   */
+  public static final String BLAZE_ALIASING_FLAG = "flag_alias";
 
   // Not instantiable.
   private CoreOptionConverters() {}
@@ -78,17 +86,18 @@ public class CoreOptionConverters {
 
   /**
    * A converter for comma-separated strings to sets of strings. This uses {@link
-   * CommaSeparatedOptionListConverter} but returns a set of the converted strings.
+   * CommaSeparatedOptionListConverter} but returns a sorted set of the converted strings.
    */
-  private static class StringSetConverter extends Converter.Contextless<ImmutableSet<String>> {
+  private static class StringSetConverter
+      extends Converter.Contextless<ImmutableSortedSet<String>> {
 
     private static final CommaSeparatedOptionListConverter COMMA_SEPARATED_OPTION_LIST_CONVERTER =
         new CommaSeparatedOptionListConverter();
 
     @Override
-    public ImmutableSet<String> convert(String input) throws OptionsParsingException {
+    public ImmutableSortedSet<String> convert(String input) throws OptionsParsingException {
       ImmutableList<String> result = COMMA_SEPARATED_OPTION_LIST_CONVERTER.convert(input);
-      return ImmutableSet.copyOf(result);
+      return ImmutableSortedSet.copyOf(result);
     }
 
     @Override
@@ -299,7 +308,7 @@ public class CoreOptionConverters {
   }
 
   /** Values for the --strict_*_deps option */
-  public enum StrictDepsMode implements StarlarkValue {
+  public enum StrictDepsMode {
     /** Silently allow referencing transitive dependencies. */
     OFF,
     /** Warn about transitive dependencies being used directly. */
@@ -348,6 +357,51 @@ public class CoreOptionConverters {
           input, Label.RepoContext.of(RepositoryName.MAIN, (RepositoryMapping) conversionContext));
     } catch (LabelSyntaxException e) {
       throw new OptionsParsingException(e.getMessage());
+    }
+  }
+
+  /**
+   * A converter for command line flag aliases. It does additional validation on the name and value
+   * of the assignment to ensure they conform to the naming limitations.
+   */
+  public static class FlagAliasConverter implements Converter<Map.Entry<String, Label>> {
+
+    @Override
+    public Map.Entry<String, Label> convert(String input, @Nullable Object conversionContext)
+        throws OptionsParsingException {
+      int pos = input.indexOf("=");
+      if (pos <= 0) {
+        throw new OptionsParsingException(
+            "Flag alias definitions must be in the form of a 'name=label' assignment");
+      }
+      String shortForm = input.substring(0, pos);
+      String longForm = input.substring(pos + 1);
+
+      String cmdLineAlias = "--" + BLAZE_ALIASING_FLAG + "=" + input;
+
+      if (!Pattern.matches("\\w*", shortForm)) {
+        throw new OptionsParsingException(
+            shortForm + " should only consist of word characters to be a valid alias name.",
+            cmdLineAlias);
+      }
+      if (longForm.contains("=")) {
+        throw new OptionsParsingException(
+            "--" + BLAZE_ALIASING_FLAG + " does not support flag value assignment.", cmdLineAlias);
+      }
+
+      // Remove this check if native options are permitted to be aliased
+      String longFormWithDashes = "--" + longForm;
+      if (STARLARK_SKIPPED_PREFIXES.stream().noneMatch(longFormWithDashes::startsWith)) {
+        throw new OptionsParsingException(
+            "--" + BLAZE_ALIASING_FLAG + " only supports Starlark build settings.", cmdLineAlias);
+      }
+
+      return Maps.immutableEntry(shortForm, convertOptionsLabel(longForm, conversionContext));
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a 'name=label' flag alias";
     }
   }
 }

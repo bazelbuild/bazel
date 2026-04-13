@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallba
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
+import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback.IoExceptionInterruptedException;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -236,9 +237,13 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
     if (result.isEmpty()) {
       env.getReporter().handle(Event.info("Empty query results"));
     }
-    callback.start();
-    callback.process(aggregateResultsCallback.getResult());
-    callback.close(/* failFast= */ !result.getSuccess());
+    try {
+      callback.start();
+      callback.process(aggregateResultsCallback.getResult());
+      callback.close(/* failFast= */ !result.getSuccess());
+    } catch (IoExceptionInterruptedException e) {
+      throw (IOException) e.getCause();
+    }
 
     queryRuntimeHelper.afterQueryOutputIsWritten();
   }

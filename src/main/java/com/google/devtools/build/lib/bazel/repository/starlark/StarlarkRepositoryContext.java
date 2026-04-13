@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
-import com.google.devtools.build.lib.skyframe.DirectoryTreeDigestValue;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -87,8 +86,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       Path outputDirectory,
       IgnoredSubdirectories ignoredSubdirectories,
       Environment environment,
-      ImmutableMap<String, String> repoEnvVariables,
-      ImmutableMap<String, String> clientEnvVariables,
+      ImmutableMap<String, String> repoEnv,
+      ImmutableMap<String, String> nonstrictRepoEnv,
       DownloadManager downloadManager,
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
@@ -101,8 +100,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
         outputDirectory,
         directories,
         environment,
-        repoEnvVariables,
-        clientEnvVariables,
+        repoEnv,
+        nonstrictRepoEnv,
         downloadManager,
         timeoutScaling,
         processWrapper,
@@ -191,6 +190,9 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
         method);
   }
 
+  // This method must not be moved to ModuleExtensionContext as the FS-specific watch in its
+  // implementation would cause lock files to differ across platforms. If this is ever needed, add
+  // a `copy` method instead.
   @StarlarkMethod(
       name = "symlink",
       doc = "Creates a symlink on the filesystem.",
@@ -228,6 +230,13 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       checkInOutputDirectory("write", linkPath);
       makeDirectories(linkPath.getPath());
       linkPath.getPath().createSymbolicLink(targetPath.getPath());
+      if (!linkPath
+          .getPath()
+          .getFileSystem()
+          .supportsSymbolicLinksNatively(linkPath.getPath().asFragment())) {
+        // The symlink may be emulated as a copy, which would need to be tracked for invalidation.
+        maybeWatch(targetPath, ShouldWatch.AUTO);
+      }
     } catch (IOException e) {
       throw new RepositoryFunctionException(
           new IOException(
@@ -471,7 +480,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
           The patch file should be a standard \
           <a href="https://en.wikipedia.org/wiki/Diff#Unified_format"> \
           unified diff format</a> file. \
-          The Bazel-native patch implementation doesn't support fuzz match and binary patch \
+          The Bazel-native patch implementation doesn't support binary patch \
           like the patch command line tool.
           """,
       useStarlarkThread = true,
@@ -566,15 +575,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       return;
     }
     try {
-      var recordedInput = new RepoRecordedInput.DirTree(repoCacheFriendlyPath);
-      DirectoryTreeDigestValue digestValue =
-          (DirectoryTreeDigestValue)
-              env.getValueOrThrow(recordedInput.getSkyKey(directories), IOException.class);
-      if (digestValue == null) {
-        throw new NeedsSkyframeRestartException();
-      }
-
-      recordInput(recordedInput, digestValue.hexDigest());
+      getValueAndRecordInput(new RepoRecordedInput.DirTree(repoCacheFriendlyPath));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }

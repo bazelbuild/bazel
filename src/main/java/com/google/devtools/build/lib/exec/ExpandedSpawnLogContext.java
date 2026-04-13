@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.Protos.File;
 import com.google.devtools.build.lib.exec.Protos.Platform;
@@ -61,6 +61,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -99,8 +100,10 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
       PathFragment execRoot,
       @Nullable RemoteOptions remoteOptions,
       DigestHashFunction digestHashFunction,
-      XattrProvider xattrProvider)
+      XattrProvider xattrProvider,
+      Predicate<Spawn> logSpawnPredicate)
       throws IOException {
+    super(logSpawnPredicate);
     this.encoding = encoding;
     this.sorted = sorted;
     this.tempPath = tempPath;
@@ -154,6 +157,9 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
       Duration timeout,
       SpawnResult result)
       throws IOException, ExecException {
+    if (!shouldLog(spawn)) {
+      return;
+    }
     try (SilentCloseable c = Profiler.instance().profile("logSpawn")) {
       SpawnExec.Builder builder = SpawnExec.newBuilder();
       builder.addAllCommandArgs(spawn.getArguments());

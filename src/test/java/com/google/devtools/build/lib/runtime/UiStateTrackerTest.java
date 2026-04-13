@@ -84,7 +84,7 @@ import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
-import java.net.URL;
+import java.net.URI;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
@@ -1294,7 +1294,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     clock.advance(Duration.ofSeconds(1234));
     UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 80);
 
-    URL url = new URL("http://example.org/first/dep");
+    URI url = URI.create("http://example.org/first/dep");
 
     stateTracker.buildStarted();
     stateTracker.downloadProgress(new DownloadProgressEvent(url));
@@ -1336,7 +1336,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     clock.advance(Duration.ofSeconds(1234));
     UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 80);
 
-    URL url = new URL("http://example.org/first/dep");
+    URI url = URI.create("http://example.org/first/dep");
 
     stateTracker.mainRepoMappingComputationStarted();
     stateTracker.downloadProgress(new DownloadProgressEvent(url));
@@ -1379,7 +1379,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1234));
     UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 60);
-    URL url = new URL("http://example.org/some/really/very/very/long/path/filename.tar.gz");
+    URI url = URI.create("http://example.org/some/really/very/very/long/path/filename.tar.gz");
 
     stateTracker.buildStarted();
     stateTracker.downloadProgress(new DownloadProgressEvent(url));
@@ -1387,7 +1387,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     for (int i = 0; i < 10; i++) {
       stateTracker.downloadProgress(
           new DownloadProgressEvent(
-              new URL(
+              URI.create(
                   "http://otherhost.example/another/also/length/path/to/another/download"
                       + i
                       + ".zip")));

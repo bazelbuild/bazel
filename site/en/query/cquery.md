@@ -165,9 +165,14 @@ The `config` operator attempts to find the configured target for
 the label denoted by the first argument and configuration specified by the
 second argument.
 
-Valid values for the second argument are `null` or a
-[custom configuration hash](#configurations). Hashes can be retrieved from `$
-bazel config` or a previous `cquery`'s output.
+Valid values for the second argument are:
+
+* 'target': The 'top-level' configuration for a cquery
+* 'anyexec': Identify any 'exec' configuration (always return first exec config,
+  in alphanumeric sorting of config hash.
+* `null` used for source files while have no configuration.
+* [custom configuration hash](#configurations). Hashes can be retrieved from
+  `$ blaze config` or a prevous `cquery`'s output.
 
 Examples:
 
@@ -400,7 +405,7 @@ all core Starlark
 plus a few cquery-specific ones described below, but not (for example) `glob`,
 `native`, or `rule`, and it does not support load statements.
 
-##### build_options(target) {:#build-options}
+##### build_options(target) {:#build-options-function}
 
 `build_options(target)` returns a map whose keys are build option identifiers
 (see [Configurations](/extending/config)) and whose values are their Starlark

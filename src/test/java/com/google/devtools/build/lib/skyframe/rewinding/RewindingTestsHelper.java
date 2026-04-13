@@ -29,13 +29,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Uninterruptibles;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -99,6 +98,7 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.IntStream;
 
 /**
  * Implements rewinding-specific infrastructure and test logic used for rewinding tests. Search for
@@ -161,21 +161,6 @@ public class RewindingTestsHelper {
   }
 
   /**
-   * Returns whether the execution strategy can handle rewinding happening concurrently with another
-   * action consuming the rewound action's outputs.
-   *
-   * <p>When an action is rewound, it executes a second time, including the {@link Action#prepare}
-   * step which deletes previous outputs on disk. Another action which observed its dependency to be
-   * done (before rewinding was initiated) may simultaneously attempt to consume these deleted
-   * outputs, leading to a flaky build failure. If this method returns {@code false}, test cases
-   * which exercise the described scenario will set {@code --jobs=1} to avoid the race condition.
-   */
-  @ForOverride
-  boolean supportsConcurrentRewinding() {
-    return false;
-  }
-
-  /**
    * Converts a file digest to a hex string compatible with the test's active {@link
    * com.google.devtools.build.lib.vfs.DigestHashFunction}.
    */
@@ -212,8 +197,8 @@ public class RewindingTestsHelper {
   }
 
   public final ControllableActionStrategyModule makeControllableActionStrategyModule(
-      String identifier) {
-    return new ControllableActionStrategyModule(spawnController, identifier);
+      String... identifiers) {
+    return new ControllableActionStrategyModule(spawnController, identifiers);
   }
 
   public final ImmutableList<String> getExecutedSpawnDescriptions() {
@@ -248,11 +233,11 @@ public class RewindingTestsHelper {
 
   public final ExecResult createLostInputsExecException(
       ActionExecutionContext context, ImmutableList<ActionInput> lostInputs) throws IOException {
-    ImmutableMap.Builder<String, ActionInput> builder = ImmutableMap.builder();
+    ImmutableSetMultimap.Builder<String, ActionInput> builder = ImmutableSetMultimap.builder();
     for (ActionInput lostInput : lostInputs) {
       builder.put(getHexDigest(lostInput, context), lostInput);
     }
-    return ExecResult.ofException(new LostInputsExecException(builder.buildOrThrow()));
+    return ExecResult.ofException(new LostInputsExecException(builder.build()));
   }
 
   private String getHexDigest(ActionInput input, ActionExecutionContext context)
@@ -653,7 +638,8 @@ public class RewindingTestsHelper {
           (spawn, context) -> {
             intermediate.set(SpawnInputUtils.getInputWithName(spawn, "intermediate.txt"));
             return ExecResult.ofException(
-                new LostInputsExecException(ImmutableMap.of("fakedigest/10", intermediate.get())));
+                new LostInputsExecException(
+                    ImmutableSetMultimap.of("fakedigest/10", intermediate.get())));
           });
     }
 
@@ -754,35 +740,33 @@ public class RewindingTestsHelper {
    * not contain the genrule action with one input.
    */
   public final void runMultipleLostInputsForRewindPlan() throws Exception {
-    if (!supportsConcurrentRewinding()) {
-      testCase.addOptions("--jobs=1");
-    }
     writeNGenrulePackages(ActionRewindStrategy.MAX_ACTION_REWIND_EVENTS + 1);
     for (int i = 1; i <= ActionRewindStrategy.MAX_ACTION_REWIND_EVENTS + 1; i++) {
       final int target = i;
       addSpawnShim(
           "Executing genrule //test:consume_" + target,
           (spawn, context) -> {
-            ImmutableMap.Builder<String, ActionInput> inputMapBuilder = ImmutableMap.builder();
+            ImmutableSetMultimap.Builder<String, ActionInput> inputMap =
+                ImmutableSetMultimap.builder();
             for (int e = 1; e <= target; e++) {
               ActionInput input = SpawnInputUtils.getInputWithName(spawn, "out_" + e + ".txt");
-              inputMapBuilder.put("fake_digest_" + target + "_" + e, input);
+              inputMap.put("fake_digest_" + target + "_" + e, input);
             }
-            ImmutableMap<String, ActionInput> inputMap = inputMapBuilder.buildOrThrow();
-            return ExecResult.ofException(new LostInputsExecException(inputMap));
+            return ExecResult.ofException(new LostInputsExecException(inputMap.build()));
           });
     }
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
     testCase.buildTarget(
-        "//test:consume_1",
-        "//test:consume_2",
-        "//test:consume_3",
-        "//test:consume_4",
-        "//test:consume_5",
-        "//test:consume_6");
+        IntStream.rangeClosed(1, ActionRewindStrategy.MAX_ACTION_REWIND_EVENTS + 1)
+            .mapToObj(i -> "//test:consume_" + i)
+            .toArray(String[]::new));
     assertOnlyActionsRewound(rewoundKeys);
     verifyAllSpawnShimsConsumed();
-    recorder.assertTotalLostInputCountsFromStats(ImmutableList.of(21));
+    recorder.assertTotalLostInputCountsFromStats(
+        ImmutableList.of(
+            (ActionRewindStrategy.MAX_ACTION_REWIND_EVENTS + 1)
+                * (ActionRewindStrategy.MAX_ACTION_REWIND_EVENTS + 2)
+                / 2));
   }
 
   public final void runInterruptedDuringRewindStopsNormally() throws Exception {
@@ -791,14 +775,13 @@ public class RewindingTestsHelper {
     // build. The build should stop with an interrupt normally (and not crash).
     writeTwoGenrulePackage(testCase);
 
-    Thread mainThread = Thread.currentThread();
     addSpawnShim(
         "Executing genrule //test:rule2",
         (spawn, context) -> {
           addSpawnShim(
               "Executing genrule //test:rule1",
               (ignoredSpawn, ignoredContext) -> {
-                mainThread.interrupt();
+                Thread.currentThread().interrupt();
                 return ExecResult.delegate();
               });
 
@@ -1531,10 +1514,6 @@ public class RewindingTestsHelper {
 
     addSpawnShim("Compiling tree/make_cc_dir.cc/file1.cc", shim);
 
-    if (!supportsConcurrentRewinding()) {
-      testCase.addOptions("--jobs=1");
-    }
-
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
     testCase.buildTarget("//tree:consumes_tree");
 
@@ -1636,10 +1615,6 @@ public class RewindingTestsHelper {
     setUpTreeArtifactPackage(testCase);
 
     addSpawnShim("Linking tree/libconsumes_tree.so", shim);
-
-    if (!supportsConcurrentRewinding()) {
-      testCase.addOptions("--jobs=1");
-    }
 
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
     testCase.buildTarget("//tree:consumes_tree");
@@ -1811,6 +1786,7 @@ public class RewindingTestsHelper {
       HashSet<String> expectedRewoundGenrules =
           new HashSet<>(ImmutableList.of("//middle:gen1", "//middle:gen2"));
       int i = 0;
+      boolean sourceManifestActionSeen = false;
       while (i < 5) {
         assertThat(rewoundKeys.get(i)).isInstanceOf(ActionLookupData.class);
         ActionLookupData actionKey = (ActionLookupData) rewoundKeys.get(i);
@@ -1818,14 +1794,16 @@ public class RewindingTestsHelper {
         i++;
         if (actionLabel.equals("//middle:tool")) {
           switch (actionKey.getActionIndex()) {
-            case 0: // SymlinkAction
-              break;
-            case 1: // SourceManifestAction
-              assertActionKey(rewoundKeys.get(i), "//middle:tool", 2);
-              i++;
-              break;
-            default:
-              fail(String.format("Unexpected action index. actionKey: %s, i: %s", actionKey, i));
+            // SymlinkAction
+            case 0 -> {}
+            case 1 -> sourceManifestActionSeen = true;
+            // SymlinkTreeAction
+            case 2 -> assertThat(sourceManifestActionSeen).isTrue();
+            default ->
+                fail(
+                    String.format(
+                        "Unexpected action index. actionKey: %s, rewoundKeys: %s",
+                        actionKey, rewoundKeys));
           }
         } else {
           assertThat(expectedRewoundGenrules.remove(actionLabel)).isTrue();
@@ -1980,32 +1958,30 @@ public class RewindingTestsHelper {
 
     if (buildRunfileManifests()) {
       assertThat(rewoundKeys).hasSize(5);
-      int i = 0;
-      while (i < 4) {
+      boolean sourceManifestActionSeen = false;
+      for (int i = 0; i < 4; i++) {
         assertThat(rewoundKeys.get(i)).isInstanceOf(ActionLookupData.class);
         ActionLookupData actionKey = (ActionLookupData) rewoundKeys.get(i);
         String actionLabel = actionKey.getLabel().getCanonicalForm();
-        i++;
         if (actionLabel.equals("//test:tool")) {
           switch (actionKey.getActionIndex()) {
-            case 0: // SymlinkAction
-              break;
-            case 1: // SourceManifestAction
-              assertActionKey(rewoundKeys.get(i), "//test:tool", /* index= */ 2);
-              i++;
-              break;
-            default:
-              fail(
-                  String.format(
-                      "Unexpected action index. actionKey: %s, rewoundKeys: %s",
-                      actionKey, rewoundKeys));
+            // SymlinkAction
+            case 0 -> {}
+            case 1 -> sourceManifestActionSeen = true;
+            // SymlinkTreeAction
+            case 2 -> assertThat(sourceManifestActionSeen).isTrue();
+            default ->
+                fail(
+                    String.format(
+                        "Unexpected action index. actionKey: %s, rewoundKeys: %s",
+                        actionKey, rewoundKeys));
           }
         } else {
           assertThat(actionLabel).isEqualTo("//test:rule1");
         }
       }
 
-      assertActionKey(rewoundKeys.get(i++), "//test:tool", /* index= */ 3);
+      assertActionKey(rewoundKeys.get(4), "//test:tool", /* index= */ 3);
     } else {
       assertThat(rewoundKeys).hasSize(3);
       int i = 0;
@@ -2125,6 +2101,7 @@ public class RewindingTestsHelper {
     if (buildRunfileManifests()) {
       assertThat(rewoundKeys).hasSize(6);
       int i = 0;
+      boolean sourceManifestActionSeen = false;
       while (i < 5) {
         assertThat(rewoundKeys.get(i)).isInstanceOf(ActionLookupData.class);
         ActionLookupData actionKey = (ActionLookupData) rewoundKeys.get(i);
@@ -2132,14 +2109,16 @@ public class RewindingTestsHelper {
         i++;
         if (actionLabel.equals("//middle:tool")) {
           switch (actionKey.getActionIndex()) {
-            case 0: // SymlinkAction
-              break;
-            case 1: // SourceManifestAction
-              assertActionKey(rewoundKeys.get(i), "//middle:tool", 2);
-              i++;
-              break;
-            default:
-              fail(String.format("Unexpected action index. actionKey: %s", actionKey));
+            // SymlinkAction
+            case 0 -> {}
+            case 1 -> sourceManifestActionSeen = true;
+            // SymlinkTreeAction
+            case 2 -> assertThat(sourceManifestActionSeen).isTrue();
+            default ->
+                fail(
+                    String.format(
+                        "Unexpected action index. actionKey: %s, rewoundKeys: %s",
+                        actionKey, rewoundKeys));
           }
         } else {
           assertThat(actionLabel).isEqualTo("//middle:gen_tree");
@@ -2806,6 +2785,26 @@ public class RewindingTestsHelper {
         .hasCount("Compiling foo/dep.cppmap", 2);
   }
 
+  public final void runMultipleLostInputsWithSameDigest_rewoundTogether() throws Exception {
+    testCase.write(
+        "foo/BUILD",
+        """
+        genrule(name = "top", srcs = [":dep1", ":dep2"], outs = ["top.out"], cmd = "echo top >$@")
+        genrule(name = "dep1", outs = ["dep1.out"], cmd = "echo dep > $@")
+        genrule(name = "dep2", outs = ["dep2.out"], cmd = "echo dep > $@")
+        """);
+    addSpawnShim(
+        "Executing genrule //foo:top",
+        (spawn, context) -> createLostInputsExecException(spawn, context, "dep1.out", "dep2.out"));
+    List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
+
+    testCase.buildTarget("//foo:top");
+
+    verifyAllSpawnShimsConsumed();
+    assertThat(rewoundArtifactOwnerLabels(rewoundKeys)).containsExactly("//foo:dep1", "//foo:dep2");
+    assertThat(recorder.getActionRewoundEvents()).hasSize(1);
+  }
+
   public final void runLostTopLevelOutputWithRewindingDisabled() throws Exception {
     testCase.write(
         "foo/BUILD", "genrule(name = 'gen', outs = ['gen.out'], cmd = 'echo lost > $@')");
@@ -3236,7 +3235,7 @@ public class RewindingTestsHelper {
   }
 
   final boolean buildRunfileManifests() {
-    return testCase.getRuntimeWrapper().getOptions(CoreOptions.class).buildRunfileManifests;
+    return testCase.getRuntimeWrapper().getOptions(CoreOptions.class).getBuildRunfileManifests();
   }
 
   final Map<Label, TargetCompleteEvent> recordTargetCompleteEvents() {

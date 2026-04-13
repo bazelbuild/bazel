@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -171,14 +171,19 @@ public final class SpawnInputExpander {
             /* keepRunfilesTrees= */ true);
     for (ActionInput input : inputs) {
       switch (input) {
-        case TreeFileArtifact treeFileArtifact ->
-            addMapping(
-                inputMap,
-                pathMapper
-                    .map(treeFileArtifact.getParent().getExecPath())
-                    .getRelative(treeFileArtifact.getParentRelativePath()),
-                input,
-                baseDirectory);
+        case TreeFileArtifact child -> {
+          Artifact parent = child.getParent();
+          PathFragment parentPath = pathMapper.map(parent.getExecPath());
+          addMapping(
+              inputMap,
+              // If the PathMapper was no-op for the parent, we can use the child's exec path and
+              // avoid path concatenation.
+              parentPath.equals(parent.getExecPath())
+                  ? child.getExecPath()
+                  : parentPath.getRelative(child.getParentRelativePath()),
+              input,
+              baseDirectory);
+        }
         case Artifact runfilesTreeArtifact when runfilesTreeArtifact.isRunfilesTree() ->
             addSingleRunfilesTreeToInputs(
                 inputMetadataProvider.getRunfilesMetadata(runfilesTreeArtifact).getRunfilesTree(),

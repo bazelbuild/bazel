@@ -1,10 +1,3 @@
-<html devsite>
-<head>
-  <meta name="project_path" value="/_project.yaml">
-  <meta name="book_path" value="/_book.yaml">
-</head>
-<body>
-
 ---
 title: 'Bazel flag cheat sheet'
 ---
@@ -12,28 +5,14 @@ title: 'Bazel flag cheat sheet'
 Navigating Bazel's extensive list of command line flags can be a challenge.
 This page focuses on the most crucial flags you'll need to know.
 
-<style>
 
-table {
-  width: 100%;
-}
-.flag {
-  width: 28%'
-  align: left;
-}
-.description {
-  width: 72%;
-  align:left;
-}
-
-</style>
 
 <aside class="tip">
   <b>Tip:</b> Select the flag name in table to navigate to its entry in the
   command line reference.
 </aside>
 
-## Useful general options {:#useful-command}
+## Useful general options {#useful-command}
 
 The following flags are meant to be set explicitly on the command line.
 
@@ -107,7 +86,7 @@ Adds build info (user, timestamp) to binaries.
 </tr>
 </table>
 
-## Uncover Build & Test Issues {:#uncover-build}
+## Uncover Build & Test Issues {#uncover-build}
 
 The following flags can help you better understand Bazel build or test errors.
 
@@ -181,7 +160,7 @@ regardless of whether it succeeds or fails
  </tr>
  </table>
 
-## Startup {:#startup}
+## Startup {#startup}
 
 Caution: Startup flags need to be passed before the command and cause
 a server restart. Toggle these flags with caution.
@@ -270,7 +249,7 @@ see <a href="https://bazel.build/run/scripts#output-base-option">Choosing the ou
   </tr>
  </table>
 
-## Bazel tests {:#bazel-tests}
+## Bazel tests {#bazel-tests}
 
 The following flags are related to Bazel test
 
@@ -339,7 +318,7 @@ real time.
   </tr>
  </table>
 
-## Bazel run {:#bazel-run}
+## Bazel run {#bazel-run}
 
 The following flags are related to Bazel run.
 
@@ -364,7 +343,7 @@ commonly used for debugging.
 
  </table>
 
-## User-specific bazelrc options {:#user-specific-bazelrc}
+## User-specific bazelrc options {#user-specific-bazelrc}
 
 The following flags are related to user-specific **.bazelrc**
 options.
@@ -444,7 +423,7 @@ build.
   </tr>
  </table>
 
-## Project-specific bazelrc options {:#project-specific-bazelrc}
+## Project-specific bazelrc options {#project-specific-bazelrc}
 
 The following flags are related to project-specific <strong>.bazelrc</strong>
 options.
@@ -558,5 +537,3 @@ to your build command.
   </tr>
 
  </table>
-</body>
-</html>

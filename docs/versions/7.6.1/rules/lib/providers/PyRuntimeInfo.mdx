@@ -1,0 +1,109 @@
+---
+title: 'PyRuntimeInfo'
+---
+
+Contains information about a Python runtime, as returned by the `py_runtime`rule.
+
+A Python runtime describes either a *platform runtime* or an *in-build runtime*. A platform runtime accesses a system-installed interpreter at a known path, whereas an in-build runtime points to a `File` that acts as the interpreter. In both cases, an "interpreter" is really any executable binary or wrapper script that is capable of running a Python script passed on the command line, following the same conventions as the standard CPython interpreter.
+
+## Members
+
+* [PyRuntimeInfo](#PyRuntimeInfo)
+* [bootstrap\_template](#bootstrap_template)
+* [coverage\_files](#coverage_files)
+* [coverage\_tool](#coverage_tool)
+* [files](#files)
+* [interpreter](#interpreter)
+* [interpreter\_path](#interpreter_path)
+* [python\_version](#python_version)
+* [stub\_shebang](#stub_shebang)
+
+## PyRuntimeInfo
+
+```
+PyRuntimeInfo PyRuntimeInfo(interpreter_path=None, interpreter=None, files=None, coverage_tool=None, coverage_files=None, python_version, stub_shebang=None, bootstrap_template=None)
+```
+
+The `PyRuntimeInfo` constructor.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `interpreter_path` | [string](../core/string); or `None`; default is `None`  The value for the new object's `interpreter_path` field. Do not give a value for this argument if you pass in `interpreter`. |
+| `interpreter` | [File](../builtins/File); or `None`; default is `None`  The value for the new object's `interpreter` field. Do not give a value for this argument if you pass in `interpreter_path`. |
+| `files` | [depset](../builtins/depset) of [File](../builtins/File)s; or `None`; default is `None`  The value for the new object's `files` field. Do not give a value for this argument if you pass in `interpreter_path`. If `interpreter` is given and this argument is `None`, `files` becomes an empty `depset` instead. |
+| `coverage_tool` | [File](../builtins/File); or `None`; default is `None`  The value for the new object's `coverage_tool` field. |
+| `coverage_files` | [depset](../builtins/depset) of [File](../builtins/File)s; or `None`; default is `None`  The value for the new object's `coverage_files` field. Do not give a value for this argument if you do not also pass in `coverage_tool`. |
+| `python_version` | required  The value for the new object's `python_version` field. |
+| `stub_shebang` | [string](../core/string); default is `None`  The value for the new object's `stub_shebang` field. If None or not specified, `#!/usr/bin/env python3` is used. |
+| `bootstrap_template` | [File](../builtins/File); or `None`; default is `None` |
+
+## bootstrap\_template
+
+```
+File PyRuntimeInfo.bootstrap_template
+```
+
+The stub script template file to use. Should have %python\_binary%, %workspace\_name%, %main%, and %imports%. See @bazel\_tools//tools/python:python\_bootstrap\_template.txt for more variables.
+
+## coverage\_files
+
+```
+depset PyRuntimeInfo.coverage_files
+```
+
+The files required at runtime for using `coverage_tool`. Will be `None` if no `coverage_tool` was provided.
+May return `None`.
+
+## coverage\_tool
+
+```
+File PyRuntimeInfo.coverage_tool
+```
+
+If set, this field is a `File` representing tool used for collecting code coverage information from python tests. Otherwise, this is `None`.
+May return `None`.
+
+## files
+
+```
+depset PyRuntimeInfo.files
+```
+
+If this is an in-build runtime, this field is a `depset` of `File`s that need to be added to the runfiles of an executable target that uses this runtime (in particular, files needed by `interpreter`). The value of `interpreter` need not be included in this field. If this is a platform runtime then this field is `None`.
+May return `None`.
+
+## interpreter
+
+```
+File PyRuntimeInfo.interpreter
+```
+
+If this is an in-build runtime, this field is a `File` representing the interpreter. Otherwise, this is `None`. Note that an in-build runtime can use either a prebuilt, checked-in interpreter or an interpreter built from source.
+May return `None`.
+
+## interpreter\_path
+
+```
+string PyRuntimeInfo.interpreter_path
+```
+
+If this is a platform runtime, this field is the absolute filesystem path to the interpreter on the target platform. Otherwise, this is `None`.
+May return `None`.
+
+## python\_version
+
+```
+string PyRuntimeInfo.python_version
+```
+
+Indicates whether this runtime uses Python major version 2 or 3. Valid values are (only) `"PY2"` and `"PY3"`.
+
+## stub\_shebang
+
+```
+string PyRuntimeInfo.stub_shebang
+```
+
+"Shebang" expression prepended to the bootstrapping Python stub script used when executing `py_binary` targets. Does not apply to Windows.

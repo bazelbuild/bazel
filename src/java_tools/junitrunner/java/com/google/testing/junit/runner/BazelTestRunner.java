@@ -14,6 +14,7 @@
 
 package com.google.testing.junit.runner;
 
+import com.google.testing.junit.runner.internal.SignalHandlers;
 import com.google.testing.junit.runner.internal.StackTraces;
 import com.google.testing.junit.runner.junit4.JUnit4Bazel;
 import com.google.testing.junit.runner.junit4.JUnit4InstanceModules.Config;
@@ -25,8 +26,9 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import org.junit.runner.Result;
+import sun.misc.Signal;
 
 /**
  * A class to run JUnit tests in a controlled environment.
@@ -40,10 +42,11 @@ import org.junit.runner.Result;
  * <p>It also traps SIGTERM signals to make sure that the test report is written when the signal is
  * closed by the unit test framework for running over time.
  */
+@SuppressWarnings("SunApi") // for signal handling, see JDK-8349056
 public class BazelTestRunner {
   /**
-   * If no arguments are passed on the command line, use this System property to
-   * determine which test suite to run.
+   * If no arguments are passed on the command line, use this System property to determine which
+   * test suite to run.
    */
   static final String TEST_SUITE_PROPERTY_NAME = "bazel.test_suite";
 
@@ -77,6 +80,10 @@ public class BazelTestRunner {
    */
   public static void main(String[] args) {
     PrintStream stderr = System.err;
+
+    // Install signal handlers early to ensure stack traces are printed even if the test
+    // is interrupted during suite creation.
+    installSignalHandlers(stderr);
 
     String suiteClassName = System.getProperty(TEST_SUITE_PROPERTY_NAME);
     if (!checkTestSuiteProperty(suiteClassName)) {
@@ -123,14 +130,17 @@ public class BazelTestRunner {
           TEST_SUITE_PROPERTY_NAME);
       System.err.println();
       System.err.println("This property is set automatically when running with Bazel like such:");
-      System.err.printf("  java -D%s=[test-suite-class] %s%n",
+      System.err.printf(
+          "  java -D%s=[test-suite-class] %s%n",
           TEST_SUITE_PROPERTY_NAME, BazelTestRunner.class.getName());
-      System.err.printf("  java -D%s=[test-suite-class] -jar [deploy-jar]%n",
-          TEST_SUITE_PROPERTY_NAME);
+      System.err.printf(
+          "  java -D%s=[test-suite-class] -jar [deploy-jar]%n", TEST_SUITE_PROPERTY_NAME);
       System.err.println("E.g.:");
-      System.err.printf("  java -D%s=org.example.testing.junit.runner.SmallTests %s%n",
+      System.err.printf(
+          "  java -D%s=org.example.testing.junit.runner.SmallTests %s%n",
           TEST_SUITE_PROPERTY_NAME, BazelTestRunner.class.getName());
-      System.err.printf("  java -D%s=org.example.testing.junit.runner.SmallTests "
+      System.err.printf(
+          "  java -D%s=org.example.testing.junit.runner.SmallTests "
               + "-jar SmallTests_deploy.jar%n",
           TEST_SUITE_PROPERTY_NAME);
       return false;
@@ -200,10 +210,10 @@ public class BazelTestRunner {
                     final List<Thread> nonDaemonAliveThreads =
                         Thread.getAllStackTraces().keySet().stream()
                             .filter(Thread::isAlive)
-                            .filter(Predicate.not(Thread::isDaemon))
-                            .filter(t -> t.threadId() != currentThread.threadId())
-                            .filter(t -> t.threadId() != mainThread.threadId())
-                            .toList();
+                            .filter(thread -> !thread.isDaemon())
+                            .filter(t -> t.getId() != currentThread.getId())
+                            .filter(t -> t.getId() != mainThread.getId())
+                            .collect(Collectors.toList());
 
                     if (nonDaemonAliveThreads.isEmpty()) {
                       return;
@@ -220,22 +230,20 @@ public class BazelTestRunner {
    * @param out Print stream to use
    */
   private static void printStackTracesIfJvmExitHangs(final PrintStream out) {
-    Thread thread = new Thread(new Runnable() {
-      @Override
-      public void run() {
-        sleepUninterruptibly(5);
-        out.println("JVM still up after five seconds. Dumping stack traces for all threads.");
-        StackTraces.printAll(out);
-      }
-    }, "BazelTestRunner: Print stack traces if JVM exit hangs");
+    Thread thread =
+        new Thread(
+            () -> {
+              sleepUninterruptibly(5);
+              out.println("JVM still up after five seconds. Dumping stack traces for all threads.");
+              StackTraces.printAll(out, /* emitJsonThreadDump= */ true);
+            },
+            "BazelTestRunner: Print stack traces if JVM exit hangs");
 
     thread.setDaemon(true);
     thread.start();
   }
 
-  /**
-   * Invokes SECONDS.{@link TimeUnit#sleep(long) sleep(sleepForSeconds)} uninterruptibly.
-   */
+  /** Invokes SECONDS.{@link TimeUnit#sleep(long) sleep(sleepForSeconds)} uninterruptibly. */
   private static void sleepUninterruptibly(long sleepForSeconds) {
     boolean interrupted = false;
     try {
@@ -254,5 +262,16 @@ public class BazelTestRunner {
         Thread.currentThread().interrupt();
       }
     }
+  }
+
+  /** Installs a SIGTERM handler that prints stack traces for all threads. */
+  private static void installSignalHandlers(PrintStream errPrintStream) {
+    SignalHandlers signalHandlers = new SignalHandlers(SignalHandlers.createRealHandlerInstaller());
+    signalHandlers.installHandler(
+        new Signal("TERM"),
+        __ -> {
+          errPrintStream.println("Received SIGTERM, dumping stack traces for all threads\n");
+          StackTraces.printAll(errPrintStream, /* emitJsonThreadDump= */ true);
+        });
   }
 }

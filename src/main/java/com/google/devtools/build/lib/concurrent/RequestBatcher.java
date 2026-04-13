@@ -621,7 +621,7 @@ public class RequestBatcher<RequestT, ResponseT> {
     }
   }
 
-  private static final int REQUEST_COUNT_MASK = 0x000F_FFFF;
+  private static final int REQUEST_COUNT_MASK = 0x0000_FFFF;
   private static final int ONE_REQUEST = 1;
 
   private static final int ACTIVE_WORKERS_COUNT_BIT_OFFSET = 20;

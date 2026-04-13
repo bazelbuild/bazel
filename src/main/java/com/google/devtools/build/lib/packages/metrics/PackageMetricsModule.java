@@ -25,19 +25,21 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import javax.annotation.Nullable;
 
 /** Provides logging for extreme package-loading events. */
 public class PackageMetricsModule extends BlazeModule {
   /** Options for {@link PackageMetricsModule}. */
-  public static class Options extends OptionsBase {
+  @OptionsClass
+  public abstract static class Options extends OptionsBase {
     @Option(
         name = "log_top_n_packages",
         defaultValue = "10",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
         help = "Configures number of packages included in top-package INFO logging, <= 0 disables.")
-    public int numberOfPackagesToTrack;
+    public abstract int getNumberOfPackagesToTrack();
 
     @Option(
         name = "record_metrics_for_all_packages",
@@ -47,7 +49,7 @@ public class PackageMetricsModule extends BlazeModule {
         help =
             "Configures PackageMetrics to record all metrics for all packages. Disables Top-n INFO"
                 + " logging.")
-    public boolean enableAllMetrics;
+    public abstract boolean getEnableAllMetrics();
 
     @Option(
         name = "experimental_publish_package_metrics_in_bep",
@@ -55,7 +57,7 @@ public class PackageMetricsModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
         help = "Whether to publish package metrics in the BEP.")
-    public boolean publishPackageMetricsInBep;
+    public abstract boolean getPublishPackageMetricsInBep();
   }
 
   private final PackageMetricsPackageLoadingListener packageLoadingListener;
@@ -87,11 +89,11 @@ public class PackageMetricsModule extends BlazeModule {
   public void beforeCommand(CommandEnvironment commandEnvironment) {
     Options options = commandEnvironment.getOptions().getOptions(Options.class);
     PackageMetricsRecorder recorder =
-        options.enableAllMetrics
+        options.getEnableAllMetrics()
             ? new CompletePackageMetricsRecorder()
-            : new ExtremaPackageMetricsRecorder(Math.max(options.numberOfPackagesToTrack, 0));
+            : new ExtremaPackageMetricsRecorder(Math.max(options.getNumberOfPackagesToTrack(), 0));
     packageLoadingListener.setPackageMetricsRecorder(recorder);
-    packageLoadingListener.setPublishPackageMetricsInBep(options.publishPackageMetricsInBep);
+    packageLoadingListener.setPublishPackageMetricsInBep(options.getPublishPackageMetricsInBep());
   }
 
   @Override

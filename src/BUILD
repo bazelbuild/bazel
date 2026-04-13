@@ -32,7 +32,7 @@ sh_binary(
         # Ensure we haven't forgotten any package-zip items,
         # otherwise bazel won't correctly reextract modified files.
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
-        "//src/main/java/net/starlark/java/eval:cpu_profiler",
+        "//src/main/java/net/starlark/java/eval:cpu_profiler_jni",
         "//src/main/cpp:client",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
@@ -130,11 +130,7 @@ JAVA_TOOLS = [
     ],
 ) for suffix, jdk in {
     "_jdk_allmodules": [":embedded_jdk_allmodules"],
-    "_jdk_minimal": select({
-        # We cannot minimize the JDK during cross compiling for Windows arm64
-        "//src/conditions:windows_arm64": [":embedded_jdk_vanilla"],
-        "//conditions:default": [":embedded_jdk_minimal"],
-    }),
+    "_jdk_minimal": [":embedded_jdk_minimal"],
     "_nojdk": [],
 }.items()]
 
@@ -195,6 +191,11 @@ copy_file(
 cc_binary(
     name = "read_manifest",
     srcs = ["read_manifest.cc"],
+    linkopts = select({
+        # MinGW requires -municode when using wmain.
+        "@rules_cc//cc/compiler:clang": ["-municode"],
+        "//conditions:default": [],
+    }),
     tags = ["manual"],
     target_compatible_with = ["@platforms//os:windows"],
     visibility = ["//src/java_tools:__subpackages__"],
@@ -204,6 +205,11 @@ cc_binary(
 cc_binary(
     name = "write_manifest",
     srcs = ["write_manifest.cc"],
+    linkopts = select({
+        # MinGW requires -municode when using wmain.
+        "@rules_cc//cc/compiler:clang": ["-municode"],
+        "//conditions:default": [],
+    }),
     tags = ["manual"],
     target_compatible_with = ["@platforms//os:windows"],
     visibility = ["//src/java_tools:__subpackages__"],
@@ -229,9 +235,15 @@ genrule(
     srcs = [
         ":embedded_jdk_vanilla",
         ":jdeps_modules.golden",
-    ],
+    ] + select({
+        "//src/conditions:windows_arm64": ["@openjdk_win_arm64_jmods//file"],
+        "//conditions:default": [],
+    }),
     outs = ["minimal_jdk.zip"],
-    cmd = "$(location :minimize_jdk) $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
+    cmd = "$(location :minimize_jdk) $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@" + select({
+        "//src/conditions:windows_arm64": " $(location @openjdk_win_arm64_jmods//file)",
+        "//conditions:default": "",
+    }),
     tools = [
         ":jdk_for_jlink",
         ":minimize_jdk",
@@ -244,9 +256,15 @@ genrule(
     srcs = [
         ":embedded_jdk_vanilla",
         ":jdeps_modules.golden",
-    ],
+    ] + select({
+        "//src/conditions:windows_arm64": ["@openjdk_win_arm64_jmods//file"],
+        "//conditions:default": [],
+    }),
     outs = ["allmodules_jdk.zip"],
-    cmd = "$(location :minimize_jdk) --allmodules $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
+    cmd = "$(location :minimize_jdk) --allmodules $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@" + select({
+        "//src/conditions:windows_arm64": " $(location @openjdk_win_arm64_jmods//file)",
+        "//conditions:default": "",
+    }),
     tools = [
         ":jdk_for_jlink",
         ":minimize_jdk",
@@ -295,7 +313,7 @@ genrule(
         "install_base_key" + suffix,
         "//:platforms-srcs",
         # Non-ordered items follow:
-        "//src/main/java/net/starlark/java/eval:cpu_profiler",
+        "//src/main/java/net/starlark/java/eval:cpu_profiler_jni",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
@@ -412,7 +430,6 @@ filegroup(
         "//src/test/java/net/starlark/java:srcs",
         "//src/test/native/windows:srcs",
         "//src/test/py/bazel:srcs",
-        "//src/test/res:srcs",
         "//src/test/shell:srcs",
         "//src/test/testdata/test_tls_certificate",
         "//src/test/tools:srcs",
@@ -446,7 +463,6 @@ filegroup(
         "//src/test/java/net/starlark/java:srcs",
         "//src/test/native/windows:srcs",
         "//src/test/py/bazel:srcs",
-        "//src/test/res:srcs",
         "//src/test/shell:srcs",
         "//src/test/testdata/test_tls_certificate",
         "//src/test/tools:srcs",

@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
@@ -52,6 +53,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Provider;
@@ -3149,6 +3151,33 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testFileWriteActionInterfaceWithArgsAndSupportsPathMapping() throws Exception {
+    useConfiguration("--experimental_output_paths=strip");
+    scratch.file(
+        "test/rules.bzl",
+        getSimpleUnderTestDefinition(
+            "args = ctx.actions.args()",
+            "args.add('foo123')",
+            "ctx.actions.write(output=out, content=args,"
+                + " execution_requirements={'supports-path-mapping': ''})"),
+        testingRuleDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
+    setRuleContext(ruleContext);
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
+    var action = (Action) ev.eval("ruleContext.attr.dep[Actions].by_file[file]");
+    ev.update("action", action);
+
+    assertThat(ev.eval("type(action)")).isEqualTo("Action");
+    assertThat(action.getExecutionInfo()).containsEntry("supports-path-mapping", "");
+
+    Object contentUnchecked = ev.eval("action.content");
+    assertThat(contentUnchecked).isInstanceOf(String.class);
+    // Args content ends the file with a newline
+    assertThat(contentUnchecked).isEqualTo("foo123\n");
+  }
+
+  @Test
   public void testFileWriteActionInterfaceWithArgsContainingTreeArtifact() throws Exception {
     scratch.file(
         "test/rules.bzl",
@@ -5015,5 +5044,40 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     var result = ((StarlarkInfo) myTarget.get(myProviderKey)).getValue("result");
     // Dependencies output path should have `-opt` after the transition.
     ((Iterable<?>) result).forEach(s -> assertThat(s.toString()).contains("-opt/"));
+  }
+
+  @Test
+  public void testPackageRelativeLabel() throws Exception {
+    scratch.file("rules/BUILD");
+    scratch.file(
+        "rules/rules.bzl",
+        """
+        MyProvider = provider()
+
+        def _impl(ctx):
+            return MyProvider(result = ctx.package_relative_label(":some_target"))
+
+        my_rule = rule(
+          implementation = _impl,
+        )
+        """);
+
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//rules:rules.bzl", "my_rule")
+
+        my_rule(
+            name = "my_target",
+        )
+        """);
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//test:my_target");
+    Provider.Key myProviderKey =
+        new StarlarkProvider.Key(
+            keyForBuild(Label.create(PackageIdentifier.createInMainRepo("rules"), "rules.bzl")),
+            "MyProvider");
+    var result = (Label) ((StarlarkInfo) myTarget.get(myProviderKey)).getValue("result");
+    assertThat(result).isEqualTo(Label.parseCanonicalUnchecked("//test:some_target"));
   }
 }

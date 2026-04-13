@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.shell;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
 import java.io.File;
 import java.io.IOException;
@@ -159,6 +161,10 @@ public class JavaSubprocessFactory implements SubprocessFactory {
 
   @Override
   public Subprocess create(SubprocessBuilder params) throws IOException {
+    Preconditions.checkState(
+        OS.getCurrent() != OS.WINDOWS,
+        "attempting to use non-Windows subprocess factory on Windows - did you forget to call"
+            + " WindowsSubprocessFactory.maybeInstallWindowsSubprocessFactory?");
     ProcessBuilder builder = new ProcessBuilder();
     builder.command(Lists.transform(params.getArgv(), StringEncoding::internalToPlatform));
     builder.environment().clear();

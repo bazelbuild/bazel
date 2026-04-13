@@ -15,10 +15,10 @@
 package com.google.devtools.coverageoutputgenerator;
 
 import com.google.common.collect.ImmutableList;
+import java.util.AbstractMap;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -343,7 +343,7 @@ final class BranchCoverage implements Iterable<Entry<BranchCoverageKey, BranchCo
         throw new NoSuchElementException();
       }
       Entry<BranchCoverageKey, BranchCoverageItem> result =
-          Map.entry(
+          new AbstractMap.SimpleImmutableEntry<>(
               BranchCoverageKey.create(
                   lineNumberKeyData[idx], blockIdKeyData[idx], branchIdKeyData[idx]),
               BranchCoverageItem.create(

@@ -81,7 +81,7 @@ public final class RunfilesArtifactValue implements RichArtifactData {
 
     // Compute the digest of this runfiles tree by combining its layout and the digests of every
     // artifact it references.
-    this.metadata = FileArtifactValue.createProxy(computeDigest());
+    this.metadata = FileArtifactValue.createRunfilesProxy(computeDigest());
   }
 
   private byte[] computeDigest() {

@@ -68,8 +68,6 @@ import org.junit.Before;
  * simply call a check... method) across several rule types.
  */
 public abstract class ObjcRuleTestCase extends BuildViewTestCase {
-  protected static final ImmutableList<String> FASTBUILD_COPTS = ImmutableList.of("-O0", "-DDEBUG");
-
   protected static final DottedVersion DEFAULT_IOS_SDK_VERSION =
       DottedVersion.fromStringUnchecked(AppleCommandLineOptions.DEFAULT_IOS_SDK_VERSION);
 
@@ -315,9 +313,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    '//command_line_option:watchos_cpus',",
         "]",
         "_apple_rule_base_transition_outputs = [",
-        "    '//command_line_option:apple configuration distinguisher',",
         "    '//command_line_option:apple_platform_type',",
-        "    '//command_line_option:apple_platforms',",
         "    '//command_line_option:apple_split_cpu',",
         "    '//command_line_option:compiler',",
         "    '//command_line_option:cpu',",
@@ -341,10 +337,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    cpu = ('darwin_' + environment_arch if platform_type == 'macos'",
         "            else platform_type + '_' +  environment_arch)",
         "    output_dictionary = {",
-        "        '//command_line_option:apple configuration distinguisher':",
-        "            'applebin_' + platform_type,",
         "        '//command_line_option:apple_platform_type': platform_type,",
-        "        '//command_line_option:apple_platforms': [],",
         "        '//command_line_option:apple_split_cpu': environment_arch,",
         "        '//command_line_option:compiler': None,",
         "        '//command_line_option:cpu': cpu,",
@@ -1392,17 +1385,12 @@ cc_toolchain_forwarder = rule(
     return rootedPaths.build();
   }
 
-  protected void checkClangCoptsForCompilationMode(
-      RuleType ruleType, CompilationMode mode, boolean includeLegacyFlags) throws Exception {
+  protected void checkClangCoptsForCompilationMode(RuleType ruleType, CompilationMode mode)
+      throws Exception {
     ImmutableList.Builder<String> allExpectedCoptsBuilder =
         ImmutableList.<String>builder().addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS);
 
-    if (includeLegacyFlags) {
-      allExpectedCoptsBuilder.addAll(legacyCompilationModeCopts(mode));
-    }
-
     useConfiguration(
-        "--incompatible_avoid_hardcoded_objc_compilation_flags=" + !includeLegacyFlags,
         "--platforms=" + MockObjcSupport.IOS_X86_64,
         "--apple_platform_type=ios",
         "--compilation_mode=" + compilationModeFlag(mode));
@@ -1414,27 +1402,6 @@ cc_toolchain_forwarder = rule(
 
     assertThat(compileActionA.getArguments())
         .containsAtLeastElementsIn(allExpectedCoptsBuilder.build());
-  }
-
-  protected void checkClangCoptsForDebugModeWithoutGlib(RuleType ruleType) throws Exception {
-    ImmutableList.Builder<String> allExpectedCoptsBuilder =
-        ImmutableList.<String>builder().addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS);
-
-    useConfiguration(
-        "--platforms=" + MockObjcSupport.IOS_X86_64,
-        "--apple_platform_type=ios",
-        "--compilation_mode=dbg",
-        "--objc_debug_with_GLIBCXX=false",
-        "--experimental_platform_in_output_dir");
-    scratch.file("x/a.m");
-    ruleType.scratchTarget(scratch, "srcs", "['a.m']");
-
-    CommandAction compileActionA = compileAction("//x:x", "a.o");
-
-    assertThat(compileActionA.getArguments())
-        .containsAtLeastElementsIn(allExpectedCoptsBuilder.build())
-        .inOrder();
-    assertThat(compileActionA.getArguments()).doesNotContain("-D_GLIBCXX_DEBUG");
   }
 
   private void addTransitiveDefinesUsage(RuleType topLevelRuleType) throws Exception {

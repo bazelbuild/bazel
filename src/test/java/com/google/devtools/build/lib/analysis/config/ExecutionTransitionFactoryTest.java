@@ -69,8 +69,9 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
     assertThat(result).isNotNull();
     assertThat(result).isNotSameInstanceAs(options);
 
-    assertThat(result.get(CoreOptions.class).isExec).isTrue();
-    assertThat(result.get(PlatformOptions.class).platforms).containsExactly(EXECUTION_PLATFORM);
+    assertThat(result.get(CoreOptions.class).getIsExec()).isTrue();
+    assertThat(result.get(PlatformOptions.class).getPlatforms())
+        .containsExactly(EXECUTION_PLATFORM);
   }
 
   @Test
@@ -107,7 +108,7 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
             new BuildOptionsView(options, transition.requiresOptionFragments()),
             new StoredEventHandler());
 
-    assertThat(result.get(CoreOptions.class).platformSuffix).isEqualTo("exec");
+    assertThat(result.get(CoreOptions.class).getPlatformSuffix()).isEqualTo("exec");
   }
 
   @Test
@@ -177,8 +178,10 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
     }
 
     // Fix the details of the exec transition so that the check passes.
-    flipped.get(CoreOptions.class).starlarkExecConfig =
-        targetConfig.getOptions().get(CoreOptions.class).starlarkExecConfig;
+    flipped
+        .get(CoreOptions.class)
+        .setStarlarkExecConfig(
+            targetConfig.getOptions().get(CoreOptions.class).getStarlarkExecConfig());
 
     PatchTransition execTransition = getExecTransition(EXECUTION_PLATFORM);
     BuildOptions execOptions =
@@ -253,8 +256,10 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
     }
 
     // Fix the details of the exec transition so that the check passes.
-    flipped.get(CoreOptions.class).starlarkExecConfig =
-        targetConfig.getOptions().get(CoreOptions.class).starlarkExecConfig;
+    flipped
+        .get(CoreOptions.class)
+        .setStarlarkExecConfig(
+            targetConfig.getOptions().get(CoreOptions.class).getStarlarkExecConfig());
 
     PatchTransition execTransition = getExecTransition(EXECUTION_PLATFORM);
     BuildOptions execOptions =

@@ -14,8 +14,9 @@
 
 package com.google.devtools.build.lib.bazel.rules.java;
 
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
+
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -74,7 +75,7 @@ public class BazelJavaSemantics implements JavaSemantics {
 
   @Override
   public ImmutableMap<String, String> utf8Environment(PlatformInfo executionPlatform) {
-    return ConstraintConstants.getOsFromConstraints(executionPlatform.constraints()) == OS.DARWIN
+    return getOsFromConstraintsOrHost(executionPlatform) == OS.DARWIN
         ? MACOS_UTF8_ENVIRONMENT
         : DEFAULT_UTF8_ENVIRONMENT;
   }

@@ -25,7 +25,8 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Resolver;
-import net.starlark.java.types.StarlarkType;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
 
 /**
  * A {@link Module} represents a Starlark module, a container of global variables populated by
@@ -252,7 +253,8 @@ public final class Module implements Resolver.Module {
   }
 
   @Override
-  public StarlarkType resolveType(String name) throws Undefined {
+  @Nullable
+  public TypeConstructor getTypeConstructor(String name) throws Undefined {
     Resolver.Scope scope = resolve(name);
     Object value;
     switch (scope) {
@@ -261,10 +263,39 @@ public final class Module implements Resolver.Module {
       case UNIVERSAL -> value = Starlark.UNIVERSE.get(name);
       default -> throw new AssertionError(String.format("Unexpected scope: %s", scope));
     }
-    if (!(value instanceof StarlarkType starlarkType)) {
-      throw new Undefined(String.format("%s symbol '%s' cannot be used as a type", scope, name));
-    }
-    return starlarkType;
+    return value instanceof TypeConstructor constructorValue ? constructorValue : null;
+  }
+
+  private ImmutableMap<String, MethodDescriptor> getMethods(Class<?> clazz) {
+    return CallUtils.getBuiltinManager(semantics).getAnnotatedMethods(clazz);
+  }
+
+  @Override
+  @Nullable
+  public StarlarkType getStrFieldType(String name) {
+    MethodDescriptor desc = getMethods(String.class).get(name);
+    return desc == null ? null : desc.getStarlarkType();
+  }
+
+  @Override
+  @Nullable
+  public StarlarkType getListFieldType(String name) {
+    MethodDescriptor desc = getMethods(StarlarkList.class).get(name);
+    return desc == null ? null : desc.getStarlarkType();
+  }
+
+  @Override
+  @Nullable
+  public StarlarkType getDictFieldType(String name) {
+    MethodDescriptor desc = getMethods(Dict.class).get(name);
+    return desc == null ? null : desc.getStarlarkType();
+  }
+
+  @Override
+  @Nullable
+  public StarlarkType getSetFieldType(String name) {
+    MethodDescriptor desc = getMethods(StarlarkSet.class).get(name);
+    return desc == null ? null : desc.getStarlarkType();
   }
 
   /**

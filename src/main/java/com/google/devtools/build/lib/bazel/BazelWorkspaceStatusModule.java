@@ -109,7 +109,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
               .handle(
                   Event.progress(
                       "Getting additional workspace status by running "
-                          + options.workspaceStatusCommand));
+                          + options.getWorkspaceStatusCommand()));
           ByteArrayOutputStream stdoutStream = new ByteArrayOutputStream();
           try (OutputStream errStream =
               actionExecutionContext.getFileOutErr().getErrorPath().getOutputStream()) {
@@ -180,7 +180,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       Map<String, String> volatileMap = new TreeMap<>();
       Map<String, String> stableMap = new TreeMap<>();
 
-      stableMap.put(BuildInfo.BUILD_EMBED_LABEL, options.embedLabel);
+      stableMap.put(BuildInfo.BUILD_EMBED_LABEL, options.getEmbedLabel());
       stableMap.put(BuildInfo.BUILD_HOST, hostname);
       stableMap.put(BuildInfo.BUILD_USER, username);
       long currentTimeMillis = getCurrentTimeMillis(clientEnv);
@@ -217,7 +217,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
         String message =
             String.format(
                 "Failed to run workspace status command %s: %s",
-                options.workspaceStatusCommand, e.getMessage());
+                options.getWorkspaceStatusCommand(), e.getMessage());
         DetailedExitCode code = createDetailedCode(message, Code.CONTENT_UPDATE_IO_EXCEPTION);
         throw new ActionExecutionException(message, e, this, true, code);
       }
@@ -307,10 +307,10 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     public com.google.devtools.build.lib.shell.Command getCommand() {
       WorkspaceStatusAction.Options options =
           env.getOptions().getOptions(WorkspaceStatusAction.Options.class);
-      return options.workspaceStatusCommand.equals(PathFragment.EMPTY_FRAGMENT)
+      return options.getWorkspaceStatusCommand().equals(PathFragment.EMPTY_FRAGMENT)
           ? null
           : new CommandBuilder(env.getClientEnv())
-              .addArgs(options.workspaceStatusCommand.toString())
+              .addArgs(options.getWorkspaceStatusCommand().toString())
               // Pass client env to allow SCM clients (like git) relying on environment variables to
               // work correctly.
               .setEnv(env.getClientEnv())

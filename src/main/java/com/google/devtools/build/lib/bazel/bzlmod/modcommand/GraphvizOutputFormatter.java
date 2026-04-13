@@ -71,13 +71,13 @@ public class GraphvizOutputFormatter extends OutputFormatter {
             String.format("  %s [ shape=%s style=%s ]\n", toId(key), shapeString, styleString));
       }
 
-      if (options.extensionInfo != ExtensionShow.HIDDEN) {
+      if (options.getExtensionInfo() != ExtensionShow.HIDDEN) {
         ImmutableSortedSet<ModuleExtensionId> extensionsUsed =
             extensionRepoImports.keySet().stream()
                 .filter(e -> extensionRepoImports.get(e).inverse().containsKey(key))
                 .collect(toImmutableSortedSet(ModuleExtensionId.LEXICOGRAPHIC_COMPARATOR));
         for (ModuleExtensionId extensionId : extensionsUsed) {
-          if (options.extensionInfo == ExtensionShow.USAGES) {
+          if (options.getExtensionInfo() == ExtensionShow.USAGES) {
             str.append(String.format("  %s -> \"%s\"\n", toId(key), toId(extensionId)));
             continue;
           }
@@ -130,7 +130,7 @@ public class GraphvizOutputFormatter extends OutputFormatter {
   private void printExtension(ModuleExtensionId id) {
     str.append(String.format("  subgraph \"cluster_%s\" {\n", toId(id)));
     str.append(String.format("    label=\"%s\"\n", toId(id)));
-    if (options.extensionInfo == ExtensionShow.USAGES) {
+    if (options.getExtensionInfo() == ExtensionShow.USAGES) {
       return;
     }
     ImmutableSortedSet<String> usedRepos =
@@ -138,7 +138,7 @@ public class GraphvizOutputFormatter extends OutputFormatter {
     for (String repo : usedRepos) {
       str.append(String.format("    %s [ label=\"%s\" ]\n", toId(id, repo), repo));
     }
-    if (options.extensionInfo == ExtensionShow.REPOS) {
+    if (options.getExtensionInfo() == ExtensionShow.REPOS) {
       return;
     }
     ImmutableSortedSet<String> unusedRepos =
@@ -150,7 +150,7 @@ public class GraphvizOutputFormatter extends OutputFormatter {
   }
 
   private String getReasonLabel(ModuleKey key, ModuleKey parent) {
-    if (!options.verbose) {
+    if (!options.getVerbose()) {
       return "";
     }
     Explanation explanation = getExtraResolutionExplanation(key, parent);

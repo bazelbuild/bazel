@@ -19,6 +19,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -83,7 +84,8 @@ public final class CompletionContextTest {
         FilesetOutputTree.create(
             ImmutableList.of(
                 filesetLink("a1", ActionsTestUtil.createArtifact(outputRoot, "b1")),
-                filesetLink("a2", ActionsTestUtil.createArtifact(outputRoot, "b2")))));
+                filesetLink("a2", ActionsTestUtil.createArtifact(outputRoot, "b2"))),
+            /* treeArtifacts= */ ImmutableMap.of()));
     CompletionContext ctx = createCompletionContext(/* expandFilesets= */ false);
 
     ArtifactReceiver receiver = mock(ArtifactReceiver.class);
@@ -100,7 +102,8 @@ public final class CompletionContextTest {
     Artifact b2 = ActionsTestUtil.createArtifact(outputRoot, "b2");
     ImmutableList<FilesetOutputSymlink> links =
         ImmutableList.of(filesetLink("a1", b1), filesetLink("a2", b2));
-    inputMap.putFileset(fileset, FilesetOutputTree.create(links));
+    inputMap.putFileset(
+        fileset, FilesetOutputTree.create(links, /* treeArtifacts= */ ImmutableMap.of()));
     CompletionContext ctx = createCompletionContext(/* expandFilesets= */ true);
 
     ArtifactReceiver receiver = mock(ArtifactReceiver.class);

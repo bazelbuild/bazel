@@ -17,8 +17,9 @@ package net.starlark.java.eval;
 import java.math.BigInteger;
 import java.util.Locale;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.types.StarlarkType;
-import net.starlark.java.types.Types;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.Types;
 
 /** The Starlark float data type. */
 @StarlarkBuiltin(
@@ -26,6 +27,10 @@ import net.starlark.java.types.Types;
     category = "core",
     doc = "The type of floating-point numbers in Starlark.")
 public final class StarlarkFloat implements StarlarkValue, Comparable<StarlarkFloat> {
+  public static TypeConstructor getAssociatedTypeConstructor() {
+    return Types.FLOAT_CONSTRUCTOR;
+  }
+
   @Override
   public StarlarkType getStarlarkType() {
     return Types.FLOAT;
@@ -53,7 +58,7 @@ public final class StarlarkFloat implements StarlarkValue, Comparable<StarlarkFl
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append(toString());
   }
 

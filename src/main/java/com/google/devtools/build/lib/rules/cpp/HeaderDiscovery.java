@@ -14,15 +14,20 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
+
+import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.PathMapper;
-import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.util.OS;
@@ -30,6 +35,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -149,16 +155,16 @@ final class HeaderDiscovery {
     // Check inclusions.
     IncludeProblems absolutePathProblems = new IncludeProblems();
     IncludeProblems unresolvablePathProblems = new IncludeProblems();
-    // Absolute includes from system paths are ignored. On Windows, which has a case-insensitive
-    // file system by default, the paths as reported by the compiler may differ in casing from
-    // those listed by the toolchain.
-    boolean caseInsensitiveSystemIncludes =
-        ConstraintConstants.getOsFromConstraints(action.getExecutionPlatform().constraints())
-            == OS.WINDOWS;
+    boolean possiblyCaseInsensitiveFileSystem =
+        getOsFromConstraintsOrHost(action.getExecutionPlatform()) == OS.WINDOWS;
+    CompactHashSet<Artifact> sourceArtifactInputs = null;
     for (Path execPath : dependencies) {
       PathFragment execPathFragment = execPath.asFragment();
       if (execPathFragment.isAbsolute()) {
-        if (caseInsensitiveSystemIncludes) {
+        if (possiblyCaseInsensitiveFileSystem) {
+          // Absolute includes from system paths are ignored. With a case-insensitive file system,
+          // the paths as reported by the compiler may differ in casing from those listed by the
+          // toolchain.
           if (FileSystemUtils.startsWithAnyIgnoringCase(execPath, permittedSystemIncludePrefixes)) {
             continue;
           }
@@ -185,20 +191,54 @@ final class HeaderDiscovery {
           continue;
         }
       }
-      Artifact artifact = regularDerivedArtifacts.get(execPathFragment);
-      if (artifact == null) {
+      Collection<? extends Artifact> resolvedArtifacts = ImmutableList.of();
+      Artifact derivedArtifact = regularDerivedArtifacts.get(execPathFragment);
+      if (derivedArtifact == null) {
         Optional<PackageIdentifier> pkgId =
             PackageIdentifier.discoverFromExecPath(
                 execPathFragment, false, siblingRepositoryLayout);
         if (pkgId.isPresent()) {
-          artifact =
-              artifactResolver.resolveSourceArtifact(execPathFragment, pkgId.get().getRepository());
+          if (possiblyCaseInsensitiveFileSystem) {
+            resolvedArtifacts =
+                artifactResolver.resolveSourceArtifactsAsciiCaseInsensitively(
+                    execPathFragment, pkgId.get().getRepository());
+          } else {
+            var sourceArtifact =
+                artifactResolver.resolveSourceArtifact(
+                    execPathFragment, pkgId.get().getRepository());
+            if (sourceArtifact != null) {
+              resolvedArtifacts = ImmutableList.of(sourceArtifact);
+            }
+          }
         }
+      } else {
+        resolvedArtifacts = ImmutableList.of(derivedArtifact);
       }
-      if (artifact != null) {
+      if (!resolvedArtifacts.isEmpty()) {
         // We don't need to add the sourceFile itself as it is a mandatory input.
-        if (!artifact.equals(sourceFile)) {
-          inputs.add(artifact);
+        resolvedArtifacts = Collections2.filter(resolvedArtifacts, a -> !a.equals(sourceFile));
+        switch (resolvedArtifacts.size()) {
+          case 0 -> {}
+          case 1 -> inputs.add(Iterables.getOnlyElement(resolvedArtifacts));
+          default -> {
+            if (sourceArtifactInputs == null) {
+              sourceArtifactInputs = CompactHashSet.create();
+              for (Artifact input : action.getInputs().toList()) {
+                if (input.isSourceArtifact()) {
+                  sourceArtifactInputs.add(input);
+                }
+              }
+            }
+            if (Collections.disjoint(resolvedArtifacts, sourceArtifactInputs)) {
+              inputs.addAll(resolvedArtifacts);
+            } else {
+              for (Artifact resolvedArtifact : resolvedArtifacts) {
+                if (sourceArtifactInputs.contains(resolvedArtifact)) {
+                  inputs.add(resolvedArtifact);
+                }
+              }
+            }
+          }
         }
         continue;
       } else if (execPathFragment.getFileExtension().equals("cppmap")) {

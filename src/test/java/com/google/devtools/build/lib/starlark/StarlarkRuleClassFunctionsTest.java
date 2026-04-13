@@ -1826,6 +1826,19 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testLabelReprRoundTrip() throws Exception {
+    // TODO(bazel-team): Test that an actual Label object can be repr'd and then eval'd in any
+    // context (in particular - in a non-main-repo context) to arrive back at the original Label.
+    String labelRepr = "Label(\"@@//:foo\")";
+    assertThat(ev.eval(labelRepr)).isInstanceOf(Label.class);
+    assertThat(ev.eval(String.format("repr(%s)", labelRepr))).isEqualTo(labelRepr);
+
+    setBuildLanguageOptions("--noincompatible_unambiguous_label_stringification");
+    assertThat(ev.eval(String.format("repr(%s)", labelRepr))).isNotEqualTo(labelRepr);
+    assertThat((String) ev.eval(String.format("repr(%s)", labelRepr))).doesNotContain("@@");
+  }
+
+  @Test
   public void testRuleLabelDefaultValue() throws Exception {
     evalAndExport(
         ev,
@@ -2137,8 +2150,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testJsonFileEncoding() throws Exception {
-    // Test that File objects can be encoded as JSON
+  public void testJsonAndProtoFileEncoding() throws Exception {
+    // Test that File objects can be encoded as JSON and proto.
     scratch.file(
         "test/BUILD",
         """
@@ -2153,8 +2166,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "test/rule.bzl",
         """
         def _impl(ctx):
-            input = {"file": ctx.file.src, "other": True}
-            expected_output = {
+            json_input = {"file": ctx.file.src, "other": True}
+            json_expected_output = {
                 "file": {
                     "path": ctx.file.src.path,
                     "short_path": ctx.file.src.short_path,
@@ -2162,11 +2175,21 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
                 },
                 "other": True
             }
-            encoded = json.encode(input)
-            decoded = json.decode(encoded)
+            json_encoded = json.encode(json_input)
+            json_decoded = json.decode(json_encoded)
 
-            if decoded != expected_output:
-                fail("JSON encode/decode of File did not round-trip. Expected: {}, actual: {}".format(expected_output, decoded))
+            if json_decoded != json_expected_output:
+                fail("JSON encode/decode of File did not round-trip. Expected: {}, actual: {}".format(repr(json_expected_output), repr(json_decoded)))
+
+            proto_input = struct(input = json_input)  # proto input must be wrapped in a struct
+            proto_expected_encoded = 'input {\\n  key: "file"\\n  value {\\n    path: "%s"\\n    root: "%s"\\n    short_path: "%s"\\n  }\\n}\\ninput {\\n  key: "other"\\n  value: true\\n}\\n' % (
+                ctx.file.src.path,
+                ctx.file.src.root.path,
+                ctx.file.src.short_path,
+            )
+            proto_encoded = proto.encode_text(proto_input)
+            if proto_encoded != proto_expected_encoded:
+                fail("Proto encoding of File failed. Expected: {}, actual: {}".format(repr(proto_expected_encoded), repr(proto_encoded)))
 
             return []
 
@@ -2180,6 +2203,49 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     var unused = createRuleContext("//test:test");
     // The rule implementation tests the JSON encoding internally
+  }
+
+  @Test
+  public void testJsonAndProtoNativeInfoEncoding() throws Exception {
+    // FeatureFlagInfo is a NativeInfo having both struct fields (value, error) and non-struct-field
+    // methods (is_valid_value), which makes it a good test case for NativeInfo method filtering in
+    // json and textproto encoding.
+    // Note for future maintainers: If FeatureFlagInfo ever evolves to not have non-struct-field
+    // methods, update this test case to use a different NativeInfo subclass having some
+    // non-constructor @StarlarkMethod-annotatated methods with structField = true, and some
+    // without; for example, PackageSpecificationInfo.
+    // If no such NativeInfo subclass exists or is ever likely to be added, consider removing this
+    // test case and having NativeInfo trivially implement Structure rather than StarlarkEncodable.
+    scratch.file(
+        "test/rule.bzl",
+        """
+        def _impl(ctx):
+            feature_flag_info = config_common.FeatureFlagInfo(value = "val")
+            if "is_valid_value" not in dir(feature_flag_info):
+                fail("feature_flag_info.is_valid_value not found, got %s" % repr(dir(feature_flag_info)))
+            json_encoded = json.encode(feature_flag_info)
+            proto_encoded = proto.encode_text(feature_flag_info)
+            # We expect no `is_valid_value` method in json encoding.
+            if json_encoded != '{"error":null,"value":"val"}':
+                fail("json.encode(feature_flag_info) not as expected, got %s" % repr(json_encoded))
+            # We expect no `is_valid_value` method or `error` None-valued field in proto encoding.
+            if proto_encoded != 'value: "val"\\n':
+                fail("proto.encode_text(feature_flag_info) not as expected, got %s" % repr(proto_encoded))
+            return []
+
+        test_rule = rule(
+            implementation = _impl,
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:rule.bzl", "test_rule")
+        test_rule(name = "test")
+        """);
+
+    var unused = createRuleContext("//test:test");
+    // The rule implementation tests the json and proto encoding internally
   }
 
   @Test
@@ -5699,6 +5765,64 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     ev.assertContainsError(
         "Error in rule: attribute `_tool`: private attributes cannot be overridden.");
+  }
+
+  @Test
+  public void extendRule_parentPrivateAttrDefault_visibilityCheckedAgainstParent()
+      throws Exception {
+    scratch.file(
+        "extend_rule_testing/parent/BUILD",
+        """
+        exports_files(
+            ["parent_tool.txt"],
+            visibility = ["//extend_rule_testing/parent:__pkg__"],
+        )
+        """);
+    scratch.file("extend_rule_testing/parent/parent_tool.txt");
+    scratch.file(
+        "extend_rule_testing/parent/parent.bzl",
+        """
+        def _impl(ctx):
+            return []
+
+        parent_library = rule(
+            implementation = _impl,
+            extendable = True,
+            attrs = {
+                "_tool": attr.label(
+                    allow_single_file = True,
+                    default = "//extend_rule_testing/parent:parent_tool.txt",
+                ),
+            },
+        )
+        """);
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        """
+        load("//extend_rule_testing/parent:parent.bzl", "parent_library")
+
+        def _impl(ctx):
+            return ctx.super()
+
+        my_library = rule(
+            implementation = _impl,
+            parent = parent_library,
+        )
+        """);
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        """
+        load(":child.bzl", "my_library")
+
+        my_library(name = "my_target")
+        """);
+
+    // This should succeed because the visibility of the parent's private attribute default should
+    // be checked against the parent rule's package, not the child rule's package.
+    // See https://github.com/bazelbuild/bazel/issues/28618
+    getConfiguredTarget("//extend_rule_testing:my_target");
+
+    assertNoEvents();
   }
 
   @Test

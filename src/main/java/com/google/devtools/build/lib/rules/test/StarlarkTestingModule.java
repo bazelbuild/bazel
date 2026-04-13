@@ -93,24 +93,19 @@ public class StarlarkTestingModule implements TestingModuleApi {
     // For normal Starlark-defined rule classes we're supposed to pass in the label of the bzl file
     // being initialized at the time the rule class is defined, as well as the transitive digest of
     // that bzl and all bzls it loads (for purposes of being sensitive to e.g. changes to the rule
-    // class's implementation function). For analysis_test this is currently infeasible because
-    // there is no such bzl file (since we're in a BUILD-evaluating thread) and we don't currently
-    // track the transitive digest of BUILD files and the bzls they load.
+    // class's implementation function).
     //
-    // In acknowledge of this infeasibility, we used to use a constant digest for all calls to
-    // analysis_test. This caused issues due to how the digest is used as part of the cache key of
-    // deserialized rule classes. To address that, we now use the combo of the package name and the
-    // target name (this works since we don't currently try to deserialize the same rule class
-    // produced at different source versions). See http://b/291752414#comment6.
-    //
-    // The digest is also used for purposes to detecting changes to a rule class across source
-    // versions; see blaze_query.Rule.skylark_environment_hash_code. So we're still incorrect there.
-    // See http://b/291752414#comment9 and http://b/291752414#comment10.
-    // TODO(b/291752414): Fix.
+    // We used to use a constant digest for all calls to analysis_test. This caused issues due to
+    // how the digest is used as part of the cache key of deserialized rule classes. To address
+    // that, we now use the combo of the package name and the target name (this works since we don't
+    // currently try to deserialize the same rule class produced at different source versions).
+    // See http://b/291752414#comment6.
     Label dummyBzlFile = Label.createUnvalidated(PackageIdentifier.EMPTY_PACKAGE_ID, "dummy_label");
     Fingerprint fingerprint = new Fingerprint();
     fingerprint.addString(pkgBuilder.getMetadata().getName());
     fingerprint.addString(name);
+    // TODO: b/291752414 - also include the BUILD file digest
+    fingerprint.addBytes(pkgBuilder.getTransitiveBzlDigest());
     byte[] transitiveDigestToUse = fingerprint.digestAndReset();
 
     StarlarkRuleFunction starlarkRuleFunction =

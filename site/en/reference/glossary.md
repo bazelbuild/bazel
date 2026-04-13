@@ -129,9 +129,22 @@ A file that defines rules, [macros](#macro), and constants written in
 [Starlark](#starlark). These can then be imported into [`BUILD`
 files](#build-file) using the `load()` function.
 
-<!-- TODO: ### Build event protocol -->
+### Build Event Protocol {:#build-event-protocol}
 
-<!-- TODO: ### Build flag -->
+The set of protocol buffer messages used to communicate information about build
+and test results, build progress, build configuration, and much more.
+
+**See also:** [Build Event Protocol](/remote/bep)
+
+### Build flag {:#build-flag}
+
+A flag passed to Bazel to control Bazel itself and build actions. Flags are
+either [startup flags](#startup-flags) or [command flags](#command-flags).
+
+Usage is always `bazel <startup flags> command <command flags> -- <command
+arguments>`. A typical example would be `bazel --host_jvm_args=-Xmx512M test
+--compilation_mode=dbg --test_output=errors -- //test:target1 //test:target2
+//test/local/...`.
 
 ### Build graph {:#build-graph}
 
@@ -187,9 +200,24 @@ target platform, action environment variables, and command-line [build
 flags](#command-flags). [Transitions](#transition) may create additional
 configurations, such as for host tools or cross-compilation.
 
+A configuration is composed of one of more [configuration
+fragments](#configuration-fragment), and separately contains all set [Starlark
+flags](#starlark-flags).
+
 **See also:** [Configurations](/extending/rules#configurations)
 
-<!-- TODO: ### Configuration fragment -->
+### Configuration fragment {:#configuration-fragment}
+
+Fragments are parts of the built-in [configuration](#configuration).
+Configuration
+fragments give rules access to language-specific parts of
+[configuration](#configuration). Built-in flags are grouped into related
+fragments, such as test flags, platform flags, remote execution flags, etc.
+Some fragments are [exposed to Starlark rules]
+(/rules/lib/overview#configuration-fragments).
+
+[Starlark flags](#starlark-flags) are not part of any configuration fragment,
+and are accessed directly using providers.
 
 ### Configuration trimming {:#config-trimming}
 
@@ -307,7 +335,12 @@ and resource usage. Dependency checking and caching aim to produce correct
 results for this type of build. An incremental build is the opposite of a clean
 build.
 
-<!-- TODO: ### Install base -->
+### Install base {:#install-base}
+
+The location where Bazel unpacks required tools that are delivered as part of
+the binary.
+
+You can find the install base using `bazel info install_base`.
 
 ### Label {:#label}
 
@@ -568,9 +601,33 @@ On Linux, it's not significant, but on macOS it can make sandboxing unusable.
 
 ### Skyframe {:#skyframe}
 
-[Skyframe](/reference/skyframe) is the core parallel, functional, and incremental evaluation framework of Bazel.
+[Skyframe](/reference/skyframe) is the core parallel, functional, and
+incremental evaluation framework of Bazel.
 
-<!-- TODO: ### Spawn strategy -->
+### Spawn strategy {:#spawn-strategy}
+
+Also known as the [execution strategy](/docs/user-manual#execution-strategy),
+this denotes the way Bazel attempts to execute build actions.
+The chosen strategy impacts build hermeticity and speed. Build outputs
+remain the same for all strategies.
+
+**Usage**: Specify the execution strategy using a flag. Commonly used flags to
+specify execution strategy are:
+
+* `--spawn_strategy`: Set as the global default for all actions.
+* `--strategy <mnemonic>`: Override the global default strategy for a specific
+action mnemonic.
+
+See [Execution strategy](/docs/user-manual#execution-strategy) for the full
+list of flags.
+
+Strategies include:
+
+* `local` causes commands to be executed as local subprocesses.
+* `sandboxed` causes commands to be executed inside a sandbox on the local machine. See [Sandboxing](/docs/sandboxing).
+* `worker` causes commands to be executed using a [persistent worker](/remote/persistent).
+* `docker` causes commands to be executed inside a Docker sandbox on the local machine.
+* `remote` causes commands to be [executed remotely](/remote/rbe).
 
 ### Stamping {:#stamping}
 
@@ -591,9 +648,21 @@ known as Skylark.
 
 **See also:** [Starlark language documentation](/rules/language)
 
-<!-- TODO: ### Starlark rules -->
+### Starlark flags {:#starlark-flags}
 
-<!-- TODO: ### Starlark rule sandwich -->
+Rules can define [custom flags](/extending/config#user-defined-build-settings),
+known as Starlark flags because they are implemented using [Starlark
+rules](#starlark-rules). These flags control how the rule behaves at a higher
+level than individual BUILD files.
+
+**See also**: [Configurations](/extending/config)
+
+### Starlark rules {:#starlark-rules}
+
+Custom rules written in [Starlark](#starlark) that extend Bazel with new build
+capabilities.
+
+**See also:** [Rules](/extending/rules)
 
 ### Startup flags {:#startup-flags}
 

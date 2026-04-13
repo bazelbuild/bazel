@@ -255,17 +255,12 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   @VisibleForTesting
   NestedSet<Artifact> getReducedClasspath(
       ActionExecutionContext actionExecutionContext, JavaCompileActionContext context)
-      throws IOException {
+      throws IOException, InterruptedException {
     HashSet<String> direct = new HashSet<>();
     for (Artifact directJar : directJars.toList()) {
       direct.add(directJar.getExecPathString());
     }
-    for (Artifact depArtifact : dependencyArtifacts.toList()) {
-      for (Deps.Dependency dep :
-          context.getDependencies(depArtifact, actionExecutionContext).getDependencyList()) {
-        direct.add(dep.getPath());
-      }
-    }
+    context.addDependencies(dependencyArtifacts.toList(), actionExecutionContext, direct);
     ImmutableList<Artifact> transitiveCollection = transitiveInputs.toList();
     ImmutableList<Artifact> reducedJars =
         ImmutableList.copyOf(
@@ -275,7 +270,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   }
 
   /**
-   * Simpliar to {@link
+   * Similar to {@link
    * com.google.devtools.build.lib.analysis.actions.SpawnAction.ExtraActionInfoSupplier} but
    * additionally includes the spawn arguments, which change between direct and fallback
    * invocations.

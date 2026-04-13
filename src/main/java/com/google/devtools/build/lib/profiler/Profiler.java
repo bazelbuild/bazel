@@ -15,10 +15,10 @@ package com.google.devtools.build.lib.profiler;
 
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.util.TestType;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -90,18 +91,12 @@ public final class Profiler implements TraceProfilerService {
    * forwarded to this {@link TraceProfilerService}.
    */
   public static void setTraceProfilerService(TraceProfilerService traceProfilerService) {
+    // We want to apply this check for the shell integration tests to catch if the profiler is
+    // accidentally set twice in presubmit.
     checkState(
-        Profiler.traceProfilerService == null,
+        Profiler.traceProfilerService == null
+            || (TestType.isInTest() && TestType.getTestType() != TestType.SHELL_INTEGRATION),
         "setTraceProfilerService must not be called multiple times");
-    Profiler.traceProfilerService = traceProfilerService;
-  }
-
-  /**
-   * Same as {@link #setTraceProfilerService}, except that it may be called more than once for
-   * testing purposes.
-   */
-  @VisibleForTesting
-  public static void setTraceProfilerServiceForTesting(TraceProfilerService traceProfilerService) {
     Profiler.traceProfilerService = traceProfilerService;
   }
 
@@ -179,6 +174,14 @@ public final class Profiler implements TraceProfilerService {
   public void logEvent(ProfilerTask type, String description) {
     if (traceProfilerService != null) {
       traceProfilerService.logEvent(type, description);
+    }
+  }
+
+  @Override
+  public void setVfsTypeHeuristics(
+      Map<String, ? extends Predicate<? super String>> vfsTypeHeuristics) {
+    if (traceProfilerService != null) {
+      traceProfilerService.setVfsTypeHeuristics(vfsTypeHeuristics);
     }
   }
 

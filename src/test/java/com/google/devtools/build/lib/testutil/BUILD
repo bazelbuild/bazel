@@ -41,7 +41,6 @@ java_library(
         "TimestampGranularityUtils.java",
         "UnknownRuleConfiguredTarget.java",
     ],
-    runtime_deps = ["//src/main/java/com/google/devtools/build/lib/unix"],
     deps = [
         ":JunitUtils",
         ":TestConstants",
@@ -128,9 +127,9 @@ java_library(
     srcs = ["ControllableActionStrategyModule.java"],
     deps = [
         ":spawn_controller",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_registry",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//third_party:guava",
     ],
@@ -142,6 +141,7 @@ java_library(
     data = [":external_file_system_lock_helper"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/shell:windows_subprocess_factory",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
@@ -178,6 +178,7 @@ java_library(
     srcs = ["SpawnInputUtils.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
@@ -298,7 +299,9 @@ java_library(
         "TestConstants.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/bazel:bazel_services",  # unuseddeps: keep
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//third_party:guava",
     ],

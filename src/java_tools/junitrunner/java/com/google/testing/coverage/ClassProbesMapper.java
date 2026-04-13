@@ -80,7 +80,7 @@ public class ClassProbesMapper extends ClassProbesVisitor implements IFilterCont
       String signature,
       String superName,
       String[] interfaces) {
-    superClassName = stringPool.get(name);
+    superClassName = stringPool.get(superName);
   }
 
   /** Returns a visitor for mapping method code. */

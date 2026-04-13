@@ -74,11 +74,11 @@ public final class OptionsDiff {
     // other.
     ImmutableSet<Class<? extends FragmentOptions>> firstOptionClasses =
         first.getNativeOptions().stream()
-            .map(FragmentOptions::getClass)
+            .map(FragmentOptions::getOptionsClass)
             .collect(ImmutableSet.toImmutableSet());
     ImmutableSet<Class<? extends FragmentOptions>> secondOptionClasses =
         second.getNativeOptions().stream()
-            .map(FragmentOptions::getClass)
+            .map(FragmentOptions::getOptionsClass)
             .collect(ImmutableSet.toImmutableSet());
     Sets.difference(firstOptionClasses, secondOptionClasses).forEach(diff::addExtraFirstFragment);
     Sets.difference(secondOptionClasses, firstOptionClasses).stream()

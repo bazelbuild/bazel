@@ -1,4 +1,3 @@
-keywords: Bzlmod
 
 ---
 title: '`mod` Command'
@@ -10,7 +9,7 @@ why a certain module or a version of a module is present in the graph, view the
 repo definitions backing modules, inspect usages of module extensions and repos
 they generate, among other functions.
 
-## Syntax {:#syntax}
+## Syntax {#syntax}
 
 ```sh
 bazel mod <subcommand> [<options>] [<arg> [<arg>...]]
@@ -45,7 +44,9 @@ The available subcommands and their respective required arguments are:
     4) the argument modules themselves (see [example](#mod-example5)).
 
 *   `show_repo <arg>...`: Displays the definition of the specified repos (see
-    [example](#mod-example6)).
+    [example](#mod-example6)). Use `--all_repos` to show definitions of all
+    repos in the entire dependency graph, or `--all_visible_repos` to show
+    definitions of all repos visible from the `--base_module`.
 
 *   `show_extension <extension>...`: Displays information about each of the
     specified extensions: a list of the generated repos along with the modules
@@ -98,8 +99,8 @@ The following options only affect the subcommands that print graphs (`graph`,
     modules which were originally present in the dependency graph, but became
     unused after module resolution.
 
-*   `--extension_info <mode>`: Include information about the module extension
-    usages as part of the output graph (see [example](#mod-example7)). `<mode>`
+*   `--extension_info <var>mode</var>`: Include information about the module extension
+    usages as part of the output graph (see [example](#mod-example7)). `<var>mode</var>`
     can be one of:
 
     *   `hidden` *(default)*: Don't show anything about extensions.
@@ -139,8 +140,8 @@ The following options only affect the subcommands that print graphs (`graph`,
     Therefore, the `"ascii"` charset is present to also support the usage on
     legacy platforms which cannot use Unicode.
 
-*   `--output <mode>`: Include information about the module extension usages as
-    part of the output graph. `<mode>' can be one of:
+*   `--output <var>mode</var>`: Include information about the module extension usages as
+    part of the output graph. `<var>mode</var>' can be one of:
 
     *   `text` *(default)*: A human-readable representation of the output graph
         (flattened as a tree).
@@ -159,8 +160,8 @@ The following options only affect the subcommands that print graphs (`graph`,
 
     ### show_repo options
 `show_repo` supports a different set of output formats:
-*   `--output <mode>`: Change how repository definitions are displayed.
-    `<mode>` can be one of:
+*   `--output <var>mode</var>`: Change how repository definitions are displayed.
+    `<var>mode</var>` can be one of:
     *   `text` *(default)*: Display repo definitions in Starlark.
     *   `streamed_proto`: Prints a
         [length-delimited](https://protobuf.dev/programming-guides/encoding/#size-limit)
@@ -183,7 +184,7 @@ Other options include:
 *   `--extension_usages <arg>[,<arg>[,...]]`: Filters `show_extension` to only
     display extension usages from the specified modules.
 
-## Examples {:#examples}
+## Examples {#examples}
 
 Some possible usages of the `mod` command on a real Bazel project are showcased
 below to give you a general idea on how you can use it to inspect your project's
@@ -212,10 +213,10 @@ use_repo(toolchains, my_jdk="remotejdk17_linux")
   <tr style="display: flex; flex-direction: row">
     <td style="flex: 5; display: flex; flex-direction: column">
       <figure style="height: 100%; display: flex; flex-direction: column;">
-        <img src="images/mod_exampleBefore.svg" alt="Graph Before Resolution" style="object-fit: cover; max-width: 100%;">
+        <img src="/images/mod_exampleBefore.svg" alt="Graph Before Resolution" style="object-fit: cover; max-width: 100%;" />
         <figcaption style="margin-top: auto; margin-left: auto; margin-right: auto ">Graph Before Resolution</figcaption>
       </figure>
-<!-- digraph mygraph {
+{/* digraph mygraph {
   node [ shape=box ]
   edge [ fontsize=8 ]
   "<root>" [ label="<root> (my_project@1.0)" ]
@@ -238,14 +239,14 @@ use_repo(toolchains, my_jdk="remotejdk17_linux")
   "bazel_skylib@1.0.3" -> "platforms@0.0.4" [  ]
   "rules_java@4.0.0" [  ]
   "rules_java@4.0.0" -> "bazel_skylib@1.0.3" [  ]
-} -->
+} */}
     </td>
     <td style="flex: 3; display: flex; flex-direction: column">
       <figure style="height: 100%; display: flex; flex-direction: column;">
-        <img src="images/mod_exampleResolved.svg" alt="Graph After Resolution" style="object-fit: cover; max-width: 100%;">
+        <img src="/images/mod_exampleResolved.svg" alt="Graph After Resolution" style="object-fit: cover; max-width: 100%;" />
        <figcaption style="margin-top: auto; margin-left: auto; margin-right: auto ">Graph After Resolution</figcaption>
       </figure>
-<!-- digraph mygraph {
+{/* digraph mygraph {
   node [ shape=box ]
   edge [ fontsize=8 ]
   "<root>" [ label="<root> (my_project@1.0)" ]
@@ -264,7 +265,7 @@ use_repo(toolchains, my_jdk="remotejdk17_linux")
   "rules_cc@0.0.1" -> "platforms@0.0.4" [  ]
   "rules_proto@4.0.0" -> "bazel_skylib@1.1.1" [  ]
   "rules_proto@4.0.0" -> "rules_cc@0.0.1" [  ]
-} -->
+} */}
     </td>
   </tr>
 </table>
@@ -407,6 +408,16 @@ use_repo(toolchains, my_jdk="remotejdk17_linux")
     bazel mod show_repo rules_cc stardoc
     ```
 
+    `bazel mod show_repo` also works with repos imported by `use_repo` and repos
+    created with `use_repo_rule`. If `show_repo` is invoked with an apparent
+    repository name or `--all_visible_repos`, then the apparent repository name
+    is shown on a line prefixed with `##`.
+
+    ```sh
+    bazel mod show_repo @jq_linux_arm64
+    bazel mod show_repo --all_visible_repos
+    ```
+
     ```none
     ## rules_cc@0.0.1:
     # <builtin>
@@ -435,8 +446,16 @@ use_repo(toolchains, my_jdk="remotejdk17_linux")
     #   /home/user/.cache/bazel/_bazel_user/6e893e0f5a92cc4cf5909a6e4b2770f9/external/bazel_tools/tools/build_defs/repo/http.bzl:355:31 in <toplevel>
     ```
 
-7.  <span id="mod-example7"></span>See what module extensions are used in your
-    dependency graph.
+    ```none
+    ## @jq_linux_arm64:
+    load("@@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+    http_file(
+        name = "+http_file+jq_linux_arm64",
+        executable = True,
+        integrity = "sha256-TdLYoGYd8LIvG7mh+YMPBrbzuPfZEhGh7118TwaotKU=",
+        urls = ["https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-arm64"],
+    )
+    ```
 
     ```sh
     bazel mod graph --extension_info=usages

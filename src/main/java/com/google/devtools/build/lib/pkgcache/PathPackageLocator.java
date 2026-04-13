@@ -216,9 +216,9 @@ public final class PathPackageLocator {
             Event.warn(
                 "The package path element '"
                     + pathElementFragment
-                    + "' will be taken relative to your working directory. You may have intended to"
-                    + " have the path taken relative to your workspace directory. If so, please use"
-                    + "the '"
+                    + "' will be taken relative to your working directory. You may have intended "
+                    + "to have the path taken relative to your workspace directory. If so, please "
+                    + "use the '"
                     + WORKSPACE_WILDCARD
                     + "' wildcard."));
       }
@@ -240,7 +240,7 @@ public final class PathPackageLocator {
    */
   public static String getSingletonPackagePathFromFlag(
       OptionsProvider options, BlazeDirectories directories) throws AbruptExitException {
-    List<String> packagePaths = options.getOptions(PackageOptions.class).packagePath;
+    List<String> packagePaths = options.getOptions(PackageOptions.class).getPackagePath();
     if (packagePaths.size() != 1) {
       throw new AbruptExitException(
           DetailedExitCode.of(

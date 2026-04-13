@@ -552,7 +552,7 @@ public final class PatchUtilTest {
   @Test
   public void testChunkDoesNotMatch() throws IOException {
     scratch.file(
-        "/root/foo.cc", "#include <stdio.h>", "", "void main(){", "  printf(\"Hello foo\");", "}");
+        "/root/foo.cc", "line1", "line2", "line3", "line4", "line5", "line6", "line7", "line8");
     Path patchFile =
         scratch.file(
             "/root/patchfile",
@@ -560,12 +560,16 @@ public final class PatchUtilTest {
             "index f3008f9..ec4aaa0 100644",
             "--- a/foo.cc",
             "+++ b/foo.cc",
-            "@@ -2,4 +2,5 @@",
-            " ",
-            " void main(){",
-            "   printf(\"Hello bar\");", // Should be "Hello foo"
-            "+  printf(\"Hello from patch\");",
-            " }");
+            "@@ -1,8 +1,9 @@",
+            " line1",
+            " line2",
+            " line3",
+            " WRONG", // Should be "line4", in the middle so fuzz can't help
+            " ALSO WRONG", // Should be "line5"
+            " line6",
+            "+inserted",
+            " line7",
+            " line8");
     PatchFailedException expected =
         assertThrows(PatchFailedException.class, () -> PatchUtil.apply(patchFile, 1, root));
     assertThat(expected)
@@ -599,6 +603,41 @@ public final class PatchUtilTest {
     assertThat(expected)
         .hasMessageThat()
         .contains("Wrong chunk detected near line 11:  }, does not expect a context line here.");
+  }
+
+  @Test
+  public void testMatchWithFuzz() throws IOException, PatchFailedException {
+    Path foo =
+        scratch.file(
+            "/root/foo.cc",
+            "#include <stdio.h>",
+            "",
+            "void main(){",
+            "  printf(\"Hello foo\");",
+            "}");
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "diff --git a/foo.cc b/foo.cc",
+            "index f3008f9..ec4aaa0 100644",
+            "--- a/foo.cc",
+            "+++ b/foo.cc",
+            "@@ -2,4 +2,5 @@",
+            " ",
+            " void main(){",
+            "   printf(\"Hello foo\");",
+            "+  printf(\"Hello from patch\");",
+            " WRONG CONTEXT LINE"); // Last context line doesn't match, but fuzz can drop it
+    PatchUtil.apply(patchFile, 1, root);
+    ImmutableList<String> newFoo =
+        ImmutableList.of(
+            "#include <stdio.h>",
+            "",
+            "void main(){",
+            "  printf(\"Hello foo\");",
+            "  printf(\"Hello from patch\");",
+            "}");
+    assertThat(FileSystemUtils.readLines(foo, UTF_8)).isEqualTo(newFoo);
   }
 
   @Test

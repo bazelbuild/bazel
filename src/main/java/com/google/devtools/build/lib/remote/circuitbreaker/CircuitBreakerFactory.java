@@ -32,10 +32,10 @@ public class CircuitBreakerFactory {
    * @return an instance of CircuitBreaker.
    */
   public static Retrier.CircuitBreaker createCircuitBreaker(final RemoteOptions remoteOptions) {
-    if (remoteOptions.circuitBreakerStrategy == RemoteOptions.CircuitBreakerStrategy.FAILURE) {
+    if (remoteOptions.getCircuitBreakerStrategy() == RemoteOptions.CircuitBreakerStrategy.FAILURE) {
       return new FailureCircuitBreaker(
-          remoteOptions.remoteFailureRateThreshold,
-          (int) remoteOptions.remoteFailureWindowInterval.toMillis());
+          remoteOptions.getRemoteFailureRateThreshold(),
+          (int) remoteOptions.getRemoteFailureWindowInterval().toMillis());
     }
     return Retrier.ALLOW_ALL_CALLS;
   }

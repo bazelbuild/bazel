@@ -24,9 +24,9 @@ import java.util.stream.Collectors;
 public class BranchExp implements CovExp {
   private final List<CovExp> branches;
 
-  private boolean hasValue;
+  // Cache the evaluation result to avoid reevaluating the expression with the same probes.
   private boolean[] probesUsed;
-  private boolean value;
+  private boolean value = false;
 
   /** Create a BranchExp for a known number of branches but with no expression data. */
   public static BranchExp initializeEmptyBranches() {
@@ -35,14 +35,12 @@ public class BranchExp implements CovExp {
 
   public BranchExp(List<CovExp> branches) {
     this.branches = branches;
-    hasValue = false;
   }
 
   /** Create a new BranchExp using this CovExp as the only branch. */
   public BranchExp(CovExp exp) {
     branches = new ArrayList<CovExp>();
     branches.add(exp);
-    hasValue = false;
   }
 
   /** Returns true if any branches been set for this BranchExp. */
@@ -65,7 +63,7 @@ public class BranchExp implements CovExp {
   public void setBranchAtIndex(int index, CovExp exp) {
     extendBranches(index + 1);
     branches.set(index, exp);
-    hasValue = false;
+    invalidateEvalCache();
   }
 
   /** Returns the expression at a given index for this branch. */
@@ -76,6 +74,7 @@ public class BranchExp implements CovExp {
   /** Expands the current branch set to the new size */
   private void extendBranches(int size) {
     if (branches.size() < size) {
+      // This preserves the cached eval value so no need to invalidate.
       branches.addAll(Collections.nCopies(size - branches.size(), NullExp.NULL_EXP));
     }
   }
@@ -87,6 +86,7 @@ public class BranchExp implements CovExp {
    */
   public int add(CovExp exp) {
     branches.add(exp);
+    invalidateEvalCache();
     return branches.size() - 1;
   }
 
@@ -119,9 +119,13 @@ public class BranchExp implements CovExp {
     return exp instanceof BranchExp ? (BranchExp) exp : new BranchExp(exp);
   }
 
+  private void invalidateEvalCache() {
+    probesUsed = null;
+  }
+
   @Override
   public boolean eval(final boolean[] probes) {
-    if (hasValue && probes == probesUsed) {
+    if (probes == probesUsed) {
       return value;
     }
     value = false;
@@ -131,7 +135,6 @@ public class BranchExp implements CovExp {
         break;
       }
     }
-    hasValue = value; // The value is cached.
     probesUsed = probes;
     return value;
   }

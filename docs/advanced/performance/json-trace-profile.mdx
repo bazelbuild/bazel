@@ -76,7 +76,7 @@ $ zcat $(../bazel-6.0.0rc1-linux-x86_64 info output_base)/command.profile.gz | j
 [...]
 ```
 
-## Profile information
+## Profile information {#profile-information}
 
 The profile contains multiple rows. Usually the bulk of rows represent Bazel
 threads and their corresponding events, but some special rows are also included.
@@ -99,7 +99,7 @@ Figure 1 shows a profile created with Bazel v5.3.1 and includes these rows:
 *   `Garbage Collector`: Displays minor and major Garbage Collection (GC)
     pauses.
 
-## Common performance issues
+## Common performance issues {#common-performance-issues}
 
 When analyzing performance profiles, look for:
 
@@ -117,7 +117,7 @@ When analyzing performance profiles, look for:
     or Bazel itself to introduce more parallelism. This can also happen when
     there is an unusual amount of GC.
 
-## Profile file format
+## Profile file format {#profile-file-format}
 
 The top-level object contains metadata (`otherData`) and the actual tracing data
 (`traceEvents`). The metadata contains extra info, for example the invocation ID

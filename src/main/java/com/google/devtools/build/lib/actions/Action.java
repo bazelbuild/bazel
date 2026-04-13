@@ -175,6 +175,15 @@ public interface Action extends ActionExecutionMetadata {
   NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException;
 
+  /**
+   * Whether the action detected any of its inputs as unused on its most recent execution.
+   *
+   * <p>Only actions which {@linkplain #discoversInputs() discover inputs} may prune inputs. The
+   * action updates its inputs to the pruned set during {@link #execute}. {@link #discoversInputs()}
+   * should report all of the original inputs.
+   */
+  boolean prunedInputs();
+
   /** Prepare for input discovery, called before the first call to {@link #discoverInputs}. */
   default void prepareInputDiscovery() {}
 

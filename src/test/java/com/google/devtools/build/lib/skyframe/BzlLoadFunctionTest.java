@@ -70,9 +70,9 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   public final void preparePackageLoading() throws Exception {
     Path alternativeRoot = scratch.dir("/root_2");
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 7;
+    packageOptions.setDefaultVisibility(RuleVisibility.PUBLIC);
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(7);
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
     parser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
@@ -1156,6 +1156,114 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), key, /*keepGoing=*/ false, reporter);
     assertThatEvaluationResult(result).hasErrorEntryForKeyThat(key).isNotTransient();
+  }
+
+  @Test
+  public void testTypeTagger_notRunByDefault() throws Exception {
+    setBuildLanguageOptions("--experimental_starlark_type_syntax");
+    scratch.file("a/BUILD");
+    scratch.file("a/foo.bzl", "x: NoSuchType = [1, 2, 3]");
+
+    SkyKey key = key("//a:foo.bzl");
+    EvaluationResult<BzlLoadValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
+    assertThatEvaluationResult(result).hasNoError();
+  }
+
+  @Test
+  public void testTypeTagger_detectsErrors_ifDynamicTypeCheckingEnabled() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_dynamic_type_checking");
+    scratch.file("a/BUILD");
+    scratch.file("a/foo.bzl", "x: NoSuchType = [1, 2, 3]");
+    SkyKey key = key("//a:foo.bzl");
+    reporter.removeHandler(failFastHandler);
+
+    SkyframeExecutorTestUtils.evaluate(
+        getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
+    assertContainsEvent("name 'NoSuchType' is not defined");
+  }
+
+  @Test
+  public void testTypeTagger_detectsErrors_ifStaticTypeCheckingEnabled() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+    scratch.file("a/BUILD");
+    scratch.file("a/foo.bzl", "x: NoSuchType = [1, 2, 3]");
+    SkyKey key = key("//a:foo.bzl");
+    reporter.removeHandler(failFastHandler);
+
+    SkyframeExecutorTestUtils.evaluate(
+        getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
+    assertContainsEvent("name 'NoSuchType' is not defined");
+  }
+
+  @Test
+  public void testStaticTypeChecker_basicUsage() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+    scratch.file("a/BUILD");
+    scratch.file("a/foo.bzl", "x: list[int] = [1, 2, 3]");
+    SkyKey key = key("//a:foo.bzl");
+
+    EvaluationResult<BzlLoadValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
+    assertThatEvaluationResult(result).hasNoError();
+  }
+
+  @Test
+  public void testStaticTypeChecker_notRunByDefault() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_dynamic_type_checking");
+    scratch.file("a/BUILD");
+    scratch.file("a/foo.bzl", "x: list[int] = ['a', 'b', 'c']");
+
+    SkyKey key = key("//a:foo.bzl");
+    EvaluationResult<BzlLoadValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
+    assertThatEvaluationResult(result).hasNoError();
+  }
+
+  @Test
+  public void testStaticTypeChecker_detectsErrors() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+    scratch.file("a/BUILD");
+    scratch.file("a/foo.bzl", "x: list[int] = ['a', 'b', 'c']");
+    reporter.removeHandler(failFastHandler);
+
+    SkyKey key = key("//a:foo.bzl");
+    SkyframeExecutorTestUtils.evaluate(
+        getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
+    assertContainsEvent("cannot assign type 'list[str]' to 'x' of type 'list[int]'");
+  }
+
+  @Test
+  public void testDynamicTypeChecker_detectsErrors() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_dynamic_type_checking");
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl",
+        """
+        def requires_int(x: int):
+            return x + 1
+
+        def provides_str():
+            return "a"
+
+        requires_int(provides_str())
+        """);
+    reporter.removeHandler(failFastHandler);
+
+    SkyKey key = key("//a:foo.bzl");
+    SkyframeExecutorTestUtils.evaluate(
+        getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
+    assertContainsEvent(
+        "in call to requires_int(), parameter 'x' got value of type 'str', want 'int'");
   }
 
   private static class CustomInMemoryFs extends InMemoryFileSystem {

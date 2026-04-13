@@ -83,6 +83,7 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "another/BUILD",
         """
+        exports_files(['another.txt'])
         filegroup(name  = 'another',
                   srcs = ['another.txt'])
         """);

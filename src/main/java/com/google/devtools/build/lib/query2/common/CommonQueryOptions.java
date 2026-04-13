@@ -188,8 +188,8 @@ public class CommonQueryOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
-          "If enabled, every query command emits labels as if by the Starlark <code>str</code>"
-              + " function applied to a <code>Label</code> instance. This is useful for tools that"
+          "If enabled, every query command emits labels as if by the Starlark `str`"
+              + " function applied to a `Label` instance. This is useful for tools that"
               + " need to match the output of different query commands and/or labels emitted by"
               + " rules. If not enabled, output formatters are free to emit apparent repository"
               + " names (relative to the main repository) instead to make the output more"
@@ -406,6 +406,6 @@ public class CommonQueryOptions extends OptionsBase {
       help =
           "When specified, query results will be written directly to this file, and nothing will be"
               + " printed to Bazel's standard output stream (stdout). In benchmarks, this is"
-              + " generally faster than <code>bazel query &gt; file</code>.")
+              + " generally faster than `bazel query &gt; file`.")
   public String outputFile;
 }

@@ -67,7 +67,6 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.net.URI;
-import java.net.URL;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -111,12 +110,12 @@ import javax.annotation.Nullable;
 public final class VendorCommand implements BlazeCommand {
   public static final String NAME = "vendor";
 
-  private final Supplier<Map<String, String>> clientEnvironmentSupplier;
+  private final Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier;
   @Nullable private VendorManager vendorManager = null;
   @Nullable private DownloadManager downloadManager;
 
-  public VendorCommand(Supplier<Map<String, String>> clientEnvironmentSupplier) {
-    this.clientEnvironmentSupplier = clientEnvironmentSupplier;
+  public VendorCommand(Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier) {
+    this.nonstrictRepoEnvSupplier = nonstrictRepoEnvSupplier;
   }
 
   public void setDownloadManager(DownloadManager downloadManager) {
@@ -155,7 +154,8 @@ public final class VendorCommand implements BlazeCommand {
     VendorOptions vendorOptions = options.getOptions(VendorOptions.class);
     LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
     Path vendorDirectory =
-        env.getWorkspace().getRelative(options.getOptions(RepositoryOptions.class).vendorDirectory);
+        env.getWorkspace()
+            .getRelative(options.getOptions(RepositoryOptions.class).getVendorDirectory());
     this.vendorManager = new VendorManager(vendorDirectory);
     List<String> targets;
     try {
@@ -166,13 +166,13 @@ public final class VendorCommand implements BlazeCommand {
     }
     try {
       if (!targets.isEmpty()) {
-        if (!vendorOptions.repos.isEmpty()) {
+        if (!vendorOptions.getRepos().isEmpty()) {
           return createFailedBlazeCommandResult(
               env.getReporter(), "Target patterns and --repo cannot both be specified");
         }
         result = vendorTargets(env, options, targets);
-      } else if (!vendorOptions.repos.isEmpty()) {
-        result = vendorRepos(env, threadsOption, vendorOptions.repos);
+      } else if (!vendorOptions.getRepos().isEmpty()) {
+        result = vendorRepos(env, threadsOption, vendorOptions.getRepos());
       } else {
         result = vendorAll(env, threadsOption);
       }
@@ -193,13 +193,13 @@ public final class VendorCommand implements BlazeCommand {
 
   @Nullable
   private BlazeCommandResult validateOptions(CommandEnvironment env, OptionsParsingResult options) {
-    if (options.getOptions(RepositoryOptions.class).vendorDirectory == null) {
+    if (options.getOptions(RepositoryOptions.class).getVendorDirectory() == null) {
       return createFailedBlazeCommandResult(
           env.getReporter(),
           Code.OPTIONS_INVALID,
           "You cannot run the vendor command without specifying --vendor_dir");
     }
-    if (!options.getOptions(PackageOptions.class).fetch) {
+    if (!options.getOptions(PackageOptions.class).getFetch()) {
       return createFailedBlazeCommandResult(
           env.getReporter(),
           Code.OPTIONS_INVALID,
@@ -351,8 +351,8 @@ public final class VendorCommand implements BlazeCommand {
     // The user has to update the Bazel registries this if such conflicts occur.
     Map<String, String> vendorPathToUrl = new HashMap<>();
     for (Entry<String, Optional<Checksum>> entry : registryFiles.entrySet()) {
-      URL url = URI.create(entry.getKey()).toURL();
-      if (url.getProtocol().equals("file")) {
+      URI url = URI.create(entry.getKey());
+      if (Objects.equals(url.getScheme(), "file")) {
         continue;
       }
 
@@ -369,7 +369,7 @@ public final class VendorCommand implements BlazeCommand {
                     + " cause conflict on case insensitive file systems, please fix by changing the"
                     + " registry URLs!",
                 previousUrl,
-                vendorManager.getVendorPathForUrl(URI.create(previousUrl).toURL()).getPathString(),
+                vendorManager.getVendorPathForUrl(URI.create(previousUrl)).getPathString(),
                 entry.getKey(),
                 outputPath));
       }
@@ -383,7 +383,7 @@ public final class VendorCommand implements BlazeCommand {
           vendorManager.vendorRegistryUrl(
               url,
               downloadManager.downloadAndReadOneUrlForBzlmod(
-                  url, clientEnvironmentSupplier.get(), checksum));
+                  url, nonstrictRepoEnvSupplier.get(), checksum));
         } catch (IOException e) {
           throw new IOException(
               String.format(
@@ -400,7 +400,7 @@ public final class VendorCommand implements BlazeCommand {
         env.getDirectories()
             .getOutputBase()
             .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
-    vendorManager.vendorRepos(externalPath, reposToVendor);
+    vendorManager.vendorRepos(externalPath, env.getDirectories().getWorkspace(), reposToVendor);
 
     // 3. Invalidate RepositoryDirectoryValue for vendored repos.
     env.getSkyframeExecutor()

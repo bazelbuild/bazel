@@ -50,6 +50,9 @@ if is_windows; then
   export JAVA_HOME="${JAVA_HOME:-$(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)}"
   export BAZEL_SH="$(cygpath -m /usr/bin/bash)"
 
+  # Make sure /usr/bin is first in the PATH for tools like `find`.
+  export PATH="/usr/bin:$PATH"
+
   # Disable MSYS path conversion that converts path-looking command arguments to
   # Windows paths (even if they arguments are not in fact paths).
   export MSYS_NO_PATHCONV=1
@@ -356,6 +359,12 @@ function enable_disk_cache() {
   echo "common --disk_cache=$TEST_TMPDIR/disk_cache" >> $TEST_TMPDIR/bazelrc
 }
 
+function use_prebuilt_protoc() {
+  echo "common --@com_google_protobuf//bazel/toolchains:prefer_prebuilt_protoc" >> $TEST_TMPDIR/bazelrc
+  echo "common --per_file_copt=external/.*protobuf.*/src/google/protobuf/compiler/main.cc@--DO_NOT_COMPILE_PROTOC" >> $TEST_TMPDIR/bazelrc
+  echo "common --host_per_file_copt=external/.*protobuf.*/src/google/protobuf/compiler/main.cc@--DO_NOT_COMPILE_PROTOC" >> $TEST_TMPDIR/bazelrc
+}
+
 function setup_android_sdk_support() {
   # Required for runfiles library on Windows, since $(rlocation) lookups
   # can't do directories. We use android-28's android.jar as the anchor
@@ -590,6 +599,10 @@ function add_rules_license() {
 
 function add_zlib() {
   add_bazel_dep "zlib" "$1"
+}
+
+function add_re2() {
+  add_bazel_dep "re2" "$1"
 }
 
 function add_protobuf() {

@@ -1758,7 +1758,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         .isEqualTo(StarlarkInt.of(100));
 
     // Assert native option set via command line.
-    assertThat(getCoreOptions(dep).compilationMode.toString()).isEqualTo("opt");
+    assertThat(getCoreOptions(dep).getCompilationMode().toString()).isEqualTo("opt");
 
     // Assert that transitionDirectoryNameFragment is only affected by options
     // set via transitions. Not by native or starlark options set via command line,
@@ -2030,10 +2030,10 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
                 ImmutableList.of("//command_line_option:copt=[set_by_test_target]")));
     // Sanity check: the exec-configured value is indeed unique vs. both the target-transitioned
     // value and the top-level config.
-    assertThat(test.getConfigurationKey().getOptions().get(CppOptions.class).coptList)
-        .isNotEqualTo(dep.getConfigurationKey().getOptions().get(CppOptions.class).coptList);
-    assertThat(getTargetConfiguration().getOptions().get(CppOptions.class).coptList)
-        .isNotEqualTo(dep.getConfigurationKey().getOptions().get(CppOptions.class).coptList);
+    assertThat(test.getConfigurationKey().getOptions().get(CppOptions.class).getCoptList())
+        .isNotEqualTo(dep.getConfigurationKey().getOptions().get(CppOptions.class).getCoptList());
+    assertThat(getTargetConfiguration().getOptions().get(CppOptions.class).getCoptList())
+        .isNotEqualTo(dep.getConfigurationKey().getOptions().get(CppOptions.class).getCoptList());
     assertThat(getMnemonic(dep)).endsWith("-exec");
   }
 
@@ -3137,7 +3137,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         getDirectPrerequisite(getConfiguredTarget("//test/starlark:test"), "//test/starlark:main1");
     // When --platforms is empty and no platform mapping triggers, PlatformMappingValue sets
     // --platforms to PlatformOptions.computeTargetPlatform(), which defaults to the host.
-    assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).platforms)
+    assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked(TestConstants.PLATFORM_LABEL));
   }
 
@@ -3205,7 +3205,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     useConfiguration("--platforms=//platforms:my_platform");
     ConfiguredTarget dep =
         getDirectPrerequisite(getConfiguredTarget("//test/starlark:test"), "//test/starlark:main1");
-    assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).platforms)
+    assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked("//platforms:my_other_platform"));
   }
 
@@ -3264,7 +3264,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     useConfiguration("--platforms=//platforms:my_platform");
     ConfiguredTarget dep =
         getDirectPrerequisite(getConfiguredTarget("//test/starlark:test"), "//test/starlark:main1");
-    assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).platforms)
+    assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked("//platforms:my_platform"));
   }
 

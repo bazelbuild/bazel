@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -51,8 +53,6 @@ import net.starlark.java.syntax.Location;
 public final class CcToolchainProvider {
 
   public static final String STARLARK_NAME = "CcToolchainInfo";
-  public static final CcToolchainInfoProvider BUILTINS_PROVIDER =
-      new BuiltinCcToolchainInfoProvider();
   // provider when rules_cc itself is the main module
   private static final CcToolchainInfoProvider RULES_CC_PROVIDER =
       new RulesCcCcToolchainInfoProvider();
@@ -61,9 +61,6 @@ public final class CcToolchainProvider {
 
   public static CcToolchainProvider wrapOrThrowEvalException(Info toolchainInfo)
       throws EvalException {
-    if (toolchainInfo.getProvider().getKey().equals(BUILTINS_PROVIDER.getKey())) {
-      return BUILTINS_PROVIDER.wrapOrThrowEvalException(toolchainInfo);
-    }
     if (toolchainInfo.getProvider().getKey().equals(BAZEL_PROVIDER.getKey())) {
       return BAZEL_PROVIDER.wrapOrThrowEvalException(toolchainInfo);
     }
@@ -74,9 +71,6 @@ public final class CcToolchainProvider {
   }
 
   public static CcToolchainProvider wrap(Info toolchainInfo) throws RuleErrorException {
-    if (toolchainInfo.getProvider().getKey().equals(BUILTINS_PROVIDER.getKey())) {
-      return BUILTINS_PROVIDER.wrap(toolchainInfo);
-    }
     if (toolchainInfo.getProvider().getKey().equals(BAZEL_PROVIDER.getKey())) {
       return BAZEL_PROVIDER.wrap(toolchainInfo);
     }
@@ -88,10 +82,7 @@ public final class CcToolchainProvider {
 
   public static CcToolchainProvider getFromTarget(ConfiguredTarget target)
       throws RuleErrorException {
-    CcToolchainProvider provider = target.get(BUILTINS_PROVIDER);
-    if (provider == null) {
-      provider = target.get(RULES_CC_PROVIDER);
-    }
+    CcToolchainProvider provider = target.get(RULES_CC_PROVIDER);
     if (provider == null) {
       provider = target.get(BAZEL_PROVIDER);
     }
@@ -126,15 +117,6 @@ public final class CcToolchainProvider {
           keyForBuild(
               Label.parseCanonicalUnchecked(
                   "//third_party/bazel_rules/rules_cc/cc/private/rules_impl:cc_toolchain_info.bzl")),
-          STARLARK_NAME);
-    }
-  }
-
-  private static class BuiltinCcToolchainInfoProvider extends CcToolchainInfoProvider {
-    private BuiltinCcToolchainInfoProvider() {
-      super(
-          keyForBuiltins(
-              Label.parseCanonicalUnchecked("@_builtins//:common/cc/cc_toolchain_info.bzl")),
           STARLARK_NAME);
     }
   }
@@ -202,15 +184,12 @@ public final class CcToolchainProvider {
     return PathFragment.create(value.getValue(key, String.class));
   }
 
-  private static final ImmutableList<PathFragment> convertStarlarkListToPathFragments(
-      StarlarkInfo value, String key) throws EvalException {
-    ImmutableList.Builder<PathFragment> pathFragments = ImmutableList.builder();
-    for (String pathString :
-        Sequence.cast(value.getValue(key, Sequence.class), String.class, key)) {
-      pathFragments.add(PathFragment.create(pathString));
-    }
-    return pathFragments.build();
-  }
+  // Ensures that we use a canonical ImmutableList<PathFragment> instance to save memory.
+  private static final LoadingCache<Sequence<String>, ImmutableList<PathFragment>>
+      builtinIncludeDirectoriesCache =
+          Caffeine.newBuilder()
+              .weakKeys()
+              .build(seq -> seq.stream().map(PathFragment::create).collect(toImmutableList()));
 
   private final StarlarkInfo value;
 
@@ -297,8 +276,13 @@ public final class CcToolchainProvider {
             value.getValue("_tool_paths", Dict.class), String.class, String.class, "_tool_paths"));
   }
 
-  public ImmutableList<PathFragment> getBuiltInIncludeDirectories() throws EvalException {
-    return convertStarlarkListToPathFragments(value, "built_in_include_directories");
+  ImmutableList<PathFragment> getBuiltInIncludeDirectories() throws EvalException {
+    Sequence<String> seq =
+        Sequence.cast(
+            value.getValue("built_in_include_directories", Sequence.class),
+            String.class,
+            "built_in_include_directories");
+    return builtinIncludeDirectoriesCache.get(seq);
   }
 
   /** Returns the identifier of the toolchain as specified in the {@code CToolchain} proto. */

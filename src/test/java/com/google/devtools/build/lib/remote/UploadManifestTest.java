@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -878,6 +879,50 @@ public class UploadManifestTest {
     expectedResult
         .addOutputDirectoriesBuilder()
         .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void actionResult_unicodeDirectoryTree() throws Exception {
+    // Verify that non-ASCII names in directory trees are converted from Bazel's internal
+    // encoding to Unicode in the protobuf messages (FileNode, DirectoryNode, SymlinkNode).
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path dir = execRoot.getRelative(unicodeToInternal("dïr"));
+    dir.createDirectory();
+    Path subdir = execRoot.getRelative(unicodeToInternal("dïr/sübdïr"));
+    subdir.createDirectory();
+    Path file = execRoot.getRelative(unicodeToInternal("dïr/sübdïr/fïlé"));
+    FileSystemUtils.writeContent(file, new byte[] {1, 2, 3, 4, 5});
+    Path link = execRoot.getRelative(unicodeToInternal("dïr/lïnk"));
+    link.createSymbolicLink(PathFragment.create(unicodeToInternal("../tàrgét")));
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil, remotePathResolver, result, /* allowAbsoluteSymlinks= */ false);
+    um.addFiles(ImmutableList.of(dir));
+    Digest fileDigest = digestUtil.compute(file);
+
+    // Build the expected tree with Unicode names.
+    Directory subdirDir =
+        Directory.newBuilder()
+            .addFiles(
+                FileNode.newBuilder().setName("fïlé").setDigest(fileDigest).setIsExecutable(true))
+            .build();
+    Digest subdirDigest = digestUtil.compute(subdirDir);
+    Directory rootDir =
+        Directory.newBuilder()
+            .addDirectories(DirectoryNode.newBuilder().setName("sübdïr").setDigest(subdirDigest))
+            .addSymlinks(SymlinkNode.newBuilder().setName("lïnk").setTarget("../tàrgét"))
+            .build();
+    Tree tree = Tree.newBuilder().setRoot(rootDir).addChildren(subdirDir).build();
+    Digest treeDigest = digestUtil.compute(tree);
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("dïr")
         .setTreeDigest(treeDigest)
         .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());

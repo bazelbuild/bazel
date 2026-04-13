@@ -15,6 +15,14 @@ filegroup(
 )
 
 java_library(
+    name = "decimal_bucketer",
+    srcs = ["DecimalBucketer.java"],
+    deps = [
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "logging",
     srcs = ["LoggingUtil.java"],
     deps = [
@@ -58,18 +66,6 @@ java_library(
     add_exports = ["java.base/sun.nio.ch"],
     deps = [
         "//third_party:flogger",
-    ],
-)
-
-java_library(
-    name = "process",
-    srcs = ["ProcessUtils.java"],
-    deps = [
-        ":os",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//src/main/java/com/google/devtools/build/lib/unix",
-        "//src/main/java/com/google/devtools/build/lib/windows:processes",
     ],
 )
 
@@ -239,6 +235,7 @@ java_library(
     name = "util",
     srcs = [
         "AnsiStrippingOutputStream.java",
+        "BytesSink.java",
         "CPU.java",
         "ClassName.java",
         "DependencySet.java",

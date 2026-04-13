@@ -221,7 +221,7 @@ public class PatchUtil {
       Patch<String> tmpPatch = new Patch<>();
       tmpPatch.addDelta(delta);
       try {
-        newContent = tmpPatch.applyFuzzy(newContent, 0);
+        newContent = tmpPatch.applyFuzzy(newContent, 2);
       } catch (PatchFailedException | IndexOutOfBoundsException e) {
         throw new PatchFailedException(
             String.format(
@@ -447,6 +447,8 @@ public class PatchUtil {
       throw new PatchFailedException("Cannot find patch file: " + patchFile.getPathString());
     }
 
+    String singleFileStr =
+        singleFile != null ? singleFile.relativeTo(outputDirectory).getPathString() : null;
     boolean isGitDiff = false;
     boolean hasRenameFrom = false;
     boolean hasRenameTo = false;
@@ -593,6 +595,16 @@ public class PatchUtil {
                 checkFilesStatusForRenaming(
                     oldFile, newFile, oldFileStr, newFileStr, patchStartLocation);
               }
+            }
+            if (singleFileStr != null
+                && strip == 0
+                && ("a/" + singleFileStr).equals(oldFileStr)
+                && ("b/" + singleFileStr).equals(newFileStr)) {
+              throw new PatchFailedException(
+                  String.format(
+                      "error at line %d: the patch file contains a/b prefixes, did you forget to"
+                          + " set patch_strip = 1?",
+                      patchStartLocation));
             }
 
             if (singleFile == null || (singleFile.equals(newFile) && singleFile.equals(oldFile))) {

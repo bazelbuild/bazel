@@ -55,9 +55,11 @@ java_test(name = "javatest",
           use_testrunner = 0,
           srcs = [ "java/ExitZero.java", ])
 py_binary(name = "pybin",
-          srcs = [ "pybin.py", ])
+          srcs = [ "pybin.py", ],
+)
 py_test(name = "pytest",
-        srcs = [ "pytest.py", ])
+        srcs = [ "pytest.py", ],
+)
 sh_binary(name = "sh_runs_javabin",
           srcs = [ "sh_runs_javabin.sh", ],
           data = [ ":javabin", ])

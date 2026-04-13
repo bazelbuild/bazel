@@ -152,6 +152,19 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
+  public void testStructureRcOptionsAndConfigs_emptyConfig() throws Exception {
+    ListMultimap<String, RcChunkOfArgs> structuredRc =
+        BlazeOptionHandler.structureRcOptionsAndConfigs(
+            eventHandler,
+            Arrays.asList("rc1"),
+            Arrays.asList(new ClientOptions.OptionOverride(0, "common:foo", "")),
+            ImmutableSet.of("build"));
+    assertThat(structuredRc)
+        .containsExactly("common:foo", new RcChunkOfArgs("rc1", ImmutableList.of()));
+    assertThat(eventHandler.isEmpty()).isTrue();
+  }
+
+  @Test
   public void testStructureRcOptionsAndConfigs_invalidCommand() throws Exception {
     BlazeOptionHandler.structureRcOptionsAndConfigs(
         eventHandler,
@@ -427,6 +440,20 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
+  public void testExpandConfigOptions_emptyConfig() throws Exception {
+    parser.parse("--config=empty");
+    ListMultimap<String, RcChunkOfArgs> rcContent = ArrayListMultimap.create();
+    rcContent.put("common:empty", new RcChunkOfArgs("rc1", ImmutableList.of()));
+
+    optionHandler.expandConfigOptions(eventHandler, rcContent);
+
+    assertThat(eventHandler.getEvents()).isEmpty();
+    assertThat(parser.getResidue()).isEmpty();
+    assertThat(optionHandler.getRcfileNotes())
+        .containsExactly("Found applicable config definition common:empty in file rc1: ");
+  }
+
+  @Test
   public void testParseOptions_argless() {
     DetailedExitCode unused =
         optionHandler.parseOptions(
@@ -662,6 +689,29 @@ public class BlazeOptionHandlerTest {
     TestOptions options = parser.getOptions(TestOptions.class);
     assertThat(options).isNotNull();
     assertThat(options.testMultipleString).containsExactly("rc", "explicit", "config").inOrder();
+  }
+
+  @Test
+  public void testParseOptions_explicitEmptyConfig() {
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:common:empty=",
+                "--rc_source=/somewhere/.blazerc",
+                "--test_multiple_string=explicit",
+                "--config=empty"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(eventHandler.getEvents()).isEmpty();
+    assertThat(parser.getResidue()).isEmpty();
+    assertThat(optionHandler.getRcfileNotes())
+        .containsExactly(
+            "Found applicable config definition common:empty in file /somewhere/.blazerc: ");
+
+    TestOptions options = parser.getOptions(TestOptions.class);
+    assertThat(options).isNotNull();
+    assertThat(options.testMultipleString).containsExactly("explicit");
   }
 
   @Test

@@ -498,20 +498,26 @@ public final class PackageFactory {
     }
 
     Semaphore cpuSemaphore = pkgBuilder.getCpuBoundSemaphore();
+    boolean semaphoreAcquired = false;
     try {
       if (cpuSemaphore != null) {
         cpuSemaphore.acquire();
+        semaphoreAcquired = true;
       }
       executeBuildFileImpl(
           pkgBuilder, buildFileProgram, predeclared, loadedModules, starlarkSemantics);
     } catch (InterruptedException e) {
+      if (semaphoreAcquired) {
+        cpuSemaphore.release();
+        semaphoreAcquired = false; // Mark as released
+      }
       globber.onInterrupt();
       throw e;
     } finally {
-      globber.onCompletion();
-      if (cpuSemaphore != null) {
+      if (semaphoreAcquired) {
         cpuSemaphore.release();
       }
+      globber.onCompletion();
     }
   }
 

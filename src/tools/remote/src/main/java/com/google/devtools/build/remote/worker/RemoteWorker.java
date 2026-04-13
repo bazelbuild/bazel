@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.util.StringEncoding.internalToPlatfo
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.logging.Level.FINE;
 
+import build.bazel.remote.asset.v1.FetchGrpc.FetchImplBase;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CapabilitiesGrpc.CapabilitiesImplBase;
@@ -37,6 +38,8 @@ import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
+import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
+import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.SingleLineFormatter;
@@ -104,6 +107,7 @@ public final class RemoteWorker {
   private final ContentAddressableStorageImplBase casServer;
   private final ExecutionImplBase execServer;
   private final CapabilitiesImplBase capabilitiesServer;
+  private final FetchImplBase fetchServer;
 
   static FileSystem getFileSystem() {
     final DigestHashFunction hashFunction;
@@ -117,7 +121,8 @@ public final class RemoteWorker {
     }
     return OS.getCurrent() == OS.WINDOWS
         ? new WindowsFileSystem(hashFunction, /* createSymbolicLinks= */ true)
-        : new UnixFileSystem(hashFunction, /* hashAttributeName= */ "");
+        : new UnixFileSystem(
+            hashFunction, /* hashAttributeName= */ "", new NativePosixFilesServiceImpl());
   }
 
   /** A {@link ServerInterceptor} that rejects requests unless an authorization token is present. */
@@ -205,6 +210,7 @@ public final class RemoteWorker {
       execServer = null;
     }
     this.capabilitiesServer = new CapabilitiesServer(digestUtil, execServer != null, workerOptions);
+    this.fetchServer = new FetchServer(cache, digestUtil, workPath.getRelative("fetch-temp"));
   }
 
   public Server startServer() throws IOException {
@@ -222,7 +228,8 @@ public final class RemoteWorker {
             .addService(ServerInterceptors.intercept(actionCacheServer, interceptors))
             .addService(ServerInterceptors.intercept(bsServer, interceptors))
             .addService(ServerInterceptors.intercept(casServer, interceptors))
-            .addService(ServerInterceptors.intercept(capabilitiesServer, interceptors));
+            .addService(ServerInterceptors.intercept(capabilitiesServer, interceptors))
+            .addService(ServerInterceptors.intercept(fetchServer, interceptors));
 
     if (workerOptions.tlsCertificate != null) {
       b.sslContext(getSslContextBuilder(workerOptions).build());
@@ -305,6 +312,10 @@ public final class RemoteWorker {
     // was recently closed. I'm told upstream discussed this, but didn't want to keep information
     // about closed streams around.
     nettyLogger.setLevel(Level.SEVERE);
+
+    // Set the default subprocess factory to the Windows-specific implementation if the host OS is
+    // Windows. See Bazel.java for more details.
+    WindowsSubprocessFactory.maybeInstallWindowsSubprocessFactory();
 
     FileSystem fs = getFileSystem();
     Path sandboxPath = null;

@@ -492,7 +492,7 @@ public class CommandLineEventTest {
   public void testDefaultToolCommandLine() throws OptionsParsingException {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(CommonCommandOptions.class).build();
-    ToolCommandLineEvent event = parser.getOptions(CommonCommandOptions.class).toolCommandLine;
+    ToolCommandLineEvent event = parser.getOptions(CommonCommandOptions.class).getToolCommandLine();
     // Test that the actual default value is an empty command line.
     assertThat(event.asStreamProto(null).getStructuredCommandLine())
         .isEqualTo(CommandLine.getDefaultInstance());
@@ -507,7 +507,7 @@ public class CommandLineEventTest {
     parser.parse(
         "--experimental_tool_command_line=" + BaseEncoding.base64().encode(original.toByteArray()));
 
-    ToolCommandLineEvent event = parser.getOptions(CommonCommandOptions.class).toolCommandLine;
+    ToolCommandLineEvent event = parser.getOptions(CommonCommandOptions.class).getToolCommandLine();
     StructuredCommandLineId id = event.getEventId().getStructuredCommandLine();
     CommandLine line = event.asStreamProto(null).getStructuredCommandLine();
 
@@ -538,7 +538,7 @@ public class CommandLineEventTest {
     parser.parse(
         "--experimental_tool_command_line=" + BaseEncoding.base64().encode(original.toByteArray()));
 
-    ToolCommandLineEvent event = parser.getOptions(CommonCommandOptions.class).toolCommandLine;
+    ToolCommandLineEvent event = parser.getOptions(CommonCommandOptions.class).getToolCommandLine();
     StructuredCommandLineId id = event.getEventId().getStructuredCommandLine();
     CommandLine line = event.asStreamProto(null).getStructuredCommandLine();
 
@@ -562,7 +562,7 @@ public class CommandLineEventTest {
         OptionsParser.builder().optionsClasses(CommonCommandOptions.class).build();
     parser.parse("--experimental_tool_command_line=The quick brown fox jumps over the lazy dog");
 
-    ToolCommandLineEvent event = parser.getOptions(CommonCommandOptions.class).toolCommandLine;
+    ToolCommandLineEvent event = parser.getOptions(CommonCommandOptions.class).getToolCommandLine();
     StructuredCommandLineId id = event.getEventId().getStructuredCommandLine();
     CommandLine line = event.asStreamProto(null).getStructuredCommandLine();
 

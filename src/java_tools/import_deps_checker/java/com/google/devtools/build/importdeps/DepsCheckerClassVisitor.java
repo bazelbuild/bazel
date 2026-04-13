@@ -24,6 +24,7 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.ConstantDynamic;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
@@ -105,7 +106,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
       checkDescriptor(desc);
 
       if (!resultCollector.getCheckMissingMembers()) {
-        return;  // No point in doing the expensive stuff below
+        return; // No point in doing the expensive stuff below
       }
 
       // TODO(kmb): Consider removing this entirely so we don't have to track members at all
@@ -409,24 +410,27 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
       return true;
     }
 
+    private void checkDynamicType(Object value) {
+      switch (value) {
+        case Type type -> checkType(type);
+        case Handle handle -> checkHandle(handle);
+        case ConstantDynamic constantDynamic -> checkConstantDynamic(constantDynamic);
+        default -> {
+          if (PRIMITIVE_TYPES.contains(value.getClass())) {
+            checkType(Type.getType(value.getClass()));
+            return;
+          }
+          throw new UnsupportedOperationException("Unsupported bsmarg type: " + value);
+        }
+      }
+    }
+
     @Override
     public void visitInvokeDynamicInsn(String name, String desc, Handle bsm, Object... bsmArgs) {
       checkDescriptor(desc);
       checkHandle(bsm);
       for (Object bsmArg : bsmArgs) {
-        if (bsmArg instanceof Type) {
-          checkType(((Type) bsmArg)); // Class literals.
-          continue;
-        }
-        if (PRIMITIVE_TYPES.contains(bsmArg.getClass())) {
-          checkType(Type.getType(bsmArg.getClass()));
-          continue;
-        }
-        if (bsmArg instanceof Handle) {
-          checkHandle((Handle) bsmArg);
-          continue;
-        }
-        throw new UnsupportedOperationException("Unsupported bsmarg type: " + bsmArg);
+        checkDynamicType(bsmArg);
       }
       super.visitInvokeDynamicInsn(name, desc, bsm, bsmArgs);
     }
@@ -435,15 +439,19 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
       checkMember(handle.getOwner(), handle.getName(), handle.getDesc());
     }
 
+    private void checkConstantDynamic(ConstantDynamic constantDynamic) {
+      checkDescriptor(constantDynamic.getDescriptor());
+      checkHandle(constantDynamic.getBootstrapMethod());
+      for (int i = 0; i < constantDynamic.getBootstrapMethodArgumentCount(); i++) {
+        Object bsmArg = constantDynamic.getBootstrapMethodArgument(i);
+        checkDynamicType(bsmArg);
+      }
+      super.visitLdcInsn(constantDynamic);
+    }
+
     @Override
     public void visitLdcInsn(Object value) {
-      if (value instanceof Type) {
-        checkType((Type) value); // Class literals
-      } else if (value instanceof Handle) {
-        checkHandle((Handle) value);
-      } else {
-        checkState(PRIMITIVE_TYPES.contains(value.getClass()));
-      }
+      checkDynamicType(value);
       super.visitLdcInsn(value);
     }
 

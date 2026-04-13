@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.platform;
 
 import static java.util.Objects.requireNonNull;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
@@ -23,8 +24,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.List;
-import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -48,24 +48,36 @@ public record PlatformValue(PlatformInfo platformInfo, Optional<ParsedFlagsValue
     return new PlatformValue(platformInfo, Optional.of(parsedFlags));
   }
 
-  public static Key key(Label platformLabel, List<Map.Entry<String, String>> flagAliasMappings) {
+  public static Key key(Label platformLabel, ImmutableMap<String, Label> flagAliasMappings) {
     return Key.create(platformLabel, flagAliasMappings);
   }
 
-  /**
-   * Key definition.
-   *
-   * @param label The platform label.
-   * @param flagAliasMappings {@code --flag_alias} maps that apply to this build.
-   */
+  /** Key definition. */
   @AutoCodec
-  public record Key(Label label, List<Map.Entry<String, String>> flagAliasMappings)
-      implements SkyKey {
+  public static final class Key implements SkyKey {
     private static final SkyKeyInterner<Key> interner = new SkyKeyInterner<>();
 
+    private final Label label;
+    private final ImmutableMap<String, Label> flagAliasMappings;
+    private final int hashCode;
+
+    private Key(Label label, ImmutableMap<String, Label> flagAliasMappings) {
+      this.label = requireNonNull(label);
+      this.flagAliasMappings = requireNonNull(flagAliasMappings);
+      this.hashCode = Objects.hash(label, flagAliasMappings);
+    }
+
     @AutoCodec.Instantiator
-    static Key create(Label label, List<Map.Entry<String, String>> flagAliasMappings) {
+    static Key create(Label label, ImmutableMap<String, Label> flagAliasMappings) {
       return interner.intern(new Key(label, flagAliasMappings));
+    }
+
+    public Label label() {
+      return label;
+    }
+
+    public ImmutableMap<String, Label> flagAliasMappings() {
+      return flagAliasMappings;
     }
 
     @Override
@@ -76,6 +88,27 @@ public record PlatformValue(PlatformInfo platformInfo, Optional<ParsedFlagsValue
     @Override
     public SkyKeyInterner<Key> getSkyKeyInterner() {
       return interner;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof Key key)) {
+        return false;
+      }
+      return label.equals(key.label) && flagAliasMappings.equals(key.flagAliasMappings);
+    }
+
+    @Override
+    public int hashCode() {
+      return hashCode;
+    }
+
+    @Override
+    public String toString() {
+      return "Key[label=" + label + ", flagAliasMappings=" + flagAliasMappings + "]";
     }
   }
 }

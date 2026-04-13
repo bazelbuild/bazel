@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.repository.decompressor;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -68,7 +69,17 @@ public abstract class CompressedFunction implements Decompressor {
       String entryName =
           getUncompressedFileName(decompressorStream, descriptor.archivePath().getBaseName());
       entryName = renameFiles.getOrDefault(entryName, entryName);
-      Path filePath = descriptor.destinationPath().getRelative(entryName);
+      PathFragment entryPathRelative = PathFragment.create(entryName);
+      if (entryPathRelative.isAbsolute()) {
+        throw new IOException(
+            String.format("Failed to extract %s, paths cannot be absolute", entryName));
+      }
+      Path filePath = descriptor.destinationPath().getRelative(entryPathRelative);
+      if (!filePath.startsWith(descriptor.destinationPath())) {
+        throw new IOException(
+            String.format(
+                "Failed to extract %s, path is escaping the destination directory", entryName));
+      }
       filePath.getParentDirectory().createDirectoryAndParents();
       try (OutputStream out = filePath.getOutputStream()) {
         decompressorStream.transferTo(out);

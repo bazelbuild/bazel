@@ -39,7 +39,7 @@ public final class ParserTest {
   private FileOptions fileOptions = FileOptions.DEFAULT;
 
   private SyntaxError assertContainsError(String expectedMessage) {
-    return LexerTest.assertContainsError(events, expectedMessage);
+    return TestUtils.assertContainsError(events, expectedMessage);
   }
 
   private void setFailFast(boolean failFast) {
@@ -1466,15 +1466,37 @@ public final class ParserTest {
     setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
     // basic examples
     assertThat(parseTypeExpression("int")).isInstanceOf(Identifier.class);
-    assertThat(parseTypeExpression("tuple[]")).isInstanceOf(TypeApplication.class);
     assertThat(parseTypeExpression("list[str]")).isInstanceOf(TypeApplication.class);
     assertThat(parseTypeExpression("dict[str, int]")).isInstanceOf(TypeApplication.class);
+    // type applications must have at least one argument
+    assertThat(assertThrows(SyntaxError.Exception.class, () -> parseTypeExpression("tuple[]")))
+        .hasMessageThat()
+        .contains("syntax error at ']': expected a type argument");
     // type expressions can use list literals
     assertThat(parseTypeExpression("Callable[[int, str], int]"))
         .isInstanceOf(TypeApplication.class);
-    // type expressions can use dict literals
+    // type expressions can use dict literals with string keys and type expression values
     assertThat(parseTypeExpression("TypedDict[{'a': int, 'b': bool}]"))
         .isInstanceOf(TypeApplication.class);
+    // (non-string keys, or non-type-expression values, are a parse-time error)
+    assertThat(
+            assertThrows(
+                SyntaxError.Exception.class, () -> parseTypeExpression("TypedDict[{x: y}]")))
+        .hasMessageThat()
+        .contains("syntax error at 'x': expected string literal");
+    assertThat(
+            assertThrows(
+                SyntaxError.Exception.class, () -> parseTypeExpression("TypedDict[{'x': foo()}]")))
+        .hasMessageThat()
+        .contains("syntax error at '(': expected ,");
+    // type expressions can use empty tuple literals
+    assertThat(parseTypeExpression("tuple[()]")).isInstanceOf(TypeApplication.class);
+    // ...but not non-empty tuples
+    assertThat(
+            assertThrows(
+                SyntaxError.Exception.class, () -> parseTypeExpression("tuple[(int, str)]")))
+        .hasMessageThat()
+        .contains("syntax error at 'int': expected )");
     // type expressions can use string literals
     assertThat(parseTypeExpression("Literal['abc']")).isInstanceOf(TypeApplication.class);
     // composition
@@ -1520,7 +1542,7 @@ public final class ParserTest {
   public void testDefWithTypeAnnotations() throws Exception {
     setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
     parseStatement("def f(a: int): pass");
-    parseStatement("def f(a: tuple[]): pass");
+    parseStatement("def f(a: tuple[()]): pass");
     parseStatement("def f(a: list[str]): pass");
     parseStatement("def f(a: dict[str, int]): pass");
 
@@ -1558,10 +1580,10 @@ public final class ParserTest {
     setFileOptions(FileOptions.builder().allowTypeSyntax(false).build());
     setFailFast(false);
     parseStatement("def f(a: int): pass");
-    assertContainsError("syntax error at ':': type annotations are disallowed.");
+    assertContainsError("syntax error at ':': type annotations are disallowed");
     events.clear();
     parseStatement("def f[T](): pass");
-    assertContainsError("syntax error at '[': type annotations are disallowed.");
+    assertContainsError("syntax error at '[': type annotations are disallowed");
   }
 
   @Test
@@ -1740,10 +1762,15 @@ public final class ParserTest {
   }
 
   @Test
-  public void testEllipsisAllowedInTypeExpressions() throws Exception {
+  public void testEllipsisAllowedInTypeExpressionArgumentsOnly() throws Exception {
     setFileOptions(
-        FileOptions.builder().allowTypeSyntax(true).tolerateInvalidTypeExpressions(true).build());
-    parseStatement("x : Tuple[int, ...]");
+        FileOptions.builder().allowTypeSyntax(true).tolerateInvalidTypeExpressions(false).build());
+    parseStatement("x : tuple[int, ...]");
+    assertThat(parseStatementError("x : ...")).contains("syntax error at '...': expected a type");
+    assertThat(parseStatementError("x : int | ..."))
+        .contains("syntax error at '...': expected identifier");
+    assertThat(parseStatementError("x : tuple[int | ...]"))
+        .contains("syntax error at '...': expected identifier");
   }
 
   @Test
@@ -2179,7 +2206,7 @@ public final class ParserTest {
   @Test
   public void testParseFileStackOverflow() throws Exception {
     StarlarkFile file = StarlarkFile.parse(veryDeepExpression());
-    SyntaxError ex = LexerTest.assertContainsError(file.errors(), "internal error: stack overflow");
+    SyntaxError ex = TestUtils.assertContainsError(file.errors(), "internal error: stack overflow");
     assertThat(ex.message()).contains("parseDictEntry"); // includes stack
     assertThat(ex.message()).contains("Please report the bug");
     assertThat(ex.message()).contains("include the text of foo.star"); // includes file name
@@ -2189,7 +2216,7 @@ public final class ParserTest {
   public void testParseExpressionStackOverflow() throws Exception {
     SyntaxError.Exception ex =
         assertThrows(SyntaxError.Exception.class, () -> Expression.parse(veryDeepExpression()));
-    SyntaxError err = LexerTest.assertContainsError(ex.errors(), "internal error: stack overflow");
+    SyntaxError err = TestUtils.assertContainsError(ex.errors(), "internal error: stack overflow");
     assertThat(err.message()).contains("parseDictEntry"); // includes stack
     assertThat(err.message())
         .contains("while parsing Starlark expression <<{{{{"); // includes expression

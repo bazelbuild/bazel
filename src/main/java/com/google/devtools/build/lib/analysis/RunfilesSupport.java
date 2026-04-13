@@ -441,10 +441,7 @@ public final class RunfilesSupport {
   /** Returns the root directory of the runfiles symlink farm; otherwise, returns null. */
   @Nullable
   public Path getRunfilesDirectory() {
-    if (runfilesInputManifest == null) {
-      return null;
-    }
-    return FileSystemUtils.replaceExtension(runfilesInputManifest.getPath(), RUNFILES_DIR_EXT);
+    return runfilesTreeArtifact.getPath();
   }
 
   /**
@@ -715,7 +712,7 @@ public final class RunfilesSupport {
                     .getConfiguration()
                     .getOptions()
                     .get(CoreOptions.class)
-                    .compactRepoMapping));
+                    .getCompactRepoMapping()));
     return repoMappingManifest;
   }
 

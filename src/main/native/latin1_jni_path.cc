@@ -67,12 +67,11 @@ jfieldID GetFieldId(JNIEnv* env, jclass clazz, const char* name,
 }
 
 void LogBadPath(JNIEnv* env, jstring jstr) {
-  static const jclass NativePosixFiles_class =
-      GetClass(env, "com/google/devtools/build/lib/unix/NativePosixFiles");
-  static const jmethodID NativePosixFiles_logBadPath_method = GetStaticMethodId(
-      env, NativePosixFiles_class, "logBadPath", "(Ljava/lang/String;)V");
-  env->CallStaticVoidMethod(NativePosixFiles_class,
-                            NativePosixFiles_logBadPath_method, jstr);
+  static const jclass cls = GetClass(
+      env, "com/google/devtools/build/lib/unix/NativePosixFilesServiceImpl");
+  static const jmethodID method =
+      GetStaticMethodId(env, cls, "logBadPath", "(Ljava/lang/String;)V");
+  env->CallStaticVoidMethod(cls, method, jstr);
 }
 
 char* GetStringLatin1Chars(JNIEnv* env, jstring jstr) {

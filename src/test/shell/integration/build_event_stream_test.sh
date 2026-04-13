@@ -1653,31 +1653,32 @@ EOF
 }
 
 function test_glob_filesystem_operation_cost() {
-  mkdir -p foo foo/c
-  touch foo/a
-  touch foo/b
-  touch foo/c/c.txt
-  mkdir foo/d
-  for dir in foo/d/1 foo/d/2 foo/d/1/1 foo/d/1/2 foo/d/2/1 foo/d/2/2
+  local p="test_glob_filesystem_operation_cost"
+  mkdir -p "$p" "$p/c"
+  touch "$p/a"
+  touch "$p/b"
+  touch "$p/c/c.txt"
+  mkdir "$p/d"
+  for subdir in d/1 d/2 d/1/1 d/1/2 d/2/1 d/2/2
   do
+    local dir="$p/$subdir"
     mkdir -p "$dir"
     touch "$dir/a.txt"
     touch "$dir/b.txt"
     touch "$dir/c.txt"
   done
-  cat > foo/BUILD <<'EOF'
-# These two glob calls share the same filesystem operation of readdir(foo).
-# Since foo has 5 dirents, this operation has cost 1+5 = 6.
+  cat > "$p/BUILD" <<'EOF'
+# These two glob calls share the same filesystem operation of readdir(p).
+# Since that directory has 5 dirents, this operation has cost 1+5 = 6.
 glob(["*a"])
 glob(["*b"])
 
-# This will do a direct stat of foo/c/c.txt, so it has cost 1.
+# This will do a direct stat of p/c/c.txt, so it has cost 1.
 glob(["c/c.txt"])
 
-# This will do a readdir on each recursive subdir of d. 3 dirs of those 5
-# dirents each (foo/d, foo/d/1, and foo/d/2) and 4 dirs of those have 3 dirents
-# each (foo/d/1/1, foo/d/1/2, foo/d/2/1, foo/d/2/2). So this glob has cost
-# 3*(1+5) + 4*(1+3) = 34.
+# This will do a readdir on each recursive subdir of d. 3 dirs of those (d, d/1,
+# and d/2) have 5 dirents each and 4 dirs of those (d/1/1, d/1/2, d/2/1, d/2/2)
+# have 3 dirents each . So this glob has cost 3*(1+5) + 4*(1+3) = 34.
 glob(["d/**"])
 
 # Therefore the total glob filesystem operation cost is 6 + 1 + 34 = 41.
@@ -1687,12 +1688,10 @@ EOF
     --nobuild \
     --build_event_json_file=bep.json \
     --experimental_publish_package_metrics_in_bep \
-    //foo:BUILD
+    "//$p:BUILD"
   cp bep.json "$TEST_log" || fail "cp failed"
-  expect_log '"packageLoadMetrics":\[{"name":"foo"[^}]*"globFilesystemOperationCost":"41"'
+  expect_log '"packageLoadMetrics":\[{"name":"test_glob_filesystem_operation_cost"[^}]*"globFilesystemOperationCost":"41"'
 }
-
-run_suite "Integration tests for the build event stream"
 
 function test_java_version_info_in_build_started() {
   mkdir -p a
@@ -1700,7 +1699,41 @@ function test_java_version_info_in_build_started() {
   bazel build --nobuild //a:all --build_event_text_file=bep.txt \
     >/dev/null 2>&1 || fail "build failed"
   assert_contains "java_version_info {" bep.txt
-  assert_contains 'java_version: ".+"' bep.txt
-  assert_contains "java_major_version: [0-9]+" bep.txt
-  assert_contains "java_minor_version: [0-9]+" bep.txt
+  assert_contains 'java_version: ".\+"' bep.txt
+  assert_contains "java_major_version: [0-9]\+" bep.txt
+  if grep -sq 'java_version: "[0-9]\+\\.[1-9]' bep.txt; then
+    # Due to proto default values, java_minor_version will be set in the BEP
+    # textproto file only if the minor version is not 0.
+    assert_contains "java_minor_version: [0-9]\+" bep.txt
+  fi
 }
+
+function test_bes_upload_failure_does_not_block_run() {
+  mkdir -p bes_run_fail
+  cat > bes_run_fail/hello.sh <<'EOF'
+#!/bin/bash
+echo "HELLO_FROM_BINARY"
+EOF
+  chmod +x bes_run_fail/hello.sh
+  cat > bes_run_fail/BUILD <<'EOF'
+genrule(
+    name = "hello",
+    srcs = ["hello.sh"],
+    outs = ["hello_bin.sh"],
+    cmd = "cp $< $@ && chmod +x $@",
+    executable = 1,
+)
+EOF
+
+  # Run with a bogus BES backend.
+  # We expect Bazel to report the error but still execute the binary.
+  bazel run //bes_run_fail:hello \
+      --bes_backend=localhost:1234 \
+      --bes_upload_mode=wait_for_upload_complete \
+      &> $TEST_log || fail "bazel run failed"
+
+  expect_log "The Build Event Protocol upload failed"
+  expect_log "HELLO_FROM_BINARY"
+}
+
+run_suite "Integration tests for the build event stream"

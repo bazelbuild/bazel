@@ -130,7 +130,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                 useVirtualSourceRoot() ? Root.fromPath(rootDirectory) : null,
                 FAKE_INSTALL_MD5_STRING),
             rootDirectory,
-            /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
     delegatingSyscallCache.setDelegate(SyscallCache.NO_CACHE);
 
@@ -324,18 +323,17 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     skyframeExecutor = createSkyframeExecutor(ruleClassProvider);
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
 
-    packageOptions.defaultVisibility = RuleVisibility.PRIVATE;
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 7;
-    packageOptions.packagePath = ImmutableList.of(rootDirectory.getPathString());
-    packageOptions.lazyMacroExpansionPackages = lazyMacroExpansionPackages;
+    packageOptions.setDefaultVisibility(RuleVisibility.PRIVATE);
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(7);
+    packageOptions.setPackagePath(ImmutableList.of(rootDirectory.getPathString()));
+    packageOptions.setLazyMacroExpansionPackages(lazyMacroExpansionPackages);
 
     BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
     buildLanguageOptions.experimentalGoogleLegacyApi = !analysisMock.isThisBazel();
     // TODO(b/256127926): Delete once flipped.
     buildLanguageOptions.experimentalEnableSclDialect = true;
     buildLanguageOptions.experimentalDormantDeps = true;
-    buildLanguageOptions.incompatibleAutoloadExternally = ImmutableList.of();
 
     ImmutableList<BuildFileName> buildFilesByPriority = skyframeExecutor.getBuildFilesByPriority();
     PathPackageLocator packageLocator =
@@ -346,7 +344,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                 buildFilesByPriority)
             : PathPackageLocator.create(
                 directories.getOutputBase(),
-                packageOptions.packagePath,
+                packageOptions.getPackagePath(),
                 getReporter(),
                 directories.getWorkspace().asFragment(),
                 rootDirectory,
@@ -356,7 +354,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
           getReporter(),
           packageLocator,
           UUID.randomUUID(),
-          ImmutableMap.of(),
           ImmutableMap.of(),
           new TimestampGranularityMonitor(BlazeClock.instance()),
           QuiescingExecutorsImpl.forTesting(),

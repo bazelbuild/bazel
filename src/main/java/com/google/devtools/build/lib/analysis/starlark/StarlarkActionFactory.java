@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.starlark;
 
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
 import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT;
 
 import com.google.common.base.Objects;
@@ -356,7 +357,12 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   }
 
   @Override
-  public void write(FileApi output, Object content, Boolean isExecutable, Object mnemonicUnchecked)
+  public void write(
+      FileApi output,
+      Object content,
+      Boolean isExecutable,
+      Object mnemonicUnchecked,
+      Object executionRequirementsUnchecked)
       throws EvalException, InterruptedException {
     context.checkMutable("actions.write");
     RuleContext ruleContext = getRuleContext();
@@ -369,6 +375,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
           FileWriteAction.create(
               ruleContext, (Artifact) output, (String) content, isExecutable, mnemonic);
     } else if (content instanceof Args args) {
+      var unmodifiedExecutionRequirements =
+          TargetUtils.getFilteredExecutionInfo(
+              executionRequirementsUnchecked,
+              ruleContext.getRule(),
+              getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION));
       action =
           new ParameterFileWriteAction(
               ruleContext.getActionOwner(),
@@ -378,7 +389,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               args.getParameterFileType(),
               isExecutable,
               mnemonic,
-              ruleContext.getConfiguration().modifiedExecutionInfo(ImmutableMap.of(), mnemonic),
+              ruleContext
+                  .getConfiguration()
+                  .modifiedExecutionInfo(unmodifiedExecutionRequirements, mnemonic),
               PathMappers.getOutputPathsMode(ruleContext.getConfiguration()));
     } else {
       throw new AssertionError("Unexpected type: " + content.getClass().getSimpleName());
@@ -619,6 +632,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       ImmutableMap<String, String> executionInfo =
           ImmutableMap.copyOf(TargetUtils.getExecutionInfo(ruleContext.getRule()));
       String helperScriptSuffix = String.format(".run_shell_%d.sh", runShellOutputCounter++);
+      PlatformInfo executionPlatform = getExecutionPlatform(execGroupUnchecked, ruleContext);
       PathFragment shExecutable =
           ShToolchain.getPathForPlatform(
               ruleContext.getConfiguration(),
@@ -627,7 +641,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
           CommandHelper.buildBashCommandConstructor(
               executionInfo, shExecutable, helperScriptSuffix);
       Artifact helperScript =
-          CommandHelper.commandHelperScriptMaybe(ruleContext, command, constructor);
+          CommandHelper.commandHelperScriptMaybe(
+              ruleContext, command, constructor, getOsFromConstraintsOrHost(executionPlatform));
       if (helperScript == null) {
         builder.setShellCommand(shExecutable, command, pad);
       } else {
@@ -790,7 +805,14 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       }
     }
 
+    if (mnemonicUnchecked == Starlark.NONE
+        && getSemantics()
+            .getBool(BuildLanguageOptions.INCOMPATIBLE_REQUIRE_MNEMONIC_FOR_RUN_ACTIONS)) {
+      throw Starlark.errorf("actions.run and actions.run_shell require an explicit mnemonic.");
+    }
+
     String mnemonic = getMnemonic(mnemonicUnchecked, "Action");
+
     try {
       builder.setMnemonic(mnemonic);
     } catch (IllegalArgumentException e) {
@@ -1048,7 +1070,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     if (!getRuleContext().getConfiguration().allowMapDirectory()) {
       throw Starlark.errorf(
           "actions.map_directory() is an experimental API and is subjected to change. "
-              + "Please set the flag --experimental_starlark_action_templates_api to enable it.");
+              + "Please set the flag --experimental_allow_map_directory to enable it.");
     }
     context.checkMutable("actions.map_directory");
 
@@ -1193,9 +1215,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("actions for");
-    context.repr(printer);
+    context.repr(printer, semantics);
   }
 
   private InterruptibleSupplier<RepositoryMapping> getMainRepoMappingSupplier() {

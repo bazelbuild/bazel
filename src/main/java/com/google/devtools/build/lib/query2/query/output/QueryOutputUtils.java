@@ -37,9 +37,7 @@ public class QueryOutputUtils {
 
   public static boolean lexicographicallySortOutput(
       QueryOptions queryOptions, OutputFormatter formatter) {
-    return queryOptions.orderOutput == OrderOutput.AUTO
-        && queryOptions.lexicographicalOutput
-        && formatter instanceof StreamedFormatter;
+    return queryOptions.orderOutput == OrderOutput.AUTO && formatter instanceof StreamedFormatter;
   }
 
   public static boolean shouldStreamUnorderedOutput(

@@ -230,10 +230,21 @@ public final class JavaLibraryBuildRequest {
   }
 
   /**
-   * Derive a temporary directory path based on the path to the output jar, to avoid breaking
-   * fragile assumptions made by the implementation of javahotswap.
+   * Derive a temporary directory path based on the path to the output jar.
+   *
+   * <p>Care should be taken when changing the output directory format, in case other tools rely on
+   * these paths. Historically the obsolete class based javahotswap implementation was an example,
+   * see b/491357486.
+   *
+   * <p>The details of these paths are somewhat arbitrary, but there are some requirements:
+   *
+   * <ul>
+   *   <li>The output directory path needs to be unique for unsandboxed local execution, since
+   *       JavaBuilder will delete and re-create the paths for each action.
+   *   <li>It is helpful for the path to refer to the target label or output path of the original
+   *       compilation for debugging.
+   * </ul>
    */
-  // TODO(b/169793789): kill this with fire if javahotswap starts using jars instead of classes
   @VisibleForTesting
   static Path deriveDirectory(String label, String outputJar, String suffix, Path workDir) {
     checkArgument(label != null, "--target_label is required");

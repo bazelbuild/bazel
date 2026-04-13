@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.BiPredicate;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
@@ -197,10 +198,10 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
       return new Printer() {
         // Print labels in their canonical form.
         @Override
-        public Printer repr(Object o) {
-          return super.repr(o instanceof Label ? labelPrinter.toString((Label) o) : o);
+        public Printer repr(Object o, StarlarkSemantics semantics) {
+          return super.repr(o instanceof Label label ? labelPrinter.toString(label) : o, semantics);
         }
-      }.repr(value).toString();
+      }.repr(value, StarlarkSemantics.DEFAULT).toString();
     }
 
     /**

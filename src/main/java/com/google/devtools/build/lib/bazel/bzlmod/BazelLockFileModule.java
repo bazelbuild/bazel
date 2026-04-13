@@ -62,7 +62,7 @@ public class BazelLockFileModule extends BlazeModule {
     executor = env.getSkyframeExecutor();
     workspaceRoot = env.getWorkspace();
     outputBase = env.getOutputBase();
-    optionsLockfileMode = env.getOptions().getOptions(RepositoryOptions.class).lockfileMode;
+    optionsLockfileMode = env.getOptions().getOptions(RepositoryOptions.class).getLockfileMode();
   }
 
   @Override

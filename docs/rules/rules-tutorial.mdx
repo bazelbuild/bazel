@@ -4,7 +4,6 @@ title: 'Rules Tutorial'
 
 
 
-{/* [TOC] */}
 
 [Starlark](https://github.com/bazelbuild/starlark) is a Python-like
 configuration language originally developed for use in Bazel and since adopted
@@ -34,7 +33,7 @@ foo_binary = rule(
 )
 ```
 
-When you call the [`rule`](lib/globals#rule) function, you
+When you call the [`rule`](lib/globals/bzl#rule) function, you
 must define a callback function. The logic will go there, but you
 can leave the function empty for now. The [`ctx`](lib/ctx) argument
 provides information about the target.

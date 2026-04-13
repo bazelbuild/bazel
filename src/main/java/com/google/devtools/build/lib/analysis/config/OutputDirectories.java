@@ -119,7 +119,7 @@ public class OutputDirectories {
     this.genfilesDirectory = OutputDirectory.GENFILES.getRoot(mnemonic, directories, workspaceName);
     this.testlogsDirectory = OutputDirectory.TESTLOGS.getRoot(mnemonic, directories, workspaceName);
 
-    this.mergeGenfilesDirectory = options.mergeGenfilesDirectory;
+    this.mergeGenfilesDirectory = options.getMergeGenfilesDirectory();
     this.siblingRepositoryLayout = siblingRepositoryLayout;
     this.execRoot = directories.getExecRoot(workspaceName);
   }

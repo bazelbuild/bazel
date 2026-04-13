@@ -14,11 +14,11 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
-import static com.google.devtools.common.options.Converters.BLAZE_ALIASING_FLAG;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -45,7 +45,9 @@ import com.google.devtools.common.options.InvocationPolicyParser;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -69,14 +71,16 @@ import java.util.logging.Level;
             + " the strategy policies under --invocation_policy flag.\n%{options}")
 public final class CanonicalizeCommand implements BlazeCommand {
 
-  public static class Options extends OptionsBase {
+  /** Options for the {@code canonicalize-flags} command. */
+  @OptionsClass
+  public abstract static class Options extends OptionsBase {
     @Option(
         name = "for_command",
         defaultValue = "build",
         documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
         help = "The command for which the options should be canonicalized.")
-    public String forCommand;
+    public abstract String getForCommand();
 
     @Option(
         name = "invocation_policy",
@@ -84,7 +88,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
         documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
         help = "Applies an invocation policy to the options to be canonicalized.")
-    public String invocationPolicy;
+    public abstract String getInvocationPolicy();
 
     @Option(
         name = "canonicalize_policy",
@@ -96,7 +100,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
                 + " the canonicalized command arguments will NOT be shown when this option is set"
                 + " to true. Note that the command specified by --for_command affects the filtered"
                 + " policy, and if none is specified, the default command is 'build'.")
-    public boolean canonicalizePolicy;
+    public abstract boolean getCanonicalizePolicy();
 
     @Option(
         name = "experimental_include_default_values",
@@ -104,7 +108,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
         help = "Whether Starlark options set to their default values are included in the output.")
-    public boolean includeDefaultValues;
+    public abstract boolean getIncludeDefaultValues();
   }
 
   /**
@@ -112,36 +116,40 @@ public final class CanonicalizeCommand implements BlazeCommand {
    * confirms that the warning for conflicting expansion options is working correctly. These flags
    * are undocumented no-ops, and are not to be used by anything outside of that test.
    */
-  public static class FlagClashCanaryOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class FlagClashCanaryOptions extends OptionsBase {
     @Option(
         name = "flag_clash_canary",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP})
-    public boolean flagClashCanary;
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN})
+    public abstract boolean getFlagClashCanary();
 
     @Option(
         name = "flag_clash_canary_expander1",
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         expansion = {"--flag_clash_canary=1"})
-    public Void flagClashCanaryExpander1;
+    public abstract Void getFlagClashCanaryExpander1();
 
     @Option(
         name = "flag_clash_canary_expander2",
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.HIDDEN},
         expansion = {"--flag_clash_canary=0"})
-    public Void flagClashCanaryExpander2;
+    public abstract Void getFlagClashCanaryExpander2();
   }
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     BlazeRuntime runtime = env.getRuntime();
     Options canonicalizeOptions = options.getOptions(Options.class);
-    String commandName = canonicalizeOptions.forCommand;
+    String commandName = canonicalizeOptions.getForCommand();
     BlazeCommand command = runtime.getCommandMap().get(commandName);
     if (command == null) {
       String message =
@@ -187,7 +195,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
             .optionsClasses(optionsClasses)
             .skipStarlarkOptionPrefixes()
             .allowResidue(true)
-            .withAliasFlag(BLAZE_ALIASING_FLAG)
+            .withAliasFlag(CoreOptionConverters.BLAZE_ALIASING_FLAG)
             .withAliases(options.getAliases())
             .withConversionContext(mainRepoMapping)
             .build();
@@ -204,7 +212,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
         StarlarkOptionsParser.builder()
             .buildSettingLoader(buildSettingLoader)
             .nativeOptionsParser(parser)
-            .includeDefaultValues(canonicalizeOptions.includeDefaultValues)
+            .includeDefaultValues(canonicalizeOptions.getIncludeDefaultValues())
             .build();
     try {
       Preconditions.checkState(starlarkOptionsParser.parse());
@@ -224,7 +232,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
 
     InvocationPolicy policy;
     try {
-      policy = InvocationPolicyParser.parsePolicy(canonicalizeOptions.invocationPolicy);
+      policy = InvocationPolicyParser.parsePolicy(canonicalizeOptions.getInvocationPolicy());
     } catch (OptionsParsingException e) {
       return reportAndCreateCommandFailure(
           env, e.getMessage(), FailureDetails.Command.Code.INVOCATION_POLICY_PARSE_FAILURE);
@@ -237,7 +245,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
           parser, commandName, /* invocationPolicyFlagListBuilder= */ ImmutableList.builder());
 
       // Print out the canonical invocation policy if requested.
-      if (canonicalizeOptions.canonicalizePolicy) {
+      if (canonicalizeOptions.getCanonicalizePolicy()) {
         InvocationPolicy effectivePolicy =
             InvocationPolicyEnforcer.getEffectiveInvocationPolicy(
                 policy, parser, commandName, Level.INFO);

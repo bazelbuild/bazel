@@ -1,0 +1,121 @@
+---
+title: 'InstrumentedFilesInfo'
+---
+
+Contains information about source files and instrumentation metadata files for rule targets matched by [`--instrumentation_filter`](https://bazel.build/versions/7.6.1/reference/command-line-reference#flag--instrumentation_filter) for purposes of [code coverage data collection](https://bazel.build/versions/7.6.1/extending/rules#code_coverage). When coverage data collection is enabled, a manifest containing the combined paths in [`instrumented_files`](#instrumented_files) and [`metadata_files`](#metadata_files) are passed to the test action as inputs, with the manifest's path noted in the environment variable `COVERAGE_MANIFEST`. The metadata files, but not the source files, are also passed to the test action as inputs. When `InstrumentedFilesInfo` is returned by an [aspect](https://bazel.build/versions/7.6.1/rules/aspects)'s implementation function, any `InstrumentedFilesInfo` from the base rule target is ignored.
+
+## Members
+
+* [instrumented\_files](#instrumented_files)
+* [metadata\_files](#metadata_files)
+* [to\_json](#to_json)
+* [to\_proto](#to_proto)
+
+## instrumented\_files
+
+```
+depset InstrumentedFilesInfo.instrumented_files
+```
+
+[`depset`](../builtins/depset) of [`File`](../builtins/File) objects representing instrumented source files for this target and its dependencies.
+
+## metadata\_files
+
+```
+depset InstrumentedFilesInfo.metadata_files
+```
+
+[`depset`](../builtins/depset) of [`File`](../builtins/File) objects representing coverage metadata files for this target and its dependencies. These files contain additional information required to generate LCOV-format coverage output after the code is executed, e.g. the `.gcno` files generated when `gcc` is run with `-ftest-coverage`.
+
+## to\_json
+
+```
+string InstrumentedFilesInfo.to_json()
+```
+
+**Deprecated**. This API is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `---incompatible_struct_has_no_methods`. Use this flag to verify your code is compatible with its imminent removal.
+Creates a JSON string from the struct parameter. This method only works if all struct elements (recursively) are strings, ints, booleans, other structs, a list of these types or a dictionary with string keys and values of these types. Quotes and new lines in strings are escaped. Examples:
+
+```
+struct(key=123).to_json()
+# {"key":123}
+
+struct(key=True).to_json()
+# {"key":true}
+
+struct(key=[1, 2, 3]).to_json()
+# {"key":[1,2,3]}
+
+struct(key='text').to_json()
+# {"key":"text"}
+
+struct(key=struct(inner_key='text')).to_json()
+# {"key":{"inner_key":"text"}}
+
+struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_json()
+# {"key":[{"inner_key":1},{"inner_key":2}]}
+
+struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_json()
+# {"key":{"inner_key":{"inner_inner_key":"text"}}}
+```
+
+.
+
+Deprecated: instead, use json.encode(x) or json.encode\_indent(x), which work for values other than structs and do not pollute the struct field namespace.
+
+## to\_proto
+
+```
+string InstrumentedFilesInfo.to_proto()
+```
+
+**Deprecated**. This API is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `---incompatible_struct_has_no_methods`. Use this flag to verify your code is compatible with its imminent removal.
+Creates a text message from the struct parameter. This method only works if all struct elements (recursively) are strings, ints, booleans, other structs or dicts or lists of these types. Quotes and new lines in strings are escaped. Struct keys are iterated in the sorted order. Examples:
+
+```
+struct(key=123).to_proto()
+# key: 123
+
+struct(key=True).to_proto()
+# key: true
+
+struct(key=[1, 2, 3]).to_proto()
+# key: 1
+# key: 2
+# key: 3
+
+struct(key='text').to_proto()
+# key: "text"
+
+struct(key=struct(inner_key='text')).to_proto()
+# key {
+#   inner_key: "text"
+# }
+
+struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_proto()
+# key {
+#   inner_key: 1
+# }
+# key {
+#   inner_key: 2
+# }
+
+struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_proto()
+# key {
+#    inner_key {
+#     inner_inner_key: "text"
+#   }
+# }
+
+struct(foo={4: 3, 2: 1}).to_proto()
+# foo: {
+#   key: 4
+#   value: 3
+# }
+# foo: {
+#   key: 2
+#   value: 1
+# }
+```
+
+Deprecated: use proto.encode\_text(x) instead.

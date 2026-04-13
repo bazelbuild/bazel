@@ -233,37 +233,142 @@ Bazel where LLVM is installed by `BAZEL_LLVM`.
     set BAZEL_LLVM=C:\Program Files\LLVM
     ```
 
-To enable the Clang toolchain for building C++, there are several situations.
+To enable the Clang toolchain, the configuration depends on your Bazel version
+and whether you are using Bzlmod or WORKSPACE.
 
-* In Bazel 7.0.0 and newer: Add a platform target to your `BUILD file` (eg. the
-  top level `BUILD` file):
+---
 
-    ```
-    platform(
-        name = "x64_windows-clang-cl",
-        constraint_values = [
-            "@platforms//cpu:x86_64",
-            "@platforms//os:windows",
-            "@bazel_tools//tools/cpp:clang-cl",
-        ],
-    )
-    ```
+**Bazel 8 and newer:**
 
-    Then enable the Clang toolchain by specifying the following build flags:
+*   **Using Bzlmod (Recommended):**
 
-    ```
-    --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows-clang-cl --extra_execution_platforms=//:x64_windows-clang-cl
-    ```
+    1.  Ensure you have `rules_cc` loaded in your `MODULE.bazel` and configure
+    the CC toolchains:
+        ```python
+        bazel_dep(name = "rules_cc", version = "0.0.17") # Or newer
 
-* In Bazel older than 7.0.0 but newer than 0.28: Enable the Clang toolchain by
+        cc_configure = use_extension("@rules_cc//cc:extensions.bzl", "cc_configure_extension")
+        use_repo(cc_configure, "local_config_cc")
+        ```
+
+    2.  Define a `platform` target in a BUILD file (e.g., the root BUILD file):
+        ```python
+        platform(
+            name = "x64_windows-clang-cl",
+            constraint_values = [
+                "@platforms//cpu:x86_64",
+                "@platforms//os:windows",
+                "@bazel_tools//tools/cpp:clang-cl", # Alias to the @rules_cc constraint in Bazel 8+
+            ],
+        )
+        ```
+
+    3.  Enable the toolchain using these flags:
+        ```bash
+        --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows-clang-cl --extra_execution_platforms=//:x64_windows-clang-cl
+        ```
+
+*   **Using WORKSPACE:**
+
+    1.  Load the `rules_cc` dependencies and toolchains in your `WORKSPACE` file
+:
+        ```python
+        load("@rules_cc//cc:repositories.bzl", "rules_cc_dependencies", "rules_cc_toolchains")
+        rules_cc_dependencies()
+        rules_cc_toolchains()
+        ```
+
+    2.  Define a `platform` target in a BUILD file (e.g., the root BUILD file):
+        ```python
+        platform(
+            name = "x64_windows-clang-cl",
+            constraint_values = [
+                "@platforms//cpu:x86_64",
+                "@platforms//os:windows",
+                "@bazel_tools//tools/cpp:clang-cl", # Alias to the @rules_cc constraint in Bazel 8+
+            ],
+        )
+        ```
+
+    3.  Enable the toolchain using these flags:
+        ```bash
+        --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows-clang-cl --extra_execution_platforms=//:x64_windows-clang-cl
+        ```
+
+---
+
+**Bazel 7:**
+
+**Note:** In Bazel 7, `@bazel_tools//tools/cpp:clang-cl` is *not* an alias for
+the `@rules_cc` constraint. To correctly use `clang-cl` with `rules_cc` in Bazel
+7, you must reference a constraint within the `@rules_cc` repository. The label
+`@rules_cc//cc/private/toolchain:clang-cl` is technically private but is
+necessary for consistent behavior between WORKSPACE and Bzlmod setups in Bazel
+7.
+
+*   **Using Bzlmod:**
+
+    1.  Setup `MODULE.bazel` as in the Bazel 8 example.
+
+    2.  Define the `platform` target using the `@rules_cc` private constraint:
+        ```python
+        platform(
+            name = "x64_windows-clang-cl",
+            constraint_values = [
+                "@platforms//cpu:x86_64",
+                "@platforms//os:windows",
+                "@rules_cc//cc/private/toolchain:clang-cl", # Necessary for Bazel 7
+            ],
+        )
+        ```
+
+    3.  Enable the toolchain using these flags:
+        ```bash
+        --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows-clang-cl --extra_execution_platforms=//:x64_windows-clang-cl
+        ```
+
+*   **Using WORKSPACE:**
+
+    1.  Load the `rules_cc` dependencies and toolchains in your `WORKSPACE` file
+:
+        ```python
+        load("@rules_cc//cc:repositories.bzl", "rules_cc_dependencies", "rules_cc_toolchains")
+        rules_cc_dependencies()
+        rules_cc_toolchains()
+        ```
+
+    2.  Define the `platform` target using the `@rules_cc` private constraint:
+        ```python
+        platform(
+            name = "x64_windows-clang-cl",
+            constraint_values = [
+                "@platforms//cpu:x86_64",
+                "@platforms//os:windows",
+                "@rules_cc//cc/private/toolchain:clang-cl", # Necessary for Bazel 7
+            ],
+        )
+        ```
+
+    3.  Enable the toolchain using these flags:
+        ```bash
+        --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows-clang-cl --extra_execution_platforms=//:x64_windows-clang-cl
+        ```
+
+---
+
+**Bazel 0.29 to 6.x:**
+
+*   Enable the Clang toolchain by
   a build flag `--compiler=clang-cl`.
 
-  If your build sets the flag
+*   If your build sets the flag
   [\-\-incompatible_enable_cc_toolchain_resolution]
   (https://github.com/bazelbuild/bazel/issues/7260){: .external}
   to `true`, then use the approach for Bazel 7.0.0.
 
-* In Bazel 0.28 and older: Clang is not supported.
+**Bazel 0.28 and older:**
+
+*   Clang is not supported.
 
 ### Build Java {:#java}
 

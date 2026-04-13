@@ -35,9 +35,9 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.LocalExecution;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
+import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionCapabilitiesException;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -56,7 +56,7 @@ final class RemoteSpawnCache implements SpawnCache {
   private final RemoteExecutionService remoteExecutionService;
   private final DigestUtil digestUtil;
   private final boolean verboseFailures;
-  private final ConcurrentHashMap<RemoteCacheClient.ActionKey, LocalExecution> inFlightExecutions =
+  private final ConcurrentHashMap<ActionKey, LocalExecution> inFlightExecutions =
       new ConcurrentHashMap<>();
 
   RemoteSpawnCache(
@@ -188,7 +188,7 @@ final class RemoteSpawnCache implements SpawnCache {
           throw createExecExceptionForCredentialHelperException(e);
         } catch (RemoteExecutionCapabilitiesException e) {
           boolean shouldLocalFallback =
-              options.remoteLocalFallbackForRemoteCache && options.remoteLocalFallback;
+              options.getRemoteLocalFallbackForRemoteCache() && options.getRemoteLocalFallback();
           if (!shouldLocalFallback) {
             if (thisExecution != null) {
               thisExecution.close();
@@ -280,7 +280,7 @@ final class RemoteSpawnCache implements SpawnCache {
               action,
               result,
               thisExecutionFinal != null ? thisExecutionFinal.delayClose() : () -> {},
-              options.guardAgainstConcurrentChanges);
+              options.getGuardAgainstConcurrentChanges());
           if (thisExecutionFinal != null
               && action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
             // In this case outputs have been uploaded synchronously and the callback above has run,

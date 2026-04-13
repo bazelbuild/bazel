@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.EmptyFileOpNode.EMPTY_FILE_OP_NODE;
-import static java.util.concurrent.ForkJoinPool.commonPool;
 
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -39,6 +38,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import javax.annotation.Nullable;
 
 /**
@@ -77,6 +77,7 @@ import javax.annotation.Nullable;
  * directly references the invalidation data created by its respective build.
  */
 final class FileOpNodeMemoizingLookup {
+  private final Executor executor;
   private final InMemoryGraph graph;
 
   private final ValueOrFutureMap<SkyKey, FileOpNodeOrFuture, FileOpNodeOrEmpty, FutureFileOpNode>
@@ -87,7 +88,8 @@ final class FileOpNodeMemoizingLookup {
               this::populateFutureFileOpNode,
               FutureFileOpNode.class);
 
-  FileOpNodeMemoizingLookup(InMemoryGraph graph) {
+  FileOpNodeMemoizingLookup(Executor executor, InMemoryGraph graph) {
+    this.executor = executor;
     this.graph = graph;
   }
 
@@ -96,7 +98,7 @@ final class FileOpNodeMemoizingLookup {
   }
 
   private FileOpNodeOrFuture populateFutureFileOpNode(FutureFileOpNode ownedFuture) {
-    var collector = new FileOpNodeCollector();
+    var collector = new FileOpNodeCollector(executor);
 
     accumulateTransitiveFileSystemOperations(ownedFuture.key(), collector);
     collector.notifyAllFuturesAdded();
@@ -170,11 +172,13 @@ final class FileOpNodeMemoizingLookup {
 
   private static final class FileOpNodeCollector extends QuiescingFuture<FileOpNodeOrEmpty>
       implements FutureCallback<FileOpNodeOrEmpty> {
+    private final Executor executor;
     private final Set<FileOpNode> nodes = ConcurrentHashMap.newKeySet();
     @Nullable private FileKey sourceFile = null;
 
-    private FileOpNodeCollector() {
+    private FileOpNodeCollector(Executor executor) {
       super(directExecutor());
+      this.executor = executor;
     }
 
     @Override
@@ -200,7 +204,7 @@ final class FileOpNodeMemoizingLookup {
       // There is a graph made of futures that parallels the Skyframe dependency graph. Therefore,
       // it's a bad idea to use directExecutor() here because the amount of work that the
       // the completion of the future unblocks can be quite large.
-      Futures.addCallback(future, (FutureCallback<FileOpNodeOrEmpty>) this, commonPool());
+      Futures.addCallback(future, (FutureCallback<FileOpNodeOrEmpty>) this, executor);
     }
 
     private void notifyAllFuturesAdded() {

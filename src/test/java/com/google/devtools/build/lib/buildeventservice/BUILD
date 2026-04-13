@@ -22,13 +22,14 @@ java_library(
     name = "AbstractBuildEventServiceTransportTest",
     srcs = ABSTRACT_TEST_SRCS,
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice:build_event_service_options",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_client",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_proto_util",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
+        "//src/main/java/com/google/devtools/build/lib/buildtool/buildevent",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
@@ -75,8 +76,8 @@ java_test(
     ],
 )
 
-java_test(
-    name = "BuildEventServiceTransportGrpcTest",
+java_library(
+    name = "BuildEventServiceTransportGrpcTestLib",
     srcs = ["BuildEventServiceTransportGrpcTest.java"],
     deps = [
         ":AbstractBuildEventServiceTransportTest",
@@ -95,6 +96,14 @@ java_test(
 )
 
 java_test(
+    name = "BuildEventServiceTransportGrpcTest",
+    test_class = "com.google.devtools.build.lib.buildeventservice.BuildEventServiceTransportGrpcTest",
+    runtime_deps = [
+        ":BuildEventServiceTransportGrpcTestLib",
+    ],
+)
+
+java_test(
     name = "BazelBuildEventServiceModuleTest",
     srcs = ["BazelBuildEventServiceModuleTest.java"],
     shard_count = 10,
@@ -103,7 +112,6 @@ java_test(
     ],
     deps = [
         ":build_event_service_test_utils",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
@@ -117,8 +125,11 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/network:connectivity_status",
         "//src/main/java/com/google/devtools/build/lib/network:noop_connectivity",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/runtime:no_spawn_cache_module",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
+        "//src/main/java/com/google/devtools/common/options:options_internal",
         "//src/main/protobuf:command_line_java_proto",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",

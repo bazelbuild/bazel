@@ -20,6 +20,11 @@
 
 """Rules for cloning external git repositories."""
 
+load(
+    ":cache.bzl",
+    "CANONICAL_ID_DOC",
+    "DEFAULT_CANONICAL_ID_ENV",
+)
 load(":git_worker.bzl", "git_repo")
 load(
     ":utils.bzl",
@@ -108,6 +113,9 @@ _common_attrs = {
         doc = "Whether to clone submodules recursively in the repository.",
     ),
     "verbose": attr.bool(default = False),
+    "canonical_id": attr.string(
+        doc = CANONICAL_ID_DOC,
+    ),
     "strip_prefix": attr.string(
         default = "",
         doc = "A directory prefix to strip from the extracted files.",
@@ -117,7 +125,7 @@ _common_attrs = {
         doc =
             "A list of files that are to be applied as patches after " +
             "extracting the archive. By default, it uses the Bazel-native patch implementation " +
-            "which doesn't support fuzz match and binary patch, but Bazel will fall back to use " +
+            "which doesn't support binary patch, but Bazel will fall back to use " +
             "patch command line tool if `patch_tool` attribute is specified or there are " +
             "arguments other than `-p` in `patch_args` attribute.",
     ),
@@ -158,6 +166,19 @@ _common_attrs = {
     "remote_module_file_integrity": attr.string(
         default = "",
         doc = "For internal use only.",
+    ),
+    "remote_patches": attr.string_dict(
+        default = {},
+        doc =
+            "A map of patch file URL to its integrity value, they are applied after cloning " +
+            "the repository and before applying patch files from the `patches` attribute. " +
+            "It uses the Bazel-native patch implementation, you can specify the patch strip " +
+            "number with `remote_patch_strip`",
+    ),
+    "remote_patch_strip": attr.int(
+        default = 0,
+        doc =
+            "The number of leading slashes to be stripped from the file name in the remote patches.",
     ),
     "build_file": attr.label(
         allow_single_file = True,
@@ -222,6 +243,7 @@ def _git_repository_implementation(ctx):
 git_repository = repository_rule(
     implementation = _git_repository_implementation,
     attrs = _common_attrs,
+    environ = [DEFAULT_CANONICAL_ID_ENV],
     doc = """Clone an external git repository.
 
 Clones a Git repository, checks out the specified branch, tag, or commit, and
@@ -248,5 +270,38 @@ The reasons are:
 """,
 )
 
-# TODO(bazel_7.x): Remove before bazel 7.x
-new_git_repository = git_repository
+def _new_git_repository_implementation(_ctx):
+    fail(
+        """
+    The repository rule 'new_git_repository' is deprecated. To fix, replace usage of
+    'new_git_repository' with the drop-in replacement 'git_repository' in your MODULE.bazel file.
+    Eg.
+
+    Replace the following:
+
+    new_git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+    new_git_repository(
+        name = "bazel",
+        remote = "https://github.com/bazelbuild/bazel.git",
+        commit = "93f38093f8e24875c1d015e67311853756bdb27e"
+    )
+
+    With:
+
+    git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+    git_repository(
+        name = "bazel",
+        remote = "https://github.com/bazelbuild/bazel.git",
+        commit = "93f38093f8e24875c1d015e67311853756bdb27e"
+    )
+""",
+    )
+
+# Use was blocked ~April, 2026. After the release of Bazel 9.0 and before Bazel 10.0.
+# TODO: This should eventually be removed within some time frame. Bazel 12.0 - that would be about
+# three years from now.
+new_git_repository = repository_rule(
+    implementation = _new_git_repository_implementation,
+    attrs = _common_attrs,
+    doc = """Deprecated - use the drop-in replacement 'git_repository' instead""",
+)

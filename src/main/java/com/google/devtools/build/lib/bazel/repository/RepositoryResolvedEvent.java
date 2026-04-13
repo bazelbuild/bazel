@@ -21,6 +21,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * Event indicating that a repository rule was executed, together with the return value of the rule.
@@ -83,7 +84,7 @@ public class RepositoryResolvedEvent {
                   + repoDefinition.name()
                   + "' indicated that a canonical reproducible form can be obtained by"
                   + " dropping arguments "
-                  + Starlark.repr(dropped);
+                  + Starlark.repr(dropped, StarlarkSemantics.DEFAULT);
         } else if (dropped.isEmpty()) {
           this.message =
               "Repo '"
@@ -101,7 +102,7 @@ public class RepositoryResolvedEvent {
                   + representModifications(
                       Maps.transformValues(modifiedToNonDefault, Optional::get))
                   + " and dropping "
-                  + Starlark.repr(dropped);
+                  + Starlark.repr(dropped, StarlarkSemantics.DEFAULT);
         }
       }
     }
@@ -135,7 +136,11 @@ public class RepositoryResolvedEvent {
 
   static String representModifications(Map<String, Object> changes) {
     return changes.entrySet().stream()
-        .map(entry -> "%s = %s".formatted(entry.getKey(), Starlark.repr(entry.getValue())))
+        .map(
+            entry ->
+                "%s = %s"
+                    .formatted(
+                        entry.getKey(), Starlark.repr(entry.getValue(), StarlarkSemantics.DEFAULT)))
         .collect(Collectors.joining(", "));
   }
 }

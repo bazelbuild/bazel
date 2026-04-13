@@ -25,8 +25,9 @@ import net.starlark.java.eval.StarlarkThread.Frame;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.Resolver;
-import net.starlark.java.types.StarlarkType;
-import net.starlark.java.types.Types;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeTable;
+import net.starlark.java.syntax.Types;
 
 /** A StarlarkFunction is a function value created by a Starlark {@code def} statement. */
 @StarlarkBuiltin(
@@ -36,6 +37,9 @@ import net.starlark.java.types.Types;
 public final class StarlarkFunction implements StarlarkCallable {
 
   final Resolver.Function rfn;
+  // TODO: #27370 - at eval time, we need only types of functions and globals; we could save some
+  // memory by skipping the other types.
+  @Nullable private final TypeTable typeTable;
   private final Module module; // a function closes over its defining module
 
   // Index in Module.globals of ith Program global (Resolver.Binding(GLOBAL).index).
@@ -59,12 +63,14 @@ public final class StarlarkFunction implements StarlarkCallable {
 
   StarlarkFunction(
       Resolver.Function rfn,
+      @Nullable TypeTable typeTable,
       Module module,
       int[] globalIndex,
       Tuple defaultValues,
       Tuple freevars,
       SymbolGenerator.Symbol<?> token) {
     this.rfn = rfn;
+    this.typeTable = typeTable;
     this.module = module;
     this.globalIndex = globalIndex;
     this.defaultValues = defaultValues;
@@ -94,8 +100,16 @@ public final class StarlarkFunction implements StarlarkCallable {
 
   @Override
   public StarlarkType getStarlarkType() {
-    Types.CallableType type = rfn.getFunctionType();
-    return type != null ? type : Types.ANY;
+    if (typeTable == null) {
+      return Types.ANY;
+    }
+    @Nullable StarlarkType functionType = typeTable.getType(rfn);
+    return functionType != null ? functionType : Types.ANY;
+  }
+
+  @Nullable
+  TypeTable getTypeTable() {
+    return typeTable;
   }
 
   // TODO(adonovan): many functions would be simpler if
@@ -219,7 +233,7 @@ public final class StarlarkFunction implements StarlarkCallable {
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     // TODO(adonovan): use the file name instead. But that's a breaking Bazel change.
     Object clientData = module.getClientData();
 
@@ -537,9 +551,12 @@ public final class StarlarkFunction implements StarlarkCallable {
             kwargs == null ? Dict.of(thread.mutability()) : Dict.wrap(thread.mutability(), kwargs);
       }
 
+      boolean dynamicTyping =
+          thread
+              .getSemantics()
+              .getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING);
       Types.CallableType functionType =
-          thread.getSemantics().getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING)
-                  && owner.getStarlarkType() instanceof Types.CallableType
+          dynamicTyping && owner.getStarlarkType() instanceof Types.CallableType
               ? (Types.CallableType) owner.getStarlarkType()
               : null;
 
@@ -555,7 +572,7 @@ public final class StarlarkFunction implements StarlarkCallable {
                 "in call to %s(), parameter '%s' got value of type '%s', want '%s'",
                 owner.getName(),
                 owner.getParameterNames().get(i),
-                TypeChecker.type(locals[i]),
+                Starlark.getStarlarkType(locals[i]),
                 parameterType);
           }
         }
@@ -582,7 +599,7 @@ public final class StarlarkFunction implements StarlarkCallable {
         if (!TypeChecker.isValueSubtypeOf(returnValue, functionType.getReturnType())) {
           throw Starlark.errorf(
               "%s(): returns value of type '%s', declares '%s'",
-              owner.getName(), TypeChecker.type(returnValue), functionType.getReturnType());
+              owner.getName(), Starlark.getStarlarkType(returnValue), functionType.getReturnType());
         }
       }
 

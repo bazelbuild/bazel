@@ -69,7 +69,6 @@ public final class DirtinessCheckerUtilsTest {
       new BlazeDirectories(
           new ServerDirectories(pkgRoot, outputBase, outputBase.getParentDirectory()),
           pkgRoot,
-          /* defaultSystemJavabase= */ null,
           TestConstants.PRODUCT_NAME);
   private final ExternalFilesHelper externalFilesHelper =
       ExternalFilesHelper.createForTesting(

@@ -3256,7 +3256,6 @@ EOF
 
   bazel test \
       --remote_executor=grpc://localhost:${worker_port} \
-      --incompatible_check_sharding_support \
       --remote_download_minimal \
       //:x  &> $TEST_log && fail "expected failure"
   expect_log "Sharding requested, but the test runner did not advertise support for it by touching TEST_SHARD_STATUS_FILE."
@@ -3264,7 +3263,6 @@ EOF
   echo 'touch "$TEST_SHARD_STATUS_FILE"' > x.sh
   bazel test \
       --remote_executor=grpc://localhost:${worker_port} \
-      --incompatible_check_sharding_support \
       --remote_download_minimal \
       //:x  &> $TEST_log || fail "expected success"
 }
@@ -3790,6 +3788,51 @@ EOF
     --remote_executor=grpc://localhost:${worker_port} \
     //a:gen >& $TEST_log && fail "build //a:gen should fail"
   expect_log "The file type of '.*a/dir/symlink.txt' is not supported."
+}
+
+function do_test_concurrent_modification_during_upload() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+    name = "gen_and_overwrite",
+    srcs = ["in"],
+    outs = ["out"],
+    # Non-hermetically overwrite the source file.
+    cmd = """
+cat $< $< > $@
+echo -n "overwritten" > $<
+""",
+    tags = ["local"],
+)
+
+genrule(
+    name = "remote",
+    # Forced to run after gen_and_overwrite.
+    srcs = ["in", "out"],
+    outs = ["combined"],
+    cmd = "cat $(SRCS) > $@",
+)
+EOF
+  echo -n "$1" > a/in
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:remote >& $TEST_log && fail "build //a:remote should fail"
+  assert_contains "overwritten" a/in
+  expect_log "while uploading file .*/a/in:"
+  expect_log_n "a/in" 1
+}
+
+function test_concurrent_modification_during_upload_shorter() {
+  do_test_concurrent_modification_during_upload "very long content that will be overwritten"
+}
+
+function test_concurrent_modification_during_upload_longer() {
+  do_test_concurrent_modification_during_upload "short"
+}
+
+function test_concurrent_modification_during_upload_same_length() {
+  do_test_concurrent_modification_during_upload "same length"
 }
 
 run_suite "Remote execution and remote cache tests"

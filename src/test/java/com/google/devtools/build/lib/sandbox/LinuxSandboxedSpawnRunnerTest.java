@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.Options;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.time.Duration;
@@ -211,8 +212,8 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
     Path sandboxBase = execRoot.getRelative("sandbox");
     sandboxBase.createDirectory();
 
-    SandboxOptions sandboxOptions = new SandboxOptions();
-    sandboxOptions.sandboxBlockPath = ImmutableList.of();
+    SandboxOptions sandboxOptions = Options.getDefaults(SandboxOptions.class);
+    sandboxOptions.setSandboxBlockPath(ImmutableList.of());
     return LinuxSandboxedStrategy.create(
         commandEnvironment,
         sandboxBase,

@@ -14,18 +14,29 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+
+#include <cstdint>
+#include <cstring>
+#include <ctime>
+#include <fstream>
+#include <ios>
+#include <memory>
+#include <sstream>
+#include <string>
 #include <vector>
 
-// Must be included before anything else.
 #include "src/main/cpp/util/file.h"
-#include "src/main/cpp/util/port.h"
-#include "src/main/cpp/util/strings.h"
+#include "src/main/cpp/util/port.h"  // IWYU pragma: keep
 #include "src/tools/singlejar/input_jar.h"
 #include "src/tools/singlejar/options.h"
 #include "src/tools/singlejar/output_jar.h"
-#include "src/tools/singlejar/port.h"
 #include "src/tools/singlejar/test_util.h"
 #include "googletest/include/gtest/gtest.h"
+#include "absl/base/macros.h"
+#include "absl/strings/match.h"
+#include "src/main/cpp/util/file_platform.h"
+#include "src/tools/singlejar/combiners.h"
+#include "src/tools/singlejar/zip_headers.h"
 
 #if !defined(JAR_TOOL_PATH)
 #error "The path to jar tool has to be defined via -DJAR_TOOL_PATH="
@@ -62,14 +73,6 @@ static bool HasSubstr(const string& s, const string& what) {
   return string::npos != s.find(what);
 }
 
-static bool EndsWith(const string& s, const string& what) {
-  return what.size() <= s.size() && s.substr(s.size() - what.size()) == what;
-}
-
-static bool StartsWith(const string& s, const string& what) {
-  return what.size() <= s.size() && s.substr(0, what.size()) == what;
-}
-
 // A subclass of the OutputJar which concatenates the contents of each
 // entry in the data/ directory from the input archives.
 class CustomOutputJar : public OutputJar {
@@ -78,15 +81,13 @@ class CustomOutputJar : public OutputJar {
   ~CustomOutputJar() override {}
   void ExtraHandler(const std::string& /*input_jar_path*/, const CDH* cdh,
                     const std::string* input_jar_aux_label) override {
-    auto file_name = cdh->file_name();
-    auto file_name_length = cdh->file_name_length();
-    if (file_name_length > 0 && file_name[file_name_length - 1] != '/' &&
-        begins_with(file_name, file_name_length, "tools/singlejar/data/")) {
+    std::string file_name = cdh->file_name_string();
+    if (!absl::EndsWith(file_name, "/") &&
+        absl::StartsWith(file_name, "tools/singlejar/data/")) {
       // The contents of the data/<FILE> on the output is the
       // concatenation of the data/<FILE> files from all inputs.
-      std::string metadata_file_path(file_name, file_name_length);
-      if (NewEntry(metadata_file_path)) {
-        ExtraCombiner(metadata_file_path, new Concatenator(metadata_file_path));
+      if (NewEntry(file_name)) {
+        ExtraCombiner(file_name, new Concatenator(file_name));
       }
     }
   }
@@ -618,7 +619,7 @@ TEST_F(OutputJarSimpleTest, ExtraHandler) {
   const char* option_list[] = {"--output", out_path.c_str(), "--sources",
                                resolvedLibDataPath1.c_str(),
                                resolvedLibDataPath2.c_str()};
-  options_.ParseCommandLine(arraysize(option_list), option_list);
+  options_.ParseCommandLine(std::size(option_list), option_list);
   CustomOutputJar custom_output_jar(&options_);
   ASSERT_EQ(0, custom_output_jar.Doit());
   EXPECT_EQ(0, VerifyZip(out_path));
@@ -698,8 +699,9 @@ TEST_F(OutputJarSimpleTest, Normalize) {
   {
     // Skip over the leading ../ to get the rlocationpath.
     std::string jar_tool_rlocationpath =
-        StartsWith(JAR_TOOL_PATH, "../") ? std::string(JAR_TOOL_PATH).substr(3)
-                                         : JAR_TOOL_PATH;
+        absl::StartsWith(JAR_TOOL_PATH, "../")
+            ? std::string(JAR_TOOL_PATH).substr(3)
+            : JAR_TOOL_PATH;
     std::string jar_tool_path = runfiles->Rlocation(jar_tool_rlocationpath);
     string textfile_path = CreateTextFile("jar_testinput.txt", "jar_inputtext");
     string classfile_path = CreateTextFile("JarTestInput.class", "Dummy");
@@ -779,8 +781,9 @@ TEST_F(OutputJarSimpleTest, AddMissingDirectories) {
 
   // Skip over the leading ../ to get the rlocationpath.
   std::string jar_tool_rlocationpath =
-      StartsWith(JAR_TOOL_PATH, "../") ? std::string(JAR_TOOL_PATH).substr(3)
-                                       : JAR_TOOL_PATH;
+      absl::StartsWith(JAR_TOOL_PATH, "../")
+          ? std::string(JAR_TOOL_PATH).substr(3)
+          : JAR_TOOL_PATH;
   std::string jar_tool_path = runfiles->Rlocation(jar_tool_rlocationpath);
   string textfile_path =
       CreateTextFile("a/b/jar_testinput.txt", "jar_inputtext");
@@ -830,16 +833,16 @@ TEST_F(OutputJarSimpleTest, AddMissingDirectories) {
     ASSERT_EQ(nullptr, lh->unix_time_extra_field())
         << entry_name << ": LH should not have Unix Time extra field";
 
-    if (EndsWith(entry_name, "/a/")) {
+    if (absl::EndsWith(entry_name, "/a/")) {
       EXPECT_FALSE(seen_a) << "a/ duplicate";
       seen_a = true;
-    } else if (EndsWith(entry_name, "/a/b/")) {
+    } else if (absl::EndsWith(entry_name, "/a/b/")) {
       EXPECT_FALSE(seen_ab) << "a/b/ duplicate";
       seen_ab = true;
-    } else if (EndsWith(entry_name, "/a/c/")) {
+    } else if (absl::EndsWith(entry_name, "/a/c/")) {
       EXPECT_FALSE(seen_ac) << "a/c/ duplicate";
       seen_ac = true;
-    } else if (EndsWith(entry_name, "/c/")) {
+    } else if (absl::EndsWith(entry_name, "/c/")) {
       EXPECT_FALSE(seen_c) << "c/ duplicate";
       seen_c = true;
     }
@@ -906,6 +909,39 @@ TEST_F(OutputJarSimpleTest, Services) {
       "handler1\n"
       "handler2\n",
       GetEntryContents(out_path, "META-INF/spring.handlers"));
+}
+
+// The files named
+// META-INF/org/apache/logging/log4j/core/config/plugins/Log4j2Plugins.dat are
+// properly merged.
+TEST_F(OutputJarSimpleTest, Log4j2PluginDat) {
+  string log4j2_plugins_set1_path = runfiles->Rlocation(
+      "io_bazel/src/tools/singlejar/data/"
+      "log4j2_plugins_set_1.jar");
+  string log4j2_plugins_set2_path = runfiles->Rlocation(
+      "io_bazel/src/tools/singlejar/data/"
+      "log4j2_plugins_set_2.jar");
+
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path, {"--sources", log4j2_plugins_set1_path,
+                          log4j2_plugins_set2_path});
+
+  string result_dat_path = runfiles->Rlocation(
+      "io_bazel/src/tools/singlejar/data/"
+      "log4j2_plugins_set_result.dat");
+  std::ifstream ifs(result_dat_path, std::ios::binary);
+  ASSERT_TRUE(ifs.is_open());
+  std::stringstream buffer;
+  buffer << ifs.rdbuf();
+  std::string expected_content = buffer.str();
+  ifs.close();
+  ASSERT_FALSE(expected_content.empty());
+
+  EXPECT_EQ(
+      expected_content,
+      GetEntryContents(out_path,
+                       "META-INF/org/apache/logging/log4j/core/config/plugins/"
+                       "Log4j2Plugins.dat"));
 }
 
 // Test that in the absence of the compression option all the plain files in

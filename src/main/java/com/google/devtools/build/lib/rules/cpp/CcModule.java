@@ -56,11 +56,7 @@ public abstract class CcModule
         StarlarkRuleContext> {
 
   @Override
-  public Provider getCcToolchainProvider() {
-    // TODO: b/433485282 this will need to change for Bazel once we update rules_cc containing
-    // cl/791606702
-    return CcToolchainProvider.BUILTINS_PROVIDER;
-  }
+  public abstract Provider getCcToolchainProvider();
 
   @Override
   public String getToolForAction(

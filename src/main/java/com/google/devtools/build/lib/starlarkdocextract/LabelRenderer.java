@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import java.util.Optional;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * A wrapper around a Starlark value printer which prints the Starlark representation of a value
@@ -78,14 +79,14 @@ public final class LabelRenderer {
   public String reprWithoutLabelConstructor(Object o) {
     return new Printer() {
       @Override
-      public Printer repr(Object o) {
+      public Printer repr(Object o, StarlarkSemantics semantics) {
         if (o instanceof Label label) {
-          return repr(render(label));
+          return repr(render(label), semantics);
         } else {
-          return super.repr(o);
+          return super.repr(o, semantics);
         }
       }
-    }.repr(o).toString();
+    }.repr(o, StarlarkSemantics.DEFAULT).toString();
   }
 
   /**
@@ -101,17 +102,17 @@ public final class LabelRenderer {
   public String repr(Object o) {
     return new Printer() {
       @Override
-      public Printer repr(Object o) {
+      public Printer repr(Object o, StarlarkSemantics semantics) {
         if (o instanceof Label) {
           return append("Label(")
               // For consistency with Starlark.repr(label), we use label.getDisplayForm() instead of
               // the shorthand form.
-              .repr(render((Label) o, /* shorthand= */ false))
+              .repr(render((Label) o, /* shorthand= */ false), semantics)
               .append(")");
         } else {
-          return super.repr(o);
+          return super.repr(o, semantics);
         }
       }
-    }.repr(o).toString();
+    }.repr(o, StarlarkSemantics.DEFAULT).toString();
   }
 }

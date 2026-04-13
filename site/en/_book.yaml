@@ -13,8 +13,6 @@ upper_tabs:
         path: /about/why
       - title: Bazel vision
         path: /about/vision
-      - title: Roadmap
-        path: /about/roadmap
       - title: FAQ
         path: /about/faq
     - name: Build system basics

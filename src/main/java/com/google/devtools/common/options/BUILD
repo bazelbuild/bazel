@@ -35,7 +35,10 @@ java_library(
 
 java_library(
     name = "options",
-    exported_plugins = ["//src/main/java/com/google/devtools/common/options/processor:options_preprocessor"],
+    exported_plugins = [
+        "//src/main/java/com/google/devtools/common/options/processor:options_preprocessor",
+        "//src/main/java/com/google/devtools/common/options/processor:options_class_processor",
+    ],
     exports = [":options_internal"],
 )
 
@@ -54,7 +57,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/util/regex:regex_util",
-        "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/spelling",
         "//third_party:auto_value",
         "//third_party:caffeine",

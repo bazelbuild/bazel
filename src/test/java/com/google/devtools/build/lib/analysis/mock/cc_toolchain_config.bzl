@@ -77,6 +77,8 @@ _FEATURE_NAMES = struct(
     enable_fdo_split_functions = "enable_fdo_split_functions",
     fdo_split_functions = "fdo_split_functions",
     memprof_optimize = "memprof_optimize",
+    enable_fdo_memprof_optimize = "enable_fdo_memprof_optimize",
+    fdo_implicit_memprof_optimize = "fdo_implicit_memprof_optimize",
     enable_autofdo_memprof_optimize = "enable_autofdo_memprof_optimize",
     autofdo_implicit_memprof_optimize = "autofdo_implicit_memprof_optimize",
     fdo_instrument = "fdo_instrument",
@@ -639,6 +641,16 @@ _memprof_optimize_feature = feature(
             ],
         ),
     ],
+)
+
+_enable_fdo_memprof_optimize_feature = feature(
+    name = _FEATURE_NAMES.enable_fdo_memprof_optimize,
+    requires = [feature_set(features = ["fdo_implicit_memprof_optimize"])],
+    implies = ["memprof_optimize"],
+)
+
+_fdo_implicit_memprof_optimize_feature = feature(
+    name = _FEATURE_NAMES.fdo_implicit_memprof_optimize,
 )
 
 _enable_autofdo_memprof_optimize_feature = feature(
@@ -1406,6 +1418,8 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.enable_xbinaryfdo_thinlto: _enable_xbinaryfdo_thinlto_feature,
     _FEATURE_NAMES.xbinaryfdo_implicit_thinlto: _xbinaryfdo_implicit_thinlto_feature,
     _FEATURE_NAMES.memprof_optimize: _memprof_optimize_feature,
+    _FEATURE_NAMES.enable_fdo_memprof_optimize: _enable_fdo_memprof_optimize_feature,
+    _FEATURE_NAMES.fdo_implicit_memprof_optimize: _fdo_implicit_memprof_optimize_feature,
     _FEATURE_NAMES.enable_autofdo_memprof_optimize: _enable_autofdo_memprof_optimize_feature,
     _FEATURE_NAMES.autofdo_implicit_memprof_optimize: _autofdo_implicit_memprof_optimize_feature,
     _FEATURE_NAMES.fsafdo: _fsafdo_feature,

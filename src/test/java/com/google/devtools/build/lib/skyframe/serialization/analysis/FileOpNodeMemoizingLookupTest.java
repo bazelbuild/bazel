@@ -69,7 +69,9 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
 
     InMemoryGraph graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
 
-    var fileOpDataMap = new FileOpNodeMemoizingLookup(graph);
+    var pool = new ForkJoinPool(CONCURRENCY);
+
+    var fileOpDataMap = new FileOpNodeMemoizingLookup(pool, graph);
 
     var actionLookups = new ArrayList<ActionLookupKey>();
     var actions = new ArrayList<ActionLookupData>();
@@ -84,7 +86,6 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
     }
 
     var futures = new ConcurrentLinkedQueue<ListenableFuture<Void>>();
-    var pool = new ForkJoinPool(CONCURRENCY);
     var allAdded = new CountDownLatch(actionLookups.size() + actions.size());
 
     for (ActionLookupKey lookupKey : actionLookups) {

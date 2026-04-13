@@ -30,6 +30,7 @@ java_binary(
     visibility = ["//src/main/java/net/starlark/java:clients"],
     deps = [
         "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/eval:cpu_profiler_native_support_impl",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:jsr305",
     ],

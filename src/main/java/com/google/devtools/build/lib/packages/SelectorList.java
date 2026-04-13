@@ -35,6 +35,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.HasBinary;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.TokenKind;
@@ -216,12 +217,12 @@ public final class SelectorList implements StarlarkValue, HasBinary {
 
   @Override
   public String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 
   @Override
-  public void repr(Printer printer) {
-    printer.printList(elements, "", String.format(" %s ", binaryOpToken(this)), "");
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    printer.printList(elements, "", String.format(" %s ", binaryOpToken(this)), "", semantics);
   }
 
   @Override

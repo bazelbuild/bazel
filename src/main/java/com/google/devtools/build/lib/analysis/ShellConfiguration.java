@@ -23,8 +23,11 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
+import javax.annotation.Nullable;
 
 /** A configuration fragment that tells where the shell is. */
 @RequiresOptions(options = {ShellConfiguration.Options.class})
@@ -48,24 +51,26 @@ public class ShellConfiguration extends Fragment {
     shellExecutables = osToShellMap;
   }
 
-  private final PathFragment defaultShellExecutableFromOptions;
+  @Nullable private final PathFragment defaultShellExecutableFromOptions;
 
   public ShellConfiguration(BuildOptions buildOptions) {
     this.defaultShellExecutableFromOptions =
         optionsBasedDefault.apply(buildOptions.get(Options.class));
   }
 
-  public static Map<OS, PathFragment> getShellExecutables() {
-    return shellExecutables;
+  static Optional<PathFragment> getShellExecutable(OS os) {
+    return Optional.ofNullable(shellExecutables.get(os));
   }
 
-  /* Returns a function for retrieving the default shell from build options. */
-  public PathFragment getOptionsBasedDefault() {
+  /* Returns the default shell from build options if set explicitly. */
+  @Nullable
+  PathFragment getOptionsBasedDefault() {
     return defaultShellExecutableFromOptions;
   }
 
   /** An option that tells Bazel where the shell is. */
-  public static class Options extends FragmentOptions {
+  @OptionsClass
+  public abstract static class Options extends FragmentOptions {
     @Option(
         name = "shell_executable",
         converter = PathFragmentConverter.class,
@@ -85,6 +90,8 @@ public class ShellConfiguration extends Fragment {
             Note that using a shell that is not compatible with `bash` may lead
             to build failures or runtime failures of the generated binaries.
             """)
-    public PathFragment shellExecutable;
+    public abstract PathFragment getShellExecutable();
+
+    public abstract void setShellExecutable(PathFragment value);
   }
 }

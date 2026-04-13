@@ -340,6 +340,31 @@ public final class ActionInputMapTest {
   }
 
   @Test
+  public void getInputMetadata_subtreeFile() {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    SpecialArtifact subtree = createSubTreeArtifact(tree, "subdir");
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(subtree, "file");
+    FileArtifactValue treeFileMetadata = TestMetadata.create(1);
+    map.putTreeArtifact(
+        subtree, TreeArtifactValue.newBuilder(subtree).putChild(child, treeFileMetadata).build());
+
+    assertThat(map.getInputMetadata(child)).isEqualTo(treeFileMetadata);
+  }
+
+  @Test
+  public void getInputMetadata_subtreeFileUnderTopLevelTree() {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    SpecialArtifact subtree = createSubTreeArtifact(tree, "subdir");
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(subtree, "file");
+    FileArtifactValue treeFileMetadata = TestMetadata.create(1);
+    // When the top-level tree is added (instead of the subtree)...
+    map.putTreeArtifact(
+        tree, TreeArtifactValue.newBuilder(tree).putChild(child, treeFileMetadata).build());
+    // getInputMetadata should successfully lookup the metadata under the top-level tree.
+    assertThat(map.getInputMetadata(child)).isEqualTo(treeFileMetadata);
+  }
+
+  @Test
   public void getTreeMetadataForPrefix_nonTree() {
     ActionInput file = ActionInputHelper.fromPath("some/file");
     map.put(file, TestMetadata.create(1));
@@ -515,6 +540,14 @@ public final class ActionInputMapTest {
   private SpecialArtifact createTreeArtifact(String relativeExecPath) {
     return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
         artifactRoot, artifactRoot.getExecPath().getRelative(relativeExecPath));
+  }
+
+  private SpecialArtifact createSubTreeArtifact(SpecialArtifact parent, String parentRelativePath) {
+    SpecialArtifact subtree =
+        SpecialArtifact.createSubTreeArtifact(
+            parent, PathFragment.create(parentRelativePath), ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    subtree.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+    return subtree;
   }
 
   @AutoValue

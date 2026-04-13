@@ -61,18 +61,6 @@ cc_library(
 )
 
 cc_library(
-    name = "common",
-    srcs = [
-        "common.cc",
-        ":jni.h",
-        ":jni_md.h",
-    ],
-    includes = ["."],  # For jni headers.
-    visibility = ["//src/main/native:__subpackages__"],
-    alwayslink = 1,
-)
-
-cc_library(
     name = "blake3_jni",
     srcs = [
         "blake3_jni.cc",
@@ -99,7 +87,6 @@ cc_binary(
     ],
     copts = [
         "-fPIC",
-        "-DBLAZE_JAVA_CPU=\"k8\"",
     ],
     includes = ["."],  # For jni headers.
     linkopts = select({
@@ -113,11 +100,8 @@ cc_binary(
     visibility = ["//src/main/java/com/google/devtools/build/lib/jni:__pkg__"],
     deps = [
         ":blake3_jni",
-        ":common",
         ":latin1_jni_path",
         "//src/main/cpp/util:logging",
-        "//src/main/cpp/util:md5",
-        "//src/main/cpp/util:port",
     ],
 )
 

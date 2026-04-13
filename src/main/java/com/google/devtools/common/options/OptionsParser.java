@@ -285,6 +285,7 @@ public class OptionsParser implements OptionsParsingResult {
   private ImmutableSortedMap<String, Object> starlarkOptions = ImmutableSortedMap.of();
   // scopes for starlark options
   private ImmutableSortedMap<String, String> scopesAttributes = ImmutableSortedMap.of();
+  private ImmutableSortedMap<String, Object> onLeaveScopeValues = ImmutableSortedMap.of();
   private final Map<String, String> aliases = new HashMap<>();
   private boolean success = true;
 
@@ -306,6 +307,11 @@ public class OptionsParser implements OptionsParsingResult {
   @Override
   public ImmutableMap<String, String> getScopesAttributes() {
     return scopesAttributes;
+  }
+
+  @Override
+  public ImmutableMap<String, Object> getOnLeaveScopeValues() {
+    return onLeaveScopeValues;
   }
 
   @Override
@@ -348,6 +354,10 @@ public class OptionsParser implements OptionsParsingResult {
 
   public void setScopesAttributes(Map<String, String> scopesAttributes) {
     this.scopesAttributes = ImmutableSortedMap.copyOf(scopesAttributes);
+  }
+
+  public void setOnLeaveScopeValues(Map<String, Object> onLeaveScopeValues) {
+    this.onLeaveScopeValues = ImmutableSortedMap.copyOf(onLeaveScopeValues);
   }
 
   public void parseAndExitUponError(String[] args) {
@@ -904,15 +914,6 @@ public class OptionsParser implements OptionsParsingResult {
     return getOptionDefinitions(optionsClass).stream()
         .filter(definition -> definition.getOptionName().equals(optionName))
         .collect(MoreCollectors.onlyElement());
-  }
-
-  /**
-   * Returns whether the given options class uses only the core types listed in {@link
-   * UsesOnlyCoreTypes#CORE_TYPES}. These are guaranteed to be deeply immutable and serializable.
-   */
-  public static boolean getUsesOnlyCoreTypes(Class<? extends OptionsBase> optionsClass) {
-    OptionsData data = OptionsParser.getOptionsDataInternal(optionsClass);
-    return data.getUsesOnlyCoreTypes(optionsClass);
   }
 
   /**

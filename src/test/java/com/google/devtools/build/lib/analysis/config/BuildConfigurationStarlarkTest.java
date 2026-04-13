@@ -77,7 +77,7 @@ public final class BuildConfigurationStarlarkTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testIsToolConfigurationIsBlocked() throws Exception {
+  public void testIsToolConfiguration() throws Exception {
     scratch.file(
         "example/BUILD",
         """
@@ -90,15 +90,14 @@ public final class BuildConfigurationStarlarkTest extends BuildViewTestCase {
         "example/rule.bzl",
         """
         def _impl(ctx):
-            ctx.configuration.is_tool_configuration()
+            if ctx.configuration.is_tool_configuration():
+                fail("should not be tool configuration")
             return [DefaultInfo()]
 
         custom_rule = rule(implementation = _impl)
         """);
 
-    AssertionError e =
-        assertThrows(AssertionError.class, () -> getConfiguredTarget("//example:custom"));
-    assertThat(e).hasMessageThat().contains("file '//example:rule.bzl' cannot use private API");
+    getConfiguredTarget("//example:custom");
   }
 
   @Test

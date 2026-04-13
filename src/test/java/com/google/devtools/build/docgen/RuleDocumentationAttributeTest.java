@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.Attr
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeType;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -134,7 +135,7 @@ public class RuleDocumentationAttributeTest {
         AttributeInfo.newBuilder()
             .setName("foo_version")
             .setType(AttributeType.STRING)
-            .setDefaultValue(Starlark.repr(defaultValue))
+            .setDefaultValue(Starlark.repr(defaultValue, StarlarkSemantics.DEFAULT))
             .build();
     RuleDocumentationAttribute attributeDoc =
         RuleDocumentationAttribute.createFromAttributeInfo(attributeInfo, "//:test.bzl", NO_FLAGS);
@@ -161,7 +162,7 @@ public class RuleDocumentationAttributeTest {
         AttributeInfo.newBuilder()
             .setName("bar_limit")
             .setType(AttributeType.INT)
-            .setDefaultValue(Starlark.repr(defaultValue))
+            .setDefaultValue(Starlark.repr(defaultValue, StarlarkSemantics.DEFAULT))
             .build();
     RuleDocumentationAttribute attributeDoc =
         RuleDocumentationAttribute.createFromAttributeInfo(attributeInfo, "//:test.bzl", NO_FLAGS);
@@ -190,7 +191,7 @@ public class RuleDocumentationAttributeTest {
         AttributeInfo.newBuilder()
             .setName("some_labels")
             .setType(AttributeType.LABEL_LIST)
-            .setDefaultValue(Starlark.repr(ImmutableList.of()))
+            .setDefaultValue(Starlark.repr(ImmutableList.of(), StarlarkSemantics.DEFAULT))
             .build();
     RuleDocumentationAttribute attributeDoc =
         RuleDocumentationAttribute.createFromAttributeInfo(attributeInfo, "//:test.bzl", NO_FLAGS);

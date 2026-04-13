@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import java.util.Locale;
-import java.util.Map;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
@@ -31,10 +30,10 @@ import net.starlark.java.eval.StarlarkValue;
 @Immutable
 final class StarlarkOS implements StarlarkValue {
 
-  private final ImmutableMap<String, String> environ;
+  private final ImmutableMap<String, String> repoEnv;
 
-  StarlarkOS(Map<String, String> environ) {
-    this.environ = ImmutableMap.copyOf(environ);
+  StarlarkOS(ImmutableMap<String, String> repoEnv) {
+    this.repoEnv = repoEnv;
   }
 
   @Override
@@ -55,7 +54,7 @@ final class StarlarkOS implements StarlarkValue {
           <code>module_ctx.getenv</code> instead.
           """)
   public ImmutableMap<String, String> getEnvironmentVariables() {
-    return environ;
+    return repoEnv;
   }
 
   @StarlarkMethod(

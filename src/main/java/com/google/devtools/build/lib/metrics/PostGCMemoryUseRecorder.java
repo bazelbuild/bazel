@@ -33,6 +33,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.sun.management.GarbageCollectionNotificationInfo;
 import com.sun.management.GcInfo;
@@ -267,7 +268,8 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
     private boolean forceGc = false;
 
     /** Command options for forcing a GC after a build. * */
-    public static class Options extends OptionsBase {
+    @OptionsClass
+    public abstract static class Options extends OptionsBase {
       @Option(
           name = "experimental_force_gc_after_build",
           defaultValue = "false",
@@ -276,7 +278,7 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
           help =
               "If true calls System.gc() after a build to try and get a post-gc peak heap"
                   + " measurement.")
-      public boolean experimentalForceGcAfterBuild;
+      public abstract boolean getExperimentalForceGcAfterBuild();
     }
 
     @Override
@@ -289,7 +291,7 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
       Options options = env.getOptions().getOptions(Options.class);
       if (options != null
           && ("test".equals(env.getCommand().name()) || "build".equals(env.getCommand().name()))) {
-        forceGc = options.experimentalForceGcAfterBuild;
+        forceGc = options.getExperimentalForceGcAfterBuild();
       } else {
         forceGc = false;
       }

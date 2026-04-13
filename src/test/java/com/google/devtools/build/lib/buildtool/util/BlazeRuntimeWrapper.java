@@ -172,9 +172,15 @@ public class BlazeRuntimeWrapper {
     return runtime;
   }
 
-  /** Registers the given {@code subscriber} with the {@link EventBus} before each command. */
+  /**
+   * Registers the given {@code subscriber} with the {@link EventBus} before each command and during
+   * the current command if one is in progress.
+   */
   public void registerSubscriber(Object subscriber) {
     eventBusSubscribers.add(subscriber);
+    if (env != null) {
+      env.getEventBus().register(subscriber);
+    }
   }
 
   public final CommandEnvironment newCommand() throws Exception {
@@ -582,17 +588,17 @@ public class BlazeRuntimeWrapper {
 
     env.decideKeepIncrementalState();
 
+    EventBus eventBus = env.getEventBus();
+    for (Object subscriber : eventBusSubscribers) {
+      eventBus.register(subscriber);
+    }
+
     // This cannot go into newCommand, because we hook up the EventCollectionApparatus as a module,
     // and after that ran, further changes to the apparatus aren't reflected on the reporter.
     for (BlazeModule module : runtime.getBlazeModules()) {
       module.beforeCommand(env);
     }
     reporter.removeHandler(storedEventHandler);
-
-    EventBus eventBus = env.getEventBus();
-    for (Object subscriber : eventBusSubscribers) {
-      eventBus.register(subscriber);
-    }
 
     // Replay events from decideKeepIncrementalState and beforeCommand, just as
     // BlazeCommandDispatcher does.

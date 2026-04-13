@@ -17,6 +17,7 @@ import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.starlarkbuildapi.test.AnalysisFailureApi;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * Encapsulates information about an analysis-phase error which would have occurred during a build.
@@ -28,7 +29,7 @@ public abstract class AnalysisFailure implements AnalysisFailureApi {
   }
 
   @Override
-  public final void repr(Printer printer) {
+  public final void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<AnalyisFailure object>");
   }
 

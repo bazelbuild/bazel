@@ -87,7 +87,7 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAc
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheDeps;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -212,7 +212,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, outputBase),
             rootDirectory,
-            /* defaultSystemJavabase= */ null,
             TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper =
         ExternalFilesHelper.createForTesting(
@@ -249,7 +248,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         cache,
         ActionInputPrefetcher.NONE,
         DiscoveredModulesPruner.DEFAULT,
-        /* actionExecutionSalt= */ "");
+        /* actionExecutionSalt= */ "",
+        /* maxStdoutErrBytes= */ Integer.MAX_VALUE);
 
     InMemoryMemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
@@ -265,20 +265,20 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                         MetadataConsumerForMetrics.NO_OP,
                         SyscallCache.NO_CACHE,
                         skyframeActionExecutor,
-                        () -> DisabledDependenciesProvider.INSTANCE))
+                        () -> RemoteAnalysisCacheDeps.createDisabled()))
                 .put(
                     SkyFunctions.ACTION_EXECUTION,
                     new ActionExecutionFunction(
                         new ActionRewindStrategy(
                             skyframeActionExecutor,
                             BugReporter.defaultInstance(),
-                            () -> DisabledDependenciesProvider.INSTANCE),
+                            () -> RemoteAnalysisCacheDeps.createDisabled()),
                         skyframeActionExecutor,
                         evaluatorRef::get,
                         directories,
                         () -> tsgm,
                         BugReporter.defaultInstance(),
-                        () -> DisabledDependenciesProvider.INSTANCE,
+                        () -> RemoteAnalysisCacheDeps.createDisabled(),
                         () -> null))
                 .put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build())
                 .put(

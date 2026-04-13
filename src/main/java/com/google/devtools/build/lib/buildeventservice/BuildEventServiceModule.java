@@ -354,7 +354,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
         Preconditions.checkNotNull(parsingResult.getOptions(BuildEventStreamOptions.class));
     this.isRunsPerTestOverTheLimit =
         parsingResult.getOptions(TestOptions.class) != null
-            && parsingResult.getOptions(TestOptions.class).runsPerTest.stream()
+            && parsingResult.getOptions(TestOptions.class).getRunsPerTest().stream()
                 .anyMatch(
                     (perLabelOptions) ->
                         Integer.parseInt(Iterables.getOnlyElement(perLabelOptions.getOptions()))
@@ -365,7 +365,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     ConnectivityStatus status = connectivityProvider.getStatus(CONNECTIVITY_CACHE_KEY);
     String buildEventUploadStrategy =
         status.status.equals(ConnectivityStatus.Status.OK)
-            ? this.bepOptions.buildEventUploadStrategy
+            ? this.bepOptions.getBuildEventUploadStrategy()
             : "local";
 
     buildEventOutputStreamFactory = createBuildEventOutputStreamFactory(cmdEnv);
@@ -415,7 +415,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       return;
     }
 
-    if (bepOptions.publishTargetSummary) {
+    if (bepOptions.getPublishTargetSummary()) {
       cmdEnv
           .getEventBus()
           .register(
@@ -428,9 +428,9 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
             .buildEventTransports(bepTransports)
             .besStreamOptions(besStreamOptions)
             .outputGroupFileModes(bepOptions.getOutputGroupFileModesMapping())
-            .publishTargetSummaries(bepOptions.publishTargetSummary)
+            .publishTargetSummaries(bepOptions.getPublishTargetSummary())
             .artifactGroupNamer(artifactGroupNamer)
-            .oomMessage(parsingResult.getOptions(CommonCommandOptions.class).oomMessage)
+            .oomMessage(parsingResult.getOptions(CommonCommandOptions.class).getOomMessage())
             .build();
 
     cmdEnv.getEventBus().register(streamer);
@@ -679,7 +679,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     }
 
     // besStreamOptions can be null if we are crashing. Don't crash here too.
-    if (besStreamOptions != null && !besStreamOptions.keepBackendConnections) {
+    if (besStreamOptions != null && !besStreamOptions.getKeepBackendConnections()) {
       clearBesClient();
     } else if (besStreamOptions == null) {
       BugReport.sendNonFatalBugReport(
@@ -829,13 +829,13 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       throws IOException {
     ImmutableSet.Builder<BuildEventTransport> bepTransportsBuilder = new ImmutableSet.Builder<>();
 
-    if (!Strings.isNullOrEmpty(besStreamOptions.buildEventTextFile)) {
+    if (!Strings.isNullOrEmpty(besStreamOptions.getBuildEventTextFile())) {
       try {
         BufferedOutputStream bepTextOutputStream =
             buildEventOutputStreamFactory.create(
-                BuildEventFileType.TEXT, besStreamOptions.buildEventTextFile);
+                BuildEventFileType.TEXT, besStreamOptions.getBuildEventTextFile());
         BuildEventArtifactUploader localFileUploader =
-            besStreamOptions.buildEventTextFilePathConversion
+            besStreamOptions.getBuildEventTextFilePathConversion()
                 ? uploaderSupplier.get()
                 : new LocalFilesArtifactUploader();
         bepTransportsBuilder.add(
@@ -844,7 +844,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
                 bepOptions,
                 localFileUploader,
                 artifactGroupNamer,
-                besStreamOptions.buildEventTextFileUploadMode));
+                besStreamOptions.getBuildEventTextFileUploadMode()));
       } catch (IOException exception) {
         // TODO(b/125216340): Consider making this a warning instead of an error once the
         //  associated bug has been resolved.
@@ -852,20 +852,20 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
             reporter,
             cmdEnv.getBlazeModuleEnvironment(),
             "Unable to write to '"
-                + besStreamOptions.buildEventTextFile
+                + besStreamOptions.getBuildEventTextFile()
                 + "'. Omitting --build_event_text_file.",
             exception,
             BuildProgress.Code.BES_LOCAL_WRITE_ERROR);
       }
     }
 
-    if (!Strings.isNullOrEmpty(besStreamOptions.buildEventBinaryFile)) {
+    if (!Strings.isNullOrEmpty(besStreamOptions.getBuildEventBinaryFile())) {
       try {
         BufferedOutputStream bepBinaryOutputStream =
             buildEventOutputStreamFactory.create(
-                BuildEventFileType.BINARY, besStreamOptions.buildEventBinaryFile);
+                BuildEventFileType.BINARY, besStreamOptions.getBuildEventBinaryFile());
         BuildEventArtifactUploader localFileUploader =
-            besStreamOptions.buildEventBinaryFilePathConversion
+            besStreamOptions.getBuildEventBinaryFilePathConversion()
                 ? uploaderSupplier.get()
                 : new LocalFilesArtifactUploader();
         bepTransportsBuilder.add(
@@ -874,7 +874,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
                 bepOptions,
                 localFileUploader,
                 artifactGroupNamer,
-                besStreamOptions.buildEventBinaryFileUploadMode));
+                besStreamOptions.getBuildEventBinaryFileUploadMode()));
       } catch (IOException exception) {
         // TODO(b/125216340): Consider making this a warning instead of an error once the
         //  associated bug has been resolved.
@@ -882,20 +882,20 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
             reporter,
             cmdEnv.getBlazeModuleEnvironment(),
             "Unable to write to '"
-                + besStreamOptions.buildEventBinaryFile
+                + besStreamOptions.getBuildEventBinaryFile()
                 + "'. Omitting --build_event_binary_file.",
             exception,
             BuildProgress.Code.BES_LOCAL_WRITE_ERROR);
       }
     }
 
-    if (!Strings.isNullOrEmpty(besStreamOptions.buildEventJsonFile)) {
+    if (!Strings.isNullOrEmpty(besStreamOptions.getBuildEventJsonFile())) {
       try {
         BufferedOutputStream bepJsonOutputStream =
             buildEventOutputStreamFactory.create(
-                BuildEventFileType.JSON, besStreamOptions.buildEventJsonFile);
+                BuildEventFileType.JSON, besStreamOptions.getBuildEventJsonFile());
         BuildEventArtifactUploader localFileUploader =
-            besStreamOptions.buildEventJsonFilePathConversion
+            besStreamOptions.getBuildEventJsonFilePathConversion()
                 ? uploaderSupplier.get()
                 : new LocalFilesArtifactUploader();
         bepTransportsBuilder.add(
@@ -905,7 +905,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
                 localFileUploader,
                 artifactGroupNamer,
                 makeJsonTypeRegistry(),
-                besStreamOptions.buildEventJsonFileUploadMode));
+                besStreamOptions.getBuildEventJsonFileUploadMode()));
       } catch (IOException exception) {
         // TODO(b/125216340): Consider making this a warning instead of an error once the
         //  associated bug has been resolved.
@@ -913,7 +913,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
             reporter,
             cmdEnv.getBlazeModuleEnvironment(),
             "Unable to write to '"
-                + besStreamOptions.buildEventJsonFile
+                + besStreamOptions.getBuildEventJsonFile()
                 + "'. Omitting --build_event_json_file.",
             exception,
             BuildProgress.Code.BES_LOCAL_WRITE_ERROR);

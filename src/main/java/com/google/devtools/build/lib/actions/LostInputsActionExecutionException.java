@@ -15,12 +15,10 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skyframe.rewinding.LostInputOwners;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
-import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -29,16 +27,8 @@ import javax.annotation.Nullable;
  */
 public final class LostInputsActionExecutionException extends ActionExecutionException {
 
-  /** Maps lost input digests to their {@link ActionInput}. */
-  private final ImmutableMap<String, ActionInput> lostInputs;
-
-  /**
-   * Optional mapping of lost inputs to their owning expansion artifacts (tree artifacts, filesets,
-   * runfiles).
-   *
-   * <p>See {@link LostInputsExecException} for details on whether this should be provided.
-   */
-  private final Optional<LostInputOwners> owners;
+  /** Maps lost input digests to their {@link ActionInput}s. */
+  private final ImmutableSetMultimap<String, ActionInput> lostInputs;
 
   /**
    * The {@link ActionLookupData} for the action whose evaluation failed. Used to distinguish
@@ -72,22 +62,16 @@ public final class LostInputsActionExecutionException extends ActionExecutionExc
 
   public LostInputsActionExecutionException(
       String message,
-      ImmutableMap<String, ActionInput> lostInputs,
-      Optional<LostInputOwners> owners,
+      ImmutableSetMultimap<String, ActionInput> lostInputs,
       Action action,
       Exception cause,
       DetailedExitCode detailedExitCode) {
-    super(message, cause, action, /*catastrophe=*/ false, detailedExitCode);
+    super(message, cause, action, /* catastrophe= */ false, detailedExitCode);
     this.lostInputs = lostInputs;
-    this.owners = owners;
   }
 
-  public ImmutableMap<String, ActionInput> getLostInputs() {
+  public ImmutableSetMultimap<String, ActionInput> getLostInputs() {
     return lostInputs;
-  }
-
-  public Optional<LostInputOwners> getOwners() {
-    return owners;
   }
 
   public Path getPrimaryOutputPath() {
@@ -149,6 +133,6 @@ public final class LostInputsActionExecutionException extends ActionExecutionExc
     Preconditions.checkState(primaryOutputPath == null);
     Preconditions.checkState(fileOutErr == null);
     Preconditions.checkState(!fromInputDiscovery);
-    return new LostInputsExecException(lostInputs, owners, this);
+    return new LostInputsExecException(lostInputs, this);
   }
 }

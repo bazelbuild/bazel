@@ -28,7 +28,6 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -293,6 +292,13 @@ public class IjarTests {
   }
 
   @Test
+  public void multiReleasePreserved() throws Exception {
+    try (JarFile jf = new JarFile("third_party/ijar/test/multirelease-interface.jar")) {
+      assertThat(jf.isMultiRelease()).isTrue();
+    }
+  }
+
+  @Test
   public void kotlinModule() throws Exception {
     Map<String, byte[]> lib = readJar("third_party/ijar/test/kotlin_module-interface.jar");
     assertThat(lib.keySet())
@@ -324,9 +330,8 @@ public class IjarTests {
       Attributes attributes = manifest.getMainAttributes();
       assertThat(attributes.getValue("Target-Label")).isEqualTo("//foo:foo");
       assertThat(attributes.getValue("Injecting-Rule-Kind")).isEqualTo("foo_library");
-      assertThat(jf.getEntry(JarFile.MANIFEST_NAME).getLastModifiedTime().toInstant())
-          .isEqualTo(
-              LocalDateTime.of(2010, 1, 1, 0, 0, 0).atZone(ZoneOffset.systemDefault()).toInstant());
+      assertThat(jf.getEntry(JarFile.MANIFEST_NAME).getTimeLocal())
+          .isEqualTo(LocalDateTime.of(2010, 1, 1, 0, 0, 0));
     }
   }
 
@@ -336,9 +341,8 @@ public class IjarTests {
       Manifest manifest = jf.getManifest();
       Attributes attributes = manifest.getMainAttributes();
       assertThat(attributes.getValue("Target-Label")).isEqualTo("//empty");
-      assertThat(jf.getEntry(JarFile.MANIFEST_NAME).getLastModifiedTime().toInstant())
-          .isEqualTo(
-              LocalDateTime.of(2010, 1, 1, 0, 0, 0).atZone(ZoneOffset.systemDefault()).toInstant());
+      assertThat(jf.getEntry(JarFile.MANIFEST_NAME).getTimeLocal())
+          .isEqualTo(LocalDateTime.of(2010, 1, 1, 0, 0, 0));
     }
   }
 

@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.skyframe.NotifyingHelper;
+import com.google.devtools.common.options.Options;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import io.grpc.ManagedChannel;
@@ -264,7 +265,8 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     afterBuildCommand();
 
     events.assertContainsError(
-        "The Build Event Protocol upload failed: All 3 retry attempts failed");
+        "The Build Event Protocol upload failed: all 3 publishLifecycleEvent retry attempts"
+            + " failed");
   }
 
   @Test
@@ -600,8 +602,8 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     afterBuildCommand();
     events.assertContainsError(
         Pattern.compile(
-            "The Build Event Protocol upload failed: Not retrying publishBuildEvents, no more"
-                + " attempts left.*Boom8"));
+            "The Build Event Protocol upload failed: no publishBuildEvents retry attempts left:"
+                + " UNAVAILABLE: Boom8"));
     assertThat(buildEventService.getRequestsReceivedCount()).isEqualTo(numRetries + 1);
   }
 
@@ -618,7 +620,8 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     afterBuildCommand();
     events.assertContainsError(
         Pattern.compile(
-            "The Build Event Protocol upload failed: Not retrying publishBuildEvents.*Boom15"));
+            "The Build Event Protocol upload failed: not retrying publishBuildEvents:"
+                + " PERMISSION_DENIED: Boom15"));
     assertThat(buildEventService.getRequestsReceivedCount()).isEqualTo(1);
   }
 
@@ -635,7 +638,8 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     afterBuildCommand();
     events.assertContainsError(
         Pattern.compile(
-            "The Build Event Protocol upload failed: Not retrying publishBuildEvents.*Boom15"));
+            "The Build Event Protocol upload failed: not retrying publishBuildEvents:"
+                + " INVALID_ARGUMENT: Boom15"));
     assertThat(buildEventService.getRequestsReceivedCount()).isEqualTo(1);
   }
 
@@ -644,7 +648,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     buildEventService.setErrorMessage("Boom1");
     runBuildWithOptions("--bes_backend=inprocess", "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE");
     afterBuildCommand();
-    events.assertContainsError("The Build Event Protocol upload failed: Boom1");
+    events.assertContainsError("The Build Event Protocol upload failed: DATA_LOSS: Boom1");
   }
 
   @Test
@@ -655,7 +659,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
         "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE",
         "--bes_timeout=5s");
     afterBuildCommand();
-    events.assertContainsError("The Build Event Protocol upload failed: Boom2");
+    events.assertContainsError("The Build Event Protocol upload failed: DATA_LOSS: Boom2");
   }
 
   @Test
@@ -672,7 +676,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     runBuildWithOptions("--bes_backend=inprocess", "--bes_upload_mode=NOWAIT_FOR_UPLOAD_COMPLETE");
     afterBuildCommand();
     buildTarget();
-    events.assertContainsWarning("The Build Event Protocol upload failed: Boom4");
+    events.assertContainsWarning("The Build Event Protocol upload failed: DATA_LOSS: Boom4");
   }
 
   @Test
@@ -752,7 +756,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
   public void testMakeGrpcMetadata() throws Exception {
     runBuildWithOptions();
     BuildEventServiceOptions besOptions = new BuildEventServiceOptions();
-    AuthAndTLSOptions authAndTLSOptions = new AuthAndTLSOptions();
+    AuthAndTLSOptions authAndTLSOptions = Options.getDefaults(AuthAndTLSOptions.class);
     besOptions.besBackend = "bes-backend";
     besOptions.besProxy = "bes-proxy";
     besOptions.besHeaders =
@@ -830,7 +834,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
             .setDescription(BugReport.constructOomExitMessage("Please build fewer targets."))
             .build();
     assertThat(buildEvents)
-        .ignoringFields(BuildEvent.LAST_MESSAGE_FIELD_NUMBER)
+        .ignoringFields(BuildEvent.LAST_MESSAGE_FIELD_NUMBER, BuildEvent.CHILDREN_FIELD_NUMBER)
         .containsAtLeast(
             BuildEvent.newBuilder()
                 .setId(

@@ -204,7 +204,7 @@ public final class NestedSetCodecTest {
     SerializationResult<ByteString> result =
         codecs.serializeMemoizedAndBlocking(
             fingerprintValueService, serialized, /* profileCollector= */ null);
-    Future<Void> futureToBlockWritesOn = result.getFutureToBlockWritesOn();
+    Future<?> futureToBlockWritesOn = result.getFutureToBlockWritesOn();
     Exception thrown = assertThrows(ExecutionException.class, futureToBlockWritesOn::get);
     assertThat(thrown).hasCauseThat().isSameInstanceAs(e);
   }
@@ -543,11 +543,11 @@ public final class NestedSetCodecTest {
             .addTransitive(middle)
             .build();
 
-    ListenableFuture<Void> bottomWriteFuture =
+    ListenableFuture<?> bottomWriteFuture =
         NestedSetCodecTestUtils.writeToStoreFuture(store, bottom, serializationContext);
-    ListenableFuture<Void> middleWriteFuture =
+    ListenableFuture<?> middleWriteFuture =
         NestedSetCodecTestUtils.writeToStoreFuture(store, middle, serializationContext);
-    ListenableFuture<Void> topWriteFuture =
+    ListenableFuture<?> topWriteFuture =
         NestedSetCodecTestUtils.writeToStoreFuture(store, top, serializationContext);
     assertThat(bottomWriteFuture.isDone()).isFalse();
     assertThat(middleWriteFuture.isDone()).isFalse();

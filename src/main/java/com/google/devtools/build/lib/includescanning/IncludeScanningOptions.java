@@ -18,12 +18,12 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 
-/**
- * Command options specific to include scanning.
- */
-public class IncludeScanningOptions extends OptionsBase {
+/** Command options specific to include scanning. */
+@OptionsClass
+public abstract class IncludeScanningOptions extends OptionsBase {
 
   /**
    * Converter for scanning parallelism threads: Takes {@value #FLAG_SYNTAX} 0 disables scanning
@@ -36,32 +36,31 @@ public class IncludeScanningOptions extends OptionsBase {
   }
 
   @Option(
-    name = "experimental_inmemory_dotincludes_files",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {
-      OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-      OptionEffectTag.EXECUTION,
-      OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
-    },
-    defaultValue = "false",
-    help =
-        "If enabled, searching for '#include' lines in generated header files will not "
-            + "touch local disk. This makes include scanning of C++ files less disk-intensive."
-  )
-  public boolean inMemoryIncludesFiles;
+      name = "experimental_inmemory_dotincludes_files",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
+      },
+      defaultValue = "false",
+      help =
+          "If enabled, searching for '#include' lines in generated header files will not "
+              + "touch local disk. This makes include scanning of C++ files less disk-intensive.")
+  public abstract boolean getInMemoryIncludesFiles();
 
   @Option(
       name = "experimental_remote_include_extraction_size_threshold",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
-          OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-          OptionEffectTag.EXECUTION,
-          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
       },
       defaultValue = "1000000",
-      help = "Run remotable C++ include extraction remotely if the file size in bytes exceeds this."
-  )
-  public int experimentalRemoteExtractionThreshold;
+      help =
+          "Run remotable C++ include extraction remotely if the file size in bytes exceeds this.")
+  public abstract int getExperimentalRemoteExtractionThreshold();
 
   @Option(
       name = "experimental_include_scanning_parallelism",
@@ -80,7 +79,7 @@ public class IncludeScanningOptions extends OptionsBase {
               + "for concurrency. "
               + " \"auto\" means to use a reasonable value derived from the machine's hardware"
               + " profile (e.g. the number of processors).")
-  public int includeScanningParallelism;
+  public abstract int getIncludeScanningParallelism();
 
   @Option(
       name = "experimental_reuse_include_scanning_threads",
@@ -92,5 +91,5 @@ public class IncludeScanningOptions extends OptionsBase {
       },
       defaultValue = "false",
       help = "If enabled core threads of include scanner pool will not die during execution.")
-  public boolean experimentalReuseIncludeScanningThreads;
+  public abstract boolean getExperimentalReuseIncludeScanningThreads();
 }

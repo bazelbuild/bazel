@@ -62,8 +62,14 @@ function write_py_files() {
 load("@rules_python//python:py_binary.bzl", "py_binary")
 load("@rules_python//python:py_test.bzl", "py_test")
 
-py_binary(name = "binary", srcs = ["binary.py"])
-py_test(name = "test", srcs = ["test.py"])
+py_binary(
+    name = "binary",
+    srcs = ["binary.py"],
+)
+py_test(
+    name = "test",
+    srcs = ["test.py"],
+)
 EOF
 
   echo "print('Hello, Python World!')" >py/py.py
@@ -321,7 +327,7 @@ EOF
   if is_windows; then
     expect_log "missing ';'"
   else
-    expect_log "expected ';'"
+    expect_log "expected .;."
   fi
   # Hack to make up for grep -P not being supported.
   grep $(echo -e '\x1b') $TEST_log && fail "Expected colorless output"

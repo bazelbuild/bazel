@@ -84,6 +84,7 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InstrumentationOutput;
 import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.DestinationRelativeTo;
+import com.google.devtools.build.lib.runtime.UiOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
@@ -96,6 +97,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.IncrementalPackageRoots;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.BulkDeleter;
@@ -146,6 +148,7 @@ public class ExecutionTool {
   private final String actionExecutionSalt;
 
   private boolean informedOutputServiceToStartTheBuild = false;
+  private IncrementalPackageRoots incrementalPackageRoots;
 
   ExecutionTool(CommandEnvironment env, BuildRequest request)
       throws AbruptExitException, InterruptedException {
@@ -201,7 +204,7 @@ public class ExecutionTool {
     // context class, but also the mnemonic of the action.
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     // TODO(jmmv): This should live in some testing-related Blaze module, not here.
-    actionContextRegistryBuilder.restrictTo(TestActionContext.class, options.testStrategy);
+    actionContextRegistryBuilder.restrictTo(TestActionContext.class, options.getTestStrategy());
 
     SpawnStrategyRegistry spawnStrategyRegistry = spawnStrategyRegistryBuilder.build();
     actionContextRegistryBuilder.register(SpawnStrategyRegistry.class, spawnStrategyRegistry);
@@ -267,7 +270,7 @@ public class ExecutionTool {
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
 
     try (SilentCloseable c = Profiler.instance().profile("preparingExecroot")) {
-      IncrementalPackageRoots incrementalPackageRoots =
+      incrementalPackageRoots =
           IncrementalPackageRoots.createAndRegisterToEventBus(
               getExecRoot(),
               // Single package path is a Skymeld prerequisite.
@@ -295,7 +298,7 @@ public class ExecutionTool {
     }
 
     ActionCache actionCache = null;
-    if (buildRequestOptions.useActionCache) {
+    if (buildRequestOptions.getUseActionCache()) {
       try (SilentCloseable c = Profiler.instance().profile("load/reset action cache")) {
         actionCache = getOrLoadActionCache();
         actionCache.resetStatistics();
@@ -319,12 +322,13 @@ public class ExecutionTool {
         modifiedOutputFiles,
         env.getBlazeWorkspace().getLastExecutionTimeRange(),
         outputChecker,
-        buildRequestOptions.fsvcThreads);
+        buildRequestOptions.getFsvcThreads());
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
       skyframeExecutor.configureActionExecutor(
           skyframeBuilder.getFileCache(),
           skyframeBuilder.getActionInputPrefetcher(),
-          actionExecutionSalt);
+          actionExecutionSalt,
+          env.getOptions().getOptions(UiOptions.class).maxStdoutErrBytes);
     }
     skyframeExecutor.setSaltAndDeleteActionsIfChanged(actionExecutionSalt);
     try (SilentCloseable c =
@@ -340,7 +344,10 @@ public class ExecutionTool {
     env.getEventBus()
         .register(
             new ExecutionProgressReceiverSetup(
-                skyframeExecutor, env, executionTimer, buildRequestOptions.progressReportInterval));
+                skyframeExecutor,
+                env,
+                executionTimer,
+                buildRequestOptions.getProgressReportInterval()));
     for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
       try (SilentCloseable c =
           Profiler.instance().profile(executorLifecycleListener + ".executionPhaseStarting")) {
@@ -393,7 +400,7 @@ public class ExecutionTool {
 
     BuildRequestOptions options = request.getBuildOptions();
     ActionCache actionCache = null;
-    if (options.useActionCache) {
+    if (options.getUseActionCache()) {
       actionCache = getOrLoadActionCache();
       actionCache.resetStatistics();
     }
@@ -418,7 +425,7 @@ public class ExecutionTool {
     // Conditionally record dependency-checker log:
     ExplanationHandler explanationHandler =
         installExplanationHandler(
-            request.getBuildOptions().explanationPath, request.getOptionsDescription());
+            request.getBuildOptions().getExplanationPath(), request.getOptionsDescription());
 
     announceEnteringDirIfEmacs();
 
@@ -426,10 +433,13 @@ public class ExecutionTool {
     boolean buildCompleted = false;
     try {
       boolean shouldDiscardAnalysisCache =
-          request.getViewOptions().discardAnalysisCache
+          request.getViewOptions().getDiscardAnalysisCache()
               || !skyframeExecutor.tracksStateForIncrementality();
       if (shouldDiscardAnalysisCache) {
-        if (skyframeExecutor.getRemoteAnalysisCachingDependenciesProvider().isRetrievalEnabled()) {
+        if (skyframeExecutor
+            .getRemoteAnalysisCacheReaderDepsProvider()
+            .mode()
+            .isRetrievalEnabled()) {
           // When remote analysis value retrieval is enabled, it is possible for analysis to occur
           // during the logical execution phase. Discarding the analysis cache can lead to crashes.
           //
@@ -512,10 +522,10 @@ public class ExecutionTool {
               buildId,
               env.getWorkspaceName(),
               env.getReporter(),
-              request.getBuildOptions().finalizeActions);
+              request.getBuildOptions().getFinalizeActions());
       informedOutputServiceToStartTheBuild = true;
     }
-    if (!request.getPackageOptions().checkOutputFiles) {
+    if (!request.getPackageOptions().getCheckOutputFiles()) {
       // Do not skip output invalidation if the output tree is empty: this can happen after it's
       // cleaned or corrupted.
       if (!modifiedOutputFiles.treatEverythingAsDeleted()) {
@@ -606,6 +616,9 @@ public class ExecutionTool {
     // These may flush logs, which may help if there is a catastrophic failure.
     for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
       executorLifecycleListener.executionPhaseEnding();
+    }
+    if (incrementalPackageRoots != null) {
+      incrementalPackageRoots.shutdown();
     }
 
     // Handlers process these events and others (e.g. CommandCompleteEvent), even in the event of
@@ -720,12 +733,12 @@ public class ExecutionTool {
         Profiler.instance().profile("ExecutionTool.handleConvenienceSymlinks")) {
       OutputDirectoryLinksUtils.SymlinkCreationResult convenienceSymlinks =
           OutputDirectoryLinksUtils.EMPTY_SYMLINK_CREATION_RESULT;
-      if (request.getBuildOptions().experimentalConvenienceSymlinks
+      if (request.getBuildOptions().getExperimentalConvenienceSymlinks()
           != ConvenienceSymlinksMode.IGNORE) {
         convenienceSymlinks =
             createConvenienceSymlinks(request.getBuildOptions(), targetsToBuild, configuration);
       }
-      if (request.getBuildOptions().experimentalConvenienceSymlinksBepEvent) {
+      if (request.getBuildOptions().getExperimentalConvenienceSymlinksBepEvent()) {
         env.getEventBus()
             .post(
                 new ConvenienceSymlinksIdentifiedEvent(
@@ -765,14 +778,14 @@ public class ExecutionTool {
     } else {
       // Collect the configuration of each top-level requested target. These may be different than
       // the build's top-level configuration because of self-transitions.
-      ImmutableSet<BuildConfigurationValue> requestedTargetConfigs =
+      ImmutableSet<BuildConfigurationKey> configurationKeys =
           targetsToBuild.stream()
               .map(ConfiguredTarget::getActual)
               .map(ConfiguredTarget::getConfigurationKey)
               .filter(Objects::nonNull)
-              .distinct()
-              .map((key) -> executor.getConfiguration(reporter, key))
               .collect(toImmutableSet());
+      ImmutableSet<BuildConfigurationValue> requestedTargetConfigs =
+          ImmutableSet.copyOf(executor.getConfigurations(reporter, configurationKeys).values());
       if (requestedTargetConfigs.size() == 1) {
         // All top-level targets have the same configuration, so use that one.
         targetConfigs = requestedTargetConfigs;
@@ -949,7 +962,7 @@ public class ExecutionTool {
             executionFilter,
             outputService.getProxyMetadataFactory(),
             ActionCacheChecker.CacheConfig.builder()
-                .setEnabled(options.useActionCache)
+                .setEnabled(options.getUseActionCache())
                 .setStoreOutputMetadata(
                     outputService.shouldStoreRemoteOutputMetadataInActionCache())
                 .build()),
@@ -967,15 +980,16 @@ public class ExecutionTool {
     resourceMgr.setAvailableResources(
         ResourceSet.create(
             options.getLocalResources(),
-            options.usingLocalTestJobs() ? options.localTestJobs : Integer.MAX_VALUE));
+            options.usingLocalTestJobs() ? options.getLocalTestJobs() : Integer.MAX_VALUE));
 
     resourceMgr.initializeCpuLoadFunctionality(
         MachineLoadProvider.instance(),
-        options.experimentalCpuLoadScheduling,
-        options.experimentalCpuLoadSchedulingWindowSize);
+        options.getExperimentalCpuLoadScheduling(),
+        options.getExperimentalCpuLoadSchedulingWindowSize());
     resourceMgr.scheduleCpuLoadWindowUpdate();
 
-    resourceMgr.setAllowOneActionOnResourceUnavailable(options.allowOneActionOnResourceUnavailable);
+    resourceMgr.setAllowOneActionOnResourceUnavailable(
+        options.getAllowOneActionOnResourceUnavailable());
   }
 
   /**

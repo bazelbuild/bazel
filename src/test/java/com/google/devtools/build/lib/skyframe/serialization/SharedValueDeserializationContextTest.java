@@ -99,10 +99,10 @@ public final class SharedValueDeserializationContextTest {
     SerializationResult<ByteString> serialized =
         codecs.serializeMemoizedAndBlocking(
             fingerprintValueService, subject, /* profileCollector= */ null);
-    ListenableFuture<Void> writeStatus = serialized.getFutureToBlockWritesOn();
+    ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
     if (writeStatus != null) {
       // If it is asynchronous, writing should complete without throwing any exceptions.
-      assertThat(writeStatus.get()).isNull();
+      writeStatus.get();
     }
 
     ListenableFuture<Object> result =
@@ -288,10 +288,10 @@ public final class SharedValueDeserializationContextTest {
     SerializationResult<ByteString> serialized =
         codecs.serializeMemoizedAndBlocking(
             fingerprintValueService, subject, /* profileCollector= */ null);
-    ListenableFuture<Void> writeStatus = serialized.getFutureToBlockWritesOn();
+    ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
     if (writeStatus != null) {
       // If it is asynchronous, writing should complete without throwing any exceptions.
-      assertThat(writeStatus.get()).isNull();
+      writeStatus.get();
     }
 
     ListenableFuture<Object> result =
@@ -303,11 +303,7 @@ public final class SharedValueDeserializationContextTest {
     var thrown =
         (MissingSharedValueBytesException)
             assertThrows(ExecutionException.class, result::get).getCause();
-    assertThat(thrown)
-        .hasMessageThat()
-        .contains(
-            "missing shared value bytes for a [Ljava.lang.Object; instance belonging to a"
-                + " com.google.devtools.build.lib.skyframe.serialization.NotNestedSet instance");
+    assertThat(thrown).hasMessageThat().isEqualTo("Missing shared value bytes");
   }
 
   @Test
@@ -323,10 +319,10 @@ public final class SharedValueDeserializationContextTest {
     SerializationResult<ByteString> serialized =
         codecs.serializeMemoizedAndBlocking(
             fingerprintValueService, subject, /* profileCollector= */ null);
-    ListenableFuture<Void> writeStatus = serialized.getFutureToBlockWritesOn();
+    ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
     if (writeStatus != null) {
       // If the write is asynchronous, writing should complete without throwing any exceptions.
-      assertThat(writeStatus.get()).isNull();
+      writeStatus.get();
     }
 
     @SuppressWarnings("unchecked")
@@ -346,11 +342,7 @@ public final class SharedValueDeserializationContextTest {
         (MissingSharedValueBytesException)
             assertThrows(ExecutionException.class, () -> result.get(WAIT_TIMEOUT_SECONDS, SECONDS))
                 .getCause();
-    assertThat(thrown)
-        .hasMessageThat()
-        .contains(
-            "missing shared value bytes for a [Ljava.lang.Object; instance belonging to a"
-                + " com.google.devtools.build.lib.skyframe.serialization.NotNestedSet instance");
+    assertThat(thrown).hasMessageThat().isEqualTo("Missing shared value bytes");
   }
 
   @Test
@@ -369,9 +361,9 @@ public final class SharedValueDeserializationContextTest {
     SerializationResult<ByteString> serialized =
         codecs.serializeMemoizedAndBlocking(
             fingerprintValueService, subject, /* profileCollector= */ null);
-    ListenableFuture<Void> writeStatus = serialized.getFutureToBlockWritesOn();
+    ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
     if (writeStatus != null) {
-      assertThat(writeStatus.get()).isNull();
+      writeStatus.get();
     }
 
     ListenableFuture<Object> result =

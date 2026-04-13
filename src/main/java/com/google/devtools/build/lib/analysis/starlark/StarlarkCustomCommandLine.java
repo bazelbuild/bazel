@@ -471,7 +471,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
                           + " action or set 'expand_directories = False' in the 'add_all' or"
                           + " 'add_joined' call to have the path of the directory added to the"
                           + " command line instead of its contents.",
-                      Starlark.repr(artifact)));
+                      Starlark.repr(artifact, StarlarkSemantics.DEFAULT)));
             }
             expandedValues.addAll(treeArtifactValue.getChildren());
           } else if (artifact.isFileset()) {
@@ -1112,7 +1112,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
           throw Starlark.errorf(
               "Failed to expand directory %s. Only directories that are action inputs can be"
                   + " expanded.",
-              Starlark.repr(artifact));
+              Starlark.repr(artifact, StarlarkSemantics.DEFAULT));
         }
 
         return ImmutableList.copyOf(treeArtifactValue.getChildren());
@@ -1394,7 +1394,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       if (isSourceArtifact()) {
         printer.append("<source file " + getRunfilesPathString() + ">");
       } else {

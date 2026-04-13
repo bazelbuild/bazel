@@ -41,6 +41,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -483,7 +484,7 @@ public final class BuildType {
         errorMessage.append(' ');
         errorMessage.append(entry.getKey().getCanonicalForm());
         errorMessage.append(" (as ");
-        errorMessage.repr(entry.getValue());
+        errorMessage.repr(entry.getValue(), StarlarkSemantics.DEFAULT);
         errorMessage.append(')');
       }
       throw new ConversionException(errorMessage.toString());
@@ -640,14 +641,14 @@ public final class BuildType {
 
     @Override
     public String toString() {
-      return Starlark.repr(this);
+      return Starlark.repr(this, StarlarkSemantics.DEFAULT);
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       // Convert to a lib.packages.SelectorList to guarantee consistency with callers that serialize
       // directly on that type.
-      printer.repr(Attribute.valueToStarlark(this));
+      printer.repr(Attribute.valueToStarlark(this), semantics);
     }
   }
 

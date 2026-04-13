@@ -82,10 +82,10 @@ public abstract class FileOptions {
   public abstract boolean allowTypeSyntax();
 
   /**
-   * Whether type annotations are processed by the resolver.
+   * Whether type names in type annotations are processed by the resolver.
    *
-   * <p>This is required for static type checking, but will cause code to fail if it contains type
-   * annotations that are not understood by this version of Bazel.
+   * <p>This is required for any form of type checking, but will cause code to fail if it contains
+   * type annotations that are not understood by this version of Bazel.
    */
   public abstract boolean resolveTypeSyntax();
 

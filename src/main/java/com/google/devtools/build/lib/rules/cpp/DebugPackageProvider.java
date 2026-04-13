@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -32,16 +31,11 @@ import net.starlark.java.eval.EvalException;
  * ({@url https://gcc.gnu.org/wiki/DebugFission}) is not enabled, the dwp file will be null.
  */
 public final class DebugPackageProvider {
-  public static final Provider PROVIDER = new Provider();
   public static final RulesCcProvider RULES_CC_PROVIDER = new RulesCcProvider();
 
   public static DebugPackageProvider get(TransitiveInfoCollection target)
       throws RuleErrorException {
-    DebugPackageProvider debugPackageProvider = target.get(PROVIDER);
-    if (debugPackageProvider == null) {
-      debugPackageProvider = target.get(RULES_CC_PROVIDER);
-    }
-    return debugPackageProvider;
+    return target.get(RULES_CC_PROVIDER);
   }
 
   private final StarlarkInfo starlarkInfo;
@@ -84,21 +78,6 @@ public final class DebugPackageProvider {
       return starlarkInfo.getNoneableValue("dwp_file", Artifact.class);
     } catch (EvalException e) {
       throw new RuleErrorException(e);
-    }
-  }
-
-  /** Provider class for {@link DebugPackageProvider} objects. */
-  public static class Provider extends StarlarkProviderWrapper<DebugPackageProvider> {
-    public Provider() {
-      super(
-          keyForBuiltins(
-              Label.parseCanonicalUnchecked("@_builtins//:common/cc/debug_package_info.bzl")),
-          "DebugPackageInfo");
-    }
-
-    @Override
-    public DebugPackageProvider wrap(Info value) throws RuleErrorException {
-      return new DebugPackageProvider((StarlarkInfo) value);
     }
   }
 

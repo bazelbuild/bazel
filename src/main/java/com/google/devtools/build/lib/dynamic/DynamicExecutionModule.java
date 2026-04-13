@@ -78,7 +78,7 @@ public class DynamicExecutionModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment env) {
     var buildRequestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
-    if (buildRequestOptions != null && buildRequestOptions.useAsyncExecution) {
+    if (buildRequestOptions != null && buildRequestOptions.getUseAsyncExecution()) {
       executorService =
           Executors.newThreadPerTaskExecutor(
               Thread.ofVirtual().name("dynamic-execution-thread-", 0).factory());
@@ -90,13 +90,13 @@ public class DynamicExecutionModule extends BlazeModule {
     env.getEventBus().register(this);
     com.google.devtools.build.lib.exec.ExecutionOptions executionOptions =
         env.getOptions().getOptions(com.google.devtools.build.lib.exec.ExecutionOptions.class);
-    verboseFailures = executionOptions != null && executionOptions.verboseFailures;
+    verboseFailures = executionOptions != null && executionOptions.getVerboseFailures();
     DynamicExecutionOptions dynamicOptions =
         env.getOptions().getOptions(DynamicExecutionOptions.class);
     localOptions = env.getOptions().getOptions(LocalExecutionOptions.class);
     ignoreLocalSignals =
-        dynamicOptions != null && dynamicOptions.ignoreLocalSignals != null
-            ? dynamicOptions.ignoreLocalSignals
+        dynamicOptions != null && dynamicOptions.getIgnoreLocalSignals() != null
+            ? dynamicOptions.getIgnoreLocalSignals()
             : ImmutableSet.of();
     reporter = env.getReporter();
   }
@@ -112,13 +112,13 @@ public class DynamicExecutionModule extends BlazeModule {
     if (sandboxingSupported) {
       defaultLocalStrategies.add("sandboxed");
     }
-    if (localOptions != null && localOptions.localLockfreeOutput) {
+    if (localOptions != null && localOptions.getLocalLockfreeOutput()) {
       // Without local lock free, having standalone execution risks very bad performance.
       defaultLocalStrategies.add("standalone");
     }
     localAndWorkerStrategies.put("", defaultLocalStrategies.build());
 
-    for (Map.Entry<String, List<String>> entry : options.dynamicLocalStrategy) {
+    for (Map.Entry<String, List<String>> entry : options.getDynamicLocalStrategy()) {
       localAndWorkerStrategies.put(entry);
       throwIfContainsDynamic(entry.getValue(), "--dynamic_local_strategy");
     }
@@ -128,11 +128,11 @@ public class DynamicExecutionModule extends BlazeModule {
   private ImmutableMap<String, List<String>> getRemoteStrategies(DynamicExecutionOptions options)
       throws AbruptExitException {
     Map<String, List<String>> strategies = new HashMap<>(); // Needed to dedup
-    for (Map.Entry<String, List<String>> e : options.dynamicRemoteStrategy) {
+    for (Map.Entry<String, List<String>> e : options.getDynamicRemoteStrategy()) {
       throwIfContainsDynamic(e.getValue(), "--dynamic_remote_strategy");
       strategies.put(e.getKey(), e.getValue());
     }
-    return options.dynamicRemoteStrategy.isEmpty()
+    return options.getDynamicRemoteStrategy().isEmpty()
         ? ImmutableMap.of("", ImmutableList.of(remoteStrategyName()))
         : ImmutableMap.copyOf(strategies);
   }
@@ -153,7 +153,7 @@ public class DynamicExecutionModule extends BlazeModule {
         registryBuilder,
         options,
         execOptions.getLocalResources().get(ResourceSet.CPU).intValue(),
-        env.getOptions().getOptions(BuildRequestOptions.class).jobs);
+        env.getOptions().getOptions(BuildRequestOptions.class).getJobs());
   }
 
   // CommandEnvironment is difficult to access in tests, so use this method for testing.
@@ -164,7 +164,7 @@ public class DynamicExecutionModule extends BlazeModule {
       int numCpus,
       int jobs)
       throws AbruptExitException {
-    if (!options.internalSpawnScheduler) {
+    if (!options.getInternalSpawnScheduler()) {
       return;
     }
 

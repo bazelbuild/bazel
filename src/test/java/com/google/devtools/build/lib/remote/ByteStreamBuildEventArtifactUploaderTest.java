@@ -523,7 +523,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       RemoteRetrier retrier,
       MissingDigestsFinder missingDigestsFinder) {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteInstanceName = "instance";
+    remoteOptions.setRemoteInstanceName("instance");
     GrpcCacheClient cacheClient =
         spy(
             new GrpcCacheClient(
@@ -540,7 +540,11 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         .findMissingDigests(any(), any());
 
     return new CombinedCache(
-        cacheClient, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, DIGEST_UTIL);
+        cacheClient,
+        /* diskCacheClient= */ null,
+        /* symlinkTemplate= */ null,
+        DIGEST_UTIL,
+        /* chunkingEnabled= */ false);
   }
 
   private ByteStreamBuildEventArtifactUploader newArtifactUploader(CombinedCache combinedCache) {

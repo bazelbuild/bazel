@@ -106,7 +106,7 @@ cc_binary(
         "//conditions:default": [],
     }),
     copts = select({
-        "//src/conditions:windows": ["/wd4018"],
+        "//src/conditions:windows_msvc_like": ["/wd4018"],
         "//conditions:default": ["-Wno-sign-compare"],
     }),
     linkopts = select({
@@ -168,8 +168,11 @@ cc_library(
         # and the double % get reduced down to 1 by the compiler. A
         # forward slash is used because \b is a special character,
         # backspace.
-        "//src/conditions:windows": [
+        "//src/conditions:windows_msvc_like": [
             "/DBAZEL_SYSTEM_BAZELRC_PATH#\\\"%%ProgramData%%/bazel.bazelrc\\\"",
+        ],
+        "@platforms//os:windows": [
+            "-DBAZEL_SYSTEM_BAZELRC_PATH=\\\"%%ProgramData%%/bazel.bazelrc\\\"",
         ],
         # For posix platforms, this can include environment variables in the
         # form ${var_name}. Braces are required.

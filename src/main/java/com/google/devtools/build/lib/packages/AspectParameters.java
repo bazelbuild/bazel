@@ -41,9 +41,11 @@ import java.util.Objects;
  */
 public final class AspectParameters {
   private final ImmutableMultimap<String, String> attributes;
+  private final int hashCode;
 
   private AspectParameters(Multimap<String, String> attributes) {
     this.attributes = ImmutableMultimap.copyOf(attributes);
+    this.hashCode = Objects.hashCode(this.attributes);
   }
 
   @SerializationConstant @VisibleForSerialization
@@ -116,7 +118,7 @@ public final class AspectParameters {
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(attributes);
+    return hashCode;
   }
 
   @Override

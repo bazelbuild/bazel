@@ -293,7 +293,6 @@ public final class FilesystemValueCheckerTest {
         new BlazeDirectories(
             new ServerDirectories(pkgRoot, pkgRoot, pkgRoot),
             pkgRoot,
-            /* defaultSystemJavabase= */ null,
             TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper =
         ExternalFilesHelper.createForTesting(

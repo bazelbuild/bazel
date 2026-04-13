@@ -17,30 +17,44 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 /** A collection of {@link FilesetOutputSymlink}s comprising the output tree of a fileset. */
 public final class FilesetOutputTree implements RichArtifactData {
 
-  public static final FilesetOutputTree EMPTY = new FilesetOutputTree(ImmutableList.of(), false);
+  public static final FilesetOutputTree EMPTY =
+      new FilesetOutputTree(ImmutableList.of(), ImmutableMap.of(), false);
 
   public static FilesetOutputTree forward(FilesetOutputTree other) {
-    return other.isEmpty() ? EMPTY : new FilesetOutputTree(other.symlinks, true);
+    return other.isEmpty()
+        ? EMPTY
+        : new FilesetOutputTree(other.symlinks, other.treeArtifacts, true);
   }
 
-  public static FilesetOutputTree create(List<FilesetOutputSymlink> symlinks) {
+  public static FilesetOutputTree create(
+      List<FilesetOutputSymlink> symlinks, Map<Artifact, TreeArtifactValue> treeArtifacts) {
     ImmutableList<FilesetOutputSymlink> sortedSymlinks =
         ImmutableList.sortedCopyOf(Comparator.comparing(FilesetOutputSymlink::name), symlinks);
-    return symlinks.isEmpty() ? EMPTY : new FilesetOutputTree(sortedSymlinks, false);
+    return symlinks.isEmpty()
+        ? EMPTY
+        : new FilesetOutputTree(sortedSymlinks, ImmutableMap.copyOf(treeArtifacts), false);
   }
 
   private final ImmutableList<FilesetOutputSymlink> symlinks;
+  private final ImmutableMap<Artifact, TreeArtifactValue> treeArtifacts;
   private final boolean forwarded;
 
-  private FilesetOutputTree(ImmutableList<FilesetOutputSymlink> symlinks, boolean forwarded) {
+  private FilesetOutputTree(
+      ImmutableList<FilesetOutputSymlink> symlinks,
+      ImmutableMap<Artifact, TreeArtifactValue> treeArtifacts,
+      boolean forwarded) {
     this.symlinks = checkNotNull(symlinks);
+    this.treeArtifacts = checkNotNull(treeArtifacts);
     this.forwarded = forwarded;
   }
 
@@ -64,6 +78,17 @@ public final class FilesetOutputTree implements RichArtifactData {
 
   public boolean isEmpty() {
     return symlinks.isEmpty();
+  }
+
+  /**
+   * Returns the metadata of all tree artifacts included in this fileset.
+   *
+   * <p>Individual children of these tree artifacts each have their own entry in {@link
+   * #symlinks()}, unless they were excluded by the {@code excludes} parameter on {@code
+   * FilesetEntry}.
+   */
+  public ImmutableMap<Artifact, TreeArtifactValue> getTreeArtifacts() {
+    return treeArtifacts;
   }
 
   @Override

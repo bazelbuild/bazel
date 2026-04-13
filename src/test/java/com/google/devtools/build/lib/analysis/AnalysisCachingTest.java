@@ -32,11 +32,13 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisCachingTestBase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -1744,14 +1746,19 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   }
 
   @Test
-  public void throwsIfAnalysisCacheIsDiscardedWhenOptionSet() throws Exception {
+  public void throwsIfAnalysisCacheIsDiscardedWhenOptionSet_nativeOption() throws Exception {
     setupDiffResetTesting();
     scratch.file(
         "test/BUILD",
         """
         load(":lib.bzl", "normal_lib")
 
-        normal_lib(name = "top")
+        normal_lib(
+            name = "top",
+            host_deps = [":exec"],
+        )
+
+        normal_lib(name = "exec")
         """);
     useConfiguration("--definitely_relevant=old");
 
@@ -1761,6 +1768,15 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     // Check if things work if the build options are not changed
     useConfiguration("--noallow_analysis_cache_discard", "--definitely_relevant=old");
     update("//test:top");
+    var topTargetBefore =
+        skyframeExecutor
+            .getEvaluator()
+            .getExistingValue(
+                ConfiguredTargetKey.builder()
+                    .setLabel(Label.parseCanonicalUnchecked("//test:top"))
+                    .setConfiguration(getTargetConfiguration())
+                    .build());
+    assertThat(topTargetBefore).isNotNull();
 
     // Check if an error is raised when the build options are changed. Do it twice because
     // had already had a bug that the second invocation erroneously worked. See
@@ -1768,6 +1784,15 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     useConfiguration("--noallow_analysis_cache_discard", "--definitely_relevant=new");
     Throwable t = assertThrows(InvalidConfigurationException.class, () -> update("//test:top"));
     assertThat(t.getMessage().contains("analysis cache would have been discarded")).isTrue();
+    var topTargetAfter =
+        skyframeExecutor
+            .getEvaluator()
+            .getExistingValue(
+                ConfiguredTargetKey.builder()
+                    .setLabel(Label.parseCanonicalUnchecked("//test:top"))
+                    .setConfiguration(getTargetConfiguration())
+                    .build());
+    assertThat(topTargetAfter).isSameInstanceAs(topTargetBefore);
 
     t = assertThrows(InvalidConfigurationException.class, () -> update("//test:top"));
     assertThat(t.getMessage()).contains("analysis cache would have been discarded");
@@ -1778,6 +1803,62 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
     // Now check if removing --noallow_analysis_cache_discard in fact allows discarding the cache.
     useConfiguration("--definitely_relevant=new");
+    update("//test:top");
+  }
+
+  @Test
+  public void throwsIfAnalysisCacheIsDiscardedWhenOptionSet_starlarkFlag() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test_flags/build_setting.bzl",
+        """
+        bool_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.bool(flag = True),
+        )
+        """);
+    scratch.file(
+        "test_flags/BUILD",
+        """
+        load(":build_setting.bzl", "bool_flag")
+
+        bool_flag(
+            name = "my_flag",
+            build_setting_default = False,
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
+    useConfiguration("--no//test_flags:my_flag");
+
+    // Set up the analysis cache
+    update("//test:top");
+
+    // Check if things work if the build options are not changed
+    useConfiguration("--noallow_analysis_cache_discard", "--no//test_flags:my_flag");
+    update("//test:top");
+
+    // Check if an error is raised when the build options are changed. Do it twice because
+    // had already had a bug that the second invocation erroneously worked. See
+    // https://github.com/bazelbuild/bazel/issues/23491 .
+    useConfiguration("--noallow_analysis_cache_discard", "--//test_flags:my_flag");
+    Throwable t = assertThrows(InvalidConfigurationException.class, () -> update("//test:top"));
+    assertThat(t.getMessage()).contains("analysis cache would have been discarded");
+
+    t = assertThrows(InvalidConfigurationException.class, () -> update("//test:top"));
+    assertThat(t).hasMessageThat().contains("analysis cache would have been discarded");
+
+    // Check if going back to the original configuration works.
+    useConfiguration("--noallow_analysis_cache_discard", "--no//test_flags:my_flag");
+    update("//test:top");
+
+    // Now check if removing --noallow_analysis_cache_discard in fact allows discarding the cache.
+    useConfiguration("--//test_flags:my_flag");
     update("//test:top");
   }
 }

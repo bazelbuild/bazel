@@ -1063,12 +1063,7 @@ final class Parser {
     if (options.allowTypeSyntax()) {
       return true;
     } else {
-      syntaxError(
-          offset,
-          tokenKind,
-          tokenValue,
-          "type annotations are disallowed. Enable them with --experimental_starlark_type_syntax "
-              + "and/or --experimental_starlark_types_allowed_paths.");
+      syntaxError(offset, tokenKind, tokenValue, "type annotations are disallowed");
       return false;
     }
   }
@@ -1130,15 +1125,24 @@ final class Parser {
     return expr;
   }
 
-  // TypeArgument = TypeExpr | ListOfTypes | DictOfTypes | string
+  // TypeArgument = TypeExpr | ListOfTypes | DictOfTypes | '(' ')' | string | ellipsis
   private Expression parseTypeArgument() {
     switch (token.kind) {
       case LBRACKET: // [...]
         return parseTypeList();
       case LBRACE: // {...}
         return parseTypeDict();
+      case LPAREN: // the empty tuple ()
+        {
+          int lparenOffset = expect(TokenKind.LPAREN);
+          int rparenOffset = expect(TokenKind.RPAREN);
+          return new ListExpression(
+              locs, /* isTuple= */ true, lparenOffset, ImmutableList.of(), rparenOffset);
+        }
       case STRING:
         return parseStringLiteral();
+      case ELLIPSIS:
+        return parsePrimary();
       default:
     }
     if (token.kind != TokenKind.IDENTIFIER) {
@@ -1171,7 +1175,15 @@ final class Parser {
 
   // TypeEntry = string ':' TypeArgument .
   private DictExpression.Entry parseTypeDictEntry() {
-    Expression key = parseStringLiteral();
+    Expression key;
+    if (token.kind == TokenKind.STRING) {
+      key = parseStringLiteral();
+    } else {
+      int start = token.start;
+      syntaxError(String.format("expected %s", TokenKind.STRING));
+      int end = syncTo(EXPR_TERMINATOR_SET);
+      key = makeErrorExpression(start, end);
+    }
     int colonOffset = expect(TokenKind.COLON);
     Expression value = parseTypeArgument();
     return new DictExpression.Entry(locs, key, colonOffset, value);
@@ -1201,9 +1213,7 @@ final class Parser {
   private Expression parseTypeApplication(Identifier constructor) {
     expect(TokenKind.LBRACKET);
     ImmutableList.Builder<Expression> args = ImmutableList.builder();
-    if (token.kind != TokenKind.RBRACKET) {
-      args.add(parseTypeArgument());
-    }
+    args.add(parseTypeArgument());
     while (token.kind != TokenKind.RBRACKET && token.kind != TokenKind.EOF) {
       expect(TokenKind.COMMA);
       args.add(parseTypeArgument());

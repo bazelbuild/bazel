@@ -167,6 +167,12 @@ public class CppRuleClasses {
   /** A string constant for enabling fsafdo for AutoFDO implicitly. */
   public static final String ENABLE_FSAFDO = "enable_fsafdo";
 
+  /** A string constant for enabling memprof_optimize for FDO implicitly. */
+  public static final String ENABLE_FDO_MEMPROF_OPTIMIZE = "enable_fdo_memprof_optimize";
+
+  /** A string constant for allowing memprof_optimize for FDO implicitly. */
+  public static final String FDO_IMPLICIT_MEMPROF_OPTIMIZE = "fdo_implicit_memprof_optimize";
+
   /** A string constant for enabling memprof_optimize for AutoFDO implicitly. */
   public static final String ENABLE_AUTOFDO_MEMPROF_OPTIMIZE = "enable_autofdo_memprof_optimize";
 

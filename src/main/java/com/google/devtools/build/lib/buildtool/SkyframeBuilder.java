@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.runtime.UiOptions;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.Builder;
@@ -114,14 +115,17 @@ public class SkyframeBuilder implements Builder {
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
     // TODO(bazel-team): Should use --experimental_fsvc_threads instead of the hardcoded constant
     // but plumbing the flag through is hard.
-    int fsvcThreads = buildRequestOptions == null ? 200 : buildRequestOptions.fsvcThreads;
+    int fsvcThreads = buildRequestOptions == null ? 200 : buildRequestOptions.getFsvcThreads();
     boolean skyframeErrorHandlingRefactor =
-        buildRequestOptions != null && buildRequestOptions.skyframeErrorHandlingRefactor;
+        buildRequestOptions != null && buildRequestOptions.getSkyframeErrorHandlingRefactor();
     skyframeExecutor.detectModifiedOutputFiles(
         modifiedOutputFiles, lastExecutionTimeRange, outputChecker, fsvcThreads);
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
       skyframeExecutor.configureActionExecutor(
-          fileCache, actionInputPrefetcher, actionExecutionSalt);
+          fileCache,
+          actionInputPrefetcher,
+          actionExecutionSalt,
+          options.getOptions(UiOptions.class).maxStdoutErrBytes);
     }
     // Note that executionProgressReceiver accesses builtTargets concurrently (after wrapping in a
     // synchronized collection), so unsynchronized access to this variable is unsafe while it runs.
@@ -145,7 +149,7 @@ public class SkyframeBuilder implements Builder {
             executionProgressReceiver.createInactivityMonitor(statusReporter),
             executionProgressReceiver.createInactivityReporter(
                 statusReporter, isBuildingExclusiveArtifacts),
-            options.getOptions(BuildRequestOptions.class).progressReportInterval);
+            options.getOptions(BuildRequestOptions.class).getProgressReportInterval());
 
     skyframeExecutor.setActionExecutionProgressReportingObjects(executionProgressReceiver,
         executionProgressReceiver, statusReporter);

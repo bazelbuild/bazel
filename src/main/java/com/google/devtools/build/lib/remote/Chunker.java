@@ -182,7 +182,6 @@ public class Chunker implements AutoCloseable {
   @Override
   public void close() throws IOException {
     reset();
-    blob.close();
   }
 
   /** Attempts reading at most a full chunk and stores it in the chunkCache buffer */
@@ -197,6 +196,7 @@ public class Chunker implements AutoCloseable {
     }
     return count;
   }
+
   /**
    * Returns the next {@link Chunk} or throws a {@link NoSuchElementException} if no data is left.
    *

@@ -206,7 +206,7 @@ public final class StarlarkPath implements StarlarkValue {
   }
 
   @Override
-  public void repr(Printer printer) {
-    printer.repr(path.toString());
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    printer.repr(path.toString(), semantics);
   }
 }

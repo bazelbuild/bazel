@@ -135,9 +135,9 @@ public class RemoteServerCapabilitiesTest {
             new RequestCustomHeadersValidator()));
 
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteHeaders =
+    remoteOptions.setRemoteHeaders(
         ImmutableList.of(
-            Maps.immutableEntry("Key1", "Value1"), Maps.immutableEntry("Key2", "Value2"));
+            Maps.immutableEntry("Key1", "Value1"), Maps.immutableEntry("Key2", "Value2")));
 
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
@@ -225,7 +225,7 @@ public class RemoteServerCapabilitiesTest {
                     .build())
             .build();
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteCache = "server:port";
+    remoteOptions.setRemoteCache("server:port");
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
             caps, remoteOptions, DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.CACHE);
@@ -248,7 +248,7 @@ public class RemoteServerCapabilitiesTest {
                     .build())
             .build();
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteCache = "server:port";
+    remoteOptions.setRemoteCache("server:port");
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
             caps, remoteOptions, DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.CACHE);
@@ -271,7 +271,7 @@ public class RemoteServerCapabilitiesTest {
                     .build())
             .build();
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteCache = "server:port";
+    remoteOptions.setRemoteCache("server:port");
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
             caps, remoteOptions, DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.CACHE);
@@ -291,7 +291,7 @@ public class RemoteServerCapabilitiesTest {
                     .build())
             .build();
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteCache = "server:port";
+    remoteOptions.setRemoteCache("server:port");
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
             caps, remoteOptions, DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.CACHE);
@@ -301,7 +301,7 @@ public class RemoteServerCapabilitiesTest {
         .contains("remote cache does not support uploading action results");
 
     // Ignored when no local upload.
-    remoteOptions.remoteUploadLocalResults = false;
+    remoteOptions.setRemoteUploadLocalResults(false);
     st =
         RemoteServerCapabilities.checkClientServerCompatibility(
             caps, remoteOptions, DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.CACHE);
@@ -326,7 +326,7 @@ public class RemoteServerCapabilitiesTest {
                     .build())
             .build();
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteExecutor = "server:port";
+    remoteOptions.setRemoteExecutor("server:port");
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
             caps,
@@ -358,7 +358,7 @@ public class RemoteServerCapabilitiesTest {
                     .build())
             .build();
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteExecutor = "server:port";
+    remoteOptions.setRemoteExecutor("server:port");
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
             caps,
@@ -386,8 +386,8 @@ public class RemoteServerCapabilitiesTest {
                     .build())
             .build();
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteExecutor = "server:port";
-    remoteOptions.remoteLocalFallback = true;
+    remoteOptions.setRemoteExecutor("server:port");
+    remoteOptions.setRemoteLocalFallback(true);
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
             caps,
@@ -400,7 +400,7 @@ public class RemoteServerCapabilitiesTest {
         .contains("remote cache does not support uploading action results");
 
     // Ignored when no fallback.
-    remoteOptions.remoteLocalFallback = false;
+    remoteOptions.setRemoteLocalFallback(false);
     st =
         RemoteServerCapabilities.checkClientServerCompatibility(
             caps,
@@ -413,8 +413,8 @@ public class RemoteServerCapabilitiesTest {
         .contains("remote cache does not support uploading action results");
 
     // Ignored when no uploading local results.
-    remoteOptions.remoteLocalFallback = true;
-    remoteOptions.remoteUploadLocalResults = false;
+    remoteOptions.setRemoteLocalFallback(true);
+    remoteOptions.setRemoteUploadLocalResults(false);
     st =
         RemoteServerCapabilities.checkClientServerCompatibility(
             caps,
@@ -442,9 +442,9 @@ public class RemoteServerCapabilitiesTest {
                     .build())
             .build();
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteCache = "server:port";
-    remoteOptions.remoteUploadLocalResults = false;
-    remoteOptions.remoteResultCachePriority = 11;
+    remoteOptions.setRemoteCache("server:port");
+    remoteOptions.setRemoteUploadLocalResults(false);
+    remoteOptions.setRemoteResultCachePriority(11);
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
             caps, remoteOptions, DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.CACHE);
@@ -452,14 +452,14 @@ public class RemoteServerCapabilitiesTest {
     assertThat(st.getErrors().get(0)).containsMatch("remote_result_cache_priority");
 
     // Valid value in range.
-    remoteOptions.remoteResultCachePriority = 10;
+    remoteOptions.setRemoteResultCachePriority(10);
     st =
         RemoteServerCapabilities.checkClientServerCompatibility(
             caps, remoteOptions, DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.CACHE);
     assertThat(st.isOk()).isTrue();
 
     // Check not performed if the value is 0.
-    remoteOptions.remoteResultCachePriority = 0;
+    remoteOptions.setRemoteResultCachePriority(0);
     st =
         RemoteServerCapabilities.checkClientServerCompatibility(
             caps, remoteOptions, DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.CACHE);
@@ -489,9 +489,9 @@ public class RemoteServerCapabilitiesTest {
                     .build())
             .build();
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteExecutor = "server:port";
-    remoteOptions.remoteUploadLocalResults = false;
-    remoteOptions.remoteExecutionPriority = 11;
+    remoteOptions.setRemoteExecutor("server:port");
+    remoteOptions.setRemoteUploadLocalResults(false);
+    remoteOptions.setRemoteExecutionPriority(11);
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
             caps,
@@ -502,7 +502,7 @@ public class RemoteServerCapabilitiesTest {
     assertThat(st.getErrors().get(0)).containsMatch("remote_execution_priority");
 
     // Valid value in range.
-    remoteOptions.remoteExecutionPriority = 10;
+    remoteOptions.setRemoteExecutionPriority(10);
     st =
         RemoteServerCapabilities.checkClientServerCompatibility(
             caps,
@@ -512,7 +512,7 @@ public class RemoteServerCapabilitiesTest {
     assertThat(st.isOk()).isTrue();
 
     // Check not performed if the value is 0.
-    remoteOptions.remoteExecutionPriority = 0;
+    remoteOptions.setRemoteExecutionPriority(0);
     st =
         RemoteServerCapabilities.checkClientServerCompatibility(
             caps,
@@ -522,9 +522,9 @@ public class RemoteServerCapabilitiesTest {
     assertThat(st.isOk()).isTrue();
 
     // Ignored when no remote execution requested.
-    remoteOptions.remoteExecutionPriority = 11;
-    remoteOptions.remoteExecutor = "";
-    remoteOptions.remoteCache = "server:port";
+    remoteOptions.setRemoteExecutionPriority(11);
+    remoteOptions.setRemoteExecutor("");
+    remoteOptions.setRemoteCache("server:port");
     st =
         RemoteServerCapabilities.checkClientServerCompatibility(
             caps, remoteOptions, DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.CACHE);
@@ -544,7 +544,7 @@ public class RemoteServerCapabilitiesTest {
                     .build())
             .build();
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteExecutor = "server:port";
+    remoteOptions.setRemoteExecutor("server:port");
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
             caps,
@@ -569,7 +569,7 @@ public class RemoteServerCapabilitiesTest {
                     .build())
             .build();
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteExecutor = "server:port";
+    remoteOptions.setRemoteExecutor("server:port");
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
             caps,
@@ -593,7 +593,7 @@ public class RemoteServerCapabilitiesTest {
                     .build())
             .build();
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteCache = "server:port";
+    remoteOptions.setRemoteCache("server:port");
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
             caps, remoteOptions, DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.CACHE);

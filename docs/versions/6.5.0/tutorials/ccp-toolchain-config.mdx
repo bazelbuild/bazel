@@ -7,7 +7,7 @@ toolchains for a project. It's based on an
 [example C++ project](https://github.com/bazelbuild/examples/tree/master/cpp-tutorial/stage1)
 that builds error-free using `clang`.
 
-## What you'll learn
+## What you'll learn {#what-you-learn}
 
 In this tutorial you learn how to:
 
@@ -20,9 +20,9 @@ with `clang`
 `bazel build --config=clang_config //main:hello-world` on a Linux machine
 *  Build the C++ application
 
-## Before you begin
+## Before you begin {#before-you-begin}
 
-### Set up the build environment
+### Set up the build environment {#setup-build-environment}
 
 This tutorial assumes you are on Linux and have successfully built
 C++ applications and installed the appropriate tooling and libraries.
@@ -465,7 +465,7 @@ slightly between different versions of clang.
 10. If you run `bazel build --config=clang_config //main:hello-world`, it should
     finally build.
 
-## Review your work
+## Review your work {#review-your-work}
 
 In this tutorial you learned how to configure a basic C++ toolchain, but
 toolchains are more powerful than this simple example.
@@ -487,7 +487,7 @@ The key take-aways are:
 - You can create features to customize which flags should be passed to
   different actions, be it linking or any other type of action.
 
-## Further reading
+## Further reading {#further-reading}
 
 For more details, see
 [C++ toolchain configuration](/versions/6.5.0/docs/cc-toolchain-config-reference)

@@ -253,7 +253,6 @@ sh_test(
         "//src:java_tools_prebuilt.zip",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    tags = ["local"],
 )
 
 sh_test(
@@ -315,7 +314,7 @@ JAVA_VERSIONS_COVERAGE = ("11", "17", "21")
             "@bazel_tools//tools/bash/runfiles",
         ],
         exec_compatible_with = ["//:highcpu_machine"],
-        shard_count = 2,
+        shard_count = 4,
         tags = [
             "requires-network",  # For Bzlmod
         ],
@@ -380,7 +379,7 @@ sh_test(
 # TODO(b/324251617): downgrade test size to "large" once we no longer use Intel VMs
 sh_test(
     name = "bazel_proto_library_test",
-    size = "enormous",  # Downloads and compiles protobuf for *every* *test* *case*
+    size = "enormous",
     srcs = ["bazel_proto_library_test.sh"],
     data = [":test-deps"],
     exec_compatible_with = ["//:highcpu_machine"],
@@ -876,6 +875,7 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     exec_compatible_with = ["//:highcpu_machine"],
+    shard_count = 2,
 )
 
 sh_test(
@@ -1030,7 +1030,6 @@ sh_test(
     shard_count = 10,
     tags = [
         "no_windows",
-        "requires-network",
     ],
 )
 
@@ -1221,7 +1220,10 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     exec_compatible_with = ["//:highcpu_machine"],
-    tags = ["block-network"],
+    tags = [
+        "block-network",
+        "no_presubmit",
+    ],
 )
 
 sh_test(
@@ -1241,6 +1243,7 @@ sh_test(
     exec_compatible_with = ["//:highcpu_machine"],
     tags = [
         "block-network",
+        "no_presubmit",
         "no_windows",
     ],
 )
@@ -1257,20 +1260,10 @@ sh_test(
     ],
     exec_compatible_with = ["//:highcpu_machine"],
     tags = [
+        "no_presubmit",
         "no_windows",
         "slow",
     ],
-)
-
-sh_test(
-    name = "rule_test_test",
-    size = "medium",
-    srcs = ["rule_test_test.sh"],
-    data = [
-        ":test-deps",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-    shard_count = 2,
 )
 
 sh_test(
@@ -1423,16 +1416,6 @@ sh_test(
     name = "platforms_test",
     srcs = ["platforms_test.sh"],
     data = [":test-deps"],
-    deps = ["@bazel_tools//tools/bash/runfiles"],
-)
-
-sh_test(
-    name = "resource_compiler_toolchain_test",
-    srcs = ["resource_compiler_toolchain_test.sh"],
-    data = [
-        ":test-deps",
-        "//src/main/res:srcs_for_testing",
-    ],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 

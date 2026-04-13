@@ -186,8 +186,12 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
             actionTemplate,
             output,
             action);
+        SpecialArtifact outputTree =
+            output.getParent().isSubTreeArtifact()
+                ? output.getParent().getParent()
+                : output.getParent();
         Preconditions.checkState(
-            outputs.contains(output.getParent()),
+            outputs.contains(outputTree),
             "%s generated an action with an output %s under an undeclared tree not in %s (%s)",
             actionTemplate,
             output,

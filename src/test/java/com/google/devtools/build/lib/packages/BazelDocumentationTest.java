@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.bazel.Bazel;
+import com.google.devtools.build.lib.bazel.BazelServices;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
@@ -26,9 +27,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Test for Bazel documentation.
- */
+/** Test for Bazel documentation. */
 @RunWith(JUnit4.class)
 public class BazelDocumentationTest {
 
@@ -44,7 +43,7 @@ public class BazelDocumentationTest {
     final File documentationFile = new File(documentationFilePath);
     DocumentationTestUtil.validateUserManual(
         Bazel.BAZEL_MODULES,
-        Bazel.BAZEL_SERVICES,
+        BazelServices.BAZEL_SERVICES,
         BazelRuleClassProvider.create(),
         Files.asCharSource(documentationFile, UTF_8).read(),
         ImmutableSet.of());

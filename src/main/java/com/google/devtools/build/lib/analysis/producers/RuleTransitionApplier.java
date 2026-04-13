@@ -173,7 +173,7 @@ public class RuleTransitionApplier
                   .getConfigurationKey()
                   .getOptions()
                   .get(CoreOptions.class)
-                  .commandLineFlagAliases,
+                  .getCommandLineFlagAliasesMap(),
               (PlatformProducer.ResultSink) this,
               this::computeConfigConditions));
     } else {

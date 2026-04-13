@@ -20,16 +20,14 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Ascii;
+import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException;
@@ -56,6 +54,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.RemoteExternalOverlayFileSystem;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.MaybeValue;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
@@ -70,14 +69,13 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.InvalidPathException;
 import java.time.Duration;
@@ -158,8 +156,8 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   protected final Path workingDirectory;
   protected final BlazeDirectories directories;
   protected final Environment env;
-  protected final ImmutableMap<String, String> repoEnvVariables;
-  protected final ImmutableMap<String, String> clientEnvVariables;
+  protected final ImmutableMap<String, String> repoEnv;
+  protected final ImmutableMap<String, String> nonstrictRepoEnv;
   private final StarlarkOS osObject;
   protected final DownloadManager downloadManager;
   protected final double timeoutScaling;
@@ -180,8 +178,8 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       Path workingDirectory,
       BlazeDirectories directories,
       Environment env,
-      Map<String, String> repoEnvVariables,
-      Map<String, String> clientEnvVariables,
+      ImmutableMap<String, String> repoEnv,
+      ImmutableMap<String, String> nonstrictRepoEnv,
       DownloadManager downloadManager,
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
@@ -192,9 +190,9 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     this.workingDirectory = workingDirectory;
     this.directories = directories;
     this.env = env;
-    this.repoEnvVariables = ImmutableMap.copyOf(repoEnvVariables);
-    this.clientEnvVariables = ImmutableMap.copyOf(clientEnvVariables);
-    this.osObject = new StarlarkOS(this.repoEnvVariables);
+    this.repoEnv = repoEnv;
+    this.nonstrictRepoEnv = nonstrictRepoEnv;
+    this.osObject = new StarlarkOS(this.repoEnv);
     this.downloadManager = downloadManager;
     this.timeoutScaling = timeoutScaling;
     this.processWrapper = processWrapper;
@@ -212,7 +210,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     // apparent repo names to canonical repo names. See #20721 for why this is necessary.
     this.repoMappingRecorder =
         (fromRepo, apparentRepoName, canonicalRepoName) ->
-            recordInput(
+            recordInputWithValue(
                 new RepoRecordedInput.RecordedRepoMapping(fromRepo, apparentRepoName),
                 canonicalRepoName.isVisible() ? canonicalRepoName.getName() : null);
   }
@@ -251,13 +249,30 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     repoMappingRecorder.storeInThread(thread);
   }
 
-  protected void recordInput(RepoRecordedInput input, @Nullable String value) {
+  protected void recordInputWithValue(RepoRecordedInput input, @Nullable String value) {
     if (recordedInputs.containsKey(input) && !Objects.equals(recordedInputs.get(input), value)) {
       throw new IllegalStateException(
           "Conflicting values recorded for input %s: '%s' vs. '%s'"
               .formatted(input, recordedInputs.get(input), value));
     }
     recordedInputs.put(input, value);
+  }
+
+  @CanIgnoreReturnValue
+  @Nullable
+  protected String getValueAndRecordInput(RepoRecordedInput input)
+      throws InterruptedException, NeedsSkyframeRestartException, IOException {
+    var maybeValue = input.getValue(env, directories);
+    if (env.valuesMissing()) {
+      throw new NeedsSkyframeRestartException();
+    }
+    return switch (maybeValue) {
+      case MaybeValue.Invalid(String reason) -> throw new IOException(reason);
+      case MaybeValue.Valid(String value) -> {
+        recordInputWithValue(input, value);
+        yield value;
+      }
+    };
   }
 
   private boolean cancelPendingAsyncTasks() {
@@ -298,7 +313,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
   protected void checkInOutputDirectory(String operation, StarlarkPath path)
       throws RepositoryFunctionException {
-    if (!path.getPath().getPathString().startsWith(workingDirectory.getPathString())) {
+    if (!path.getPath().startsWith(workingDirectory)) {
       throw new RepositoryFunctionException(
           Starlark.errorf(
               "Cannot %s outside of the repository directory for path %s", operation, path),
@@ -316,14 +331,14 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
    * measures might be necessary.
    */
   private static ImmutableMap<URI, Map<String, List<String>>> getAuthHeaders(
-      Map<String, Dict<?, ?>> auth) throws RepositoryFunctionException, EvalException {
+      Map<String, Dict<?, ?>> auth) throws EvalException {
     ImmutableMap.Builder<URI, Map<String, List<String>>> headers = new ImmutableMap.Builder<>();
     for (Map.Entry<String, Dict<?, ?>> entry : auth.entrySet()) {
       try {
-        URL url = new URL(entry.getKey());
+        URI url = new URI(entry.getKey());
         Dict<?, ?> authMap = entry.getValue();
         if (authMap.containsKey("type")) {
-          if ("basic".equals(authMap.get("type"))) {
+          if (Objects.equals(authMap.get("type"), "basic")) {
             if (!authMap.containsKey("login") || !authMap.containsKey("password")) {
               throw Starlark.errorf(
                   "Found request to do basic auth for %s without 'login' and 'password' being"
@@ -332,13 +347,13 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
             }
             String credentials = authMap.get("login") + ":" + authMap.get("password");
             headers.put(
-                url.toURI(),
+                url,
                 ImmutableMap.of(
                     "Authorization",
                     ImmutableList.of(
                         "Basic "
                             + Base64.getEncoder().encodeToString(credentials.getBytes(UTF_8)))));
-          } else if ("pattern".equals(authMap.get("type"))) {
+          } else if (Objects.equals(authMap.get("type"), "pattern")) {
             if (!authMap.containsKey("pattern")) {
               throw Starlark.errorf(
                   "Found request to do pattern auth for %s without a pattern being provided",
@@ -364,11 +379,9 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
               result = result.replaceAll(demarcatedComponent, (String) authMap.get(component));
             }
 
-            headers.put(url.toURI(), ImmutableMap.of("Authorization", ImmutableList.of(result)));
+            headers.put(url, ImmutableMap.of("Authorization", ImmutableList.of(result)));
           }
         }
-      } catch (MalformedURLException e) {
-        throw new RepositoryFunctionException(e, Transience.PERSISTENT);
       } catch (URISyntaxException e) {
         throw new EvalException(e);
       }
@@ -414,19 +427,20 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     ImmutableList.Builder<String> result = ImmutableList.builder();
 
     for (Object o : urlList) {
-      if (!(o instanceof String)) {
+      if (o instanceof String s) {
+        result.add(s);
+      } else {
         throw Starlark.errorf(
             "Expected a string or sequence of strings for 'url' argument, but got '%s' item in the"
                 + " sequence",
             Starlark.type(o));
       }
-      result.add((String) o);
     }
 
     return result.build();
   }
 
-  private static ImmutableList<URL> getUrls(
+  private static ImmutableList<URI> getUrls(
       Object urlOrList, boolean ensureNonEmpty, boolean checksumGiven)
       throws RepositoryFunctionException, EvalException {
     ImmutableList<String> urlStrings;
@@ -438,28 +452,28 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     if (ensureNonEmpty && urlStrings.isEmpty()) {
       throw new RepositoryFunctionException(new IOException("urls not set"), Transience.PERSISTENT);
     }
-    ImmutableList.Builder<URL> urls = ImmutableList.builder();
+    ImmutableList.Builder<URI> urls = ImmutableList.builder();
     for (String urlString : urlStrings) {
-      URL url;
+      URI url;
       try {
-        url = new URL(urlString);
-      } catch (MalformedURLException e) {
+        url = new URI(urlString);
+      } catch (URISyntaxException e) {
         throw new RepositoryFunctionException(
             new IOException("Bad URL: " + urlString, e), Transience.PERSISTENT);
       }
       if (!HttpUtils.isUrlSupportedByDownloader(url)) {
         throw new RepositoryFunctionException(
-            new IOException("Unsupported protocol: " + url.getProtocol()), Transience.PERSISTENT);
+            new IOException("Unsupported protocol: " + url.getScheme()), Transience.PERSISTENT);
       }
       if (!checksumGiven) {
-        if (!Ascii.equalsIgnoreCase("http", url.getProtocol())) {
+        if (!Ascii.equalsIgnoreCase("http", url.getScheme())) {
           urls.add(url);
         }
       } else {
         urls.add(url);
       }
     }
-    ImmutableList<URL> urlsResult = urls.build();
+    ImmutableList<URI> urlsResult = urls.build();
     if (ensureNonEmpty && urlsResult.isEmpty()) {
       throw new RepositoryFunctionException(
           new IOException(
@@ -470,7 +484,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     return urlsResult;
   }
 
-  private void warnAboutChecksumError(List<URL> urls, String errorMessage) {
+  private void warnAboutChecksumError(List<URI> urls, String errorMessage) {
     // Inform the user immediately, even though the file will still be downloaded.
     // This cannot be done by a regular error event, as all regular events are recorded
     // and only shown once the execution of the repository rule is finished.
@@ -479,7 +493,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     reportProgress("Will fail after download of " + url + ". " + errorMessage);
   }
 
-  private Optional<Checksum> validateChecksum(String sha256, String integrity, List<URL> urls)
+  private Optional<Checksum> validateChecksum(String sha256, String integrity, List<URI> urls)
       throws RepositoryFunctionException, EvalException {
     if (!sha256.isEmpty()) {
       if (!integrity.isEmpty()) {
@@ -590,7 +604,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
     @Override
     public boolean cancel() {
-      return !future.cancel(true);
+      return !future.cancel(false);
     }
 
     @Override
@@ -617,8 +631,14 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append(String.format("<pending download to '%s'>", outputPath));
+    }
+
+    @Override
+    public void debugPrint(Printer printer, StarlarkThread thread) {
+      printer.append(
+          String.format("<pending download (state: %s) to '%s'>", future.state(), outputPath));
     }
   }
 
@@ -632,8 +652,9 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       }
     } catch (IOException e) {
       if (pendingDownload.allowFail) {
-        return StarlarkInfo.create(
-            StructProvider.STRUCT, ImmutableMap.of("success", false), Location.BUILTIN);
+        ImmutableMap<String, Object> struct =
+            ImmutableMap.of("success", false, "error", e.toString());
+        return StarlarkInfo.create(StructProvider.STRUCT, struct, Location.BUILTIN);
       } else {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
@@ -659,7 +680,11 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 Downloads a file to the output path for the provided url and returns a struct \
 containing <code>success</code>, a flag which is <code>true</code> if the \
 download completed successfully, and if successful, a hash of the file \
-with the fields <code>sha256</code> and <code>integrity</code>. \
+with the fields <code>sha256</code> and <code>integrity</code>. If the value \
+of the <code>success</code> field is false, the <code>error</code> field will be set \
+with a message indicating why the download failed. The message in the <code>error</code> \
+field is for debugging purposes only and should not be relied upon as a stable API (the \
+format of the string can change between patch versions of Bazel). \
 When <code>sha256</code> or <code>integrity</code> is user specified, setting an explicit \
 <code>canonical_id</code> is highly recommended. e.g. \
 <a href='/rules/lib/repo/cache#get_default_canonical_id'><code>get_default_canonical_id</code></a>
@@ -781,7 +806,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
 
     ImmutableMap<String, List<String>> headers = getHeaderContents(headersUnchecked, "headers");
 
-    ImmutableList<URL> urls =
+    ImmutableList<URI> urls =
         getUrls(
             url,
             /* ensureNonEmpty= */ !allowFail,
@@ -836,7 +861,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
               canonicalId,
               Optional.<String>empty(),
               outputPath.getPath(),
-              clientEnvVariables,
+              nonstrictRepoEnv,
               identifyingStringForLogging,
               downloadPhaser,
               // The repo rule may modify the file after the download, so we cannot guarantee that
@@ -867,7 +892,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
 """
 "zip", "jar", "war", "aar", "nupkg", "whl", "tar", "tar.gz", "tgz", "gz", \
 "tar.xz", "txz", "xz", "tar.zst", "tzst", "zst", "tar.bz2", "tbz", "bz2", "ar", \
-"deb" or "7z\"\
+"deb", "7z", "tar.br" or "br"\
 """;
 
   @StarlarkMethod(
@@ -877,7 +902,11 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
 Downloads a file to the output path for the provided url, extracts it, and returns a \
 struct containing <code>success</code>, a flag which is <code>true</code> if the \
 download completed successfully, and if successful, a hash of the file with the \
-fields <code>sha256</code> and <code>integrity</code>. \
+fields <code>sha256</code> and <code>integrity</code>. If the value \
+of the <code>success</code> field is false, the <code>error</code> field will be set \
+with a message indicating why the download failed. The message in the <code>error</code> \
+field is for debugging purposes only and should not be relied upon as a stable API (the \
+format of the string can change between patch versions of Bazel). \
 When <code>sha256</code> or <code>integrity</code> is user specified, setting an explicit \
 <code>canonical_id</code> is highly recommended. e.g. \
 <a href='/rules/lib/repo/cache#get_default_canonical_id'><code>get_default_canonical_id</code></a>
@@ -1036,7 +1065,7 @@ the same path on case-insensitive filesystems.
 
     ImmutableMap<String, List<String>> headers = getHeaderContents(headersUnchecked, "headers");
 
-    ImmutableList<URL> urls =
+    ImmutableList<URI> urls =
         getUrls(
             url,
             /* ensureNonEmpty= */ !allowFail,
@@ -1087,7 +1116,7 @@ the same path on case-insensitive filesystems.
               canonicalId,
               Optional.of(type),
               downloadDirectory,
-              clientEnvVariables,
+              nonstrictRepoEnv,
               identifyingStringForLogging,
               downloadPhaser,
               // The archive is not going to be modified and not accessible to the user, so its safe
@@ -1110,8 +1139,9 @@ the same path on case-insensitive filesystems.
     } catch (IOException e) {
       env.getListener().post(w);
       if (allowFail) {
-        return StarlarkInfo.create(
-            StructProvider.STRUCT, ImmutableMap.of("success", false), Location.BUILTIN);
+        ImmutableMap<String, Object> struct =
+            ImmutableMap.of("success", false, "error", e.toString());
+        return StarlarkInfo.create(StructProvider.STRUCT, struct, Location.BUILTIN);
       } else {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
@@ -1155,9 +1185,6 @@ the same path on case-insensitive filesystems.
    * because the parent directory being removed was "not empty" (yet). Please see
    * https://github.com/bazelbuild/bazel/issues/23687 and
    * https://github.com/bazelbuild/bazel/issues/20013 for further details.
-   *
-   * @param downloadDirectory
-   * @throws RepositoryFunctionException
    */
   private static void deleteTreeWithRetries(Path downloadDirectory)
       throws RepositoryFunctionException {
@@ -1475,18 +1502,12 @@ the same path on case-insensitive filesystems.
   @Nullable
   public String getEnvironmentValue(String name, Object defaultValue)
       throws InterruptedException, NeedsSkyframeRestartException {
-    // Must look up via Skyframe, rather than solely copy from `this.repoEnvVariables`, in order to
-    // establish a SkyKey dependency relationship.
-    var nameAndValue = RepositoryUtils.getEnvVarValues(env, ImmutableSet.of(name));
-    if (nameAndValue == null) {
-      return null;
+    try {
+      String value = getValueAndRecordInput(new RepoRecordedInput.EnvVar(name));
+      return value != null ? value : nullIfNone(defaultValue, String.class);
+    } catch (IOException e) {
+      throw new IllegalStateException("getting EnvVar never throws IOException", e);
     }
-    // However, to account for --repo_env we take the value from `this.repoEnvVariables`.
-    // See https://github.com/bazelbuild/bazel/pull/20787#discussion_r1445571248 .
-    var entry = Iterables.getOnlyElement(RepoRecordedInput.EnvVar.wrap(nameAndValue).entrySet());
-    String envVarValue = repoEnvVariables.get(name);
-    recordInput(entry.getKey(), envVarValue);
-    return envVarValue != null ? envVarValue : nullIfNone(defaultValue, String.class);
   }
 
   @StarlarkMethod(
@@ -1650,17 +1671,8 @@ the same path on case-insensitive filesystems.
     if (repoCacheFriendlyPath == null) {
       return;
     }
-    var recordedInput = new RepoRecordedInput.File(repoCacheFriendlyPath);
-    var skyKey = recordedInput.getSkyKey(directories);
     try {
-      FileValue fileValue = (FileValue) env.getValueOrThrow(skyKey, IOException.class);
-      if (fileValue == null) {
-        throw new NeedsSkyframeRestartException();
-      }
-
-      recordInput(
-          recordedInput,
-          RepoRecordedInput.File.fileValueToMarkerValue((RootedPath) skyKey.argument(), fileValue));
+      getValueAndRecordInput(new RepoRecordedInput.File(repoCacheFriendlyPath));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -1672,12 +1684,8 @@ the same path on case-insensitive filesystems.
     if (repoCacheFriendlyPath == null) {
       return;
     }
-    var recordedInput = new RepoRecordedInput.Dirents(repoCacheFriendlyPath);
-    if (env.getValue(recordedInput.getSkyKey(directories)) == null) {
-      throw new NeedsSkyframeRestartException();
-    }
     try {
-      recordInput(recordedInput, RepoRecordedInput.Dirents.getDirentsMarkerValue(path));
+      getValueAndRecordInput(new RepoRecordedInput.Dirents(repoCacheFriendlyPath));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -1758,7 +1766,7 @@ the same path on case-insensitive filesystems.
       name = "os",
       structField = true,
       doc = "A struct to access information from the system.")
-  public StarlarkOS getOS() {
+  public StarlarkOS getOs() {
     // Historically this event reported the location of the ctx.os expression, but that's no longer
     // available in the interpreter API. Now we just use a dummy location, and the user must
     // manually inspect the code where this context object is used if they wish to find the
@@ -1995,7 +2003,7 @@ the same path on case-insensitive filesystems.
         WorkspaceRuleEvent.newExecuteEvent(
             args,
             timeout,
-            Maps.filterKeys(repoEnvVariables, k -> !removeRepoEnvVariables.contains(k)),
+            Maps.filterKeys(repoEnv, k -> !removeRepoEnvVariables.contains(k)),
             forceRepoEnvVariables,
             workingDirectory.getPathString(),
             quiet,
@@ -2209,13 +2217,11 @@ func(
     StarlarkPath path = null;
     StarlarkWasmModule wasmModule = null;
     switch (pathOrModule) {
-      case StarlarkWasmModule m:
+      case StarlarkWasmModule m -> {
         wasmModule = m;
-        path = wasmModule.getPath();
-        break;
-      default:
-        path = getPath(pathOrModule);
-        break;
+        path = m.getPath();
+      }
+      default -> path = getPath(pathOrModule);
     }
     ;
 
@@ -2293,11 +2299,11 @@ func(
 
   @Nullable
   private StarlarkPath findCommandOnPath(String program) throws IOException {
-    String pathEnvVariable = repoEnvVariables.get("PATH");
+    String pathEnvVariable = repoEnv.get("PATH");
     if (pathEnvVariable == null) {
       return null;
     }
-    for (String p : pathEnvVariable.split(File.pathSeparator)) {
+    for (String p : Splitter.on(File.pathSeparator).split(pathEnvVariable)) {
       PathFragment fragment = PathFragment.create(p);
       if (fragment.isAbsolute()) {
         // We ignore relative path as they don't mean much here (relative to where? the workspace

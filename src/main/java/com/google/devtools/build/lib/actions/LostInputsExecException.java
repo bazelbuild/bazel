@@ -15,16 +15,13 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.rewinding.LostInputOwners;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -33,53 +30,28 @@ import javax.annotation.Nullable;
  */
 public final class LostInputsExecException extends ExecException {
 
-  /** Maps lost input digests to their {@link ActionInput}. */
-  private final ImmutableMap<String, ActionInput> lostInputs;
+  /** Maps lost input digests to their {@link ActionInput}s. */
+  private final ImmutableSetMultimap<String, ActionInput> lostInputs;
 
-  /**
-   * Optional mapping of lost inputs to their owning expansion artifacts (tree artifacts, filesets,
-   * runfiles).
-   *
-   * <p>If present, the mapping must be complete. Spawn runners should only provide this if they can
-   * do so correctly and efficiently. If not provided, {@link
-   * com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy} will calculate the
-   * ownership mappings - the only benefit of providing them here is the performance benefit of
-   * skipping that step.
-   */
-  private final Optional<LostInputOwners> owners;
-
-  public LostInputsExecException(ImmutableMap<String, ActionInput> lostInputs) {
-    this(lostInputs, /* owners= */ Optional.empty(), /* cause= */ null);
+  public LostInputsExecException(ImmutableSetMultimap<String, ActionInput> lostInputs) {
+    this(lostInputs, /* cause= */ null);
   }
 
   public LostInputsExecException(
-      ImmutableMap<String, ActionInput> lostInputs, Optional<LostInputOwners> owners) {
-    this(lostInputs, owners, /* cause= */ null);
-  }
-
-  public LostInputsExecException(
-      ImmutableMap<String, ActionInput> lostInputs,
-      Optional<LostInputOwners> owners,
-      @Nullable Throwable cause) {
+      ImmutableSetMultimap<String, ActionInput> lostInputs, @Nullable Throwable cause) {
     super("lost inputs with digests: " + String.join(",", lostInputs.keySet()), cause);
     checkArgument(!lostInputs.isEmpty(), "No inputs were lost");
     this.lostInputs = lostInputs;
-    this.owners = checkNotNull(owners);
   }
 
   @VisibleForTesting
-  public ImmutableMap<String, ActionInput> getLostInputs() {
+  public ImmutableSetMultimap<String, ActionInput> getLostInputs() {
     return lostInputs;
-  }
-
-  @VisibleForTesting
-  public Optional<LostInputOwners> getOwners() {
-    return owners;
   }
 
   ActionExecutionException fromExecException(String message, Action action, DetailedExitCode code) {
     return new LostInputsActionExecutionException(
-        message, lostInputs, owners, action, /* cause= */ this, code);
+        message, lostInputs, action, /* cause= */ this, code);
   }
 
   @Override
@@ -91,22 +63,13 @@ public final class LostInputsExecException extends ExecException {
   }
 
   public LostInputsExecException combine(LostInputsExecException other) {
-    // Key collisions are expected when the two sources of the original exceptions shared knowledge
-    // of what was lost. For example, a SpawnRunner may discover a lost input and look it up in an
-    // action filesystem in which it's also lost. The SpawnRunner and the filesystem may then each
-    // throw a LostInputsExecException with the same information.
-    //
-    // In the case of shared artifacts, it is currently important that other's lost inputs take
-    // precedence over this exception's lost inputs.
-    // TODO: b/321128298 - This is untested and way too delicate. Improve it.
-    ImmutableMap<String, ActionInput> combinedLostInputs =
-        ImmutableMap.<String, ActionInput>builder()
+    ImmutableSetMultimap<String, ActionInput> combinedLostInputs =
+        ImmutableSetMultimap.<String, ActionInput>builder()
             .putAll(lostInputs)
             .putAll(other.lostInputs)
-            .buildKeepingLast();
+            .build();
     LostInputsExecException combined =
-        new LostInputsExecException(
-            combinedLostInputs, /* owners= */ Optional.empty(), /* cause= */ this);
+        new LostInputsExecException(combinedLostInputs, /* cause= */ this);
     combined.addSuppressed(other);
     return combined;
   }

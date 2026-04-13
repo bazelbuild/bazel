@@ -33,6 +33,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,12 +42,12 @@ import org.junit.runner.RunWith;
 public final class NestedMatchMemoizingLookupTest {
   private static final int THREAD_COUNT = 10;
 
+  private final Executor executor = new ForkJoinPool(THREAD_COUNT);
   private final VersionedChanges changes = new VersionedChanges(ImmutableList.of());
   private final FileOpMatchMemoizingLookup fileOpMatches =
-      new FileOpMatchMemoizingLookup(changes, new ConcurrentHashMap<>());
+      new FileOpMatchMemoizingLookup(executor, changes, new ConcurrentHashMap<>());
   private final NestedMatchMemoizingLookup lookup =
-      new NestedMatchMemoizingLookup(
-          new ForkJoinPool(THREAD_COUNT), fileOpMatches, new ConcurrentHashMap<>());
+      new NestedMatchMemoizingLookup(executor, fileOpMatches, new ConcurrentHashMap<>());
 
   @Test
   public void matchingNested_inRangeValidityHorizon_matches() {

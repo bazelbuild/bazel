@@ -50,6 +50,7 @@ class Log4J2PluginDatCombiner : public Combiner {
   ~Log4J2PluginDatCombiner() override;
   bool Merge(const CDH* cdh, const LH* lh) override;
   void* OutputEntry(bool compress) override;
+  const std::string& filename() const { return filename_; }
 
  private:
   std::unique_ptr<Concatenator> concatenator_;

@@ -22,18 +22,16 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * A test for {@link EnumConverter}.
- */
+/** A test for {@link EnumConverter}. */
 @RunWith(JUnit4.class)
 public class EnumConverterTest {
 
   private enum CompilationMode {
-    DBG, OPT
+    DBG,
+    OPT
   }
 
-  private static class CompilationModeConverter
-    extends EnumConverter<CompilationMode> {
+  private static class CompilationModeConverter extends EnumConverter<CompilationMode> {
 
     public CompilationModeConverter() {
       super(CompilationMode.class, "compilation mode");
@@ -54,7 +52,9 @@ public class EnumConverterTest {
   }
 
   private enum Fruit {
-    Apple, Banana, Cherry
+    APPLE,
+    BANANA,
+    CHERRY
   }
 
   private static class FruitConverter extends EnumConverter<Fruit> {
@@ -74,7 +74,7 @@ public class EnumConverterTest {
   @Test
   public void converterIsCaseInsensitive() throws Exception {
     FruitConverter converter = new FruitConverter();
-    assertThat(converter.convert("bAnANa")).isSameInstanceAs(Fruit.Banana);
+    assertThat(converter.convert("bAnANa")).isSameInstanceAs(Fruit.BANANA);
   }
 
   // Regression test: lists of enum using a subclass of EnumConverter don't work
@@ -85,18 +85,21 @@ public class EnumConverterTest {
   }
 
   private static enum AlphabetEnum {
-    ALPHA, BRAVO, CHARLY, DELTA, ECHO
+    ALPHA,
+    BRAVO,
+    CHARLY,
+    DELTA,
+    ECHO
   }
 
   public static class EnumListTestOptions extends OptionsBase {
     @Option(
-      name = "goo",
-      allowMultiple = true,
-      converter = AlphabetEnumConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
+        name = "goo",
+        allowMultiple = true,
+        converter = AlphabetEnumConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
     public List<AlphabetEnum> goo;
   }
 
@@ -112,4 +115,37 @@ public class EnumConverterTest {
     assertThat(options.goo.get(1)).isEqualTo(AlphabetEnum.BRAVO);
   }
 
+  private enum NonUniqueStringRepresentationEnum {
+    X("DUPLICATE"),
+    Y("DuPlIcAtE");
+
+    private final String str;
+
+    NonUniqueStringRepresentationEnum(String str) {
+      this.str = str;
+    }
+
+    @Override
+    public String toString() {
+      return str;
+    }
+  }
+
+  private static class NonUniqueStringRepresentationEnumConverter
+      extends EnumConverter<NonUniqueStringRepresentationEnum> {
+    NonUniqueStringRepresentationEnumConverter() {
+      super(NonUniqueStringRepresentationEnum.class, "enum with non-unique string representations");
+    }
+  }
+
+  @Test
+  public void enumWithNonUniqueStringRepresentation_throws() {
+    assertThat(
+            assertThrows(
+                IllegalArgumentException.class, NonUniqueStringRepresentationEnumConverter::new))
+        .hasMessageThat()
+        .contains(
+            "NonUniqueStringRepresentationEnum values X and Y collide in their case-insensitive"
+                + " string representation 'duplicate'");
+  }
 }

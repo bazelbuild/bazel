@@ -19,6 +19,7 @@ import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -540,7 +541,10 @@ public final class ActionOutputMetadataStoreTest {
 
     Artifact artifact = ActionsTestUtil.createFilesetArtifact(outputRoot, "foo/bar");
     ActionInputMap actionInputMap = new ActionInputMap(1);
-    actionInputMap.putFileset(artifact, FilesetOutputTree.create(ImmutableList.of(symlink)));
+    actionInputMap.putFileset(
+        artifact,
+        FilesetOutputTree.create(
+            ImmutableList.of(symlink), /* treeArtifacts= */ ImmutableMap.of()));
     ActionInputMetadataProvider inputMetadataProvider =
         new ActionInputMetadataProvider(actionInputMap);
 
@@ -683,7 +687,7 @@ public final class ActionOutputMetadataStoreTest {
     FileArtifactValue artifactMetadata1 = store.getOutputMetadata(artifact);
     FileArtifactValue treeArtifactMetadata1 = store.getOutputMetadata(treeArtifact);
     assertThat(artifactMetadata1).isNotNull();
-    assertThat(artifactMetadata1).isNotNull();
+    assertThat(treeArtifactMetadata1).isNotNull();
     assertThat(store.getAllArtifactData().keySet()).containsExactly(artifact);
     assertThat(store.getAllTreeArtifactData().keySet()).containsExactly(treeArtifact);
 

@@ -13,7 +13,11 @@
 // limitations under the License.
 package net.starlark.java.syntax;
 
-/** Syntax node for a float literal. */
+/**
+ * Syntax node for a non-negative float literal. (Negative floats are parsed as a {@link
+ * UnaryOperatorExpression} operating on a positive {@link FloatLiteral} argument.)
+ */
+// TODO: #28385 - consider optimizing negative float literals to be FloatLiteral.
 public final class FloatLiteral extends Expression {
   private final String raw;
   private final int tokenOffset;

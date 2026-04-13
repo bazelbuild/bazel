@@ -1,4 +1,5 @@
-load("@rules_java//java:defs.bzl", "java_test")
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_test.bzl", "java_test")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -102,8 +103,8 @@ java_test(
     ],
 )
 
-java_test(
-    name = "BuildOptionsTest",
+java_library(
+    name = "BuildOptionsTestLib",
     srcs = ["BuildOptionsTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
@@ -117,6 +118,14 @@ java_test(
         "//third_party:truth",
         "@com_google_protobuf//:protobuf_java",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
+    ],
+)
+
+java_test(
+    name = "BuildOptionsTest",
+    test_class = "com.google.devtools.build.lib.analysis.config.BuildOptionsTest",
+    runtime_deps = [
+        ":BuildOptionsTestLib",
     ],
 )
 

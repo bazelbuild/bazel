@@ -156,7 +156,7 @@ abstract class Branch implements Callable<ImmutableList<SpawnResult>> {
                   && !(future.exceptionNow() instanceof InterruptedException))) {
             otherBranch.cancel();
           }
-          if (options.debugSpawnScheduler) {
+          if (options.getDebugSpawnScheduler()) {
             logger.atInfo().log(
                 "In listener callback, the future of the remote branch is %s",
                 future.state().name());

@@ -7,7 +7,7 @@ title: 'Using the Android Native Development Kit with Bazel'
 _If you're new to Bazel, please start with the [Building Android with
 Bazel](/start/android-app ) tutorial._
 
-## Overview
+## Overview {#overview}
 
 Bazel can run in many different build configurations, including several that use
 the Android Native Development Kit (NDK) toolchain. This means that normal
@@ -22,11 +22,11 @@ Android apps and uses
 [`rules_android_ndk`](https://github.com/bazelbuild/rules_android_ndk) for NDK
 toolchain discovery and registration.
 
-## Prerequisites
+## Prerequisites {#prerequisites}
 
 Please ensure that you have installed the Android SDK and NDK.
 
-### NDK and SDK setup
+### NDK and SDK setup {#ndk-sdk-setup}
 
 External repository setup varies depending on whether you are using WORKSPACE
 or bzlmod (MODULE.bazel). *Bzlmod is the preferred solution for Bazel 7+.*
@@ -35,7 +35,7 @@ each other.
 If you are using one dependency management solution, you don't need to add
 the boilerplate for the other.
 
-#### Bzlmod MODULE.bazel setup
+#### Bzlmod MODULE.bazel setup {#ndk-sdk-setup-bzlmod}
 
 Add the following snippet to your MODULE.bazel:
 
@@ -57,7 +57,7 @@ use_repo(android_sdk_repository_extension, "androidsdk")
 register_toolchains("@androidsdk//:sdk-toolchain", "@androidsdk//:all")
 ```
 
-#### Legacy WORKSPACE setup
+#### Legacy WORKSPACE setup {#ndk-sdk-setup-workspace}
 
 Add the following snippet to your `WORKSPACE`:
 
@@ -85,7 +85,7 @@ Compatibility notes for WORKSPACE:
 For more information about the `android_ndk_repository` rule, see its
 [docstring](https://github.com/bazelbuild/rules_android_ndk/blob/7b4300f6d731139ca097f3332a5aebae5b0d91d0/rules.bzl#L18-L25).
 
-## Quick start
+## Quick start {#quick-start}
 
 To build C++ for Android, simply add `cc_library` dependencies to your
 `android_binary` or `android_library` rules.
@@ -155,7 +155,7 @@ targeted the architectures specified by `--android_platforms`.
 See the section on [configuring the target ABI](#configuring-target-abi) for
 more details.
 
-## Example setup
+## Example setup {#example-setup}
 
 This example is available in the [Bazel examples
 repository](https://github.com/bazelbuild/examples/tree/master/android/ndk).
@@ -209,12 +209,12 @@ public class MainActivity extends AppCompatActivity {
 Note: The name of the native library is derived from the name of the top
 level `android_binary` target. In this example, it is `app`.
 
-## Configuring the target ABI
+## Configuring the target ABI {#configuring-target-abi}
 
 To configure the target ABI, use the `--android_platforms` flag as follows:
 
 ```posix-terminal
-bazel build //:app --android_platforms={{ "<var>" }}comma-separated list of platforms{{ "</var>" }}
+bazel build //:app --android_platforms=<var>comma-separated list of platforms</var>
 ```
 
 Just like the `--platforms` flag, the values passed to `--android_platforms` are
@@ -265,7 +265,7 @@ for more information on these ABIs.
 Multi-ABI Fat APKs are not recommended for release builds since they increase
 the size of the APK, but can be useful for development and QA builds.
 
-## Selecting a C++ standard
+## Selecting a C++ standard {#selecting-c-standard}
 
 Use the following flags to build according to a C++ standard:
 
@@ -297,7 +297,7 @@ cc_library(
 )
 ```
 
-## Building a `cc_library` for Android without using `android_binary`
+## Building a `cc_library` for Android without using `android_binary` {#cclibrary-android}
 
 To build a standalone `cc_binary` or `cc_library` for Android without using an
 `android_binary`, use the `--platforms` flag.

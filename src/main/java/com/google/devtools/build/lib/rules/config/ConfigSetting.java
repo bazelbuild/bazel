@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.config;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Multimaps.toMultimap;
 import static com.google.devtools.build.lib.analysis.config.CoreOptionConverters.BUILD_SETTING_CONVERTERS;
 
@@ -69,8 +68,8 @@ import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.config.ConfigRuleClasses.ConfigSettingRule;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.common.options.FieldOptionDefinition;
 import com.google.devtools.common.options.IsolatedOptionsData;
+import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
@@ -104,7 +103,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
    * @param userDefinedFlagSettings user-defined flags that match this rule (defined in Starlark)
    * @param constraintValueSettings the current platform's expected {@code constraint_value}s
    */
-  record Settings(
+  private record Settings(
       ImmutableMultimap<String, String> nativeFlagSettings,
       ImmutableMap<Label, String> userDefinedFlagSettings,
       ImmutableList<Label> constraintValueSettings) {}
@@ -148,6 +147,11 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
       return null;
     }
 
+    if (ruleContext.getConfiguration().stampBinaries()
+        && settings.nativeFlagSettings.containsKey("stamp")) {
+      ruleContext.getAnalysisEnvironment().declareStampSettingDep();
+    }
+
     ConfigMatchingProvider configMatcher =
         ConfigMatchingProvider.create(
             ruleContext.getLabel(),
@@ -167,7 +171,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
   }
 
   /** Returns this {@code config_setting}'s expected settings. */
-  private Settings getSettings(RuleContext ruleContext, AttributeMap attributes) {
+  private static Settings getSettings(RuleContext ruleContext, AttributeMap attributes) {
     // Collect expected flags from "values" and "define_values" attributes.
     ImmutableMultimap<String, String> nativeValueAttributes =
         ImmutableMultimap.<String, String>builder()
@@ -186,17 +190,15 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
     // alias to "//bar". Since Bazel's options parsing replaces "--foo" with "//bar", we want to do
     // the same here to match the parsed options. Generally, all logic reading any user API that
     // sets "--foo" should do this.
-    ImmutableMap<String, String> commandLineFlagAliases =
+    ImmutableMap<String, Label> commandLineFlagAliases =
         ruleContext
             .getConfiguration()
             .getOptions()
             .get(CoreOptions.class)
-            .commandLineFlagAliases
-            .stream()
-            .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+            .getCommandLineFlagAliasesMap();
 
     // Partition expected "--foo" settings (native flag style) by whether they're flag aliases.
-    var nativeValuesParitionedByAlias =
+    var nativeValuesPartitionedByAlias =
         nativeValueAttributes.entries().stream()
             .collect(
                 Collectors.partitioningBy(
@@ -206,7 +208,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
     var nativeFlagSettings =
         ImmutableMultimap.copyOf(
             (ListMultimap<String, String>)
-                nativeValuesParitionedByAlias.get(false).stream()
+                nativeValuesPartitionedByAlias.get(false).stream()
                     .collect(
                         toMultimap(
                             Map.Entry::getKey,
@@ -218,14 +220,12 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
     userDefinedFlagSettings.putAll(
         attributes.get(
             ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE, BuildType.LABEL_KEYED_STRING_DICT));
-    for (var flagAlias : nativeValuesParitionedByAlias.get(true)) {
-      try {
-        Label userDefinedFlag =
-            Label.parseCanonical(commandLineFlagAliases.get(flagAlias.getKey()));
-        String aliasValue = flagAlias.getValue();
-        String flagSettingsAttributeValue = userDefinedFlagSettings.get(userDefinedFlag);
-        if (flagSettingsAttributeValue != null && !flagSettingsAttributeValue.equals(aliasValue)) {
-          ruleContext.ruleError(
+    for (var flagAlias : nativeValuesPartitionedByAlias.get(true)) {
+      Label userDefinedFlag = commandLineFlagAliases.get(flagAlias.getKey());
+      String aliasValue = flagAlias.getValue();
+      String flagSettingsAttributeValue = userDefinedFlagSettings.get(userDefinedFlag);
+      if (flagSettingsAttributeValue != null && !flagSettingsAttributeValue.equals(aliasValue)) {
+        ruleContext.ruleError(
 """
 \nConflicting flag value expectations:
  - %s has '%s = {"%s": "%s"}'.
@@ -235,25 +235,22 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
 Either remove one of these settings or ensure they match the same value.
 
 """
-                  .formatted(
-                      ruleContext.getLabel(),
-                      ConfigRuleClasses.ConfigSettingRule.SETTINGS_ATTRIBUTE,
-                      flagAlias.getKey(),
-                      aliasValue,
-                      flagAlias.getKey(),
-                      userDefinedFlag,
-                      ConfigRuleClasses.ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
-                      userDefinedFlag,
-                      aliasValue,
-                      ruleContext.getLabel(),
-                      ConfigRuleClasses.ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
-                      userDefinedFlag,
-                      flagSettingsAttributeValue));
-        }
-        userDefinedFlagSettings.put(userDefinedFlag, aliasValue);
-      } catch (LabelSyntaxException e) {
-        ruleContext.ruleError("Cannot parse label: " + e.getMessage());
+                .formatted(
+                    ruleContext.getLabel(),
+                    ConfigRuleClasses.ConfigSettingRule.SETTINGS_ATTRIBUTE,
+                    flagAlias.getKey(),
+                    aliasValue,
+                    flagAlias.getKey(),
+                    userDefinedFlag,
+                    ConfigRuleClasses.ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
+                    userDefinedFlag,
+                    aliasValue,
+                    ruleContext.getLabel(),
+                    ConfigRuleClasses.ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
+                    userDefinedFlag,
+                    flagSettingsAttributeValue));
       }
+      userDefinedFlagSettings.put(userDefinedFlag, aliasValue);
     }
 
     // Collect platform constraint settings.
@@ -432,7 +429,11 @@ Either remove one of these settings or ensure they match the same value.
       String expectedRawValue) {
 
     ImmutableList<String> disabledSelectOptions =
-        ruleContext.getConfiguration().getOptions().get(CoreOptions.class).disabledSelectOptions;
+        ruleContext
+            .getConfiguration()
+            .getOptions()
+            .get(CoreOptions.class)
+            .getDisabledSelectOptions();
     if (disabledSelectOptions.contains(optionName) || options.isNonConfigurable(optionName)) {
       String message = PARSE_ERROR_MESSAGE + "select() on '%s' is not allowed.";
       if (DEPRECATED_PRE_PLATFORMS_FLAGS.contains(optionName)) {
@@ -493,7 +494,7 @@ Either remove one of these settings or ensure they match the same value.
   // configuration has been trimmed.
   private static boolean isTestOption(String optionName) {
     return IsolatedOptionsData.getAllOptionDefinitionsForClass(TestOptions.class).stream()
-        .map(FieldOptionDefinition::getOptionName)
+        .map(OptionDefinition::getOptionName)
         .anyMatch(name -> name.equals(optionName));
   }
 
@@ -607,7 +608,7 @@ Either remove one of these settings or ensure they match the same value.
     }
 
     /** Returns whether the specified flag values matched the actual flag values. */
-    public MatchResult result() {
+    MatchResult result() {
       return result;
     }
 

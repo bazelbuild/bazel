@@ -14,38 +14,44 @@
 
 package com.google.testing.junit.runner.testbed;
 
+import java.util.concurrent.TimeUnit;
 import junit.framework.TestCase;
 
 /**
- * This is a testbed for testing stack trace functionality.
- * Failures in this test should not cause continuous builds to go red.
+ * This is a testbed for testing stack trace functionality. Failures in this test should not cause
+ * continuous builds to go red.
  */
 public class StackTraceExercises extends TestCase {
 
-  /**
-   * Succeeds fast but leaves behind a devious shutdown hook designed to wreak havoc.
-   */
-  public void testSneakyShutdownHook() throws Exception {
-    Runtime.getRuntime().addShutdownHook(new Thread() {
-      public void run() {
-        handleHook();
-      }});
-   }
-
-   private static void handleHook() {
-     try {
-       System.out.println("Entered shutdown hook");
-       System.out.flush();
-       Fifo.waitUntilDataAvailable();
-       Thread.sleep(15000);
-     } catch (Exception e) {
-       throw new Error(e);
-      }
+  /** Succeeds fast but leaves behind a devious shutdown hook designed to wreak havoc. */
+  public void testSneakyShutdownHook() {
+    Runtime.getRuntime().addShutdownHook(new Thread(StackTraceExercises::handleHook));
   }
 
-  /**
-   * A test which invokes System.exit(0). Bad test!
-   */
+  @SuppressWarnings("AllowVirtualThreads")
+  private static void handleHook() {
+    try {
+      System.out.println("Entered shutdown hook");
+      System.out.flush();
+      Thread.ofVirtual()
+          .name("my-virtual-thread")
+          .start(
+              () -> {
+                try {
+                  TimeUnit.HOURS.sleep(1);
+                } catch (InterruptedException e) {
+                  System.out.println("Virtual thread interrupted");
+                  System.out.flush();
+                }
+              });
+      Fifo.waitUntilDataAvailable();
+      Thread.sleep(15000);
+    } catch (Exception e) {
+      throw new Error(e);
+    }
+  }
+
+  /** A test which invokes System.exit(0). Bad test! */
   public void testNotSoFastBuddy() {
     System.out.println("Hey, not so fast there");
     System.exit(0);

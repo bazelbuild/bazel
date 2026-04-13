@@ -19,12 +19,14 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
 
 /** Provides Bazel startup flags. */
 public class BazelStartupOptionsModule extends BlazeModule {
   /** Bazelrc file flags. */
-  public static final class Options extends OptionsBase {
+  @OptionsClass
+  public abstract static class Options extends OptionsBase {
     @Option(
         name = "bazelrc",
         allowMultiple = true,
@@ -48,7 +50,7 @@ public class BazelStartupOptionsModule extends BlazeModule {
 
             Note: command line options will always supersede any option in bazelrc.
             """)
-    public List<String> blazerc;
+    public abstract List<String> getBlazerc();
 
     // For the system_rc, it can be /etc/bazel.bazelrc, or a special Windows value, or can be
     // custom-set by the Bazel distributor. We don't list a known path in the help output in order
@@ -59,7 +61,7 @@ public class BazelStartupOptionsModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
         effectTags = {OptionEffectTag.CHANGES_INPUTS},
         help = "Whether or not to look for the system-wide bazelrc.")
-    public boolean systemRc;
+    public abstract boolean getSystemRc();
 
     @Option(
         name = "workspace_rc",
@@ -67,7 +69,7 @@ public class BazelStartupOptionsModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
         effectTags = {OptionEffectTag.CHANGES_INPUTS},
         help = "Whether or not to look for the workspace bazelrc file at `$workspace/.bazelrc`")
-    public boolean workspaceRc;
+    public abstract boolean getWorkspaceRc();
 
     @Option(
         name = "home_rc",
@@ -75,7 +77,7 @@ public class BazelStartupOptionsModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
         effectTags = {OptionEffectTag.CHANGES_INPUTS},
         help = "Whether or not to look for the home bazelrc file at `$HOME/.bazelrc`")
-    public boolean homeRc;
+    public abstract boolean getHomeRc();
   }
 
   @Override

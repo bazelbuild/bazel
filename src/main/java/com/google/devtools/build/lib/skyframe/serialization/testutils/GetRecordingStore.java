@@ -43,7 +43,7 @@ public final class GetRecordingStore implements FingerprintValueStore {
   }
 
   @Override
-  public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) {
+  public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint, boolean fallback) {
     SettableFuture<byte[]> response = SettableFuture.create();
     requestQueue.offer(new GetRequest(this, fingerprint, response));
     return response;

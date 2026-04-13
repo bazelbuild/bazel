@@ -185,6 +185,7 @@ public class BuildRequest implements OptionsProvider {
   private final LoadingCache<Class<? extends OptionsBase>, Optional<OptionsBase>> optionsCache;
   private final Map<String, Object> starlarkOptions;
   private final Map<String, String> scopesAttributes;
+  private final Map<String, Object> onLeaveScopeValues;
 
   /** A human-readable description of all the non-default option settings. */
   private final String optionsDescription;
@@ -237,6 +238,7 @@ public class BuildRequest implements OptionsProvider {
                 });
     this.starlarkOptions = options.getStarlarkOptions();
     this.scopesAttributes = options.getScopesAttributes();
+    this.onLeaveScopeValues = options.getOnLeaveScopeValues();
     this.needsInstrumentationFilter = needsInstrumentationFilter;
     this.runTests = runTests;
     this.checkForActionConflicts = checkForActionConflicts;
@@ -275,6 +277,11 @@ public class BuildRequest implements OptionsProvider {
   @Override
   public Map<String, String> getScopesAttributes() {
     return scopesAttributes;
+  }
+
+  @Override
+  public Map<String, Object> getOnLeaveScopeValues() {
+    return onLeaveScopeValues;
   }
 
   @Override
@@ -393,8 +400,8 @@ public class BuildRequest implements OptionsProvider {
   public List<String> validateOptions() {
     List<String> warnings = new ArrayList<>();
 
-    int localTestJobs = getExecutionOptions().localTestJobs;
-    int jobs = getBuildOptions().jobs;
+    int localTestJobs = getExecutionOptions().getLocalTestJobs();
+    int jobs = getBuildOptions().getJobs();
     if (localTestJobs > jobs) {
       warnings.add(
           String.format(
@@ -410,14 +417,16 @@ public class BuildRequest implements OptionsProvider {
   public TopLevelArtifactContext getTopLevelArtifactContext() {
     BuildRequestOptions buildOptions = getBuildOptions();
     return new TopLevelArtifactContext(
-        getOptions(ExecutionOptions.class).testStrategy.equals("exclusive"),
-        getOptions(BuildEventProtocolOptions.class).expandFilesets,
+        getOptions(ExecutionOptions.class).getTestStrategy().equals("exclusive"),
+        getOptions(BuildEventProtocolOptions.class).getExpandFilesets(),
         OutputGroupInfo.determineOutputGroups(
-            buildOptions.outputGroups, validationMode(), /* shouldRunTests= */ shouldRunTests()));
+            buildOptions.getOutputGroups(),
+            validationMode(),
+            /* shouldRunTests= */ shouldRunTests()));
   }
 
   public ImmutableList<String> getAspects() {
-    List<String> aspects = getBuildOptions().aspects;
+    List<String> aspects = getBuildOptions().getAspects();
     ImmutableList.Builder<String> result = ImmutableList.<String>builder().addAll(aspects);
     if (!aspects.contains(AspectCollection.VALIDATION_ASPECT_NAME) && useValidationAspect()) {
       result.add(AspectCollection.VALIDATION_ASPECT_NAME);
@@ -427,7 +436,8 @@ public class BuildRequest implements OptionsProvider {
 
   @Nullable
   public ImmutableMap<String, String> getAspectsParameters() throws ViewCreationFailedException {
-    List<Map.Entry<String, String>> aspectsParametersList = getBuildOptions().aspectsParameters;
+    List<Map.Entry<String, String>> aspectsParametersList =
+        getBuildOptions().getAspectsParameters();
     try {
       return aspectsParametersList.stream()
           .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -450,10 +460,10 @@ public class BuildRequest implements OptionsProvider {
 
   private OutputGroupInfo.ValidationMode validationMode() {
     BuildRequestOptions buildOptions = getBuildOptions();
-    if (!buildOptions.runValidationActions) {
+    if (!buildOptions.getRunValidationActions()) {
       return OutputGroupInfo.ValidationMode.OFF;
     }
-    return buildOptions.useValidationAspect
+    return buildOptions.getUseValidationAspect()
         ? OutputGroupInfo.ValidationMode.ASPECT
         : OutputGroupInfo.ValidationMode.OUTPUT_GROUP;
   }

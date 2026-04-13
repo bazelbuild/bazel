@@ -35,3 +35,11 @@ filegroup(
     name = "package-srcs",
     srcs = glob(["**"]),
 )
+
+exports_files(
+    [
+        "BUILD.java_tools",
+        "BUILD.java_tools_prebuilt",
+    ],
+    visibility = ["//src:__pkg__"],
+)

@@ -8,7 +8,7 @@ the [abseil-cpp](https://github.com/abseil/abseil-cpp) project using Bazel
 inside the Bazel container, and how to build this project directly
 from the host machine using the Bazel container with directory mounting.
 
-## Build Abseil project from your host machine with directory mounting
+## Build Abseil project from your host machine with directory mounting {#build-abseil}
 
 The instructions in this section allow you to build using the Bazel container
 with the sources checked out in your host environment. A container is started up
@@ -42,7 +42,7 @@ docker run \
   build //absl/...
 ```
 
-Build the project with sanitizers by adding the `--config={{ "<var>" }}asan{{ "</var>" }}|{{ "<var>" }}tsan{{ "</var>" }}|{{ "<var>" }}msan{{ "</var>" }}` build
+Build the project with sanitizers by adding the `--config=<var>asan</var>|<var>tsan</var>|<var>msan</var>` build
 flag to select AddressSanitizer (asan), ThreadSanitizer (tsan) or
 MemorySanitizer (msan) accordingly.
 
@@ -58,7 +58,7 @@ docker run \
   build --config={asan | tsan | msan} -- //absl/... -//absl/types:variant_test
 ```
 
-## Build Abseil project from inside the container
+## Build Abseil project from inside the container {#build-abseil-inside-container}
 
 The instructions in this section allow you to build using the Bazel container
 with the sources inside the container. By starting a container at the beginning
@@ -85,7 +85,7 @@ Do a regular build.
 root@5a99103747c6:~/abseil-cpp# bazel build //absl/...
 ```
 
-Build the project with sanitizers by adding the `--config={{ "<var>" }}asan{{ "</var>" }}|{{ "<var>" }}tsan{{ "</var>" }}|{{ "<var>" }}msan{{ "</var>" }}`
+Build the project with sanitizers by adding the `--config=<var>asan</var>|<var>tsan</var>|<var>msan</var>`
 build flag to select AddressSanitizer (asan), ThreadSanitizer (tsan) or
 MemorySanitizer (msan) accordingly.
 
@@ -93,7 +93,7 @@ MemorySanitizer (msan) accordingly.
 root@5a99103747c6:~/abseil-cpp# bazel build --config=--config={asan | tsan | msan} -- //absl/... -//absl/types:variant_test
 ```
 
-## Explore the Bazel container
+## Explore the Bazel container {#explore-bazel-container}
 
 If you haven't already, start an interactive shell inside the Bazel container.
 

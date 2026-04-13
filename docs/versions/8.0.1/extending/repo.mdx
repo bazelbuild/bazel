@@ -2,12 +2,10 @@
 title: 'Repository Rules'
 ---
 
-
-
 This page covers how to define repository rules and provides examples for more
 details.
 
-An [external repository](/external/overview#repository) is a directory tree,
+An [external repository](/versions/8.0.1/external/overview#repository) is a directory tree,
 containing source files usable in a Bazel build, which is generated on demand by
 running its corresponding **repo rule**. Repos can be defined in a multitude of
 ways, but ultimately, each repo is defined by invoking a repo rule, just as
@@ -18,10 +16,10 @@ third-party libraries (such as Maven packaged libraries) but also to generate
 ## Repository rule definition
 
 In a `.bzl` file, use the
-[repository_rule](/rules/lib/globals/bzl#repository_rule) function to define a
+[repository_rule](/versions/8.0.1/rules/lib/globals/bzl#repository_rule) function to define a
 new repo rule and store it in a global variable. After a repo rule is defined,
 it can be invoked as a function to define repos. This invocation is usually
-performed from inside a [module extension](/external/extension) implementation
+performed from inside a [module extension](/versions/8.0.1/external/extension) implementation
 function.
 
 The two major components of a repo rule definition are its attribute schema and
@@ -77,7 +75,7 @@ specified.
 The input parameter `repository_ctx` can be used to access attribute values, and
 non-hermetic functions (finding a binary, executing a binary, creating a file in
 the repository or downloading a file from the Internet). See [the API
-docs](/rules/lib/builtins/repository_ctx) for more context. Example:
+docs](/versions/8.0.1/rules/lib/builtins/repository_ctx) for more context. Example:
 
 ```python
 def _impl(repository_ctx):
@@ -107,17 +105,17 @@ changes:
 *   The Starlark code comprising the implementation of the repo rule.
 *   The value of any environment variable passed to `repository_ctx`'s
     `getenv()` method or declared with the `environ` attribute of the
-    [`repository_rule`](/rules/lib/globals/bzl#repository_rule). The values of
+    [`repository_rule`](/versions/8.0.1/rules/lib/globals/bzl#repository_rule). The values of
     these environment variables can be hard-wired on the command line with the
-    [`--repo_env`](/reference/command-line-reference#flag--repo_env) flag.
+    [`--repo_env`](/versions/8.0.1/reference/command-line-reference#flag--repo_env) flag.
 *   The existence, contents, and type of any paths being
-    [`watch`ed](/rules/lib/builtins/repository_ctx#watch) in the implementation
+    [`watch`ed](/versions/8.0.1/rules/lib/builtins/repository_ctx#watch) in the implementation
     function of the repo rule.
     *   Certain other methods of `repository_ctx` with a `watch` parameter, such
         as `read()`, `execute()`, and `extract()`, can also cause paths to be
         watched.
-    *   Similarly, [`repository_ctx.watch_tree`](/rules/lib/builtins/repository_ctx#watch_tree)
-        and [`path.readdir`](/rules/lib/builtins/path#readdir) can cause paths
+    *   Similarly, [`repository_ctx.watch_tree`](/versions/8.0.1/rules/lib/builtins/repository_ctx#watch_tree)
+        and [`path.readdir`](/versions/8.0.1/rules/lib/builtins/path#readdir) can cause paths
         to be watched in other ways.
 *   When `bazel fetch --force` is executed.
 
@@ -140,7 +138,7 @@ unconditionally by calling `bazel fetch --force --all`.
 
 Moreover, some repo rules inspect the local machine and might become outdated if
 the local machine was upgraded. Here you can ask Bazel to only refetch those
-external repos where the [`repository_rule`](/rules/lib/globals#repository_rule)
+external repos where the [`repository_rule`](/versions/8.0.1/rules/lib/globals#repository_rule)
 definition has the `configure` attribute set, use `bazel fetch --force
 --configure`.
 

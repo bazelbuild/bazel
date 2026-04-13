@@ -114,16 +114,13 @@ public class SevenZDecompressor implements Decompressor {
           String.format(
               "Failed to extract %s, 7-zipped paths cannot be absolute", strippedRelativePath));
     }
-    // Sanity/security check - at this point, uplevel references (..) should be resolved.
-    // There shouldn't be any remaining uplevel references, otherwise, the extracted file could
-    // "escape" the destination directory.
-    if (strippedRelativePath.containsUplevelReferences()) {
+    Path outputPath = destinationDirectory.getRelative(strippedRelativePath);
+    if (!outputPath.startsWith(destinationDirectory)) {
       throw new IOException(
           String.format(
-              "Failed to extract %s, 7-zipped entry contains uplevel references (..)",
+              "Failed to extract %s, path is escaping the destination directory",
               strippedRelativePath));
     }
-    Path outputPath = destinationDirectory.getRelative(strippedRelativePath);
     outputPath.getParentDirectory().createDirectoryAndParents();
     boolean isDirectory = entry.isDirectory();
     if (isDirectory) {

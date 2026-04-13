@@ -90,13 +90,10 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.SystemNetworkStatsServiceImpl;
-import com.google.devtools.build.lib.profiler.TraceProfilerService;
-import com.google.devtools.build.lib.profiler.TraceProfilerServiceImpl;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
+import com.google.devtools.build.lib.runtime.BlazeService;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.NoSpawnCacheModule;
@@ -116,6 +113,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -129,6 +127,7 @@ import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestFileOutErr;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.CommandUtils;
 import com.google.devtools.build.lib.util.LoggingUtil;
@@ -187,6 +186,9 @@ import org.junit.Before;
  * <p>All integration tests are at least size medium.
  */
 public abstract class BuildIntegrationTestCase {
+  static {
+    WindowsSubprocessFactory.maybeInstallWindowsSubprocessFactory();
+  }
 
   /** Thrown when an integration test case fails. */
   public static class IntegrationTestExecException extends ExecException {
@@ -225,7 +227,6 @@ public abstract class BuildIntegrationTestCase {
 
   private Path workspace;
   protected RecordingExceptionHandler subscriberException = new RecordingExceptionHandler();
-  private static final TraceProfilerService profilerService = new TraceProfilerServiceImpl();
 
   @Nullable private UncaughtExceptionHandler oldExceptionHandler;
 
@@ -245,9 +246,6 @@ public abstract class BuildIntegrationTestCase {
   public final void createFilesAndMocks() throws Exception {
     runPriorToBeforeMethods();
     events.setFailFast(false);
-
-    // Must initialize manually because we never call globalInit() on modules/services.
-    Profiler.setTraceProfilerServiceForTesting(profilerService);
 
     // TODO(mschaller): This will ignore any attempt by Blaze modules to provide a filesystem;
     // consider something better.
@@ -270,12 +268,7 @@ public abstract class BuildIntegrationTestCase {
             /* virtualSourceRoot= */ getVirtualSourceRoot(),
             // Arbitrary install base hash.
             /* installMD5= */ "83bc4458738962b9b77480bac76164a9");
-    directories =
-        new BlazeDirectories(
-            serverDirectories,
-            workspace,
-            /* defaultSystemJavabase= */ null,
-            TestConstants.PRODUCT_NAME);
+    directories = new BlazeDirectories(serverDirectories, workspace, TestConstants.PRODUCT_NAME);
     binTools = IntegrationMock.get().getIntegrationBinTools(fileSystem, directories);
     mockToolsConfig = new MockToolsConfig(workspace, realFileSystem());
     setupMockTools();
@@ -348,20 +341,27 @@ public abstract class BuildIntegrationTestCase {
     if (runtimeWrapper != null) {
       cleanupInterningPools();
     }
-
+    var builder = getRuntimeBuilder().setEventBusExceptionHandler(subscriberException);
+    prepareRuntimeBuilder(builder);
     runtimeWrapper =
-        new BlazeRuntimeWrapper(
-            events,
-            serverDirectories,
-            directories,
-            binTools,
-            getRuntimeBuilder().setEventBusExceptionHandler(subscriberException)) {
+        new BlazeRuntimeWrapper(events, serverDirectories, directories, binTools, builder) {
           @Override
           protected void finalizeBuildResult(BuildResult result) {
             finishBuildResult(result);
           }
         };
     setupOptions();
+  }
+
+  protected void prepareRuntimeBuilder(BlazeRuntime.Builder builder) throws AbruptExitException {
+    var startupOptions = builder.getStartupOptionsProvider();
+    var blazeServices = builder.getBlazeServices();
+    for (BlazeService blazeService : blazeServices) {
+      blazeService.globalInit(startupOptions, blazeServices);
+    }
+    for (BlazeModule blazeModule : builder.getBlazeModules()) {
+      blazeModule.globalInit(startupOptions, blazeServices);
+    }
   }
 
   /**
@@ -394,10 +394,7 @@ public abstract class BuildIntegrationTestCase {
     runtimeWrapper.addStarlarkOptions(starlarkOptions);
   }
 
-  protected void runPriorToBeforeMethods() throws Exception {
-    // Allows tests such as SkyframeIntegrationInvalidationTest to execute code before all @Before
-    // methods are being run.
-  }
+  protected void runPriorToBeforeMethods() throws Exception {}
 
   @After
   public final void cleanupInterningPools() {
@@ -610,9 +607,7 @@ public abstract class BuildIntegrationTestCase {
   }
 
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
-    OptionsParser startupOptionsParser =
-        OptionsParser.builder().optionsClasses(getStartupOptionClasses()).build();
-    startupOptionsParser.parse(getStartupOptions());
+    OptionsParsingResult startupOptionsProvider = getStartupOptionsProvider();
     BlazeModule connectivityModule = getConnectivityModule();
     checkState(
         connectivityModule instanceof ConnectivityStatusProvider,
@@ -622,14 +617,15 @@ public abstract class BuildIntegrationTestCase {
             .setFileSystem(fileSystem)
             .setProductName(TestConstants.PRODUCT_NAME)
             .setBugReporter(bugReporter)
-            .setStartupOptionsProvider(startupOptionsParser)
+            .setStartupOptionsProvider(startupOptionsProvider)
             .addBlazeModule(new BuildIntegrationTestCommandsModule())
             .addBlazeModule(new OutputFilteringModule())
             .addBlazeModule(connectivityModule)
             .addBlazeModule(new SkymeldModule())
-            .addBlazeModule(new CredentialModule())
-            .addBlazeService(new SystemNetworkStatsServiceImpl())
-            .addBlazeService(profilerService);
+            .addBlazeModule(new CredentialModule());
+    for (BlazeService service : TestConstants.BLAZE_SERVICES) {
+      builder.addBlazeService(service);
+    }
     getSpawnModules().forEach(builder::addBlazeModule);
     builder
         .addBlazeModule(getBuildInfoModule())
@@ -654,6 +650,13 @@ public abstract class BuildIntegrationTestCase {
     builder.addBlazeModule(new MetricsModule());
 
     return builder;
+  }
+
+  private OptionsParsingResult getStartupOptionsProvider() throws Exception {
+    OptionsParser startupOptionsParser =
+        OptionsParser.builder().optionsClasses(getStartupOptionClasses()).build();
+    startupOptionsParser.parse(getStartupOptions());
+    return startupOptionsParser;
   }
 
   protected List<String> getStartupOptions() {
@@ -689,6 +692,14 @@ public abstract class BuildIntegrationTestCase {
       // requires that the install base be separate from the workspace (unlike, say,
       // BuildViewTestCase).
       runtimeWrapper.addOptions("--override_repository=bazel_tools=embedded_tools");
+    }
+
+    // Integration tests currently pretend that they run on a Linux host platform on all OSes. This
+    // is a gross hack, but while it is in place, we need to manually set the shell path to a valid
+    // one for the actual host OS. macOS shares Linux's shell path, but Windows needs a different
+    // one.
+    if (OS.getCurrent() == OS.WINDOWS) {
+      runtimeWrapper.addOptions("--shell_executable=c:/msys64/usr/bin/bash.exe");
     }
   }
 

@@ -154,11 +154,9 @@ public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestB
     var thrown = assertThrows(AbruptExitException.class, () -> buildTarget("//bar:one"));
     assertThat(thrown)
         .hasMessageThat()
-        .contains(
-            "java.io.IOException: Simulated write failure for " + failingStore.getFailedKey());
+        .contains("Simulated write failure for " + failingStore.getFailedKey());
 
     assertThat(failingStore.getFailCounter()).isEqualTo(1);
-    assertContainsEvent(
-        "java.io.IOException: Simulated write failure for " + failingStore.getFailedKey());
+    assertContainsEvent("Simulated write failure for " + failingStore.getFailedKey());
   }
 }

@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -46,7 +47,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionAndRawValue;
 import com.google.devtools.common.options.OptionDefinition;
@@ -59,7 +59,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -91,6 +93,9 @@ public final class BlazeOptionHandler {
   // All options set on this pseudo command are inherited by all commands, with unrecognized options
   // being ignored as long as they are recognized by at least one (other) command.
   static final String COMMON_PSEUDO_COMMAND = "common";
+
+  // Startup options are processed by the C++ client before the Java server starts.
+  private static final String STARTUP_PSEUDO_COMMAND = "startup";
 
   private static final ImmutableSet<String> BUILD_COMMAND_ANCESTORS =
       ImmutableSet.of("build", COMMON_PSEUDO_COMMAND, ALWAYS_PSEUDO_COMMAND);
@@ -292,8 +297,8 @@ public final class BlazeOptionHandler {
     ListMultimap<String, RcChunkOfArgs> commandToRcArgs =
         structureRcOptionsAndConfigs(
             eventHandler,
-            rcFileOptions.rcSource,
-            rcFileOptions.optionsOverrides,
+            rcFileOptions.getRcSource(),
+            rcFileOptions.getOptionsOverrides(),
             runtime.getCommandMap().keySet());
     parseRcOptions(eventHandler, commandToRcArgs);
 
@@ -535,7 +540,7 @@ public final class BlazeOptionHandler {
         eventHandler.handle(Event.warn(warning));
       }
       CommonCommandOptions commonOptions = optionsParser.getOptions(CommonCommandOptions.class);
-      for (String warning : commonOptions.deprecationWarnings) {
+      for (String warning : commonOptions.getDeprecationWarnings()) {
         eventHandler.handle(Event.warn(warning));
       }
       exitCode = DetailedExitCode.success();
@@ -667,7 +672,7 @@ public final class BlazeOptionHandler {
     ListMultimap<String, RcChunkOfArgs> commandToRcArgs = ArrayListMultimap.create();
 
     String lastRcFile = null;
-    ListMultimap<String, String> commandToArgMapForLastRc = null;
+    LinkedHashMap<String, List<String>> commandToArgMapForLastRc = null;
     for (ClientOptions.OptionOverride override : rawOverrides) {
       if (override.blazeRc < 0 || override.blazeRc >= rcFiles.size()) {
         eventHandler.handle(
@@ -678,8 +683,8 @@ public final class BlazeOptionHandler {
       // The canonicalize-flags command only inherits bazelrc "build" commands. Not "test", not
       // "build:foo". Restrict --flag_alias accordingly to prevent building with flags that
       // canonicalize-flags can't recognize.
-      if ((override.option.startsWith("--" + Converters.BLAZE_ALIASING_FLAG + "=")
-              || override.option.equals("--" + Converters.BLAZE_ALIASING_FLAG))
+      if ((override.option.startsWith("--" + CoreOptionConverters.BLAZE_ALIASING_FLAG + "=")
+              || override.option.equals("--" + CoreOptionConverters.BLAZE_ALIASING_FLAG))
           && !BUILD_COMMAND_ANCESTORS.contains(override.command)) {
         throw new OptionsParsingException(
             String.format(
@@ -687,7 +692,7 @@ public final class BlazeOptionHandler {
                 rcFile,
                 override.command,
                 override.option,
-                Converters.BLAZE_ALIASING_FLAG,
+                CoreOptionConverters.BLAZE_ALIASING_FLAG,
                 String.join(", ", BUILD_COMMAND_ANCESTORS)));
       }
       String command = override.command;
@@ -697,7 +702,8 @@ public final class BlazeOptionHandler {
       }
       if (!validCommands.contains(command)
           && !command.equals(ALWAYS_PSEUDO_COMMAND)
-          && !command.equals(COMMON_PSEUDO_COMMAND)) {
+          && !command.equals(COMMON_PSEUDO_COMMAND)
+          && !command.equals(STARTUP_PSEUDO_COMMAND)) {
         eventHandler.handle(
             Event.warn(
                 "while reading option defaults file '"
@@ -714,23 +720,29 @@ public final class BlazeOptionHandler {
         if (lastRcFile != null) {
           // Go through the various commands identified in this rc file (or chunk of file) and
           // store them grouped first by command, then by rc chunk.
-          for (String commandKey : commandToArgMapForLastRc.keySet()) {
+          for (Map.Entry<String, List<String>> entry : commandToArgMapForLastRc.entrySet()) {
             commandToRcArgs.put(
-                commandKey,
-                new RcChunkOfArgs(lastRcFile, commandToArgMapForLastRc.get(commandKey)));
+                entry.getKey(),
+                new RcChunkOfArgs(lastRcFile, ImmutableList.copyOf(entry.getValue())));
           }
         }
         lastRcFile = rcFile;
-        commandToArgMapForLastRc = ArrayListMultimap.create();
+        commandToArgMapForLastRc = new LinkedHashMap<>();
       }
 
-      commandToArgMapForLastRc.put(override.command, override.option);
+      List<String> argsForCommand =
+          commandToArgMapForLastRc.computeIfAbsent(override.command, unused -> new ArrayList<>());
+      if (!override.option.isEmpty()) {
+        argsForCommand.add(override.option);
+      } else if (override.command.indexOf(':') == -1) {
+        commandToArgMapForLastRc.remove(override.command);
+      }
     }
     if (lastRcFile != null) {
       // Once again, for this last rc file chunk, store them grouped by command.
-      for (String commandKey : commandToArgMapForLastRc.keySet()) {
+      for (Map.Entry<String, List<String>> entry : commandToArgMapForLastRc.entrySet()) {
         commandToRcArgs.put(
-            commandKey, new RcChunkOfArgs(lastRcFile, commandToArgMapForLastRc.get(commandKey)));
+            entry.getKey(), new RcChunkOfArgs(lastRcFile, ImmutableList.copyOf(entry.getValue())));
       }
     }
 

@@ -19,6 +19,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.serialization.FutureHelpers.waitForDeserializationFuture;
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
 
+import com.github.luben.zstd.RecyclingBufferPool;
 import com.github.luben.zstd.ZstdInputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableClassToInstanceMap;
@@ -29,6 +30,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec.DeferredValue;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult.QueryDepCallback;
@@ -366,11 +368,7 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
     public void onSuccess(byte[] bytes) {
       if (bytes == null) {
         // This error should be tolerated by falling back on computation.
-        onFailure(
-            new MissingSharedValueBytesException(
-                String.format(
-                    "missing shared value bytes for a %s instance belonging to a %s instance",
-                    codec.getEncodedClass().getName(), parent.getClass().getName())));
+        onFailure(MissingSharedValueBytesException.INSTANCE);
         return;
       }
       SharedValueDeserializationContext innerContext = getFreshContext();
@@ -429,7 +427,7 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
     if (bytes[0] == (byte) 0) {
       return byteArrayInputStream;
     }
-    return new ZstdInputStream(byteArrayInputStream);
+    return new ZstdInputStream(byteArrayInputStream, RecyclingBufferPool.INSTANCE);
   }
 
   @Override
@@ -619,9 +617,32 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
    *
    * <p>This error should be tolerated by falling back on computation.
    */
-  static final class MissingSharedValueBytesException extends SerializationException {
-    MissingSharedValueBytesException(String message) {
-      super(message);
+  public static final class MissingSharedValueBytesException extends SerializationException {
+    /**
+     * Singleton instance.
+     *
+     * <p>This exception is used to signal cache misses and can be thrown millions of times in a
+     * build. Using a singleton avoids the overhead of object allocation, message formatting, and
+     * stack trace generation, all of which are expensive at scale and unnecessary for control flow.
+     */
+    @SuppressWarnings("StaticAssignmentOfThrowable")
+    public static final MissingSharedValueBytesException INSTANCE =
+        new MissingSharedValueBytesException();
+
+    private MissingSharedValueBytesException() {
+      super("Missing shared value bytes", MissReason.MISS_REASON_REFERENCED_OBJECT_MISS);
+    }
+
+    /**
+     * Does nothing.
+     *
+     * <p>This is overridden for performance. Since this exception is used for control flow, the
+     * stack trace is not needed and avoiding filling it in is a significant optimization.
+     */
+    @Override
+    public Throwable fillInStackTrace() {
+      // No-op to avoid capturing the stack trace.
+      return this;
     }
   }
 }

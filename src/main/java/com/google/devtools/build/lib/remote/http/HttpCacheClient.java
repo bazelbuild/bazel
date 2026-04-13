@@ -30,6 +30,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
+import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
@@ -280,8 +281,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
             if (sslCtx != null) {
               SSLEngine engine = sslCtx.newEngine(ch.alloc(), hostname, port);
               engine.setUseClientMode(true);
-              if (authAndTlsOptions.tlsClientCertificate != null
-                  && authAndTlsOptions.tlsClientKey != null) {
+              if (authAndTlsOptions.getTlsClientCertificate() != null
+                  && authAndTlsOptions.getTlsClientKey() != null) {
                 engine.setNeedClientAuth(true);
               }
               p.addFirst("ssl-handler", new SslHandler(engine));
@@ -720,13 +721,9 @@ public final class HttpCacheClient implements RemoteCacheClient {
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, Blob blob) {
     return retrier.executeAsync(
-        () -> {
-          var result =
-              uploadAsync(
-                  digest.getHash(), digest.getSizeBytes(), blob.get(), /* casUpload= */ true);
-          result.addListener(blob::close, MoreExecutors.directExecutor());
-          return result;
-        });
+        () ->
+            uploadAsync(
+                digest.getHash(), digest.getSizeBytes(), blob.get(), /* casUpload= */ true));
   }
 
   @Override
@@ -837,17 +834,18 @@ public final class HttpCacheClient implements RemoteCacheClient {
     SslContextBuilder sslContextBuilder = SslContextBuilder.forClient().sslProvider(sslProvider);
 
     // Root CA certificate
-    if (authAndTlsOptions.tlsCertificate != null) {
+    if (authAndTlsOptions.getTlsCertificate() != null) {
       sslContextBuilder =
-          sslContextBuilder.trustManager(new File(authAndTlsOptions.tlsCertificate));
+          sslContextBuilder.trustManager(new File(authAndTlsOptions.getTlsCertificate()));
     }
 
     // Optional client TLS authentication
-    if (authAndTlsOptions.tlsClientCertificate != null && authAndTlsOptions.tlsClientKey != null) {
+    if (authAndTlsOptions.getTlsClientCertificate() != null
+        && authAndTlsOptions.getTlsClientKey() != null) {
       sslContextBuilder =
           sslContextBuilder.keyManager(
-              new File(authAndTlsOptions.tlsClientCertificate),
-              new File(authAndTlsOptions.tlsClientKey));
+              new File(authAndTlsOptions.getTlsClientCertificate()),
+              new File(authAndTlsOptions.getTlsClientKey()));
     }
 
     return sslContextBuilder.build();

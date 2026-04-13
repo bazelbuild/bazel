@@ -215,6 +215,27 @@ selects.config_setting_group(
 )
 
 config_setting(
+    name = "windows_clang_cl",
+    constraint_values = ["@platforms//os:windows"],
+    flag_values = {"@rules_cc//cc/compiler:compiler": "clang-cl"},
+)
+
+config_setting(
+    name = "windows_msvc_cl",
+    constraint_values = ["@platforms//os:windows"],
+    flag_values = {"@rules_cc//cc/compiler:compiler": "msvc-cl"},
+)
+
+selects.config_setting_group(
+    name = "windows_msvc_like",
+    match_any = [
+        ":windows_clang_cl",
+        ":windows_msvc_cl",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
     name = "arm",
     constraint_values = ["@platforms//cpu:arm"],
     visibility = ["//visibility:public"],

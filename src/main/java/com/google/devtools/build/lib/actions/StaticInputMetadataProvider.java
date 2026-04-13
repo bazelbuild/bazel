@@ -34,13 +34,14 @@ public final class StaticInputMetadataProvider implements InputMetadataProvider 
   private final ImmutableMap<ActionInput, FileArtifactValue> inputToMetadata;
   private final ImmutableMap<PathFragment, ActionInput> execPathToInput;
 
-  public StaticInputMetadataProvider(Map<ActionInput, FileArtifactValue> inputToMetadata) {
+  public StaticInputMetadataProvider(
+      Map<? extends ActionInput, FileArtifactValue> inputToMetadata) {
     this.inputToMetadata = ImmutableMap.copyOf(inputToMetadata);
     this.execPathToInput = constructExecPathToInputMap(inputToMetadata.keySet());
   }
 
   private static ImmutableMap<PathFragment, ActionInput> constructExecPathToInputMap(
-      Collection<ActionInput> inputs) {
+      Collection<? extends ActionInput> inputs) {
     ImmutableMap.Builder<PathFragment, ActionInput> builder =
         ImmutableMap.builderWithExpectedSize(inputs.size());
     for (ActionInput input : inputs) {

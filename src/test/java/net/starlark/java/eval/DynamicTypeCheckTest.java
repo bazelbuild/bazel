@@ -20,9 +20,10 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.truth.StringSubject;
 import net.starlark.java.syntax.FileOptions;
-import net.starlark.java.types.StarlarkType;
-import net.starlark.java.types.Types;
-import net.starlark.java.types.Types.CallableType;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.Types;
+import net.starlark.java.syntax.Types.CallableType;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,26 +35,49 @@ public class DynamicTypeCheckTest {
 
   private EvaluationTestCase ev;
 
+  // TODO: #27728 - No need to add these mocks to the testing Module in setup() once the production
+  // version of these symbols are available in the actual Starlark universe.
+
+  private static class CollectionSymbol implements StarlarkValue, TypeConstructor {
+    @Override
+    public StarlarkType createStarlarkType(ImmutableList<Arg> argsTuple) throws Failure {
+      return Types.COLLECTION_CONSTRUCTOR.createStarlarkType(argsTuple);
+    }
+  }
+
+  private static class SequenceSymbol implements StarlarkValue, TypeConstructor {
+    @Override
+    public StarlarkType createStarlarkType(ImmutableList<Arg> argsTuple) throws Failure {
+      return Types.SEQUENCE_CONSTRUCTOR.createStarlarkType(argsTuple);
+    }
+  }
+
+  private static class MappingSymbol implements StarlarkValue, TypeConstructor {
+    @Override
+    public StarlarkType createStarlarkType(ImmutableList<Arg> argsTuple) throws Failure {
+      return Types.MAPPING_CONSTRUCTOR.createStarlarkType(argsTuple);
+    }
+  }
+
   @Before
   public void setup() throws Exception {
     ev = new EvaluationTestCase();
     ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).resolveTypeSyntax(true).build());
     ev.setSemantics(
         StarlarkSemantics.builder()
-            .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING, true)
+            .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING, true)
             .build());
-    // TODO: #27728 - No need to add to global environment once these builtin types are in the
-    // universal block.
-    ev.update("Collection", Starlark.NONE);
-    ev.update("Sequence", Starlark.NONE);
-    ev.update("Mapping", Starlark.NONE);
+
+    ev.update("Collection", new CollectionSymbol());
+    ev.update("Sequence", new SequenceSymbol());
+    ev.update("Mapping", new MappingSymbol());
   }
 
   @Test
   public void typechecking_disabledByFlag() throws Exception {
     ev.setSemantics(
         StarlarkSemantics.builder()
-            .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING, false)
+            .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING, false)
             .build());
 
     ev.exec("def f(a : int): pass", "f('abc')");
@@ -85,6 +109,7 @@ public class DynamicTypeCheckTest {
 
   @Test
   public void runtimeTypecheck_list() throws Exception {
+    ev.exec("def f(a: list): pass", "f([1, 2])");
     ev.exec("def f(a: list[int]): pass", "f([1, 2])");
     ev.exec("def f(a: list[int]): pass", "f([])");
     ev.exec("def f(a: list[list[int]]): pass", "f([[], [1]])");
@@ -140,15 +165,20 @@ public class DynamicTypeCheckTest {
 
   @Test
   public void runtimeTypecheck_set() throws Exception {
+    ev.exec("def f(a: set): pass", "f(set([1, 2]))");
     ev.exec("def f(a: set[int]): pass", "f(set([1, 2]))");
     ev.exec("def f(a: set[int]): pass", "f(set())");
+    // invariance
+    assertExecThrows(EvalException.class, "def f(a: set[int|str]): pass", "f(set([1, 2]))")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'set[int]', want 'set[int|str]'");
     assertExecThrows(EvalException.class, "def f(a: set[int]): pass", "f(set([True]))")
         .isEqualTo("in call to f(), parameter 'a' got value of type 'set[bool]', want 'set[int]'");
   }
 
   @Test
   public void runtimeTypecheck_tuple() throws Exception {
-    ev.exec("def f(a: tuple[]): pass", "f(())");
+    ev.exec("def f(a: tuple[()]): pass", "f(())");
     ev.exec("def f(a: tuple[int, str]): pass", "f((1, 'a'))");
     ev.exec("def f(a: tuple[int, str, bool]): pass", "f((1, 'a', True))");
     assertExecThrows(EvalException.class, "def f(a: tuple[int, str]): pass", "f((1, 2))")
@@ -162,6 +192,12 @@ public class DynamicTypeCheckTest {
     ev.exec("def f(a: tuple[int, tuple[str, bool]]): pass", "f((1, ('a', True)))");
     // Covariance
     ev.exec("def f(a: tuple[None|int]): pass", "f((1,))");
+    // Homogeneous tuples
+    ev.exec("def f(a: tuple[int | str, ...]): pass", "f((1, 2, '3'))");
+    assertExecThrows(EvalException.class, "def f(a: tuple[int, ...]): pass", "f((1, 2, '3'))")
+        .isEqualTo(
+            "in call to f(), parameter 'a' got value of type 'tuple[int, int, str]', want"
+                + " 'tuple[int, ...]'");
   }
 
   @Test
@@ -228,36 +264,6 @@ public class DynamicTypeCheckTest {
   }
 
   @Test
-  public void isSubtypeOf_union() throws Exception {
-    // repeated elements
-    assertThat(Types.union(Types.union(Types.NONE, Types.BOOL), Types.BOOL))
-        .isEqualTo(Types.union(Types.NONE, Types.BOOL));
-    // associativity doesn't matter
-    assertThat(Types.union(Types.union(Types.NONE, Types.BOOL), Types.STR))
-        .isEqualTo(Types.union(Types.NONE, Types.union(Types.STR, Types.BOOL)));
-    // any and unions
-    assertThat(TypeChecker.isSubtypeOf(Types.ANY, Types.union(Types.INT, Types.BOOL))).isTrue();
-    assertThat(TypeChecker.isSubtypeOf(Types.union(Types.INT, Types.BOOL), Types.ANY)).isTrue();
-    // any inside unions
-    assertThat(TypeChecker.isSubtypeOf(Types.union(Types.ANY, Types.BOOL), Types.INT)).isFalse();
-    assertThat(TypeChecker.isSubtypeOf(Types.union(Types.ANY), Types.INT)).isTrue();
-    assertThat(TypeChecker.isSubtypeOf(Types.INT, Types.union(Types.ANY, Types.BOOL))).isTrue();
-    // object and unions
-    assertThat(TypeChecker.isSubtypeOf(Types.OBJECT, Types.union(Types.INT, Types.BOOL))).isFalse();
-    assertThat(TypeChecker.isSubtypeOf(Types.union(Types.INT, Types.BOOL), Types.OBJECT)).isTrue();
-    // object inside unions
-    assertThat(TypeChecker.isSubtypeOf(Types.union(Types.OBJECT, Types.BOOL), Types.INT)).isFalse();
-    assertThat(TypeChecker.isSubtypeOf(Types.union(Types.OBJECT), Types.INT)).isFalse();
-    assertThat(TypeChecker.isSubtypeOf(Types.INT, Types.union(Types.OBJECT, Types.BOOL))).isTrue();
-    // bonus: any and object inside union
-    assertThat(TypeChecker.isSubtypeOf(Types.union(Types.ANY, Types.OBJECT), Types.INT)).isFalse();
-    assertThat(
-            TypeChecker.isSubtypeOf(
-                Types.union(Types.ANY, Types.OBJECT), Types.union(Types.ANY, Types.INT)))
-        .isTrue();
-  }
-
-  @Test
   public void lambdaDoesntFail() throws Exception {
     // Lambda has functionType set to null
     ev.exec(
@@ -273,7 +279,7 @@ public class DynamicTypeCheckTest {
   public void testStarlarkUniverseTypes() {
     ImmutableList.Builder<String> builder = ImmutableList.builder();
     for (var entry : Starlark.UNIVERSE.entrySet()) {
-      StarlarkType type = TypeChecker.type(entry.getValue());
+      StarlarkType type = Starlark.getStarlarkType(entry.getValue());
       if (type instanceof CallableType callable) {
         builder.add(entry.getKey() + ": " + callable.toSignatureString());
       } else {
@@ -308,7 +314,7 @@ public class DynamicTypeCheckTest {
     ImmutableList.Builder<String> builder = ImmutableList.builder();
     for (String name : Starlark.dir(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, s)) {
       StarlarkType type =
-          TypeChecker.type(
+          Starlark.getStarlarkType(
               Starlark.getattr(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, s, name, null));
       if (type instanceof CallableType callable) {
         builder.add(name + ": " + callable.toSignatureString());
@@ -319,33 +325,33 @@ public class DynamicTypeCheckTest {
 
     assertThat(builder.build())
         .containsAtLeast(
-            "capitalize: (str, /) -> str",
-            "count: (str, str, [int|None], [int|None], /) -> int",
-            "elems: (str, /) -> Sequence[str]",
-            "find: (str, str, [int|None], [int|None], /) -> int",
-            "index: (str, str, [int|None], [int|None], /) -> int",
-            "isalnum: (str, /) -> bool",
-            "isalpha: (str, /) -> bool",
-            "isdigit: (str, /) -> bool",
-            "islower: (str, /) -> bool",
-            "isspace: (str, /) -> bool",
-            "istitle: (str, /) -> bool",
-            "isupper: (str, /) -> bool",
-            "join: (str, Collection[str], /) -> str",
-            "lower: (str, /) -> str",
-            "lstrip: (str, [str|None], /) -> str",
-            "removeprefix: (str, str, /) -> str",
-            "removesuffix: (str, str, /) -> str",
-            "replace: (str, str, str, [int], /) -> str",
-            "rfind: (str, str, [int|None], [int|None], /) -> int",
-            "rindex: (str, str, [int|None], [int|None], /) -> int",
-            "rsplit: (str, /, sep: str, maxsplit: [int]) -> list[str]",
-            "rstrip: (str, [str|None], /) -> str",
-            "split: (str, /, sep: str, maxsplit: [int]) -> list[str]",
-            "splitlines: (str, [bool], /) -> Sequence[str]",
-            "strip: (str, [str|None], /) -> str",
-            "title: (str, /) -> str",
-            "upper: (str, /) -> str");
+            "capitalize: () -> str",
+            "count: (str, [int|None], [int|None], /) -> int",
+            "elems: () -> Sequence[str]",
+            "find: (str, [int|None], [int|None], /) -> int",
+            "index: (str, [int|None], [int|None], /) -> int",
+            "isalnum: () -> bool",
+            "isalpha: () -> bool",
+            "isdigit: () -> bool",
+            "islower: () -> bool",
+            "isspace: () -> bool",
+            "istitle: () -> bool",
+            "isupper: () -> bool",
+            "join: (Collection[str], /) -> str",
+            "lower: () -> str",
+            "lstrip: ([str|None], /) -> str",
+            "removeprefix: (str, /) -> str",
+            "removesuffix: (str, /) -> str",
+            "replace: (str, str, [int], /) -> str",
+            "rfind: (str, [int|None], [int|None], /) -> int",
+            "rindex: (str, [int|None], [int|None], /) -> int",
+            "rsplit: (sep: str, maxsplit: [int]) -> list[str]",
+            "rstrip: ([str|None], /) -> str",
+            "split: (sep: str, maxsplit: [int]) -> list[str]",
+            "splitlines: ([bool], /) -> Sequence[str]",
+            "strip: ([str|None], /) -> str",
+            "title: () -> str",
+            "upper: () -> str");
     // TODO(ilist@): format (args,kwargs), partition, rpartition (returns tuple), startswith,
     // endswith (takes tuple)
   }
@@ -356,7 +362,7 @@ public class DynamicTypeCheckTest {
     ImmutableList.Builder<String> builder = ImmutableList.builder();
     for (String name : Starlark.dir(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, list)) {
       StarlarkType type =
-          TypeChecker.type(
+          Starlark.getStarlarkType(
               Starlark.getattr(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, list, name, null));
       if (type instanceof CallableType callable) {
         builder.add(name + ": " + callable.toSignatureString());

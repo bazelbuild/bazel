@@ -40,6 +40,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** Common utilities for dealing with paths outside the package roots. */
@@ -50,6 +51,7 @@ public class ExternalFilesHelper {
   private final ExternalFileAction externalFileAction;
   private final BlazeDirectories directories;
   private final int maxNumExternalFilesToLog;
+  private final Supplier<Path> repoContentsCachePathSupplier;
   private final AtomicInteger numExternalFilesLogged = new AtomicInteger(0);
   private static final int MAX_EXTERNAL_FILES_TO_TRACK = 2500;
 
@@ -66,31 +68,52 @@ public class ExternalFilesHelper {
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
       BlazeDirectories directories,
+      Supplier<Path> repoContentsCachePathSupplier,
       int maxNumExternalFilesToLog) {
     this.pkgLocator = pkgLocator;
     this.externalFileAction = externalFileAction;
     this.directories = directories;
+    this.repoContentsCachePathSupplier = repoContentsCachePathSupplier;
     this.maxNumExternalFilesToLog = maxNumExternalFilesToLog;
   }
 
   public static ExternalFilesHelper create(
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
-      BlazeDirectories directories) {
+      BlazeDirectories directories,
+      Supplier<Path> repoContentsCachePathSupplier) {
     return TestType.isInTest()
-        ? createForTesting(pkgLocator, externalFileAction, directories)
+        ? createForTesting(
+            pkgLocator, externalFileAction, directories, repoContentsCachePathSupplier)
         : new ExternalFilesHelper(
-            pkgLocator, externalFileAction, directories, /* maxNumExternalFilesToLog= */ 100);
+            pkgLocator,
+            externalFileAction,
+            directories,
+            repoContentsCachePathSupplier,
+            /* maxNumExternalFilesToLog= */ 100);
   }
 
   public static ExternalFilesHelper createForTesting(
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
       BlazeDirectories directories) {
+    return createForTesting(
+        pkgLocator,
+        externalFileAction,
+        directories,
+        /* repoContentsCachePathSupplier= */ () -> null);
+  }
+
+  public static ExternalFilesHelper createForTesting(
+      AtomicReference<PathPackageLocator> pkgLocator,
+      ExternalFileAction externalFileAction,
+      BlazeDirectories directories,
+      Supplier<Path> repoContentsCachePathSupplier) {
     return new ExternalFilesHelper(
         pkgLocator,
         externalFileAction,
         directories,
+        repoContentsCachePathSupplier,
         // These log lines are mostly spam during unit and integration tests.
         /* maxNumExternalFilesToLog= */ 0);
   }
@@ -156,10 +179,27 @@ public class ExternalFilesHelper {
     EXTERNAL_REPO,
 
     /**
+     * The directory containing the repo contents cache entries as well as direct children
+     * corresponding to individual predeclared input hashes. These directories are created by Bazel
+     * but may be deleted when users delete the entire repo contents cache. However, they are always
+     * recreated by Bazel before they are used and/or depended on via Skyframe. They are thus
+     * immutably present from the perspective of Skyframe and don't require invalidation.
+     *
+     * <p>Note: If these directories ever need to be checked for dirtiness during diffing, they have
+     * to be made non-cacheable according to {@link
+     * DirtinessCheckerUtils.ExternalDirtinessChecker#isCacheableType} so that they are not locked
+     * in as non-existent if they have been removed. This would result in FileValues for files below
+     * them (the actual repo contents, of type EXTERNAL_OTHER) being locked in as non-existent too,
+     * even after a refetch of the repo has added a new cache entry.
+     */
+    REPO_CONTENTS_CACHE_DIRS,
+
+    /**
      * None of the above. We encounter these paths when outputs, source files or external repos
      * symlink to files outside aforementioned Bazel-managed directories. For example, C compilation
      * by the host compiler may depend on /usr/bin/gcc. Bazel makes a best-effort attempt to detect
-     * changes in such files.
+     * changes in such files. This type also includes files in repo contents cache entries, which
+     * are created by Bazel but never modified after creation.
      */
     EXTERNAL_OTHER,
   }
@@ -207,7 +247,11 @@ public class ExternalFilesHelper {
 
   ExternalFilesHelper cloneWithFreshExternalFilesKnowledge() {
     return new ExternalFilesHelper(
-        pkgLocator, externalFileAction, directories, maxNumExternalFilesToLog);
+        pkgLocator,
+        externalFileAction,
+        directories,
+        repoContentsCachePathSupplier,
+        maxNumExternalFilesToLog);
   }
 
   public FileType getAndNoteFileType(RootedPath rootedPath) {
@@ -240,6 +284,12 @@ public class ExternalFilesHelper {
     if (packageLocator.getPathEntries().contains(rootedPath.getRoot())) {
       return FileType.INTERNAL;
     }
+    var repoContentsCachePath = repoContentsCachePathSupplier.get();
+    if (repoContentsCachePath != null
+        && rootedPath.asPath().startsWith(repoContentsCachePath)
+        && !rootedPath.asPath().relativeTo(repoContentsCachePath).isMultiSegment()) {
+      return FileType.REPO_CONTENTS_CACHE_DIRS;
+    }
     // The outputBase may be null if we're not actually running a build.
     Path outputBase = packageLocator.getOutputBase();
     if (outputBase == null) {
@@ -270,6 +320,7 @@ public class ExternalFilesHelper {
     switch (fileType) {
       case BUNDLED:
       case INTERNAL:
+      case REPO_CONTENTS_CACHE_DIRS:
         break;
       case EXTERNAL_OTHER:
         if (numExternalFilesLogged.incrementAndGet() < maxNumExternalFilesToLog) {
@@ -294,14 +345,12 @@ public class ExternalFilesHelper {
 
   /**
    * For files that are under $OUTPUT_BASE/external, add a dependency on the corresponding repo so
-   * that if the repo definition changes, the File/DirectoryStateValue will be re-evaluated.
+   * that if the repo is refetched, the {File,DirectoryListing}StateValue's of files underneath will
+   * be re-evaluated.
    *
-   * <p>Note that: - We don't add a dependency on the parent directory at the package root boundary,
-   * so the only transitive dependencies from files inside the package roots to external files are
-   * through symlinks. So the upwards transitive closure of external files is small. - The only way
-   * other than external repositories for external source files to get into the skyframe graph in
-   * the first place is through symlinks outside the package roots, which we neither want to
-   * encourage nor optimize for since it is not common. So the set of external files is small.
+   * <p>Note that we don't add a dependency on the parent directory at the package root boundary, so
+   * the only transitive dependencies from files inside the package roots to external files are
+   * through symlinks. So the upwards transitive closure of external files is small.
    */
   private void addExternalFilesDependencies(RootedPath rootedPath, Environment env)
       throws InterruptedException {

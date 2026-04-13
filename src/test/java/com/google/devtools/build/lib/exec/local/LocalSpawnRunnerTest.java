@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.testing.common.DirectoryListingHelper;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.NetUtil;
 import com.google.devtools.build.lib.util.OS;
@@ -236,7 +237,7 @@ public class LocalSpawnRunnerTest {
     return new ProcessWrapper(
         PathFragment.create("/process-wrapper"),
         ActionInputHelper.fromPath("/process-wrapper"),
-        options.getLocalSigkillGraceSeconds(),
+        options.getLocalSigkillGraceSecondsDuration(),
         /* gracefulSigterm= */ false);
   }
 
@@ -266,7 +267,7 @@ public class LocalSpawnRunnerTest {
     SubprocessBuilder.setDefaultSubprocessFactory(factory);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
-    options.localSigkillGraceSeconds = 456;
+    options.setLocalSigkillGraceSeconds(456);
     TestedLocalSpawnRunner testedRunner =
         new TestedLocalSpawnRunner(
             fs.getPath("/execroot"),
@@ -323,7 +324,7 @@ public class LocalSpawnRunnerTest {
     SubprocessBuilder.setDefaultSubprocessFactory(factory);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
-    options.localSigkillGraceSeconds = 456;
+    options.setLocalSigkillGraceSeconds(456);
     Path execRoot = fs.getPath("/execroot");
     LocalSpawnRunner runner =
         new TestedLocalSpawnRunner(
@@ -406,7 +407,7 @@ public class LocalSpawnRunnerTest {
     SubprocessBuilder.setDefaultSubprocessFactory(factory);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
-    options.localSigkillGraceSeconds = 456;
+    options.setLocalSigkillGraceSeconds(456);
     LocalSpawnRunner runner =
         new TestedLocalSpawnRunner(
             fs.getPath("/execroot"),
@@ -532,7 +533,7 @@ public class LocalSpawnRunnerTest {
     FileSystem fs = setupEnvironmentForFakeExecution();
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
-    options.allowedLocalAction = new RegexPatternConverter().convert("none");
+    options.setAllowedLocalAction(new RegexPatternConverter().convert("none"));
     LocalSpawnRunner runner =
         new TestedLocalSpawnRunner(
             fs.getPath("/execroot"),
@@ -846,7 +847,11 @@ public class LocalSpawnRunnerTest {
     // TODO(b/62588075) Currently no process-wrapper or execution statistics support in Windows.
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
-    FileSystem fs = new UnixFileSystem(DigestHashFunction.SHA256, /* hashAttributeName= */ "");
+    FileSystem fs =
+        new UnixFileSystem(
+            DigestHashFunction.SHA256,
+            /* hashAttributeName= */ "",
+            new NativePosixFilesServiceImpl());
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
 

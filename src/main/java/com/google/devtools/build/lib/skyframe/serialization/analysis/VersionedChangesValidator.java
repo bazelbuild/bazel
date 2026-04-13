@@ -83,7 +83,8 @@ final class VersionedChangesValidator {
   private final NestedMatchMemoizingLookup nestedMatches;
 
   VersionedChangesValidator(Executor executor, VersionedChanges changes) {
-    this.fileOpMatches = new FileOpMatchMemoizingLookup(changes, new ConcurrentHashMap<>());
+    this.fileOpMatches =
+        new FileOpMatchMemoizingLookup(executor, changes, new ConcurrentHashMap<>());
     this.nestedMatches =
         new NestedMatchMemoizingLookup(executor, fileOpMatches, new ConcurrentHashMap<>());
   }

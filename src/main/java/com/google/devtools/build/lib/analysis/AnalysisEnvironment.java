@@ -144,6 +144,13 @@ public interface AnalysisEnvironment extends ActionRegistry {
   Artifact getVolatileWorkspaceStatusArtifact() throws InterruptedException;
 
   /**
+   * Declares a dependency on {@link
+   * com.google.devtools.build.lib.skyframe.PrecomputedValue#STAMP_SETTING_MARKER}, to indicate that
+   * the evaluating configured target may behave differently because of {@code --stamp}.
+   */
+  void declareStampSettingDep() throws InterruptedException;
+
+  /**
    * Returns the set of orphan Artifacts (i.e. Artifacts without generating action). Should only be
    * called after the ConfiguredTarget is created.
    */

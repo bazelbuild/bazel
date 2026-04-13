@@ -361,6 +361,8 @@ public final class FileSystemValueCheckerInferringAncestors {
       if (oldFsv.isDirectory() && !newFsv.exists()) {
         deletedDirectories.add(path);
       }
+    } else if (skyValueDirtinessChecker.invalidateListingsOnFileModification()) {
+      parentListingKey(path).ifPresent(valuesToInvalidate::add);
     }
     return typeChanged;
   }
@@ -427,7 +429,8 @@ public final class FileSystemValueCheckerInferringAncestors {
     Dirent dirent =
         parentListing.getDirents().maybeGetDirent(path.getRootRelativePath().getBaseName());
     @Nullable Dirent.Type typeInListing = dirent != null ? dirent.getType() : null;
-    if (!Objects.equals(typeInListing, direntTypeFromFileStateType(newValue.getType()))) {
+    if (!Objects.equals(typeInListing, direntTypeFromFileStateType(newValue.getType()))
+        || skyValueDirtinessChecker.invalidateListingsOnFileModification()) {
       valuesToInvalidate.add(parentListingKey.get());
     }
   }

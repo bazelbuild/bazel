@@ -226,7 +226,8 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
                 aspects,
                 ruleTarget.getAdvertisedProviders(),
                 ruleTarget.getLabel(),
-                ruleTarget.getRuleClassObject(),
+                ruleTarget.getRuleDefinitionEnvironmentLabel(),
+                ruleTarget.getRuleClass(),
                 ruleTarget.getOnlyTagsAttribute(),
                 ruleTarget.getLocation(),
                 env.getListener());

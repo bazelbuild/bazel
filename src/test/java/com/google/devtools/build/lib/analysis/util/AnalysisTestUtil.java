@@ -194,6 +194,11 @@ public final class AnalysisTestUtil {
     }
 
     @Override
+    public void declareStampSettingDep() throws InterruptedException {
+      original.declareStampSettingDep();
+    }
+
+    @Override
     public ActionLookupKey getOwner() {
       return original.getOwner();
     }
@@ -411,7 +416,7 @@ public final class AnalysisTestUtil {
             .create(
                 AttributeTransitionData.builder()
                     .attributes(FakeAttributeMapper.empty())
-                    .executionPlatform(targetOptions.get(PlatformOptions.class).hostPlatform)
+                    .executionPlatform(targetOptions.get(PlatformOptions.class).getHostPlatform())
                     .analysisData(
                         skyframeExecutor.getStarlarkExecTransition(
                             targetOptionsWithScopeInfo, handler))

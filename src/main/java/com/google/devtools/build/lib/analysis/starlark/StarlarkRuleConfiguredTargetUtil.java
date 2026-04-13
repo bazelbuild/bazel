@@ -398,7 +398,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
           "%s",
           context.getLabel());
 
-      executable = context.createOutputArtifactScript();
+      executable = context.createOutputArtifactScriptForAnalysisTest();
     }
 
     if (executable == null && isExecutable) {

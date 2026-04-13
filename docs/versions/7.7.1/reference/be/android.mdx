@@ -1,0 +1,663 @@
+---
+title: 'Android Rules'
+---
+
+## Rules
+
+* [android\_binary](#android_binary)
+* [aar\_import](#aar_import)
+* [android\_library](#android_library)
+* [android\_instrumentation\_test](#android_instrumentation_test)
+* [android\_local\_test](#android_local_test)
+* [android\_device](#android_device)
+* [android\_ndk\_repository](#android_ndk_repository)
+* [android\_sdk\_repository](#android_sdk_repository)
+
+## android\_binary
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/bazel/rules/android/BazelAndroidBinaryRule.java)
+
+```
+android_binary(name, deps, srcs, assets, assets_dir, compatible_with, crunch_png, custom_package, debug_key, debug_signing_keys, debug_signing_lineage_file, densities, deprecation, dex_shards, dexopts, distribs, enable_data_binding, exec_compatible_with, exec_properties, features, incremental_dexing, instruments, javacopts, key_rotation_min_sdk, licenses, main_dex_list, main_dex_list_opts, main_dex_proguard_specs, manifest, manifest_values, multidex, nocompress_extensions, package_id, plugins, proguard_apply_dictionary, proguard_apply_mapping, proguard_generate_mapping, proguard_specs, resource_configuration_filters, resource_files, restricted_to, shrink_resources, tags, target_compatible_with, testonly, visibility)
+```
+
+Produces Android application package files (.apk).
+
+#### Implicit output targets
+
+* `name.apk`: An Android application
+  package file signed with debug keys and
+  [zipaligned](http://developer.android.com/guide/developing/tools/zipalign.html), it could be used to develop and debug your application.
+  You cannot release your application when signed with the debug keys.
+* `name_unsigned.apk`: An unsigned version of the
+  above file that could be signed with the release keys before release to
+  the public.
+* `name_deploy.jar`: A Java archive containing the
+  transitive closure of this target.
+
+  The deploy jar contains all the classes that would be found by a
+  classloader that searched the runtime classpath of this target
+  from beginning to end.
+* `name_proguard.jar`: A Java archive containing
+  the result of running ProGuard on the
+  `name_deploy.jar`.
+  This output is only produced if
+  [proguard\_specs](/versions/7.7.1/reference/be/android#android_binary.proguard_specs) attribute is
+  specified.
+* `name_proguard.map`: A mapping file result of
+  running ProGuard on the `name_deploy.jar`.
+  This output is only produced if
+  [proguard\_specs](/versions/7.7.1/reference/be/android#android_binary.proguard_specs) attribute is
+  specified and
+  [proguard\_generate\_mapping](/versions/7.7.1/reference/be/android#android_binary.proguard_generate_mapping)
+  or [shrink\_resources](/versions/7.7.1/reference/be/android#android_binary.shrink_resources) is set.
+
+#### Examples
+
+Examples of Android rules can be found in the `examples/android` directory of the
+Bazel source tree.
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.7.1/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` The list of other libraries to be linked in to the binary target. Permitted library types are: `android_library`, `java_library` with `android` constraint and `cc_library` wrapping or producing `.so` native libraries for the Android target platform. |
+| `srcs` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` The list of source files that are processed to create the target. `srcs` files of type `.java` are compiled. *For readability's sake*, it is not good to put the name of a generated `.java` source file into the `srcs`. Instead, put the depended-on rule name in the `srcs`, as described below.  `srcs` files of type `.srcjar` are unpacked and compiled. (This is useful if you need to generate a set of .java files with a genrule or build extension.) |
+| `assets` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` The list of assets to be packaged. This is typically a `glob` of all files under the `assets` directory. You can also reference other rules (any rule that produces files) or exported files in the other packages, as long as all those files are under the `assets_dir` directory in the corresponding package. |
+| `assets_dir` | String; default is `""` The string giving the path to the files in `assets`. The pair `assets` and `assets_dir` describe packaged assets and either both attributes should be provided or none of them. |
+| `crunch_png` | Boolean; default is `True` Do PNG crunching (or not). This is independent of nine-patch processing, which is always done. This is a deprecated workaround for an [aapt bug](https://code.google.com/p/android/issues/detail?id=74334) which has been fixed in aapt2. |
+| `custom_package` | String; default is `""` Java package for which java sources will be generated. By default the package is inferred from the directory where the BUILD file containing the rule is. You can specify a different package but this is highly discouraged since it can introduce classpath conflicts with other libraries that will only be detected at runtime. |
+| `debug_key` | [Label](/versions/7.7.1/concepts/labels); default is `"@bazel_tools//tools/android:debug_keystore"` File containing the debug keystore to be used to sign the debug apk. Usually you do not want to use a key other than the default key, so this attribute should be omitted. *WARNING: Do not use your production keys, they should be strictly safeguarded and not kept in your source tree*. |
+| `debug_signing_keys` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` List of files, debug keystores to be used to sign the debug apk. Usually you do not want to use keys other than the default key, so this attribute should be omitted. *WARNING: Do not use your production keys, they should be strictly safeguarded and not kept in your source tree*. |
+| `debug_signing_lineage_file` | [Label](/versions/7.7.1/concepts/labels); default is `None` File containing the signing lineage for the debug\_signing\_keys. Usually you do not want to use keys other than the default key, so this attribute should be omitted. *WARNING: Do not use your production keys, they should be strictly safeguarded and not kept in your source tree*. |
+| `densities` | List of strings; default is `[]` Densities to filter for when building the apk. This will strip out raster drawable resources that would not be loaded by a device with the specified screen densities, to reduce APK size. A corresponding compatible-screens section will also be added to the manifest if it does not already contain a superset listing. |
+| `dex_shards` | Integer; default is `1` Number of shards dexing should be decomposed into. This is makes dexing much faster at the expense of app installation and startup time. The larger the binary, the more shards should be used. 25 is a good value to start experimenting with. Note that each shard will result in at least one dex in the final app. For this reason, setting this to more than 1 is not recommended for release binaries. |
+| `dexopts` | List of strings; default is `[]` Additional command-line flags for the dx tool when generating classes.dex. Subject to ["Make variable"](/versions/7.7.1/reference/be/make-variables) substitution and [Bourne shell tokenization](/versions/7.7.1/reference/be/common-definitions#sh-tokenization). |
+| `enable_data_binding` | Boolean; default is `False` If true, this rule processes [data binding](https://developer.android.com/topic/libraries/data-binding/index.html) expressions in layout resources included through the [resource\_files](/versions/7.7.1/reference/be/android#android_binary.resource_files) attribute. Without this setting, data binding expressions produce build failures. To build an Android app with data binding, you must also do the following:  1. Set this attribute for all Android rules that transitively depend on this one.    This is because dependers inherit the rule's data binding expressions through resource    merging. So they also need to build with data binding to parse those expressions.- Add a `deps =` entry for the data binding runtime library to all targets      that set this attribute. The location of this library depends on your depot setup. |
+| `incremental_dexing` | Integer; [nonconfigurable](common-definitions#configurable-attributes); default is `-1` Force the target to be built with or without incremental dexing, overriding defaults and --incremental\_dexing flag. |
+| `instruments` | [Label](/versions/7.7.1/concepts/labels); default is `None`  The `android_binary` target to instrument.  If this attribute is set, this `android_binary` will be treated as a test application for instrumentation tests. An `android_instrumentation_test` target can then specify this target in its [test\_app](/versions/7.7.1/reference/be/android#android_instrumentation_test.test_app) attribute. |
+| `javacopts` | List of strings; default is `[]` Extra compiler options for this target. Subject to ["Make variable"](/versions/7.7.1/reference/be/make-variables) substitution and [Bourne shell tokenization](/versions/7.7.1/reference/be/common-definitions#sh-tokenization). These compiler options are passed to javac after the global compiler options. |
+| `key_rotation_min_sdk` | String; default is `""` Sets the minimum Android platform version (API Level) for which an APK's rotated signing key should be used to produce the APK's signature. The original signing key for the APK will be used for all previous platform versions. |
+| `main_dex_list` | [Label](/versions/7.7.1/concepts/labels); default is `None` A text file contains a list of class file names. Classes defined by those class files are put in the primary classes.dex. e.g.:  ```           android/support/multidex/MultiDex$V19.class           android/support/multidex/MultiDex.class           android/support/multidex/MultiDexApplication.class           com/google/common/base/Objects.class ```  Must be used with `multidex="manual_main_dex"`. |
+| `main_dex_list_opts` | List of strings; default is `[]` Command line options to pass to the main dex list builder. Use this option to affect the classes included in the main dex list. |
+| `main_dex_proguard_specs` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` Files to be used as the Proguard specifications to determine classes that must be kept in the main dex. Only allowed if the `multidex` attribute is set to `legacy`. |
+| `manifest` | [Label](/versions/7.7.1/concepts/labels); required The name of the Android manifest file, normally `AndroidManifest.xml`. Must be defined if resource\_files or assets are defined. |
+| `manifest_values` | Dictionary: String -> String; default is `{}` A dictionary of values to be overridden in the manifest. Any instance of `${name}` in the manifest will be replaced with the value corresponding to name in this dictionary. `applicationId`, `versionCode`, `versionName`, `minSdkVersion`, `targetSdkVersion` and `maxSdkVersion` will also override the corresponding attributes in the manifest and `uses-sdk` tags. `packageName` will be ignored and will be set from either `applicationId` if specified or the package in manifest. When `manifest_merger` is set to `legacy`, only `applicationId`, `versionCode` and `versionName` will have any effect. |
+| `multidex` | String; default is `"native"` Whether to split code into multiple dex files.  Possible values:  * `native`: Split code into multiple dex files when the dex 64K index limit   is exceeded. Assumes native platform support for loading multidex classes at runtime.   *This works with only Android L and newer*. * `legacy`: Split code into multiple dex files when the dex 64K index limit   is exceeded. Assumes multidex classes are loaded through application code (i.e. no   native platform support). * `manual_main_dex`: Split code into multiple dex files when the dex 64K   index limit is exceeded. The content of the main dex file needs to be specified by   providing a list of classes in a text file using the   [main\_dex\_list](/versions/7.7.1/reference/be/android#android_binary.main_dex_list) attribute. * `off`: Compile all code to a single dex file, even if it exceeds the   index limit. |
+| `nocompress_extensions` | List of strings; default is `[]` A list of file extension to leave uncompressed in apk. |
+| `package_id` | Integer; default is `0` Package ID to be assigned to resources in this binary. See AAPT2's `--package-id` argument for more information. This can (and should) typically be left unset, resulting in the default value of 127 (`0x7F`). |
+| `plugins` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` Java compiler plugins to run at compile-time. Every `java_plugin` specified in the plugins attribute will be run whenever this target is built. Resources generated by the plugin will be included in the result jar of the target. |
+| `proguard_apply_dictionary` | [Label](/versions/7.7.1/concepts/labels); default is `None` File to be used as a mapping for proguard. A line separated file of "words" to pull from when renaming classes and members during obfuscation. |
+| `proguard_apply_mapping` | [Label](/versions/7.7.1/concepts/labels); default is `None` File to be used as a mapping for proguard. A mapping file generated by `proguard_generate_mapping` to be re-used to apply the same mapping to a new build. |
+| `proguard_generate_mapping` | Boolean; [nonconfigurable](common-definitions#configurable-attributes); default is `False` Whether to generate Proguard mapping file. The mapping file will be generated only if `proguard_specs` is specified. This file will list the mapping between the original and obfuscated class, method, and field names. *WARNING: If this attribute is used, the Proguard specification should contain neither `-dontobfuscate` nor `-printmapping`.* |
+| `proguard_specs` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` Files to be used as Proguard specification. This file will describe the set of specifications to be used by Proguard. |
+| `resource_configuration_filters` | List of strings; default is `[]` A list of resource configuration filters, such 'en' that will limit the resources in the apk to only the ones in the 'en' configuration. To enable pseudolocalization, include the `en_XA` and/or `ar_XB` pseudo-locales. |
+| `resource_files` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` The list of resources to be packaged. This is typically a `glob` of all files under the `res` directory.   Generated files (from genrules) can be referenced by [Label](/versions/7.7.1/concepts/labels) here as well. The only restriction is that the generated outputs must be under the same "`res`" directory as any other resource files that are included. |
+| `shrink_resources` | Integer; default is `-1` Whether to perform resource shrinking. Resources that are not used by the binary will be removed from the APK. This is only supported for rules using local resources (i.e. the `manifest` and `resource_files` attributes) and requires ProGuard. It operates in mostly the same manner as the Gradle resource shrinker (https://developer.android.com/studio/build/shrink-code.html#shrink-resources). Notable differences:  * resources in `values/` will be removed as well as file based   resources * uses `strict mode` by default * removing unused ID resources is only supported with aapt2  If resource shrinking is enabled, `name_files/resource_shrinker.log` will also be generated, detailing the analysis and deletions performed. Possible values:  * `shrink_resources = 1`: Turns on Android resource shrinking * `shrink_resources = 0`: Turns off Android resource shrinking * `shrink_resources = -1`: Shrinking is controlled by the   [--android\_resource\_shrinking](/versions/7.7.1/docs/user-manual#flag--android_resource_shrinking) flag. |
+
+## aar\_import
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/bazel/rules/android/BazelAarImportRule.java)
+
+```
+aar_import(name, deps, data, aar, compatible_with, deprecation, distribs, exec_compatible_with, exec_properties, exports, features, licenses, restricted_to, srcjar, tags, target_compatible_with, testonly, visibility)
+```
+
+This rule allows the use of `.aar` files as libraries for
+`android_library` and
+`android_binary` rules.
+
+#### Examples
+
+```
+    aar_import(
+        name = "google-vr-sdk",
+        aar = "gvr-android-sdk/libraries/sdk-common-1.10.0.aar",
+    )
+
+    android_binary(
+        name = "app",
+        manifest = "AndroidManifest.xml",
+        srcs = glob(["**.java"]),
+        deps = [":google-vr-sdk"],
+    )
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.7.1/concepts/labels#target-names); required  A unique name for this target. |
+| `aar` | [Label](/versions/7.7.1/concepts/labels); required The `.aar` file to provide to the Android targets that depend on this target. |
+| `exports` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` Targets to export to rules that depend on this rule. See [java\_library.exports.](/versions/7.7.1/reference/be/java#java_library.exports) |
+| `srcjar` | [Label](/versions/7.7.1/concepts/labels); default is `None` A JAR file that contains source code for the compiled JAR files in the AAR. |
+
+## android\_library
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/bazel/rules/android/BazelAndroidLibraryRule.java)
+
+```
+android_library(name, deps, srcs, data, assets, assets_dir, compatible_with, custom_package, deprecation, distribs, enable_data_binding, exec_compatible_with, exec_properties, exported_plugins, exports, exports_manifest, features, idl_import_root, idl_parcelables, idl_preprocessed, idl_srcs, javacopts, licenses, manifest, neverlink, plugins, proguard_specs, resource_files, restricted_to, tags, target_compatible_with, testonly, visibility)
+```
+
+This rule compiles and archives its sources into a `.jar` file.
+The Android runtime library `android.jar` is implicitly put on
+the compilation class path.
+
+#### Implicit output targets
+
+* `libname.jar`: A Java archive.
+* `libname-src.jar`: An archive containing the
+  sources ("source jar").
+* `name.aar`: An android 'aar' bundle containing the java archive
+  and resources of this target. It does not contain the transitive closure.
+
+#### Examples
+
+Examples of Android rules can be found in the `examples/android` directory of the
+Bazel source tree.
+
+The following example shows
+how to set `idl_import_root`.
+Let `//java/bazel/helloandroid/BUILD` contain:
+
+```
+android_library(
+    name = "parcelable",
+    srcs = ["MyParcelable.java"], # bazel.helloandroid.MyParcelable
+
+    # MyParcelable.aidl will be used as import for other .aidl
+    # files that depend on it, but will not be compiled.
+    idl_parcelables = ["MyParcelable.aidl"] # bazel.helloandroid.MyParcelable
+
+    # We don't need to specify idl_import_root since the aidl file
+    # which declares bazel.helloandroid.MyParcelable
+    # is present at java/bazel/helloandroid/MyParcelable.aidl
+    # underneath a java root (java/).
+)
+
+android_library(
+    name = "foreign_parcelable",
+    srcs = ["src/android/helloandroid/OtherParcelable.java"], # android.helloandroid.OtherParcelable
+    idl_parcelables = [
+        "src/android/helloandroid/OtherParcelable.aidl" # android.helloandroid.OtherParcelable
+    ],
+
+    # We need to specify idl_import_root because the aidl file which
+    # declares android.helloandroid.OtherParcelable is not positioned
+    # at android/helloandroid/OtherParcelable.aidl under a normal java root.
+    # Setting idl_import_root to "src" in //java/bazel/helloandroid
+    # adds java/bazel/helloandroid/src to the list of roots
+    # the aidl compiler will search for imported types.
+    idl_import_root = "src",
+)
+
+# Here, OtherInterface.aidl has an "import android.helloandroid.CallbackInterface;" statement.
+android_library(
+    name = "foreign_interface",
+    idl_srcs = [
+        "src/android/helloandroid/OtherInterface.aidl" # android.helloandroid.OtherInterface
+        "src/android/helloandroid/CallbackInterface.aidl" # android.helloandroid.CallbackInterface
+    ],
+
+    # As above, idl_srcs which are not correctly positioned under a java root
+    # must have idl_import_root set. Otherwise, OtherInterface (or any other
+    # interface in a library which depends on this one) will not be able
+    # to find CallbackInterface when it is imported.
+    idl_import_root = "src",
+)
+
+# MyParcelable.aidl is imported by MyInterface.aidl, so the generated
+# MyInterface.java requires MyParcelable.class at compile time.
+# Depending on :parcelable ensures that aidl compilation of MyInterface.aidl
+# specifies the correct import roots and can access MyParcelable.aidl, and
+# makes MyParcelable.class available to Java compilation of MyInterface.java
+# as usual.
+android_library(
+    name = "idl",
+    idl_srcs = ["MyInterface.aidl"],
+    deps = [":parcelable"],
+)
+
+# Here, ServiceParcelable uses and thus depends on ParcelableService,
+# when it's compiled, but ParcelableService also uses ServiceParcelable,
+# which creates a circular dependency.
+# As a result, these files must be compiled together, in the same android_library.
+android_library(
+    name = "circular_dependencies",
+    srcs = ["ServiceParcelable.java"],
+    idl_srcs = ["ParcelableService.aidl"],
+    idl_parcelables = ["ServiceParcelable.aidl"],
+)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.7.1/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` The list of other libraries to link against. Permitted library types are: `android_library`, `java_library` with `android` constraint and `cc_library` wrapping or producing `.so` native libraries for the Android target platform. |
+| `srcs` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` The list of `.java` or `.srcjar` files that are processed to create the target. `srcs` files of type `.java` are compiled. *For readability's sake*, it is not good to put the name of a generated `.java` source file into the `srcs`. Instead, put the depended-on rule name in the `srcs`, as described below.  `srcs` files of type `.srcjar` are unpacked and compiled. (This is useful if you need to generate a set of .java files with a genrule or build extension.)  If `srcs` is omitted, then any dependency specified in `deps` is exported from this rule (see [java\_library's exports](/versions/7.7.1/reference/be/java#java_library.exports) for more information about exporting dependencies). However, this behavior will be deprecated soon; try not to rely on it. |
+| `assets` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` The list of assets to be packaged. This is typically a `glob` of all files under the `assets` directory. You can also reference other rules (any rule that produces files) or exported files in the other packages, as long as all those files are under the `assets_dir` directory in the corresponding package. |
+| `assets_dir` | String; default is `""` The string giving the path to the files in `assets`. The pair `assets` and `assets_dir` describe packaged assets and either both attributes should be provided or none of them. |
+| `custom_package` | String; default is `""` Java package for which java sources will be generated. By default the package is inferred from the directory where the BUILD file containing the rule is. You can specify a different package but this is highly discouraged since it can introduce classpath conflicts with other libraries that will only be detected at runtime. |
+| `enable_data_binding` | Boolean; default is `False` If true, this rule processes [data binding](https://developer.android.com/topic/libraries/data-binding/index.html) expressions in layout resources included through the [resource\_files](/versions/7.7.1/reference/be/android#android_binary.resource_files) attribute. Without this setting, data binding expressions produce build failures. To build an Android app with data binding, you must also do the following:  1. Set this attribute for all Android rules that transitively depend on this one.    This is because dependers inherit the rule's data binding expressions through resource    merging. So they also need to build with data binding to parse those expressions.- Add a `deps =` entry for the data binding runtime library to all targets      that set this attribute. The location of this library depends on your depot setup. |
+| `exported_plugins` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` The list of `java_plugin`s (e.g. annotation processors) to export to libraries that directly depend on this library. The specified list of `java_plugin`s will be applied to any library which directly depends on this library, just as if that library had explicitly declared these labels in `plugins`. |
+| `exports` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` The closure of all rules reached via `exports` attributes are considered direct dependencies of any rule that directly depends on the target with `exports`. The `exports` are not direct deps of the rule they belong to. |
+| `exports_manifest` | Integer; default is `1` Whether to export manifest entries to `android_binary` targets that depend on this target. `uses-permissions` attributes are never exported. |
+| `idl_import_root` | String; default is `""` Package-relative path to the root of the java package tree containing idl sources included in this library. This path will be used as the import root when processing idl sources that depend on this library.  When `idl_import_root` is specified, both `idl_parcelables` and `idl_srcs` must be at the path specified by the java package of the object they represent under `idl_import_root`. When `idl_import_root` is not specified, both `idl_parcelables` and `idl_srcs` must be at the path specified by their package under a Java root.  See [examples](android#android_library_examples.idl_import_root). |
+| `idl_parcelables` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` List of Android IDL definitions to supply as imports. These files will be made available as imports for any `android_library` target that depends on this library, directly or via its transitive closure, but will not be translated to Java or compiled. Only `.aidl` files that correspond directly to `.java` sources in this library should be included (e.g., custom implementations of Parcelable), otherwise `idl_srcs` should be used.  These files must be placed appropriately for the aidl compiler to find them. See [the description of idl\_import\_root](/versions/7.7.1/reference/be/android#android_library.idl_import_root) for information about what this means. |
+| `idl_preprocessed` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` List of preprocessed Android IDL definitions to supply as imports. These files will be made available as imports for any `android_library` target that depends on this library, directly or via its transitive closure, but will not be translated to Java or compiled. Only preprocessed `.aidl` files that correspond directly to `.java` sources in this library should be included (e.g., custom implementations of Parcelable), otherwise use `idl_srcs` for Android IDL definitions that need to be translated to Java interfaces and use `idl_parcelable` for non-preprocessed AIDL files. |
+| `idl_srcs` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` List of Android IDL definitions to translate to Java interfaces. After the Java interfaces are generated, they will be compiled together with the contents of `srcs`. These files will be made available as imports for any `android_library` target that depends on this library, directly or via its transitive closure.  These files must be placed appropriately for the aidl compiler to find them. See [the description of idl\_import\_root](/versions/7.7.1/reference/be/android#android_library.idl_import_root) for information about what this means. |
+| `javacopts` | List of strings; default is `[]` Extra compiler options for this target. Subject to ["Make variable"](/versions/7.7.1/reference/be/make-variables) substitution and [Bourne shell tokenization](/versions/7.7.1/reference/be/common-definitions#sh-tokenization). These compiler options are passed to javac after the global compiler options. |
+| `manifest` | [Label](/versions/7.7.1/concepts/labels); default is `None` The name of the Android manifest file, normally `AndroidManifest.xml`. Must be defined if resource\_files or assets are defined. |
+| `neverlink` | Boolean; default is `False` Only use this library for compilation and not at runtime. The outputs of a rule marked as `neverlink` will not be used in `.apk` creation. Useful if the library will be provided by the runtime environment during execution. |
+| `plugins` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` Java compiler plugins to run at compile-time. Every `java_plugin` specified in the plugins attribute will be run whenever this target is built. Resources generated by the plugin will be included in the result jar of the target. |
+| `proguard_specs` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` Files to be used as Proguard specification. These will describe the set of specifications to be used by Proguard. If specified, they will be added to any `android_binary` target depending on this library. The files included here must only have idempotent rules, namely -dontnote, -dontwarn, assumenosideeffects, and rules that start with -keep. Other options can only appear in `android_binary`'s proguard\_specs, to ensure non-tautological merges. |
+| `resource_files` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` The list of resources to be packaged. This is typically a `glob` of all files under the `res` directory.   Generated files (from genrules) can be referenced by [Label](/versions/7.7.1/concepts/labels) here as well. The only restriction is that the generated outputs must be under the same "`res`" directory as any other resource files that are included. |
+
+## android\_instrumentation\_test
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/rules/android/AndroidInstrumentationTestBaseRule.java)
+
+```
+android_instrumentation_test(name, data, args, compatible_with, deprecation, distribs, env, env_inherit, exec_compatible_with, exec_properties, features, flaky, licenses, local, restricted_to, shard_count, size, support_apks, tags, target_compatible_with, target_device, test_app, testonly, timeout, toolchains, visibility)
+```
+
+An `android_instrumentation_test` rule runs Android instrumentation tests. It will
+start an emulator, install the application being tested, the test application, and
+any other needed applications, and run the tests defined in the test package.
+
+The [test\_app](/versions/7.7.1/reference/be/android#android_instrumentation_test.test_app) attribute specifies the
+`android_binary` which contains the test. This `android_binary` in turn
+specifies the `android_binary` application under test through its
+[instruments](/versions/7.7.1/reference/be/android#android_binary.instruments) attribute.
+
+#### Example
+
+```
+# java/com/samples/hello_world/BUILD
+
+android_library(
+    name = "hello_world_lib",
+    srcs = ["Lib.java"],
+    manifest = "LibraryManifest.xml",
+    resource_files = glob(["res/**"]),
+)
+
+# The app under test
+android_binary(
+    name = "hello_world_app",
+    manifest = "AndroidManifest.xml",
+    deps = [":hello_world_lib"],
+)
+```
+
+```
+# javatests/com/samples/hello_world/BUILD
+
+android_library(
+    name = "hello_world_test_lib",
+    srcs = ["Tests.java"],
+    deps = [
+      "//java/com/samples/hello_world:hello_world_lib",
+      ...  # test dependencies such as Espresso and Mockito
+    ],
+)
+
+# The test app
+android_binary(
+    name = "hello_world_test_app",
+    instruments = "//java/com/samples/hello_world:hello_world_app",
+    manifest = "AndroidManifest.xml",
+    deps = [":hello_world_test_lib"],
+)
+
+android_instrumentation_test(
+    name = "hello_world_uiinstrumentation_tests",
+    target_device = ":some_target_device",
+    test_app = ":hello_world_test_app",
+)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.7.1/concepts/labels#target-names); required  A unique name for this target. |
+| `support_apks` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` Other APKs to install on the device before the instrumentation test starts. |
+| `target_device` | [Label](/versions/7.7.1/concepts/labels); required  The [android\_device](/versions/7.7.1/reference/be/android#android_device) the test should run on.  To run the test on an emulator that is already running or on a physical device, use these arguments: `--test_output=streamed --test_arg=--device_broker_type=LOCAL_ADB_SERVER --test_arg=--device_serial_number=$device_identifier` |
+| `test_app` | [Label](/versions/7.7.1/concepts/labels); required The [android\_binary](/versions/7.7.1/reference/be/android#android_binary) target containing the test classes. The `android_binary` target must specify which target it is testing through its [`instruments`](/versions/7.7.1/reference/be/android#android_binary.instruments) attribute. |
+
+## android\_local\_test
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/bazel/rules/android/BazelAndroidLocalTestRule.java)
+
+```
+android_local_test(name, deps, srcs, data, args, compatible_with, custom_package, densities, deprecation, enable_data_binding, env, env_inherit, exec_compatible_with, exec_properties, features, flaky, javacopts, jvm_flags, licenses, local, manifest, manifest_values, nocompress_extensions, plugins, resource_configuration_filters, resource_jars, resource_strip_prefix, restricted_to, runtime_deps, shard_count, size, stamp, tags, target_compatible_with, test_class, testonly, timeout, toolchains, use_launcher, visibility)
+```
+
+This rule is for unit testing `android_library` rules locally
+(as opposed to on a device).
+It works with the Android Robolectric testing framework.
+See the [Android Robolectric](http://robolectric.org/) site for details about
+writing Robolectric tests.
+
+#### Implicit output targets
+
+* `name.jar`: A Java archive of the test.
+* `name-src.jar`: An archive containing the sources
+  ("source jar").
+* `name_deploy.jar`: A Java deploy archive suitable
+  for deployment (only built if explicitly requested).
+
+#### Examples
+
+To use Robolectric with `android_local_test`, add
+[Robolectric's
+repository](https://github.com/robolectric/robolectric-bazel/tree/master/bazel) to your `WORKSPACE` file:
+
+```
+http_archive(
+    name = "robolectric",
+    urls = ["https://github.com/robolectric/robolectric-bazel/archive/<COMMIT>.tar.gz"],
+    strip_prefix = "robolectric-bazel-<COMMIT>",
+    sha256 = "<HASH>",
+)
+load("@robolectric//bazel:robolectric.bzl", "robolectric_repositories")
+robolectric_repositories()
+```
+
+This pulls in the `maven_jar` rules needed for Robolectric.
+Then each `android_local_test` rule should depend on
+`@robolectric//bazel:robolectric`. See example below.
+
+```
+android_local_test(
+    name = "SampleTest",
+    srcs = [
+        "SampleTest.java",
+    ],
+    manifest = "LibManifest.xml",
+    deps = [
+        ":sample_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+android_library(
+    name = "sample_test_lib",
+    srcs = [
+         "Lib.java",
+    ],
+    resource_files = glob(["res/**"]),
+    manifest = "AndroidManifest.xml",
+)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.7.1/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` The list of libraries to be tested as well as additional libraries to be linked in to the target. All resources, assets and manifest files declared in Android rules in the transitive closure of this attribute are made available in the test. The list of allowed rules in `deps` are `android_library`, `aar_import`, `java_import`, `java_library`, and `java_lite_proto_library`. |
+| `srcs` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` The list of source files that are processed to create the target. Required except in special case described below. `srcs` files of type `.java` are compiled. *For readability's sake*, it is not good to put the name of a generated `.java` source file into the `srcs`. Instead, put the depended-on rule name in the `srcs`, as described below.  `srcs` files of type `.srcjar` are unpacked and compiled. (This is useful if you need to generate a set of .java files with a genrule or build extension.)  All other files are ignored, as long as there is at least one file of a file type described above. Otherwise an error is raised.  The `srcs` attribute is required and cannot be empty, unless `runtime_deps` is specified. |
+| `custom_package` | String; default is `""` Java package in which the R class will be generated. By default the package is inferred from the directory where the BUILD file containing the rule is. If you use this attribute, you will likely need to use `test_class` as well. |
+| `densities` | List of strings; default is `[]` Densities to filter for when building the apk. A corresponding compatible-screens section will also be added to the manifest if it does not already contain a superset StarlarkListing. |
+| `enable_data_binding` | Boolean; default is `False` If true, this rule processes [data binding](https://developer.android.com/topic/libraries/data-binding/index.html) references used in data-binding enabled dependencies used by this test. Without this setting, data-binding dependencies won't have necessary binary-level code generation, and may produce build failures. |
+| `javacopts` | List of strings; default is `[]` Extra compiler options for this library. Subject to ["Make variable"](make-variables) substitution and [Bourne shell tokenization](common-definitions#sh-tokenization). These compiler options are passed to javac after the global compiler options. |
+| `jvm_flags` | List of strings; default is `[]` A list of flags to embed in the wrapper script generated for running this binary. Subject to [$(location)](/versions/7.7.1/reference/be/make-variables#location) and ["Make variable"](make-variables) substitution, and [Bourne shell tokenization](common-definitions#sh-tokenization). The wrapper script for a Java binary includes a CLASSPATH definition (to find all the dependent jars) and invokes the right Java interpreter. The command line generated by the wrapper script includes the name of the main class followed by a `"$@"` so you can pass along other arguments after the classname. However, arguments intended for parsing by the JVM must be specified *before* the classname on the command line. The contents of `jvm_flags` are added to the wrapper script before the classname is listed.  Note that this attribute has *no effect* on `*_deploy.jar` outputs. |
+| `manifest` | [Label](/versions/7.7.1/concepts/labels); default is `None` The name of the Android manifest file, normally `AndroidManifest.xml`. Must be defined if resource\_files or assets are defined or if any of the manifests from the libraries under test have a `minSdkVersion` tag in them. |
+| `manifest_values` | Dictionary: String -> String; default is `{}` A dictionary of values to be overridden in the manifest. Any instance of ${name} in the manifest will be replaced with the value corresponding to name in this dictionary. `applicationId`, `versionCode`, `versionName`, `minSdkVersion`, `targetSdkVersion` and `maxSdkVersion` will also override the corresponding attributes of the manifest and uses-sdk tags. `packageName` will be ignored and will be set from either `applicationId` if specified or the package in the manifest. It is not necessary to have a manifest on the rule in order to use manifest\_values. |
+| `nocompress_extensions` | List of strings; default is `[]` A list of file extensions to leave uncompressed in the resource apk. |
+| `plugins` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` Java compiler plugins to run at compile-time. Every `java_plugin` specified in this attribute will be run whenever this rule is built. A library may also inherit plugins from dependencies that use `exported_plugins`. Resources generated by the plugin will be included in the resulting jar of this rule. |
+| `resource_configuration_filters` | List of strings; default is `[]` A list of resource configuration filters, such as 'en' that will limit the resources in the apk to only the ones in the 'en' configuration. |
+| `resource_jars` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` Deprecated: Use java\_import and deps or runtime\_deps instead. |
+| `resource_strip_prefix` | String; default is `""` The path prefix to strip from Java resources. If specified, this path prefix is stripped from every file in the `resources` attribute. It is an error for a resource file not to be under this directory. If not specified (the default), the path of resource file is determined according to the same logic as the Java package of source files. For example, a source file at `stuff/java/foo/bar/a.txt` will be located at `foo/bar/a.txt`. |
+| `runtime_deps` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` Libraries to make available to the final binary or test at runtime only. Like ordinary `deps`, these will appear on the runtime classpath, but unlike them, not on the compile-time classpath. Dependencies needed only at runtime should be listed here. Dependency-analysis tools should ignore targets that appear in both `runtime_deps` and `deps`. |
+| `stamp` | Integer; default is `0` Whether to encode build information into the binary. Possible values:  * `stamp = 1`: Always stamp the build information into the binary, even in   [`--nostamp`](/versions/7.7.1/docs/user-manual#flag--stamp) builds. **This   setting should be avoided**, since it potentially kills remote caching for the   binary and any downstream actions that depend on it. * `stamp = 0`: Always replace build information by constant values. This   gives good build result caching. * `stamp = -1`: Embedding of build information is controlled by the   [`--[no]stamp`](/versions/7.7.1/docs/user-manual#flag--stamp) flag.   Stamped binaries are *not* rebuilt unless their dependencies change. |
+| `test_class` | String; default is `""` The Java class to be loaded by the test runner.  This attribute specifies the name of a Java class to be run by this test. It is rare to need to set this. If this argument is omitted, the Java class whose name corresponds to the `name` of this `android_local_test` rule will be used. The test class needs to be annotated with `org.junit.runner.RunWith`. |
+| `use_launcher` | Boolean; default is `True` Whether the binary should use a custom launcher. If this attribute is set to false, the [launcher](/versions/7.7.1/reference/be/java#java_binary.launcher) attribute and the related [`--java_launcher`](/versions/7.7.1/docs/user-manual#flag--java_launcher) flag will be ignored for this target. |
+
+## android\_device
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/rules/android/AndroidDeviceRule.java)
+
+```
+android_device(name, cache, compatible_with, default_properties, deprecation, distribs, exec_compatible_with, exec_properties, features, horizontal_resolution, licenses, platform_apks, ram, restricted_to, screen_density, system_image, tags, target_compatible_with, testonly, vertical_resolution, visibility, vm_heap)
+```
+
+This rule creates an android emulator configured with the given
+specifications. This emulator may be started via a bazel run
+command or by executing the generated script directly. It is encouraged to depend
+on existing android\_device rules rather than defining your own.
+
+This rule is a suitable target for the --run\_under flag to bazel test and blaze
+run. It starts an emulator, copies the target being tested/run to the emulator,
+and tests it or runs it as appropriate.
+
+`android_device` supports creating KVM images if the underlying
+[system\_image](/versions/7.7.1/reference/be/android#android_device.system_image) is X86 based and is
+optimized for at most the I686 CPU architecture. To use KVM add
+ `tags = ['requires-kvm']`  to the `android_device` rule.
+
+#### Implicit output targets
+
+* `name_images/userdata.dat`:
+  Contains image files and snapshots to start the emulator
+* `name_images/emulator-meta-data.pb`:
+  Contains serialized information necessary to pass on to the emulator to
+  restart it.
+
+#### Examples
+
+The following example shows how to use android\_device.
+`//java/android/helloandroid/BUILD` contains
+
+```
+android_device(
+    name = "nexus_s",
+    cache = 32,
+    default_properties = "nexus_s.properties",
+    horizontal_resolution = 480,
+    ram = 512,
+    screen_density = 233,
+    system_image = ":emulator_images_android_16_x86",
+    vertical_resolution = 800,
+    vm_heap = 32,
+)
+
+filegroup(
+    name = "emulator_images_android_16_x86",
+    srcs = glob(["androidsdk/system-images/android-16/**"]),
+)
+```
+
+`//java/android/helloandroid/nexus_s.properties` contains:
+
+```
+ro.product.brand=google
+ro.product.device=crespo
+ro.product.manufacturer=samsung
+ro.product.model=Nexus S
+ro.product.name=soju
+```
+
+This rule will generate images and a start script. You can start the emulator
+locally by executing bazel run :nexus\_s -- --action=start. The script exposes
+the following flags:
+
+* --adb\_port: The port to expose adb on. If you wish to issue adb
+  commands to the emulator this is the port you will issue adb connect
+  to.
+* --emulator\_port: The port to expose the emulator's telnet management
+  console on.
+* --enable\_display: Starts the emulator with a display if true (defaults
+  to false).
+* --action: Either start or kill.
+* --apks\_to\_install: a list of apks to install on the emulator.
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.7.1/concepts/labels#target-names); required  A unique name for this target. |
+| `cache` | Integer; required The size in megabytes of the emulator's cache partition. The minimum value of this is 16 megabytes. |
+| `default_properties` | [Label](/versions/7.7.1/concepts/labels); default is `None` A single properties file to be placed in /default.prop on the emulator. This allows the rule author to further configure the emulator to appear more like a real device (In particular controlling its UserAgent strings and other behaviour that might cause an application or server to behave differently to a specific device). The properties in this file will override read only properties typically set by the emulator such as ro.product.model. |
+| `horizontal_resolution` | Integer; required The horizontal screen resolution in pixels to emulate. The minimum value is 240. |
+| `platform_apks` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]` A list of apks to be installed on the device at boot time. |
+| `ram` | Integer; required The amount of ram in megabytes to emulate for the device. This is for the entire device, not just for a particular app installed on the device. The minimum value is 64 megabytes. |
+| `screen_density` | Integer; required The density of the emulated screen in pixels per inch. The minimum value of this is 30 ppi. |
+| `system_image` | [Label](/versions/7.7.1/concepts/labels); required A filegroup containing the following files:  * system.img: The system partition * kernel-qemu: The Linux kernel the emulator will load * ramdisk.img: The initrd image to use at boot time * userdata.img: The initial userdata partition * source.properties: A properties file containing information about the   images  These files are part of the android sdk or provided by third parties (for example Intel provides x86 images). |
+| `vertical_resolution` | Integer; required The vertical screen resolution in pixels to emulate. The minimum value is 240. |
+| `vm_heap` | Integer; required The size in megabytes of the virtual machine heap Android will use for each process. The minimum value is 16 megabytes. |
+
+## android\_ndk\_repository
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/bazel/rules/android/AndroidNdkRepositoryRule.java)
+
+```
+android_ndk_repository(name, api_level, path, repo_mapping)
+```
+
+Configures Bazel to use an Android NDK to support building Android targets with native
+code.
+
+Note that this implementation of `android_ndk_repository` is being replaced by an
+implementation in Starlark. Support for future versions of the NDK including version 25 and up will
+be implemented in the Starlark version of `android_ndk_repository`. See
+[rules\_android\_ndk](https://github.com/bazelbuild/rules_android_ndk) for the Starlark
+version.
+
+Note that building for Android also requires an `android_sdk_repository` rule in your
+`WORKSPACE` file.
+
+For more information, read the [full documentation on using Android NDK with Bazel](https://bazel.build/versions/7.7.1/docs/android-ndk).
+
+#### Examples
+
+```
+android_ndk_repository(
+    name = "androidndk",
+)
+```
+
+The above example will locate your Android NDK from `$ANDROID_NDK_HOME` and detect
+the highest API level that it supports.
+
+```
+android_ndk_repository(
+    name = "androidndk",
+    path = "./android-ndk-r20",
+    api_level = 24,
+)
+```
+
+The above example will use the Android NDK located inside your workspace in
+`./android-ndk-r20`. It will use the API level 24 libraries when compiling your JNI
+code.
+
+#### cpufeatures
+
+The Android NDK contains the
+[cpufeatures library](https://developer.android.com/ndk/guides/cpu-features.html)
+which can be used to detect a device's CPU at runtime. The following example demonstrates how to use
+cpufeatures with Bazel.
+
+```
+# jni.cc
+#include "ndk/sources/android/cpufeatures/cpu-features.h"
+...
+```
+
+```
+# BUILD
+cc_library(
+    name = "jni",
+    srcs = ["jni.cc"],
+    deps = ["@androidndk//:cpufeatures"],
+)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.7.1/concepts/labels#target-names); required  A unique name for this target. |
+| `api_level` | Integer; [nonconfigurable](common-definitions#configurable-attributes); default is `0` The Android API level to build against. If not specified, the highest API level installed will be used. |
+| `path` | String; [nonconfigurable](common-definitions#configurable-attributes); default is `""` An absolute or relative path to an Android NDK. Either this attribute or the `$ANDROID_NDK_HOME` environment variable must be set. The Android NDK can be downloaded from [the Android developer site](https://developer.android.com/ndk/downloads/index.html). |
+| `repo_mapping` | Dictionary: String -> String; default is `{}` A dictionary from local repository name to global repository name. This allows controls over workspace dependency resolution for dependencies of this repository. For example, an entry `"@foo": "@bar"` declares that, for any time this repository depends on `"@foo"` (such as a dependency on `"@foo//some:target"`), it should actually resolve that dependency within globally-declared `"@bar"` (`"@bar//some:target"`). |
+
+## android\_sdk\_repository
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/bazel/rules/android/AndroidSdkRepositoryRule.java)
+
+```
+android_sdk_repository(name, api_level, build_tools_version, path, repo_mapping)
+```
+
+Configures Bazel to use a local Android SDK to support building Android targets.
+
+#### Examples
+
+The minimum to set up an Android SDK for Bazel is to put an `android_sdk_repository` rule
+named "androidsdk" in your `WORKSPACE` file and set the `$ANDROID_HOME`
+environment variable to the path of your Android SDK. Bazel will use the highest Android API level
+and build tools version installed in the Android SDK by default.
+
+```
+android_sdk_repository(
+    name = "androidsdk",
+)
+```
+
+To ensure reproducible builds, the `path`, `api_level` and
+`build_tools_version` attributes can be set to specific values. The build will fail if
+the Android SDK does not have the specified API level or build tools version installed.
+
+```
+android_sdk_repository(
+    name = "androidsdk",
+    path = "./sdk",
+    api_level = 19,
+    build_tools_version = "25.0.0",
+)
+```
+
+The above example also demonstrates using a workspace-relative path to the Android SDK. This is
+useful if the Android SDK is part of your Bazel workspace (e.g. if it is checked into version
+control).
+
+#### Support Libraries
+
+The Support Libraries are available in the Android SDK Manager as "Android Support Repository".
+This is a versioned set of common Android libraries, such as the Support and AppCompat libraries,
+that is packaged as a local Maven repository. `android_sdk_repository` generates Bazel
+targets for each of these libraries that can be used in the dependencies of
+`android_binary` and `android_library` targets.
+
+The names of the generated targets are derived from the Maven coordinates of the libraries in the
+Android Support Repository, formatted as `@androidsdk//${group}:${artifact}-${version}`.
+The following example shows how an `android_library` can depend on version 25.0.0 of the
+v7 appcompat library.
+
+```
+android_library(
+    name = "lib",
+    srcs = glob(["*.java"]),
+    manifest = "AndroidManifest.xml",
+    resource_files = glob(["res/**"]),
+    deps = ["@androidsdk//com.android.support:appcompat-v7-25.0.0"],
+)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/7.7.1/concepts/labels#target-names); required  A unique name for this target. |
+| `api_level` | Integer; [nonconfigurable](common-definitions#configurable-attributes); default is `0` The Android API level to build against by default. If not specified, the highest API level installed will be used. The API level used for a given build can be overridden by the `android_sdk` flag. `android_sdk_repository` creates an `android_sdk` target for each API level installed in the SDK with name `@androidsdk//:sdk-${level}`, whether or not this attribute is specified. For example, to build against a non-default API level: `bazel build --android_sdk=@androidsdk//:sdk-19 //java/com/example:app`. To view all `android_sdk` targets generated by `android_sdk_repository`, you can run `bazel query "kind(android_sdk, @androidsdk//...)"`. |
+| `build_tools_version` | String; [nonconfigurable](common-definitions#configurable-attributes); default is `""` The version of the Android build tools to use from within the Android SDK. If not specified, the latest build tools version installed will be used. Bazel requires build tools version 30.0.0 or later. |
+| `path` | String; [nonconfigurable](common-definitions#configurable-attributes); default is `""` An absolute or relative path to an Android SDK. Either this attribute or the `$ANDROID_HOME` environment variable must be set. The Android SDK can be downloaded from [the Android developer site](https://developer.android.com). |
+| `repo_mapping` | Dictionary: String -> String; default is `{}` A dictionary from local repository name to global repository name. This allows controls over workspace dependency resolution for dependencies of this repository. For example, an entry `"@foo": "@bar"` declares that, for any time this repository depends on `"@foo"` (such as a dependency on `"@foo//some:target"`), it should actually resolve that dependency within globally-declared `"@bar"` (`"@bar//some:target"`). |

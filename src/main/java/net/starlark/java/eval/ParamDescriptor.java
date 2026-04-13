@@ -232,9 +232,15 @@ final class ParamDescriptor {
     }
 
     // We can't evaluate Starlark code until UNIVERSE is bootstrapped.
-    if (Starlark.UNIVERSE == null) {
-      throw new IllegalStateException("no bootstrap value for " + name + "=" + expr);
-    }
+    Preconditions.checkState(
+        Starlark.UNIVERSE != null,
+        """
+        Attempted to evaluate a builtin method's parameter's default expr ('%s = %s'), prior to \
+        static initialization of Starlark.UNIVERSE. Either avoid this initialization cycle or else \
+        add the expr to the bootstrap list in ParamDescriptor#evalDefault.\
+        """,
+        name,
+        expr);
 
     Module module = Module.create();
     try (Mutability mu = Mutability.create("Builtin param default init")) {

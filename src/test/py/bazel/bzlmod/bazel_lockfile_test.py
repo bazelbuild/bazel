@@ -3152,6 +3152,106 @@ class BazelLockfileTest(test_base.TestBase):
     facts = lockfile['facts']
     self.assertEqual(len(facts), 2)
 
+  def testFactsWithLockfileModeErrorAfterRollback(self):
+    """Test that ERROR mode doesn't fail when rolling back to a version without facts.
+
+    Regression test for https://github.com/bazelbuild/bazel/issues/28717
+
+    Simulates the scenario:
+    1. Build with extension that produces facts (e.g., rules_go 0.60.0)
+    2. Rollback to older version without facts (e.g., rules_go 0.50.1)
+    3. Build with --lockfile_mode=error should succeed, not fail with
+       "extension has changed its facts" error
+    """
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
+            'repo_rule = repository_rule(',
+            '    implementation = impl,',
+            '    attrs = {"hash": attr.string()},',
+            ')',
+            'def _mod_ext_impl(ctx):',
+            '    print("Extension with facts")',
+            '    metadata = {"hello": {"hash": "olleh"}}',
+            '    repo_rule(',
+            '        name = "hello",',
+            '        hash = metadata["hello"]["hash"],',
+            '    )',
+            '    return ctx.extension_metadata(',
+            '        reproducible = True,',
+            '        facts = metadata,',
+            '    )',
+            'lockfile_ext = module_extension(implementation = _mod_ext_impl)',
+        ],
+    )
+
+    # Initial build with facts - creates both workspace and hidden lockfiles
+    self.RunBazel(['build', '@hello//:all', '--lockfile_mode=update'])
+
+    # Verify facts are in the lockfile
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+    self.assertIn('facts', lockfile)
+    extension_id = '//:extension.bzl%lockfile_ext'
+    self.assertIn(extension_id, lockfile['facts'])
+
+    # Verify ERROR mode works with facts present
+    self.RunBazel(['build', '@hello//:all', '--lockfile_mode=error'])
+
+    # Simulate rollback: change extension to not produce facts
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
+            'repo_rule = repository_rule(',
+            '    implementation = impl,',
+            '    attrs = {"hash": attr.string()},',
+            ')',
+            'def _mod_ext_impl(ctx):',
+            '    print("Extension without facts")',
+            '    repo_rule(',
+            '        name = "hello",',
+            '        hash = "olleh",',
+            '    )',
+            '    return ctx.extension_metadata(',
+            '        reproducible = True,',
+            '    )',
+            'lockfile_ext = module_extension(implementation = _mod_ext_impl)',
+        ],
+    )
+
+    # Simulate rollback: manually remove facts from workspace lockfile
+    # (as would happen when checking out an older commit)
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+    if extension_id in lockfile['facts']:
+      del lockfile['facts'][extension_id]
+    with open(self.Path('MODULE.bazel.lock'), 'w') as f:
+      json.dump(lockfile, f, indent=2)
+
+    # This should succeed without "has changed its facts" error
+    # Before the fix, this would fail because the hidden lockfile still has
+    # facts from the previous build, causing a false-positive validation error
+    exit_code, stdout, stderr = self.RunBazel(
+        ['build', '@hello//:all', '--lockfile_mode=error'], allow_failure=True
+    )
+    stderr = ''.join(stderr)
+    # Should succeed (exit code 0)
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    # Should not have "has changed its facts" error
+    self.assertNotIn('has changed its facts', stderr)
+
 
 if __name__ == '__main__':
   absltest.main()

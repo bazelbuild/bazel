@@ -14,11 +14,13 @@
 
 package com.google.devtools.build.lib.buildeventservice.client;
 
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
-import com.google.common.util.concurrent.Futures;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -32,7 +34,6 @@ import io.grpc.CallCredentials;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
 import io.grpc.Status;
-import io.grpc.StatusException;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.AbstractStub;
 import io.grpc.stub.StreamObserver;
@@ -41,6 +42,9 @@ import javax.annotation.Nullable;
 
 /** Implementation of BuildEventServiceClient that uploads data using gRPC. */
 public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
+  private static final ImmutableSet<Status.Code> NON_RETRYABLE_STATUS_CODES =
+      ImmutableSet.of(Status.Code.INVALID_ARGUMENT, Status.Code.PERMISSION_DENIED);
+
   /** Max wait time for a single non-streaming RPC to finish */
   private static final Duration RPC_TIMEOUT = Duration.ofSeconds(15);
 
@@ -79,7 +83,7 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
 
   @Override
   public void publish(CommandContext commandContext, LifecycleEvent lifecycleEvent)
-      throws StatusException, InterruptedException {
+      throws StreamException, InterruptedException {
     PublishLifecycleEventRequest request =
         BuildEventServiceProtoUtil.publishLifecycleEventRequest(commandContext, lifecycleEvent);
     throwIfInterrupted();
@@ -96,13 +100,14 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
           .publishLifecycleEvent(request);
     } catch (StatusRuntimeException e) {
       Throwables.throwIfInstanceOf(Throwables.getRootCause(e), InterruptedException.class);
-      throw e.getStatus().asException();
+      Status status = Status.fromThrowable(e);
+      throw new StreamException(new GrpcStreamStatus(status), e);
     }
   }
 
   private static class BESGrpcStreamContext implements StreamContext {
     private final StreamObserver<PublishBuildToolEventStreamRequest> stream;
-    private final SettableFuture<Status> streamStatus;
+    private final SettableFuture<StreamStatus> streamStatus;
     private final CommandContext commandContext;
 
     public BESGrpcStreamContext(
@@ -127,23 +132,22 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
 
                     @Override
                     public void onError(Throwable t) {
-                      Status error = Status.fromThrowable(t);
-                      if (error.getCode() == Status.CANCELLED.getCode()
-                          && error.getCause() != null
-                          && Status.fromThrowable(error.getCause()).getCode()
+                      Status status = Status.fromThrowable(t);
+                      if (status.getCode() == Status.CANCELLED.getCode()
+                          && status.getCause() != null
+                          && Status.fromThrowable(status.getCause()).getCode()
                               != Status.UNKNOWN.getCode()) {
                         // gRPC likes to wrap Status(Runtime)Exceptions in StatusRuntimeExceptions.
-                        // If
-                        // the status is cancelled and has a Status(Runtime)Exception as a cause it
-                        // means the error was generated client side.
-                        error = Status.fromThrowable(error.getCause());
+                        // If the status is cancelled and has a Status(Runtime)Exception as a cause,
+                        // it means the error was generated client side.
+                        status = Status.fromThrowable(status.getCause());
                       }
-                      streamStatus.set(error);
+                      streamStatus.set(new GrpcStreamStatus(status));
                     }
 
                     @Override
                     public void onCompleted() {
-                      streamStatus.set(Status.OK);
+                      streamStatus.set(GrpcStreamStatus.OK);
                     }
                   });
     }
@@ -158,7 +162,7 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
         stream.onNext(request);
       } catch (StatusRuntimeException e) {
         Throwables.throwIfInstanceOf(Throwables.getRootCause(e), InterruptedException.class);
-        streamStatus.set(Status.fromThrowable(e));
+        streamStatus.set(new GrpcStreamStatus(Status.fromThrowable(e)));
       }
     }
 
@@ -168,12 +172,20 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
     }
 
     @Override
-    public void abortStream(Status status) {
+    public void abortStream(AbortReason reason, @Nullable String description) {
+      Status status =
+          switch (reason) {
+            case CANCELLED -> Status.CANCELLED;
+            case FAILED_PRECONDITION -> Status.FAILED_PRECONDITION;
+          };
+      if (description != null) {
+        status = status.withDescription(description);
+      }
       stream.onError(status.asException());
     }
 
     @Override
-    public ListenableFuture<Status> getStatus() {
+    public ListenableFuture<StreamStatus> getStatus() {
       return streamStatus;
     }
   }
@@ -185,10 +197,11 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
       return new BESGrpcStreamContext(besAsync, commandContext, ackCallback);
     } catch (StatusRuntimeException e) {
       Throwables.throwIfInstanceOf(Throwables.getRootCause(e), InterruptedException.class);
-      ListenableFuture<Status> status = Futures.immediateFuture(Status.fromThrowable(e));
+      ListenableFuture<StreamStatus> status =
+          immediateFuture(new GrpcStreamStatus(Status.fromThrowable(e)));
       return new StreamContext() {
         @Override
-        public ListenableFuture<Status> getStatus() {
+        public ListenableFuture<StreamStatus> getStatus() {
           return status;
         }
 
@@ -199,20 +212,45 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
         public void halfCloseStream() {}
 
         @Override
-        public void abortStream(Status status) {}
+        public void abortStream(AbortReason reason, @Nullable String description) {}
       };
     }
   }
 
-  @Override
-  public String userReadableError(Throwable t) {
-    if (t instanceof StatusException) {
-      Throwable rootCause = Throwables.getRootCause(t);
-      String message = ((StatusException) t).getStatus().getCode().name();
-      message += ": " + rootCause.getMessage();
-      return message;
-    } else {
-      return t.getMessage();
+  private static final class GrpcStreamStatus implements StreamStatus {
+    private static final GrpcStreamStatus OK = new GrpcStreamStatus(Status.OK);
+
+    private final Status status;
+
+    GrpcStreamStatus(Status status) {
+      this.status = status;
+    }
+
+    @Override
+    public boolean isOk() {
+      return status.isOk();
+    }
+
+    @Override
+    public boolean isRetriable() {
+      return !status.isOk()
+          && !NON_RETRYABLE_STATUS_CODES.contains(status.getCode())
+          && status.getCode() != Status.Code.FAILED_PRECONDITION;
+    }
+
+    @Override
+    public boolean isFailedPrecondition() {
+      return status.getCode() == Status.Code.FAILED_PRECONDITION;
+    }
+
+    @Override
+    public String getErrorMessage() {
+      StringBuilder sb = new StringBuilder();
+      sb.append(status.getCode().name());
+      if (!Strings.isNullOrEmpty(status.getDescription())) {
+        sb.append(": ").append(status.getDescription());
+      }
+      return sb.toString();
     }
   }
 

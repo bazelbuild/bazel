@@ -60,7 +60,7 @@ public class CredentialModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment env) {
     Duration defaultCacheDuration =
-        env.getOptions().getOptions(AuthAndTLSOptions.class).credentialHelperCacheTimeout;
+        env.getOptions().getOptions(AuthAndTLSOptions.class).getCredentialHelperCacheTimeout();
 
     boolean defaultCacheDurationChanged = !defaultCacheDuration.equals(lastDefaultCacheDuration);
     lastDefaultCacheDuration = defaultCacheDuration;

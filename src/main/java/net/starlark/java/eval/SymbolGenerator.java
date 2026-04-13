@@ -108,7 +108,9 @@ public final class SymbolGenerator<T> {
     private final T owner;
     private final int index;
 
-    private int lazyHashCode;
+    // This field can always be recomputed and its value depends on the hashCode of the owner, which
+    // can well be non-deterministic. So we're better off making this a transient field.
+    private transient int lazyHashCode;
 
     private LocalSymbol(T owner, int index) {
       if (owner == null) {

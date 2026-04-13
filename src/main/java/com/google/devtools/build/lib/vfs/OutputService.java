@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.ProxyMetadataFactory;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import java.io.IOException;
 import java.util.Map;
@@ -265,5 +266,49 @@ public interface OutputService {
 
   default boolean stagesTopLevelRunfiles() {
     return false;
+  }
+
+  default RewoundActionSynchronizer getRewoundActionSynchronizer() {
+    return RewoundActionSynchronizer.NOOP;
+  }
+
+  /**
+   * Provides synchronization for actions in the presence of action rewinding.
+   *
+   * <p>If an action discovers that some of its inputs have been lost, action rewinding will select
+   * actions that need to be re-executed to recover the lost inputs. Without synchronization, such
+   * actions may run concurrently with actions that consume their non-lost outputs. Depending on the
+   * particular output service and action filesystem implementation, this may lead to races, which
+   * this interface aims to prevent.
+   */
+  interface RewoundActionSynchronizer {
+    /**
+     * Guards an action from the beginning of its {@link Action#prepare preparation} until the end
+     * of its {@link Action#execute execution}.
+     */
+    SilentCloseable enterActionPreparation(Action action, boolean wasRewound)
+        throws InterruptedException;
+
+    /** Guards an action from the beginning to the end of its {@link Action#execute execution}. */
+    SilentCloseable enterActionExecution(Action action, InputMetadataProvider metadataProvider)
+        throws InterruptedException;
+
+    /**
+     * A no-op implementation of {@link RewoundActionSynchronizer}, suitable for action filesystems
+     * that support racy access to action outputs.
+     */
+    RewoundActionSynchronizer NOOP =
+        new RewoundActionSynchronizer() {
+          @Override
+          public SilentCloseable enterActionPreparation(Action action, boolean wasRewound) {
+            return () -> {};
+          }
+
+          @Override
+          public SilentCloseable enterActionExecution(
+              Action action, InputMetadataProvider metadataProvider) {
+            return () -> {};
+          }
+        };
   }
 }

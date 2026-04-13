@@ -16,11 +16,13 @@ package com.google.devtools.build.lib.windows;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Paths;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -37,7 +39,7 @@ public class WindowsPathOperationsTest {
 
   @Before
   public void setUp() throws Exception {
-    scratchRoot = new File(System.getenv("TEST_TMPDIR"), "x").getAbsolutePath();
+    scratchRoot = Paths.get(System.getenv("TEST_TMPDIR")).toAbsolutePath().toString();
     testUtil = new WindowsTestUtil(scratchRoot);
     cleanupScratchDir();
   }
@@ -146,5 +148,48 @@ public class WindowsPathOperationsTest {
     assertThat(assertThrows(IOException.class, () -> WindowsPathOperations.getLongPath(longPath)))
         .hasMessageThat()
         .contains("GetLongPathName");
+  }
+
+  @Test
+  public void testGetLongPathForFileSymlink() throws Exception {
+    testUtil.scratchFile("target.txt", "hello");
+    testUtil.createSymlinks(ImmutableMap.of("verylongname.txt", "target.txt"));
+
+    assertThat(WindowsPathOperations.getLongPath(Paths.get(scratchRoot, "verylo~1.txt").toString()))
+        .endsWith("verylongname.txt");
+  }
+
+  @Test
+  public void testGetLongPathForDirectoryJunction() throws Exception {
+    testUtil.createJunctions(ImmutableMap.of("verylongname.dir", "target.dir"));
+
+    assertThat(WindowsPathOperations.getLongPath(Paths.get(scratchRoot, "verylo~1.dir").toString()))
+        .endsWith("verylongname.dir");
+
+    testUtil.scratchDir("target.dir");
+
+    assertThat(WindowsPathOperations.getLongPath(Paths.get(scratchRoot, "verylo~1.dir").toString()))
+        .endsWith("verylongname.dir");
+  }
+
+  @Test
+  public void testGetLongPathForIntermediateDirectoryJunction() throws Exception {
+    testUtil.createJunctions(ImmutableMap.of("verylongname.dir", "target.dir"));
+
+    assertThat(
+            assertThrows(
+                IOException.class,
+                () ->
+                    WindowsPathOperations.getLongPath(
+                        Paths.get(scratchRoot, "verylo~1.dir/file.txt").toString())))
+        .hasMessageThat()
+        .contains("GetLongPathName");
+
+    testUtil.scratchFile("target.dir/file.txt", "hello");
+
+    assertThat(
+            WindowsPathOperations.getLongPath(
+                Paths.get(scratchRoot, "verylo~1.dir/file.txt").toString()))
+        .endsWith("verylongname.dir/file.txt");
   }
 }

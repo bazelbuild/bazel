@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectPropagationC
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectPropagationContextApi.RuleAttributeApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkList;
 
 /** Implementation of {@link StarlarkAspectPropagationContextApi}. */
@@ -41,7 +42,11 @@ public final record StarlarkAspectPropagationContext(
 
   /** Creates a {@link StarlarkAspectPropagationContext} for the propagation predicate. */
   public static StarlarkAspectPropagationContext createForPropagationPredicate(
-      Aspect aspect, Label label, RuleClass ruleClass, ImmutableList<String> tags) {
+      Aspect aspect,
+      Label label,
+      @Nullable Label ruleDefinitionEnvironmentLabel,
+      String ruleClassName,
+      ImmutableList<String> tags) {
 
     var ruleAttributes =
         StructProvider.STRUCT.create(
@@ -52,7 +57,9 @@ public final record StarlarkAspectPropagationContext(
     return new StarlarkAspectPropagationContext(
         createAspectPublicParams(aspect),
         new StarlarkAspectPropagationRule(
-            label, createQualifiedRuleKind(ruleClass), ruleAttributes));
+            label,
+            createQualifiedRuleKind(ruleDefinitionEnvironmentLabel, ruleClassName),
+            ruleAttributes));
   }
 
   /**
@@ -100,8 +107,13 @@ public final record StarlarkAspectPropagationContext(
   }
 
   private static QualifiedRuleKind createQualifiedRuleKind(RuleClass ruleClass) {
-    return new QualifiedRuleKind(
+    return createQualifiedRuleKind(
         ruleClass.getRuleDefinitionEnvironmentLabel(), ruleClass.getName());
+  }
+
+  private static QualifiedRuleKind createQualifiedRuleKind(
+      @Nullable Label ruleDefinitionEnvironmentLabel, String ruleClassName) {
+    return new QualifiedRuleKind(ruleDefinitionEnvironmentLabel, ruleClassName);
   }
 
   @Override
@@ -133,9 +145,10 @@ public final record StarlarkAspectPropagationContext(
     }
   }
 
-  private static record QualifiedRuleKind(Label fileLabel, String ruleName)
+  private static record QualifiedRuleKind(@Nullable Label fileLabel, String ruleName)
       implements QualifiedRuleKindApi {
     @Override
+    @Nullable
     public Label getFileLabel() {
       return fileLabel;
     }

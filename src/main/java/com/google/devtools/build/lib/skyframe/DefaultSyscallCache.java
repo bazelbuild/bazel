@@ -111,8 +111,13 @@ public final class DefaultSyscallCache implements SyscallCache {
      *
      * <p>No metrics are exported by default. If a non-null value is set, the 'stat' cache will
      * record access statistics with some overhead.
+     *
+     * @deprecated If you need this, please file an issue on the Bazel GitHub tracker. It ultimately
+     *     did not work as intended internally at Google, but it can be retained if others are using
+     *     it.
      */
     @CanIgnoreReturnValue
+    @Deprecated
     public Builder setStatCacheMetricExporter(
         LatestObjectMetricExporter<Cache<?, ?>> statCacheMetricExporter) {
       this.statCacheMetricExporter = statCacheMetricExporter;
@@ -124,8 +129,13 @@ public final class DefaultSyscallCache implements SyscallCache {
      *
      * <p>No metrics are exported by default. If a non-null value is set, the 'readdir' cache will
      * record access statistics with some overhead.
+     *
+     * @deprecated If you need this, please file an issue on the Bazel GitHub tracker. It ultimately
+     *     did not work as intended internally at Google, but it can be retained if others are using
+     *     it.
      */
     @CanIgnoreReturnValue
+    @Deprecated
     public Builder setReaddirCacheMetricExporter(
         LatestObjectMetricExporter<Cache<?, ?>> readdirCacheMetricExporter) {
       this.readdirCacheMetricExporter = readdirCacheMetricExporter;

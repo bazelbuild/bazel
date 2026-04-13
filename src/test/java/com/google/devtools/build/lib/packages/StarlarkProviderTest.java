@@ -60,7 +60,7 @@ public final class StarlarkProviderTest {
     assertThat(provider.getErrorMessageForUnknownField("foo"))
         .isEqualTo("'struct' value has no field or method 'foo'");
     assertThat(provider.isImmutable()).isFalse();
-    assertThat(Starlark.repr(provider)).isEqualTo("<provider>");
+    assertThat(Starlark.repr(provider, StarlarkSemantics.DEFAULT)).isEqualTo("<provider>");
     assertThrows(IllegalStateException.class, provider::getKey);
   }
 
@@ -76,7 +76,7 @@ public final class StarlarkProviderTest {
     assertThat(provider.getErrorMessageForUnknownField("foo"))
         .isEqualTo("'prov' value has no field or method 'foo'");
     assertThat(provider.isImmutable()).isTrue();
-    assertThat(Starlark.repr(provider)).isEqualTo("<provider>");
+    assertThat(Starlark.repr(provider, StarlarkSemantics.DEFAULT)).isEqualTo("<provider>");
     assertThat(provider.getKey()).isEqualTo(key);
   }
 

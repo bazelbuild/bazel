@@ -60,7 +60,7 @@ import javax.annotation.Nullable;
  *
  * @see java.security.MessageDigest
  */
-public final class Fingerprint {
+public final class Fingerprint implements BytesSink {
 
   // Make novel use of a CodedOutputStream, which is good at efficiently serializing data. By
   // flushing at the end of each digest we can continue to use the stream.
@@ -69,7 +69,7 @@ public final class Fingerprint {
 
   /** Creates and initializes a new instance. */
   public Fingerprint(DigestHashFunction digestFunction) {
-    messageDigest = digestFunction.cloneOrCreateMessageDigest();
+    messageDigest = digestFunction.newMessageDigest();
     // This is a lot of indirection, but CodedOutputStream does a reasonable job of converting
     // strings to bytes without creating a whole bunch of garbage, which pays off.
     codedOut =
@@ -163,6 +163,11 @@ public final class Fingerprint {
       throw new IllegalStateException("failed to write bytes", e);
     }
     return this;
+  }
+
+  @Override // implementation of BytesSink
+  public void acceptBytes(byte[] buf, int offset, int len) {
+    addBytes(buf, offset, len);
   }
 
   /** Updates the digest with a boolean value. */
@@ -343,7 +348,6 @@ public final class Fingerprint {
     // use the value from DigestHashFunction.getDefault(). However, this gets called during class
     // loading in a few places, before setDefault() has been called, so these call-sites should be
     // removed before this can be done safely.
-    return hexDigest(
-        DigestHashFunction.SHA256.cloneOrCreateMessageDigest().digest(input.getBytes(UTF_8)));
+    return hexDigest(DigestHashFunction.SHA256.newMessageDigest().digest(input.getBytes(UTF_8)));
   }
 }

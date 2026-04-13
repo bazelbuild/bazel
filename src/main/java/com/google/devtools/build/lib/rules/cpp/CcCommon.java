@@ -23,6 +23,7 @@ import java.util.regex.Pattern;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Common parts of the implementation of cc rules. */
@@ -135,7 +136,7 @@ public final class CcCommon {
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append("CoptsFilter(noCoptsPattern=");
       printer.append(noCoptsPattern == null ? "null" : noCoptsPattern.pattern());
       printer.append(", allPasses=");

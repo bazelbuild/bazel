@@ -280,7 +280,7 @@ Predefined configurations:
     built from sources (this may be useful on operating system with different
     libc)
 
-#### Configuring JVM and Java compiler flags {:#config-jvm}
+#### Configuring JVM and Java compiler flags {:#config-jvm-flags}
 
 You may configure JVM and javac flags either with flags or with
  `default_java_toolchain` attributes.

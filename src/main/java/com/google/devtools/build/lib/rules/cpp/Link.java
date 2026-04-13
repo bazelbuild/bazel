@@ -182,7 +182,7 @@ public abstract class Link {
         ArtifactCategory.EXECUTABLE,
         Executable.EXECUTABLE);
 
-    // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/target_types.bzl)
+    // LINT.ThenChange(@rules_cc//cc/private/link/target_types.bzl)
 
     private final LinkerOrArchiver linkerOrArchiver;
     private final String actionName;

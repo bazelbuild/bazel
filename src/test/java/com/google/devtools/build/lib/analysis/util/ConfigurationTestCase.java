@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.config.BaselineOptionsFunction;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -99,7 +100,6 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, outputBase),
             rootDirectory,
-            /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
 
     mockToolsConfig = new MockToolsConfig(rootDirectory);
@@ -125,23 +125,24 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     BuildOptions defaultBuildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(buildOptionClasses).clone();
-    defaultBuildOptions.get(CoreOptions.class).starlarkExecConfig =
-        TestConstants.STARLARK_EXEC_TRANSITION;
+    defaultBuildOptions
+        .get(CoreOptions.class)
+        .setStarlarkExecConfig(TestConstants.STARLARK_EXEC_TRANSITION);
     skyframeExecutor.injectExtraPrecomputedValues(
         new ImmutableList.Builder<PrecomputedValue.Injected>()
             .add(
                 PrecomputedValue.injected(
-                    PrecomputedValue.BASELINE_CONFIGURATION, defaultBuildOptions))
+                    BaselineOptionsFunction.BASELINE_CONFIGURATION, defaultBuildOptions))
             .add(
                 PrecomputedValue.injected(
                     // Reuse the build options as the baseline exec. This is technically wrong but
                     // will only impact the exec configuration output path.
-                    PrecomputedValue.BASELINE_EXEC_CONFIGURATION, defaultBuildOptions))
+                    BaselineOptionsFunction.BASELINE_EXEC_CONFIGURATION, defaultBuildOptions))
             .addAll(analysisMock.getPrecomputedValues())
             .build());
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 7;
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(7);
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
     parser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);

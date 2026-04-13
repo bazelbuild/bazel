@@ -201,6 +201,78 @@ EOF
   expect_log "ws: _main$"
 }
 
+function test_coverage_env_vars_can_be_overridden() {
+  add_rules_cc "MODULE.bazel"
+  mkdir -p foo
+
+  cat > foo/print_coverage_env.cc <<'EOF'
+#include <cstdlib>
+#include <cstdio>
+int main() {
+  const char* gcov = getenv("COVERAGE_GCOV_PATH");
+  const char* llvm = getenv("LLVM_COV");
+  const char* cc_script = getenv("CC_CODE_COVERAGE_SCRIPT");
+  printf("coverage_gcov_path: %s\n", gcov ? gcov : "(null)");
+  printf("llvm_cov: %s\n", llvm ? llvm : "(null)");
+  printf("cc_code_coverage_script: %s\n", cc_script ? cc_script : "(null)");
+  return 0;
+}
+EOF
+
+  cat > foo/BUILD <<'EOF'
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+cc_test(
+    name = "print_coverage_env",
+    srcs = ["print_coverage_env.cc"],
+)
+EOF
+
+  if is_darwin && has_ipv6_default_route; then
+    export JAVA_TOOL_OPTIONS="-Djava.net.preferIPv6Addresses=true"
+    export STARTUP_OPTS="--host_jvm_args=-Djava.net.preferIPv6Addresses=true"
+  else
+    export STARTUP_OPTS=""
+  fi
+
+  GCOV=/from/env BAZEL_LLVM_COV=/from/env bazel --ignore_all_rc_files $STARTUP_OPTS coverage --test_output=all \
+    //foo:print_coverage_env &> $TEST_log || true
+  expect_log "cc_code_coverage_script: .*collect_cc_coverage.sh"
+  expect_log "llvm_cov: /from/env"
+  expect_log "coverage_gcov_path: /from/env"
+
+  GCOV=/from/env BAZEL_LLVM_COV=/from/env bazel --ignore_all_rc_files $STARTUP_OPTS coverage --test_output=all \
+    --test_env=COVERAGE_GCOV_PATH=from_test_env \
+    --test_env=LLVM_COV=from_test_env \
+    --test_env=CC_CODE_COVERAGE_SCRIPT=from_test_env \
+    //foo:print_coverage_env &> $TEST_log || true
+  expect_log "coverage_gcov_path: from_test_env"
+  expect_log "llvm_cov: from_test_env"
+  expect_log "cc_code_coverage_script: from_test_env"
+
+  cat > foo/BUILD <<'EOF'
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+cc_test(
+    name = "print_coverage_env",
+    srcs = ["print_coverage_env.cc"],
+    size = "small",
+    env = {
+        "COVERAGE_GCOV_PATH": "from_rule_env",
+        "LLVM_COV": "from_rule_env",
+        "CC_CODE_COVERAGE_SCRIPT": "from_rule_env",
+    },
+)
+EOF
+
+  GCOV=/from/env BAZEL_LLVM_COV=/from/env bazel --ignore_all_rc_files $STARTUP_OPTS coverage --test_output=all \
+    --test_env=COVERAGE_GCOV_PATH=from_test_env \
+    --test_env=LLVM_COV=from_test_env \
+    --test_env=CC_CODE_COVERAGE_SCRIPT=from_test_env \
+    //foo:print_coverage_env &> $TEST_log || true
+  expect_log "coverage_gcov_path: from_rule_env"
+  expect_log "llvm_cov: from_rule_env"
+  expect_log "cc_code_coverage_script: from_rule_env"
+}
+
 function test_runfiles_java_runfiles_merges_env_vars() {
   runfiles_merges_runfiles_env_vars JAVA_RUNFILES PYTHON_RUNFILES
 }
@@ -782,6 +854,50 @@ function test_detailed_test_summary_for_passed_test() {
   expect_log 'PASSED.*com\.example\.myproject\.TestHello\.testWithArgument'
 }
 
+function test_detailed_uncached_test_summary() {
+  copy_examples
+  add_rules_cc "MODULE.bazel"
+  add_rules_java "MODULE.bazel"
+  setup_javatest_support
+
+  local cc_test="//examples/cpp:hello-success_test"
+  local java_test="//examples/java-native/src/test/java/com/example/myproject:hello"
+
+  # Partially warm cache by running only the C++ test.
+  bazel test --test_summary=detailed_uncached "${cc_test}" >& $TEST_log \
+    || fail "expected success"
+  expect_log "${cc_test}.*PASSED in .*s"
+
+  # Now run both tests and expect only the Java test to be reported.
+  bazel test --test_summary=detailed_uncached "${cc_test}" "${java_test}" >& $TEST_log \
+    || fail "expected success"
+  expect_not_log "${cc_test}.*PASSED in .*s"
+  expect_log "${java_test}.*PASSED in .*s"
+  expect_log 'PASSED.*com\.example\.myproject\.TestHello\.testNoArgument'
+  expect_log 'PASSED.*com\.example\.myproject\.TestHello\.testWithArgument'
+}
+
+function test_short_uncached_test_summary() {
+  copy_examples
+  add_rules_cc "MODULE.bazel"
+  add_rules_java "MODULE.bazel"
+  setup_javatest_support
+
+  local cc_test="//examples/cpp:hello-success_test"
+  local java_test="//examples/java-native/src/test/java/com/example/myproject:hello"
+
+  # Partially warm cache by running only the C++ test.
+  bazel test --test_summary=short_uncached "${cc_test}" >& $TEST_log \
+    || fail "expected success"
+  expect_log "${cc_test}.*PASSED in .*s"
+
+  # Now run both tests and expect only the Java test to be reported.
+  bazel test --test_summary=short_uncached "${cc_test}" "${java_test}" >& $TEST_log \
+    || fail "expected success"
+  expect_not_log "${cc_test}.*PASSED in .*s"
+  expect_log "${java_test}.*PASSED in .*s"
+}
+
 # This test uses "--ignore_all_rc_files" since outside .bazelrc files can pollute
 # this environment. Just "--bazelrc=/dev/null" is not sufficient to fix.
 function test_flaky_test() {
@@ -1113,8 +1229,11 @@ sh_test(
     srcs = ['test.sh'],
 )
 EOF
-  bazel test --nobuild_runfile_manifests //dir:test >& $TEST_log && fail "should have failed"
-  expect_log "cannot run local tests with --nobuild_runfile_manifests"
+  bazel test --nobuild_runfile_manifests --spawn_strategy=local --test_output=errors //dir:test >& $TEST_log && fail "should have failed"
+  expect_log "ERROR: RUNFILES_DIR does not exist. This can happen when using --nobuild_runfile_manifests with local execution."
+  bazel test --nobuild_runfile_manifests --spawn_strategy=standalone --test_output=errors //dir:test >& $TEST_log && fail "should have failed"
+  expect_log "ERROR: RUNFILES_DIR does not exist. This can happen when using --nobuild_runfile_manifests with local execution."
+  bazel test --nobuild_runfile_manifests --spawn_strategy=sandboxed //dir:test >& $TEST_log || fail "should have succeeded"
 }
 
 function test_test_with_reserved_env_variable() {
@@ -1200,15 +1319,11 @@ EOF
   touch x.sh
   chmod +x x.sh
 
-  bazel test \
-      --incompatible_check_sharding_support \
-      //:x  &> $TEST_log && fail "expected failure"
+  bazel test //:x  &> $TEST_log && fail "expected failure"
   expect_log "Sharding requested, but the test runner did not advertise support for it by touching TEST_SHARD_STATUS_FILE."
 
   echo 'touch "$TEST_SHARD_STATUS_FILE"' > x.sh
-  bazel test \
-      --incompatible_check_sharding_support \
-      //:x  &> $TEST_log || fail "expected success"
+  bazel test //:x  &> $TEST_log || fail "expected success"
 }
 
 function test_premature_exit_file_checked() {

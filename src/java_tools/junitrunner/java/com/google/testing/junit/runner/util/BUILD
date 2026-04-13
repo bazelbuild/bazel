@@ -19,6 +19,18 @@ java_library(
 )
 
 java_library(
+    name = "util-android",
+    srcs = [
+        "TestPropertyExporter.java",
+        "TestPropertyRunnerIntegration.java",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "current_test",
     srcs = [
         "CurrentRunningTest.java",
@@ -30,14 +42,14 @@ java_library(
 )
 
 java_library(
-    name = "util-android",
+    name = "current_test-android",
     srcs = [
-        "TestPropertyExporter.java",
-        "TestPropertyRunnerIntegration.java",
+        "CurrentRunningTest.java",
+        "TestNameProvider.java",
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//third_party:jsr305",
+        "//third_party:junit4",
     ],
 )
 

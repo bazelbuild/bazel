@@ -45,7 +45,6 @@ public final class TaskDeduplicator<K, V> {
    * effects.
    */
   @CheckReturnValue
-  @SuppressWarnings("ThreadPriorityCheck") // for Thread.yield()
   public ListenableFuture<V> executeIfNew(K key, Supplier<ListenableFuture<V>> taskSupplier) {
     while (true) {
       var isNewHolder = new boolean[1];
@@ -59,12 +58,9 @@ public final class TaskDeduplicator<K, V> {
       if (isNewHolder[0]) {
         future.addListener(() -> inFlightTasks.remove(key, future), directExecutor());
       } else {
-        // The shared future may have been canceled between the lookup and the call to retain(). In
-        // that unlikely case, just look it up again - the listener above will remove it.
+        // The shared future may have been canceled between the lookup and the call to retain().
         if (!future.retain()) {
-          // Avoid spinning to increase the chance that the listener gets to run and removes the
-          // canceled future.
-          Thread.yield();
+          inFlightTasks.remove(key, future);
           continue;
         }
       }
@@ -100,7 +96,11 @@ public final class TaskDeduplicator<K, V> {
   @Nullable
   public ListenableFuture<V> maybeJoinExecution(K key) {
     var future = inFlightTasks.get(key);
-    if (future == null || !future.retain()) {
+    if (future == null) {
+      return null;
+    }
+    if (!future.retain()) {
+      inFlightTasks.remove(key, future);
       return null;
     }
     return IndividuallyCancelableFuture.wrap(future);
@@ -125,20 +125,21 @@ public final class TaskDeduplicator<K, V> {
 
     RefcountedFuture(ListenableFuture<V> delegate) {
       this.delegate = delegate;
+      setFuture(delegate);
     }
 
     @Override
-    public void run() {
-      setFuture(delegate);
-    }
+    public void run() {}
 
     @Override
     public boolean cancel(boolean mayInterruptIfRunning) {
       if (!mayInterruptIfRunning) {
         this.mayInterruptIfRunning = false;
       }
-      return refcount.updateAndGet(oldCount -> oldCount >= 1 ? oldCount - 1 : 0) == 0
-          && super.cancel(this.mayInterruptIfRunning);
+      if (refcount.updateAndGet(oldCount -> oldCount >= 1 ? oldCount - 1 : 0) == 0) {
+        return super.cancel(this.mayInterruptIfRunning);
+      }
+      return false;
     }
 
     @Nullable

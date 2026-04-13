@@ -31,6 +31,12 @@
 #include <string>
 #include <string_view>
 
+#include "re2/re2.h"
+
+#if defined(__linux)
+#include <sys/sendfile.h>
+#endif
+
 #ifndef _WIN32
 #include <unistd.h>
 #else
@@ -45,9 +51,11 @@
 #include "src/tools/singlejar/combiners.h"
 #include "src/tools/singlejar/diag.h"
 #include "src/tools/singlejar/input_jar.h"
+#include "src/tools/singlejar/log4j2_plugin_dat_combiner.h"
 #include "src/tools/singlejar/mapped_file.h"
 #include "src/tools/singlejar/options.h"
 #include "src/tools/singlejar/zip_headers.h"
+#include "absl/strings/match.h"
 #include <zlib.h>
 
 OutputJar::OutputJar(Options* options)
@@ -67,7 +75,12 @@ OutputJar::OutputJar(Options* options)
       spring_schemas_("META-INF/spring.schemas"),
       protobuf_meta_handler_("protobuf.meta", false),
       manifest_("META-INF/MANIFEST.MF"),
-      build_properties_("build-data.properties") {
+      build_properties_("build-data.properties"),
+      log4j2_plugin_dat_combiner_(
+          "META-INF/org/apache/logging/log4j/core/"
+          "config/plugins/Log4j2Plugins.dat",
+          options->no_duplicates),
+      exclude_pattern_(std::make_unique<RE2>(options->exclude_pattern)) {
   known_members_.reserve(options->EstimateFileCount());
 
   known_members_.emplace(spring_handlers_.filename(),
@@ -77,9 +90,19 @@ OutputJar::OutputJar(Options* options)
   known_members_.emplace(manifest_.filename(), EntryInfo{&manifest_});
   known_members_.emplace(protobuf_meta_handler_.filename(),
                          EntryInfo{&protobuf_meta_handler_});
+  known_members_.emplace(log4j2_plugin_dat_combiner_.filename(),
+                         EntryInfo{&log4j2_plugin_dat_combiner_});
+
+  size_t estimated_cen_size = 22 + (options->EstimateFileCount() * 128);
+  cen_ = reinterpret_cast<uint8_t*>(malloc(estimated_cen_size));
+  if (!cen_) {
+    diag_err(1, "Cannot allocate %zu bytes", estimated_cen_size);
+  }
+  cen_capacity_ = estimated_cen_size;
 }
 
-static std::string Basename(const std::string& path) {
+namespace {
+std::string Basename(const std::string& path) {
   size_t pos = path.rfind('/');
   if (pos == std::string::npos) {
     return path;
@@ -87,6 +110,25 @@ static std::string Basename(const std::string& path) {
     return std::string(path, pos + 1);
   }
 }
+
+bool ShouldCompress(std::string_view file_name, const Options* options,
+                    bool compress_by_default) {
+  if (!compress_by_default) {
+    return false;
+  }
+  if (options->nocompress_suffixes.empty()) {
+    return true;
+  }
+  for (const auto& suffix : options->nocompress_suffixes) {
+    if (file_name.length() >= suffix.size() &&
+        file_name.compare(file_name.length() - suffix.size(), suffix.size(),
+                          suffix) == 0) {
+      return false;
+    }
+  }
+  return true;
+}
+}  // namespace
 
 size_t OutputJar::WriteNoLock(const void* buffer, size_t count) {
   EnsureCapacity(count);
@@ -286,27 +328,18 @@ int OutputJar::Doit() {
 
   // Then classpath resources.
   for (auto& classpath_resource : classpath_resources_) {
-    bool do_compress = compress;
-    if (do_compress && !options_->nocompress_suffixes.empty()) {
-      for (auto& suffix : options_->nocompress_suffixes) {
-        auto entry_name = classpath_resource->filename();
-        if (entry_name.length() >= suffix.size() &&
-            !entry_name.compare(entry_name.length() - suffix.size(),
-                                suffix.size(), suffix)) {
-          do_compress = false;
-          break;
-        }
-      }
-    }
+    bool do_compress =
+        ShouldCompress(classpath_resource->filename(), options_, compress);
 
     // Add parent directory entries.
-    size_t pos = classpath_resource->filename().find('/');
+    std::string_view filename = classpath_resource->filename();
+    size_t pos = filename.find('/');
     while (pos != std::string::npos) {
-      std::string dir(classpath_resource->filename(), 0, pos + 1);
+      std::string_view dir = filename.substr(0, pos + 1);
       if (NewEntry(dir)) {
         WriteDirEntry(dir, nullptr, 0);
       }
-      pos = classpath_resource->filename().find('/', pos + 1);
+      pos = filename.find('/', pos + 1);
     }
 
     WriteEntry(classpath_resource->OutputEntry(do_compress));
@@ -328,6 +361,7 @@ OutputJar::~OutputJar() {
   if (file_) {
     diag_warnx("%s:%d: Close() should be called first", __FILE__, __LINE__);
   }
+  free(cen_);
 }
 
 // Try to perform I/O in units of this size.
@@ -374,6 +408,7 @@ bool OutputJar::Open() {
     diag_warn("%s:%d: %s", __FILE__, __LINE__, path());
     return false;
   }
+  fd_ = fd;
   file_ = fdopen(fd, "w");
   if (file_ == nullptr) {
     diag_warn("%s:%d: fdopen of %s", __FILE__, __LINE__, path());
@@ -413,13 +448,15 @@ bool OutputJar::AddJar(int jar_path_index) {
           __FILE__, __LINE__, input_jar_path.c_str(),
           input_jar.CentralDirectoryRecordOffset(jar_entry));
     }
+    std::string_view entry_name_view(file_name, file_name_length);
+
     // Special files that cannot be handled by looking up known_members_ map:
     // * ignore *.SF, *.RSA, *.DSA
     //   (TODO(asmundak): should this be done only in META-INF?
     //
-    if (ends_with(file_name, file_name_length, ".SF") ||
-        ends_with(file_name, file_name_length, ".RSA") ||
-        ends_with(file_name, file_name_length, ".DSA")) {
+    if (absl::EndsWith(entry_name_view, ".SF") ||
+        absl::EndsWith(entry_name_view, ".RSA") ||
+        absl::EndsWith(entry_name_view, ".DSA")) {
       continue;
     }
 
@@ -427,9 +464,9 @@ bool OutputJar::AddJar(int jar_path_index) {
     // Deploy jars are not modularized jars, and including module-infos from
     // modularized dependencies doesn't work. See also b/204112761.
     if (!options_->no_strip_module_info &&
-        (!strncmp(file_name, "module-info.class", file_name_length) ||
-         (begins_with(file_name, file_name_length, "META-INF/versions/") &&
-          ends_with(file_name, file_name_length, "/module-info.class")))) {
+        (entry_name_view == "module-info.class" ||
+         (absl::StartsWith(entry_name_view, "META-INF/versions/") &&
+          absl::EndsWith(entry_name_view, "/module-info.class")))) {
       continue;
     }
 
@@ -441,45 +478,41 @@ bool OutputJar::AddJar(int jar_path_index) {
     // Check if explicitly included
     if (!options_->include_prefixes.empty()) {
       for (auto& prefix : options_->include_prefixes) {
-        if ((include_entry =
-                 (prefix.size() <= file_name_length &&
-                  0 == strncmp(file_name, prefix.c_str(), prefix.size())))) {
+        if ((include_entry = absl::StartsWith(entry_name_view, prefix))) {
           break;
         }
       }
     }
     // Check if explicitly excluded
     if (!options_->exclude_zip_entries.empty()) {
-      exclude_entry = options_->exclude_zip_entries.find(
-                          std::string(file_name, file_name_length)) !=
+      exclude_entry = options_->exclude_zip_entries.find(entry_name_view) !=
                       options_->exclude_zip_entries.end();
     }
     include_entry &= !exclude_entry;
-    include_entry &=
-        IncludeEntry(std::string_view(file_name, file_name_length));
+    include_entry &= IncludeEntry(entry_name_view);
     if (!include_entry) {
       continue;
     }
 
     bool is_file = (file_name[file_name_length - 1] != '/');
-    if (is_file &&
-        begins_with(file_name, file_name_length, "META-INF/services/")) {
+    if (is_file && absl::StartsWith(entry_name_view, "META-INF/services/")) {
       // The contents of the META-INF/services/<SERVICE> on the output is the
       // concatenation of the META-INF/services/<SERVICE> files from all inputs.
-      std::string service_path(file_name, file_name_length);
-      if (NewEntry(service_path)) {
-        // Create a concatenator and add it to the known_members_ map.
+      auto [it, inserted] =
+          known_members_.try_emplace(entry_name_view, nullptr);
+      if (inserted) {
+        // Create a concatenator and make it the value in known_members_.
         // The call to Merge() below will then take care of the rest.
-        Concatenator* service_handler = new Concatenator(service_path);
+        Concatenator* service_handler = new Concatenator(it->first);
         service_handlers_.emplace_back(service_handler);
-        known_members_.emplace(service_path, EntryInfo{service_handler});
+        it->second = EntryInfo{service_handler};
       }
     } else {
       ExtraHandler(input_jar_path, jar_entry, &input_jar_aux_label);
     }
 
     if (options_->check_desugar_deps &&
-        begins_with(file_name, file_name_length, "j$/")) {
+        absl::StartsWith(entry_name_view, "j$/")) {
       diag_errx(1, "%s:%d: desugar_jdk_libs file %.*s unexpectedly found in %s",
                 __FILE__, __LINE__, file_name_length, file_name,
                 input_jar_path.c_str());
@@ -490,12 +523,12 @@ bool OutputJar::AddJar(int jar_path_index) {
     // will add either a directory entry whose handler will ignore subsequent
     // duplicates, or an ordinary plain entry, for which we save the index of
     // the first input jar (in order to provide diagnostics on duplicate).
-    auto got =
-        known_members_.emplace(std::string(file_name, file_name_length),
-                               EntryInfo{is_file ? nullptr : &null_combiner_,
-                                         is_file ? jar_path_index : -1});
-    if (!got.second) {
-      auto& entry_info = got.first->second;
+    auto [it, inserted] = known_members_.try_emplace(
+        entry_name_view, is_file ? nullptr : &null_combiner_,
+        is_file ? jar_path_index : -1);
+
+    if (!inserted) {
+      auto& entry_info = it->second;
       // Handle special entries (the ones that have a combiner).
       if (entry_info.combiner_ != nullptr) {
         // TODO(kmb,asmundak): Should be checking Merge() return value but fails
@@ -508,7 +541,7 @@ bool OutputJar::AddJar(int jar_path_index) {
       // just ignore this entry.
       if (options_->no_duplicates ||
           (options_->no_duplicate_classes &&
-           ends_with(file_name, file_name_length, ".class"))) {
+           absl::EndsWith(entry_name_view, ".class"))) {
         diag_errx(
             1, "%s:%d: %.*s is present both in %s and %s", __FILE__, __LINE__,
             file_name_length, file_name,
@@ -526,7 +559,7 @@ bool OutputJar::AddJar(int jar_path_index) {
       for (size_t pos = 0; pos < static_cast<size_t>(file_name_length - 1);
            ++pos) {
         if (file_name[pos] == '/') {
-          std::string dir(file_name, 0, pos + 1);
+          std::string_view dir = entry_name_view.substr(0, pos + 1);
           if (NewEntry(dir)) {
             WriteDirEntry(dir, nullptr, 0);
           }
@@ -538,19 +571,10 @@ bool OutputJar::AddJar(int jar_path_index) {
     if (is_file) {
       bool input_compressed =
           jar_entry->compression_method() != Z_NO_COMPRESSION;
-      bool output_compressed =
+      bool output_compressed = ShouldCompress(
+          entry_name_view, options_,
           options_->force_compression ||
-          (options_->preserve_compression && input_compressed);
-      if (output_compressed && !options_->nocompress_suffixes.empty()) {
-        for (auto& suffix : options_->nocompress_suffixes) {
-          if (file_name_length >= suffix.size() &&
-              !strncmp(file_name + file_name_length - suffix.size(),
-                       suffix.c_str(), suffix.size())) {
-            output_compressed = false;
-            break;
-          }
-        }
-      }
+              (options_->preserve_compression && input_compressed));
       if (input_compressed != output_compressed) {
         Concatenator combiner(jar_entry->file_name_string());
         if (!combiner.Merge(jar_entry, lh)) {
@@ -590,7 +614,7 @@ bool OutputJar::AddJar(int jar_path_index) {
     const UnixTimeExtraField* lh_field_to_remove = nullptr;
     bool fix_timestamp = false;
     if (options_->normalize_timestamps) {
-      if (ends_with(file_name, file_name_length, ".class")) {
+      if (absl::EndsWith(entry_name_view, ".class")) {
         normalized_time = 1;
       }
       lh_field_to_remove = lh->unix_time_extra_field();
@@ -681,12 +705,13 @@ void OutputJar::WriteEntry(void* buffer) {
   // https://msdn.microsoft.com/en-us/library/9kkf9tah.aspx
   // ("32-Bit Windows Time/Date Formats")
   if (options_->normalize_timestamps) {
+    std::string_view entry_name_view(entry->file_name(),
+                                     entry->file_name_length());
     // Regular "normalized" timestamp is 01/01/2010 00:00:00, while for the
     // .class file it is 01/01/2010 00:00:02
     entry->last_mod_file_date(kDefaultDate);
-    entry->last_mod_file_time(
-        ends_with(entry->file_name(), entry->file_name_length(), ".class") ? 1
-                                                                           : 0);
+    entry->last_mod_file_time(absl::EndsWith(entry_name_view, ".class") ? 1
+                                                                        : 0);
   } else {
     struct tm tm;
     // Time has 2-second resolution, so round up:
@@ -799,10 +824,18 @@ void OutputJar::WriteMetaInf() {
   WriteDirEntry(path, extra_fields, n_extra_fields);
 }
 
-bool OutputJar::IncludeEntry(std::string_view file_name) { return true; }
+bool OutputJar::IncludeEntry(std::string_view file_name) {
+  if (exclude_pattern_->pattern().empty()) {
+    return true;
+  }
+  if (RE2::FullMatch(file_name, *exclude_pattern_)) {
+    return false;
+  }
+  return true;
+}
 
 // Writes a directory entry with the given name and extra fields.
-void OutputJar::WriteDirEntry(const std::string& name,
+void OutputJar::WriteDirEntry(std::string_view name,
                               const uint8_t* extra_fields,
                               const uint16_t n_extra_fields) {
   size_t lh_size = sizeof(LH) + name.size() + n_extra_fields;
@@ -814,7 +847,7 @@ void OutputJar::WriteDirEntry(const std::string& name,
   lh->crc32(0);
   lh->compressed_file_size32(0);
   lh->uncompressed_file_size32(0);
-  lh->file_name(name.c_str(), name.size());
+  lh->file_name(name.data(), name.size());
   lh->extra_fields(extra_fields, n_extra_fields);
   known_members_.emplace(name, EntryInfo{&null_combiner_});
   WriteEntry(lh);
@@ -930,6 +963,7 @@ void OutputJar::AppendToDirectoryBuffer(const CDH* cdh, off64_t lh_pos,
 
 uint8_t* OutputJar::ReserveCdr(size_t chunk_size) {
   if (cen_size_ + chunk_size > cen_capacity_) {
+    // TODO: b/460101200 - Consider exponential growth here instead of linear.
     cen_capacity_ += 1000000;
     cen_ = reinterpret_cast<uint8_t*>(realloc(cen_, cen_capacity_));
     if (!cen_) {
@@ -952,15 +986,21 @@ bool OutputJar::Close() {
     return true;
   }
 
+  auto write_concatenator_entry = [&](Concatenator* concatenator) {
+    WriteEntry(concatenator->OutputEntry(ShouldCompress(
+        concatenator->filename(), options_, options_->force_compression)));
+  };
   for (auto& service_handler : service_handlers_) {
-    WriteEntry(service_handler->OutputEntry(options_->force_compression));
+    write_concatenator_entry(service_handler.get());
   }
   for (auto& extra_combiner : extra_combiners_) {
     WriteEntry(extra_combiner->OutputEntry(options_->force_compression));
   }
-  WriteEntry(spring_handlers_.OutputEntry(options_->force_compression));
-  WriteEntry(spring_schemas_.OutputEntry(options_->force_compression));
-  WriteEntry(protobuf_meta_handler_.OutputEntry(options_->force_compression));
+  write_concatenator_entry(&spring_handlers_);
+  write_concatenator_entry(&spring_schemas_);
+  write_concatenator_entry(&protobuf_meta_handler_);
+  WriteEntry(
+      log4j2_plugin_dat_combiner_.OutputEntry(options_->force_compression));
   // TODO(asmundak): handle manifest;
   off64_t output_position = Position();
   bool write_zip64_ecd = output_position >= 0xFFFFFFFF || entries_ >= 0xFFFF ||
@@ -1007,7 +1047,8 @@ bool OutputJar::Close() {
   if (!WriteBytes(cen_, cen_size_)) {
     diag_err(1, "%s:%d: Cannot write central directory", __FILE__, __LINE__);
   }
-  free(cen_);
+  // We could free cen_ here, but we wait for the destructor.
+  // That lets us avoid doing the work entirely if we don't call the destructor.
 
 #ifdef __linux__
   if (!fallocate_failed_) {
@@ -1023,9 +1064,8 @@ bool OutputJar::Close() {
     diag_err(1, "%s:%d: %s", __FILE__, __LINE__, path());
   }
   file_ = nullptr;
-  // Free the buffer only after fclose(); stdio may flush data from the
-  // buffer on close.
-  buffer_.reset();
+  // We could reset buffer_ here, but we wait for the destructor.
+  // Compare how we don't free cen_ above.
 
   if (options_->verbose) {
     fprintf(stderr, "Wrote %s with %d entries", path(), entries_);
@@ -1077,10 +1117,36 @@ void OutputJar::ClasspathResource(const std::string& resource_name,
   }
 }
 
-ssize_t OutputJar::CopyAppendData(int in_fd, off64_t offset, size_t count) {
+ssize_t OutputJar::CopyAppendData(int in_fd, size_t count) {
   if (count == 0) {
     return 0;
   }
+
+  // Use sendfile for the launcher preamble, which can be very large for targets
+  // with many native deps.
+  //
+  // TODO(asmundak): Consider reflink (BTRFS_IOC_CLONE/XFS_IOC_CLONE) here.
+#if defined(__linux)
+  // fflush is necessary before switching from fwrite to sendfile.
+  if (fflush(file_) != 0) {
+    diag_err(1, "fflush failed");
+  }
+  // sendfile call is interruptible and has to be handled the same way as write
+  // call.
+  for (size_t to_write = count; to_write > 0;) {
+    ssize_t written = sendfile(fd_, in_fd, nullptr, to_write);
+    if (written < 0) {
+      return written;
+    } else if (written == 0) {
+      outpos_ += static_cast<off64_t>(count - to_write);
+      return static_cast<ssize_t>(count - to_write);
+    }
+    to_write -= static_cast<size_t>(written);
+  }
+  outpos_ += static_cast<off64_t>(count);
+  return static_cast<ssize_t>(count);
+#endif
+
   std::unique_ptr<void, decltype(free)*> buffer(malloc(kBufferSize), free);
   if (buffer == nullptr) {
     diag_err(1, "%s:%d: malloc", __FILE__, __LINE__);
@@ -1106,7 +1172,7 @@ ssize_t OutputJar::CopyAppendData(int in_fd, off64_t offset, size_t count) {
 #else
   while (static_cast<size_t>(total_written) < count) {
     size_t len = std::min(kBufferSize, count - total_written);
-    ssize_t n_read = pread(in_fd, buffer.get(), len, offset + total_written);
+    ssize_t n_read = pread(in_fd, buffer.get(), len, total_written);
     if (n_read > 0) {
       if (!WriteBytes(buffer.get(), n_read)) {
         return -1;
@@ -1129,10 +1195,7 @@ size_t OutputJar::AppendFile(Options* options, const char* const file_path) {
   if (fstat(in_fd, &statbuf)) {
     diag_err(1, "%s", file_path);
   }
-  // TODO(asmundak):  Consider going back to sendfile() or reflink
-  // (BTRFS_IOC_CLONE/XFS_IOC_CLONE) here.  The launcher preamble can
-  // be very large for targets with many native deps.
-  ssize_t byte_count = CopyAppendData(in_fd, 0, statbuf.st_size);
+  ssize_t byte_count = CopyAppendData(in_fd, statbuf.st_size);
   if (byte_count < 0) {
     diag_err(1, "%s:%d: Cannot copy %s to %s", __FILE__, __LINE__, file_path,
              options->output_jar.c_str());

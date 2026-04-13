@@ -63,9 +63,11 @@ import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.runtime.BlazeOptionHandler;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
+import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -176,7 +178,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, outputBase),
             rootDirectory,
-            /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
     workspaceStatusActionFactory = new AnalysisTestUtil.DummyWorkspaceStatusActionFactory();
 
@@ -239,8 +240,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   private void reinitializeSkyframeExecutor() {
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 3;
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(3);
     BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
@@ -291,6 +292,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                         LoadingPhaseThreadsOption.class,
                         LoadingOptions.class),
                     ruleClassProvider.getFragmentRegistry().getOptionsClasses()))
+            .skipStarlarkOptionPrefixes()
             .build();
     if (defaultFlags().contains(Flag.PUBLIC_VISIBILITY)) {
       optionsParser.parse("--default_visibility=public");
@@ -303,6 +305,18 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     }
     optionsParser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     optionsParser.parse(args);
+
+    if (!optionsParser.getSkippedArgs().isEmpty()) {
+      var done =
+          StarlarkOptionsParser.builder()
+              .buildSettingLoader(
+                  new BlazeOptionHandler.SkyframeExecutorTargetLoader(
+                      skyframeExecutor, PathFragment.EMPTY_FRAGMENT, reporter))
+              .nativeOptionsParser(optionsParser)
+              .build()
+              .parse();
+      Preconditions.checkState(done);
+    }
 
     buildOptions =
         BuildOptions.of(ruleClassProvider.getFragmentRegistry().getOptionsClasses(), optionsParser);
@@ -360,19 +374,19 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     AnalysisOptions viewOptions = optionsParser.getOptions(AnalysisOptions.class);
     // update --keep_going option if test requested it.
     boolean keepGoing = flags.contains(Flag.KEEP_GOING);
-    boolean discardAnalysisCache = viewOptions.discardAnalysisCache;
+    boolean discardAnalysisCache = viewOptions.getDiscardAnalysisCache();
 
     PackageOptions packageOptions = optionsParser.getOptions(PackageOptions.class);
     PathPackageLocator pathPackageLocator =
         PathPackageLocator.create(
             outputBase,
-            packageOptions.packagePath,
+            packageOptions.getPackagePath(),
             reporter,
             rootDirectory.asFragment(),
             rootDirectory,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 7;
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(7);
 
     BuildLanguageOptions buildLanguageOptions =
         optionsParser.getOptions(BuildLanguageOptions.class);

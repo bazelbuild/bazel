@@ -103,15 +103,15 @@ public class WorkerModule extends BlazeModule {
       workerSandboxOptions =
           new WorkerSandboxOptions(
               LinuxSandboxUtil.getLinuxSandbox(workspace),
-              sandboxOptions.sandboxFakeHostname,
-              sandboxOptions.sandboxFakeUsername,
-              sandboxOptions.sandboxDebug,
-              ImmutableSet.copyOf(sandboxOptions.sandboxTmpfsPath),
-              ImmutableSet.copyOf(sandboxOptions.sandboxWritablePath),
-              sandboxOptions.memoryLimitMb,
+              sandboxOptions.getSandboxFakeHostname(),
+              sandboxOptions.getSandboxFakeUsername(),
+              sandboxOptions.getSandboxDebug(),
+              ImmutableSet.copyOf(sandboxOptions.getSandboxTmpfsPath()),
+              ImmutableSet.copyOf(sandboxOptions.getSandboxWritablePath()),
+              sandboxOptions.getMemoryLimitMb(),
               sandboxOptions.getInaccessiblePaths(env.getRuntime().getFileSystem()),
               ImmutableMap.<String, String>builder()
-                  .putAll(sandboxOptions.sandboxAdditionalMounts)
+                  .putAll(sandboxOptions.getSandboxAdditionalMounts())
                   .buildKeepingLast());
     } else {
       workerSandboxOptions = null;
@@ -126,12 +126,12 @@ public class WorkerModule extends BlazeModule {
     VirtualCgroupFactory cgroupFactory =
         OS.getCurrent() != OS.LINUX
                 || sandboxOptions == null
-                || !sandboxOptions.useNewCgroupImplementation
+                || !sandboxOptions.getUseNewCgroupImplementation()
             ? null
             : new VirtualCgroupFactory(
                 "worker_",
                 VirtualCgroup.getInstance(),
-                options.sandboxHardening ? sandboxOptions.getLimits() : ImmutableMap.of(),
+                options.sandboxHardening ? sandboxOptions.getLimitsMap() : ImmutableMap.of(),
                 options.useCgroupsOnLinux);
 
     WorkerFactory newWorkerFactory =
@@ -194,7 +194,7 @@ public class WorkerModule extends BlazeModule {
     boolean useCgroupsOnLinux =
         OS.getCurrent() == OS.LINUX
             && options.useCgroupsOnLinux
-            && ((sandboxOptions == null || !sandboxOptions.useNewCgroupImplementation)
+            && ((sandboxOptions == null || !sandboxOptions.getUseNewCgroupImplementation())
                 ? CgroupsInfo.isSupported()
                 : VirtualCgroup.getInstance().memory() != null);
     WorkerProcessMetricsCollector.instance().setUseCgroupsOnLinux(useCgroupsOnLinux);

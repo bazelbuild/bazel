@@ -18,6 +18,7 @@ def _run_executable_rule_impl(ctx):
     out = ctx.outputs.out
     ctx.actions.run(
         executable = ctx.executable.executable,
+        mnemonic = "UnicodeTestRunExecutable",
         arguments = [out.path] + ctx.attr.extra_arguments,
         outputs = [out],
     )
@@ -59,6 +60,7 @@ def _run_executable_with_param_file_impl(ctx):
     ctx.actions.run(
         inputs = [],
         outputs = [ctx.outputs.out],
+        mnemonic = "UnicodeTestRunExecutableWithParamFile",
         arguments = [args, ctx.outputs.out.path],
         executable = ctx.executable.executable,
     )

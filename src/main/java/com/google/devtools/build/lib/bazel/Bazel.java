@@ -13,20 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel;
 
+import static com.google.devtools.build.lib.bazel.BazelServices.BAZEL_SERVICES;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
+import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
-import com.google.devtools.build.lib.runtime.BlazeService;
+import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
-/**
- * The main class.
- */
+/** The main class. */
 public final class Bazel {
   private static final String BUILD_DATA_PROPERTIES = "/build-data.properties";
 
@@ -43,6 +44,7 @@ public final class Bazel {
           BazelStartupOptionsModule.class,
           // This module is registered early so that profiles are as complete as possible.
           com.google.devtools.build.lib.profiler.CommandProfilerModule.class,
+          com.google.devtools.build.lib.starlarkprofiler.CpuProfilerModule.class,
           // This module needs to be registered before any module providing a SpawnCache
           // implementation.
           com.google.devtools.build.lib.runtime.NoSpawnCacheModule.class,
@@ -102,24 +104,20 @@ public final class Bazel {
           com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.GcAfterBuildModule.class,
           com.google.devtools.build.lib.metrics.MetricsModule.class);
 
-  @SuppressWarnings("UnnecessarilyFullyQualified") // Class names fully qualified for clarity.
-  public static final ImmutableList<BlazeService> BAZEL_SERVICES =
-      ImmutableList.of(
-          new com.google.devtools.build.lib.skyframe.FsEventsNativeDepsServiceImpl(),
-          new com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl(),
-          new com.google.devtools.build.lib.profiler.SystemNetworkStatsServiceImpl(),
-          new com.google.devtools.build.lib.profiler.TraceProfilerServiceImpl());
-
   public static void main(String[] args) {
+    // Sets the default subprocess factory to the Windows-specific implementation if the host OS is
+    // Windows. We do this in Bazel.java to make sure that the global state is set before the first
+    // use of SubprocessBuilder.
+    WindowsSubprocessFactory.maybeInstallWindowsSubprocessFactory();
     BlazeVersionInfo.setBuildInfo(tryGetBuildInfo());
-    BlazeRuntime.main(BAZEL_MODULES, BAZEL_SERVICES, args);
+    BlazeRuntime.main(BAZEL_MODULES, BAZEL_SERVICES, args, JniLoader.getJniLoadError());
   }
 
   /**
    * Builds the standard build info map from the loaded properties. The returned value is the list
    * of "build.*" properties from the build-data.properties file. The final key is the original one
-   * striped, dot replaced with a space and with first letter capitalized. If the file fails to
-   * load the returned map is empty.
+   * striped, dot replaced with a space and with first letter capitalized. If the file fails to load
+   * the returned map is empty.
    */
   private static ImmutableMap<String, String> tryGetBuildInfo() {
     try (InputStream in = Bazel.class.getResourceAsStream(BUILD_DATA_PROPERTIES)) {
@@ -142,4 +140,6 @@ public final class Bazel {
       return ImmutableMap.of();
     }
   }
+
+  private Bazel() {}
 }

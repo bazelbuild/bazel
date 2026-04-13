@@ -1,0 +1,211 @@
+---
+title: 'ObjcProvider'
+---
+
+A provider for compilation and linking of objc.
+
+## Members
+
+* [direct\_module\_maps](#direct_module_maps)
+* [direct\_sources](#direct_sources)
+* [dynamic\_framework\_file](#dynamic_framework_file)
+* [dynamic\_framework\_names](#dynamic_framework_names)
+* [dynamic\_framework\_paths](#dynamic_framework_paths)
+* [force\_load\_library](#force_load_library)
+* [imported\_library](#imported_library)
+* [j2objc\_library](#j2objc_library)
+* [library](#library)
+* [link\_inputs](#link_inputs)
+* [linkopt](#linkopt)
+* [module\_map](#module_map)
+* [sdk\_dylib](#sdk_dylib)
+* [sdk\_framework](#sdk_framework)
+* [source](#source)
+* [static\_framework\_file](#static_framework_file)
+* [static\_framework\_names](#static_framework_names)
+* [static\_framework\_paths](#static_framework_paths)
+* [strict\_include](#strict_include)
+* [umbrella\_header](#umbrella_header)
+* [weak\_sdk\_framework](#weak_sdk_framework)
+
+## direct\_module\_maps
+
+```
+sequence ObjcProvider.direct_module_maps
+```
+
+Module map files from this target directly (no transitive module maps). Used to enforce proper use of private header files and for Swift compilation.
+
+## direct\_sources
+
+```
+sequence ObjcProvider.direct_sources
+```
+
+All direct source files from this target (no transitive files), including any headers in the 'srcs' attribute.
+
+## dynamic\_framework\_file
+
+```
+depset ObjcProvider.dynamic_framework_file
+```
+
+**Deprecated**. This API is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `---incompatible_objc_provider_remove_linking_info`. Use this flag to verify your code is compatible with its imminent removal.
+The library files in .framework directories belonging to a dynamically linked framework.
+
+## dynamic\_framework\_names
+
+```
+depset ObjcProvider.dynamic_framework_names
+```
+
+**Deprecated**. This API is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `---incompatible_objc_provider_remove_linking_info`. Use this flag to verify your code is compatible with its imminent removal.
+Returns all names of dynamic frameworks in this provider.
+
+## dynamic\_framework\_paths
+
+```
+depset ObjcProvider.dynamic_framework_paths
+```
+
+**Deprecated**. This API is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `---incompatible_objc_provider_remove_linking_info`. Use this flag to verify your code is compatible with its imminent removal.
+Returns all framework paths to dynamic frameworks in this provider.
+
+## force\_load\_library
+
+```
+depset ObjcProvider.force_load_library
+```
+
+**Deprecated**. This API is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `---incompatible_objc_provider_remove_linking_info`. Use this flag to verify your code is compatible with its imminent removal.
+Libraries to load with -force\_load.
+
+## imported\_library
+
+```
+depset ObjcProvider.imported_library
+```
+
+**Deprecated**. This API is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `---incompatible_objc_provider_remove_linking_info`. Use this flag to verify your code is compatible with its imminent removal.
+Imported precompiled static libraries (.a files) to be linked into the binary.
+
+## j2objc\_library
+
+```
+depset ObjcProvider.j2objc_library
+```
+
+Static libraries that are built from J2ObjC-translated Java code.
+
+## library
+
+```
+depset ObjcProvider.library
+```
+
+**Deprecated**. This API is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `---incompatible_objc_provider_remove_linking_info`. Use this flag to verify your code is compatible with its imminent removal.
+Library (.a) files compiled by dependencies of the current target.
+
+## link\_inputs
+
+```
+depset ObjcProvider.link_inputs
+```
+
+**Deprecated**. This API is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `---incompatible_objc_provider_remove_linking_info`. Use this flag to verify your code is compatible with its imminent removal.
+Link time artifacts from dependencies that do not fall into any other category such as libraries or archives. This catch-all provides a way to add arbitrary data (e.g. Swift AST files) to the linker. The rule that adds these is also responsible to add the necessary linker flags to 'linkopt'.
+
+## linkopt
+
+```
+depset ObjcProvider.linkopt
+```
+
+**Deprecated**. This API is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `---incompatible_objc_provider_remove_linking_info`. Use this flag to verify your code is compatible with its imminent removal.
+Linking options.
+
+## module\_map
+
+```
+depset ObjcProvider.module_map
+```
+
+Clang module maps, used to enforce proper use of private header files.
+
+## sdk\_dylib
+
+```
+depset ObjcProvider.sdk_dylib
+```
+
+**Deprecated**. This API is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `---incompatible_objc_provider_remove_linking_info`. Use this flag to verify your code is compatible with its imminent removal.
+Names of SDK .dylib libraries to link with. For instance, 'libz' or 'libarchive'.
+
+## sdk\_framework
+
+```
+depset ObjcProvider.sdk_framework
+```
+
+**Deprecated**. This API is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `---incompatible_objc_provider_remove_linking_info`. Use this flag to verify your code is compatible with its imminent removal.
+Names of SDK frameworks to link with (e.g. 'AddressBook', 'QuartzCore').
+
+## source
+
+```
+depset ObjcProvider.source
+```
+
+All transitive source files.
+
+## static\_framework\_file
+
+```
+depset ObjcProvider.static_framework_file
+```
+
+**Deprecated**. This API is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `---incompatible_objc_provider_remove_linking_info`. Use this flag to verify your code is compatible with its imminent removal.
+The library files in .framework directories that should be statically linked.
+
+## static\_framework\_names
+
+```
+depset ObjcProvider.static_framework_names
+```
+
+**Deprecated**. This API is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `---incompatible_objc_provider_remove_linking_info`. Use this flag to verify your code is compatible with its imminent removal.
+Returns all names of static frameworks in this provider.
+
+## static\_framework\_paths
+
+```
+depset ObjcProvider.static_framework_paths
+```
+
+**Deprecated**. This API is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `---incompatible_objc_provider_remove_linking_info`. Use this flag to verify your code is compatible with its imminent removal.
+Returns all framework paths to static frameworks in this provider.
+
+## strict\_include
+
+```
+depset ObjcProvider.strict_include
+```
+
+Non-propagated include search paths specified with '-I' on the command line. Also known as header search paths (and distinct from *user* header search paths).
+
+## umbrella\_header
+
+```
+depset ObjcProvider.umbrella_header
+```
+
+Clang umbrella header. Public headers are #included in umbrella headers to be compatible with J2ObjC segmented headers.
+
+## weak\_sdk\_framework
+
+```
+depset ObjcProvider.weak_sdk_framework
+```
+
+**Deprecated**. This API is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `---incompatible_objc_provider_remove_linking_info`. Use this flag to verify your code is compatible with its imminent removal.
+Names of SDK frameworks to weakly link with. For instance, 'MediaAccessibility'. In difference to regularly linked SDK frameworks, symbols from weakly linked frameworks do not cause an error if they are not present at runtime.

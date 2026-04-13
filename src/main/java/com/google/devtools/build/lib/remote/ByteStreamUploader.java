@@ -50,6 +50,7 @@ import io.netty.util.ReferenceCounted;
 import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
 /**
@@ -67,6 +68,7 @@ final class ByteStreamUploader {
   private final long callTimeoutSecs;
   private final RemoteRetrier retrier;
   private final DigestFunction.Value digestFunction;
+  private final AtomicBoolean queryWriteStatusImplemented = new AtomicBoolean(true);
 
   @Nullable private final Semaphore openedFilePermits;
 
@@ -207,7 +209,7 @@ final class ByteStreamUploader {
     }
   }
 
-  private static final class AsyncUpload implements AsyncCallable<Long> {
+  private final class AsyncUpload implements AsyncCallable<Long> {
     private final RemoteActionExecutionContext context;
     private final ReferenceCountedChannel channel;
     private final CallCredentialsProvider callCredentialsProvider;
@@ -325,6 +327,11 @@ final class ByteStreamUploader {
     }
 
     private ListenableFuture<Long> query() {
+      if (!queryWriteStatusImplemented.get()) {
+        // Without server support for QueryWriteStatus, we have no choice but to restart the entire
+        // upload.
+        return Futures.immediateFuture(0L);
+      }
       ListenableFuture<Long> committedSizeFuture =
           Futures.transformAsync(
               channel.withChannelFuture(
@@ -345,8 +352,7 @@ final class ByteStreamUploader {
           (e) -> {
             Status status = Status.fromThrowable(e);
             if (status.getCode() == Code.UNIMPLEMENTED) {
-              // if the bytestream server does not implement the query, insist
-              // that we should reset the upload
+              queryWriteStatusImplemented.set(false);
               return Futures.immediateFuture(0L);
             }
             return Futures.immediateFailedFuture(e);

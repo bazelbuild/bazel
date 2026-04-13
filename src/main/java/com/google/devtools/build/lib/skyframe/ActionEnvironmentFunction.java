@@ -43,7 +43,7 @@ public final class ActionEnvironmentFunction implements SkyFunction {
     Map<String, String> actionEnv = PrecomputedValue.ACTION_ENV.get(env);
     String key = (String) skyKey.argument();
     if (actionEnv.containsKey(key) && actionEnv.get(key) != null) {
-      return new ClientEnvironmentValue(actionEnv.get(key));
+      return new EnvironmentVariableValue(actionEnv.get(key));
     }
     return env.getValue(ClientEnvironmentFunction.key(key));
   }
@@ -99,14 +99,14 @@ public final class ActionEnvironmentFunction implements SkyFunction {
     ImmutableMap.Builder<String, Optional<String>> result =
         ImmutableMap.builderWithExpectedSize(skyframeKeys.size());
     for (SkyKey key : skyframeKeys) {
-      ClientEnvironmentValue value = (ClientEnvironmentValue) values.get(key);
+      EnvironmentVariableValue value = (EnvironmentVariableValue) values.get(key);
       if (value == null) {
         BugReport.sendBugReport(
             new IllegalStateException(
                 "ClientEnvironmentValue " + key + " was missing, this should never happen"));
         return null;
       }
-      result.put(key.argument().toString(), Optional.ofNullable(value.getValue()));
+      result.put(key.argument().toString(), Optional.ofNullable(value.value()));
     }
     return result.buildOrThrow();
   }

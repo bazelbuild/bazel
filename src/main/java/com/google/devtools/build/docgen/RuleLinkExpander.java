@@ -15,7 +15,7 @@ package com.google.devtools.build.docgen;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -69,7 +69,7 @@ public class RuleLinkExpander {
   }
 
   public String beRoot() {
-    return linkMap.beRoot;
+    return linkMap.beRoot();
   }
 
   public void addIndex(Map<String, String> ruleIndex) {
@@ -81,7 +81,7 @@ public class RuleLinkExpander {
     String link =
         singlePage
             ? "#" + ref
-            : Paths.get(linkMap.beRoot, String.format("%s.html#%s", ruleFamily, ref)).toString();
+            : Path.of(linkMap.beRoot(), String.format("%s.html#%s", ruleFamily, ref)).toString();
     matcher.appendReplacement(sb, Matcher.quoteReplacement(link));
   }
 
@@ -128,7 +128,7 @@ public class RuleLinkExpander {
 
       // The name is not the name of a rule but is the name of a static page, such as
       // common-definitions. Generate a link to that page.
-      String mapping = linkMap.beReferences.get(name);
+      String mapping = linkMap.beReferences().get(name);
       if (mapping != null) {
         String link =
             singlePage && STATIC_PAGES_REPLACED_BY_SINGLE_PAGE_BE.contains(name)
@@ -193,9 +193,9 @@ public class RuleLinkExpander {
       // heading or the entire page has to be redirected.
 
       // Not-null if page#heading has a mapping (other headings on the page are unaffected):
-      String headingMapping = linkMap.beReferences.get(ref);
+      String headingMapping = linkMap.beReferences().get(ref);
       // Not-null if the entire page has a mapping, i.e. all headings should be redirected:
-      String pageMapping = linkMap.beReferences.get(name);
+      String pageMapping = linkMap.beReferences().get(name);
 
       if (headingMapping != null || pageMapping != null) {
         String link;

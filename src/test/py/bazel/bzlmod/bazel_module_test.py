@@ -51,7 +51,6 @@ class BazelModuleTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'build --incompatible_disable_native_repo_rules',
             'build --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
@@ -65,6 +64,9 @@ class BazelModuleTest(test_base.TestBase):
                 'build'
                 ' --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain'
             ),
+            # TODO(bazel-team): Remove once rules_python exports runtime_env_toolchain_interpreter.sh
+            # See https://github.com/bazel-contrib/rules_python/pull/3471
+            'build --noincompatible_no_implicit_file_export',
         ],
     )
 
@@ -622,6 +624,58 @@ class BazelModuleTest(test_base.TestBase):
     self.assertIn('5th: @@bleb//bleb:bleb', stderr)
     self.assertIn('6th: @@//bleb:bleb', stderr)
 
+  def testCtxPackageRelativeLabel(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name="foo")',
+            'bazel_dep(name="bar")',
+            'local_path_override(module_name="bar",path="bar")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'defs.bzl',
+        [
+            'def _my_rule_impl(ctx):',
+            '  print("1st: " + str(ctx.package_relative_label(":bleb")))',
+            '  print("2nd: " + str(ctx.package_relative_label('
+            + '"//bleb:bleb")))',
+            '  print("3rd: " + str(ctx.package_relative_label('
+            + '"@bleb//bleb:bleb")))',
+            '  print("4th: " + str(ctx.package_relative_label("//bleb")))',
+            '  print("5th: " + str(ctx.package_relative_label('
+            + '"@@bleb//bleb:bleb")))',
+            '  print("6th: " + str(ctx.package_relative_label(Label('
+            + '"//bleb"))))',
+            'my_rule = rule(_my_rule_impl)',
+        ],
+    )
+
+    self.ScratchFile(
+        'bar/MODULE.bazel',
+        [
+            'module(name="bar")',
+            'bazel_dep(name="foo", repo_name="bleb")',
+        ],
+    )
+    self.ScratchFile(
+        'bar/quux/BUILD',
+        [
+            'load("@bleb//:defs.bzl", "my_rule")',
+            'my_rule(name="book")',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@bar//quux:book'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('1st: @@bar+//quux:bleb', stderr)
+    self.assertIn('2nd: @@bar+//bleb:bleb', stderr)
+    self.assertIn('3rd: @@//bleb:bleb', stderr)
+    self.assertIn('4th: @@bar+//bleb:bleb', stderr)
+    self.assertIn('5th: @@bleb//bleb:bleb', stderr)
+    self.assertIn('6th: @@//bleb:bleb', stderr)
+
   def testArchiveWithArchiveType(self):
     # make the archive without the .zip extension
     self.main_registry.createShModule(
@@ -1015,7 +1069,7 @@ class BazelModuleTest(test_base.TestBase):
     self.assertIn(
         'include() directive found at '
         + self.main_registry.getURL()
-        + '/modules/foo/1.0/MODULE.bazel:6:1, but it can only be used in the '
+        + '/modules/foo/1.0/MODULE.bazel:5:1, but it can only be used in the '
         + 'root module or in modules with non-registry overrides',
         '\n'.join(stderr),
     )
@@ -1336,6 +1390,96 @@ class BazelModuleTest(test_base.TestBase):
         stderr,
     )
     self.assertIn('https://unknown-registry.example.com', stderr)
+
+  def testInvalidRepoRuleReferencedByTargetDoesNotCrash(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'genrule(',
+            '  name = "gen",',
+            '  srcs = ["@my_repo//:a.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $(SRCS) > $(OUTS)",',
+            ')',
+        ],
+    )
+    self.ScratchFile('repo.bzl', ['nonsense'])
+
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '//:gen'],
+        allow_failure=True,
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('FATAL', stderr)
+    self.assertIn("compilation of module 'repo.bzl' failed", stderr)
+
+  def testReverseDependencyDirection(self):
+    # Set up two module extensions that retain their predeclared input hashes
+    # across two builds but still reverse their dependency direction. Depending
+    # on how repo cache candidates are checked, this could lead to a Skyframe
+    # cycle.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'foo_ext = use_extension("//:repo.bzl", "foo_ext")',
+            'use_repo(foo_ext, "foo")',
+            'bar_ext = use_extension("//:repo.bzl", "bar_ext")',
+            'use_repo(bar_ext, "bar")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("output.txt", rctx.attr.content)',
+            '  rctx.file("BUILD", "exports_files([\'output.txt\'])")',
+            '  print("JUST FETCHED: %s" % rctx.original_name)',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(',
+            '  implementation = _repo_impl,',
+            '  attrs = {"content": attr.string()},',
+            ')',
+            'def _foo_ext_impl(mctx):',
+            '  deps = mctx.read(Label("@//:foo_deps.txt")).splitlines()',
+            '  content = "foo"',
+            '  for dep in deps:',
+            '    if dep:',
+            '      content += " + " + mctx.read(Label(dep))',
+            '  repo(name = "foo", content = content)',
+            'foo_ext = module_extension(implementation = _foo_ext_impl)',
+            'def _bar_ext_impl(mctx):',
+            '  deps = mctx.read(Label("@//:bar_deps.txt")).splitlines()',
+            '  content = "bar"',
+            '  for dep in deps:',
+            '    if dep:',
+            '      content += " + " + mctx.read(Label(dep))',
+            '  repo(name = "bar", content = content)',
+            'bar_ext = module_extension(implementation = _bar_ext_impl)',
+        ],
+    )
+
+    self.ScratchFile('foo_deps.txt', ['@bar//:output.txt'])
+    self.ScratchFile('bar_deps.txt')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@foo//:output.txt'])
+    self.assertIn('JUST FETCHED: bar', '\n'.join(stderr))
+    self.assertIn('JUST FETCHED: foo', '\n'.join(stderr))
+
+    # After expunging and reversing: cached
+    self.RunBazel(['clean', '--expunge'])
+    self.ScratchFile('foo_deps.txt')
+    self.ScratchFile('bar_deps.txt', ['@foo//:output.txt'])
+    self.RunBazel(['build', '@foo//:output.txt'])
 
 
 if __name__ == '__main__':

@@ -70,7 +70,7 @@ public final class FakeOptions implements OptionsProvider {
      */
     @CanIgnoreReturnValue
     public <O extends OptionsBase> Builder put(O options) {
-      this.options.put(options.getClass(), options);
+      this.options.put(options.getOptionsClass(), options);
       return this;
     }
 
@@ -111,6 +111,11 @@ public final class FakeOptions implements OptionsProvider {
 
   @Override
   public ImmutableMap<String, String> getScopesAttributes() {
+    return ImmutableMap.of();
+  }
+
+  @Override
+  public ImmutableMap<String, Object> getOnLeaveScopeValues() {
     return ImmutableMap.of();
   }
 

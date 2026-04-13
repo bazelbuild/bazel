@@ -37,7 +37,7 @@ public class AnalysisTestActionBuilder {
   public static void writeAnalysisTestAction(
       RuleContext ruleContext, AnalysisTestResultInfo testResultInfo) {
     String escapedMessage =
-        ruleContext.isExecutedOnWindows()
+        ruleContext.isDefaultExecGroupExecutingOnWindows()
             ? testResultInfo.getMessage().replace("%", "%%")
             // Prefix each character with \ (double-escaped; once in the string, once in the
             // replacement sequence, which allows backslash-escaping literal "$"). "." is put in
@@ -45,7 +45,7 @@ public class AnalysisTestActionBuilder {
             // always-matching regex (b/201772278).
             : testResultInfo.getMessage().replaceAll("(.)", "\\\\$1");
     StringBuilder sb = new StringBuilder();
-    if (ruleContext.isExecutedOnWindows()) {
+    if (ruleContext.isDefaultExecGroupExecutingOnWindows()) {
       sb.append("@echo off\n");
     } else {
       sb.append("#!/bin/sh\n");
@@ -54,16 +54,16 @@ public class AnalysisTestActionBuilder {
       sb.append("echo ").append(line).append("\n");
     }
     sb.append("exit ");
-    if (ruleContext.isExecutedOnWindows()) {
+    if (ruleContext.isDefaultExecGroupExecutingOnWindows()) {
       sb.append("/b ");
     }
     sb.append(testResultInfo.getSuccess() ? "0" : "1");
     FileWriteAction action =
         FileWriteAction.create(
             ruleContext,
-            ruleContext.createOutputArtifactScript(),
+            ruleContext.createOutputArtifactScriptForAnalysisTest(),
             sb.toString(),
-            /*makeExecutable=*/ true);
+            /* makeExecutable= */ true);
     ruleContext.registerAction(action);
   }
 }

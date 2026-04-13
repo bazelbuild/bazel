@@ -17,7 +17,6 @@
 load(":common/objc/apple_env.bzl", "apple_host_system_env", "target_apple_env")
 load(":common/objc/apple_platform.bzl", "PLATFORM", "PLATFORM_TYPE")
 load(":common/objc/apple_toolchain.bzl", "apple_toolchain")
-load(":common/objc/compilation_support.bzl", "compilation_support")
 load(":common/objc/objc_info.bzl", "ObjcInfo")
 load(":common/xcode/providers.bzl", "XcodeVersionInfo")
 
@@ -33,7 +32,6 @@ apple_common = struct(
     target_apple_env = target_apple_env,
     new_objc_provider = ObjcInfo,
     dotted_version = lambda version: native_apple_common.dotted_version(version),
-    compilation_support = compilation_support,
 )
 
 apple_common_bazel = struct(

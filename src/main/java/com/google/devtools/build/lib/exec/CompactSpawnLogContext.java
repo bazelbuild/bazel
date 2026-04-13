@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -72,6 +72,7 @@ import java.util.SortedMap;
 import java.util.UUID;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -182,8 +183,10 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       DigestHashFunction digestHashFunction,
       XattrProvider xattrProvider,
       UUID invocationId,
-      ExtendedEventHandler reporter)
+      ExtendedEventHandler reporter,
+      Predicate<Spawn> logSpawnPredicate)
       throws IOException, InterruptedException {
+    super(logSpawnPredicate);
     this.execRoot = execRoot;
     this.workspaceName = workspaceName;
     this.siblingRepositoryLayout = siblingRepositoryLayout;
@@ -231,6 +234,9 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       Duration timeout,
       SpawnResult result)
       throws IOException, InterruptedException, ExecException {
+    if (!shouldLog(spawn)) {
+      return;
+    }
     try (SilentCloseable c = Profiler.instance().profile(SPAWN_LOG, "logSpawn")) {
       ExecLogEntry.Spawn.Builder builder = ExecLogEntry.Spawn.newBuilder();
 

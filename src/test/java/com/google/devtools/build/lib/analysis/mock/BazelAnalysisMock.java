@@ -193,6 +193,11 @@ java_binary(
     runtime_deps = [":proguard_import"],
 )
 
+alias(
+    name = "proguard_whitelister",
+    actual = ":proguard_allowlister.par",
+)
+
 java_import(
     name = "TestRunner",
     jars = ["TestRunner.jar"],
@@ -713,7 +718,8 @@ launcher_flag_alias(
     javaSupport().setupRulesJava(config, runfiles::rlocation);
     pySupport().setup(config);
     ShellConfiguration.injectShellExecutableFinder(
-        BazelRuleClassProvider::getDefaultPathFromOptions, BazelRuleClassProvider.SHELL_EXECUTABLE);
+        BazelRuleClassProvider::getDefaultPathFromOptions,
+        BazelRuleClassProvider.SHELL_EXECUTABLES);
   }
 
   @Override

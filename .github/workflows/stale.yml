@@ -23,18 +23,18 @@ jobs:
 
     steps:
     - name: Harden Runner
-      uses: step-security/harden-runner@95d9a5deda9de15063e7595e9719c11c38c90ae2 # v2.13.2
+      uses: step-security/harden-runner@fe104658747b27e96e4f7e80cd0a94068e53901d # v2.16.1
       with:
         egress-policy: audit
 
     - name: Track and close stale issues/PRs
-      uses: actions/stale@5f858e3efba33a5ca4407a664cc011ad407f2008 # v10.1.0
+      uses: actions/stale@b5d41d4e1d5dceea10e7104786b73624c18a190f # v10.2.0
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
         days-before-issue-stale: 430
-        days-before-pr-stale: 430
+        days-before-pr-stale: 30
         days-before-issue-close: 90
-        days-before-pr-close: 90
+        days-before-pr-close: 30
         stale-issue-message: >
           Thank you for contributing to the Bazel repository!
           This issue has been marked as stale since it has not had any activity in the last 1+ years. It will be closed in the next 90
@@ -43,8 +43,8 @@ jobs:
           This issue has been automatically closed due to inactivity. If you're still interested in pursuing this, please post `@bazelbuild/triage` in a comment here and we'll take a look. Thanks!
         stale-pr-message: >
           Thank you for contributing to the Bazel repository!
-          This pull request has been marked as stale since it has not had any activity in the last 1+ years. It will be closed in the next
-          90 days unless any other activity occurs. If you think this PR is still relevant and should stay open, please post any comment here and the PR will no longer be marked as stale.
+          This pull request has been marked as stale since it has not had any activity in the last 30 days. It will be closed in the next
+          30 days unless any other activity occurs. If you think this PR is still relevant and should stay open, please post any comment here and the PR will no longer be marked as stale.
         close-pr-message: >
           This pull request has been automatically closed due to inactivity. If you're still interested in pursuing this, please post `@bazelbuild/triage` in a comment here and we'll take a look. Thanks!
         stale-issue-label: 'stale'

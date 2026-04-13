@@ -61,24 +61,32 @@ public class LicenseTest {
 
   @Test
   public void repr() throws Exception {
-    assertThat(Starlark.repr(License.NO_LICENSE)).isEqualTo("[\"none\"]");
-    assertThat(License.parseLicense(evalAsSequence(Starlark.repr(License.NO_LICENSE))))
+    assertThat(Starlark.repr(License.NO_LICENSE, StarlarkSemantics.DEFAULT))
+        .isEqualTo("[\"none\"]");
+    assertThat(
+            License.parseLicense(
+                evalAsSequence(Starlark.repr(License.NO_LICENSE, StarlarkSemantics.DEFAULT))))
         .isEqualTo(License.NO_LICENSE);
 
     License withoutExceptions = License.parseLicense(ImmutableList.of("notice", "restricted"));
     // License types sorted by LicenseType enum order.
-    assertThat(Starlark.repr(withoutExceptions)).isEqualTo("[\"restricted\", \"notice\"]");
-    assertThat(License.parseLicense(evalAsSequence(Starlark.repr(withoutExceptions))))
+    assertThat(Starlark.repr(withoutExceptions, StarlarkSemantics.DEFAULT))
+        .isEqualTo("[\"restricted\", \"notice\"]");
+    assertThat(
+            License.parseLicense(
+                evalAsSequence(Starlark.repr(withoutExceptions, StarlarkSemantics.DEFAULT))))
         .isEqualTo(withoutExceptions);
 
     License withExceptions =
         License.parseLicense(
             ImmutableList.of("notice", "restricted", "exception=//foo:bar", "exception=//baz:qux"));
     // Exceptions sorted alphabetically.
-    assertThat(Starlark.repr(withExceptions))
+    assertThat(Starlark.repr(withExceptions, StarlarkSemantics.DEFAULT))
         .isEqualTo(
             "[\"restricted\", \"notice\", \"exception=//baz:qux\", \"exception=//foo:bar\"]");
-    assertThat(License.parseLicense(evalAsSequence(Starlark.repr(withExceptions))))
+    assertThat(
+            License.parseLicense(
+                evalAsSequence(Starlark.repr(withExceptions, StarlarkSemantics.DEFAULT))))
         .isEqualTo(withExceptions);
   }
 }

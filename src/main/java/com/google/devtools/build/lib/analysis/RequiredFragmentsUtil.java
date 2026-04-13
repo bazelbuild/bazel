@@ -319,7 +319,7 @@ public final class RequiredFragmentsUtil {
   private static IncludeConfigFragmentsEnum getRequiredFragmentsMode(
       BuildConfigurationValue config) {
     return checkNotNull(
-        config.getOptions().get(CoreOptions.class).includeRequiredConfigFragmentsProvider);
+        config.getOptions().get(CoreOptions.class).getIncludeRequiredConfigFragmentsProvider());
   }
 
   private RequiredFragmentsUtil() {}

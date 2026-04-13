@@ -25,6 +25,7 @@ import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -42,9 +43,9 @@ public record DormantDependency(Label label) implements StarlarkValue {
   public static final Label ALLOWLIST_LABEL = Label.parseCanonicalUnchecked(ALLOWLIST_LABEL_STR);
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<dormant dependency label='");
-    printer.append(label.toString());
+    printer.str(label, semantics);
     printer.append("'>");
   }
 

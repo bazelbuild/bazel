@@ -581,7 +581,7 @@ class BazelWindowsTest(test_base.TestBase):
     self.ScratchFile('foo.sh')
 
     exit_code, stdout, stderr = self.RunBazel(
-        ['test', '--incompatible_check_sharding_support', '//:foo_test'],
+        ['test', '//:foo_test'],
         allow_failure=True,
     )
     # Check for "tests failed" exit code
@@ -597,9 +597,7 @@ class BazelWindowsTest(test_base.TestBase):
 
     self.ScratchFile('foo.sh', ['touch "$TEST_SHARD_STATUS_FILE"'])
 
-    self.RunBazel(
-        ['test', '--incompatible_check_sharding_support', '//:foo_test']
-    )
+    self.RunBazel(['test', '//:foo_test'])
 
   def testTestPrematureExitFile(self):
     self.ScratchFile('MODULE.bazel')

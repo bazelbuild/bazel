@@ -324,11 +324,11 @@ BOOL WINAPI ConsoleCtrlHandler(_In_ DWORD ctrlType) {
 
 void SignalHandler::Install(const string& product_name,
                             const blaze_util::Path& output_base,
-                            const ServerProcessInfo* server_process_info_,
+                            const ServerProcessInfo* server_process_info,
                             SignalHandler::Callback cancel_server) {
   product_name_ = product_name;
   output_base_ = output_base;
-  server_process_info_ = server_process_info_;
+  server_process_info_ = server_process_info;
   cancel_server_ = cancel_server;
   ::SetConsoleCtrlHandler(&ConsoleCtrlHandler, TRUE);
 }
@@ -360,27 +360,6 @@ void SigPrintf(const char* format, ...) {
   }
 }
 
-static void PrintErrorW(const wstring& op) {
-  DWORD last_error = ::GetLastError();
-  if (last_error == 0) {
-    return;
-  }
-
-  WCHAR* message_buffer;
-  FormatMessageW(
-      /* dwFlags */ FORMAT_MESSAGE_ALLOCATE_BUFFER |
-          FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-      /* lpSource */ nullptr,
-      /* dwMessageId */ last_error,
-      /* dwLanguageId */ MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-      /* lpBuffer */ message_buffer,
-      /* nSize */ 0,
-      /* Arguments */ nullptr);
-
-  fwprintf(stderr, L"ERROR: %s: %s (%d)\n", op.c_str(), message_buffer,
-           last_error);
-  LocalFree(message_buffer);
-}
 
 void WarnFilesystemType(const blaze_util::Path& output_base) {}
 
@@ -589,7 +568,7 @@ static HANDLE CreateJvmOutputFile(const blaze_util::Path& path,
         /* hTemplateFile */ nullptr);
     if (handle != INVALID_HANDLE_VALUE) {
       if (daemon_out_append &&
-          !SetFilePointerEx(handle, {0}, nullptr, FILE_END)) {
+          !SetFilePointerEx(handle, {}, nullptr, FILE_END)) {
         fprintf(stderr, "Could not seek to end of file (%s)\n",
                 path.AsPrintablePath().c_str());
         return INVALID_HANDLE_VALUE;
@@ -690,7 +669,7 @@ int ExecuteDaemon(
   }
 
   PROCESS_INFORMATION processInfo = {0};
-  STARTUPINFOEXW startupInfoEx = {0};
+  STARTUPINFOEXW startupInfoEx = {};
   lpAttributeList->InitStartupInfoExW(&startupInfoEx);
 
   std::vector<std::wstring> wesc_args_vector;
@@ -1250,7 +1229,7 @@ bool IsEmacsTerminal() {
 bool IsStandardTerminal() {
   for (DWORD i : {STD_OUTPUT_HANDLE, STD_ERROR_HANDLE}) {
     DWORD mode = 0;
-    HANDLE handle = ::GetStdHandle(STD_ERROR_HANDLE);
+    HANDLE handle = ::GetStdHandle(i);
     // handle may be invalid when std{out,err} is redirected
     if (handle == INVALID_HANDLE_VALUE || !::GetConsoleMode(handle, &mode) ||
         !(mode & ENABLE_PROCESSED_OUTPUT) ||

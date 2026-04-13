@@ -27,12 +27,11 @@ import build.bazel.remote.execution.v2.OutputDirectory;
 import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.Store;
+import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -40,12 +39,18 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.bazel.BazelHashFunctions;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import java.io.IOException;
-import java.util.concurrent.ExecutorService;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -56,8 +61,6 @@ import org.junit.runners.JUnit4;
 public class DiskCacheClientTest {
   private static final DigestUtil DIGEST_UTIL =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
-  private static final ExecutorService executorService =
-      MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(1));
 
   private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
   private final Path root = fs.getPath("/disk_cache");
@@ -65,7 +68,12 @@ public class DiskCacheClientTest {
 
   @Before
   public void setUp() throws Exception {
-    client = new DiskCacheClient(root, DIGEST_UTIL, executorService, /* verifyDownloads= */ true);
+    client = new DiskCacheClient(root, DIGEST_UTIL);
+  }
+
+  @After
+  public void tearDown() {
+    client.close();
   }
 
   @Test
@@ -99,11 +107,7 @@ public class DiskCacheClientTest {
     assumeNotNull(BazelHashFunctions.BLAKE3); // BLAKE3 not available in Blaze.
 
     DiskCacheClient client =
-        new DiskCacheClient(
-            root,
-            new DigestUtil(SyscallCache.NO_CACHE, BazelHashFunctions.BLAKE3),
-            executorService,
-            /* verifyDownloads= */ true);
+        new DiskCacheClient(root, new DigestUtil(SyscallCache.NO_CACHE, BazelHashFunctions.BLAKE3));
     Digest digest = Digest.newBuilder().setHash("0123456789abcdef").setSizeBytes(42).build();
     Path path = client.toPath(digest, Store.CAS);
 
@@ -115,11 +119,7 @@ public class DiskCacheClientTest {
     assumeNotNull(BazelHashFunctions.BLAKE3); // BLAKE3 not available in Blaze.
 
     DiskCacheClient client =
-        new DiskCacheClient(
-            root,
-            new DigestUtil(SyscallCache.NO_CACHE, BazelHashFunctions.BLAKE3),
-            executorService,
-            /* verifyDownloads= */ true);
+        new DiskCacheClient(root, new DigestUtil(SyscallCache.NO_CACHE, BazelHashFunctions.BLAKE3));
     Digest digest = Digest.newBuilder().setHash("0123456789abcdef").setSizeBytes(42).build();
     Path path = client.toPath(digest, Store.AC);
 
@@ -222,17 +222,6 @@ public class DiskCacheClientTest {
     assertThrows(
         CacheNotFoundException.class,
         () -> getFromFuture(client.downloadBlob(getDigest("contents"), out.getOutputStream())));
-  }
-
-  @Test
-  public void downloadBlob_whenCorrupted_throwsOutputDigestMismatchException() throws Exception {
-    Digest digest = getDigest("contents");
-    populateCas(digest, "corrupted contents");
-    Path out = fs.getPath("/out");
-
-    assertThrows(
-        OutputDigestMismatchException.class,
-        () -> getFromFuture(client.downloadBlob(digest, out.getOutputStream())));
   }
 
   @Test
@@ -345,6 +334,85 @@ public class DiskCacheClientTest {
     var result = getFromFuture(client.downloadActionResult(actionKey));
 
     assertThat(result).isNull();
+  }
+
+  @Test
+  public void concurrentUploadDownload()
+      throws IOException, ExecutionException, InterruptedException {
+    var nativeDiskCacheDir = TestUtils.createUniqueTmpDir(FileSystems.getNativeFileSystem());
+    var nativeClient = new DiskCacheClient(nativeDiskCacheDir, DIGEST_UTIL);
+    var tasks = new ArrayList<Future<?>>();
+    // Use 1 MB blobs to increase the window for concurrent access during write/rename.
+    var contentSize = 1024 * 1024;
+    var numConcurrentOps = 10;
+    try (var executor = Executors.newFixedThreadPool(numConcurrentOps)) {
+      for (int attempt = 0; attempt < 100; attempt++) {
+        var contentArray = new byte[contentSize];
+        // Fill with a pattern based on the attempt number.
+        for (int i = 0; i < contentSize; i++) {
+          contentArray[i] = (byte) (attempt + i);
+        }
+        var contentBytes = ByteString.copyFrom(contentArray);
+        var contentDigest = DIGEST_UTIL.compute(contentArray);
+        // Use a latch to ensure all concurrent tasks start at roughly the same time.
+        var startLatch = new CountDownLatch(numConcurrentOps);
+        // Half the tasks do uploads, half do downloads with a slow OutputStream to keep the file
+        // open longer. This maximizes the chance of a rename failing because a download has the
+        // file open.
+        for (int concurrentOp = 0; concurrentOp < numConcurrentOps; concurrentOp++) {
+          boolean isUploader = concurrentOp % 2 == 0;
+          tasks.add(
+              executor.submit(
+                  () -> {
+                    // Signal ready and wait for all tasks to be ready.
+                    startLatch.countDown();
+                    startLatch.await();
+                    if (isUploader) {
+                      getFromFuture(nativeClient.uploadBlob(contentDigest, contentBytes));
+                    } else {
+                      // Use a slow OutputStream that pauses periodically to keep the file open
+                      // longer during download.
+                      var out =
+                          new OutputStream() {
+                            private int bytesWritten = 0;
+
+                            @Override
+                            public void write(int b) throws IOException {
+                              bytesWritten++;
+                              maybeSleep();
+                            }
+
+                            @Override
+                            public void write(byte[] b, int off, int len) throws IOException {
+                              bytesWritten += len;
+                              maybeSleep();
+                            }
+
+                            private void maybeSleep() {
+                              // Sleep every 64KB to slow down the download.
+                              if (bytesWritten % (64 * 1024) < 100) {
+                                try {
+                                  Thread.sleep(1);
+                                } catch (InterruptedException e) {
+                                  Thread.currentThread().interrupt();
+                                }
+                              }
+                            }
+                          };
+                      try {
+                        getFromFuture(nativeClient.downloadBlob(contentDigest, out));
+                      } catch (CacheNotFoundException ignored) {
+                        // File not yet uploaded by another task.
+                      }
+                    }
+                    return null;
+                  }));
+        }
+      }
+      for (var task : tasks) {
+        task.get();
+      }
+    }
   }
 
   private Tree getTreeWithFile(Digest fileDigest) {

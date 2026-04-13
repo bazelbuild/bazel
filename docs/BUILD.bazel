@@ -32,6 +32,7 @@ pkg_tar(
         exclude = [
             "**/BUILD",
             "**/BUILD.bazel",
+            "versions/**",
         ],
     ),
     strip_prefix = "/docs",

@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * The implementation of the config_feature_flag rule for defining custom flags for Android rules.
@@ -123,7 +124,7 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
       ruleContext.attributeError(
           "allowed_values",
           "cannot contain duplicates, but contained multiple of "
-              + Starlark.repr(duplicates.build()));
+              + Starlark.repr(duplicates.build(), StarlarkSemantics.DEFAULT));
     }
 
     Optional<String> defaultValue =
@@ -135,9 +136,9 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
       ruleContext.attributeError(
           "default_value",
           "must be one of "
-              + Starlark.repr(values.asList())
+              + Starlark.repr(values.asList(), StarlarkSemantics.DEFAULT)
               + ", but was "
-              + Starlark.repr(defaultValue.get()));
+              + Starlark.repr(defaultValue.get(), StarlarkSemantics.DEFAULT));
     }
 
     if (ruleContext.hasErrors()) {
@@ -199,9 +200,9 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
         // explicitly set values are valid values.
         ruleContext.ruleError(
             "value must be one of "
-                + Starlark.repr(values.asList())
+                + Starlark.repr(values.asList(), StarlarkSemantics.DEFAULT)
                 + ", but was "
-                + Starlark.repr(setValue));
+                + Starlark.repr(setValue, StarlarkSemantics.DEFAULT));
         return null;
       }
       return ConfigFeatureFlagProvider.create(setValue, null, isValidValue);

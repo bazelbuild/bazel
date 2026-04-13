@@ -21,6 +21,7 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
 import static com.google.devtools.build.lib.remote.CombinedCache.createFailureDetail;
 import static com.google.devtools.build.lib.remote.util.Utils.createExecExceptionForCredentialHelperException;
 import static com.google.devtools.build.lib.remote.util.Utils.createExecExceptionFromRemoteExecutionCapabilitiesException;
@@ -63,6 +64,8 @@ import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -74,8 +77,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
+import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
@@ -94,6 +96,7 @@ import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultM
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.FileMetadata;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.SymlinkMetadata;
 import com.google.devtools.build.lib.remote.Scrubber.SpawnScrubber;
+import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
@@ -101,7 +104,6 @@ import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException
 import com.google.devtools.build.lib.remote.common.ProgressStatusListener;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionCapabilitiesException;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
@@ -151,8 +153,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.Semaphore;
@@ -192,9 +194,10 @@ public class RemoteExecutionService {
   private final Set<String> reportedErrors = new HashSet<>();
 
   @SuppressWarnings("AllowVirtualThreads")
-  private final ExecutorService backgroundTaskExecutor =
-      Executors.newThreadPerTaskExecutor(
-          Thread.ofVirtual().name("remote-execution-bg-", 0).factory());
+  private final ListeningExecutorService backgroundTaskExecutor =
+      MoreExecutors.listeningDecorator(
+          Executors.newThreadPerTaskExecutor(
+              Thread.ofVirtual().name("remote-execution-bg-", 0).factory()));
 
   private final AtomicBoolean shutdown = new AtomicBoolean(false);
   private final AtomicBoolean buildInterrupted = new AtomicBoolean(false);
@@ -247,7 +250,7 @@ public class RemoteExecutionService {
             commandId,
             workspaceName);
 
-    this.scrubber = remoteOptions.scrubber;
+    this.scrubber = remoteOptions.getScrubber();
 
     this.tempPathGenerator = tempPathGenerator;
     this.captureCorruptedOutputsDir = captureCorruptedOutputsDir;
@@ -301,7 +304,7 @@ public class RemoteExecutionService {
       }
       if (first && executionPlatform != null) {
         first = false;
-        OS executionOs = ConstraintConstants.getOsFromConstraints(executionPlatform.constraints());
+        OS executionOs = getOsFromConstraintsOrHost(executionPlatform);
         arg = OsPathPolicy.of(executionOs).postProcessPathStringForExecution(arg);
       }
       command.addArguments(internalToUnicode(arg));
@@ -335,7 +338,9 @@ public class RemoteExecutionService {
     }
 
     boolean allowRemoteCache =
-        useRemoteCache() && remoteOptions.remoteAcceptCached && Spawns.mayBeCachedRemotely(spawn);
+        useRemoteCache()
+            && remoteOptions.getRemoteAcceptCached()
+            && Spawns.mayBeCachedRemotely(spawn);
     boolean allowDiskCache = useDiskCache() && Spawns.mayBeCached(spawn);
 
     return CachePolicy.create(allowRemoteCache, allowDiskCache);
@@ -401,7 +406,7 @@ public class RemoteExecutionService {
   @Nullable
   private ToolSignature getToolSignature(Spawn spawn, SpawnExecutionContext context)
       throws IOException, ExecException, InterruptedException {
-    return remoteOptions.markToolInputs
+    return remoteOptions.getMarkToolInputs()
             && Spawns.supportsWorkers(spawn)
             && !spawn.getToolFiles().isEmpty()
         ? computePersistentWorkerSignature(spawn, context)
@@ -410,7 +415,7 @@ public class RemoteExecutionService {
 
   private void maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask task)
       throws InterruptedException {
-    if (!remoteOptions.throttleRemoteActionBuilding) {
+    if (!remoteOptions.getThrottleRemoteActionBuilding()) {
       return;
     }
 
@@ -420,7 +425,7 @@ public class RemoteExecutionService {
   }
 
   private void maybeReleaseRemoteActionBuildingSemaphore() {
-    if (!remoteOptions.throttleRemoteActionBuilding) {
+    if (!remoteOptions.getThrottleRemoteActionBuilding()) {
       return;
     }
 
@@ -492,7 +497,7 @@ public class RemoteExecutionService {
     return buildRemoteAction(
         spawn,
         context,
-        remoteOptions.remoteDiscardMerkleTrees
+        remoteOptions.getRemoteDiscardMerkleTrees()
             ? MerkleTreeComputer.BlobPolicy.DISCARD
             : MerkleTreeComputer.BlobPolicy.KEEP_AND_REUPLOAD);
   }
@@ -528,13 +533,18 @@ public class RemoteExecutionService {
 
       // Get the remote platform properties.
       Platform platform;
+      ImmutableMap.Builder<String, String> additionalPropertiesBuilder = ImmutableMap.builder();
       if (toolSignature != null) {
-        platform =
-            PlatformUtils.getPlatformProto(
-                spawn, remoteOptions, ImmutableMap.of("persistentWorkerKey", toolSignature.key));
-      } else {
-        platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
+        additionalPropertiesBuilder.put(
+            PlatformProperties.PERSISTENT_WORKER_KEY, toolSignature.key);
       }
+      if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL)) {
+        additionalPropertiesBuilder.put(
+            PlatformProperties.PERSISTENT_WORKER_PROTOCOL,
+            spawn.getExecutionInfo().get(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL));
+      }
+      platform =
+          PlatformUtils.getPlatformProto(spawn, remoteOptions, additionalPropertiesBuilder.build());
 
       SpawnScrubber spawnScrubber = scrubber != null ? scrubber.forSpawn(spawn) : null;
       Command command =
@@ -1227,7 +1237,7 @@ public class RemoteExecutionService {
             combinedCache, digestUtil, context, action.getRemotePathResolver());
 
     // The expiration time for remote cache entries.
-    var expirationTime = Instant.now().plus(remoteOptions.remoteCacheTtl);
+    var expirationTime = Instant.now().plus(remoteOptions.getRemoteCacheTtl());
 
     ActionInput inMemoryOutput = null;
     AtomicReference<ByteString> inMemoryOutputData = new AtomicReference<>(null);
@@ -1754,18 +1764,33 @@ public class RemoteExecutionService {
       return;
     }
 
-    if (remoteOptions.remoteCacheAsync
+    if (remoteOptions.getRemoteCacheAsync()
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
-      backgroundTaskExecutor.execute(
-          () -> {
-            try {
-              doUploadOutputs(action, spawnResult, onUploadComplete);
-            } catch (ExecException e) {
-              reportUploadError(e);
-            } catch (InterruptedException ignored) {
-              // ThreadPerTaskExecutor does not care about interrupt status.
-            }
-          });
+      var uploadDone = new CountDownLatch(1);
+      var future =
+          backgroundTaskExecutor.submit(
+              () -> {
+                try {
+                  doUploadOutputs(action, spawnResult, onUploadComplete);
+                } catch (ExecException e) {
+                  reportUploadError(e);
+                } catch (InterruptedException ignored) {
+                  // ThreadPerTaskExecutor does not care about interrupt status.
+                } finally {
+                  uploadDone.countDown();
+                }
+              });
+
+      if (outputService instanceof RemoteOutputService remoteOutputService
+          && remoteOutputService.getRewoundActionSynchronizer()
+              instanceof RemoteRewoundActionSynchronizer remoteRewoundActionSynchronizer) {
+        remoteRewoundActionSynchronizer.registerOutputUploadTask(
+            action.getRemoteActionExecutionContext().getSpawnOwner(),
+            () -> {
+              future.cancel(true);
+              uploadDone.await();
+            });
+      }
     } else {
       doUploadOutputs(action, spawnResult, onUploadComplete);
     }
@@ -1903,17 +1928,19 @@ public class RemoteExecutionService {
 
     ExecuteRequest.Builder requestBuilder =
         ExecuteRequest.newBuilder()
-            .setInstanceName(remoteOptions.remoteInstanceName)
+            .setInstanceName(remoteOptions.getRemoteInstanceName())
             .setDigestFunction(digestUtil.getDigestFunction())
             .setActionDigest(action.getActionKey().digest())
             .setSkipCacheLookup(!acceptCachedResult);
-    if (remoteOptions.remoteResultCachePriority != 0) {
+    if (remoteOptions.getRemoteResultCachePriority() != 0) {
       requestBuilder
           .getResultsCachePolicyBuilder()
-          .setPriority(remoteOptions.remoteResultCachePriority);
+          .setPriority(remoteOptions.getRemoteResultCachePriority());
     }
-    if (remoteOptions.remoteExecutionPriority != 0) {
-      requestBuilder.getExecutionPolicyBuilder().setPriority(remoteOptions.remoteExecutionPriority);
+    if (remoteOptions.getRemoteExecutionPriority() != 0) {
+      requestBuilder
+          .getExecutionPolicyBuilder()
+          .setPriority(remoteOptions.getRemoteExecutionPriority());
     }
     PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
     if (inMemoryOutputPath != null) {

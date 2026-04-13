@@ -107,6 +107,8 @@ def download_remote_files(ctx, auth = None):
             auth = get_auth(ctx, remote_file_urls) if auth == None else auth,
             integrity = ctx.attr.remote_file_integrity.get(path, ""),
             block = False,
+            # Overlaid files may be shell scripts.
+            executable = True,
         )
         for path, remote_file_urls in ctx.attr.remote_file_urls.items()
     }

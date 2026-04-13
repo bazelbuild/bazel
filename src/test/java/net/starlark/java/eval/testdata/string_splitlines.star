@@ -20,6 +20,12 @@ assert_eq("\r\n\r\n\r\n".splitlines(), ["", "", ""])
 # Escaped sequences
 assert_eq("\n\\n\\\n".splitlines(), ["", "\\n\\"])
 
+# UTF-8 characters with \u0085 in it
+# "包" is U+5305. UTF-8 is E5 8C 85.
+# If Starlark treats each byte as a Latin1 char, then 85 is \u0085 (NEL).
+# Java's Pattern.compile(".*") stops at \u0085.
+assert_eq("abc包def".splitlines(), ["abc包def"])
+
 # KeepEnds
 assert_eq("".splitlines(True), [])
 assert_eq("\n".splitlines(True), ["\n"])

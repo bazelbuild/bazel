@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.stream;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -177,7 +178,12 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     doAnswer(mockPrefetchFile(artifact.getPath(), "remote contents"))
         .when(inputFetcher)
         .prefetchFiles(
-            any(), eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL), eq(Reason.INPUTS));
+            any(),
+            any(),
+            argThat(arg -> arg.get().equals(ImmutableList.of(artifact))),
+            any(),
+            eq(Priority.CRITICAL),
+            eq(Reason.INPUTS));
 
     // act
     Path actionFsPath = actionFs.getPath(artifact.getPath().asFragment());
@@ -188,7 +194,12 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     assertThat(contents).isEqualTo("remote contents");
     verify(inputFetcher)
         .prefetchFiles(
-            any(), eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL), eq(Reason.INPUTS));
+            any(),
+            any(),
+            argThat(arg -> arg.get().equals(ImmutableList.of(artifact))),
+            any(),
+            eq(Priority.CRITICAL),
+            eq(Reason.INPUTS));
     verifyNoMoreInteractions(inputFetcher);
   }
 

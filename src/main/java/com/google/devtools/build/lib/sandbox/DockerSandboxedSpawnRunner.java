@@ -40,8 +40,8 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.unix.ProcessUtilsService;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.ByteArrayInputStream;
@@ -75,7 +75,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    */
   public static boolean isSupported(CommandEnvironment cmdEnv, Path dockerClient)
       throws InterruptedException {
-    boolean verbose = cmdEnv.getOptions().getOptions(SandboxOptions.class).dockerVerbose;
+    boolean verbose = cmdEnv.getOptions().getOptions(SandboxOptions.class).getDockerVerbose();
 
     if (ProcessWrapper.fromCommandEnvironment(cmdEnv) == null) {
       if (verbose) {
@@ -93,17 +93,18 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // create files as 'root' and we can't move them to the execRoot.
     if (OS.getCurrent() == OS.LINUX) {
       try {
-        ProcessUtils.getuid();
-        ProcessUtils.getgid();
+        var unused = ProcessUtilsService.getService().getuid();
+        unused = ProcessUtilsService.getService().getgid();
       } catch (UnsatisfiedLinkError e) {
         if (verbose) {
           cmdEnv
               .getReporter()
               .handle(
                   Event.error(
-                      "Docker sandboxing is disabled, because ProcessUtils.getuid/getgid threw an "
-                          + "UnsatisfiedLinkError. This means that you're running a Bazel version "
-                          + "that doesn't have JNI libraries - did you build it correctly?\n"
+                      "Docker sandboxing is disabled, because"
+                          + " ProcessUtilsService.getService().getuid/getgid threw an"
+                          + " UnsatisfiedLinkError. This means that you're running a Bazel version"
+                          + " that doesn't have JNI libraries - did you build it correctly?\n"
                           + Throwables.getStackTraceAsString(e)));
         }
         return false;
@@ -186,8 +187,8 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.treeDeleter = treeDeleter;
     this.cmdEnv = cmdEnv;
     if (OS.getCurrent() == OS.LINUX) {
-      this.uid = ProcessUtils.getuid();
-      this.gid = ProcessUtils.getgid();
+      this.uid = ProcessUtilsService.getService().getuid();
+      this.gid = ProcessUtilsService.getService().getgid();
     } else {
       this.uid = -1;
       this.gid = -1;
@@ -246,12 +247,13 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         .setImageName(customizedImageName)
         .setCommandArguments(spawn.getArguments())
         .setSandboxExecRoot(sandboxExecRoot)
-        .setAdditionalMounts(getSandboxOptions().sandboxAdditionalMounts)
-        .setPrivileged(getSandboxOptions().dockerPrivileged)
+        .setAdditionalMounts(getSandboxOptions().getSandboxAdditionalMounts())
+        .setPrivileged(getSandboxOptions().getDockerPrivileged())
         .setEnvironmentVariables(environment)
         .setCreateNetworkNamespace(
             !(allowNetwork
-                || Spawns.requiresNetwork(spawn, getSandboxOptions().defaultSandboxAllowNetwork)))
+                || Spawns.requiresNetwork(
+                    spawn, getSandboxOptions().getDefaultSandboxAllowNetwork())))
         .setCommandId(commandId)
         .setUuid(uuid);
     // If uid / gid are -1, we are on an operating system that doesn't require us to set them on the

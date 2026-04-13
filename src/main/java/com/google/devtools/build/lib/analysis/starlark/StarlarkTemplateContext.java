@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkTemplateContextApi;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
@@ -88,15 +89,29 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
 
     StarlarkActionFactory.buildCommandLine(builder, arguments, repoMappingSupplier);
 
+    List<Artifact> inputArtifacts;
     switch (inputs) {
-      case Sequence<?> sequence ->
-          builder.addInputs(Sequence.cast(inputs, Artifact.class, "inputs"));
-      case Depset depset ->
-          builder.addTransitiveInputs(Depset.cast(depset, Artifact.class, "inputs"));
+      case Sequence<?> sequence -> {
+        inputArtifacts = Sequence.cast(inputs, Artifact.class, "inputs");
+        builder.addInputs(inputArtifacts);
+      }
+      case Depset depset -> {
+        NestedSet<Artifact> inputNestedSet = Depset.cast(depset, Artifact.class, "inputs");
+        inputArtifacts = inputNestedSet.toList();
+        builder.addTransitiveInputs(inputNestedSet);
+      }
       default -> {
         throw Starlark.errorf("Expected a list or depset but got %s", Starlark.type(inputs));
       }
     }
+
+    for (Artifact input : inputArtifacts) {
+      if (outputDirectories.contains(input)) {
+        throw Starlark.errorf(
+            "Output directory %s cannot be used as an input to template_ctx.run()", input);
+      }
+    }
+
     switch (executableUnchecked) {
       case Artifact executable -> builder.setExecutable(executable);
       case FilesToRunProvider filesToRun -> builder.setExecutable(filesToRun);
@@ -155,6 +170,22 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
         SpecialArtifact.cast(directory, SpecialArtifactType.TREE, "directory"),
         PathFragment.create(filename),
         artifactOwner);
+  }
+
+  @Override
+  public Artifact declareSubdirectory(String subdirectory, FileApi directory) throws EvalException {
+    SpecialArtifact parent = SpecialArtifact.cast(directory, SpecialArtifactType.TREE, "directory");
+    // We do not support nesting subtrees in subtrees.
+    if (parent.isSubTreeArtifact()) {
+      throw Starlark.errorf(
+          "Cannot declare subdirectory `%s` in another subdirectory %s", subdirectory, directory);
+    }
+    if (!outputDirectories.contains(parent)) {
+      throw Starlark.errorf(
+          "Cannot declare subdirectory `%s` in non-output directory %s", subdirectory, directory);
+    }
+    return SpecialArtifact.createSubTreeArtifact(
+        parent, PathFragment.create(subdirectory), artifactOwner);
   }
 
   @Override

@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollector;
 import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollector.CollectionPolicy;
 import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollector.CollectionStats;
+import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -120,6 +121,6 @@ public final class Gc {
     if (OS.getCurrent() == OS.WINDOWS) {
       return new WindowsFileSystem(DigestHashFunction.SHA256, false);
     }
-    return new UnixFileSystem(DigestHashFunction.SHA256, "");
+    return new UnixFileSystem(DigestHashFunction.SHA256, "", new NativePosixFilesServiceImpl());
   }
 }

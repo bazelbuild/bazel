@@ -25,7 +25,7 @@ public class ImmutableListTypeForAllowMultipleOption extends OptionsBase {
       name = "option",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       allowMultiple = true)
   public ImmutableList<String> badOption;
 }

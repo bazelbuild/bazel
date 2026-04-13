@@ -57,7 +57,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Success;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
-import com.google.devtools.build.lib.skyframe.ClientEnvironmentValue;
+import com.google.devtools.build.lib.skyframe.EnvironmentVariableValue;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -171,8 +171,8 @@ public class ModuleFileFunction implements SkyFunction {
       return computeForRootModule(starlarkSemantics, env, SymbolGenerator.create(skyKey));
     }
 
-    ClientEnvironmentValue allowedYankedVersionsFromEnv =
-        (ClientEnvironmentValue)
+    EnvironmentVariableValue allowedYankedVersionsFromEnv =
+        (EnvironmentVariableValue)
             env.getValue(
                 ClientEnvironmentFunction.key(
                     YankedVersionsUtil.BZLMOD_ALLOWED_YANKED_VERSIONS_ENV));
@@ -640,6 +640,9 @@ public class ModuleFileFunction implements SkyFunction {
 
       compiledRootModuleFile.runOnThread(thread);
       injectRepos(injectedRepositories, context, thread);
+      for (Event warning : context.getWarnings()) {
+        eventHandler.handle(warning);
+      }
     } catch (EvalException e) {
       eventHandler.handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
       throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for %s", moduleKey);

@@ -406,11 +406,11 @@ public class IncrementalLoadingTest {
     tester.sync();
     tester.getTarget("//a:BUILD");
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    packageOptions.checkExternalOtherFiles = false;
+    packageOptions.setCheckExternalOtherFiles(false);
     tester.modifyFile("/b.bzl", "ERROR ERROR");
     tester.syncWithOptions(packageOptions);
     tester.getTarget("//a:BUILD");
-    packageOptions.checkExternalOtherFiles = true;
+    packageOptions.setCheckExternalOtherFiles(true);
     tester.syncWithOptions(packageOptions);
 
     assertThrows(NoSuchThingException.class, () -> tester.getTarget("//a:BUILD"));
@@ -494,7 +494,6 @@ public class IncrementalLoadingTest {
               new ServerDirectories(
                   fs.getPath("/install"), fs.getPath("/output"), fs.getPath("/userRoot")),
               workspace,
-              /* defaultSystemJavabase= */ null,
               loadingMock.getProductName());
       ConfiguredRuleClassProvider ruleClassProvider = loadingMock.createRuleClassProvider();
       PackageFactory pkgFactory =
@@ -519,9 +518,9 @@ public class IncrementalLoadingTest {
               .build();
       SkyframeExecutorTestHelper.process(skyframeExecutor);
       PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-      packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
-      packageOptions.showLoadingProgress = true;
-      packageOptions.globbingThreads = 7;
+      packageOptions.setDefaultVisibility(RuleVisibility.PUBLIC);
+      packageOptions.setShowLoadingProgress(true);
+      packageOptions.setGlobbingThreads(7);
       skyframeExecutor.injectExtraPrecomputedValues(
           ImmutableList.of(
               PrecomputedValue.injected(
@@ -529,7 +528,6 @@ public class IncrementalLoadingTest {
               PrecomputedValue.injected(
                   RepoDefinitionFunction.REPOSITORY_OVERRIDES, ImmutableMap.of())));
       BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
-      buildLanguageOptions.incompatibleAutoloadExternally = ImmutableList.of();
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(
               outputBase,
@@ -622,11 +620,10 @@ public class IncrementalLoadingTest {
       clock.advanceMillis(1);
 
       modifiedFileSet = getModifiedFileSet();
-      packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
-      packageOptions.showLoadingProgress = true;
-      packageOptions.globbingThreads = 7;
+      packageOptions.setDefaultVisibility(RuleVisibility.PUBLIC);
+      packageOptions.setShowLoadingProgress(true);
+      packageOptions.setGlobbingThreads(7);
       BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
-      buildLanguageOptions.incompatibleAutoloadExternally = ImmutableList.of();
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(
               outputBase,

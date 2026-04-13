@@ -287,7 +287,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, outputBase),
             rootDirectory,
-            /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
     moduleRoot = scratch.dir("modules");
     registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(moduleRoot.getPathString());
@@ -350,8 +349,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       SkyframeExecutorTestHelper.process(skyframeExecutor);
     }
     skyframeExecutor.injectExtraPrecomputedValues(extraPrecomputedValues);
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 7;
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(7);
     skyframeExecutor.preparePackageLoading(
         createPackageLocator(),
         packageOptions,
@@ -499,13 +498,13 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             outputBase,
-            packageOptions.packagePath,
+            packageOptions.getPackagePath(),
             reporter,
             rootDirectory.asFragment(),
             rootDirectory,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 7;
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(7);
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
@@ -515,7 +514,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         QuiescingExecutorsImpl.forTesting(),
         tsgm);
     skyframeExecutor.setActionEnv(ImmutableMap.of());
-    skyframeExecutor.setDeletedPackages(packageOptions.getDeletedPackages());
+    skyframeExecutor.setDeletedPackages(packageOptions.getDeletedPackagesOrEmptySet());
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
@@ -2207,6 +2206,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     @Override
     public Artifact getVolatileWorkspaceStatusArtifact() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void declareStampSettingDep() {
       throw new UnsupportedOperationException();
     }
 

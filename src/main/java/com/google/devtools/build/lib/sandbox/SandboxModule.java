@@ -40,9 +40,11 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.TriState;
 import java.io.File;
@@ -112,7 +114,7 @@ public final class SandboxModule extends BlazeModule {
   /** Computes the path to the sandbox base tree for the given running command. */
   private static Path computeSandboxBase(SandboxOptions options, CommandEnvironment env)
       throws IOException {
-    if (options.sandboxBase.isEmpty()) {
+    if (options.getSandboxBase().isEmpty()) {
       return env.getOutputBase().getRelative("sandbox");
     } else {
       String dirName =
@@ -123,9 +125,10 @@ public final class SandboxModule extends BlazeModule {
       FileSystem fileSystem = env.getRuntime().getFileSystem();
       if (OS.getCurrent() == OS.DARWIN) {
         // Don't resolve symlinks on macOS: See https://github.com/bazelbuild/bazel/issues/13766
-        return fileSystem.getPath(options.sandboxBase).getRelative(dirName);
+        return fileSystem.getPath(options.getSandboxBase()).getRelative(dirName);
       }
-      Path resolvedSandboxBase = fileSystem.getPath(options.sandboxBase).resolveSymbolicLinks();
+      Path resolvedSandboxBase =
+          fileSystem.getPath(options.getSandboxBase()).resolveSymbolicLinks();
       return resolvedSandboxBase.getRelative(dirName);
     }
   }
@@ -197,13 +200,13 @@ public final class SandboxModule extends BlazeModule {
 
     // Do not remove the sandbox base when --sandbox_debug was specified so that people can check
     // out the contents of the generated sandbox directories.
-    shouldCleanupSandboxBase = !options.sandboxDebug;
+    shouldCleanupSandboxBase = !options.getSandboxDebug();
 
     // If there happens to be any live tree deleter from a previous build and it's different than
     // the one we want now, leave it alone (i.e. don't attempt to wait for pending deletions). Its
     // deletions shouldn't overlap any new directories we create during this build (because the
     // identifiers in the subdirectories will be different).
-    if (options.asyncTreeDeleteIdleThreads == 0) {
+    if (options.getAsyncTreeDeleteIdleThreads() == 0) {
       if (!(treeDeleter instanceof SynchronousTreeDeleter)) {
         treeDeleter = new SynchronousTreeDeleter();
       }
@@ -237,16 +240,17 @@ public final class SandboxModule extends BlazeModule {
           trashBase.createDirectory();
         }
         // We can delete other dirs asynchronously (if the flag is on).
-        for (Path entry : sandboxBase.getDirectoryEntries()) {
-          if (entry.getBaseName().equals(AsynchronousTreeDeleter.MOVED_TRASH_DIR)) {
+        for (Dirent dirent : sandboxBase.readdir(Symlinks.NOFOLLOW)) {
+          Path childPath = sandboxBase.getChild(dirent.getName());
+          if (childPath.getBaseName().equals(AsynchronousTreeDeleter.MOVED_TRASH_DIR)) {
             continue;
           }
-          if (entry.getBaseName().equals(SandboxHelpers.INACCESSIBLE_HELPER_DIR)) {
-            entry.deleteTree();
-          } else if (entry.isDirectory()) {
-            treeDeleter.deleteTree(entry);
+          if (childPath.getBaseName().equals(SandboxHelpers.INACCESSIBLE_HELPER_DIR)) {
+            childPath.deleteTree();
+          } else if (dirent.getType() == Dirent.Type.DIRECTORY) {
+            treeDeleter.deleteTree(childPath);
           } else {
-            entry.delete();
+            childPath.delete();
           }
         }
       } catch (IOException e) {
@@ -262,16 +266,19 @@ public final class SandboxModule extends BlazeModule {
     sandboxBase.createDirectoryAndParents();
     trashBase.createDirectory();
 
-    PathFragment windowsSandboxPath = PathFragment.create(options.windowsSandboxPath);
+    PathFragment windowsSandboxPath = PathFragment.create(options.getWindowsSandboxPath());
     boolean windowsSandboxSupported;
     try (SilentCloseable c = Profiler.instance().profile("shouldUseWindowsSandbox")) {
       windowsSandboxSupported =
           shouldUseWindowsSandbox(
-              options.useWindowsSandbox, windowsSandboxPath, cmdEnv.getClientEnv());
+              options.getUseWindowsSandbox(), windowsSandboxPath, cmdEnv.getClientEnv());
     }
 
     Duration timeoutKillDelay =
-        cmdEnv.getOptions().getOptions(LocalExecutionOptions.class).getLocalSigkillGraceSeconds();
+        cmdEnv
+            .getOptions()
+            .getOptions(LocalExecutionOptions.class)
+            .getLocalSigkillGraceSecondsDuration();
 
     boolean processWrapperSupported = ProcessWrapperSandboxedSpawnRunner.isSupported(cmdEnv);
     boolean linuxSandboxSupported = LinuxSandboxedSpawnRunner.isSupported(cmdEnv);
@@ -291,15 +298,15 @@ public final class SandboxModule extends BlazeModule {
           "processwrapper-sandbox");
     }
 
-    if (options.enableDockerSandbox) {
+    if (options.getEnableDockerSandbox()) {
       // This strategy uses Docker to execute spawns. It should work on all platforms that support
       // Docker.
       Path pathToDocker = getPathToDockerClient(cmdEnv);
       // DockerSandboxedSpawnRunner.isSupported is expensive! It runs docker as a subprocess, and
       // docker hangs sometimes.
       if (pathToDocker != null && DockerSandboxedSpawnRunner.isSupported(cmdEnv, pathToDocker)) {
-        String defaultImage = options.dockerImage;
-        boolean useCustomizedImages = options.dockerUseCustomizedImages;
+        String defaultImage = options.getDockerImage();
+        boolean useCustomizedImages = options.getDockerUseCustomizedImages();
         SpawnRunner spawnRunner =
             new DockerSandboxedSpawnRunner(
                 cmdEnv, pathToDocker, sandboxBase, defaultImage, useCustomizedImages, treeDeleter);
@@ -307,7 +314,7 @@ public final class SandboxModule extends BlazeModule {
         builder.registerStrategy(
             new DockerSandboxedStrategy(spawnRunner, executionOptions), "docker");
       }
-    } else if (options.dockerVerbose) {
+    } else if (options.getDockerVerbose()) {
       cmdEnv
           .getReporter()
           .handle(
@@ -437,7 +444,7 @@ public final class SandboxModule extends BlazeModule {
     checkNotNull(env, "env not initialized; was beforeCommand called?");
 
     SandboxOptions options = env.getOptions().getOptions(SandboxOptions.class);
-    int asyncTreeDeleteThreads = options != null ? options.asyncTreeDeleteIdleThreads : 0;
+    int asyncTreeDeleteThreads = options != null ? options.getAsyncTreeDeleteIdleThreads() : 0;
 
     // If asynchronous deletions were requested, they may still be ongoing so let them be: trying
     // to delete the base tree synchronously could fail as we can race with those other deletions,

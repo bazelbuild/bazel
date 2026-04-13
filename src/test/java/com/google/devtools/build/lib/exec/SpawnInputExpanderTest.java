@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
@@ -91,7 +91,8 @@ public final class SpawnInputExpanderTest {
     RunfilesTree runfilesTree =
         AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
     FilesetOutputSymlink link = filesetSymlink("zizz", "xyz/zizz");
-    FilesetOutputTree filesetOutputTree = FilesetOutputTree.create(ImmutableList.of(link));
+    FilesetOutputTree filesetOutputTree =
+        FilesetOutputTree.create(ImmutableList.of(link), /* treeArtifacts= */ ImmutableMap.of());
 
     FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
     fakeActionInputFileCache.putFileset(fileset, filesetOutputTree);
@@ -454,7 +455,10 @@ public final class SpawnInputExpanderTest {
     FilesetOutputSymlink link2 = filesetSymlink("foo/baz", "dir/file2");
     Artifact fileset = createFileset("out");
     ImmutableMap<Artifact, FilesetOutputTree> filesetMappings =
-        ImmutableMap.of(fileset, FilesetOutputTree.create(ImmutableList.of(link1, link2)));
+        ImmutableMap.of(
+            fileset,
+            FilesetOutputTree.create(
+                ImmutableList.of(link1, link2), /* treeArtifacts= */ ImmutableMap.of()));
 
     SpawnInputExpander.addFilesetManifests(filesetMappings, inputMap, PathFragment.EMPTY_FRAGMENT);
 

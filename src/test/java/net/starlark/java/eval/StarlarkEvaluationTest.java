@@ -109,13 +109,13 @@ public final class StarlarkEvaluationTest {
     }
 
     @Override
-    public void repr(Printer p) {
+    public void repr(Printer p, StarlarkSemantics semantics) {
       // This repr function prints only the fields.
       // Any methods are still accessible through dir/getattr/hasattr.
       p.append("simplestruct(");
       String sep = "";
       for (Map.Entry<String, Object> e : fields.entrySet()) {
-        p.append(sep).append(e.getKey()).append(" = ").repr(e.getValue());
+        p.append(sep).append(e.getKey()).append(" = ").repr(e.getValue(), semantics);
         sep = ", ";
       }
       p.append(")");

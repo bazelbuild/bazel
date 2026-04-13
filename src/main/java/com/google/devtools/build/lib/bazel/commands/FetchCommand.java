@@ -97,14 +97,14 @@ public final class FetchCommand implements BlazeCommand {
                 env.getCommandId().toString()));
 
     FetchOptions fetchOptions = options.getOptions(FetchOptions.class);
-    if (fetchOptions.force) {
+    if (fetchOptions.getForce()) {
       // Using commandId as the value -instead of true/false- to make sure to invalidate skyframe
       // and to actually force fetch each time
       env.getSkyframeExecutor()
           .injectExtraPrecomputedValues(
               ImmutableList.of(
                   PrecomputedValue.injected(
-                      fetchOptions.configure
+                      fetchOptions.getConfigure()
                           ? RepositoryDirectoryValue.FORCE_FETCH_CONFIGURE
                           : RepositoryDirectoryValue.FORCE_FETCH,
                       env.getCommandId().toString())));
@@ -121,15 +121,15 @@ public final class FetchCommand implements BlazeCommand {
     }
     try {
       if (!targets.isEmpty()) {
-        if (!fetchOptions.repos.isEmpty()) {
+        if (!fetchOptions.getRepos().isEmpty()) {
           return createFailedBlazeCommandResult(
               env.getReporter(), "Target patterns and --repo cannot both be specified");
         }
         result = fetchTarget(env, options, targets);
-      } else if (!fetchOptions.repos.isEmpty()) {
-        result = fetchRepos(env, threadsOption, fetchOptions.repos);
+      } else if (!fetchOptions.getRepos().isEmpty()) {
+        result = fetchRepos(env, threadsOption, fetchOptions.getRepos());
       } else { // --all or just 'fetch' (equivalent) or --configure
-        result = fetchAll(env, threadsOption, fetchOptions.configure);
+        result = fetchAll(env, threadsOption, fetchOptions.getConfigure());
       }
     } catch (InterruptedException e) {
       return createFailedBlazeCommandResult(
@@ -146,16 +146,16 @@ public final class FetchCommand implements BlazeCommand {
   @Nullable
   private BlazeCommandResult validateOptions(CommandEnvironment env, OptionsParsingResult options) {
     PackageOptions pkgOptions = options.getOptions(PackageOptions.class);
-    if (!pkgOptions.fetch) {
+    if (!pkgOptions.getFetch()) {
       return createFailedBlazeCommandResult(
           env.getReporter(), Code.OPTIONS_INVALID, "You cannot run fetch with --nofetch");
     }
     FetchOptions fetchOptions = options.getOptions(FetchOptions.class);
     int optionsCount =
         countTrue(
-            fetchOptions.all,
-            fetchOptions.configure,
-            !fetchOptions.repos.isEmpty(),
+            fetchOptions.getAll(),
+            fetchOptions.getConfigure(),
+            !fetchOptions.getRepos().isEmpty(),
             !options.getResidue().isEmpty());
     if (optionsCount > 1) {
       return createFailedBlazeCommandResult(

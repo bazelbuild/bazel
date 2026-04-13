@@ -105,7 +105,6 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
                 useVirtualSourceRoot() ? root : null,
                 FAKE_INSTALL_MD5_STRING),
             workingDir,
-            /* defaultSystemJavabase= */ null,
             /* productName= */ "DummyProductNameForUnitTests");
     eventCollector = new EventCollector();
     reporter = new Reporter(new EventBus());
@@ -293,7 +292,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
         PathPackageLocator.createWithoutExistenceCheck(
             directories.getOutputBase(), ImmutableList.of(root), getBuildFileNamesByPriority());
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    packageOptions.packagePath = ImmutableList.of(getWorkspacePathString());
+    packageOptions.setPackagePath(ImmutableList.of(getWorkspacePathString()));
     scratch.file("tools/BUILD");
     scratch.file("tools/empty_prelude.bzl");
     ruleClassProvider =
@@ -318,6 +317,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
                 getExtraSkyFunctions(),
                 SyscallCache.NO_CACHE,
                 /* allowExternalRepositories= */ false,
+                /* repoContentsCachePathSupplier= */ () -> null,
                 SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE,
                 BugReporter.defaultInstance());
     skyframeExecutor.injectExtraPrecomputedValues(
@@ -339,7 +339,6 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
         pathPackageLocator,
         UUID.randomUUID(),
         /* clientEnv= */ ImmutableMap.of(),
-        /* repoEnvOption= */ ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()),
         QuiescingExecutorsImpl.forTesting(),
         FakeOptions.builder().put(packageOptions).put(options).build(),

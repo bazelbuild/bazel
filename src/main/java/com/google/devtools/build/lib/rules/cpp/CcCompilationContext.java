@@ -45,6 +45,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -511,13 +512,20 @@ public final class CcCompilationContext {
   }
 
   /** Returns the list of dependencies' C++ module maps re-exported by this compilation context. */
-  @SuppressWarnings("unchecked")
   public ImmutableList<CppModuleMap> getExportingModuleMaps() {
     try {
-      return ((StarlarkList<StarlarkInfo>)
-              starlarkInfo.getValue("_exporting_module_maps", StarlarkList.class))
-          .stream().map(CppModuleMap::new).collect(toImmutableList());
-    } catch (EvalException e) {
+      Stream<StarlarkInfo> moduleMaps =
+          switch (starlarkInfo.getValue("_exporting_module_maps")) {
+            case Depset depset -> depset.toList(StarlarkInfo.class).stream();
+            case StarlarkList<?> starlarkList ->
+                starlarkList.stream().map(StarlarkInfo.class::cast);
+            case Object values ->
+                throw new IllegalStateException(
+                    "Unexpected type for _exporting_module_maps, want Depset or StarlarkList, got "
+                        + values.getClass());
+          };
+      return moduleMaps.map(CppModuleMap::new).collect(toImmutableList());
+    } catch (Depset.TypeException e) {
       throw new IllegalStateException(e);
     }
   }

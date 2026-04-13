@@ -86,6 +86,16 @@ java_library(
 )
 
 java_test(
+    name = "DigestDeduperTest",
+    srcs = ["DigestDeduperTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:fingerprint_cache",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "LinkOrderExpanderTest",
     srcs = ["LinkOrderExpanderTest.java"],
     deps = [

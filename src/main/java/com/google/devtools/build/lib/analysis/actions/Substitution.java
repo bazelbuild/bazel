@@ -37,7 +37,7 @@ public abstract class Substitution {
 
   public abstract String getKey();
 
-  public abstract String getValue() throws EvalException;
+  public abstract String getValue() throws EvalException, InterruptedException;
 
   /* Not intended for use in production code */
   // TODO(hvd): migrate usages and delete
@@ -45,7 +45,7 @@ public abstract class Substitution {
   public final String getValueUnchecked() {
     try {
       return getValue();
-    } catch (EvalException e) {
+    } catch (EvalException | InterruptedException e) {
       throw new IllegalStateException(e);
     }
   }

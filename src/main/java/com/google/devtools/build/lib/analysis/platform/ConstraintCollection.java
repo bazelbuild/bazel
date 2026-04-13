@@ -20,6 +20,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
+import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -49,6 +50,10 @@ import net.starlark.java.eval.StarlarkSemantics;
 @AutoValue
 public abstract class ConstraintCollection
     implements ConstraintCollectionApi<ConstraintSettingInfo, ConstraintValueInfo> {
+
+  @Override
+  @Memoized
+  public abstract int hashCode();
 
   /** A builder class to help create instances of {@link ConstraintCollection}. */
   public static final class Builder {
@@ -247,15 +252,15 @@ public abstract class ConstraintCollection
   // It's easier to use the Starlark repr as a string form, not what AutoValue produces.
   @Override
   public final String toString() {
-    return Starlark.repr(this);
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<");
     if (parent() != null) {
       printer.append("parent: ");
-      parent().repr(printer);
+      parent().repr(printer, semantics);
       printer.append(", ");
     }
     printer.append("[");

@@ -2,9 +2,17 @@
 
 Several SkyFunction classes implement the [toolchain resolution] process:
 
+1.  The process is run for each distinct execution group the rule or aspect
+    uses. In the case of [automatic execution groups](https://bazel.build/extending/auto-exec-groups),
+    this will be one execution group per declared toolchain.
+
 1.  [`RegisteredToolchainsFunction`] and
     [`RegisteredExecutionPlatformsFunction`] find available toolchains and
     execution platforms, based on the current configuration and WORKSPACE file.
+
+    1.  These lists will be filtered based on the [`platform.required_settings`](https://bazel.build/reference/be/platforms-and-toolchains#platform.required_settings)
+        and [`toolchain.target_settings`](https://bazel.build/reference/be/platforms-and-toolchains#toolchain.target_settings)
+        attributes.
 
 1.  [`SingleToolchainResolutionFunction`] resolves a single toolchain type for
     every execution platform. That is, for every execution platform it finds the

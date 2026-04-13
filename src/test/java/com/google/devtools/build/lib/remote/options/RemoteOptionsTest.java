@@ -18,6 +18,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -41,12 +42,24 @@ public class RemoteOptionsTest {
   @Test
   public void testRemoteDefaultExecProperties() throws Exception {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    options.remoteDefaultExecProperties =
+    options.setRemoteDefaultExecPropertiesField(
         Arrays.asList(
-            Maps.immutableEntry("ISA", "x86-64"), Maps.immutableEntry("OSFamily", "linux"));
+            Maps.immutableEntry("ISA", "x86-64"), Maps.immutableEntry("OSFamily", "linux")));
 
     SortedMap<String, String> properties = options.getRemoteDefaultExecProperties();
     assertThat(properties).isEqualTo(ImmutableSortedMap.of("OSFamily", "linux", "ISA", "x86-64"));
+  }
+
+  @Test
+  public void testRemoteDefaultExecPropertiesWithDuplicates() throws Exception {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.setRemoteDefaultExecPropertiesField(
+        Arrays.asList(
+            Maps.immutableEntry("foo", "bar"),
+            Maps.immutableEntry("qux", "quux"),
+            Maps.immutableEntry("foo", "baz")));
+    SortedMap<String, String> properties = options.getRemoteDefaultExecProperties();
+    assertThat(properties).isEqualTo(ImmutableSortedMap.of("foo", "baz", "qux", "quux"));
   }
 
   @Test
@@ -76,7 +89,7 @@ public class RemoteOptionsTest {
   @Test
   public void testRemoteMaximumOpenFilesDefault() {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    int defaultMax = options.maximumOpenFiles;
+    int defaultMax = options.getMaximumOpenFiles();
     assertThat(defaultMax).isEqualTo(-1);
   }
 
@@ -85,6 +98,38 @@ public class RemoteOptionsTest {
     OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
     parser.parse("--remote_grpc_log=test.log", "--remote_grpc_log=");
     RemoteOptions options = parser.getOptions(RemoteOptions.class);
-    assertThat(options.remoteGrpcLog).isNull();
+    assertThat(options.getRemoteGrpcLog()).isNull();
+  }
+
+  @Test
+  public void diskCache_flagWithoutValue_usesDefaultLocationMarker() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse("--disk_cache");
+    RemoteOptions options = parser.getOptions(RemoteOptions.class);
+    assertThat(options.getDiskCache()).isEqualTo(PathFragment.EMPTY_FRAGMENT);
+  }
+
+  @Test
+  public void diskCache_noDiskCache_disables() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse("--disk_cache", "--nodisk_cache");
+    RemoteOptions options = parser.getOptions(RemoteOptions.class);
+    assertThat(options.getDiskCache()).isNull();
+  }
+
+  @Test
+  public void diskCache_explicitPath() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse("--disk_cache=custom/cache/dir");
+    RemoteOptions options = parser.getOptions(RemoteOptions.class);
+    assertThat(options.getDiskCache()).isEqualTo(PathFragment.create("custom/cache/dir"));
+  }
+
+  @Test
+  public void diskCache_emptyValue_disables() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse("--disk_cache=");
+    RemoteOptions options = parser.getOptions(RemoteOptions.class);
+    assertThat(options.getDiskCache()).isNull();
   }
 }

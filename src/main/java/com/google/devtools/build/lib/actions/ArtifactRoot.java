@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.Objects;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * A root for an artifact. The roots are the directories containing artifacts, and they are mapped
@@ -90,8 +91,9 @@ import net.starlark.java.eval.Printer;
  */
 @AutoCodec
 @Immutable
-public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi {
+public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi, CommandLineItem {
   private static final Interner<ArtifactRoot> INTERNER = Interners.newWeakInterner();
+
   /**
    * Do not use except in tests and in {@link
    * com.google.devtools.build.lib.skyframe.SkyframeExecutor}.
@@ -298,7 +300,12 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append(isSourceRoot() ? "<source root>" : "<derived root>");
+  }
+
+  @Override
+  public String expandToCommandLine() {
+    return getExecPathString();
   }
 }

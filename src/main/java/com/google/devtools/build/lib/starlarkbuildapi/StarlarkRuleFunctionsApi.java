@@ -208,7 +208,7 @@ symbolic) to define targets &ndash; possibly multiple ones.
 <p>The value returned by <code>macro(...)</code> must be assigned to a global variable in a .bzl
 file; the name of the global variable will be the macro symbol's name.
 
-<p>See <a href="/extending/macros">Macros</a> for a comprehensive guide on how to use symbolic
+<p>See <a href="https://bazel.build/extending/macros">Macros</a> for a comprehensive guide on how to use symbolic
 macros.
 """,
       parameters = {
@@ -248,7 +248,7 @@ called.
 <p>The following APIs are unavailable within a macro implementation function and any Starlark
 function it transitively calls:
 <ul>
-  <li><a href="/reference/be/functions#package"><code>package()</code>, <code>licenses()</code>
+  <li><a href="/reference/be/functions#package"><code>package()</code>, <code>licenses()</code></a>
   <li><code>environment_group()</code>
   <li><a href="../toplevel/native#glob"><code>native.glob()</code></a> &ndash; instead, you may pass
     a glob into the macro via a label list attribute
@@ -259,7 +259,7 @@ function it transitively calls:
   <li>(for <code>WORKSPACE</code> threads)
     <a href="../globals/workspace#workspace"><code>workspace()</code></a>,
     <a href="../globals/workspace#register_toolchains"><code>register_toolchains()</code></a>,
-    <a href="../globals/workspace#register_execution_platforms><code>register_execution_platforms()</code></a>,
+    <a href="../globals/workspace#register_execution_platforms"><code>register_execution_platforms()</code></a>,
     <a href="../globals/workspace#bind"><code>bind()</code></a>, repository rule instantiation
 </ul>
 """),
@@ -732,9 +732,9 @@ declared.
                     + " <code>executable</code> and <code>test</code> from the parent. Values of"
                     + " <code>fragments</code>, <code>toolchains</code>,"
                     + " <code>exec_compatible_with</code>, and <code>exec_groups</code> are"
-                    + " merged. Legacy or deprecated parameters may not be set. Incoming "
-                    + "configuration transition <code>cfg</code> of parent is applied after this"
-                    + "rule's incoming configuration."),
+                    + " merged. Legacy or deprecated parameters may not be set. Incoming"
+                    + " configuration transition <code>cfg</code> of parent is applied after this"
+                    + " rule's incoming configuration."),
         @Param(
             name = "extendable",
             named = true,
@@ -1036,8 +1036,11 @@ declared.
               + " function, <code><a"
               + " href='../toplevel/native.html#package_relative_label'>native.package_relative_label()</a></code>,"
               + " converts the input into a <code>Label</code> in the context of the package"
-              + " currently being constructed. Use that function to mimic the string-to-label"
-              + " conversion that is automatically done by label-valued rule attributes.",
+              + " currently being constructed. For rule and aspect implementation functions, <a"
+              + " href='ctx.html#package_relative_label'><code>ctx.package_relative_label()</code></a>"
+              + " can be used for the same purpose. Use these functions to mimic the"
+              + " string-to-label conversion that is automatically done by label-valued rule"
+              + " attributes.",
       parameters = {
         @Param(
             name = "input",

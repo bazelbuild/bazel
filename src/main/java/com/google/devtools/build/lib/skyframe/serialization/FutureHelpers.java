@@ -111,10 +111,24 @@ public final class FutureHelpers {
         combiner.call(() -> null, directExecutor()), FAILURE_REPORTING_CALLBACK, directExecutor());
   }
 
-  static final FutureCallback<Void> FAILURE_REPORTING_CALLBACK =
-      new FutureCallback<>() {
+  /**
+   * A callback for {@link ListenableFuture} that only cares about the result status (success or
+   * failure) and not the result value itself.
+   */
+  public abstract static class FutureStatusCallback implements FutureCallback<Object> {
+    @Override
+    public final void onSuccess(Object unused) {
+      onSuccess();
+    }
+
+    /** Called when the future completes successfully. */
+    public abstract void onSuccess();
+  }
+
+  static final FutureStatusCallback FAILURE_REPORTING_CALLBACK =
+      new FutureStatusCallback() {
         @Override
-        public void onSuccess(Void unused) {}
+        public void onSuccess() {}
 
         @Override
         public void onFailure(Throwable t) {

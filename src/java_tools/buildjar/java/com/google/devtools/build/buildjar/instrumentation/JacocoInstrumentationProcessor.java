@@ -67,12 +67,11 @@ public final class JacocoInstrumentationProcessor {
     // multiple threads performing read/write/delete actions on the instrumented classes directory.
     instrumentedClassesDirectory = getMetadataDirRelativeToJar(build.getOutputJar());
     Files.createDirectories(instrumentedClassesDirectory);
-    jar.setNormalize(true);
     jar.setCompression(build.compressJar());
     Instrumenter instr = new Instrumenter(new OfflineInstrumentationAccessGenerator());
     instrumentRecursively(instr, build.getClassDir());
     jar.addDirectory(instrumentedClassesDirectory);
-    jar.addEntry(coverageInformation, coverageInformation);
+    jar.addEntry(coverageInformation, Path.of(coverageInformation));
   }
 
   public void cleanup() throws IOException {

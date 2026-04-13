@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.Templa
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.WhichEvent;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.protobuf.ByteString;
-import java.net.URL;
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import net.starlark.java.syntax.Location;
@@ -83,7 +83,7 @@ public final class WorkspaceRuleEvent implements Postable {
 
   /** Creates a new WorkspaceRuleEvent for a download event. */
   public static WorkspaceRuleEvent newDownloadEvent(
-      List<URL> urls,
+      List<URI> urls,
       String output,
       String sha256,
       String integrity,
@@ -96,7 +96,7 @@ public final class WorkspaceRuleEvent implements Postable {
             .setSha256(sha256)
             .setIntegrity(integrity)
             .setExecutable(executable);
-    for (URL u : urls) {
+    for (URI u : urls) {
       e.addUrl(u.toString());
     }
 
@@ -142,7 +142,7 @@ public final class WorkspaceRuleEvent implements Postable {
 
   /** Creates a new WorkspaceRuleEvent for a download and extract event. */
   public static WorkspaceRuleEvent newDownloadAndExtractEvent(
-      List<URL> urls,
+      List<URI> urls,
       String output,
       String sha256,
       String integrity,
@@ -159,7 +159,7 @@ public final class WorkspaceRuleEvent implements Postable {
             .setType(type)
             .setStripPrefix(stripPrefix)
             .putAllRenameFiles(renameFiles);
-    for (URL u : urls) {
+    for (URI u : urls) {
       e.addUrl(u.toString());
     }
 

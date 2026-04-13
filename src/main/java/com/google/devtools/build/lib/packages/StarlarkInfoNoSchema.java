@@ -211,7 +211,18 @@ public class StarlarkInfoNoSchema extends StarlarkInfo {
   @Override
   public Object getValue(String name) {
     int n = table.length / 2;
-    int i = Arrays.binarySearch(table, 0, n, name);
+    int i;
+    if (n <= BINARY_SEARCH_THRESHOLD) {
+      i = -1;
+      for (int j = 0; j < n; j++) {
+        if (table[j].equals(name)) {
+          i = j;
+          break;
+        }
+      }
+    } else {
+      i = Arrays.binarySearch(table, 0, n, name);
+    }
     if (i < 0) {
       return null;
     }

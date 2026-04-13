@@ -158,14 +158,14 @@ final class RemoteActionContextProvider {
       Path workingDirectory = env.getWorkingDirectory();
       RemoteOptions remoteOptions = checkNotNull(env.getOptions().getOptions(RemoteOptions.class));
       Path captureCorruptedOutputsDir = null;
-      if (remoteOptions.remoteCaptureCorruptedOutputs != null
-          && !remoteOptions.remoteCaptureCorruptedOutputs.isEmpty()) {
+      if (remoteOptions.getRemoteCaptureCorruptedOutputs() != null
+          && !remoteOptions.getRemoteCaptureCorruptedOutputs().isEmpty()) {
         captureCorruptedOutputsDir =
-            workingDirectory.getRelative(remoteOptions.remoteCaptureCorruptedOutputs);
+            workingDirectory.getRelative(remoteOptions.getRemoteCaptureCorruptedOutputs());
       }
 
       boolean verboseFailures =
-          checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).verboseFailures;
+          checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).getVerboseFailures();
       remoteExecutionService =
           new RemoteExecutionService(
               env.getReporter(),
@@ -203,7 +203,7 @@ final class RemoteActionContextProvider {
     RemoteSpawnRunner spawnRunner =
         new RemoteSpawnRunner(
             checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
-            executionOptions.verboseFailures,
+            executionOptions.getVerboseFailures(),
             env.getReporter(),
             retryScheduler,
             logDir,
@@ -222,7 +222,7 @@ final class RemoteActionContextProvider {
     RemoteSpawnCache spawnCache =
         new RemoteSpawnCache(
             checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
-            checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).verboseFailures,
+            checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).getVerboseFailures(),
             getRemoteExecutionService(),
             digestUtil);
     registryBuilder.register(SpawnCache.class, spawnCache, "remote-cache");

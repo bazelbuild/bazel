@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.common.options.Options;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -69,7 +70,7 @@ public class AbstractSpawnStrategyTest {
 
   private static class TestedSpawnStrategy extends AbstractSpawnStrategy {
     TestedSpawnStrategy(SpawnRunner spawnRunner) {
-      super(spawnRunner, new ExecutionOptions());
+      super(spawnRunner, Options.createOptions(ExecutionOptions.class));
     }
   }
 

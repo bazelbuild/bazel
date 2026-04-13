@@ -87,6 +87,10 @@ function test_bootstrap() {
 
     JAVABASE=$(echo reduced*)
 
+    # TODO: Remove once rules_python exports runtime_env_toolchain_interpreter.sh
+    # See https://github.com/bazel-contrib/rules_python/pull/3471
+    export EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS:-} --noincompatible_no_implicit_file_export"
+
     ./compile.sh || fail "Expected to be able to bootstrap bazel.\
  If you updated MODULE.bazel, see the NOTE in that file."
 
@@ -134,6 +138,7 @@ EOF
       --java_runtime_version=local_jdk --tool_java_runtime_version=local_jdk \
       --extra_toolchains=@rules_python//python/runtime_env_toolchains:all \
       --extra_toolchains=fake_java_toolchain:all \
+      --noincompatible_no_implicit_file_export \
       src:bazel_nojdk &> "${TEST_log}" || fail "analysis with bootstrapped Bazel failed"
 }
 

@@ -89,7 +89,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     // The String representations of the CoreOptions must be equal even if these are
     // different objects, if they were created with the same options (no options in this case).
     assertThat(b.toString()).isEqualTo(a.toString());
-    assertThat(b.cacheKey()).isEqualTo(a.cacheKey());
+    assertThat(BuildOptions.optionsToCacheKey(b)).isEqualTo(BuildOptions.optionsToCacheKey(a));
   }
 
   @Test
@@ -239,7 +239,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   public void testNormalization_definesWithDifferentNames() throws Exception {
     BuildConfigurationValue config = create("--define", "a=1", "--define", "b=2");
     CoreOptions options = config.getOptions().get(CoreOptions.class);
-    assertThat(ImmutableMap.copyOf(options.commandLineBuildVariables))
+    assertThat(options.getNormalizedCommandLineBuildVariables())
         .containsExactly("a", "1", "b", "2");
   }
 
@@ -247,7 +247,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   public void testNormalization_definesWithSameName() throws Exception {
     BuildConfigurationValue config = create("--define", "a=1", "--define", "a=2");
     CoreOptions options = config.getOptions().get(CoreOptions.class);
-    assertThat(ImmutableMap.copyOf(options.commandLineBuildVariables)).containsExactly("a", "2");
+    assertThat(options.getNormalizedCommandLineBuildVariables()).containsExactly("a", "2");
     assertThat(config).isEqualTo(create("--define", "a=2"));
   }
 
@@ -471,7 +471,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
         string_flag = rule(
             implementation = lambda ctx: [],
             build_setting = config.string(flag = True),
-            attrs = {"scope": attr.string(values = ["target", "universal"])},
+            attrs = {"scope": attr.string(), "on_leave_scope": attr.string()},
         )
         """);
     scratch.file(
@@ -492,6 +492,21 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             build_setting_default = "default",
             scope = "universal",
         )
+        string_flag(
+            name = "flag_in_exec_config_set_to_another_value",
+            build_setting_default = "default",
+            scope = "target",
+            on_leave_scope = "another_value"
+        )
+        string_flag(
+            name = "another_flag",
+            build_setting_default = "default",
+        )
+        string_flag(
+            name = "flag_in_exec_config_reference_another_flag_value",
+            build_setting_default = "default",
+            scope = "exec:--//test:another_flag",
+        )
         """);
 
     BuildConfigurationValue execConfig =
@@ -502,7 +517,13 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
                 "//test:target_scope",
                 "custom",
                 "//test:universal_scope",
-                "custom"),
+                "custom",
+                "//test:flag_in_exec_config_set_to_another_value",
+                "target_value",
+                "//test:flag_in_exec_config_reference_another_flag_value",
+                "target_value",
+                "//test:another_flag",
+                "default"),
             "--experimental_exclude_starlark_flags_from_exec_config="
                 + (propagateByDefault ? "false" : "true"));
 
@@ -512,10 +533,21 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
               Label.parseCanonicalUnchecked("//test:universal_scope"),
               "custom",
               Label.parseCanonicalUnchecked("//test:default_scope"),
-              "custom");
+              "custom",
+              Label.parseCanonicalUnchecked("//test:another_flag"),
+              "default");
     } else {
       assertThat(execConfig.getOptions().getStarlarkOptions())
-          .containsExactly(Label.parseCanonicalUnchecked("//test:universal_scope"), "custom");
+          .containsExactly(
+              Label.parseCanonicalUnchecked("//test:universal_scope"),
+              "custom",
+              Label.parseCanonicalUnchecked("//test:flag_in_exec_config_set_to_another_value"),
+              "another_value",
+              Label.parseCanonicalUnchecked(
+                  "//test:flag_in_exec_config_reference_another_flag_value"),
+              "default",
+              Label.parseCanonicalUnchecked("//test:another_flag"),
+              "default");
     }
   }
 

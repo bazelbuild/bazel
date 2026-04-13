@@ -41,6 +41,7 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.SymbolGenerator.Symbol;
 import net.starlark.java.syntax.Location;
 
@@ -158,7 +159,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<aspect>");
   }
 

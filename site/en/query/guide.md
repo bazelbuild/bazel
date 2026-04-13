@@ -225,7 +225,7 @@ Generated files:
 
 <pre>bazel query 'kind("generated file", deps(//path/to/target/foo/...))' | grep java$</pre>
 
-#### What is the complete set of Java source files required to build QUX's tests? {:qux-tests}
+#### What is the complete set of Java source files required to build QUX's tests? {:#qux-tests}
 
 Source files:
 

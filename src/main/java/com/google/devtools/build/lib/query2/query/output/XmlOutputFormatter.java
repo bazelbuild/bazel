@@ -149,7 +149,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
     Element elem;
     if (target instanceof Rule rule) {
       elem = doc.createElement("rule");
-      elem.setAttribute("class", rule.getRuleClass());
+      elem.setAttribute("class", getRuleClass(queryOptions, rule));
       for (Attribute attr : rule.getAttributes()) {
         if (rule.isAttributeValueExplicitlySpecified(attr) || queryOptions.xmlShowDefaultValues) {
           // TODO(b/162524370): mayTreatMultipleAsNone should be true for types that drop multiple
@@ -252,6 +252,15 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
 
     elem.setAttribute("location", location);
     return elem;
+  }
+
+  // This is distinct from AbstractUnorderedFormatter.getKind because it should **not** have the
+  // " rule" suffix expected from --output=label_kind and --output=location.
+  private static String getRuleClass(QueryOptions queryOptions, Rule rule) {
+    if (queryOptions.displayFullKind) {
+      return rule.getRuleClassObject().getRuleClassId().key();
+    }
+    return rule.getRuleClass();
   }
 
   private static void addPackageGroupsToElement(

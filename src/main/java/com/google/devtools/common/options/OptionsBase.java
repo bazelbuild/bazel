@@ -15,8 +15,6 @@
 package com.google.devtools.common.options;
 
 import com.google.common.collect.Maps;
-import com.google.common.escape.CharEscaperBuilder;
-import com.google.common.escape.Escaper;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -48,14 +46,20 @@ import java.util.Objects;
  */
 public abstract class OptionsBase {
 
-  private static final Escaper ESCAPER = new CharEscaperBuilder()
-      .addEscape('\\', "\\\\").addEscape('"', "\\\"").toEscaper();
-
   /** Subclasses must provide a default (no argument) constructor. */
   protected OptionsBase() {
     // There used to be a validation here that checks the stack trace of this constructor
     // invocation; unfortunately, that makes the options construction about 10x slower. So be
     // careful with how you construct options classes.
+  }
+
+  /**
+   * Returns the "options class" that this object belongs to. By default it is the object's class.
+   * However, for classes annotated with {@code @OptionsClass}, this returns the base class and not
+   * the generated implementation class.
+   */
+  public Class<? extends OptionsBase> getOptionsClass() {
+    return getClass();
   }
 
   /**
@@ -65,7 +69,7 @@ public abstract class OptionsBase {
    */
   public final Map<String, Object> asMap() {
     List<? extends OptionDefinition> definitions =
-        OptionsData.getAllOptionDefinitionsForClass(getClass());
+        OptionsData.getAllOptionDefinitionsForClass(getOptionsClass());
     Map<String, Object> map = Maps.newLinkedHashMapWithExpectedSize(definitions.size());
     for (OptionDefinition definition : definitions) {
       map.put(definition.getOptionName(), getValueFromDefinition(definition));
@@ -80,40 +84,7 @@ public abstract class OptionsBase {
 
   @Override
   public final String toString() {
-    return getClass().getName() + asMap();
-  }
-
-  /**
-   * Returns a string that uniquely identifies the options. This value is
-   * intended for analysis caching.
-   */
-  public final String cacheKey() {
-    StringBuilder result = new StringBuilder(getClass().getName()).append("{");
-    result.append(mapToCacheKey(asMap()));
-    return result.append("}").toString();
-  }
-
-  public static String mapToCacheKey(Map<?, ?> optionsMap) {
-    StringBuilder result = new StringBuilder();
-    for (Map.Entry<?, ?> entry : optionsMap.entrySet()) {
-      result.append(entry.getKey()).append("=");
-
-      Object value = entry.getValue();
-      // This special case is needed because List.toString() prints the same
-      // ("[]") for an empty list and for a list with a single empty string.
-      if (value instanceof List<?> && ((List<?>) value).isEmpty()) {
-        result.append("EMPTY");
-      } else if (value == null) {
-        result.append("NULL");
-      } else {
-        result
-            .append('"')
-            .append(ESCAPER.escape(value.toString()))
-            .append('"');
-      }
-      result.append(", ");
-    }
-    return result.toString();
+    return getOptionsClass().getName() + asMap();
   }
 
   @Override
@@ -122,11 +93,14 @@ public abstract class OptionsBase {
     if (this == that) {
       return true;
     }
-    if (that == null || !getClass().equals(that.getClass())) {
+    if (!(that instanceof OptionsBase other)) {
       return false;
     }
-    OptionsBase other = (OptionsBase) that;
-    for (OptionDefinition def : OptionsParser.getOptionDefinitions(getClass())) {
+
+    if (!getOptionsClass().equals(other.getOptionsClass())) {
+      return false;
+    }
+    for (OptionDefinition def : OptionsParser.getOptionDefinitions(getOptionsClass())) {
       if (!Objects.equals(getValueFromDefinition(def), other.getValueFromDefinition(def))) {
         return false;
       }
@@ -136,6 +110,6 @@ public abstract class OptionsBase {
 
   @Override
   public final int hashCode() {
-    return this.getClass().hashCode() + asMap().hashCode();
+    return getOptionsClass().hashCode() + asMap().hashCode();
   }
 }

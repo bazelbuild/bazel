@@ -100,7 +100,7 @@ public final class SharedValueSerializationContextTest {
     ArrayList<SettableWriteStatus> responses = store.putResponses;
     assertThat(responses).hasSize(4);
 
-    ListenableFuture<Void> writeStatus = result.getFutureToBlockWritesOn();
+    ListenableFuture<?> writeStatus = result.getFutureToBlockWritesOn();
     assertThat(writeStatus).isNotNull();
     assertThat(writeStatus.isDone()).isFalse();
 
@@ -133,7 +133,7 @@ public final class SharedValueSerializationContextTest {
     SerializationResult<ByteString> result1 =
         codecs.serializeMemoizedAndBlocking(
             fingerprintValueService, set1, /* profileCollector= */ null);
-    ListenableFuture<Void> writeStatus1 = result1.getFutureToBlockWritesOn();
+    ListenableFuture<?> writeStatus1 = result1.getFutureToBlockWritesOn();
     assertThat(writeStatus1.isDone()).isFalse();
 
     assertThat(store.putResponses).hasSize(1);
@@ -141,7 +141,7 @@ public final class SharedValueSerializationContextTest {
     SerializationResult<ByteString> result2 =
         codecs.serializeMemoizedAndBlocking(
             fingerprintValueService, set2, /* profileCollector= */ null);
-    ListenableFuture<Void> writeStatus2 = result2.getFutureToBlockWritesOn();
+    ListenableFuture<?> writeStatus2 = result2.getFutureToBlockWritesOn();
     assertThat(writeStatus2.isDone()).isFalse();
 
     // The store only observes 1 put because it is shared between set1 and set2.

@@ -39,10 +39,7 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Tuple;
-
-// LINT.IfChange
 
 /** A configuration containing flags required for Apple platforms and tools. */
 @Immutable
@@ -75,7 +72,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   static final String DEFAULT_IOS_CPU = CPU.getCurrent() == CPU.AARCH64 ? "sim_arm64" : "x86_64";
 
   private final String applePlatformType;
-  private final ConfigurationDistinguisher configurationDistinguisher;
   private final Label xcodeConfigLabel;
   private final AppleCommandLineOptions options;
   private final AppleCpus appleCpus;
@@ -90,69 +86,61 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   private final DottedVersion watchosMinimumOsFlag;
   private final boolean preferMutualXcode;
   private final boolean includeXcodeExecRequirements;
+  private final boolean disableAppleFragment;
 
   public AppleConfiguration(BuildOptions buildOptions) {
     AppleCommandLineOptions options = buildOptions.get(AppleCommandLineOptions.class);
     this.options = options;
     this.appleCpus = AppleCpus.create(options);
     this.applePlatformType =
-        Preconditions.checkNotNull(options.applePlatformType, "applePlatformType");
-    this.configurationDistinguisher = options.configurationDistinguisher;
+        Preconditions.checkNotNull(options.getApplePlatformType(), "applePlatformType");
     this.xcodeConfigLabel =
-        Preconditions.checkNotNull(options.xcodeVersionConfig, "xcodeConfigLabel");
+        Preconditions.checkNotNull(options.getXcodeVersionConfig(), "xcodeConfigLabel");
     // AppleConfiguration should not have this knowledge. This is a temporary workaround
     // for Starlarkification, until apple rules are toolchainized.
-    this.xcodeVersionFlag = options.xcodeVersion;
-    this.iosSdkVersionFlag = DottedVersion.maybeUnwrap(options.iosSdkVersion);
-    this.macOsSdkVersionFlag = DottedVersion.maybeUnwrap(options.macOsSdkVersion);
-    this.tvOsSdkVersionFlag = DottedVersion.maybeUnwrap(options.tvOsSdkVersion);
-    this.watchOsSdkVersionFlag = DottedVersion.maybeUnwrap(options.watchOsSdkVersion);
-    this.iosMinimumOsFlag = DottedVersion.maybeUnwrap(options.iosMinimumOs);
-    this.macosMinimumOsFlag = DottedVersion.maybeUnwrap(options.macosMinimumOs);
-    this.tvosMinimumOsFlag = DottedVersion.maybeUnwrap(options.tvosMinimumOs);
-    this.watchosMinimumOsFlag = DottedVersion.maybeUnwrap(options.watchosMinimumOs);
-    this.preferMutualXcode = options.preferMutualXcode;
-    this.includeXcodeExecRequirements = options.includeXcodeExecutionRequirements;
+    this.xcodeVersionFlag = options.getXcodeVersion();
+    this.iosSdkVersionFlag = DottedVersion.maybeUnwrap(options.getIosSdkVersion());
+    this.macOsSdkVersionFlag = DottedVersion.maybeUnwrap(options.getMacOsSdkVersion());
+    this.tvOsSdkVersionFlag = DottedVersion.maybeUnwrap(options.getTvOsSdkVersion());
+    this.watchOsSdkVersionFlag = DottedVersion.maybeUnwrap(options.getWatchOsSdkVersion());
+    this.iosMinimumOsFlag = DottedVersion.maybeUnwrap(options.getIosMinimumOs());
+    this.macosMinimumOsFlag = DottedVersion.maybeUnwrap(options.getMacosMinimumOs());
+    this.tvosMinimumOsFlag = DottedVersion.maybeUnwrap(options.getTvosMinimumOs());
+    this.watchosMinimumOsFlag = DottedVersion.maybeUnwrap(options.getWatchosMinimumOs());
+    this.preferMutualXcode = options.getPreferMutualXcode();
+    this.includeXcodeExecRequirements = options.getIncludeXcodeExecutionRequirements();
+    this.disableAppleFragment = options.getDisableAppleFragment();
   }
 
   /** A class that contains information pertaining to Apple CPUs. */
   @AutoValue
   public abstract static class AppleCpus {
     public static AppleCpus create(AppleCommandLineOptions options) {
-      String appleSplitCpu = Preconditions.checkNotNull(options.appleSplitCpu, "appleSplitCpu");
+      String appleSplitCpu =
+          Preconditions.checkNotNull(options.getAppleSplitCpu(), "appleSplitCpu");
       ImmutableList<String> iosMultiCpus =
-          (options.iosMultiCpus == null || options.iosMultiCpus.isEmpty())
+          (options.getIosMultiCpus() == null || options.getIosMultiCpus().isEmpty())
               ? ImmutableList.of(DEFAULT_IOS_CPU)
-              : ImmutableList.copyOf(options.iosMultiCpus);
+              : ImmutableList.copyOf(options.getIosMultiCpus());
       ImmutableList<String> visionosCpus =
-          (options.visionosCpus == null || options.visionosCpus.isEmpty())
+          (options.getVisionosCpus() == null || options.getVisionosCpus().isEmpty())
               ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_VISIONOS_CPU)
-              : ImmutableList.copyOf(options.visionosCpus);
+              : ImmutableList.copyOf(options.getVisionosCpus());
       ImmutableList<String> watchosCpus =
-          (options.watchosCpus == null || options.watchosCpus.isEmpty())
+          (options.getWatchosCpus() == null || options.getWatchosCpus().isEmpty())
               ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_WATCHOS_CPU)
-              : ImmutableList.copyOf(options.watchosCpus);
+              : ImmutableList.copyOf(options.getWatchosCpus());
       ImmutableList<String> tvosCpus =
-          (options.tvosCpus == null || options.tvosCpus.isEmpty())
+          (options.getTvosCpus() == null || options.getTvosCpus().isEmpty())
               ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_TVOS_CPU)
-              : ImmutableList.copyOf(options.tvosCpus);
+              : ImmutableList.copyOf(options.getTvosCpus());
       ImmutableList<String> macosCpus =
-          (options.macosCpus == null || options.macosCpus.isEmpty())
+          (options.getMacosCpus() == null || options.getMacosCpus().isEmpty())
               ? ImmutableList.of(DEFAULT_MACOS_CPU)
-              : ImmutableList.copyOf(options.macosCpus);
-      ImmutableList<String> catalystCpus =
-          (options.catalystCpus == null || options.catalystCpus.isEmpty())
-              ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_CATALYST_CPU)
-              : ImmutableList.copyOf(options.catalystCpus);
+              : ImmutableList.copyOf(options.getMacosCpus());
 
       return new AutoValue_AppleConfiguration_AppleCpus(
-          appleSplitCpu,
-          iosMultiCpus,
-          visionosCpus,
-          watchosCpus,
-          tvosCpus,
-          macosCpus,
-          catalystCpus);
+          appleSplitCpu, iosMultiCpus, visionosCpus, watchosCpus, tvosCpus, macosCpus);
     }
 
     abstract String appleSplitCpu();
@@ -166,8 +154,11 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     abstract ImmutableList<String> tvosCpus();
 
     abstract ImmutableList<String> macosCpus();
+  }
 
-    abstract ImmutableList<String> catalystCpus();
+  @Override
+  public boolean shouldInclude() {
+    return !disableAppleFragment;
   }
 
   @Override
@@ -179,7 +170,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     fields.put("watchos_cpus", Tuple.copyOf(appleCpus.watchosCpus()));
     fields.put("tvos_cpus", Tuple.copyOf(appleCpus.tvosCpus()));
     fields.put("macos_cpus", Tuple.copyOf(appleCpus.macosCpus()));
-    fields.put("catalyst_cpus", Tuple.copyOf(appleCpus.catalystCpus()));
     return StructProvider.STRUCT.create(fields, "");
   }
 
@@ -232,22 +222,14 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     if (!Strings.isNullOrEmpty(appleCpus.appleSplitCpu())) {
       return appleCpus.appleSplitCpu();
     }
-    switch (applePlatformType) {
-      case PlatformType.IOS:
-        return appleCpus.iosMultiCpus().get(0);
-      case PlatformType.VISIONOS:
-        return appleCpus.visionosCpus().get(0);
-      case PlatformType.WATCHOS:
-        return appleCpus.watchosCpus().get(0);
-      case PlatformType.TVOS:
-        return appleCpus.tvosCpus().get(0);
-      case PlatformType.MACOS:
-        return appleCpus.macosCpus().get(0);
-      case PlatformType.CATALYST:
-        return appleCpus.catalystCpus().get(0);
-      default:
-        throw new IllegalArgumentException("Unhandled platform type " + applePlatformType);
-    }
+    return switch (applePlatformType) {
+      case PlatformType.IOS -> appleCpus.iosMultiCpus().get(0);
+      case PlatformType.VISIONOS -> appleCpus.visionosCpus().get(0);
+      case PlatformType.WATCHOS -> appleCpus.watchosCpus().get(0);
+      case PlatformType.TVOS -> appleCpus.tvosCpus().get(0);
+      case PlatformType.MACOS -> appleCpus.macosCpus().get(0);
+      default -> throw new IllegalArgumentException("Unhandled platform type " + applePlatformType);
+    };
   }
 
   /**
@@ -340,9 +322,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
         components.add("min" + options.getMinimumOsVersion());
       }
     }
-    if (configurationDistinguisher != ConfigurationDistinguisher.UNKNOWN) {
-      components.add(configurationDistinguisher.getFileSystemName());
-    }
 
     if (!components.isEmpty()) {
       ctx.addToMnemonic(Joiner.on('-').join(components));
@@ -364,45 +343,4 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   public int hashCode() {
     return options.hashCode();
   }
-
-  /**
-   * Value used to avoid multiple configurations from conflicting. No two instances of this
-   * transition may exist with the same value in a single Bazel invocation.
-   */
-  public enum ConfigurationDistinguisher implements StarlarkValue {
-    UNKNOWN("unknown"),
-    /** Distinguisher for {@code apple_binary} rule with "ios" platform_type. */
-    APPLEBIN_IOS("applebin_ios"),
-    /** Distinguisher for {@code apple_binary} rule with "visionos" platform_type. */
-    APPLEBIN_VISIONOS("applebin_visionos"),
-    /** Distinguisher for {@code apple_binary} rule with "watchos" platform_type. */
-    APPLEBIN_WATCHOS("applebin_watchos"),
-    /** Distinguisher for {@code apple_binary} rule with "tvos" platform_type. */
-    APPLEBIN_TVOS("applebin_tvos"),
-    /** Distinguisher for {@code apple_binary} rule with "macos" platform_type. */
-    APPLEBIN_MACOS("applebin_macos"),
-    /** Distinguisher for {@code apple_binary} rule with "catalyst" platform_type. */
-    APPLEBIN_CATALYST("applebin_catalyst"),
-
-    /**
-     * Distinguisher for the apple crosstool configuration. We use "apl" for output directory names
-     * instead of "apple_crosstool" to avoid oversized path names, which can be problematic on OSX.
-     */
-    APPLE_CROSSTOOL("apl");
-
-    private final String fileSystemName;
-
-    private ConfigurationDistinguisher(String fileSystemName) {
-      this.fileSystemName = fileSystemName;
-    }
-
-    /**
-     * Returns the distinct string that should be used in creating output directories for a
-     * configuration with this distinguisher.
-     */
-    public String getFileSystemName() {
-      return fileSystemName;
-    }
-  }
-  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/objc/apple_configuration.bzl)
 }

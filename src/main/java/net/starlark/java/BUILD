@@ -9,10 +9,9 @@ filegroup(
         "//src/main/java/net/starlark/java/annot:srcs",
         "//src/main/java/net/starlark/java/cmd:srcs",
         "//src/main/java/net/starlark/java/eval:srcs",
-        "//src/main/java/net/starlark/java/lib/json:srcs",
+        "//src/main/java/net/starlark/java/lib:srcs",
         "//src/main/java/net/starlark/java/spelling:srcs",
         "//src/main/java/net/starlark/java/syntax:srcs",
-        "//src/main/java/net/starlark/java/types:srcs",
     ],
     visibility = ["//src:__pkg__"],
 )

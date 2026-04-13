@@ -15,17 +15,15 @@ package com.google.devtools.build.lib.actions;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.DetailedException;
-import com.google.devtools.build.lib.skyframe.rewinding.LostInputOwners;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Optional;
 
 /** Context to be informed of top-level outputs and their runfiles. */
 public interface ImportantOutputHandler extends ActionContext {
@@ -37,6 +35,19 @@ public interface ImportantOutputHandler extends ActionContext {
   Duration LOG_THRESHOLD = Duration.ofMillis(100);
 
   /**
+   * Whether this handler requires metadata of top-level {@linkplain
+   * com.google.devtools.build.lib.analysis.OutputGroupInfo#HIDDEN_OUTPUT_GROUP_PREFIX hidden output
+   * groups} in {@link #processOutputsAndGetLostArtifacts}. Notably, this includes top-level
+   * runfiles trees.
+   *
+   * <p>If {@code false}, top-level runfiles may be handled in {@link
+   * #processRunfilesAndGetLostArtifacts}.
+   */
+  default boolean requiresHiddenOutputMetadata() {
+    return false;
+  }
+
+  /**
    * Informs this handler that top-level outputs have been built.
    *
    * <p>The handler may verify that remotely stored outputs are still available. Returns a map from
@@ -45,21 +56,17 @@ public interface ImportantOutputHandler extends ActionContext {
    * @param importantOutputs top-level outputs, excluding {@linkplain
    *     com.google.devtools.build.lib.analysis.OutputGroupInfo#HIDDEN_OUTPUT_GROUP_PREFIX hidden
    *     output groups}
-   * @param importantMetadataProvider provides metadata for artifacts in {@code importantOutputs}
-   *     and their expansions
-   * @param fullMetadataProvider like {@code importantMetadataProvider}, but additionally provides
-   *     metadata for artifacts in {@linkplain
+   * @param metadataProvider provides metadata for artifacts in {@code importantOutputs} and their
+   *     expansions; if {@link #requiresHiddenOutputMetadata}, additionally provides metadata for
+   *     artifacts in {@linkplain
    *     com.google.devtools.build.lib.analysis.OutputGroupInfo#HIDDEN_OUTPUT_GROUP_PREFIX hidden
    *     output groups} and their expansions
    * @return any artifacts that need to be regenerated via action rewinding
    * @throws ImportantOutputException for an issue processing the outputs, not including lost
    *     outputs which are reported in the returned {@link LostArtifacts}
    */
-  // TODO: jhorvitz - Find a cleaner way than passing two InputMetadataProviders.
   LostArtifacts processOutputsAndGetLostArtifacts(
-      Iterable<Artifact> importantOutputs,
-      InputMetadataProvider importantMetadataProvider,
-      InputMetadataProvider fullMetadataProvider)
+      Iterable<Artifact> importantOutputs, InputMetadataProvider metadataProvider)
       throws ImportantOutputException, InterruptedException;
 
   /**
@@ -117,20 +124,27 @@ public interface ImportantOutputHandler extends ActionContext {
       throws ImportantOutputException, InterruptedException;
 
   /**
-   * Represents artifacts that need to be regenerated via action rewinding, optionally along with
-   * their owners if known. If {@code owners} is present, the ownership information must be
-   * complete.
+   * Informs this handler of a stdout or stderr file that is too large to display to the console and
+   * should instead be made available in file form.
+   *
+   * <p>The given paths is under the exec root and is backed by an {@link
+   * com.google.devtools.build.lib.vfs.OutputService#createActionFileSystem action filesystem} if
+   * applicable.
+   *
+   * <p>Stdout and stderr files should never be lost because they are only accessed after a
+   * just-executed action.
    */
-  record LostArtifacts(
-      ImmutableMap<String, ActionInput> byDigest, Optional<LostInputOwners> owners) {
+  void processTooLargeStdoutErr(Path stdoutErr)
+      throws ImportantOutputException, InterruptedException;
+
+  /** Represents artifacts that need to be regenerated via action rewinding. */
+  record LostArtifacts(ImmutableSetMultimap<String, ActionInput> byDigest) {
 
     /** An empty instance of {@link LostArtifacts}. */
-    public static final LostArtifacts EMPTY =
-        new LostArtifacts(ImmutableMap.of(), Optional.of(new LostInputOwners()));
+    public static final LostArtifacts EMPTY = new LostArtifacts(ImmutableSetMultimap.of());
 
     public LostArtifacts {
       checkNotNull(byDigest);
-      checkNotNull(owners);
     }
 
     public boolean isEmpty() {
@@ -140,7 +154,7 @@ public interface ImportantOutputHandler extends ActionContext {
     /** Throws {@link LostInputsExecException} if this instance is not empty. */
     public void throwIfNotEmpty() throws LostInputsExecException {
       if (!isEmpty()) {
-        throw new LostInputsExecException(byDigest, owners, /* cause= */ null);
+        throw new LostInputsExecException(byDigest);
       }
     }
   }

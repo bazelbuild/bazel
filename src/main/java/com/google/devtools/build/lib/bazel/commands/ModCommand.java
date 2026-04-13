@@ -144,36 +144,36 @@ public final class ModCommand implements BlazeCommand {
     // Validate output format.
     switch (subcommand) {
       case SHOW_REPO -> {
-        switch (modOptions.outputFormat) {
+        switch (modOptions.getOutputFormat()) {
           case TEXT, STREAMED_JSONPROTO, STREAMED_PROTO -> {} // supported
           default ->
               throw new InvalidArgumentException(
                   String.format(
                       "Invalid --output '%s' for the 'show_repo' subcommand. Only 'text',"
                           + " 'streamed_jsonproto', and 'streamed_proto' are supported.",
-                      modOptions.outputFormat),
+                      modOptions.getOutputFormat()),
                   Code.INVALID_ARGUMENTS);
         }
       }
       case SHOW_EXTENSION -> {
-        if (modOptions.outputFormat != ModOptions.OutputFormat.TEXT) {
+        if (modOptions.getOutputFormat() != ModOptions.OutputFormat.TEXT) {
           throw new InvalidArgumentException(
               String.format(
                   "Invalid --output '%s' for the 'show_extension' subcommand. Only 'text' is"
                       + " supported.",
-                  modOptions.outputFormat),
+                  modOptions.getOutputFormat()),
               Code.INVALID_ARGUMENTS);
         }
       }
       case ModSubcommand sub when sub.isGraph() -> {
-        switch (modOptions.outputFormat) {
+        switch (modOptions.getOutputFormat()) {
           case TEXT, JSON, GRAPH -> {} // supported
           default ->
               throw new InvalidArgumentException(
                   String.format(
                       "Invalid --output '%s' for the '%s' subcommand. "
                           + "Only 'text', 'json', and 'graph' are supported.",
-                      modOptions.outputFormat, sub),
+                      modOptions.getOutputFormat(), sub),
                   Code.INVALID_ARGUMENTS);
         }
       }
@@ -183,10 +183,10 @@ public final class ModCommand implements BlazeCommand {
 
     if (subcommand == ModSubcommand.SHOW_REPO) {
       int selectedModes = 0;
-      if (modOptions.allRepos) {
+      if (modOptions.getAllRepos()) {
         selectedModes++;
       }
-      if (modOptions.allVisibleRepos) {
+      if (modOptions.getAllVisibleRepos()) {
         selectedModes++;
       }
       if (!args.isEmpty()) {
@@ -199,12 +199,12 @@ public final class ModCommand implements BlazeCommand {
             Code.TOO_MANY_ARGUMENTS);
       }
     } else {
-      if (modOptions.allRepos) {
+      if (modOptions.getAllRepos()) {
         throw new InvalidArgumentException(
             String.format("the '%s' command doesn't take the --all_repos option", subcommand),
             Code.INVALID_ARGUMENTS);
       }
-      if (modOptions.allVisibleRepos) {
+      if (modOptions.getAllVisibleRepos()) {
         throw new InvalidArgumentException(
             String.format(
                 "the '%s' command doesn't take the --all_visible_repos option", subcommand),
@@ -349,7 +349,7 @@ public final class ModCommand implements BlazeCommand {
             repoMappingValues,
             new OutputStreamWriter(
                 env.getReporter().getOutErr().getOutputStream(),
-                modOptions.charset == UTF8 ? UTF_8 : US_ASCII));
+                modOptions.getCharset() == UTF8 ? UTF_8 : US_ASCII));
       } catch (IOException e) {
         throw new IllegalStateException(e);
       }
@@ -372,14 +372,16 @@ public final class ModCommand implements BlazeCommand {
     AugmentedModule rootModule = moduleInspector.depGraph().get(ModuleKey.ROOT);
     try {
       ImmutableSet<ModuleKey> keys =
-          modOptions.baseModule.resolveToModuleKeys(
-              moduleInspector.modulesIndex(),
-              moduleInspector.depGraph(),
-              moduleInspector.moduleKeyToCanonicalNames(),
-              rootModule.deps(),
-              rootModule.unusedDeps(),
-              false,
-              false);
+          modOptions
+              .getBaseModule()
+              .resolveToModuleKeys(
+                  moduleInspector.modulesIndex(),
+                  moduleInspector.depGraph(),
+                  moduleInspector.moduleKeyToCanonicalNames(),
+                  rootModule.deps(),
+                  rootModule.unusedDeps(),
+                  false,
+                  false);
       if (keys.size() > 1) {
         throw new InvalidArgumentException(
             String.format(
@@ -394,7 +396,7 @@ public final class ModCommand implements BlazeCommand {
           env,
           String.format(
               "In --base_module %s option: %s (Note that unused modules cannot be used here)",
-              modOptions.baseModule, e.getMessage()),
+              modOptions.getBaseModule(), e.getMessage()),
           Code.INVALID_ARGUMENTS);
     }
 
@@ -456,7 +458,7 @@ public final class ModCommand implements BlazeCommand {
                           moduleInspector.moduleKeyToCanonicalNames(),
                           baseModule.deps(),
                           baseModule.unusedDeps(),
-                          modOptions.includeUnused,
+                          modOptions.getIncludeUnused(),
                           /* warnUnused= */ true));
             } catch (InvalidArgumentException | OptionsParsingException e) {
               throw new InvalidArgumentException(
@@ -476,44 +478,44 @@ public final class ModCommand implements BlazeCommand {
     try {
       fromKeys =
           moduleArgListToKeys(
-              modOptions.modulesFrom,
+              modOptions.getModulesFrom(),
               moduleInspector.modulesIndex(),
               moduleInspector.depGraph(),
               moduleInspector.moduleKeyToCanonicalNames(),
               baseModule.deps(),
               baseModule.unusedDeps(),
-              modOptions.includeUnused);
+              modOptions.getIncludeUnused());
     } catch (InvalidArgumentException e) {
       return reportAndCreateFailureResult(
           env,
-          String.format("In --from %s option: %s", modOptions.modulesFrom, e.getMessage()),
+          String.format("In --from %s option: %s", modOptions.getModulesFrom(), e.getMessage()),
           Code.INVALID_ARGUMENTS);
     }
 
     try {
       usageKeys =
           moduleArgListToKeys(
-              modOptions.extensionUsages,
+              modOptions.getExtensionUsages(),
               moduleInspector.modulesIndex(),
               moduleInspector.depGraph(),
               moduleInspector.moduleKeyToCanonicalNames(),
               baseModule.deps(),
               baseModule.unusedDeps(),
-              modOptions.includeUnused);
+              modOptions.getIncludeUnused());
     } catch (InvalidArgumentException e) {
       return reportAndCreateFailureResult(
           env,
           String.format(
               "In --extension_usages %s option: %s (Note that unused modules cannot be used"
                   + " here)",
-              modOptions.extensionUsages, e.getMessage()),
+              modOptions.getExtensionUsages(), e.getMessage()),
           Code.INVALID_ARGUMENTS);
     }
 
     /* Extract and check the --extension_filter argument */
     Optional<MaybeCompleteSet<ModuleExtensionId>> filterExtensions = Optional.empty();
-    if (subcommand.isGraph() && modOptions.extensionFilter != null) {
-      if (modOptions.extensionFilter.isEmpty()) {
+    if (subcommand.isGraph() && modOptions.getExtensionFilter() != null) {
+      if (modOptions.getExtensionFilter().isEmpty()) {
         filterExtensions = Optional.of(MaybeCompleteSet.completeSet());
       } else {
         try {
@@ -521,7 +523,7 @@ public final class ModCommand implements BlazeCommand {
               Optional.of(
                   MaybeCompleteSet.copyOf(
                       extensionArgListToIds(
-                          modOptions.extensionFilter,
+                          modOptions.getExtensionFilter(),
                           moduleInspector.modulesIndex(),
                           moduleInspector.depGraph(),
                           moduleInspector.moduleKeyToCanonicalNames(),
@@ -532,7 +534,7 @@ public final class ModCommand implements BlazeCommand {
               env,
               String.format(
                   "In --extension_filter %s option: %s",
-                  modOptions.extensionFilter, e.getMessage()),
+                  modOptions.getExtensionFilter(), e.getMessage()),
               Code.INVALID_ARGUMENTS);
         }
       }
@@ -576,13 +578,13 @@ public final class ModCommand implements BlazeCommand {
 
     // Workaround to allow different default value for DEPS and EXPLAIN, and also use
     // Integer.MAX_VALUE instead of the exact number string.
-    if (modOptions.depth < 1) {
-      modOptions.depth =
+    if (modOptions.getDepth() < 1) {
+      modOptions.setDepth(
           switch (subcommand) {
             case EXPLAIN -> 1;
             case DEPS -> 2;
             default -> Integer.MAX_VALUE;
-          };
+          });
     }
 
     ModExecutor modExecutor =
@@ -631,7 +633,7 @@ public final class ModCommand implements BlazeCommand {
 
     ImmutableMap.Builder<String, RepositoryName> targetToRepoName = new ImmutableMap.Builder<>();
 
-    if (modOptions.allRepos) {
+    if (modOptions.getAllRepos()) {
       // Module repos.
       for (RepositoryName repoName : moduleInspector.moduleKeyToCanonicalNames().values()) {
         if (repoName.isMain()) {
@@ -653,7 +655,7 @@ public final class ModCommand implements BlazeCommand {
           targetToRepoName.put(repoName.getNameWithAt(), repoName);
         }
       }
-    } else if (modOptions.allVisibleRepos) {
+    } else if (modOptions.getAllVisibleRepos()) {
       for (Entry<String, RepositoryName> entry : baseModuleMapping.entries().entrySet()) {
         if (entry.getValue().isMain()) {
           // The main repo can't be inspected.

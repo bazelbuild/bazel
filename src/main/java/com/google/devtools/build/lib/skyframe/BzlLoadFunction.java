@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
-import com.google.devtools.build.lib.packages.AutoloadSymbols;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
@@ -85,6 +84,7 @@ import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.Statement;
 import net.starlark.java.syntax.StringLiteral;
+import net.starlark.java.syntax.SyntaxError;
 
 /**
  * A Skyframe function to look up and load a single .bzl (or .scl) module.
@@ -610,19 +610,13 @@ public class BzlLoadFunction implements SkyFunction {
       }
       return StarlarkBuiltinsValue.createEmpty(starlarkSemantics);
     }
-    AutoloadSymbols autoloadSymbols = AutoloadSymbols.AUTOLOAD_SYMBOLS.get(env);
-    if (autoloadSymbols == null) {
-      return null;
-    }
     try {
-      boolean withAutoloads = requiresAutoloads(key, autoloadSymbols);
       if (inliningState == null) {
         return (StarlarkBuiltinsValue)
-            env.getValueOrThrow(
-                StarlarkBuiltinsValue.key(withAutoloads), BuiltinsFailedException.class);
+            env.getValueOrThrow(StarlarkBuiltinsValue.key(), BuiltinsFailedException.class);
       } else {
         return StarlarkBuiltinsFunction.computeInline(
-            StarlarkBuiltinsValue.key(withAutoloads),
+            StarlarkBuiltinsValue.key(),
             inliningState,
             ruleClassProvider.getBazelStarlarkEnvironment(),
             /* bzlLoadFunction= */ this);
@@ -639,24 +633,6 @@ public class BzlLoadFunction implements SkyFunction {
         // to avoid a cyclic dependency
         || (key instanceof BzlLoadValue.KeyForBzlmod
             && !(key instanceof BzlLoadValue.KeyForBzlmodBootstrap));
-  }
-
-  private static boolean requiresAutoloads(BzlLoadValue.Key key, AutoloadSymbols autoloadSymbols) {
-    // We do autoloads for all BUILD files and BUILD-loaded .bzl files, except for files in
-    // certain rule repos (see AutoloadSymbols#reposDisallowingAutoloads).
-    //
-    // We don't do autoloads for the WORKSPACE file, Bzlmod files, or .bzls loaded by them,
-    // because in general the rules repositories that we would load are not yet available.
-    //
-    // We never do autoloads for builtins bzls.
-    //
-    // We don't do autoloads for the prelude file, but that's a single file so users can migrate it
-    // easily. (We do autoloads in .bzl files that are loaded by the prelude file.)
-    return autoloadSymbols.isEnabled()
-        && key instanceof BzlLoadValue.KeyForBuild
-        && !key.isBuildPrelude()
-        && !autoloadSymbols.autoloadsDisabledInBzlForRepo(
-            key.getLabel() == null ? null : key.getLabel().getRepository());
   }
 
   /**
@@ -895,6 +871,17 @@ public class BzlLoadFunction implements SkyFunction {
     // compile the .bzl file into a Program.
     Module module =
         Module.withPredeclaredAndData(builtins.starlarkSemantics, predeclared, bazelModuleContext);
+
+    // Type-tag and type-check the program
+    BzlCompileValue.TypeOptions typeOptions = compileValue.getTypeOptions();
+    if (typeOptions.wantStaticTypeChecking() || typeOptions.wantDynamicTypeChecking()) {
+      try {
+        prog = Starlark.withTypeInfo(prog, module, typeOptions.wantStaticTypeChecking());
+      } catch (SyntaxError.Exception e) {
+        Event.replayEventsOn(env.getListener(), e.errors());
+        throw typingFailed(label);
+      }
+    }
 
     // The BzlInitThreadContext holds Starlark thread-local state to be read and updated during
     // evaluation.
@@ -1565,6 +1552,16 @@ public class BzlLoadFunction implements SkyFunction {
     // statement, and code that catches it should use the location in the Event they create.
     return new BzlLoadFailedException(
         "at " + loc + ": " + cause.getMessage(), cause.getDetailedExitCode());
+  }
+
+  static BzlLoadFailedException typingFailed(Label label) {
+    return new BzlLoadFailedException(
+        String.format(
+            "initialization of module '%s'%s failed",
+            // TODO(brandjon): This error message drops the repo part of the label.
+            label.toPathFragment(),
+            StarlarkBuiltinsValue.isBuiltinsRepo(label.getRepository()) ? " (internal)" : ""),
+        Code.TYPING_ERROR);
   }
 
   static BzlLoadFailedException executionFailed(Label label) {

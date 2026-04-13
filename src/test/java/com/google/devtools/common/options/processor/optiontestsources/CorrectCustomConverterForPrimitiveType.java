@@ -22,11 +22,10 @@ import com.google.devtools.common.options.OptionsBase;
 /** This example options specifies a custom converter that passes the compile-time checks. */
 public class CorrectCustomConverterForPrimitiveType extends OptionsBase {
   @Option(
-    name = "option_with_primitive_type_and_correct_converter",
-    defaultValue = "5",
-    converter = Converters.RangeConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP}
-  )
+      name = "option_with_primitive_type_and_correct_converter",
+      defaultValue = "5",
+      converter = Converters.RangeConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS})
   public int intInARange;
 }

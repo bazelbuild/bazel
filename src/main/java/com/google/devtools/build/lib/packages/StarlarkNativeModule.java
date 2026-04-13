@@ -222,7 +222,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       if (val != null) {
         return val;
       }
-      throw Starlark.errorf("key %s not found in view", Starlark.repr(key));
+      throw Starlark.errorf("key %s not found in view", Starlark.repr(key, semantics));
     }
 
     @Override
@@ -325,7 +325,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append("<native.ExistingRuleView for target '").append(rule.getName()).append("'>");
     }
 
@@ -464,7 +464,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     }
 
     @Override
-    public void repr(Printer printer) {
+    public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append("<native.ExistingRulesView object>");
     }
 

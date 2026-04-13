@@ -1,10 +1,12 @@
 # Bazel - Google's Build System
 
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 load("@rules_license//rules:license.bzl", "license")
 load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load("@rules_python//python:defs.bzl", "py_binary")
+load("//src:release_archive.bzl", "MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION", "MINIMUM_JAVA_RUNTIME_VERSION")
 load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup")
 
@@ -319,3 +321,21 @@ REMOTE_PLATFORMS = ("rbe_ubuntu2004",)
     )
     for platform_name in REMOTE_PLATFORMS
 ]
+
+# LINT.IfChange
+[
+    default_java_toolchain(
+        name = "java_toolchain_%s" % language_version,
+        java_runtime = "@rules_java//toolchains:remotejdk_25",
+        oneversion_allowlist = ":oneversion_allowlist.csv",
+        oneversion_allowlist_for_tests = ":oneversion_allowlist_for_tests.csv",
+        source_version = str(language_version),
+        target_version = str(language_version),
+    )
+    for language_version in set([
+        MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION,
+        MINIMUM_JAVA_RUNTIME_VERSION,
+        21,
+    ])
+]
+# LINT.ThenChange(//.bazelrc)

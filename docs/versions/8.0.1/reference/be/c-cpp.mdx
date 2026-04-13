@@ -1,0 +1,200 @@
+---
+title: 'C / C++ Rules'
+---
+
+## Rules
+
+* [cc\_binary](#cc_binary)
+* [cc\_import](#cc_import)
+* [cc\_library](#cc_library)
+* [cc\_shared\_library](#cc_shared_library)
+* [cc\_static\_library](#cc_static_library)
+* [cc\_toolchain\_suite](#cc_toolchain_suite)
+
+## cc\_binary
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/starlark/builtins_bzl/common/cc/cc_binary.bzl)
+
+```
+cc_binary(name, deps, srcs, data, additional_linker_inputs, args, compatible_with, conlyopts, copts, cxxopts, defines, deprecation, distribs, dynamic_deps, env, exec_compatible_with, exec_properties, features, hdrs_check, includes, licenses, link_extra_lib, linkopts, linkshared, linkstatic, local_defines, malloc, nocopts, output_licenses, reexport_deps, restricted_to, stamp, tags, target_compatible_with, testonly, toolchains, visibility, win_def_file)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/8.0.1/concepts/labels#target-names); required  A unique name for this target. |
+| `additional_linker_inputs` | List of [labels](/versions/8.0.1/concepts/labels); default is `[]` |
+| `conlyopts` | List of strings; default is `[]` |
+| `copts` | List of strings; default is `[]` |
+| `cxxopts` | List of strings; default is `[]` |
+| `defines` | List of strings; default is `[]` |
+| `dynamic_deps` | List of [labels](/versions/8.0.1/concepts/labels); default is `[]` |
+| `hdrs_check` | String; default is `""` |
+| `includes` | List of strings; default is `[]` |
+| `link_extra_lib` | [Label](/versions/8.0.1/concepts/labels); default is `"@bazel_tools//tools/cpp:link_extra_lib"` |
+| `linkopts` | List of strings; default is `[]` |
+| `linkshared` | Boolean; default is `False` |
+| `linkstatic` | Boolean; default is `True` |
+| `local_defines` | List of strings; default is `[]` |
+| `malloc` | [Label](/versions/8.0.1/concepts/labels); default is `"@bazel_tools//tools/cpp:malloc"` |
+| `nocopts` | String; default is `""` |
+| `reexport_deps` | List of [labels](/versions/8.0.1/concepts/labels); default is `[]` |
+| `stamp` | Integer; default is `-1` |
+| `win_def_file` | [Label](/versions/8.0.1/concepts/labels); default is `None` |
+
+## cc\_import
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/starlark/builtins_bzl/common/cc/cc_import.bzl)
+
+```
+cc_import(name, deps, data, hdrs, alwayslink, compatible_with, deprecation, distribs, exec_compatible_with, exec_properties, features, includes, interface_library, linkopts, objects, pic_objects, pic_static_library, restricted_to, shared_library, static_library, system_provided, tags, target_compatible_with, testonly, toolchains, visibility)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/8.0.1/concepts/labels#target-names); required  A unique name for this target. |
+| `hdrs` | List of [labels](/versions/8.0.1/concepts/labels); default is `[]` |
+| `alwayslink` | Boolean; default is `False` |
+| `includes` | List of strings; default is `[]` |
+| `interface_library` | [Label](/versions/8.0.1/concepts/labels); default is `None` |
+| `linkopts` | List of strings; default is `[]` |
+| `objects` | List of [labels](/versions/8.0.1/concepts/labels); default is `[]` |
+| `pic_objects` | List of [labels](/versions/8.0.1/concepts/labels); default is `[]` |
+| `pic_static_library` | [Label](/versions/8.0.1/concepts/labels); default is `None` |
+| `shared_library` | [Label](/versions/8.0.1/concepts/labels); default is `None` |
+| `static_library` | [Label](/versions/8.0.1/concepts/labels); default is `None` |
+| `system_provided` | Boolean; default is `False` |
+
+## cc\_library
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/starlark/builtins_bzl/common/cc/cc_library.bzl)
+
+```
+cc_library(name, deps, srcs, data, hdrs, additional_compiler_inputs, additional_linker_inputs, alwayslink, compatible_with, conlyopts, copts, cxxopts, defines, deprecation, distribs, exec_compatible_with, exec_properties, features, hdrs_check, implementation_deps, include_prefix, includes, licenses, linkopts, linkstamp, linkstatic, local_defines, restricted_to, strip_include_prefix, tags, target_compatible_with, testonly, textual_hdrs, toolchains, visibility, win_def_file)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/8.0.1/concepts/labels#target-names); required  A unique name for this target. |
+| `hdrs` | List of [labels](/versions/8.0.1/concepts/labels); default is `[]` |
+| `additional_compiler_inputs` | List of [labels](/versions/8.0.1/concepts/labels); default is `[]` |
+| `additional_linker_inputs` | List of [labels](/versions/8.0.1/concepts/labels); default is `[]` |
+| `alwayslink` | Boolean; default is `False` |
+| `conlyopts` | List of strings; default is `[]` |
+| `copts` | List of strings; default is `[]` |
+| `cxxopts` | List of strings; default is `[]` |
+| `defines` | List of strings; default is `[]` |
+| `hdrs_check` | String; default is |
+| `implementation_deps` | List of [labels](/versions/8.0.1/concepts/labels); default is `[]` |
+| `include_prefix` | String; default is `""` |
+| `includes` | List of strings; default is `[]` |
+| `linkopts` | List of strings; default is `[]` |
+| `linkstamp` | [Label](/versions/8.0.1/concepts/labels); default is `None` |
+| `linkstatic` | Boolean; default is `False` |
+| `local_defines` | List of strings; default is `[]` |
+| `strip_include_prefix` | String; default is `""` |
+| `textual_hdrs` | List of [labels](/versions/8.0.1/concepts/labels); default is `[]` |
+| `win_def_file` | [Label](/versions/8.0.1/concepts/labels); default is `None` |
+
+## cc\_shared\_library
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/starlark/builtins_bzl/common/cc/cc_shared_library.bzl)
+
+```
+cc_shared_library(name, deps, additional_linker_inputs, compatible_with, deprecation, distribs, dynamic_deps, exec_compatible_with, exec_properties, experimental_disable_topo_sort_do_not_use_remove_before_7_0, exports_filter, features, restricted_to, roots, shared_lib_name, static_deps, tags, target_compatible_with, testonly, toolchains, user_link_flags, visibility, win_def_file)
+```
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/8.0.1/concepts/labels#target-names); required  A unique name for this target. |
+| `additional_linker_inputs` | List of [labels](/versions/8.0.1/concepts/labels); default is `[]` |
+| `dynamic_deps` | List of [labels](/versions/8.0.1/concepts/labels); default is `[]` |
+| `experimental_disable_topo_sort_do_not_use_remove_before_7_0` | Boolean; default is `False` |
+| `exports_filter` | List of strings; default is `[]` |
+| `roots` | List of [labels](/versions/8.0.1/concepts/labels); default is `[]` |
+| `shared_lib_name` | String; default is `""` |
+| `static_deps` | List of strings; default is `[]` |
+| `user_link_flags` | List of strings; default is `[]` |
+| `win_def_file` | [Label](/versions/8.0.1/concepts/labels); default is `None` |
+
+## cc\_static\_library
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/starlark/builtins_bzl/common/cc/experimental_cc_static_library.bzl)
+
+```
+cc_static_library(name, deps, compatible_with, deprecation, distribs, exec_compatible_with, exec_properties, features, restricted_to, tags, target_compatible_with, testonly, toolchains, visibility)
+```
+
+**This rule is currently experimental and can only be used with the `--experimental_cc_static_library` flag.**
+Produces a static library from a list of targets and their transitive dependencies.
+
+The resulting static library contains the object files of the targets listed in
+`deps` as well as their transitive dependencies, with preference given to
+`PIC` objects.
+
+#### Output groups
+
+##### `linkdeps`
+
+A text file containing the labels of those transitive dependencies of targets listed in
+`deps` that did not contribute any object files to the static library, but do
+provide at least one static, dynamic or interface library. The resulting static library
+may require these libraries to be available at link time.
+
+##### `linkopts`
+
+A text file containing the user-provided `linkopts` of all transitive
+dependencies of targets listed in `deps`.
+
+#### Duplicate symbols
+
+By default, the `cc_static_library` rule checks that the resulting static
+library does not contain any duplicate symbols. If it does, the build fails with an error
+message that lists the duplicate symbols and the object files containing them.
+
+This check can be disabled per target or per package by setting
+`features = ["-symbol_check"]` or globally via
+`--features=-symbol_check`.
+
+##### Toolchain support for `symbol_check`
+
+The auto-configured C++ toolchains shipped with Bazel support the
+`symbol_check` feature on all platforms. Custom toolchains can add support for
+it in one of two ways:
+
+* Implementing the `ACTION_NAMES.validate_static_library` action and
+  enabling it with the `symbol_check` feature. The tool set in the action is
+  invoked with two arguments, the static library to check for duplicate symbols and the
+  path of a file that must be created if the check passes.
+* Having the `symbol_check` feature add archiver flags that cause the
+  action creating the static library to fail on duplicate symbols.
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/8.0.1/concepts/labels#target-names); required  A unique name for this target. |
+| `deps` | List of [labels](/versions/8.0.1/concepts/labels); default is `[]` The list of targets to combine into a static library, including all their transitive dependencies. Dependencies that do not provide any object files are not included in the static library, but their labels are collected in the file provided by the `linkdeps` output group. |
+
+## cc\_toolchain\_suite
+
+[View rule sourceopen\_in\_new](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/rules/cpp/CcToolchainSuiteRule.java)
+
+```
+cc_toolchain_suite(name, compatible_with, deprecation, distribs, features, licenses, restricted_to, tags, target_compatible_with, testonly, toolchains, visibility)
+```
+
+Deprecated: the rule is a no-op and will be removed.
+
+### Arguments
+
+| Attributes | |
+| --- | --- |
+| `name` | [Name](/versions/8.0.1/concepts/labels#target-names); required  A unique name for this target. |

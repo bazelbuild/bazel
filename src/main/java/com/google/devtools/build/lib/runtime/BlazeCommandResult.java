@@ -148,4 +148,12 @@ public final class BlazeCommandResult {
     return new BlazeCommandResult(
         DetailedExitCode.success(), Preconditions.checkNotNull(execDescription), false);
   }
+
+  public static BlazeCommandResult execute(
+      ExecRequest execDescription, DetailedExitCode detailedExitCode) {
+    return new BlazeCommandResult(
+        Preconditions.checkNotNull(detailedExitCode),
+        Preconditions.checkNotNull(execDescription),
+        false);
+  }
 }

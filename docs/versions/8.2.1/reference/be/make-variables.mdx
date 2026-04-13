@@ -1,0 +1,311 @@
+---
+title: 'Make Variables'
+---
+
+* [Use](#use)
+* [Predefined variables](#predefined_variables)
+* [Predefined genrule variables](#predefined_genrule_variables)
+* [Predefined source/output path variables](#predefined_label_variables)
+* [Custom variables](#custom_variables)
+
+"Make" variables are a special class of expandable string variables available
+to attributes marked as *"Subject to 'Make variable' substitution"*.
+
+These can be used, for example, to inject specific toolchain paths into
+user-constructed build actions.
+
+Bazel provides both *predefined* variables, which are available to all
+targets, and *custom* variables, which are defined in dependency targets
+and only available to targets that depend on them.
+
+The reason for the term "Make" is historical: the syntax and semantics of
+these variables were originally intended to match [GNU
+Make](https://www.gnu.org/software/make/manual/html_node/Using-Variables.html).
+
+## Use
+
+Attributes marked as *"Subject to 'Make variable' substitution"* can
+reference the "Make" variable `FOO` as follows:
+
+`my_attr = "prefix $(FOO) suffix"`
+
+In other words, any substring matching `$(FOO)` gets expanded
+to `FOO`'s value. If that value is `"bar"`, the final
+string becomes:
+
+`my_attr = "prefix bar suffix"`
+
+If `FOO` doesn't correspond to a variable known to the consuming
+target, Bazel fails with an error.
+
+"Make" variables whose names are non-letter symbols, such as
+`@`, can also be referenced using only a dollar sign, without
+the parentheses. For example:
+
+`my_attr = "prefix $@ suffix"`
+
+To write `$` as a string literal (i.e. to prevent variable
+expansion), write `$$`.
+
+## Predefined variables
+
+Predefined "Make" variables can be referenced by any attribute marked as
+*"Subject to 'Make variable' substitution"* on any target.
+
+To see the list of these variables and their values for a given set of build
+options, run
+
+`bazel info --show_make_env [build options]`
+
+and look at the top output lines with capital letters.
+
+[See an example of predefined variables](https://github.com/bazelbuild/examples/tree/main/make-variables#predefined-variables).
+
+**Toolchain option variables**
+
+* `COMPILATION_MODE`:
+  `fastbuild`, `dbg`, or `opt`. ([more
+  details](https://bazel.build/versions/8.2.1/docs/user-manual#flag--compilation_mode))
+
+**Path variables**
+
+* `BINDIR`: The base of the generated binary tree for the target
+  architecture.
+
+  Note that a different tree may be used for programs that run during the
+  build on the host architecture, to support cross-compiling.
+
+  If you want to run a tool from within a `genrule`, the
+  recommended way to get its path is `$(execpath toolname)`,
+  where *toolname* must be listed in the `genrule`'s
+  `tools` attribute.
+* `GENDIR`:
+  The base of the generated code tree for the target architecture.
+
+**Machine architecture variables**
+
+* `TARGET_CPU`:
+  The target architecture's CPU, e.g. `k8`.
+
+## Predefined genrule variables
+
+The following are specially available to `genrule`'s
+`cmd` attribute and are
+generally important for making that attribute work.
+
+[See an example of predefined genrule variables](https://github.com/bazelbuild/examples/tree/main/make-variables#predefined-genrule-variables).
+
+* `OUTS`: The `genrule`'s `outs` list. If you have
+  only one output file, you can also use `$@`.
+* `SRCS`: The `genrule`'s `srcs` list (or more
+  precisely: the path names of the files corresponding to labels in the
+  `srcs` list).
+  If you have only one source file, you can also use `$<`.
+* `<`: `SRCS`, if it is a single file. Else triggers
+  a build error.
+* `@`: `OUTS`, if it is a single file. Else triggers a
+  build error.
+* `RULEDIR`: The output directory of the target, that is, the
+  directory corresponding to the name of the package containing the target
+  under the `genfiles` or `bin` tree. For
+  `//my/pkg:my_genrule` this always ends in `my/pkg`,
+  even if `//my/pkg:my_genrule`'s outputs are in subdirectories.
+* `@D`: The output directory. If
+  [outs](/versions/8.2.1/reference/be/general#genrule.outs) has one entry,
+  this expands to the directory containing that file. If it has multiple
+  entries, this expands to the package's root directory in the
+  `genfiles` tree, *even if all output files are in the same
+  subdirectory*!
+
+  **Note:** Use `RULEDIR` over `@D` because
+  `RULEDIR` has simpler semantics and behaves the same way
+  regardless of the number of output files.
+
+  If the genrule needs to generate temporary intermediate files (perhaps as
+  a result of using some other tool like a compiler), it should attempt to
+  write them to `@D` (although `/tmp` will also
+  be writable) and remove them before finishing.
+
+  Especially avoid writing to directories containing inputs. They may be on
+  read-only filesystems. Even if not, doing so would trash the source tree.
+
+## Predefined source/output path variables
+
+The predefined variables `execpath`, `execpaths`,
+`rootpath`, `rootpaths`, `location`, and
+`locations` take label parameters (e.g. `$(execpath
+//foo:bar)`) and substitute the file paths denoted by that label.
+
+For source files, this is the path relative to your workspace root.
+For files that are outputs of rules, this is the file's *output path*
+(see the explanation of *output files* below).
+
+[See an example of predefined path variables](https://github.com/bazelbuild/examples/tree/main/make-variables#predefined-path-variables).
+
+* `execpath`: Denotes the path beneath the
+  [execroot](/versions/8.2.1/docs/output_directories)
+  where Bazel runs build actions.
+
+  In the above example, Bazel runs all build actions in the directory linked
+  by the `bazel-myproject` symlink in your workspace root. The
+  source file `empty.source` is linked at the path
+  `bazel-myproject/testapp/empty.source`. So its exec path (which
+  is the subpath below the root) is `testapp/empty.source`. This
+  is the path build actions can use to find the file.
+
+  Output files are staged similarly, but are also prefixed with the subpath
+  `bazel-out/cpu-compilation_mode/bin` (or for the outputs of
+  tools: `bazel-out/cpu-opt-exec-hash/bin`). In the above example,
+  `//testapp:app` is a tool because it appears in
+  `show_app_output`'s `tools` attribute.
+  So its output file `app` is written to
+  `bazel-myproject/bazel-out/cpu-opt-exec-hash/bin/testapp/app`.
+  The exec path is thus `bazel-out/cpu-opt-exec-hash/bin/testapp/app`. This extra prefix
+  makes it possible to build the same target for, say, two different CPUs in
+  the same build without the results clobbering each other.
+
+  The label passed to this variable must represent exactly one file. For
+  labels representing source files, this is automatically true. For labels
+  representing rules, the rule must generate exactly one output. If this is
+  false or the label is malformed, the build fails with an error.
+* `rootpath`: Denotes the path that a built binary can use to
+  find a dependency at runtime relative to the subdirectory of its runfiles
+  directory corresponding to the main repository.
+  **Note:** This only works if [`--enable_runfiles`](/versions/8.2.1/reference/command-line-reference#flag--enable_runfiles) is enabled, which is not the case on
+  Windows by default. Use `rlocationpath` instead for
+  cross-platform support.
+
+  This is similar to `execpath` but strips the configuration
+  prefixes described above. In the example from above this means both
+  `empty.source` and `app` use pure workspace-relative
+  paths: `testapp/empty.source` and `testapp/app`.
+
+  The `rootpath` of a file in an external repository
+  `repo` will start with `../repo/`, followed by the
+  repository-relative path.
+
+  This has the same "one output only" requirements as `execpath`.
+* `rlocationpath`: The path a built binary can pass to the `Rlocation` function of a runfiles library to find a dependency at
+  runtime, either in the runfiles directory (if available) or using the
+  runfiles manifest.
+
+  This is similar to `rootpath` in that it does not contain
+  configuration prefixes, but differs in that it always starts with the
+  name of the repository. In the example from above this means that `empty.source` and `app` result in the following
+  paths: `myproject/testapp/empty.source` and `myproject/testapp/app`.
+
+  The `rlocationpath` of a file in an external repository
+  `repo` will start with `repo/`, followed by the
+  repository-relative path.
+
+  Passing this path to a binary and resolving it to a file system path using
+  the runfiles libraries is the preferred approach to find dependencies at
+  runtime. Compared to `rootpath`, it has the advantage that it
+  works on all platforms and even if the runfiles directory is not
+  available.
+
+  This has the same "one output only" requirements as `execpath`.
+* `location`: A synonym for either `execpath` or
+  `rootpath`, depending on the attribute being expanded. This is
+  legacy pre-Starlark behavior and not recommended unless you really know what
+  it does for a particular rule. See [#2475](https://github.com/bazelbuild/bazel/issues/2475#issuecomment-339318016)
+  for details.
+
+`execpaths`, `rootpaths`, `rlocationpaths`,
+and `locations` are the plural variations of `execpath`,
+`rootpath`, `rlocationpath`, and`location`,
+respectively. They support labels producing multiple outputs, in which case
+each output is listed separated by a space. Zero-output rules and malformed
+labels produce build errors.
+
+All referenced labels must appear in the consuming target's `srcs`,
+output files, or `deps`. Otherwise the build fails. C++ targets can
+also reference labels in `data`.
+
+Labels don't have to be in canonical form: `foo`, `:foo`
+and `//somepkg:foo` are all fine.
+
+## Custom variables
+
+Custom "Make" variables can be referenced by any attribute marked as
+*"Subject to 'Make variable' substitution"*, but only on targets that
+depend on other targets that *define* these variables.
+
+As best practice all variables should be custom unless there's a really good
+reason to bake them into core Bazel. This saves Bazel from having to load
+potentially expensive dependencies to supply variables consuming tarets may
+not care about.
+
+**C++ toolchain variables**
+
+The following are defined in C++ toolchain rules and available to any rule
+that sets `toolchains =
+["@bazel_tools//tools/cpp:current_cc_toolchain"]`
+Some rules, like `java_binary`, implicitly
+include the C++ toolchain in their rule definition. They inherit these variables
+automatically.
+
+The built-in C++ rules are much more sophisticated than "run the compiler on
+it". In order to support compilation modes as diverse as \*SAN, ThinLTO,
+with/without modules, and carefully optimized binaries at the same time as
+fast running tests on multiple platforms, the built-in rules go to great
+lengths to ensure the correct inputs, outputs, and command-line flags are set
+on each of potentially multiple internally generated actions.
+
+These variables are a fallback mechanism to be used by language experts in
+rare cases. If you are tempted to use them, please [contact the Bazel devs](https://bazel.build/versions/8.2.1/help) first.
+
+* `ABI`: The C++ ABI version.
+* `AR`: The "ar" command from crosstool.
+* `C_COMPILER`:
+  The C/C++ compiler identifier, e.g. `llvm`.
+* `CC`: The C and C++ compiler command.
+
+  We strongly recommended always using `CC_FLAGS` in
+  combination with `CC`. Fail to do so at your own risk.
+* `CC_FLAGS`: A minimal set of flags for the C/C++
+  compiler to be usable by genrules. In particular, this contains flags to
+  select the correct architecture if `CC` supports multiple
+  architectures.
+* `DUMPBIN`: Microsoft COFF Binary File Dumper (dumpbin.exe) from
+  from Microsoft Visual Studio.
+* `NM`: The "nm" command from crosstool.
+* `OBJCOPY`: The objcopy command from the same suite as the C/C++
+  compiler.
+* `STRIP`: The strip command from the same suite as the C/C++
+  compiler.
+
+**Java toolchain variables**
+
+The following are defined in Java toolchain rules and available to any rule
+that sets `toolchains =
+["@rules_java//toolchains:current_java_runtime"]` (or
+`"@rules_java//toolchains:current_host_java_runtime"`
+for the host toolchain equivalent).
+
+Most of the tools in the JDK should not be used directly. The built-in Java
+rules use much more sophisticated approaches to Java compilation and packaging
+than upstream tools can express, such as interface Jars, header interface
+Jars, and highly optimized Jar packaging and merging implementations.
+
+These variables are a fallback mechanism to be used by language experts in
+rare cases. If you are tempted to use them, please [contact the Bazel devs](https://bazel.build/versions/8.2.1/help) first.
+
+* `JAVA`: The "java" command (a Java virtual
+  machine). Avoid this, and use a `java_binary` rule
+  instead where possible. May be a relative path. If you must change
+  directories before invoking `java`, you need to capture the
+  working directory before changing it.
+* `JAVABASE`: The base directory containing the
+  Java utilities. May be a relative path. It will have a "bin"
+  subdirectory.
+
+**Starlark-defined variables**
+
+Rule and [toolchain](/versions/8.2.1/docs/toolchains) writers can define
+completely custom variables by returning a
+[TemplateVariableInfo](/versions/8.2.1/rules/lib/TemplateVariableInfo)
+provider. Any rules depending on these through the
+`toolchains` attribute can then read their values:
+
+[See an example of Starlark-defined variables](https://github.com/bazelbuild/examples/tree/main/make-variables#custom-starlark-defined-variables).

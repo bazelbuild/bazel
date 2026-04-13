@@ -1,0 +1,95 @@
+---
+title: 'config'
+---
+
+This is a top-level module for creating configuration transitions and build setting descriptors which describe what kind of build setting (if any) a rule is.
+
+ex: the following rule is marked as a build setting by setting the `build_setting` parameter of the `rule()` function. Specifically it is a build setting of type `int` and is a `flag` which means this build setting is callable on the command line.
+
+```
+  my_rule = rule(
+    implementation = _impl,
+    build_setting = config.int(flag = True),
+    ...
+  )
+```
+
+## Members
+
+* [bool](#bool)
+* [exec](#exec)
+* [int](#int)
+* [string](#string)
+* [string\_list](#string_list)
+
+## bool
+
+```
+BuildSetting config.bool(flag=False)
+```
+
+A bool-typed build setting
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `flag` | default is `False` |
+
+## exec
+
+```
+ExecTransitionFactory config.exec(exec_group=None)
+```
+
+Creates an execution transition.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `exec_group` | [string](../core/string); or `None`; default is `None`  The name of the exec group whose execution platform this transition will use. If not provided, this exec transition will use the target's default execution platform. |
+
+## int
+
+```
+BuildSetting config.int(flag=False)
+```
+
+An integer-typed build setting
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `flag` | default is `False`  Whether or not this build setting is callable on the command line. |
+
+## string
+
+```
+BuildSetting config.string(flag=False, allow_multiple=False)
+```
+
+A string-typed build setting
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `flag` | default is `False`  Whether or not this build setting is callable on the command line. |
+| `allow_multiple` | default is `False`  Deprecated, use a `string_list` setting with `repeatable = True` instead. If set, this flag is allowed to be set multiple times on the command line. The Value of the flag as accessed in transitions and build setting implementation function will be a list of strings. Insertion order and repeated values are both maintained. This list can be post-processed in the build setting implementation function if different behavior is desired. |
+
+## string\_list
+
+```
+BuildSetting config.string_list(flag=False, repeatable=False)
+```
+
+A string list-typed build setting. On the command line pass a list using comma-separated value like `--//my/setting=foo,bar`.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `flag` | default is `False`  Whether or not this build setting is callable on the command line. |
+| `repeatable` | default is `False`  If set, instead of expecting a comma-separated value, this flag is allowed to be set multiple times on the command line with each individual value treated as a single string to add to the list value. Insertion order and repeated values are both maintained. This list can be post-processed in the build setting implementation function if different behavior is desired. |

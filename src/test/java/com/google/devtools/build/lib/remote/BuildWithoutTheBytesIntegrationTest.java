@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionModule;
+import com.google.devtools.build.lib.remote.options.RemoteStartupOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils.WorkerInstance;
@@ -39,8 +40,11 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.common.options.OptionsBase;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.util.UUID;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -50,6 +54,16 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesIntegrationTestBase {
   @ClassRule @Rule public static final WorkerInstance worker = IntegrationTestUtils.createWorker();
+
+  @TestParameter public boolean useDiskCache;
+
+  @Override
+  protected ImmutableList<Class<? extends OptionsBase>> getStartupOptionClasses() {
+    return ImmutableList.<Class<? extends OptionsBase>>builder()
+        .addAll(super.getStartupOptionClasses())
+        .add(RemoteStartupOptions.class)
+        .build();
+  }
 
   @Override
   protected ImmutableList<String> getStartupOptions() {
@@ -74,6 +88,10 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
       // The default behavior is to require the target path to exist and make a deep copy.
       addOptions("--action_env=MSYS=winsymlinks:native");
     }
+
+    if (useDiskCache) {
+      addOptions("--disk_cache=" + UUID.randomUUID());
+    }
   }
 
   @Override
@@ -91,9 +109,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     addOptions(
         "--rewind_lost_inputs",
         // Disable build rewinding.
-        "--experimental_remote_cache_eviction_retries=0",
-        // TODO: Add support for concurrent rewinding to Bazel.
-        "--jobs=1");
+        "--experimental_remote_cache_eviction_retries=0");
   }
 
   @Override
@@ -127,6 +143,9 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   @Override
   protected void evictAllBlobs() throws Exception {
     worker.reset();
+    if (useDiskCache) {
+      addOptions("--disk_cache=" + UUID.randomUUID());
+    }
   }
 
   @Override

@@ -14,11 +14,13 @@
 
 package com.google.devtools.build.lib.testutil;
 
+import static com.google.devtools.build.lib.bazel.BazelServices.BAZEL_SERVICES;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.runtime.BlazeService;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 
 /**
@@ -103,9 +105,6 @@ public class TestConstants {
       "com.google.devtools.build.lib.bazel.rules.BazelRulesModule";
   public static final String TEST_STRATEGY_MODULE =
       "com.google.devtools.build.lib.bazel.rules.BazelStrategyModule";
-  public static final String TEST_REAL_UNIX_FILE_SYSTEM =
-      "com.google.devtools.build.lib.unix.UnixFileSystem";
-  public static final String TEST_UNIX_HASH_ATTRIBUTE = "";
 
   public static final ImmutableList<String> IGNORED_MESSAGE_PREFIXES = ImmutableList.<String>of();
 
@@ -127,7 +126,8 @@ public class TestConstants {
   /* Prefix for loads from rules_cc */
   public static final String RULES_CC = "@rules_cc//cc";
   public static final String RULES_CC_CANNONICAL = "@@rules_cc+//cc";
-  public static final String MOCK_CC_SUPPORT_CLASS = "com.google.devtools.build.lib.packages.util.BazelMockCcSupport";
+  public static final String MOCK_CC_SUPPORT_CLASS =
+      "com.google.devtools.build.lib.packages.util.BazelMockCcSupport";
 
   /**
    * The repo/package rules_python is rooted at. If empty, builtin rules are used.
@@ -159,9 +159,7 @@ public class TestConstants {
           "--incompatible_disable_select_on=cpu,crosstool_top,host_cpu");
 
   public static final ImmutableList<String> PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS =
-      ImmutableList.of(
-          // Don't apply autoloads in unit tests, because not all repos are available
-          "--incompatible_autoload_externally=");
+      ImmutableList.of();
 
   /** Partial query to filter out implicit dependencies of C/C++ rules. */
   public static final String CC_DEPENDENCY_CORRECTION =
@@ -192,4 +190,6 @@ public class TestConstants {
   public enum InternalTestExecutionMode {
     NORMAL
   }
+
+  public static final ImmutableList<BlazeService> BLAZE_SERVICES = BAZEL_SERVICES;
 }

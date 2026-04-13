@@ -17,6 +17,7 @@ package com.google.devtools.build.buildjar;
 import static com.google.errorprone.scanner.BuiltInCheckerSuppliers.getSuppliers;
 
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.BugCheckerInfo;
 import com.google.errorprone.bugpatterns.AlwaysThrows;
@@ -25,13 +26,12 @@ import com.google.errorprone.bugpatterns.ArrayFillIncompatibleType;
 import com.google.errorprone.bugpatterns.ArrayHashCode;
 import com.google.errorprone.bugpatterns.ArrayToString;
 import com.google.errorprone.bugpatterns.ArraysAsListPrimitiveArray;
-import com.google.errorprone.bugpatterns.AsyncCallableReturnsNull;
-import com.google.errorprone.bugpatterns.AsyncFunctionReturnsNull;
 import com.google.errorprone.bugpatterns.AutoValueBuilderDefaultsInConstructor;
 import com.google.errorprone.bugpatterns.BadAnnotationImplementation;
 import com.google.errorprone.bugpatterns.BadShiftAmount;
 import com.google.errorprone.bugpatterns.BanJNDI;
 import com.google.errorprone.bugpatterns.BoxedPrimitiveEquality;
+import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.bugpatterns.ChainingConstructorIgnoresParameter;
 import com.google.errorprone.bugpatterns.CheckNotNullMultipleTimes;
 import com.google.errorprone.bugpatterns.CheckReturnValue;
@@ -219,8 +219,6 @@ final class BazelScannerSuppliers {
           ArraysAsListPrimitiveArray.class,
           AssistedInjectScoping.class,
           AssistedParameters.class,
-          AsyncCallableReturnsNull.class,
-          AsyncFunctionReturnsNull.class,
           AutoValueBuilderDefaultsInConstructor.class,
           AutoValueConstructorOrderChecker.class,
           BadAnnotationImplementation.class,
@@ -387,9 +385,24 @@ final class BazelScannerSuppliers {
           VarTypeName.class,
           WrongOneof.class,
           XorPower.class,
-          ZoneIdOfZ.class
+          ZoneIdOfZ.class,
+          findMaybeInNullnessSubpackage("AsyncCallableReturnsNull"),
+          findMaybeInNullnessSubpackage("AsyncFunctionReturnsNull")
           // keep-sorted end
           );
+
+  private static Class<? extends BugChecker> findMaybeInNullnessSubpackage(String simpleName) {
+    for (String packageName :
+        ImmutableList.of(
+            "com.google.errorprone.bugpatterns", "com.google.errorprone.bugpatterns.nullness")) {
+      try {
+        return Class.forName(packageName + "." + simpleName).asSubclass(BugChecker.class);
+      } catch (ClassNotFoundException e) {
+        // continue
+      }
+    }
+    throw new IllegalStateException("Could not find " + simpleName);
+  }
 
   private BazelScannerSuppliers() {}
 }

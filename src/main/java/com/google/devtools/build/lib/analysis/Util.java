@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CommonOptions;
@@ -79,7 +79,7 @@ public abstract class Util {
    * filtering). note: nodes that are depended on both implicitly and explicitly are considered
    * explicit.
    */
-  public static ImmutableSet<ConfiguredTargetKey> findImplicitDeps(RuleContext ruleContext) {
+  public static ImmutableList<ConfiguredTargetKey> findImplicitDeps(RuleContext ruleContext) {
     Set<ConfiguredTargetKey> maybeImplicitDeps = CompactHashSet.create();
     Set<ConfiguredTargetKey> explicitDeps = CompactHashSet.create();
     // Consider rule attribute dependencies.
@@ -129,7 +129,8 @@ public abstract class Util {
         }
       }
     }
-    return ImmutableSet.copyOf(Sets.difference(maybeImplicitDeps, explicitDeps));
+    return ImmutableList.sortedCopyOf(
+        ConfiguredTargetKey.ORDERING, Sets.difference(maybeImplicitDeps, explicitDeps));
   }
 
   private static void addLabelsAndConfigs(

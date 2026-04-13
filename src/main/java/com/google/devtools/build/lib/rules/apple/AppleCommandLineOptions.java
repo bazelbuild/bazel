@@ -20,32 +20,20 @@ import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelC
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
-import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
 
 /** Command-line options for building for Apple platforms. */
-public class AppleCommandLineOptions extends FragmentOptions {
-  @Option(
-      name = "experimental_objc_provider_from_linked",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "No-op. Kept here for backwards compatibility. This field will be removed in a "
-              + "future release.")
-  // TODO(b/32411441): This flag should be removed.
-  public boolean objcProviderFromLinked;
-
+@OptionsClass
+public abstract class AppleCommandLineOptions extends FragmentOptions {
   @Option(
       name = "xcode_version",
       defaultValue = "null",
@@ -54,7 +42,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       help =
           "If specified, uses Xcode of the given version for relevant build actions. "
               + "If unspecified, uses the executor default version of Xcode.")
-  public String xcodeVersion;
+  public abstract String getXcodeVersion();
 
   @Option(
       name = "ios_sdk_version",
@@ -65,7 +53,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       help =
           "Specifies the version of the iOS SDK to use to build iOS applications. "
               + "If unspecified, uses the default iOS SDK version from 'xcode_version'.")
-  public DottedVersion.Option iosSdkVersion;
+  public abstract DottedVersion.Option getIosSdkVersion();
 
   @Option(
       name = "watchos_sdk_version",
@@ -76,7 +64,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       help =
           "Specifies the version of the watchOS SDK to use to build watchOS applications. "
               + "If unspecified, uses the default watchOS SDK version from 'xcode_version'.")
-  public DottedVersion.Option watchOsSdkVersion;
+  public abstract DottedVersion.Option getWatchOsSdkVersion();
 
   @Option(
       name = "tvos_sdk_version",
@@ -87,7 +75,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       help =
           "Specifies the version of the tvOS SDK to use to build tvOS applications. "
               + "If unspecified, uses the default tvOS SDK version from 'xcode_version'.")
-  public DottedVersion.Option tvOsSdkVersion;
+  public abstract DottedVersion.Option getTvOsSdkVersion();
 
   @Option(
       name = "macos_sdk_version",
@@ -98,7 +86,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       help =
           "Specifies the version of the macOS SDK to use to build macOS applications. "
               + "If unspecified, uses the default macOS SDK version from 'xcode_version'.")
-  public DottedVersion.Option macOsSdkVersion;
+  public abstract DottedVersion.Option getMacOsSdkVersion();
 
   @Option(
       name = "ios_minimum_os",
@@ -109,7 +97,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       help =
           "Minimum compatible iOS version for target simulators and devices. "
               + "If unspecified, uses 'ios_sdk_version'.")
-  public DottedVersion.Option iosMinimumOs;
+  public abstract DottedVersion.Option getIosMinimumOs();
 
   @Option(
       name = "watchos_minimum_os",
@@ -120,7 +108,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       help =
           "Minimum compatible watchOS version for target simulators and devices. "
               + "If unspecified, uses 'watchos_sdk_version'.")
-  public DottedVersion.Option watchosMinimumOs;
+  public abstract DottedVersion.Option getWatchosMinimumOs();
 
   @Option(
       name = "tvos_minimum_os",
@@ -131,7 +119,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       help =
           "Minimum compatible tvOS version for target simulators and devices. "
               + "If unspecified, uses 'tvos_sdk_version'.")
-  public DottedVersion.Option tvosMinimumOs;
+  public abstract DottedVersion.Option getTvosMinimumOs();
 
   @Option(
       name = "macos_minimum_os",
@@ -142,7 +130,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       help =
           "Minimum compatible macOS version for targets. "
               + "If unspecified, uses 'macos_sdk_version'.")
-  public DottedVersion.Option macosMinimumOs;
+  public abstract DottedVersion.Option getMacosMinimumOs();
 
   @Option(
       name = "host_macos_minimum_os",
@@ -153,7 +141,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       help =
           "Minimum compatible macOS version for host targets. "
               + "If unspecified, uses 'macos_sdk_version'.")
-  public DottedVersion.Option hostMacosMinimumOs;
+  public abstract DottedVersion.Option getHostMacosMinimumOs();
 
   @Option(
       name = "experimental_prefer_mutual_xcode",
@@ -165,7 +153,20 @@ public class AppleCommandLineOptions extends FragmentOptions {
           "If true, use the most recent Xcode that is available both locally and remotely. If"
               + " false, or if there are no mutual available versions, use the local Xcode version"
               + " selected via xcode-select.")
-  public boolean preferMutualXcode;
+  public abstract boolean getPreferMutualXcode();
+
+  // Tracked in #28081.
+  @Option(
+      name = "incompatible_remove_ctx_apple_fragment",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "When true, Apple build flags are defined with Apple rules (in BUIILD files) and"
+              + " ctx.fragments.apple is undefined. This is a migration flag to move all Apple"
+              + " flags from core Bazel to Apple rules.")
+  public abstract boolean getDisableAppleFragment();
 
   @VisibleForTesting public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
   @VisibleForTesting public static final String DEFAULT_WATCHOS_SDK_VERSION = "2.0";
@@ -200,7 +201,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       help =
           "Don't set this value from the command line - it is derived from other flags and "
               + "configuration transitions derived from rule attributes")
-  public String applePlatformType;
+  public abstract String getApplePlatformType();
 
   @Option(
       name = "apple_split_cpu",
@@ -210,23 +211,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       help =
           "Don't set this value from the command line - it is derived from other flags and "
               + "configuration transitions derived from rule attributes")
-  public String appleSplitCpu;
-
-  // This option exists because two configurations are not allowed to have the same cache key
-  // (partially derived from options). Since we have multiple transitions that may result in the
-  // same configuration values at runtime we need an artificial way to distinguish between them.
-  // This option must only be set by those transitions for this purpose.
-  // TODO(bazel-team): Remove this once we have dynamic configurations but make sure that different
-  // configurations (e.g. by min os version) always use different output paths.
-  // TODO(blaze-configurability-team): Deprecate this when legacy output directory scheme is gone.
-  @Option(
-      name = "apple configuration distinguisher",
-      defaultValue = "UNKNOWN",
-      converter = ConfigurationDistinguisherConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      metadataTags = {OptionMetadataTag.INTERNAL})
-  public ConfigurationDistinguisher configurationDistinguisher;
+  public abstract String getAppleSplitCpu();
 
   @Option(
       name = "ios_multi_cpus",
@@ -238,7 +223,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       help =
           "Comma-separated list of architectures to build an ios_application with. The result "
               + "is a universal binary containing all specified architectures.")
-  public List<String> iosMultiCpus;
+  public abstract List<String> getIosMultiCpus();
 
   @Option(
       name = "visionos_cpus",
@@ -248,7 +233,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
       help = "Comma-separated list of architectures for which to build Apple visionOS binaries.")
-  public List<String> visionosCpus;
+  public abstract List<String> getVisionosCpus();
 
   @Option(
       name = "watchos_cpus",
@@ -258,7 +243,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
       help = "Comma-separated list of architectures for which to build Apple watchOS binaries.")
-  public List<String> watchosCpus;
+  public abstract List<String> getWatchosCpus();
 
   @Option(
       name = "tvos_cpus",
@@ -268,7 +253,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
       help = "Comma-separated list of architectures for which to build Apple tvOS binaries.")
-  public List<String> tvosCpus;
+  public abstract List<String> getTvosCpus();
 
   @Option(
       name = "macos_cpus",
@@ -278,17 +263,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
       help = "Comma-separated list of architectures for which to build Apple macOS binaries.")
-  public List<String> macosCpus;
-
-  @Option(
-      name = "catalyst_cpus",
-      allowMultiple = true,
-      converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
-      help = "Comma-separated list of architectures for which to build Apple Catalyst binaries.")
-  public List<String> catalystCpus;
+  public abstract List<String> getMacosCpus();
 
   @Option(
       name = "xcode_version_config",
@@ -299,7 +274,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       help =
           "The label of the xcode_config rule to be used for selecting the Xcode version "
               + "in the build configuration.")
-  public Label xcodeVersionConfig;
+  public abstract Label getXcodeVersionConfig();
 
   @Option(
       name = "experimental_include_xcode_execution_requirements",
@@ -315,7 +290,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
           "If set, add a \"requires-xcode:{version}\" execution requirement to every Xcode action."
               + "  If the Xcode version has a hyphenated label,  also add a"
               + " \"requires-xcode-label:{version_label}\" execution requirement.")
-  public boolean includeXcodeExecutionRequirements;
+  public abstract boolean getIncludeXcodeExecutionRequirements();
 
   /**
    * The default label of the build-wide {@code xcode_config} configuration rule. This can be
@@ -326,23 +301,13 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public static final String DEFAULT_XCODE_VERSION_CONFIG_LABEL = "//tools/objc:host_xcodes";
 
   @Option(
-      name = "incompatible_enable_apple_toolchain_resolution",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "Use toolchain resolution to select the Apple SDK for apple rules (Starlark and native)")
-  public boolean incompatibleUseToolchainResolution;
-
-  @Option(
       name = "apple_platforms",
       converter = LabelListConverter.class,
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
       help = "Comma-separated list of platforms to use when building Apple binaries.")
-  public List<Label> applePlatforms;
+  public abstract List<Label> getApplePlatforms();
 
   @Option(
       name = "use_platforms_in_apple_crosstool_transition",
@@ -352,42 +317,34 @@ public class AppleCommandLineOptions extends FragmentOptions {
       help =
           "Makes apple_crosstool_transition fall back to using the value of `--platforms` flag"
               + " instead of legacy `--cpu` when needed.")
-  public boolean usePlatformsInAppleCrosstoolTransition;
+  public abstract boolean getUsePlatformsInAppleCrosstoolTransition();
 
   /** Returns whether the minimum OS version is explicitly set for the current platform. */
   public DottedVersion getMinimumOsVersion() {
     DottedVersion.Option option;
-    switch (applePlatformType) {
+    switch (getApplePlatformType()) {
       case PlatformType.IOS:
       case PlatformType.CATALYST:
-        option = iosMinimumOs;
+        option = getIosMinimumOs();
         break;
       case PlatformType.MACOS:
-        option = macosMinimumOs;
+        option = getMacosMinimumOs();
         break;
       case PlatformType.TVOS:
-        option = tvosMinimumOs;
+        option = getTvosMinimumOs();
         break;
       case PlatformType.VISIONOS:
         // TODO: Replace with CppOptions.minimumOsVersion
         option = DottedVersion.option(DottedVersion.fromStringUnchecked("1.0"));
         break;
       case PlatformType.WATCHOS:
-        option = watchosMinimumOs;
+        option = getWatchosMinimumOs();
         break;
       default:
         throw new IllegalStateException();
     }
 
     return DottedVersion.maybeUnwrap(option);
-  }
-
-  /** Converter for the Apple configuration distinguisher. */
-  public static final class ConfigurationDistinguisherConverter
-      extends EnumConverter<ConfigurationDistinguisher> {
-    public ConfigurationDistinguisherConverter() {
-      super(ConfigurationDistinguisher.class, "Apple rule configuration distinguisher");
-    }
   }
 
   /** Flag converter for PlatformType string flag, just converting to lowercase. */

@@ -94,7 +94,7 @@ public final class ImmutableKeyTrackingDictTest {
   @Test
   public void repr_reportsAllKeys() {
     StringBuilder sb = new StringBuilder();
-    dict.repr(new Printer(sb));
+    dict.repr(new Printer(sb), StarlarkSemantics.DEFAULT);
     assertThat(sb.toString()).isEqualTo("{\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4}");
     assertThat(dict.getAccessedKeys()).isEqualTo(dict.keySet());
   }

@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCom
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverride;
+import com.google.devtools.build.lib.bazel.repository.RepositoryUtils;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter;
@@ -80,11 +81,11 @@ import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.RemoteExternalOverlayFileSystem;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.InfoItem;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RemoteRepoContentsCache;
@@ -132,9 +133,9 @@ public class BazelRepositoryModule extends BlazeModule {
       ImmutableMap.of();
 
   private final RepositoryCache repositoryCache = new RepositoryCache();
-  private final MutableSupplier<Map<String, String>> repoEnvironmentSupplier =
+  private final MutableSupplier<ImmutableMap<String, String>> repoEnvSupplier =
       new MutableSupplier<>();
-  private final MutableSupplier<Map<String, String>> clientEnvironmentSupplier =
+  private final MutableSupplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier =
       new MutableSupplier<>();
   private boolean fetchDisabled = false;
   private ImmutableMap<String, PathFragment> overrides = ImmutableMap.of();
@@ -158,9 +159,9 @@ public class BazelRepositoryModule extends BlazeModule {
   private RepoSpecFunction repoSpecFunction;
   private YankedVersionsFunction yankedVersionsFunction;
 
-  private final VendorCommand vendorCommand = new VendorCommand(clientEnvironmentSupplier);
+  private final VendorCommand vendorCommand = new VendorCommand(nonstrictRepoEnvSupplier);
   private final RegistryFactoryImpl registryFactory =
-      new RegistryFactoryImpl(clientEnvironmentSupplier);
+      new RegistryFactoryImpl(nonstrictRepoEnvSupplier);
 
   @Nullable private CredentialModule credentialModule;
 
@@ -208,20 +209,17 @@ public class BazelRepositoryModule extends BlazeModule {
   @Override
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-    // TODO(b/27143724): Remove this guard when Google-internal flavor no longer uses repositories.
-    if ("bazel".equals(runtime.getProductName())) {
-      builder.allowExternalRepositories(true);
-    }
+    builder.allowExternalRepositories(true);
+    builder.setRepoContentsCachePathSupplier(repositoryCache.getRepoContentsCache()::getPath);
 
     repositoryFetchFunction =
         new RepositoryFetchFunction(
-            repoEnvironmentSupplier,
-            clientEnvironmentSupplier,
+            repoEnvSupplier,
+            nonstrictRepoEnvSupplier,
             directories,
             repositoryCache.getRepoContentsCache());
     singleExtensionEvalFunction =
-        new SingleExtensionEvalFunction(
-            directories, repoEnvironmentSupplier, clientEnvironmentSupplier);
+        new SingleExtensionEvalFunction(directories, repoEnvSupplier, nonstrictRepoEnvSupplier);
 
     if (builtinModules == null) {
       builtinModules = ModuleFileFunction.getBuiltinModules();
@@ -284,15 +282,10 @@ public class BazelRepositoryModule extends BlazeModule {
     this.yankedVersionsFunction.setDownloadManager(downloadManager);
     this.vendorCommand.setDownloadManager(downloadManager);
 
-    CommonCommandOptions commandOptions = env.getOptions().getOptions(CommonCommandOptions.class);
-    if (commandOptions.useStrictRepoEnv) {
-      repoEnvironmentSupplier.set(env.getRepoEnvFromOptions());
-    } else {
-      repoEnvironmentSupplier.set(env.getRepoEnv());
-    }
-    clientEnvironmentSupplier.set(env.getRepoEnv());
+    repoEnvSupplier.set(env.getRepoEnv());
+    nonstrictRepoEnvSupplier.set(env.getNonstrictRepoEnv());
     PackageOptions pkgOptions = env.getOptions().getOptions(PackageOptions.class);
-    fetchDisabled = pkgOptions != null && !pkgOptions.fetch;
+    fetchDisabled = pkgOptions != null && !pkgOptions.getFetch();
 
     ProcessWrapper processWrapper = ProcessWrapper.fromCommandEnvironment(env);
     repositoryFetchFunction.setProcessWrapper(processWrapper);
@@ -302,15 +295,15 @@ public class BazelRepositoryModule extends BlazeModule {
 
     RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);
     if (repoOptions != null) {
-      downloadManager.setDisableDownload(repoOptions.disableDownload);
-      if (repoOptions.repositoryDownloaderRetries >= 0) {
-        downloadManager.setRetries(repoOptions.repositoryDownloaderRetries);
+      downloadManager.setDisableDownload(repoOptions.getDisableDownload());
+      if (repoOptions.getRepositoryDownloaderRetries() >= 0) {
+        downloadManager.setRetries(repoOptions.getRepositoryDownloaderRetries());
       }
 
-      repositoryCache.getDownloadCache().setHardlink(repoOptions.useHardlinks);
-      if (repoOptions.experimentalScaleTimeouts > 0.0) {
-        repositoryFetchFunction.setTimeoutScaling(repoOptions.experimentalScaleTimeouts);
-        singleExtensionEvalFunction.setTimeoutScaling(repoOptions.experimentalScaleTimeouts);
+      repositoryCache.getDownloadCache().setHardlink(repoOptions.getUseHardlinks());
+      if (repoOptions.getExperimentalScaleTimeouts() > 0.0) {
+        repositoryFetchFunction.setTimeoutScaling(repoOptions.getExperimentalScaleTimeouts());
+        singleExtensionEvalFunction.setTimeoutScaling(repoOptions.getExperimentalScaleTimeouts());
       } else {
         env.getReporter()
             .handle(
@@ -320,8 +313,8 @@ public class BazelRepositoryModule extends BlazeModule {
         repositoryFetchFunction.setTimeoutScaling(1.0);
         singleExtensionEvalFunction.setTimeoutScaling(1.0);
       }
-      if (repoOptions.repositoryCache != null) {
-        repositoryCache.setPath(toPath(repoOptions.repositoryCache, env));
+      if (repoOptions.getRepositoryCache() != null) {
+        repositoryCache.setPath(toPath(repoOptions.getRepositoryCache(), env));
       } else {
         repositoryCache.setPath(
             env.getDirectories()
@@ -333,8 +326,10 @@ public class BazelRepositoryModule extends BlazeModule {
       // the specific settings about the repo contents cache might overwrite the repo cache
       // settings. In particular, if `--repo_contents_cache` is not set (it's null), we use whatever
       // default set by `repositoryCache.setPath(...)`.
-      if (repoOptions.repoContentsCache != null) {
-        repositoryCache.getRepoContentsCache().setPath(toPath(repoOptions.repoContentsCache, env));
+      if (repoOptions.getRepoContentsCache() != null) {
+        repositoryCache
+            .getRepoContentsCache()
+            .setPath(toPath(repoOptions.getRepoContentsCache(), env));
       }
       Path repoContentsCachePath = repositoryCache.getRepoContentsCache().getPath();
       if (repoContentsCachePath != null) {
@@ -416,8 +411,8 @@ public class BazelRepositoryModule extends BlazeModule {
             repositoryCache
                 .getRepoContentsCache()
                 .createGcIdleTask(
-                    repoOptions.repoContentsCacheGcMaxAge,
-                    repoOptions.repoContentsCacheGcIdleDelay));
+                    repoOptions.getRepoContentsCacheGcMaxAge(),
+                    repoOptions.getRepoContentsCacheGcIdleDelay()));
       }
 
       try {
@@ -432,7 +427,8 @@ public class BazelRepositoryModule extends BlazeModule {
       }
       try {
         UrlRewriter rewriter =
-            UrlRewriter.getDownloaderUrlRewriter(env.getWorkspace(), repoOptions.downloaderConfigs);
+            UrlRewriter.getDownloaderUrlRewriter(
+                env.getWorkspace(), repoOptions.getDownloaderConfigs());
         downloadManager.setUrlRewriter(rewriter);
       } catch (UrlRewriterParseException e) {
         // It's important that the build stops ASAP, because this config file may be required for
@@ -453,13 +449,13 @@ public class BazelRepositoryModule extends BlazeModule {
                 .setEventReporter(env.getReporter())
                 .setWorkspacePath(env.getWorkspace())
                 .setClientEnvironment(env.getClientEnv())
-                .setHelperExecutionTimeout(authAndTlsOptions.credentialHelperTimeout)
+                .setHelperExecutionTimeout(authAndTlsOptions.getCredentialHelperTimeout())
                 .build();
         CredentialHelperProvider credentialHelperProvider =
             GoogleAuthUtils.newCredentialHelperProvider(
                 credentialHelperEnvironment,
                 env.getCommandLinePathFactory(),
-                authAndTlsOptions.credentialHelpers);
+                authAndTlsOptions.getCredentialHelpers());
 
         downloadManager.setCredentialFactory(
             headers -> {
@@ -481,9 +477,9 @@ public class BazelRepositoryModule extends BlazeModule {
         return;
       }
 
-      if (repoOptions.experimentalDistdir != null) {
+      if (repoOptions.getExperimentalDistdir() != null) {
         downloadManager.setDistdir(
-            repoOptions.experimentalDistdir.stream()
+            repoOptions.getExperimentalDistdir().stream()
                 .map(
                     path ->
                         path.isAbsolute()
@@ -494,12 +490,12 @@ public class BazelRepositoryModule extends BlazeModule {
         downloadManager.setDistdir(ImmutableList.of());
       }
 
-      if (repoOptions.repositoryOverrides != null) {
+      if (repoOptions.getRepositoryOverrides() != null) {
         // To get the usual latest-wins semantics, we need a mutable map, as the builder
         // of an immutable map does not allow redefining the values of existing keys.
         // We use a LinkedHashMap to preserve the iteration order.
         Map<String, PathFragment> overrideMap = new LinkedHashMap<>();
-        for (RepositoryOverride override : repoOptions.repositoryOverrides) {
+        for (RepositoryOverride override : repoOptions.getRepositoryOverrides()) {
           if (override.path().isEmpty()) {
             overrideMap.remove(override.repositoryName());
             continue;
@@ -515,9 +511,10 @@ public class BazelRepositoryModule extends BlazeModule {
         overrides = ImmutableMap.of();
       }
 
-      if (repoOptions.repositoryInjections != null) {
+      if (repoOptions.getRepositoryInjections() != null) {
         Map<String, PathFragment> injectionMap = new LinkedHashMap<>();
-        for (RepositoryOptions.RepositoryInjection injection : repoOptions.repositoryInjections) {
+        for (RepositoryOptions.RepositoryInjection injection :
+            repoOptions.getRepositoryInjections()) {
           if (injection.path().isEmpty()) {
             injectionMap.remove(injection.apparentName());
             continue;
@@ -533,9 +530,9 @@ public class BazelRepositoryModule extends BlazeModule {
         injections = ImmutableMap.of();
       }
 
-      if (repoOptions.moduleOverrides != null) {
+      if (repoOptions.getModuleOverrides() != null) {
         Map<String, ModuleOverride> moduleOverrideMap = new LinkedHashMap<>();
-        for (RepositoryOptions.ModuleOverride override : repoOptions.moduleOverrides) {
+        for (RepositoryOptions.ModuleOverride override : repoOptions.getModuleOverrides()) {
           if (override.path().isEmpty()) {
             moduleOverrideMap.remove(override.moduleName());
             continue;
@@ -554,22 +551,42 @@ public class BazelRepositoryModule extends BlazeModule {
         moduleOverrides = ImmutableMap.of();
       }
 
-      ignoreDevDeps.set(repoOptions.ignoreDevDependency);
-      checkDirectDepsMode = repoOptions.checkDirectDependencies;
-      bazelCompatibilityMode = repoOptions.bazelCompatibilityMode;
-      bazelLockfileMode = repoOptions.lockfileMode;
-      allowedYankedVersions = repoOptions.allowedYankedVersions;
+      ignoreDevDeps.set(repoOptions.getIgnoreDevDependency());
+      checkDirectDepsMode = repoOptions.getCheckDirectDependencies();
+      bazelCompatibilityMode = repoOptions.getBazelCompatibilityMode();
+      bazelLockfileMode = repoOptions.getLockfileMode();
+      allowedYankedVersions = repoOptions.getAllowedYankedVersions();
       if (env.getWorkspace() != null) {
+        Path externalRoot = env.getOutputBase().getRelative(LabelConstants.EXTERNAL_PATH_PREFIX);
         vendorDirectory =
-            Optional.ofNullable(repoOptions.vendorDirectory)
+            Optional.ofNullable(repoOptions.getVendorDirectory())
                 .map(vendorDirectory -> env.getWorkspace().getRelative(vendorDirectory));
-
+        // Both vendoring and the local and remote repo contents cache rely on certain symlinks at
+        // predictable locations to allow symlinks in external repos to be portable (in particular,
+        // relative).
+        if (vendorDirectory.isPresent()
+            || repoContentsCachePath != null
+            || externalRoot.getFileSystem() instanceof RemoteExternalOverlayFileSystem) {
+          try {
+            FileSystemUtils.ensureSymbolicLink(
+                externalRoot.getChild(RepositoryUtils.WORKSPACE_SYMLINK_NAME), env.getWorkspace());
+          } catch (IOException e) {
+            env.getReporter().handle(Event.error(e.getMessage()));
+            env.getBlazeModuleEnvironment()
+                .exit(
+                    new AbruptExitException(
+                        detailedExitCode(
+                            "Failed to create symlink to workspace under external directory: "
+                                + e.getMessage(),
+                            Code.SYMLINKING_FAILED)));
+          }
+        }
         if (vendorDirectory.isPresent()) {
           try {
-            Path externalRoot =
-                env.getOutputBase().getRelative(LabelConstants.EXTERNAL_PATH_PREFIX);
+            // TODO: The same vendor directory may be used concurrently with multiple output bases,
+            //  which can cause conflicts that currently go undetected.
             FileSystemUtils.ensureSymbolicLink(
-                vendorDirectory.get().getChild(VendorManager.EXTERNAL_ROOT_SYMLINK_NAME),
+                vendorDirectory.get().getRelative(VendorManager.EXTERNAL_ROOT_SYMLINK_NAME),
                 externalRoot);
             if (OS.getCurrent() == OS.WINDOWS) {
               // On Windows, symlinks are resolved differently.
@@ -580,26 +597,30 @@ public class BazelRepositoryModule extends BlazeModule {
               // <external>/repo_foo/link to be resolved to <external>/bazel-external/repo_bar/data
               // To work around this, we create a symlink <external>/bazel-external -> <external>.
               FileSystemUtils.ensureSymbolicLink(
-                  externalRoot.getChild(VendorManager.EXTERNAL_ROOT_SYMLINK_NAME), externalRoot);
+                  externalRoot.getRelative(VendorManager.EXTERNAL_ROOT_SYMLINK_NAME), externalRoot);
             }
           } catch (IOException e) {
-            env.getReporter()
-                .handle(
-                    Event.error(
-                        "Failed to create symlink to external repo root under vendor directory: "
-                            + e.getMessage()));
+            env.getReporter().handle(Event.error(e.getMessage()));
+            env.getBlazeModuleEnvironment()
+                .exit(
+                    new AbruptExitException(
+                        detailedExitCode(
+                            "Failed to create symlink to external repo root under vendor directory:"
+                                + " "
+                                + e.getMessage(),
+                            Code.SYMLINKING_FAILED)));
           }
         }
       }
 
-      if (repoOptions.registries != null && !repoOptions.registries.isEmpty()) {
-        registries = normalizeBaseUrls(repoOptions.registries);
+      if (repoOptions.getRegistries() != null && !repoOptions.getRegistries().isEmpty()) {
+        registries = normalizeBaseUrls(repoOptions.getRegistries());
       } else {
         registries = DEFAULT_REGISTRIES;
       }
-      if (repoOptions.moduleMirrors != null && !repoOptions.moduleMirrors.isEmpty()) {
+      if (repoOptions.getModuleMirrors() != null && !repoOptions.getModuleMirrors().isEmpty()) {
         var registryToMirrors =
-            repoOptions.moduleMirrors.stream()
+            repoOptions.getModuleMirrors().stream()
                 .collect(
                     toImmutableMap(
                         entry -> normalizeBaseUrl(entry.getKey()),
@@ -690,10 +711,18 @@ public class BazelRepositoryModule extends BlazeModule {
    */
   @Nullable
   private Path toPath(PathFragment path, CommandEnvironment env) {
-    if (path.isEmpty() || env.getBlazeWorkspace().getWorkspace() == null) {
+    if (path.isEmpty() || env.getDirectories().getWorkspace() == null) {
       return null;
     }
-    return env.getBlazeWorkspace().getWorkspace().getRelative(path);
+    // It is important to use getWorkspace() here, not getWorkingDirectory(). Both Paths have the
+    // same underlying PathFragment, but may differ in their FileSystem if the remote repo contents
+    // cache is in use. getWorkspace() uses the same FileSystem as everything other than the
+    // workspace directory, while getWorkingDirectory() uses the workspace directory's FileSystem.
+    // Even though the users of the returned Path may end up writing to it, they are not expected to
+    // update source files within the workspace. Thus, the correct FileSystem is the one from
+    // getWorkspace(), which e.g. allows moves from the external directory under the output base to
+    // the local repo contents cache without crossing FileSystems.
+    return env.getDirectories().getWorkspace().getRelative(path);
   }
 
   @Override
@@ -717,6 +746,7 @@ public class BazelRepositoryModule extends BlazeModule {
       lastRegistryInvalidation = now;
     }
     return ImmutableList.of(
+        PrecomputedValue.injected(PrecomputedValue.REPO_ENV, repoEnvSupplier.get()),
         PrecomputedValue.injected(RepoDefinitionFunction.REPOSITORY_OVERRIDES, overrides),
         PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, injections),
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, moduleOverrides),

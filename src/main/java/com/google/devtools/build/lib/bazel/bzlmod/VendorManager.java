@@ -18,22 +18,20 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hasher;
+import com.google.devtools.build.lib.bazel.repository.RepositoryUtils;
 import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.net.URL;
+import java.net.URI;
 import java.net.URLDecoder;
-import java.nio.file.Files;
-import java.util.Collection;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -42,7 +40,8 @@ public class VendorManager {
 
   private static final String REGISTRIES_DIR = "_registries";
 
-  public static final String EXTERNAL_ROOT_SYMLINK_NAME = "bazel-external";
+  public static final PathFragment EXTERNAL_ROOT_SYMLINK_NAME =
+      PathFragment.create("bazel-external");
 
   private final Path vendorDirectory;
 
@@ -56,10 +55,12 @@ public class VendorManager {
    * <p>TODO(pcloudy): Parallelize vendoring repos
    *
    * @param externalRepoRoot The root directory of the external repositories.
+   * @param workspace The workspace directory.
    * @param reposToVendor The list of repositories to vendor.
    * @throws IOException if an I/O error occurs.
    */
-  public void vendorRepos(Path externalRepoRoot, ImmutableList<RepositoryName> reposToVendor)
+  public void vendorRepos(
+      Path externalRepoRoot, Path workspace, ImmutableList<RepositoryName> reposToVendor)
       throws IOException {
     if (!vendorDirectory.exists()) {
       vendorDirectory.createDirectoryAndParents();
@@ -121,9 +122,14 @@ public class VendorManager {
             FileSystemUtils.moveTreesBelow(repoUnderExternal, repoUnderVendor);
           }
         }
-        // 4. Re-plant symlinks pointing a path under the external root to a relative path
-        // to make sure the vendor src keep working after being moved or output base changed
-        replantSymlinks(repoUnderVendor, externalRepoRoot);
+        // 4. Re-plant symlinks pointing to a Bazel-managed path to a relative path to make sure the
+        // vendor src keep working after being moved (including to a different checkout of the
+        // workspace) or used with a different output base. We assume that a given vendor directory
+        // is only used with one output base at a time.
+        Path externalSymlink = vendorDirectory.getRelative(EXTERNAL_ROOT_SYMLINK_NAME);
+        FileSystemUtils.ensureSymbolicLink(externalSymlink, externalRepoRoot);
+        RepositoryUtils.replantSymlinks(
+            repoUnderVendor, workspace, externalRepoRoot, EXTERNAL_ROOT_SYMLINK_NAME);
         // 5. Rename the temporary marker file after the move/copy is done.
         temporaryMarker.renameTo(markerUnderVendor);
         // 6. Leave a symlink in external dir to keep things working.
@@ -134,57 +140,13 @@ public class VendorManager {
   }
 
   /**
-   * Replants the symlinks under the specified repository directory.
-   *
-   * <p>Re-write symlinks that originally pointing to a path under the external root to a relative
-   * path pointing to an external root symlink under the vendor directory.
-   *
-   * @param repoUnderVendor The path to the repository directory under the vendor directory.
-   * @param externalRepoRoot The path to the root of external repositories.
-   * @throws IOException If an I/O error occurs while replanting the symlinks.
-   */
-  private void replantSymlinks(Path repoUnderVendor, Path externalRepoRoot) throws IOException {
-    try {
-      Collection<Path> symlinks =
-          FileSystemUtils.traverseTree(repoUnderVendor, Path::isSymbolicLink);
-      Path externalSymlinkUnderVendor = vendorDirectory.getChild(EXTERNAL_ROOT_SYMLINK_NAME);
-      FileSystemUtils.ensureSymbolicLink(externalSymlinkUnderVendor, externalRepoRoot);
-      for (Path symlink : symlinks) {
-        PathFragment target = symlink.readSymbolicLink();
-        if (!target.startsWith(externalRepoRoot.asFragment())) {
-          // TODO: print a warning for absolute symlinks?
-          continue;
-        }
-        PathFragment newTarget =
-            PathFragment.create(
-                    "../".repeat(symlink.relativeTo(vendorDirectory).segmentCount() - 1))
-                .getRelative(EXTERNAL_ROOT_SYMLINK_NAME)
-                .getRelative(target.relativeTo(externalRepoRoot.asFragment()));
-        if (OS.getCurrent() == OS.WINDOWS) {
-          // On Windows, FileSystemUtils.ensureSymbolicLink always resolves paths to absolute path.
-          // Use Files.createSymbolicLink here instead to preserve relative target path.
-          symlink.delete();
-          Files.createSymbolicLink(
-              java.nio.file.Path.of(symlink.getPathString()),
-              java.nio.file.Path.of(newTarget.getPathString()));
-        } else {
-          FileSystemUtils.ensureSymbolicLink(symlink, newTarget);
-        }
-      }
-    } catch (IOException e) {
-      throw new IOException(
-          String.format("Failed to rewrite symlinks under %s: ", repoUnderVendor), e);
-    }
-  }
-
-  /**
    * Checks if the given URL is vendored.
    *
    * @param url The URL to check.
    * @return true if the URL is vendored, false otherwise.
    * @throws UnsupportedEncodingException if the URL decoding fails.
    */
-  public boolean isUrlVendored(URL url) throws UnsupportedEncodingException {
+  public boolean isUrlVendored(URI url) throws UnsupportedEncodingException {
     return getVendorPathForUrl(url).isFile();
   }
 
@@ -195,7 +157,7 @@ public class VendorManager {
    * @param content The content to write.
    * @throws IOException if an I/O error occurs.
    */
-  public void vendorRegistryUrl(URL url, byte[] content) throws IOException {
+  public void vendorRegistryUrl(URI url, byte[] content) throws IOException {
     Path outputPath = getVendorPathForUrl(url);
     Objects.requireNonNull(outputPath.getParentDirectory()).createDirectoryAndParents();
     FileSystemUtils.writeContent(outputPath, content);
@@ -209,7 +171,7 @@ public class VendorManager {
    * @return The content of the registry URL.
    * @throws IOException if an I/O error occurs or the checksum verification fails.
    */
-  public byte[] readRegistryUrl(URL url, Checksum checksum) throws IOException {
+  public byte[] readRegistryUrl(URI url, Checksum checksum) throws IOException {
     byte[] content = FileSystemUtils.readContent(getVendorPathForUrl(url));
     Hasher hasher = checksum.getKeyType().newHasher();
     hasher.putBytes(content);
@@ -259,7 +221,7 @@ public class VendorManager {
    * @return The vendor path.
    * @throws UnsupportedEncodingException if the URL decoding fails.
    */
-  public Path getVendorPathForUrl(URL url) throws UnsupportedEncodingException {
+  public Path getVendorPathForUrl(URI url) throws UnsupportedEncodingException {
     String host = url.getHost().toLowerCase(Locale.ROOT); // Host names are case-insensitive
     String path = url.getPath();
     path = URLDecoder.decode(path, "UTF-8");

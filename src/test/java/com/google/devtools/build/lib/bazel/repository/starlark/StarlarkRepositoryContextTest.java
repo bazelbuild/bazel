@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -182,7 +183,6 @@ public final class StarlarkRepositoryContextTest {
         new BlazeDirectories(
             new ServerDirectories(root.asPath(), outputBase, root.asPath()),
             root.asPath(),
-            /* defaultSystemJavabase= */ null,
             AnalysisMock.get().getProductName());
     context =
         new StarlarkRepositoryContext(
@@ -292,6 +292,20 @@ public final class StarlarkRepositoryContextTest {
           .hasMessageThat()
           .isEqualTo("Cannot write outside of the repository directory for path /somepath");
     }
+    RepositoryFunctionException ex =
+        assertThrows(
+            RepositoryFunctionException.class,
+            () ->
+                context.createFile(
+                    Starlark.str(context.getPath(""), StarlarkSemantics.DEFAULT) + "_1",
+                    "",
+                    true,
+                    true,
+                    thread));
+    assertThat(ex)
+        .hasCauseThat()
+        .hasMessageThat()
+        .isEqualTo("Cannot write outside of the repository directory for path /outputDir_1");
   }
 
   @Test
@@ -403,9 +417,21 @@ public final class StarlarkRepositoryContextTest {
     setUpRepo("test");
     StarlarkPath foo = context.getPath("foo");
     StarlarkPath patchFile = context.getPath("my.patch");
-    context.createFile(foo, "line three\n", false, true, thread);
-    context.createFile(
-        context.getPath("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
+    context.createFile(foo, "line1\nline2\nWRONG\nALSO WRONG\nline5\nline6\n", false, true, thread);
+    String patch =
+        """
+        --- foo
+        +++ foo
+        @@ -1,6 +1,7 @@
+         line1
+         line2
+         line3
+         line4
+        +inserted
+         line5
+         line6
+        """;
+    context.createFile(context.getPath("my.patch"), patch, false, true, thread);
     try {
       context.patch(patchFile, StarlarkInt.of(0), "auto", thread);
       fail("Expected RepositoryFunctionException");

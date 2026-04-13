@@ -86,7 +86,8 @@ final class RangeList extends AbstractList<StarlarkInt> implements Sequence<Star
       long diff = (long) high - low - 1;
       long size = diff / absStep + 1;
       if ((int) size != size) {
-        throw Starlark.errorf("len(%s) exceeds signed 32-bit range", Starlark.repr(this));
+        throw Starlark.errorf(
+            "len(%s) exceeds signed 32-bit range", Starlark.repr(this, StarlarkSemantics.DEFAULT));
       }
       this.size = (int) size;
     }
@@ -204,7 +205,7 @@ final class RangeList extends AbstractList<StarlarkInt> implements Sequence<Star
   }
 
   @Override
-  public void repr(Printer printer) {
+  public void repr(Printer printer, StarlarkSemantics semantics) {
     if (step == 1) {
       printer.append(String.format("range(%d, %d)", start, stop));
     } else {

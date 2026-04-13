@@ -81,7 +81,7 @@ Example: Building from an empty client
   % bazel build --package_path /some/other/path //foo
 </pre>
 
-#### `--deleted_packages` {:flag--deleted_packages}
+#### `--deleted_packages` {:#flag--deleted_packages}
 
 This option specifies a comma-separated list of packages which Bazel
 should consider deleted, and not attempt to load from any directory
@@ -465,7 +465,7 @@ The `experimental_action_listener` option instructs Bazel to use
 details from the [`action_listener`](/reference/be/extra-actions#action_listener) rule specified by {{ "<var>" }}label{{ "</var>" }} to
 insert [`extra_actions`](/reference/be/extra-actions#extra_action) into the build graph.
 
-#### `--[no]experimental_extra_action_top_level_only` {:experimental-extra-action-top-level-only}
+#### `--[no]experimental_extra_action_top_level_only` {:#experimental-extra-action-top-level-only}
 
 Warning: Extra actions are deprecated. Use
 [aspects](/extending/aspects) instead.
@@ -747,7 +747,7 @@ based on some (very crude) estimates of the resource consumption
 of each job. The behavior of the scheduler can be controlled by
 the `--local_resources` option.
 
-#### `--progress_report_interval={{ "<var>" }}n{{ "</var>" }}` {:progress-report-interval}
+#### `--progress_report_interval={{ "<var>" }}n{{ "</var>" }}` {:#progress-report-interval}
 
 Bazel periodically prints a progress report on jobs that are not
 finished yet (such as long running tests). This option sets the

@@ -1,0 +1,335 @@
+---
+title: 'repository\_ctx'
+---
+
+The context of the repository rule containing helper functions and information about attributes. You get a repository\_ctx object as an argument to the `implementation` function when you create a repository rule.
+
+## Members
+
+* [attr](#attr)
+* [delete](#delete)
+* [download](#download)
+* [download\_and\_extract](#download_and_extract)
+* [execute](#execute)
+* [extract](#extract)
+* [file](#file)
+* [getenv](#getenv)
+* [name](#name)
+* [os](#os)
+* [patch](#patch)
+* [path](#path)
+* [read](#read)
+* [report\_progress](#report_progress)
+* [symlink](#symlink)
+* [template](#template)
+* [watch](#watch)
+* [watch\_tree](#watch_tree)
+* [which](#which)
+* [workspace\_root](#workspace_root)
+
+## attr
+
+```
+struct repository_ctx.attr
+```
+
+A struct to access the values of the attributes. The values are provided by the user (if not, a default value is used).
+
+## delete
+
+```
+bool repository_ctx.delete(path)
+```
+
+Deletes a file or a directory. Returns a bool, indicating whether the file or directory was actually deleted by this call.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `path` | [string](../core/string); or [path](../builtins/path); required  Path of the file to delete, relative to the repository directory, or absolute. Can be a path or a string. |
+
+## download
+
+```
+unknown repository_ctx.download(url, output='', sha256='', executable=False, allow_fail=False, canonical_id='', auth={}, headers={}, *, integrity='', block=True)
+```
+
+Downloads a file to the output path for the provided url and returns a struct containing `success`, a flag which is `true` if the download completed successfully, and if successful, a hash of the file with the fields `sha256` and `integrity`. When `sha256` or `integrity` is user specified, setting an explicit `canonical_id` is highly recommended. e.g. [`get_default_canonical_id`](/versions/7.6.1/rules/lib/repo/cache#get_default_canonical_id)
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `url` | [string](../core/string); or Iterable of [string](../core/string)s; required  List of mirror URLs referencing the same file. |
+| `output` | [string](../core/string); or [Label](../builtins/Label); or [path](../builtins/path); default is `''`  path to the output file, relative to the repository directory. |
+| `sha256` | default is `''`  The expected SHA-256 hash of the file downloaded. This must match the SHA-256 hash of the file downloaded. It is a security risk to omit the SHA-256 as remote files can change. At best omitting this field will make your build non-hermetic. It is optional to make development easier but should be set before shipping. If provided, the repository cache will first be checked for a file with the given hash; a download will only be attempted if the file was not found in the cache. After a successful download, the file will be added to the cache. |
+| `executable` | default is `False`  Set the executable flag on the created file, false by default. |
+| `allow_fail` | default is `False`  If set, indicate the error in the return value instead of raising an error for failed downloads. |
+| `canonical_id` | default is `''`  If set, restrict cache hits to those cases where the file was added to the cache with the same canonical id. By default caching uses the checksum (`sha256` or `integrity`). |
+| `auth` | default is `{}`  An optional dict specifying authentication information for some of the URLs. |
+| `headers` | default is `{}`  An optional dict specifying http headers for all URLs. |
+| `integrity` | default is `''`  Expected checksum of the file downloaded, in Subresource Integrity format. This must match the checksum of the file downloaded. It is a security risk to omit the checksum as remote files can change. At best omitting this field will make your build non-hermetic. It is optional to make development easier but should be set before shipping. If provided, the repository cache will first be checked for a file with the given checksum; a download will only be attempted if the file was not found in the cache. After a successful download, the file will be added to the cache. |
+| `block` | default is `True`  If set to false, the call returns immediately and instead of the regular return value, it returns a token with one single method, wait(), which blocks until the download is finished and returns the usual return value or throws as usual. |
+
+## download\_and\_extract
+
+```
+struct repository_ctx.download_and_extract(url, output='', sha256='', type='', stripPrefix='', allow_fail=False, canonical_id='', auth={}, headers={}, *, integrity='', rename_files={})
+```
+
+Downloads a file to the output path for the provided url, extracts it, and returns a struct containing `success`, a flag which is `true` if the download completed successfully, and if successful, a hash of the file with the fields `sha256` and `integrity`. When `sha256` or `integrity` is user specified, setting an explicit `canonical_id` is highly recommended. e.g. [`get_default_canonical_id`](/versions/7.6.1/rules/lib/repo/cache#get_default_canonical_id)
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `url` | [string](../core/string); or Iterable of [string](../core/string)s; required  List of mirror URLs referencing the same file. |
+| `output` | [string](../core/string); or [Label](../builtins/Label); or [path](../builtins/path); default is `''`  Path to the directory where the archive will be unpacked, relative to the repository directory. |
+| `sha256` | default is `''`  The expected SHA-256 hash of the file downloaded. This must match the SHA-256 hash of the file downloaded. It is a security risk to omit the SHA-256 as remote files can change. At best omitting this field will make your build non-hermetic. It is optional to make development easier but should be set before shipping. If provided, the repository cache will first be checked for a file with the given hash; a download will only be attempted if the file was not found in the cache. After a successful download, the file will be added to the cache. |
+| `type` | default is `''`  The archive type of the downloaded file. By default, the archive type is determined from the file extension of the URL. If the file has no extension, you can explicitly specify either "zip", "jar", "war", "aar", "nupkg", "tar", "tar.gz", "tgz", "tar.xz", "txz", ".tar.zst", ".tzst", "tar.bz2", ".tbz", ".ar", or ".deb" here. |
+| `stripPrefix` | default is `''`  A directory prefix to strip from the extracted files. Many archives contain a top-level directory that contains all files in the archive. Instead of needing to specify this prefix over and over in the `build_file`, this field can be used to strip it from extracted files. |
+| `allow_fail` | default is `False`  If set, indicate the error in the return value instead of raising an error for failed downloads. |
+| `canonical_id` | default is `''`  If set, restrict cache hits to those cases where the file was added to the cache with the same canonical id. By default caching uses the checksum" (`sha256` or `integrity`). |
+| `auth` | default is `{}`  An optional dict specifying authentication information for some of the URLs. |
+| `headers` | default is `{}`  An optional dict specifying http headers for all URLs. |
+| `integrity` | default is `''`  Expected checksum of the file downloaded, in Subresource Integrity format. This must match the checksum of the file downloaded. It is a security risk to omit the checksum as remote files can change. At best omitting this field will make your build non-hermetic. It is optional to make development easier but should be set before shipping. If provided, the repository cache will first be checked for a file with the given checksum; a download will only be attempted if the file was not found in the cache. After a successful download, the file will be added to the cache. |
+| `rename_files` | default is `{}`  An optional dict specifying files to rename during the extraction. Archive entries with names exactly matching a key will be renamed to the value, prior to any directory prefix adjustment. This can be used to extract archives that contain non-Unicode filenames, or which have files that would extract to the same path on case-insensitive filesystems. |
+
+## execute
+
+```
+exec_result repository_ctx.execute(arguments, timeout=600, environment={}, quiet=True, working_directory="")
+```
+
+Executes the command given by the list of arguments. The execution time of the command is limited by `timeout` (in seconds, default 600 seconds). This method returns an `exec_result` structure containing the output of the command. The `environment` map can be used to override some environment variables to be passed to the process.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `arguments` | required  List of arguments, the first element should be the path to the program to execute. |
+| `timeout` | default is `600`  Maximum duration of the command in seconds (default is 600 seconds). |
+| `environment` | default is `{}`  Force some environment variables to be set to be passed to the process. |
+| `quiet` | default is `True`  If stdout and stderr should be printed to the terminal. |
+| `working_directory` | default is `""`  Working directory for command execution. Can be relative to the repository root or absolute. The default is the repository root. |
+
+## extract
+
+```
+None repository_ctx.extract(archive, output='', stripPrefix='', *, rename_files={}, watch_archive='auto')
+```
+
+Extract an archive to the repository directory.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `archive` | [string](../core/string); or [Label](../builtins/Label); or [path](../builtins/path); required  path to the archive that will be unpacked, relative to the repository directory. |
+| `output` | [string](../core/string); or [Label](../builtins/Label); or [path](../builtins/path); default is `''`  path to the directory where the archive will be unpacked, relative to the repository directory. |
+| `stripPrefix` | default is `''`  a directory prefix to strip from the extracted files. Many archives contain a top-level directory that contains all files in the archive. Instead of needing to specify this prefix over and over in the `build_file`, this field can be used to strip it from extracted files. |
+| `rename_files` | default is `{}`  An optional dict specifying files to rename during the extraction. Archive entries with names exactly matching a key will be renamed to the value, prior to any directory prefix adjustment. This can be used to extract archives that contain non-Unicode filenames, or which have files that would extract to the same path on case-insensitive filesystems. |
+| `watch_archive` | default is `'auto'`  whether to [watch](#watch) the archive file. Can be the string 'yes', 'no', or 'auto'. Passing 'yes' is equivalent to immediately invoking the [`watch()`](#watch) method; passing 'no' does not attempt to watch the file; passing 'auto' will only attempt to watch the file when it is legal to do so (see `watch()` docs for more information. |
+
+## file
+
+```
+None repository_ctx.file(path, content='', executable=True, legacy_utf8=True)
+```
+
+Generates a file in the repository directory with the provided content.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `path` | [string](../core/string); or [Label](../builtins/Label); or [path](../builtins/path); required  Path of the file to create, relative to the repository directory. |
+| `content` | default is `''`  The content of the file to create, empty by default. |
+| `executable` | default is `True`  Set the executable flag on the created file, true by default. |
+| `legacy_utf8` | default is `True`  Encode file content to UTF-8, true by default. Future versions will change the default and remove this parameter. |
+
+## getenv
+
+```
+string repository_ctx.getenv(name, default=None)
+```
+
+Returns the value of an environment variable `name` as a string if exists, or `default` if it doesn't.
+
+When building incrementally, any change to the value of the variable named by `name` will cause this repository to be re-fetched.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `name` | [string](../core/string); required  Name of desired environment variable. |
+| `default` | [string](../core/string); or `None`; default is `None`  Default value to return if `name` is not found. |
+
+May return `None`.
+
+## name
+
+```
+string repository_ctx.name
+```
+
+The name of the external repository created by this rule.
+
+## os
+
+```
+repository_os repository_ctx.os
+```
+
+A struct to access information from the system.
+
+## patch
+
+```
+None repository_ctx.patch(patch_file, strip=0, *, watch_patch='auto')
+```
+
+Apply a patch file to the root directory of external repository. The patch file should be a standard  [unified diff format](https://en.wikipedia.org/wiki/Diff#Unified_format) file. The Bazel-native patch implementation doesn't support fuzz match and binary patch like the patch command line tool.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `patch_file` | [string](../core/string); or [Label](../builtins/Label); or [path](../builtins/path); required  The patch file to apply, it can be label, relative path or absolute path. If it's a relative path, it will resolve to the repository directory. |
+| `strip` | default is `0`  Strip the specified number of leading components from file names. |
+| `watch_patch` | default is `'auto'`  Whether to [watch](#watch) the patch file. Can be the string 'yes', 'no', or 'auto'. Passing 'yes' is equivalent to immediately invoking the [`watch()`](#watch) method; passing 'no' does not attempt to watch the file; passing 'auto' will only attempt to watch the file when it is legal to do so (see `watch()` docs for more information. |
+
+## path
+
+```
+path repository_ctx.path(path)
+```
+
+Returns a path from a string, label or path. If the path is relative, it will resolve relative to the repository directory. If the path is a label, it will resolve to the path of the corresponding file. Note that remote repositories are executed during the analysis phase and thus cannot depends on a target result (the label should point to a non-generated file). If path is a path, it will return that path as is.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `path` | [string](../core/string); or [Label](../builtins/Label); or [path](../builtins/path); required  `string`, `Label` or `path` from which to create a path from. |
+
+## read
+
+```
+string repository_ctx.read(path, *, watch='auto')
+```
+
+Reads the content of a file on the filesystem.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `path` | [string](../core/string); or [Label](../builtins/Label); or [path](../builtins/path); required  Path of the file to read from. |
+| `watch` | default is `'auto'`  Whether to [watch](#watch) the file. Can be the string 'yes', 'no', or 'auto'. Passing 'yes' is equivalent to immediately invoking the [`watch()`](#watch) method; passing 'no' does not attempt to watch the file; passing 'auto' will only attempt to watch the file when it is legal to do so (see `watch()` docs for more information. |
+
+## report\_progress
+
+```
+None repository_ctx.report_progress(status='')
+```
+
+Updates the progress status for the fetching of this repository or module extension.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `status` | [string](../core/string); default is `''`  `string` describing the current status of the fetch progress. |
+
+## symlink
+
+```
+None repository_ctx.symlink(target, link_name)
+```
+
+Creates a symlink on the filesystem.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `target` | [string](../core/string); or [Label](../builtins/Label); or [path](../builtins/path); required  The path that the symlink should point to. |
+| `link_name` | [string](../core/string); or [Label](../builtins/Label); or [path](../builtins/path); required  The path of the symlink to create. |
+
+## template
+
+```
+None repository_ctx.template(path, template, substitutions={}, executable=True, *, watch_template='auto')
+```
+
+Generates a new file using a `template`. Every occurrence in `template` of a key of `substitutions` will be replaced by the corresponding value. The result is written in `path`. An optional `executable` argument (default to true) can be set to turn on or off the executable bit.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `path` | [string](../core/string); or [Label](../builtins/Label); or [path](../builtins/path); required  Path of the file to create, relative to the repository directory. |
+| `template` | [string](../core/string); or [Label](../builtins/Label); or [path](../builtins/path); required  Path to the template file. |
+| `substitutions` | default is `{}`  Substitutions to make when expanding the template. |
+| `executable` | default is `True`  Set the executable flag on the created file, true by default. |
+| `watch_template` | default is `'auto'`  Whether to [watch](#watch) the template file. Can be the string 'yes', 'no', or 'auto'. Passing 'yes' is equivalent to immediately invoking the [`watch()`](#watch) method; passing 'no' does not attempt to watch the file; passing 'auto' will only attempt to watch the file when it is legal to do so (see `watch()` docs for more information. |
+
+## watch
+
+```
+None repository_ctx.watch(path)
+```
+
+Tells Bazel to watch for changes to the given path, whether or not it exists, or whether it's a file or a directory. Any changes to the file or directory will invalidate this repository or module extension, and cause it to be refetched or re-evaluated next time.
+
+"Changes" include changes to the contents of the file (if the path is a file); if the path was a file but is now a directory, or vice versa; and if the path starts or stops existing. Notably, this does *not* include changes to any files under the directory if the path is a directory. For that, use [`path.readdir()`](path#readdir) instead.
+
+Note that attempting to watch paths inside the repo currently being fetched, or inside the working directory of the current module extension, will result in an error. A module extension attempting to watch a path outside the current Bazel workspace will also result in an error.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `path` | [string](../core/string); or [Label](../builtins/Label); or [path](../builtins/path); required  Path of the file to watch. |
+
+## watch\_tree
+
+```
+None repository_ctx.watch_tree(path)
+```
+
+Tells Bazel to watch for changes to any files or directories transitively under the given path. Any changes to the contents of files, the existence of files or directories, file names or directory names, will cause this repo to be refetched.
+
+Note that attempting to watch paths inside the repo currently being fetched will result in an error.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `path` | [string](../core/string); or [Label](../builtins/Label); or [path](../builtins/path); required  Path of the directory tree to watch. |
+
+## which
+
+```
+path repository_ctx.which(program)
+```
+
+Returns the `path` of the corresponding program or `None` if there is no such program in the path.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `program` | required  Program to find in the path. |
+
+May return `None`.
+
+## workspace\_root
+
+```
+path repository_ctx.workspace_root
+```
+
+The path to the root workspace of the bazel invocation.

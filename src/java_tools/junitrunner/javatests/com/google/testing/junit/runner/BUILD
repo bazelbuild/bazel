@@ -41,6 +41,7 @@ java_library(
 java_binary(
     name = "TestbedBinary",
     testonly = 1,
+    jvm_flags = ["-Djava.lang.Thread.allowVirtualThreads=true"],
     main_class = "com.google.testing.junit.runner.BazelTestRunner",
     runtime_deps = [
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:test_runner",
@@ -109,6 +110,23 @@ sh_test(
         "$(location //src/test/shell:unittest.bash)",
         "$(location :TestbedBinary)",
         "bazel.test_suite",
+    ],
+    data = [
+        ":TestbedBinary",
+        "//src/test/shell:bashunit",
+        "//src/test/shell:unittest.bash",
+    ],
+)
+
+sh_test(
+    name = "stack_trace_integration_test",
+    size = "medium",
+    srcs = ["stack_trace_integration_tests.sh"],
+    args = [
+        "$(location //src/test/shell:unittest.bash)",
+        "$(location :TestbedBinary)",
+        "bazel.test_suite",
+        "4",
     ],
     data = [
         ":TestbedBinary",

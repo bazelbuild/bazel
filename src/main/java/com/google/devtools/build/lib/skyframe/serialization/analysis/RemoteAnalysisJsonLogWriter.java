@@ -71,9 +71,11 @@ public class RemoteAnalysisJsonLogWriter implements Closeable {
     SparseAggregateWriteStatus logStatus = new SparseAggregateWriteStatus();
     Futures.addCallback(
         write,
-        new FutureCallback<Void>() {
+        // TODO: b/499026890 - untangle circular dependencies and use
+        // FutureHelpers.FutureStatusCallback instead.
+        new FutureCallback<Boolean>() {
           @Override
-          public void onSuccess(Void result) {
+          public void onSuccess(Boolean unused) {
             logger.accept(null);
             logStatus.notifyWriteSucceeded();
           }

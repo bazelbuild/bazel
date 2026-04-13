@@ -80,6 +80,12 @@ fi
 
 is_absolute "$RUNFILES_DIR" || RUNFILES_DIR="$PWD/$RUNFILES_DIR"
 
+# Check that the runfiles directory exists
+if [[ ! -d "$RUNFILES_DIR" ]]; then
+    echo >&2 "ERROR: RUNFILES_DIR does not exist. This can happen when using --nobuild_runfile_manifests with local execution. Use a different execution strategy, or build with runfile manifests."
+    exit 1
+fi
+
 # TODO(ulfjack): Standardize on RUNFILES_DIR and remove the {JAVA,PYTHON}_RUNFILES vars.
 is_absolute "$JAVA_RUNFILES" || JAVA_RUNFILES="$PWD/$JAVA_RUNFILES"
 is_absolute "$PYTHON_RUNFILES" || PYTHON_RUNFILES="$PWD/$PYTHON_RUNFILES"
@@ -322,7 +328,7 @@ if [[ -n "$TEST_UNDECLARED_OUTPUTS_DIR" && -n "$TEST_UNDECLARED_OUTPUTS_MANIFEST
       # stat has different flags for different systems. -c is supported by GNU,
       # and -f by BSD (and thus OSX). Try both.
       file_size="$(stat -f%z "$undeclared_output" 2>/dev/null || stat -c%s "$undeclared_output" 2>/dev/null || echo "Could not stat $undeclared_output")"
-      file_type="$(file -L -b --mime-type "$undeclared_output")"
+      file_type="$(file -L -b --mime-type "$undeclared_output" || echo "Could not establish file type for $undeclared_output")"
 
       printf "$rel_path\t$file_size\t$file_type\n"
     done <<< "$undeclared_outputs" \

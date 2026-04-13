@@ -38,11 +38,15 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.AsyncFunction;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.BundledFileSystem;
+import com.google.devtools.build.lib.profiler.CounterSeriesCollector;
+import com.google.devtools.build.lib.profiler.CounterSeriesTask;
+import com.google.devtools.build.lib.profiler.CounterSeriesTask.Color;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodesWithSource;
@@ -53,6 +57,7 @@ import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.StringKey;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SparseAggregateWriteStatusBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FileDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FileDataInfoOrFuture;
@@ -80,14 +85,13 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
+import java.util.Collection;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -96,11 +100,66 @@ import javax.annotation.Nullable;
  * invalidation to a remote {@link KeyValueWriter}.
  */
 final class FileDependencySerializer {
+  /**
+   * Counters for the progress of serialization.
+   *
+   * <p>Logged in the trace profile.
+   */
+  static class Counters implements CounterSeriesCollector {
+    @VisibleForTesting final AtomicLong nodesWaitingForDeps = new AtomicLong();
+    @VisibleForTesting final AtomicLong nodesWaitingForUpload = new AtomicLong();
+    @VisibleForTesting final AtomicLong nodesUploaded = new AtomicLong();
+    @VisibleForTesting final AtomicLong nodesWithProcessingErrors = new AtomicLong();
+    @VisibleForTesting final AtomicLong keyBytesWaitingForUpload = new AtomicLong();
+    @VisibleForTesting final AtomicLong valueBytesWaitingForUpload = new AtomicLong();
+    @VisibleForTesting final AtomicLong keyBytesUploaded = new AtomicLong();
+    @VisibleForTesting final AtomicLong valueBytesUploaded = new AtomicLong();
+
+    private static final CounterSeriesTask NODES_WAITING_FOR_DEPS =
+        new CounterSeriesTask(
+            "Skycache: Invalidation: Nodes: Pending", "Waiting for deps", Color.RAIL_LOAD);
+    private static final CounterSeriesTask NODES_WAITING_FOR_UPLOAD =
+        new CounterSeriesTask(
+            "Skycache: Invalidation: Nodes: Pending", "Waiting for upload", Color.RAIL_LOAD);
+    private static final CounterSeriesTask NODES_UPLOADED =
+        new CounterSeriesTask(
+            "Skycache: Invalidation: Nodes: Uploaded", "Uploaded", Color.RAIL_RESPONSE);
+    private static final CounterSeriesTask NODES_WITH_PROCESSING_ERRORS =
+        new CounterSeriesTask(
+            "Skycache: Invalidation: Nodes: Processing Errors",
+            "Processing Errors",
+            Color.RAIL_RESPONSE);
+
+    private static final CounterSeriesTask KEY_BYTES_WAITING_FOR_UPLOAD =
+        new CounterSeriesTask("Skycache: Invalidation: Bytes: Pending", "Key", Color.RAIL_LOAD);
+    private static final CounterSeriesTask VALUE_BYTES_WAITING_FOR_UPLOAD =
+        new CounterSeriesTask("Skycache: Invalidation: Bytes: Pending", "Value", Color.RAIL_LOAD);
+    private static final CounterSeriesTask KEY_BYTES_UPLOADED =
+        new CounterSeriesTask(
+            "Skycache: Invalidation: Bytes: Uploaded", "Key", Color.RAIL_RESPONSE);
+    private static final CounterSeriesTask VALUE_BYTES_UPLOADED =
+        new CounterSeriesTask(
+            "Skycache: Invalidation: Bytes: Uploaded", "Value", Color.RAIL_RESPONSE);
+
+    @Override
+    public void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer) {
+      consumer.accept(NODES_WAITING_FOR_DEPS, (double) nodesWaitingForDeps.get());
+      consumer.accept(NODES_WAITING_FOR_UPLOAD, (double) nodesWaitingForUpload.get());
+      consumer.accept(NODES_UPLOADED, (double) nodesUploaded.get());
+      consumer.accept(NODES_WITH_PROCESSING_ERRORS, (double) nodesWithProcessingErrors.get());
+      consumer.accept(KEY_BYTES_WAITING_FOR_UPLOAD, (double) keyBytesWaitingForUpload.get());
+      consumer.accept(VALUE_BYTES_WAITING_FOR_UPLOAD, (double) valueBytesWaitingForUpload.get());
+      consumer.accept(KEY_BYTES_UPLOADED, (double) keyBytesUploaded.get());
+      consumer.accept(VALUE_BYTES_UPLOADED, (double) valueBytesUploaded.get());
+    }
+  }
 
   @VisibleForTesting public static final int COMPRESSION_NUM_BYTES_THRESHOLD = 580;
   private final LongVersionGetter versionGetter;
   private final InMemoryGraph graph;
   private final KeyValueWriter writer;
+  private final Executor executor;
+  private final Counters counters;
 
   private final ValueOrFutureMap<FileKey, FileDataInfoOrFuture, FileDataInfo, FutureFileDataInfo>
       fileDataInfo =
@@ -120,10 +179,19 @@ final class FileDependencySerializer {
               FutureListingDataInfo.class);
 
   FileDependencySerializer(
-      LongVersionGetter versionGetter, InMemoryGraph graph, KeyValueWriter writer) {
+      LongVersionGetter versionGetter,
+      InMemoryGraph graph,
+      KeyValueWriter writer,
+      Executor executor) {
     this.versionGetter = versionGetter;
     this.graph = graph;
     this.writer = writer;
+    this.executor = executor;
+    this.counters = new Counters();
+  }
+
+  Counters getCounters() {
+    return counters;
   }
 
   /**
@@ -195,6 +263,8 @@ final class FileDependencySerializer {
    * @return The populated {@link FileDataInfoOrFuture}.
    */
   FileDataInfoOrFuture populateFutureFileDataInfo(FutureFileDataInfo future) {
+    counters.nodesWaitingForDeps.incrementAndGet();
+
     FileKey key = future.key();
     RootedPath rootedPath = key.argument();
     RootedPath parentRootedPath;
@@ -202,11 +272,14 @@ final class FileDependencySerializer {
     if ((rootedPath.getRoot().getFileSystem() instanceof BundledFileSystem)
         // Assumes that the root folder doesn't change.
         || (parentRootedPath = rootedPath.getParentDirectory()) == null) {
+      counters.nodesWaitingForDeps.decrementAndGet();
       return future.completeWith(CONSTANT_FILE);
     }
 
     InMemoryNodeEntry nodeEntry = graph.getIfPresent(key);
     if (nodeEntry == null) {
+      counters.nodesWaitingForDeps.decrementAndGet();
+      counters.nodesWithProcessingErrors.incrementAndGet();
       return future.failWith(new MissingSkyframeEntryException(key));
     }
     var value = (FileValue) nodeEntry.getValue();
@@ -220,6 +293,8 @@ final class FileDependencySerializer {
       try {
         initialMtsv = getVersion(realRootedPath, value.exists());
       } catch (IOException e) {
+        counters.nodesWaitingForDeps.decrementAndGet();
+        counters.nodesWithProcessingErrors.incrementAndGet();
         return future.failWith(e);
       }
     }
@@ -242,11 +317,27 @@ final class FileDependencySerializer {
     // 4. The uploader itself is a Function that directly returns a FileDataInfo but gets wrapped as
     //    a future by the transform method.
     // 5. The upload happens through the put() operation in the writer inside the uploader.
-    return future.completeWith(
-        Futures.transform(
-            fullyResolvePath(value.isSymlink() ? value.getUnresolvedLinkTarget() : null, uploader),
-            uploader,
-            directExecutor()));
+    ListenableFuture<Void> resolutionFuture =
+        fullyResolvePath(value.isSymlink() ? value.getUnresolvedLinkTarget() : null, uploader);
+
+    Futures.addCallback(
+        resolutionFuture,
+        new FutureCallback<Void>() {
+          @Override
+          public void onSuccess(Void result) {
+            // If resolution is successful, `uploader` completes the process via
+            // `Futures.transform`. The counters will be handled in the `uploader` later.
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            counters.nodesWaitingForDeps.decrementAndGet();
+            counters.nodesWithProcessingErrors.incrementAndGet();
+          }
+        },
+        directExecutor());
+
+    return future.completeWith(Futures.transform(resolutionFuture, uploader, directExecutor()));
   }
 
   /**
@@ -282,7 +373,26 @@ final class FileDependencySerializer {
       String cacheKey = computeCacheKey(rootedPath.getRootRelativePath(), mtsv, FILE_KEY_DELIMITER);
       KeyBytesProvider keyBytes = getKeyBytes(cacheKey, data::setOverflowKey);
       byte[] dataBytes = data.build().toByteArray();
-      writeStatuses.add(writer.put(keyBytes, dataBytes));
+      long keyByteCount = keyBytes.toBytes().length;
+      long valueByteCount = dataBytes.length; // Don't hold on to the bytes any longer than needed
+
+      counters.nodesWaitingForDeps.decrementAndGet();
+      counters.nodesWaitingForUpload.incrementAndGet();
+      counters.keyBytesWaitingForUpload.addAndGet(keyByteCount);
+      counters.valueBytesWaitingForUpload.addAndGet(valueByteCount);
+
+      WriteStatus writeStatus = writer.put(keyBytes, dataBytes);
+      writeStatus.addListener(
+          () -> {
+            counters.nodesWaitingForUpload.decrementAndGet();
+            counters.nodesUploaded.incrementAndGet();
+            counters.keyBytesWaitingForUpload.addAndGet(-keyByteCount);
+            counters.valueBytesWaitingForUpload.addAndGet(-valueByteCount);
+            counters.keyBytesUploaded.addAndGet(keyByteCount);
+            counters.valueBytesUploaded.addAndGet(valueByteCount);
+          },
+          directExecutor());
+      writeStatuses.add(writeStatus);
       return new FileInvalidationDataInfo(
           cacheKey, sparselyAggregateWriteStatuses(writeStatuses), exists, mtsv, realRootedPath);
     }
@@ -538,8 +648,11 @@ final class FileDependencySerializer {
   }
 
   private ListingDataInfoOrFuture populateFutureListingDataInfo(FutureListingDataInfo future) {
+    counters.nodesWaitingForDeps.incrementAndGet();
+
     RootedPath rootedPath = future.key().argument();
     if (rootedPath.getRoot().getFileSystem() instanceof BundledFileSystem) {
+      counters.nodesWaitingForDeps.decrementAndGet();
       return future.completeWith(CONSTANT_LISTING); // This listing doesn't change.
     }
     var handler = new ListingFileHandler(rootedPath);
@@ -591,7 +704,7 @@ final class FileDependencySerializer {
                   () -> {
                     return versionGetter.getDirectoryListingVersion(realPath.asPath());
                   },
-              ForkJoinPool.commonPool());
+              executor);
 
       return Futures.transform(
           dirMtsvFuture,
@@ -602,7 +715,27 @@ final class FileDependencySerializer {
                 computeCacheKey(rootedPath.getRootRelativePath(), mtsv, DIRECTORY_KEY_DELIMITER);
             KeyBytesProvider keyBytes = getKeyBytes(cacheKey, data::setOverflowKey);
             byte[] dataBytes = data.build().toByteArray();
-            writeStatuses.add(writer.put(keyBytes, dataBytes));
+
+            long keyByteCount = keyBytes.toBytes().length;
+            long valueByteCount = dataBytes.length; // Do not hold on to the bytes
+
+            counters.nodesWaitingForDeps.decrementAndGet();
+            counters.nodesWaitingForUpload.incrementAndGet();
+            counters.keyBytesWaitingForUpload.addAndGet(keyByteCount);
+            counters.valueBytesWaitingForUpload.addAndGet(valueByteCount);
+
+            WriteStatus writeStatus = writer.put(keyBytes, dataBytes);
+            writeStatus.addListener(
+                () -> {
+                  counters.nodesWaitingForUpload.decrementAndGet();
+                  counters.nodesUploaded.incrementAndGet();
+                  counters.keyBytesWaitingForUpload.addAndGet(-keyByteCount);
+                  counters.valueBytesWaitingForUpload.addAndGet(-valueByteCount);
+                  counters.keyBytesUploaded.addAndGet(keyByteCount);
+                  counters.valueBytesUploaded.addAndGet(valueByteCount);
+                },
+                directExecutor());
+            writeStatuses.add(writeStatus);
             return new ListingInvalidationDataInfo(
                 cacheKey, sparselyAggregateWriteStatuses(writeStatuses));
           },
@@ -611,6 +744,8 @@ final class FileDependencySerializer {
   }
 
   NodeDataInfoOrFuture populateFutureNodeDataInfo(FutureNodeDataInfo future) {
+    counters.nodesWaitingForDeps.incrementAndGet();
+
     AbstractNestedFileOpNodes node = future.key();
     var dependencyHandler = new NodeDependencyHandler();
 
@@ -651,7 +786,7 @@ final class FileDependencySerializer {
       return future.completeWith(result);
     }
     return future.completeWith(
-        Futures.whenAllComplete(allFutures).call(dependencyHandler, directExecutor()));
+        Futures.whenAllComplete(allFutures).call(dependencyHandler, executor));
   }
 
   static OutputStream getCompressedOutputStream(OutputStream outputStream) throws IOException {
@@ -670,13 +805,13 @@ final class FileDependencySerializer {
    * #computeNodeBytes} defines the wire format of nodes.
    */
   class NodeDependencyHandler implements Callable<NodeDataInfo> {
-    private final TreeSet<String> fileKeys = new TreeSet<>();
-    private final TreeSet<String> listingKeys = new TreeSet<>();
-    private final TreeMap<PackedFingerprint, NodeInvalidationDataInfo> nodeDependencies =
-        new TreeMap<>();
+    private final ArrayList<String> fileKeys = new ArrayList<>();
+    private final ArrayList<String> listingKeys = new ArrayList<>();
+    private final ArrayList<NodeInvalidationDataInfo> nodeDependencies = new ArrayList<>();
     @Nullable private FileDataInfoOrFuture sourceFileOrFuture;
 
-    private final ArrayList<WriteStatus> writeStatuses = new ArrayList<>();
+    private final SparseAggregateWriteStatusBuilder writeStatusBuilder =
+        new SparseAggregateWriteStatusBuilder();
 
     private final ArrayList<FutureFileDataInfo> futureFileDataInfo = new ArrayList<>();
     private final ArrayList<FutureListingDataInfo> futureListingDataInfo = new ArrayList<>();
@@ -701,7 +836,7 @@ final class FileDependencySerializer {
         }
         // There are multiple ways that result could become unary here, even if `node` always has at
         // least 2 children. The following may reduce child count.
-        // 1. TreeSet deduplication.
+        // 1. Deduplication.
         // 2. Constant references.
         // 3. NestedFileOpNodes with the same fingerprints.
         if (nodeDependencies.size() == 1) {
@@ -709,18 +844,47 @@ final class FileDependencySerializer {
           //
           // TODO: b/364831651 - consider additional special casing for unary file or listing
           // dependencies.
-          return nodeDependencies.values().iterator().next();
+          return nodeDependencies.get(0);
         }
       }
 
-      byte[] nodeBytes = computeNodeBytes(nodeDependencies, fileKeys, listingKeys, sourceFileKey);
+      // We need to sort these entries so that serialization is deterministic
+      var sortedFileKeys = fileKeys.stream().sorted().toList();
+      var sortedListingKeys = listingKeys.stream().sorted().toList();
+      var sortedNodeDependencies =
+          nodeDependencies.stream().map(NodeInvalidationDataInfo::cacheKey).sorted().toList();
+      byte[] nodeBytes =
+          computeNodeBytes(
+              sortedNodeDependencies, sortedFileKeys, sortedListingKeys, sourceFileKey);
       byte[] maybeCompressedBytes = nodeBytes;
       if (nodeBytes.length >= COMPRESSION_NUM_BYTES_THRESHOLD) {
         maybeCompressedBytes = compressBytes(nodeBytes);
       }
       PackedFingerprint key = writer.fingerprint(maybeCompressedBytes);
-      writeStatuses.add(writer.put(key, maybeCompressedBytes));
-      return new NodeInvalidationDataInfo(key, sparselyAggregateWriteStatuses(writeStatuses));
+
+      long keyByteCount = key.toBytes().length;
+      long valueByteCount =
+          maybeCompressedBytes.length; // Don't hold on to the bytes any longer than needed
+
+      counters.nodesWaitingForDeps.decrementAndGet();
+      counters.nodesWaitingForUpload.incrementAndGet();
+      counters.keyBytesWaitingForUpload.addAndGet(keyByteCount);
+      counters.valueBytesWaitingForUpload.addAndGet(valueByteCount);
+
+      WriteStatus writeStatus = writer.put(key, maybeCompressedBytes);
+      writeStatus.addListener(
+          () -> {
+            counters.nodesWaitingForUpload.decrementAndGet();
+            counters.nodesUploaded.incrementAndGet();
+            counters.keyBytesWaitingForUpload.addAndGet(-keyByteCount);
+            counters.valueBytesWaitingForUpload.addAndGet(-valueByteCount);
+            counters.keyBytesUploaded.addAndGet(keyByteCount);
+            counters.valueBytesUploaded.addAndGet(valueByteCount);
+          },
+          directExecutor());
+
+      writeStatusBuilder.add(writeStatus);
+      return new NodeInvalidationDataInfo(key, writeStatusBuilder.build());
     }
 
     private void addFileKey(FileKey fileKey) {
@@ -740,7 +904,7 @@ final class FileDependencySerializer {
           break;
         case FileInvalidationDataInfo fileInfo:
           fileKeys.add(fileInfo.cacheKey());
-          writeStatuses.add(fileInfo.writeStatus());
+          writeStatusBuilder.add(fileInfo.writeStatus());
           break;
       }
     }
@@ -762,7 +926,7 @@ final class FileDependencySerializer {
           break;
         case ListingInvalidationDataInfo listingInfo:
           listingKeys.add(listingInfo.cacheKey());
-          writeStatuses.add(listingInfo.writeStatus());
+          writeStatusBuilder.add(listingInfo.writeStatus());
           break;
       }
     }
@@ -783,8 +947,8 @@ final class FileDependencySerializer {
         case CONSTANT_NODE:
           break;
         case NodeInvalidationDataInfo nodeInfo:
-          nodeDependencies.put(nodeInfo.cacheKey(), nodeInfo);
-          writeStatuses.add(nodeInfo.writeStatus());
+          nodeDependencies.add(nodeInfo);
+          writeStatusBuilder.add(nodeInfo.writeStatus());
           break;
       }
     }
@@ -833,7 +997,7 @@ final class FileDependencySerializer {
       }) {
         case CONSTANT_FILE -> null;
         case FileInvalidationDataInfo fileInfo -> {
-          writeStatuses.add(fileInfo.writeStatus());
+          writeStatusBuilder.add(fileInfo.writeStatus());
           yield fileInfo.cacheKey();
         }
       };
@@ -863,18 +1027,18 @@ final class FileDependencySerializer {
    */
   @VisibleForTesting
   static byte[] computeNodeBytes(
-      Map<PackedFingerprint, NodeInvalidationDataInfo> nodeDependencies,
-      Set<String> fileKeys,
-      Set<String> listingKeys,
+      Collection<PackedFingerprint> nodeDependencyFingerprints,
+      Collection<String> fileKeys,
+      Collection<String> listingKeys,
       @Nullable String sourceFileKey) {
     try {
       var bytesOut = new ByteArrayOutputStream();
       var codedOut = CodedOutputStream.newInstance(bytesOut);
-      codedOut.writeInt32NoTag(nodeDependencies.size());
+      codedOut.writeInt32NoTag(nodeDependencyFingerprints.size());
       codedOut.writeInt32NoTag(fileKeys.size());
       codedOut.writeInt32NoTag(listingKeys.size());
       codedOut.writeBoolNoTag(sourceFileKey != null);
-      for (PackedFingerprint fp : nodeDependencies.keySet()) {
+      for (PackedFingerprint fp : nodeDependencyFingerprints) {
         fp.writeTo(codedOut);
       }
       for (String key : fileKeys) {

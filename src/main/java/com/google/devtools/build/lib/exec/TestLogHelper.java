@@ -39,8 +39,8 @@ public class TestLogHelper {
    * test has passed or not.
    */
   public static boolean shouldOutputTestLog(TestOutputFormat outputMode, boolean hasPassed) {
-    return (outputMode == ExecutionOptions.TestOutputFormat.ALL)
-        || (!hasPassed && (outputMode == ExecutionOptions.TestOutputFormat.ERRORS));
+    return (outputMode == TestOutputFormat.ALL)
+        || (!hasPassed && (outputMode == TestOutputFormat.ERRORS));
   }
 
   /**

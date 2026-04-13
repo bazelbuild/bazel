@@ -105,18 +105,10 @@ final class RegularTuple extends Tuple {
   }
 
   @Override
-  public void repr(Printer printer) {
-    // Remark: singletons, are represented as {@code '(x,)'}; whereas this implementation would
-    // return
-    // {@code '(x)'}
-    printer.append('(');
-    String sep = "";
-    for (Object elem : elems) {
-      printer.append(sep);
-      sep = ", ";
-      printer.repr(elem);
-    }
-    printer.append(')');
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    // Remark: RegularTuple doesn't support singleton tuples, so we don't need to special-case
+    // the trailing comma for singleton-tuple string representation.
+    printer.printList(this, "(", ", ", ")", semantics);
   }
 
   @Override

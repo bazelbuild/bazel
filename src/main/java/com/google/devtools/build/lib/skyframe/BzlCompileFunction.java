@@ -18,11 +18,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.BazelCompileContext;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.AutoloadSymbols;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.skyframe.BzlCompileValue.TypeOptions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -37,6 +38,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.FileOptions;
+import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
@@ -161,15 +163,7 @@ public class BzlCompileFunction implements SkyFunction {
       // because the "native" object is different. But A) that will be fixed with #11954, and B) we
       // don't care for the same reason as above.
 
-      // Takes into account --incompatible_autoload_externally, similarly to the comment above, this
-      // only defines the correct set of symbols, but does not load them yet.
-      AutoloadSymbols autoloadSymbols = AutoloadSymbols.AUTOLOAD_SYMBOLS.get(env);
-      if (autoloadSymbols == null) {
-        return null;
-      }
-      predeclared =
-          autoloadSymbols.getUninjectedBuildBzlEnv(
-              key.getLabel() == null ? null : key.getLabel().getRepository());
+      predeclared = bazelStarlarkEnvironment.getUninjectedBuildBzlEnv();
     }
 
     // We have all deps. Parse, resolve, and return.
@@ -187,25 +181,7 @@ public class BzlCompileFunction implements SkyFunction {
       return BzlCompileValue.noFile("compilation of '%s' failed", inputName);
     }
 
-    // Annotation syntax is controlled by a global flag, an allowlist, and whether the file is a
-    // prelude.
-    boolean useTypeSyntax = false;
-    if (semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPE_SYNTAX)
-        // annotations in prelude not allowed (it has null key.label)
-        && !key.isBuildPrelude()) {
-      List<String> typeAllowlist =
-          semantics.get(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS);
-      if (typeAllowlist.isEmpty()
-          || typeAllowlist.stream().anyMatch(s -> key.label.getCanonicalForm().startsWith(s))) {
-        useTypeSyntax = true;
-      }
-    }
-    // Type checking requires the syntax flag to be enabled, though technically it shouldn't matter
-    // to semantics if unannotated code is considered untyped.
-    boolean doTypeChecking =
-        useTypeSyntax && semantics.getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_TYPE_CHECKING);
-
-    FileOptions options =
+    FileOptions.Builder optionsBuilder =
         FileOptions.builder()
             // By default, Starlark load statements create file-local bindings.
             // However, the BUILD prelude typically contains nothing but load
@@ -218,12 +194,10 @@ public class BzlCompileFunction implements SkyFunction {
             // permitted in a .bzl file. But there's no easy way to do that short of either string
             // matching the error message or reworking the interpreter API to put more structured
             // detail in errors (i.e. new fields or error subclasses).
-            .stringLiteralsAreAsciiOnly(key.isSclDialect())
-            .allowTypeSyntax(useTypeSyntax)
-            .resolveTypeSyntax(doTypeChecking)
-            .tolerateInvalidTypeExpressions(!doTypeChecking)
-            .build();
-    StarlarkFile file = StarlarkFile.parse(input, options);
+            .stringLiteralsAreAsciiOnly(key.isSclDialect());
+    TypeOptions typeOptions = getTypeOptions(semantics, key);
+    updateFileOptions(optionsBuilder, typeOptions);
+    StarlarkFile file = StarlarkFile.parse(input, optionsBuilder.build());
 
     // compile
     final Module module;
@@ -242,13 +216,83 @@ public class BzlCompileFunction implements SkyFunction {
     }
     try {
       Program prog = Program.compileFile(file, module);
-      return BzlCompileValue.withProgram(prog, digest);
+      return BzlCompileValue.withProgram(prog, digest, typeOptions);
     } catch (SyntaxError.Exception ex) {
-      Event.replayEventsOn(env.getListener(), ex.errors());
+      addSyntaxErrorsToListener(env.getListener(), ex.errors(), key);
       return BzlCompileValue.noFile(
           "compilation of module '%s'%s failed",
           key.label.toPathFragment(),
           StarlarkBuiltinsValue.isBuiltinsRepo(key.label.getRepository()) ? " (internal)" : "");
+    }
+  }
+
+  /**
+   * Whether the file should permit type syntax (annotations, etc.) based on flags and the type of
+   * file.
+   */
+  private static TypeOptions getTypeOptions(StarlarkSemantics semantics, BzlCompileValue.Key key) {
+    boolean typeSyntaxFlag =
+        semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPE_SYNTAX);
+    List<String> allowlist =
+        semantics.get(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS);
+
+    boolean okFiletype =
+        // annotations in prelude not allowed (it has null key.label)
+        !key.isBuildPrelude()
+            // annotations in SCL not allowed (not yet compatible with Go-Starlark interpreter)
+            && !key.isSclDialect()
+            // TODO: #27370 - At the moment we haven't implemented the distinction between typed and
+            // untyped code, so we need this special casing to prevent type checking from applying
+            // to arbitrary @_builtins code. Same for @bazel_tools.
+            && !key.isBuiltins()
+            && !key.label.getRepository().equals(RepositoryName.BAZEL_TOOLS);
+
+    boolean useTypeSyntax = false;
+    if (typeSyntaxFlag && okFiletype) {
+      if (allowlist.isEmpty()
+          || allowlist.stream().anyMatch(s -> key.label.getCanonicalForm().startsWith(s))) {
+        useTypeSyntax = true;
+      }
+    }
+    boolean doStaticTypeChecking =
+        useTypeSyntax
+            && semantics.getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING);
+    boolean doDynamicTypeChecking =
+        useTypeSyntax
+            && semantics.getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING);
+
+    return new TypeOptions(useTypeSyntax, doStaticTypeChecking, doDynamicTypeChecking);
+  }
+
+  private static void updateFileOptions(FileOptions.Builder builder, TypeOptions typeOptions) {
+    boolean needsTypeInfo =
+        typeOptions.wantStaticTypeChecking() || typeOptions.wantDynamicTypeChecking();
+    builder
+        .allowTypeSyntax(typeOptions.useTypeSyntax())
+        .resolveTypeSyntax(needsTypeInfo)
+        .tolerateInvalidTypeExpressions(!needsTypeInfo);
+  }
+
+  /**
+   * Replays the syntax errors from a file onto an event handler, adding more context if necessary.
+   */
+  private static void addSyntaxErrorsToListener(
+      EventHandler handler, List<SyntaxError> errors, BzlCompileValue.Key key) {
+    Event.replayEventsOn(handler, errors);
+    // If type annotations are disallowed, it could either be because the required flags aren't
+    // enabled or because the filetype disallows it.
+    for (var err : errors) {
+      if (err.message().contains(": type annotations are disallowed")) {
+        Location fileLoc = Location.fromFile(err.location().file());
+        String explanation =
+            key.isSclDialect()
+                ? "Type annotations are not permitted in .scl files."
+                : """
+                Type annotations syntax can be enabled with --experimental_starlark_type_syntax \
+                and/or --experimental_starlark_types_allowed_paths.\
+                """;
+        handler.handle(Event.error(fileLoc, explanation));
+      }
     }
   }
 

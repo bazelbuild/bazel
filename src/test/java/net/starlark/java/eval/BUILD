@@ -32,6 +32,7 @@ java_test(
         "StarlarkMutableTest.java",
         "StarlarkThreadDebuggingTest.java",
         "StarlarkThreadTest.java",
+        "StaticTypeCheckTest.java",
         "SymbolGeneratorTest.java",
     ],
     jvm_flags = [
@@ -43,7 +44,7 @@ java_test(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
-        "//src/main/java/net/starlark/java/types",
+        "//src/test/java/net/starlark/java/syntax:TestUtils",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jsr305",
