@@ -1036,6 +1036,60 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testResourceSetCallbackNotCachedAcrossReloads() throws Exception {
+    scratch.file(
+        "pkg/rule.bzl",
+        """
+        def _resource_set(os, inputs_size):
+            return {"cpu": 10, "memory": 100}
+        def _impl(ctx):
+            ctx.actions.run(
+                inputs = [],
+                outputs = [ctx.actions.declare_file("out")],
+                executable = "executable",
+                resource_set = _resource_set,
+            )
+            return [DefaultInfo(files = depset([ctx.actions.declare_file("out")]))]
+        my_rule = rule(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":rule.bzl", "my_rule")
+        my_rule(name = "target")
+        """);
+    invalidatePackages();
+    ConfiguredTarget target1 = getConfiguredTarget("//pkg:target");
+    StarlarkAction action1 =
+        (StarlarkAction) getGeneratingAction(target1, "pkg/out");
+    assertThat(action1.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 0))
+        .isEqualTo(ResourceSet.create(100, 10, 0));
+
+    // Change the resource_set return value, nothing else.
+    scratch.overwriteFile(
+        "pkg/rule.bzl",
+        """
+        def _resource_set(os, inputs_size):
+            return {"cpu": 20, "memory": 200}
+        def _impl(ctx):
+            ctx.actions.run(
+                inputs = [],
+                outputs = [ctx.actions.declare_file("out")],
+                executable = "executable",
+                resource_set = _resource_set,
+            )
+            return [DefaultInfo(files = depset([ctx.actions.declare_file("out")]))]
+        my_rule = rule(implementation = _impl)
+        """);
+    invalidatePackages();
+    ConfiguredTarget target2 = getConfiguredTarget("//pkg:target");
+    StarlarkAction action2 =
+        (StarlarkAction) getGeneratingAction(target2, "pkg/out");
+    assertThat(action2.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 0))
+        .isEqualTo(ResourceSet.create(200, 20, 0));
+  }
+
+  @Test
   public void testCreateStarlarkActionArgumentsWithoutUnusedInputsList() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
