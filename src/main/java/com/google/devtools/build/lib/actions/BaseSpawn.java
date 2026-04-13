@@ -93,6 +93,21 @@ public class BaseSpawn implements Spawn {
       result =
           localResources.buildResourceSet(
               OS.getCurrent(), action.getInputs().memoizedFlattenAndGetSize());
+      ImmutableMap<String, Double> tagResources =
+          ExecutionRequirements.parseResources(getExecutionInfo());
+      ImmutableMap<String, Double> execPropResources =
+          ExecutionRequirements.parseResources(getCombinedExecProperties());
+      if (!tagResources.isEmpty() || !execPropResources.isEmpty()) {
+        result =
+            ResourceSet.create(
+                ImmutableMap.<String, Double>builder()
+                    .putAll(result.getResources())
+                    .putAll(tagResources)
+                    .putAll(execPropResources)
+                    .buildKeepingLast(),
+                result.getLocalTestCount(),
+                result.getWorkerKey());
+      }
       localResourcesCached = result;
     }
     return result;

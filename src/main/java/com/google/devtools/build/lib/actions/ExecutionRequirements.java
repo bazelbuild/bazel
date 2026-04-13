@@ -19,6 +19,7 @@ import static java.util.Objects.requireNonNull;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
@@ -176,6 +177,62 @@ public class ExecutionRequirements {
 
             return null;
           });
+
+  /**
+   * Parses resource requirements from a string map. Handles both execution info (tag format) and
+   * exec_properties (key-value format):
+   *
+   * <ul>
+   *   <li>Tags: key is the full tag (e.g. {@code "resources:cpu:4"} or {@code "cpu:2"}), value is
+   *       empty
+   *   <li>exec_properties: key is the resource prefix (e.g. {@code "resources:cpu"}), value is the
+   *       amount (e.g. {@code "4"})
+   * </ul>
+   *
+   * <p>In both cases, the entry is normalized to tag format and parsed with {@link #RESOURCES} and
+   * {@link #CPU}.
+   *
+   * @return resource name to amount mapping; empty if no resource entries are found
+   * @throws IllegalArgumentException if a matching entry has an invalid value or a resource is
+   *     specified more than once
+   */
+  public static ImmutableMap<String, Double> parseResources(Map<String, String> map) {
+    if (map.isEmpty()) {
+      return ImmutableMap.of();
+    }
+
+    ImmutableMap.Builder<String, Double> resources = ImmutableMap.builder();
+    for (Map.Entry<String, String> entry : map.entrySet()) {
+      // Normalize to tag format: tags have the value baked into the key (e.g. "resources:cpu:4"
+      // with empty value), exec_properties split it (e.g. key "resources:cpu", value "4").
+      String tag =
+          entry.getValue().isEmpty()
+              ? entry.getKey()
+              : entry.getKey() + ":" + entry.getValue();
+
+      try {
+        String parsed = RESOURCES.parseIfMatches(tag);
+        if (parsed != null) {
+          int splitIndex = parsed.indexOf(":");
+          String resource = parsed.substring(0, splitIndex);
+          resources.put(resource, Double.parseDouble(parsed.substring(splitIndex + 1)));
+        } else {
+          String cpuValue = CPU.parseIfMatches(tag);
+          if (cpuValue != null) {
+            resources.put("cpu", Double.parseDouble(cpuValue));
+          }
+        }
+      } catch (ParseableRequirement.ValidationException e) {
+        throw new IllegalArgumentException(
+            String.format(
+                "'%s' has value '%s' that didn't pass validation: %s",
+                tag, e.getTagValue(), e.getMessage()),
+            e);
+      }
+    }
+    // buildOrThrow throws IllegalArgumentException on duplicate resource keys.
+    return resources.buildOrThrow();
+  }
 
   /** If an action supports running in persistent worker mode. */
   public static final String SUPPORTS_WORKERS = "supports-workers";
