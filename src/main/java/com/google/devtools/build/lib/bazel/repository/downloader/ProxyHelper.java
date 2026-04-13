@@ -270,6 +270,9 @@ public class ProxyHelper {
         }
         default -> throw new IOException("Invalid proxy protocol for " + cleanProxyAddress);
       }
+    } else {
+      proxyType = Proxy.Type.HTTP;
+      defaultPort = 80;
     }
 
     int port = defaultPort;
