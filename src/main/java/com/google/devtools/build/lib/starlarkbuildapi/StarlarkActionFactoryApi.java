@@ -372,7 +372,7 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             defaultValue = "None",
             named = true,
             positional = false,
-        doc = "A one-word description of the action, for example, CppCompile or GoLink."),
+            doc = "A one-word description of the action, for example, CppCompile or GoLink."),
         @Param(
             name = "execution_requirements",
             allowedTypes = {
@@ -477,7 +477,7 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             defaultValue = "None",
             named = true,
             positional = false,
-        doc = "A one-word description of the action, for example, CppCompile or GoLink."),
+            doc = "A one-word description of the action, for example, CppCompile or GoLink."),
         @Param(
             name = "progress_message",
             allowedTypes = {
@@ -589,7 +589,7 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
                     + " which may be a float or an int:<ul><li>\"cpu\": number of CPUs; default"
                     + " 1<li>\"memory\": in MB; default 250<li>\"local_test\": number of local"
                     + " tests; default 1<li>Any custom resource defined via"
-                    + " <a href=\"/reference/command-line-reference#build-flag--local_resources=\">"
+                    + " <a href=\"/reference/command-line-reference#build-flag--local_resources\">"
                     + " <code>--local_resources=</code></a></ul>"
                     + " <p>If this parameter is set to <code>None</code> , the"
                     + " default values are used.<p>The callback must be top-level (lambda and"
@@ -698,7 +698,7 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             defaultValue = "None",
             named = true,
             positional = false,
-        doc = "A one-word description of the action, for example, CppCompile or GoLink."),
+            doc = "A one-word description of the action, for example, CppCompile or GoLink."),
         @Param(
             name = "command",
             allowedTypes = {
