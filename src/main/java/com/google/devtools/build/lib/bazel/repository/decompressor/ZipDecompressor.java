@@ -95,8 +95,13 @@ public class ZipDecompressor implements Decompressor {
         if (entryPath.skip()) {
           continue;
         }
+        PathFragment pathFragment =
+            entryPath.getPathFragment().stripComponents(descriptor.stripComponents());
+        if (pathFragment == PathFragment.EMPTY_FRAGMENT) {
+          continue;
+        }
         extractZipEntry(
-            reader, entry, destinationDirectory, entryPath.getPathFragment(), prefix, symlinks);
+            reader, entry, destinationDirectory, pathFragment, prefix, symlinks);
       }
 
       if (prefix.isPresent() && !foundPrefix) {

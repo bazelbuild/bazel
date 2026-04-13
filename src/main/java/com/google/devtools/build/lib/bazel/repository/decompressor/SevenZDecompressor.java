@@ -86,7 +86,12 @@ public class SevenZDecompressor implements Decompressor {
         if (entryPath.skip()) {
           continue;
         }
-        extract7zEntry(sevenZFile, entry, destinationDirectory, entryPath.getPathFragment());
+        PathFragment pathFragment =
+            entryPath.getPathFragment().stripComponents(descriptor.stripComponents());
+        if (pathFragment == PathFragment.EMPTY_FRAGMENT) {
+          continue;
+        }
+        extract7zEntry(sevenZFile, entry, destinationDirectory, pathFragment);
       }
 
       if (prefix.isPresent() && !foundPrefix) {

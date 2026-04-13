@@ -108,6 +108,11 @@ public abstract class CompressedTarFunction implements Decompressor {
                   "Failed to extract %s, tarred paths cannot be absolute", strippedRelativePath));
         }
 
+        strippedRelativePath = strippedRelativePath.stripComponents(descriptor.stripComponents());
+        if (strippedRelativePath == PathFragment.EMPTY_FRAGMENT) {
+          continue;
+        }
+
         Path filePath = descriptor.destinationPath().getRelative(strippedRelativePath);
         if (!filePath.startsWith(descriptor.destinationPath())) {
           throw new IOException(

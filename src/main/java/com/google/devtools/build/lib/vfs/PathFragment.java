@@ -668,6 +668,21 @@ public abstract sealed class PathFragment
     return makePathFragment(normalizedPath.substring(starti, endi), driveStrLength);
   }
 
+  /** Strip <code>numComponents</code> leading components from file names on extraction. */
+  public PathFragment stripComponents(int numComponents) {
+    if (numComponents == 0) {
+      return this;
+    }
+    if (numComponents < 0) {
+      throw new IllegalArgumentException(
+          String.format("Invalid number of elements (%d)", numComponents));
+    }
+    if (numComponents >= this.segmentCount()) {
+      return EMPTY_FRAGMENT;
+    }
+    return this.subFragment(numComponents);
+  }
+
   /**
    * Returns an {@link Iterable} that lazily yields the segments of this path.
    *
