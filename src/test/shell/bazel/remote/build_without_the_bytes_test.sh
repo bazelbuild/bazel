@@ -2664,4 +2664,69 @@ EOF
   bazel run "${FLAGS[@]}" //:foo >& $TEST_log || fail "Failed to run //:foo"
 }
 
+function write_stdouterr_test_build_defs() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = """
+echo some_stdout
+echo some_stderr 1>&2
+touch $@
+""",
+)
+EOF
+}
+
+function test_download_stdouterr_uncached() {
+  # Test that action stderr and stdout of cached actions are not downloaded with
+  # `--remote_download_stdouterr=uncached`.
+  write_stdouterr_test_build_defs
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_stdouterr=uncached \
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
+
+  expect_log "some_stdout"
+  expect_log "some_stderr"
+
+  bazel clean
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_stdouterr=uncached \
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
+
+  expect_not_log "some_stdout"
+  expect_not_log "some_stderr"
+}
+
+function test_download_stdouterr_failed() {
+  # Test that action stderr and stdout of successful actions are not downloaded with
+  # `--remote_download_stdouterr=failed`.
+  write_stdouterr_test_build_defs
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_stdouterr=failed \
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
+
+  expect_not_log "some_stdout"
+  expect_not_log "some_stderr"
+}
+
+function test_download_stdouterr_all() {
+  # Test that action stderr and stdout of all actions are downloaded with
+  # `--remote_download_stdouterr=all`.
+  write_stdouterr_test_build_defs
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_stdouterr=all \
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
+
+  expect_log "some_stdout"
+  expect_log "some_stderr"
+}
+
 run_suite "Build without the Bytes tests"
