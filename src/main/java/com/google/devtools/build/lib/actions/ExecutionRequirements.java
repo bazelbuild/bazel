@@ -19,6 +19,11 @@ import static java.util.Objects.requireNonNull;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ExecutionRequirements.ParseableRequirement.ValidationException;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.TestAction;
+import com.google.devtools.build.lib.server.FailureDetails.TestAction.Code;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -193,15 +198,16 @@ public class ExecutionRequirements {
    * {@link #CPU}.
    *
    * @return resource name to amount mapping; empty if no resource entries are found
-   * @throws IllegalArgumentException if a matching entry has an invalid value or a resource is
-   *     specified more than once
+   * @throws UserExecException if a matching entry has an invalid value or a resource is specified
+   *     more than once
    */
-  public static ImmutableMap<String, Double> parseResources(Map<String, String> map) {
+  public static ImmutableMap<String, Double> parseResources(Map<String, String> map)
+      throws UserExecException {
     if (map.isEmpty()) {
       return ImmutableMap.of();
     }
 
-    ImmutableMap.Builder<String, Double> resources = ImmutableMap.builder();
+    Map<String, Double> resources = new HashMap<>();
     for (Map.Entry<String, String> entry : map.entrySet()) {
       // Normalize to tag format: tags have the value baked into the key (e.g. "resources:cpu:4"
       // with empty value), exec_properties split it (e.g. key "resources:cpu", value "4").
@@ -210,28 +216,60 @@ public class ExecutionRequirements {
               ? entry.getKey()
               : entry.getKey() + ":" + entry.getValue();
 
+      ParseableRequirement requirement = RESOURCES;
+      String resource;
+      String amount;
       try {
-        String parsed = RESOURCES.parseIfMatches(tag);
+        String parsed = requirement.parseIfMatches(tag);
         if (parsed != null) {
           int splitIndex = parsed.indexOf(":");
-          String resource = parsed.substring(0, splitIndex);
-          resources.put(resource, Double.parseDouble(parsed.substring(splitIndex + 1)));
+          resource = parsed.substring(0, splitIndex);
+          amount = parsed.substring(splitIndex + 1);
         } else {
-          String cpuValue = CPU.parseIfMatches(tag);
-          if (cpuValue != null) {
-            resources.put("cpu", Double.parseDouble(cpuValue));
+          requirement = CPU;
+          String cpuValue = requirement.parseIfMatches(tag);
+          if (cpuValue == null) {
+            if (tag.startsWith("resources:")) {
+              // A key clearly intended as a resource that didn't match the expected format (e.g.
+              // "resources:cpu:" with an empty amount).
+              throw new UserExecException(
+                  createFailureDetail(
+                      String.format(
+                          "'%s' is not a valid '%s' entry", tag, RESOURCES.userFriendlyName()),
+                      Code.INVALID_CPU_TAG));
+            }
+            continue;
           }
+          resource = "cpu";
+          amount = cpuValue;
         }
-      } catch (ParseableRequirement.ValidationException e) {
-        throw new IllegalArgumentException(
-            String.format(
-                "'%s' has value '%s' that didn't pass validation: %s",
-                tag, e.getTagValue(), e.getMessage()),
-            e);
+      } catch (ValidationException e) {
+        throw new UserExecException(
+            createFailureDetail(
+                String.format(
+                    "'%s' has a '%s' entry, but its value '%s' didn't pass validation: %s",
+                    tag, requirement.userFriendlyName(), e.getTagValue(), e.getMessage()),
+                Code.INVALID_CPU_TAG));
       }
+      if (resources.containsKey(resource)) {
+        throw new UserExecException(
+            createFailureDetail(
+                String.format(
+                    "'%s' has more than one entry for resource '%s', but duplicates aren't"
+                        + " allowed",
+                    tag, resource),
+                Code.DUPLICATE_CPU_TAGS));
+      }
+      resources.put(resource, Double.parseDouble(amount));
     }
-    // buildOrThrow throws IllegalArgumentException on duplicate resource keys.
-    return resources.buildOrThrow();
+    return ImmutableMap.copyOf(resources);
+  }
+
+  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setTestAction(TestAction.newBuilder().setCode(detailedCode))
+        .build();
   }
 
   /** If an action supports running in persistent worker mode. */

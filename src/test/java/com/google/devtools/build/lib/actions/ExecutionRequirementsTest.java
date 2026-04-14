@@ -26,12 +26,12 @@ import org.junit.runners.JUnit4;
 public class ExecutionRequirementsTest {
 
   @Test
-  public void parseResources_empty() {
+  public void parseResources_empty() throws Exception {
     assertThat(ExecutionRequirements.parseResources(ImmutableMap.of())).isEmpty();
   }
 
   @Test
-  public void parseResources_ignoresUnrelatedKeys() {
+  public void parseResources_ignoresUnrelatedKeys() throws Exception {
     assertThat(
             ExecutionRequirements.parseResources(
                 ImmutableMap.of("pool", "default", "no-sandbox", "", "local", "")))
@@ -41,21 +41,21 @@ public class ExecutionRequirementsTest {
   // exec_properties format: key = "resources:name", value = "amount"
 
   @Test
-  public void parseResources_execProp_cpu() {
+  public void parseResources_execProp_cpu() throws Exception {
     assertThat(
             ExecutionRequirements.parseResources(ImmutableMap.of("resources:cpu", "4")))
         .containsExactly("cpu", 4.0);
   }
 
   @Test
-  public void parseResources_execProp_memory() {
+  public void parseResources_execProp_memory() throws Exception {
     assertThat(
             ExecutionRequirements.parseResources(ImmutableMap.of("resources:memory", "2000")))
         .containsExactly("memory", 2000.0);
   }
 
   @Test
-  public void parseResources_execProp_multiple() {
+  public void parseResources_execProp_multiple() throws Exception {
     assertThat(
             ExecutionRequirements.parseResources(
                 ImmutableMap.of("resources:cpu", "8", "resources:memory", "4000")))
@@ -63,21 +63,21 @@ public class ExecutionRequirementsTest {
   }
 
   @Test
-  public void parseResources_execProp_customResource() {
+  public void parseResources_execProp_customResource() throws Exception {
     assertThat(
             ExecutionRequirements.parseResources(ImmutableMap.of("resources:gpu", "2")))
         .containsExactly("gpu", 2.0);
   }
 
   @Test
-  public void parseResources_execProp_floatingPoint() {
+  public void parseResources_execProp_floatingPoint() throws Exception {
     assertThat(
             ExecutionRequirements.parseResources(ImmutableMap.of("resources:cpu", "2.5")))
         .containsExactly("cpu", 2.5);
   }
 
   @Test
-  public void parseResources_execProp_mixedKeys() {
+  public void parseResources_execProp_mixedKeys() throws Exception {
     assertThat(
             ExecutionRequirements.parseResources(
                 ImmutableMap.of(
@@ -91,28 +91,28 @@ public class ExecutionRequirementsTest {
   // Tag format: key = "resources:name:amount" or "cpu:amount", value = ""
 
   @Test
-  public void parseResources_tag_resources() {
+  public void parseResources_tag_resources() throws Exception {
     assertThat(
             ExecutionRequirements.parseResources(ImmutableMap.of("resources:cpu:4", "")))
         .containsExactly("cpu", 4.0);
   }
 
   @Test
-  public void parseResources_tag_cpu() {
+  public void parseResources_tag_cpu() throws Exception {
     assertThat(
             ExecutionRequirements.parseResources(ImmutableMap.of("cpu:2", "")))
         .containsExactly("cpu", 2.0);
   }
 
   @Test
-  public void parseResources_tag_customResource() {
+  public void parseResources_tag_customResource() throws Exception {
     assertThat(
             ExecutionRequirements.parseResources(ImmutableMap.of("resources:gpu:3", "")))
         .containsExactly("gpu", 3.0);
   }
 
   @Test
-  public void parseResources_tag_multiple() {
+  public void parseResources_tag_multiple() throws Exception {
     assertThat(
             ExecutionRequirements.parseResources(
                 ImmutableMap.of("resources:gpu:2", "", "cpu:4", "")))
@@ -122,9 +122,23 @@ public class ExecutionRequirementsTest {
   // Validation
 
   @Test
+  public void parseResources_throwsOnTagMissingAmount() {
+    assertThrows(
+        UserExecException.class,
+        () -> ExecutionRequirements.parseResources(ImmutableMap.of("resources:cpu:", "")));
+  }
+
+  @Test
+  public void parseResources_throwsOnExecPropMissingAmount() {
+    assertThrows(
+        UserExecException.class,
+        () -> ExecutionRequirements.parseResources(ImmutableMap.of("resources:cpu", "")));
+  }
+
+  @Test
   public void parseResources_throwsOnInvalidTagValue() {
     assertThrows(
-        IllegalArgumentException.class,
+        UserExecException.class,
         () ->
             ExecutionRequirements.parseResources(
                 ImmutableMap.of("resources:cpu:notanumber", "")));
@@ -133,7 +147,7 @@ public class ExecutionRequirementsTest {
   @Test
   public void parseResources_throwsOnInvalidExecPropValue() {
     assertThrows(
-        IllegalArgumentException.class,
+        UserExecException.class,
         () ->
             ExecutionRequirements.parseResources(
                 ImmutableMap.of("resources:cpu", "notanumber")));
@@ -142,7 +156,7 @@ public class ExecutionRequirementsTest {
   @Test
   public void parseResources_throwsOnNegativeTagValue() {
     assertThrows(
-        IllegalArgumentException.class,
+        UserExecException.class,
         () ->
             ExecutionRequirements.parseResources(ImmutableMap.of("resources:cpu:-1", "")));
   }
@@ -150,7 +164,7 @@ public class ExecutionRequirementsTest {
   @Test
   public void parseResources_throwsOnDuplicateResource() {
     assertThrows(
-        IllegalArgumentException.class,
+        UserExecException.class,
         () ->
             ExecutionRequirements.parseResources(
                 ImmutableMap.of("resources:cpu:4", "", "cpu:2", "")));

@@ -160,18 +160,9 @@ public class TestTargetProperties {
     }
 
     ResourceSet defaultResources = getResourceSetFromSize(size);
-    Map<String, Double> configResources =
+    ImmutableMap<String, Double> configResources =
         testConfiguration == null ? ImmutableMap.of() : testConfiguration.getTestResources(size);
-    if (configResources.isEmpty()) {
-      return defaultResources;
-    }
-
-    return ResourceSet.create(
-        ImmutableMap.<String, Double>builder()
-            .putAll(defaultResources.getResources())
-            .putAll(configResources)
-            .buildKeepingLast(),
-        defaultResources.getLocalTestCount());
+    return defaultResources.withResourceOverrides(configResources);
   }
 
   /**
