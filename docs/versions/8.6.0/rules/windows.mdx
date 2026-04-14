@@ -250,7 +250,7 @@ Solutions:
   In Java, use `try-with-resources`. In Python, use `with open(...) as f:`. In principle, try
   closing handles as soon as possible.
 
-<!--
+{/*
 TODO:
 - runfiles, runfiles libraries, -nolegacy_external_runfiles
 - runfiles envvars, runfiles manifest structure
@@ -258,6 +258,7 @@ TODO:
 - whether to use runfiles manifest on non-windows
 - how to patch tools that expect to read from the filesystem to do a lookup through the manifest file instead (including helpers in many languages)
 - how this applies in tests as well that rely on $TEST_SRCDIR
+*/}
 - unzip is slow
 - cmd.exe has 8k command length limit
 - put paths in envvars instead of args

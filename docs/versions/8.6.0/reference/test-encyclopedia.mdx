@@ -455,7 +455,8 @@ The initial environment block shall be composed as follows:
       Otherwise, Bazel generates a default XML output file wrapping the test log
       as part of the test action. The XML schema is based on the
       <a href="https://windyroad.com.au/dl/Open%20Source/JUnit.xsd"
-        class="external">JUnit test result schema</a>.</td>
+        class="external">JUnit test result schema</a>.
+    </td>
     <td>optional</td>
   </tr>
   <tr>
@@ -719,9 +720,9 @@ Some tags in the test rules have a special meaning. See also the
       <td><code>test_suite</code> convention; suite of large tests</td>
     </tr>
     <tr>
-      <td><code>manual *</code></td>
+      <td>`manual *`</td>
       <td>don't include test target in wildcard target patterns like
-        <code>:...</code>, <code>:*</code>, or <code>:all</code></td>
+        `:...`, `:*`, or `:all`</td>
     </tr>
     <tr>
       <td><code>medium</code></td>

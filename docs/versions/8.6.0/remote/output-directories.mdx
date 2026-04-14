@@ -54,7 +54,7 @@ The solution that's currently implemented:
   default install base and output base directories. For example:
   `bazel --output_user_root=/tmp/bazel build x/y:z`.
 
-The symlinks for "bazel-&lt;workspace-name&gt;", "bazel-out", "bazel-testlogs",
+The symlinks for `bazel-<workspace-name>`, "bazel-out", "bazel-testlogs",
 and "bazel-bin" are put in the workspace directory; these symlinks point to some
 directories inside a target-specific directory inside the output directory.
 These symlinks are only for the user's convenience, as Bazel itself does not
@@ -64,8 +64,8 @@ use them. Also, this is done only if the workspace root is writable.
 
 The directories are laid out as follows:
 
-<pre>
-&lt;workspace-name&gt;/                         <== The workspace root
+```
+<workspace-name>/                         <== The workspace root
   bazel-my-project => <..._main>          <== Symlink to execRoot
   bazel-out => <...bazel-out>             <== Convenience symlink to outputPath
   bazel-bin => <...bin>                   <== Convenience symlink to most recent written bin dir $(BINDIR)
@@ -131,8 +131,8 @@ The directories are laid out as follows:
             host/                         <== BuildConfiguration for build host (user's workstation), for
                                               building prerequisite tools, that will be used in later stages
                                               of the build (ex: Protocol Compiler)
-        &lt;packages&gt;/                       <== Packages referenced in the build appear as if under a regular workspace
-</pre>
+        <packages>/                       <== Packages referenced in the build appear as if under a regular workspace
+```
 
 The layout of the \*.runfiles directories is documented in more detail in the places pointed to by RunfilesSupport.
 

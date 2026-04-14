@@ -386,7 +386,7 @@ Lastly, you want to include the smoothie as a dependency in the Chef’s `BUILD`
 **`src/main/java/com/example/restaurant/BUILD`**
 
 ```
-java\_library(
+java_library(
     name = "chef",
     visibility = ["//visibility:public"],
     srcs = [
@@ -400,7 +400,7 @@ java\_library(
     ],
 )
 
-java\_library(
+java_library(
     name = "cafe",
     visibility = ["//visibility:public"],
     srcs = [
@@ -496,12 +496,7 @@ Going off Bazel queries only, try to find out who wrote the review, and what dis
 <div>
   <devsite-expandable>
   <h4 class="showalways">Answer</h4>
-  <p>This review was describing the Pizza and Amir was the reviewer. If you look at what dependencies that this rule had using
-  <code>bazel query --noimplicit\_deps 'deps(//src/main/java/com/example/reviews:review)'</code>
-  The result of this command reveals that Amir is the reviewer!
-  Next, since you know the reviewer is Amir, you can use the query function to seek which tag Amir has in the `BUILD` file to see what dish is there.
-  The command <code>bazel query 'attr(tags, "pizza", //src/main/java/com/example/customers/...)'</code> output that Amir is the only customer that ordered a pizza and is the reviewer which gives us the answer.
-  </p>
+  <p>This review was describing the Pizza and Amir was the reviewer. If you look at what dependencies that this rule had using <code>bazel query --noimplicit_deps 'deps(//src/main/java/com/example/reviews:review)'</code>. The result of this command reveals that Amir is the reviewer! Next, since you know the reviewer is Amir, you can use the query function to seek which tag Amir has in the `BUILD` file to see what dish is there. The command <code>bazel query 'attr(tags, "pizza", //src/main/java/com/example/customers/...)'</code> output that Amir is the only customer that ordered a pizza and is the reviewer which gives us the answer.</p>
   </devsite-expandable>
 </div>
 

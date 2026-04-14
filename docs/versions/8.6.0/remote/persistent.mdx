@@ -43,7 +43,7 @@ mnemonics. As a best practice, this example includes specifying `local` as a
 fallback to the `worker` strategy:
 
 ```posix-terminal
-bazel build //{{ '<var>' }}my:target{{ '</var>' }} --strategy=Javac=worker,local
+bazel build //<var>my:target</var> --strategy=Javac=worker,local
 ```
 
 Using the workers strategy instead of the local strategy can boost compilation
