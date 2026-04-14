@@ -16,13 +16,22 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.util.Pair;
+import java.text.NumberFormat;
 import java.util.LinkedHashSet;
+import java.util.Locale;
 
 /**
  * A class that, when being told about start and end of a package being loaded, keeps track of the
  * loading progress and provides it as a human-readable string intended for the progress bar.
  */
 public class PackageProgressReceiver {
+  private static final ThreadLocal<NumberFormat> COUNT_FORMATTER =
+      ThreadLocal.withInitial(
+          () -> {
+            NumberFormat numberFormat = NumberFormat.getIntegerInstance(Locale.ENGLISH);
+            numberFormat.setGroupingUsed(true);
+            return numberFormat;
+          });
 
   private int packagesCompleted;
   private LinkedHashSet<PackageIdentifier> pendingSet = new LinkedHashSet<>();
@@ -53,14 +62,17 @@ public class PackageProgressReceiver {
    * running activities. The later always include the oldest loading package not finished loading.
    */
   public synchronized Pair<String, String> progressState() {
-    String progress = "" + packagesCompleted + " packages loaded";
+    String progress = COUNT_FORMATTER.get().format(packagesCompleted) + " packages loaded";
     StringBuffer activity = new StringBuffer();
     if (pendingSet.size() > 0) {
       activity
           .append("currently loading: ")
           .append(Iterables.getFirst(pendingSet, null).toString());
       if (pendingSet.size() > 1) {
-        activity.append(" ... (" + pendingSet.size() + " packages)");
+        activity
+            .append(" ... (")
+            .append(COUNT_FORMATTER.get().format(pendingSet.size()))
+            .append(" packages)");
       }
     }
     return new Pair<String, String>(progress, activity.toString());
