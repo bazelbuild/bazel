@@ -184,6 +184,7 @@ public class ActionCacheChecker {
    * @param outputChecker used to check whether remote metadata should be trusted.
    * @param effectiveEnvironment the effective client environment for the action.
    * @param actionExecutionSalt the action execution salt
+   * @param mnemonicSalt per-mnemonic salt value for cache invalidation, or null if none.
    * @param outputPermissions the requested output permissions
    * @param useArchivedTreeArtifacts whether archived tree artifacts are enabled.
    * @return whether the action cache entry is valid.
@@ -199,6 +200,7 @@ public class ActionCacheChecker {
       @Nullable OutputChecker outputChecker,
       ImmutableMap<String, String> effectiveEnvironment,
       String actionExecutionSalt,
+      @Nullable String mnemonicSalt,
       OutputPermissions outputPermissions,
       boolean useArchivedTreeArtifacts)
       throws InterruptedException {
@@ -208,6 +210,7 @@ public class ActionCacheChecker {
             action.discoversInputs(),
             effectiveEnvironment,
             actionExecutionSalt,
+            mnemonicSalt,
             outputPermissions,
             useArchivedTreeArtifacts);
 
@@ -458,6 +461,7 @@ public class ActionCacheChecker {
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       String actionExecutionSalt,
+      ImmutableMap<String, String> mnemonicCacheSalts,
       @Nullable OutputChecker outputChecker,
       boolean useArchivedTreeArtifacts)
       throws InterruptedException {
@@ -500,6 +504,7 @@ public class ActionCacheChecker {
     }
 
     Token token = new Token(action);
+    String mnemonicSalt = mnemonicCacheSalts.get(action.getMnemonic());
     if (mustExecute(
         action,
         entry,
@@ -511,6 +516,7 @@ public class ActionCacheChecker {
         clientEnv,
         outputPermissions,
         actionExecutionSalt,
+        mnemonicSalt,
         cachedOutputMetadata,
         outputChecker,
         useArchivedTreeArtifacts)) {
@@ -545,6 +551,7 @@ public class ActionCacheChecker {
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       String actionExecutionSalt,
+      @Nullable String mnemonicSalt,
       @Nullable CachedOutputMetadata cachedOutputMetadata,
       @Nullable OutputChecker outputChecker,
       boolean useArchivedTreeArtifacts)
@@ -586,6 +593,7 @@ public class ActionCacheChecker {
         outputChecker,
         effectiveEnvironment,
         actionExecutionSalt,
+        mnemonicSalt,
         outputPermissions,
         useArchivedTreeArtifacts)) {
       reportDigestMismatch(handler, action);
@@ -660,6 +668,7 @@ public class ActionCacheChecker {
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       String actionExecutionSalt,
+      ImmutableMap<String, String> mnemonicCacheSalts,
       boolean useArchivedTreeArtifacts)
       throws IOException, InterruptedException {
     checkState(cacheConfig.enabled(), "cache unexpectedly disabled, action: %s", action);
@@ -680,12 +689,14 @@ public class ActionCacheChecker {
       actionKey = action.getKey(actionKeyContext, inputMetadataProvider);
     }
 
+    String mnemonicSalt = mnemonicCacheSalts.get(action.getMnemonic());
     var builder =
         new ActionCache.Entry.Builder(
                 actionKey,
                 action.discoversInputs(),
                 effectiveEnvironment,
                 actionExecutionSalt,
+                mnemonicSalt,
                 outputPermissions,
                 useArchivedTreeArtifacts)
             .setPrunedInputs(action.prunedInputs());
@@ -807,6 +818,7 @@ public class ActionCacheChecker {
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       String actionExecutionSalt,
+      ImmutableMap<String, String> mnemonicCacheSalts,
       @Nullable OutputChecker outputChecker,
       boolean useArchivedTreeArtifacts)
       throws InterruptedException {
@@ -822,6 +834,7 @@ public class ActionCacheChecker {
         inputMetadataProvider,
         outputMetadataStore,
         actionExecutionSalt,
+        mnemonicCacheSalts,
         outputChecker,
         useArchivedTreeArtifacts);
   }
