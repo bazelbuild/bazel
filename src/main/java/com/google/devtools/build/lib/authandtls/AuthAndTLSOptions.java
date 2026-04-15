@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Converters.DurationConverter;
+import com.google.devtools.common.options.Converters.NullableStringConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -81,29 +82,34 @@ public abstract class AuthAndTLSOptions extends OptionsBase {
   @Option(
       name = "tls_certificate",
       defaultValue = "null",
+      converter = NullableStringConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Specify a path to a TLS certificate that is trusted to sign server certificates.")
+      help =
+          "Specify a path to a TLS certificate that is trusted to sign server certificates."
+              + " An empty value resets the flag to its default.")
   public abstract String getTlsCertificate();
 
   @Option(
       name = "tls_client_certificate",
       defaultValue = "null",
+      converter = NullableStringConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Specify the TLS client certificate to use; you also need to provide a client key to "
-              + "enable client authentication.")
+              + "enable client authentication. An empty value resets the flag to its default.")
   public abstract String getTlsClientCertificate();
 
   @Option(
       name = "tls_client_key",
       defaultValue = "null",
+      converter = NullableStringConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Specify the TLS client key to use; you also need to provide a client certificate to "
-              + "enable client authentication.")
+              + "enable client authentication. An empty value resets the flag to its default.")
   public abstract String getTlsClientKey();
 
   @Option(
