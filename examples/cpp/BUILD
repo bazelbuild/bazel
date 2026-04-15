@@ -14,6 +14,13 @@ cc_binary(
     deps = [":hello-lib"],
 )
 
+# New CLI target added to demonstrate automated documentation sync.
+cc_binary(
+    name = "hello-cli",
+    srcs = ["hello-world.cc"],
+    deps = [":hello-lib"],
+)
+
 cc_test(
     name = "hello-success_test",
     srcs = ["hello-world.cc"],
