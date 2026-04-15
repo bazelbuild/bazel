@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.MaybeFailOnce
 import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.options.RemoteBuildEventUploadMode;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -67,6 +68,7 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.bazel.BazelHashFunctions;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
+import com.google.protobuf.ByteString;
 import io.grpc.Server;
 import io.grpc.Status;
 import io.grpc.inprocess.InProcessChannelBuilder;
@@ -456,7 +458,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
                 + "/"
                 + digest.getSizeBytes());
     verify(combinedCache, times(0)).uploadFile(any(), any(), any());
-    verify(combinedCache, times(0)).uploadBlob(any(), any(), any());
+    verify(combinedCache, times(0)).uploadBlob(any(), any(), any(ByteString.class));
+    verify(combinedCache, times(0)).uploadBlob(any(), any(), any(Blob.class));
   }
 
   @Test
