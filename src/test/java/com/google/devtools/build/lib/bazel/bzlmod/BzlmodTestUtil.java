@@ -68,7 +68,10 @@ public final class BzlmodTestUtil {
       ImmutableMap<RepositoryName, String> nonRegistryOverrideCanonicalRepoToModuleName,
       ImmutableMap<String, String> nonRegistryOverrideModuleToRepoName) {
     return new ModuleFileValue.RootModuleFileValue(
-        InterimModule.builder().build(),
+        InterimModule.builder()
+            .setDeps(ImmutableMap.of())
+            .setOriginalDeps(ImmutableMap.of())
+            .build(),
         ImmutableMap.copyOf(overrides),
         nonRegistryOverrideCanonicalRepoToModuleName,
         nonRegistryOverrideModuleToRepoName,
