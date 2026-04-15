@@ -285,12 +285,68 @@ public abstract class RepositoryOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
-          "Specify a file to configure the remote downloader with. This file consists of lines, "
-              + "each of which starts with a directive (`allow`, `block` or `rewrite`) followed "
-              + "by either a host name (for `allow` and `block`) or two patterns, one to match "
-              + "against, and one to use as a substitute URL, with back-references starting from "
-              + "`$1`. It is possible for multiple `rewrite` directives for the same URL to be "
-              + "given, and in this case multiple URLs will be returned.")
+          """
+          Specify a file to configure the remote downloader with.
+
+          This file consists of directives, one per line, that adjust how the
+          Bazel downloader acts. The directives are: `allow`, `block`, `rewrite`,
+          and `all_blocked_message`. The directives are applied in the order
+          `rewrite, allow, block'.
+
+          Comments are allowed and must be on their own line (no trailing comments)
+          and preceded by a `#`. Example: `# evil.com is known to host malicious code`
+
+          The `allow` and `block` directives take a host name as an argument. For
+          example: `block mvnrepository.com` or `allow github.com`. The given host
+          and all subdomains will be allowed or blocked. Do not include the URL
+          scheme (`http://` or `https://`). You can block all hosts with the `*`
+          wildcard: `block *`.
+
+          The `rewrite` directive takes two regex patterns: the first to match a URL
+          and the second to substitute matched URLs with. For example, `rewrite
+          github.com/bazel-contrib/rules_python/releases/download/(.*)/(.*)
+          mycorp.com/rules_python_mirror/$1/$2` will cause the downloader
+          to access `mycorp.com/rules_python_mirror` whenever attempting
+          to download rules_python from GitHub. The substitute URL supports
+          back-references starting from `$1`. It is possible for multiple
+          `rewrite` directives for the same matched URL to be provided, and in
+          this case multiple URLs will be returned and tried sequentially. Do not
+          include the URL scheme (`http://` or `https://`) in the patterns.
+
+          The `all_blocked_message` directive allows you to customize the message
+          that is shown when the rewriter is configured to block all URLs for
+          a particular resource. This directive can only be given once, and the
+          message must exist on a single line. Example: `all_blocked_message
+          Hey, I think the downloader config is wrong. Bummer!`.
+
+          Note that it is not possible to directly block a particular path for
+          a given host while still allowing other paths on the host. This can be
+          worked around by rewrite the path to a blocked host:
+
+          ```
+          block dummy_host.com
+          rewrite foo.com/bar/.* dummy_host.com
+          ```
+
+          An example config may look like:
+
+          ```
+          all_blocked_message See mycorp.com/blocked-bazel-fetches for more information.
+          block mvnrepository.com
+          block maven-central.storage.googleapis.com
+
+          # See internal doc id1234 for why gitblit is blocked
+          block gitblit.github.io
+          rewrite repo.maven.apache.org/maven2/(.*) artifacts.mycorp.com/libs-release/$1
+
+          # Use our GCS bucket for rules_python
+          rewrite github.com/bazel-contrib/rules_python/releases/download/(.*)/(.*) mycorp.com/rules_python_mirror/$1/$2
+          ```
+
+          See also: [Insulating Builds from the Internet]
+
+          [Insulating Builds from the Internet]: https://bazel.build/external/faq#how-do-i-insulate-my-builds-from-the-internet
+          """)
   public abstract List<PathFragment> getDownloaderConfigs();
 
   @Option(
