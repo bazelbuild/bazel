@@ -434,9 +434,8 @@ public final class OptionsParserTest {
     assertThat(subclassOptions.bazSubclass).isEqualTo("cat");
     assertThat(subclassOptions.baz).isEqualTo("dog");
     ExampleBaz options = parser.getOptions(ExampleBaz.class);
-    // This is a test showcasing the lack of functionality for retrieving parsed options at a
-    // superclass type class type. If there's a need for this functionality, we can add it later.
-    assertThat(options).isNull();
+    assertThat(options).isNotNull();
+    assertThat(options.baz).isEqualTo("dog");
   }
 
   @Test
@@ -694,6 +693,80 @@ public final class OptionsParserTest {
 
     assertThat(foo1.asMap()).isEqualTo(expectedMap);
     assertThat(foo2.asMap()).isEqualTo(expectedMap);
+  }
+
+  @OptionsClass
+  public abstract static class BaseClass extends OptionsBase {
+    @Option(
+        name = "base",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "baseDefault")
+    public abstract String getBase();
+
+    public abstract void setBase(String base);
+  }
+
+  @OptionsClass
+  public abstract static class DerivedClass extends BaseClass {
+    @Option(
+        name = "derived",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "derivedDefault")
+    public abstract String getDerived();
+
+    public abstract void setDerived(String derived);
+  }
+
+  @Test
+  public void getOptionsWithInheritance() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(DerivedClass.class).build();
+    parser.parse("--base=b", "--derived=d");
+    BaseClass base = parser.getOptions(BaseClass.class);
+    assertThat(base.getBase()).isEqualTo("b");
+
+    DerivedClass derived = parser.getOptions(DerivedClass.class);
+    assertThat(derived.getBase()).isEqualTo("b");
+    assertThat(derived.getDerived()).isEqualTo("d");
+  }
+
+  @Test
+  public void setOptionsWithInheritance() throws Exception {
+    DerivedClass derived = Options.getDefaults(DerivedClass.class);
+    derived.setBase("b");
+    derived.setDerived("d");
+    assertThat(derived.getBase()).isEqualTo("b");
+    assertThat(derived.getDerived()).isEqualTo("d");
+  }
+
+  // Checks that fallback data can contain options classes where one is the ancestor of another
+  @Test
+  public void parseOptionsWithInheritance() throws Exception {
+    OpaqueOptionsData fallbackData =
+        OptionsParser.getFallbackOptionsData(ImmutableList.of(BaseClass.class, DerivedClass.class));
+
+    OptionsParser parser = OptionsParser.builder().optionsClasses().build();
+    parser.parseWithSourceFunction(
+        PriorityCategory.RC_FILE,
+        o -> ".bazelrc",
+        ImmutableList.of("--base", "b", "--derived", "d"),
+        fallbackData);
+  }
+
+  @Test
+  public void describeOptionsWithInheritance() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(DerivedClass.class).build();
+    String usage =
+        parser.describeOptionsWithDeprecatedCategories(
+            ImmutableMap.of(), OptionsParser.HelpVerbosity.LONG);
+    assertThat(usage).contains("--base");
+    assertThat(usage).contains("--derived");
+
+    // Check that --base is not duplicated.
+    int firstBase = usage.indexOf("--base");
+    int secondBase = usage.indexOf("--base", firstBase + 1);
+    assertThat(secondBase).isEqualTo(-1);
   }
 
   // Regression test for yet another subtle bug!  The inherited options weren't
@@ -2256,131 +2329,6 @@ public final class OptionsParserTest {
             OptionsParsingException.class,
             () -> parser.parse("--no_foo"));
     assertThat(e).hasMessageThat().contains("Unrecognized option: --no_foo");
-  }
-
-  /** Dummy options that declares it uses only core types. */
-  @UsesOnlyCoreTypes
-  public static class CoreTypesOptions extends OptionsBase {
-    @Option(
-      name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false"
-    )
-    public boolean foo;
-
-    @Option(
-      name = "bar",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "abc"
-    )
-    public String bar;
-  }
-
-  /** Dummy options that does not declare using only core types. */
-  public static class NonCoreTypesOptions extends OptionsBase {
-    @Option(
-      name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false"
-    )
-    public boolean foo;
-  }
-
-  /** Dummy options that incorrectly claims to use only core types. */
-  @UsesOnlyCoreTypes
-  public static class BadCoreTypesOptions extends OptionsBase {
-    /** Dummy unsafe type. */
-    public static class Foo {
-      public int i = 0;
-    }
-
-    /** Converter for Foo. */
-    public static class FooConverter extends Converter.Contextless<Foo> {
-      @Override
-      public Foo convert(String input) throws OptionsParsingException {
-        Foo foo = new Foo();
-        foo.i = Integer.parseInt(input);
-        return foo;
-      }
-
-      @Override
-      public String getTypeDescription() {
-        return "a foo";
-      }
-    }
-
-    @Option(
-      name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null",
-      converter = FooConverter.class
-    )
-    public Foo foo;
-  }
-
-  /** Dummy options that is unsafe for @UsesOnlyCoreTypes but doesn't use the annotation. */
-  public static class SuperBadCoreTypesOptions extends OptionsBase {
-    @Option(
-      name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null",
-      converter = BadCoreTypesOptions.FooConverter.class
-    )
-    public BadCoreTypesOptions.Foo foo;
-  }
-
-  /**
-   * Dummy options that illegally advertises @UsesOnlyCoreTypes, when its direct fields are fine but
-   * its inherited fields are not.
-   */
-  @UsesOnlyCoreTypes
-  public static class InheritedBadCoreTypesOptions extends SuperBadCoreTypesOptions {
-    @Option(
-      name = "bar",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false"
-    )
-    public boolean bar;
-  }
-
-  @Test
-  public void testUsesOnlyCoreTypes() {
-    assertThat(OptionsParser.getUsesOnlyCoreTypes(CoreTypesOptions.class)).isTrue();
-    assertThat(OptionsParser.getUsesOnlyCoreTypes(NonCoreTypesOptions.class)).isFalse();
-  }
-
-  @Test
-  public void testValidationOfUsesOnlyCoreTypes() {
-    OptionsParser.ConstructionException expected =
-        assertThrows(
-            "Should have detected illegal use of @UsesOnlyCoreTypes",
-            OptionsParser.ConstructionException.class,
-            () -> OptionsParser.getUsesOnlyCoreTypes(BadCoreTypesOptions.class));
-    assertThat(expected)
-        .hasMessageThat()
-        .matches(
-            "Options class '.*BadCoreTypesOptions' is marked as @UsesOnlyCoreTypes, but field "
-                + "'foo' has type '.*Foo'");
-  }
-
-  @Test
-  public void testValidationOfUsesOnlyCoreTypes_Inherited() {
-    OptionsParser.ConstructionException expected =
-        assertThrows(
-            "Should have detected illegal use of @UsesOnlyCoreTypes",
-            OptionsParser.ConstructionException.class,
-            () -> OptionsParser.getUsesOnlyCoreTypes(InheritedBadCoreTypesOptions.class));
-    assertThat(expected)
-        .hasMessageThat()
-        .matches(
-            "Options class '.*InheritedBadCoreTypesOptions' is marked as @UsesOnlyCoreTypes, but "
-                + "field 'foo' has type '.*Foo'");
   }
 
   /** Dummy options for testing getHelpCompletion() and visitOptions(). */

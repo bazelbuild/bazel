@@ -101,7 +101,7 @@ public final class ExampleWorker {
         for (Input input : request.getInputsList()) {
           inputs.put(input.getPath(), input.getDigest().toStringUtf8());
         }
-        if (poisoned && workerOptions.hardPoison) {
+        if (poisoned && workerOptions.getHardPoison()) {
           throw new IllegalStateException("I'm a very poisoned worker and will just crash.");
         }
         if (request.getCancel()) {
@@ -109,7 +109,7 @@ public final class ExampleWorker {
         } else {
           startResponseThread(workerIO, request);
         }
-        if (workerOptions.exitAfter > 0 && workUnitCounter > workerOptions.exitAfter) {
+        if (workerOptions.getExitAfter() > 0 && workUnitCounter > workerOptions.getExitAfter()) {
           System.exit(0);
         }
       }
@@ -133,7 +133,7 @@ public final class ExampleWorker {
               .build();
       parser.parse(args);
       workerOptions = parser.getOptions(ExampleWorkerOptions.class);
-      WorkerProtocolFormat protocolFormat = workerOptions.workerProtocol;
+      WorkerProtocolFormat protocolFormat = workerOptions.getWorkerProtocol();
       messageProcessor = null;
       switch (protocolFormat) {
         case JSON:
@@ -163,7 +163,7 @@ public final class ExampleWorker {
     PrintStream originalStdOut = System.out;
     PrintStream originalStdErr = System.err;
 
-    if (workerOptions.waitForCancel) {
+    if (workerOptions.getWaitForCancel()) {
       try {
         WorkRequest workRequest = messageProcessor.readWorkRequest();
         if (workRequest.getRequestId() != currentRequest.getRequestId()) {
@@ -217,7 +217,7 @@ public final class ExampleWorker {
       currentRequest = null;
     }
 
-    if (workerOptions.exitDuring > 0 && workUnitCounter > workerOptions.exitDuring) {
+    if (workerOptions.getExitDuring() > 0 && workUnitCounter > workerOptions.getExitDuring()) {
       System.exit(0);
     }
 
@@ -231,7 +231,7 @@ public final class ExampleWorker {
         System.exit(1);
       }
     }
-    if (workerOptions.poisonAfter > 0 && workUnitCounter > workerOptions.poisonAfter) {
+    if (workerOptions.getPoisonAfter() > 0 && workUnitCounter > workerOptions.getPoisonAfter()) {
       poisoned = true;
     }
     return 0;
@@ -255,28 +255,28 @@ public final class ExampleWorker {
 
     List<String> outputs = new ArrayList<>();
 
-    if (options.writeUUID) {
+    if (options.getWriteUUID()) {
       outputs.add("UUID " + WORKER_UUID);
     }
 
-    if (options.writeCounter) {
+    if (options.getWriteCounter()) {
       outputs.add("COUNTER " + workUnitCounter++);
     }
 
     String residueStr = Joiner.on(' ').join(parser.getResidue());
-    if (options.uppercase) {
+    if (options.getUppercase()) {
       residueStr = Ascii.toUpperCase(residueStr);
     }
     outputs.add(residueStr);
 
-    if (options.printInputs) {
+    if (options.getPrintInputs()) {
       for (Map.Entry<String, String> input : inputs.entrySet()) {
         outputs.add("INPUT " + input.getKey() + " " + input.getValue());
       }
     }
 
-    if (!options.printDirListing.isEmpty()) {
-      Path rootDir = Path.of(options.printDirListing);
+    if (!options.getPrintDirListing().isEmpty()) {
+      Path rootDir = Path.of(options.getPrintDirListing());
       try (Stream<Path> paths = Files.walk(rootDir, Integer.MAX_VALUE)) {
         for (Path path : paths.collect(toImmutableList())) {
           outputs.add(String.format("DIRENT %s %s", rootDir.relativize(path), getInode(path)));
@@ -284,30 +284,31 @@ public final class ExampleWorker {
       }
     }
 
-    if (options.printRequests) {
+    if (options.getPrintRequests()) {
       outputs.add("REQUEST: " + currentRequest);
     }
 
-    if (options.printEnv) {
+    if (options.getPrintEnv()) {
       for (Map.Entry<String, String> entry : System.getenv().entrySet()) {
         outputs.add(entry.getKey() + "=" + entry.getValue());
       }
     }
 
-    if (options.workTime != null) {
+    if (options.getWorkTime() != null) {
       try {
-        Thread.sleep(options.workTime.toMillis());
+        Thread.sleep(options.getWorkTime().toMillis());
       } catch (InterruptedException e) {
         System.err.printf(
-            "Interrupted while pretending to work for %d millis%n", options.workTime.toMillis());
+            "Interrupted while pretending to work for %d millis%n",
+            options.getWorkTime().toMillis());
       }
     }
 
     String outputStr = Joiner.on('\n').join(outputs);
-    if (options.outputFile.isEmpty()) {
+    if (options.getOutputFile().isEmpty()) {
       System.out.println(outputStr);
     } else {
-      try (PrintStream outputFile = new PrintStream(options.outputFile)) {
+      try (PrintStream outputFile = new PrintStream(options.getOutputFile())) {
         outputFile.println(outputStr);
       }
     }

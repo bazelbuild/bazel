@@ -129,8 +129,9 @@ class MetricsCollector {
       CommandEnvironment env, AtomicInteger numAnalyses, AtomicInteger numBuilds) {
     this.env = env;
     Options options = env.getOptions().getOptions(Options.class);
-    this.recordMetricsForAllMnemonics = options != null && options.recordMetricsForAllMnemonics;
-    this.recordSkyframeMetrics = options != null && options.recordSkyframeMetrics;
+    this.recordMetricsForAllMnemonics =
+        options != null && options.getRecordMetricsForAllMnemonics();
+    this.recordSkyframeMetrics = options != null && options.getRecordSkyframeMetrics();
     this.numAnalyses = numAnalyses;
     this.numBuilds = numBuilds;
     env.getEventBus().register(this);

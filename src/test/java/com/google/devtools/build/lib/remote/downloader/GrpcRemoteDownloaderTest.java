@@ -181,7 +181,7 @@ public class GrpcRemoteDownloaderTest {
         remoteOptions,
         /* verboseFailures= */ false,
         httpDownloader,
-        remoteOptions.remoteDownloaderLocalFallback);
+        remoteOptions.getRemoteDownloaderLocalFallback());
   }
 
   private byte[] downloadBlob(GrpcRemoteDownloader downloader, URI url, Optional<Checksum> checksum)
@@ -251,7 +251,7 @@ public class GrpcRemoteDownloaderTest {
 
   @Test
   public void testDownloadFallback() throws Exception {
-    remoteOptions.remoteDownloaderLocalFallback = true;
+    remoteOptions.setRemoteDownloaderLocalFallback(true);
     final byte[] content = "example content".getBytes(UTF_8);
     serviceRegistry.addService(
         new FetchImplBase() {

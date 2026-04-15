@@ -574,7 +574,7 @@ public class RemoteExecutionServiceTest {
     Collections.shuffle(inputs, RandomGeneratorFactory.getDefault().create(seed));
     var spawn = new SpawnBuilder("my", "args").withInputs(inputs).withOutput(outputDir).build();
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    remoteOptions.remoteDiscardMerkleTrees = false;
+    remoteOptions.setRemoteDiscardMerkleTrees(false);
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
 
     var emptyDirectory = dir(ImmutableList.of(), ImmutableMap.of());
@@ -2738,8 +2738,8 @@ public class RemoteExecutionServiceTest {
                 enablePathMapping ? path -> PathFragment.create("mapped_" + path) : PathMapper.NOOP)
             .build();
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    remoteOptions.markToolInputs = true;
-    remoteOptions.remoteDiscardMerkleTrees = false;
+    remoteOptions.setMarkToolInputs(true);
+    remoteOptions.setRemoteDiscardMerkleTrees(false);
     remotePathResolver =
         siblingRepositoryLayout
             ? new SiblingRepositoryLayoutResolver(execRoot)
@@ -2862,7 +2862,7 @@ public class RemoteExecutionServiceTest {
             .build();
 
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    remoteOptions.scrubber =
+    remoteOptions.setScrubber(
         new Scrubber(
             Config.newBuilder()
                 .addRules(
@@ -2875,8 +2875,8 @@ public class RemoteExecutionServiceTest {
                                     Config.Replacement.newBuilder()
                                         .setSource("some/path")
                                         .setTarget("another/dir"))))
-                .build());
-    remoteOptions.remoteDiscardMerkleTrees = false;
+                .build()));
+    remoteOptions.setRemoteDiscardMerkleTrees(false);
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
 
     RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
@@ -2935,7 +2935,7 @@ public class RemoteExecutionServiceTest {
             .setPathMapper(pathMapper)
             .build();
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    remoteOptions.remoteDiscardMerkleTrees = false;
+    remoteOptions.setRemoteDiscardMerkleTrees(false);
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
 
     // Check that inputs and outputs of the remote action are mapped correctly.

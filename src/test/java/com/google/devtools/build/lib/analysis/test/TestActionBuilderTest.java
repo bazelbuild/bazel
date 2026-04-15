@@ -1113,7 +1113,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
                     getGeneratingAction(runUnderTool).getOwner().getBuildConfigurationInfo())
                 .getOptions()
                 .get(PlatformOptions.class)
-                .platforms)
+                .getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked("//:linux"));
   }
 

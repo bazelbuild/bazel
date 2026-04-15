@@ -89,6 +89,8 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
     @Nullable
     RemoteAnalysisMetadataWriter getMetadataWriter() throws InterruptedException;
+
+    boolean shouldMinimizeMemory();
   }
 
 }

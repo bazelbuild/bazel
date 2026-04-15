@@ -269,7 +269,7 @@ public class TestCommand implements BlazeCommand {
       CommandEnvironment env) {
     BlazeRuntime runtime = env.getRuntime();
     TestSummaryOptions summaryOptions = options.getOptions(TestSummaryOptions.class);
-    if (!summaryOptions.printRelativeTestLogPaths) {
+    if (!summaryOptions.getPrintRelativeTestLogPaths()) {
       return Path::getPathString;
     }
     String productName = runtime.getProductName();

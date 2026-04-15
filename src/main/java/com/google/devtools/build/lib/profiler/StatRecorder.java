@@ -13,12 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableMap;
-
-import java.util.Map;
-
 /** An object that can record time statistics about an object. */
 public interface StatRecorder {
 
@@ -27,20 +21,4 @@ public interface StatRecorder {
 
   /** True if it has not recorded any statistic */
   boolean isEmpty();
-
-  /** A collection of heuristics for VFS kind of stats in order to detect the filesystem type. */
-  final class VfsHeuristics {
-
-    private VfsHeuristics() {}
-
-    static Map<String, ? extends Predicate<? super String>> vfsTypeHeuristics =
-        ImmutableMap.of(
-            "blaze-out", Predicates.containsPattern("/blaze-out/"),
-            "source", Predicates.<CharSequence>alwaysTrue());
-
-
-    public static void setVfsTypeHeuristics(Map<String, ? extends Predicate<? super String>> map) {
-      vfsTypeHeuristics = map;
-    }
-  }
 }

@@ -188,7 +188,7 @@ final class RemoteSpawnCache implements SpawnCache {
           throw createExecExceptionForCredentialHelperException(e);
         } catch (RemoteExecutionCapabilitiesException e) {
           boolean shouldLocalFallback =
-              options.remoteLocalFallbackForRemoteCache && options.remoteLocalFallback;
+              options.getRemoteLocalFallbackForRemoteCache() && options.getRemoteLocalFallback();
           if (!shouldLocalFallback) {
             if (thisExecution != null) {
               thisExecution.close();
@@ -280,7 +280,7 @@ final class RemoteSpawnCache implements SpawnCache {
               action,
               result,
               thisExecutionFinal != null ? thisExecutionFinal.delayClose() : () -> {},
-              options.guardAgainstConcurrentChanges);
+              options.getGuardAgainstConcurrentChanges());
           if (thisExecutionFinal != null
               && action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
             // In this case outputs have been uploaded synchronously and the callback above has run,

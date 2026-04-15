@@ -72,10 +72,10 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
     this.translationFlags =
         ImmutableList.<String>builder()
             .addAll(J2OBJC_DEFAULT_TRANSLATION_FLAGS)
-            .addAll(j2ObjcOptions.translationFlags)
+            .addAll(j2ObjcOptions.getTranslationFlags())
             .addAll(J2OBJC_ALWAYS_ON_TRANSLATION_FLAGS)
             .build();
-    this.deadCodeReport = j2ObjcOptions.deadCodeReport;
+    this.deadCodeReport = j2ObjcOptions.getDeadCodeReport();
   }
 
   /**

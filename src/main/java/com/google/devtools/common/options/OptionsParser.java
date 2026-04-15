@@ -917,15 +917,6 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   /**
-   * Returns whether the given options class uses only the core types listed in {@link
-   * UsesOnlyCoreTypes#CORE_TYPES}. These are guaranteed to be deeply immutable and serializable.
-   */
-  public static boolean getUsesOnlyCoreTypes(Class<? extends OptionsBase> optionsClass) {
-    OptionsData data = OptionsParser.getOptionsDataInternal(optionsClass);
-    return data.getUsesOnlyCoreTypes(optionsClass);
-  }
-
-  /**
    * A container for an arg and associated options that should be silently ignored when parsed but
    * not recognized by the current command.
    */

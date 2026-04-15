@@ -379,10 +379,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         if (commandOptions.getProfilePath() == null) {
           String profileName = "command.profile.gz";
           format = Format.JSON_TRACE_FILE_COMPRESSED_FORMAT;
-          if (bepOptions != null && bepOptions.streamingLogFileUploads) {
+          if (bepOptions != null && bepOptions.getStreamingLogFileUploads()) {
             profile =
                 instrumentationOutputFactory.createBuildEventArtifactInstrumentationOutput(
-                    profileName, newUploader(env, bepOptions.buildEventUploadStrategy));
+                    profileName, newUploader(env, bepOptions.getBuildEventUploadStrategy()));
           } else if (commandOptions.getRedirectLocalInstrumentationOutputWrites()) {
             profile =
                 instrumentationOutputFactory.createInstrumentationOutput(
@@ -661,7 +661,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               options.getMemoryProfileStableHeapParameters(),
               env.getOptions()
                   .getOptions(MemoryPressureOptions.class)
-                  .jvmHeapHistogramInternalObjectPattern
+                  .getJvmHeapHistogramInternalObjectPattern()
                   .regexPattern());
       try {
         MemoryProfiler.instance().start(memoryProfilePath.getOutputStream());
@@ -673,7 +673,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
     boolean stateKeptAfterBuild =
         !env.getCommandName().equals("clean")
-            && env.getOptions().getOptions(KeepStateAfterBuildOption.class).keepStateAfterBuild;
+            && env.getOptions()
+                .getOptions(KeepStateAfterBuildOption.class)
+                .getKeepStateAfterBuild();
     env.addIdleTask(new GcAndInternerShrinkingIdleTask(stateKeptAfterBuild));
 
     if (options.getInstallBaseGcMaxAge() != null && !options.getInstallBaseGcMaxAge().isZero()) {
@@ -808,7 +810,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     // next build anyway.
     KeepStateAfterBuildOption keepStateAfterBuildOption =
         env.getOptions().getOptions(KeepStateAfterBuildOption.class);
-    if (!keepStateAfterBuildOption.keepStateAfterBuild && !forceKeepStateForTesting) {
+    if (!keepStateAfterBuildOption.getKeepStateAfterBuild() && !forceKeepStateForTesting) {
       workspace.getSkyframeExecutor().resetEvaluator();
     }
 
@@ -1379,7 +1381,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     CustomFailureDetailPublisher.setFailureDetailFilePath(failureDetailOut.getPathString());
 
     for (BlazeService service : blazeServices) {
-      service.globalInit(options);
+      service.globalInit(options, blazeServices);
     }
 
     for (BlazeModule module : blazeModules) {
@@ -1861,16 +1863,28 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       return this;
     }
 
+    public OptionsParsingResult getStartupOptionsProvider() {
+      return startupOptionsProvider;
+    }
+
     @CanIgnoreReturnValue
     public Builder addBlazeModule(BlazeModule blazeModule) {
       blazeModules.add(blazeModule);
       return this;
     }
 
+    public ImmutableList<BlazeModule> getBlazeModules() {
+      return ImmutableList.copyOf(blazeModules);
+    }
+
     @CanIgnoreReturnValue
     public Builder addBlazeService(BlazeService blazeService) {
       blazeServices.add(blazeService);
       return this;
+    }
+
+    public ImmutableList<BlazeService> getBlazeServices() {
+      return ImmutableList.copyOf(blazeServices);
     }
 
     @CanIgnoreReturnValue

@@ -189,7 +189,7 @@ public final class AnalysisAndExecutionPhaseRunner {
             request.getAspectsParameters(),
             request.getViewOptions(),
             request.getKeepGoing(),
-            request.getViewOptions().skipIncompatibleExplicitTargets,
+            request.getViewOptions().getSkipIncompatibleExplicitTargets(),
             request.getCheckForActionConflicts(),
             env.getQuiescingExecutors(),
             request.getTopLevelArtifactContext(),

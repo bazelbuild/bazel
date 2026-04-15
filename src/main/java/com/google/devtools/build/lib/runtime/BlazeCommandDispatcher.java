@@ -705,7 +705,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           env.getOptions().getOptions(BuildEventProtocolOptions.class) != null
               && env.getOptions()
                   .getOptions(BuildEventProtocolOptions.class)
-                  .includeResidueInRunBepEvent;
+                  .getIncludeResidueInRunBepEvent();
       // Log the command line now that the modules have all had a change to register their listeners
       // to the event bus, and the flags have been re-parsed.
       CommandLineEvent originalCommandLineEvent =

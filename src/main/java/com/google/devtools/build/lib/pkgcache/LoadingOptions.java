@@ -21,124 +21,124 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Options that affect how command-line target patterns are resolved to individual targets.
- */
-public class LoadingOptions extends OptionsBase {
+/** Options that affect how command-line target patterns are resolved to individual targets. */
+@OptionsClass
+public abstract class LoadingOptions extends OptionsBase {
   @Option(
-    name = "build_tests_only",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "If specified, only *_test and test_suite rules will be built and other targets specified "
-            + "on the command line will be ignored. By default everything that was requested "
-            + "will be built."
-  )
-  public boolean buildTestsOnly;
+      name = "build_tests_only",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If specified, only *_test and test_suite rules will be built and other targets specified"
+              + " on the command line will be ignored. By default everything that was requested"
+              + " will be built.")
+  public abstract boolean getBuildTestsOnly();
 
   @Option(
-    name = "compile_one_dependency",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Compile a single dependency of the argument files. This is useful for syntax checking "
-            + "source files in IDEs, for example, by rebuilding a single target that depends on "
-            + "the source file to detect errors as early as possible in the edit/build/test cycle. "
-            + "This argument affects the way all non-flag arguments are interpreted; instead of "
-            + "being targets to build they are source filenames.  For each source filename "
-            + "an arbitrary target that depends on it will be built."
-  )
-  public boolean compileOneDependency;
+      name = "compile_one_dependency",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Compile a single dependency of the argument files. This is useful for syntax checking"
+              + " source files in IDEs, for example, by rebuilding a single target that depends on"
+              + " the source file to detect errors as early as possible in the edit/build/test"
+              + " cycle. This argument affects the way all non-flag arguments are interpreted;"
+              + " instead of being targets to build they are source filenames.  For each source"
+              + " filename an arbitrary target that depends on it will be built.")
+  public abstract boolean getCompileOneDependency();
 
   @Option(
-    name = "build_tag_filters",
-    converter = CommaSeparatedOptionListConverter.class,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Specifies a comma-separated list of tags. Each tag can be optionally "
-            + "preceded with '-' to specify excluded tags. Only those targets will be built that "
-            + "contain at least one included tag and do not contain any excluded tags. This option "
-            + "does not affect the set of tests executed with the 'test' command; those are be "
-            + "governed by the test filtering options, for example '--test_tag_filters'"
-  )
-  public List<String> buildTagFilterList;
+      name = "build_tag_filters",
+      converter = CommaSeparatedOptionListConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specifies a comma-separated list of tags. Each tag can be optionally preceded with '-'"
+              + " to specify excluded tags. Only those targets will be built that contain at least"
+              + " one included tag and do not contain any excluded tags. This option does not"
+              + " affect the set of tests executed with the 'test' command; those are be governed"
+              + " by the test filtering options, for example '--test_tag_filters'")
+  public abstract List<String> getBuildTagFilterList();
 
   @Option(
-    name = "test_tag_filters",
-    converter = CommaSeparatedOptionListConverter.class,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Specifies a comma-separated list of test tags. Each tag can be optionally "
-            + "preceded with '-' to specify excluded tags. Only those test targets will be "
-            + "found that contain at least one included tag and do not contain any excluded "
-            + "tags. This option affects --build_tests_only behavior and the test command."
-  )
-  public List<String> testTagFilterList;
+      name = "test_tag_filters",
+      converter = CommaSeparatedOptionListConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specifies a comma-separated list of test tags. Each tag can be optionally "
+              + "preceded with '-' to specify excluded tags. Only those test targets will be "
+              + "found that contain at least one included tag and do not contain any excluded "
+              + "tags. This option affects --build_tests_only behavior and the test command.")
+  public abstract List<String> getTestTagFilterList();
+
+  public abstract void setTestTagFilterList(List<String> value);
 
   @Option(
-    name = "test_size_filters",
-    converter = TestSize.TestSizeFilterConverter.class,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Specifies a comma-separated list of test sizes. Each size can be optionally "
-            + "preceded with '-' to specify excluded sizes. Only those test targets will be "
-            + "found that contain at least one included size and do not contain any excluded "
-            + "sizes. This option affects --build_tests_only behavior and the test command."
-  )
-  public Set<TestSize> testSizeFilterSet;
+      name = "test_size_filters",
+      converter = TestSize.TestSizeFilterConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specifies a comma-separated list of test sizes. Each size can be optionally "
+              + "preceded with '-' to specify excluded sizes. Only those test targets will be "
+              + "found that contain at least one included size and do not contain any excluded "
+              + "sizes. This option affects --build_tests_only behavior and the test command.")
+  public abstract Set<TestSize> getTestSizeFilterSet();
+
+  public abstract void setTestSizeFilterSet(Set<TestSize> value);
 
   @Option(
-    name = "test_timeout_filters",
-    converter = TestTimeout.TestTimeoutFilterConverter.class,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Specifies a comma-separated list of test timeouts. Each timeout can be "
-            + "optionally preceded with '-' to specify excluded timeouts. Only those test "
-            + "targets will be found that contain at least one included timeout and do not "
-            + "contain any excluded timeouts. This option affects --build_tests_only behavior "
-            + "and the test command."
-  )
-  public Set<TestTimeout> testTimeoutFilterSet;
+      name = "test_timeout_filters",
+      converter = TestTimeout.TestTimeoutFilterConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specifies a comma-separated list of test timeouts. Each timeout can be "
+              + "optionally preceded with '-' to specify excluded timeouts. Only those test "
+              + "targets will be found that contain at least one included timeout and do not "
+              + "contain any excluded timeouts. This option affects --build_tests_only behavior "
+              + "and the test command.")
+  public abstract Set<TestTimeout> getTestTimeoutFilterSet();
+
+  public abstract void setTestTimeoutFilterSet(Set<TestTimeout> value);
 
   @Option(
-    name = "test_lang_filters",
-    converter = CommaSeparatedOptionListConverter.class,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Specifies a comma-separated list of test languages. Each language can be "
-            + "optionally preceded with '-' to specify excluded languages. Only those "
-            + "test targets will be found that are written in the specified languages. "
-            + "The name used for each language should be the same as the language prefix in the "
-            + "*_test rule, e.g. one of 'cc', 'java', 'py', etc. "
-            + "This option affects --build_tests_only behavior and the test command."
-  )
-  public List<String> testLangFilterList;
+      name = "test_lang_filters",
+      converter = CommaSeparatedOptionListConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specifies a comma-separated list of test languages. Each language can be "
+              + "optionally preceded with '-' to specify excluded languages. Only those "
+              + "test targets will be found that are written in the specified languages. "
+              + "The name used for each language should be the same as the language prefix in the "
+              + "*_test rule, e.g. one of 'cc', 'java', 'py', etc. "
+              + "This option affects --build_tests_only behavior and the test command.")
+  public abstract List<String> getTestLangFilterList();
+
+  public abstract void setTestLangFilterList(List<String> value);
 
   @Option(
-    name = "build_manual_tests",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Forces test targets tagged 'manual' to be built. 'manual' tests are excluded from "
-            + "processing. This option forces them to be built (but not executed)."
-  )
-  public boolean buildManualTests;
+      name = "build_manual_tests",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Forces test targets tagged 'manual' to be built. 'manual' tests are excluded from "
+              + "processing. This option forces them to be built (but not executed).")
+  public abstract boolean getBuildManualTests();
 
   @Deprecated
   @Option(
@@ -150,18 +150,18 @@ public class LoadingOptions extends OptionsBase {
       help =
           "Use the Skyframe-based target pattern evaluator; implies "
               + "--experimental_interleave_loading_and_analysis.")
-  public boolean useSkyframeTargetPatternEvaluator;
+  public abstract boolean getUseSkyframeTargetPatternEvaluator();
 
   @Option(
-    name = "expand_test_suites",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-    help = "Expand test_suite targets into their constituent tests before analysis. "
-        + "When this flag is turned on (the default), negative target patterns will apply "
-        + "to the tests belonging to the test suite, otherwise they will not. "
-        + "Turning off this flag is useful when top-level aspects are applied at command line: "
-        + "then they can analyze test_suite targets."
-  )
-  public boolean expandTestSuites;
+      name = "expand_test_suites",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "Expand test_suite targets into their constituent tests before analysis. When this flag"
+              + " is turned on (the default), negative target patterns will apply to the tests"
+              + " belonging to the test suite, otherwise they will not. Turning off this flag is"
+              + " useful when top-level aspects are applied at command line: then they can analyze"
+              + " test_suite targets.")
+  public abstract boolean getExpandTestSuites();
 }

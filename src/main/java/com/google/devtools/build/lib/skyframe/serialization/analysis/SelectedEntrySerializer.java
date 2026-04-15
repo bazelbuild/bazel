@@ -583,7 +583,7 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
   }
 
   public static class SerializationStatus extends QuiescingFuture<ImmutableList<Throwable>>
-      implements FutureCallback<Void>, CounterSeriesCollector {
+      implements FutureCallback<Object>, CounterSeriesCollector {
     private final Semaphore semaphore = new Semaphore(MAX_PENDING_SKYVALUES);
     private final ConcurrentLinkedQueue<Throwable> errors = new ConcurrentLinkedQueue<>();
     private final FileDependencySerializer.Counters fileDependencySerializerCounters;
@@ -655,22 +655,22 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
       return ImmutableList.copyOf(errors);
     }
 
-    private void addWriteStatus(@Nullable ListenableFuture<Void> writeStatus) {
+    private void addWriteStatus(@Nullable ListenableFuture<?> writeStatus) {
       if (writeStatus == null) {
         return;
       }
       increment();
-      Futures.addCallback(writeStatus, (FutureCallback<Void>) this, directExecutor());
+      Futures.addCallback(writeStatus, (FutureCallback<Object>) this, directExecutor());
     }
 
     /**
-     * Implementation of {@link FutureCallback<void>}.
+     * Implementation of {@link FutureCallback<Object>}.
      *
      * @deprecated only for use via {@link #addWriteStatus}
      */
     @Override
     @Deprecated // only called via addWriteStatus
-    public void onSuccess(Void unused) {
+    public void onSuccess(Object unused) {
       decrement();
     }
 

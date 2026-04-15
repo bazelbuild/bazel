@@ -116,6 +116,9 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
     // made to skyframe for building this node was for the corresponding PackageValue.
     Iterable<SkyKey> labelAspectKeys =
         getStrictLabelAspectDepKeys(env, depMap, targetAndErrorIfAny);
+    if (env.valuesMissing()) {
+      return null;
+    }
     SkyframeLookupResult labelAspectEntries = env.getValuesAndExceptions(labelAspectKeys);
     if (env.valuesMissing()) {
       return null;

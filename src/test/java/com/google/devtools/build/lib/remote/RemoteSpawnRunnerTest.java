@@ -221,11 +221,11 @@ public class RemoteSpawnRunnerTest {
     // It should be executed remotely, but marked non-cacheable to remote execution, so that
     // the action result is not saved in the remote cache.
 
-    remoteOptions.remoteAcceptCached = true;
-    remoteOptions.remoteLocalFallback = false;
-    remoteOptions.remoteUploadLocalResults = true;
-    remoteOptions.remoteResultCachePriority = 1;
-    remoteOptions.remoteExecutionPriority = 2;
+    remoteOptions.setRemoteAcceptCached(true);
+    remoteOptions.setRemoteLocalFallback(false);
+    remoteOptions.setRemoteUploadLocalResults(true);
+    remoteOptions.setRemoteResultCachePriority(1);
+    remoteOptions.setRemoteExecutionPriority(2);
 
     RemoteSpawnRunner runner = newSpawnRunner();
     RemoteExecutionService service = runner.getRemoteExecutionService();
@@ -297,9 +297,9 @@ public class RemoteSpawnRunnerTest {
     // Test that if a non-cachable spawn is executed locally due to the local fallback,
     // that its result is not uploaded to the remote cache.
 
-    remoteOptions.remoteAcceptCached = true;
-    remoteOptions.remoteLocalFallback = true;
-    remoteOptions.remoteUploadLocalResults = true;
+    remoteOptions.setRemoteAcceptCached(true);
+    remoteOptions.setRemoteLocalFallback(true);
+    remoteOptions.setRemoteUploadLocalResults(true);
 
     RemoteSpawnRunner runner = newSpawnRunner();
 
@@ -328,9 +328,9 @@ public class RemoteSpawnRunnerTest {
     // Test that if a cacheable spawn is executed locally due to the local fallback,
     // that its result is uploaded to the remote cache.
 
-    remoteOptions.remoteAcceptCached = true;
-    remoteOptions.remoteLocalFallback = true;
-    remoteOptions.remoteUploadLocalResults = true;
+    remoteOptions.setRemoteAcceptCached(true);
+    remoteOptions.setRemoteLocalFallback(true);
+    remoteOptions.setRemoteUploadLocalResults(true);
 
     RemoteSpawnRunner runner = spy(newSpawnRunner());
     RemoteExecutionService service = runner.getRemoteExecutionService();
@@ -367,8 +367,8 @@ public class RemoteSpawnRunnerTest {
   public void failedLocalActionShouldNotBeUploaded() throws Exception {
     // Test that the outputs of a locally executed action that failed are not uploaded.
 
-    remoteOptions.remoteLocalFallback = true;
-    remoteOptions.remoteUploadLocalResults = true;
+    remoteOptions.setRemoteLocalFallback(true);
+    remoteOptions.setRemoteUploadLocalResults(true);
 
     RemoteSpawnRunner runner = spy(newSpawnRunner());
     RemoteExecutionService service = runner.getRemoteExecutionService();
@@ -401,8 +401,8 @@ public class RemoteSpawnRunnerTest {
     // Test that bazel treats failed cache action as a cache miss and attempts to execute action
     // locally
 
-    remoteOptions.remoteLocalFallback = true;
-    remoteOptions.remoteUploadLocalResults = true;
+    remoteOptions.setRemoteLocalFallback(true);
+    remoteOptions.setRemoteUploadLocalResults(true);
 
     CachedActionResult failedAction =
         CachedActionResult.remote(ActionResult.newBuilder().setExitCode(1).build());
@@ -582,8 +582,8 @@ public class RemoteSpawnRunnerTest {
   public void noRemoteExecutorFallbackFails() throws Exception {
     // Errors from the fallback runner should be propagated out of the remote runner.
 
-    remoteOptions.remoteUploadLocalResults = true;
-    remoteOptions.remoteLocalFallback = true;
+    remoteOptions.setRemoteUploadLocalResults(true);
+    remoteOptions.setRemoteLocalFallback(true);
 
     RemoteSpawnRunner runner = newSpawnRunner();
     // Trigger local fallback
@@ -616,8 +616,8 @@ public class RemoteSpawnRunnerTest {
   public void remoteCacheErrorFallbackFails() throws Exception {
     // Errors from the fallback runner should be propagated out of the remote runner.
 
-    remoteOptions.remoteUploadLocalResults = true;
-    remoteOptions.remoteLocalFallback = true;
+    remoteOptions.setRemoteUploadLocalResults(true);
+    remoteOptions.setRemoteLocalFallback(true);
 
     RemoteSpawnRunner runner = newSpawnRunner();
     // Trigger local fallback
@@ -648,7 +648,7 @@ public class RemoteSpawnRunnerTest {
 
   @Test
   public void testLocalFallbackFailureRemoteExecutorFailure() throws Exception {
-    remoteOptions.remoteLocalFallback = true;
+    remoteOptions.setRemoteLocalFallback(true);
 
     RemoteSpawnRunner runner = newSpawnRunner();
 
@@ -980,7 +980,7 @@ public class RemoteSpawnRunnerTest {
   public void testRemoteExecutionTimeout() throws Exception {
     // If remote execution times out the SpawnResult status should be TIMEOUT.
 
-    remoteOptions.remoteLocalFallback = false;
+    remoteOptions.setRemoteLocalFallback(false);
 
     RemoteSpawnRunner runner = newSpawnRunner();
     RemoteExecutionService service = runner.getRemoteExecutionService();
@@ -1026,7 +1026,7 @@ public class RemoteSpawnRunnerTest {
     // If remote execution times out the SpawnResult should still have the start and wall times
     // reported correctly.
 
-    remoteOptions.remoteLocalFallback = false;
+    remoteOptions.setRemoteLocalFallback(false);
 
     RemoteSpawnRunner runner = newSpawnRunner();
     RemoteExecutionService service = runner.getRemoteExecutionService();
@@ -1085,7 +1085,7 @@ public class RemoteSpawnRunnerTest {
     // If remote execution times out the SpawnResult status should be TIMEOUT, regardess of local
     // fallback option.
 
-    remoteOptions.remoteLocalFallback = true;
+    remoteOptions.setRemoteLocalFallback(true);
 
     RemoteSpawnRunner runner = newSpawnRunner();
     RemoteExecutionService service = runner.getRemoteExecutionService();
@@ -1129,7 +1129,7 @@ public class RemoteSpawnRunnerTest {
 
   @Test
   public void testRemoteExecutionCommandFailureDoesNotTriggerFallback() throws Exception {
-    remoteOptions.remoteLocalFallback = true;
+    remoteOptions.setRemoteLocalFallback(true);
 
     RemoteSpawnRunner runner = newSpawnRunner();
     RemoteExecutionService service = runner.getRemoteExecutionService();
@@ -1172,7 +1172,7 @@ public class RemoteSpawnRunnerTest {
     // If we get a failure due to the remote cache not working, the exit code should be
     // ExitCode.REMOTE_ERROR.
 
-    remoteOptions.remoteLocalFallback = false;
+    remoteOptions.setRemoteLocalFallback(false);
 
     RemoteSpawnRunner runner = newSpawnRunner();
 
@@ -1201,7 +1201,7 @@ public class RemoteSpawnRunnerTest {
     // If we get a failure due to the remote executor not working, the exit code should be
     // ExitCode.REMOTE_ERROR.
 
-    remoteOptions.remoteLocalFallback = false;
+    remoteOptions.setRemoteLocalFallback(false);
 
     RemoteSpawnRunner runner = newSpawnRunner();
 
@@ -1222,7 +1222,7 @@ public class RemoteSpawnRunnerTest {
 
   @Test
   public void testExitCode_remoteMessage() throws Exception {
-    remoteOptions.remoteLocalFallback = false;
+    remoteOptions.setRemoteLocalFallback(false);
 
     RemoteSpawnRunner runner = newSpawnRunner();
 
@@ -1332,7 +1332,7 @@ public class RemoteSpawnRunnerTest {
   @Test
   public void testDownloadMinimalOnCacheHit() throws Exception {
     // arrange
-    remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
+    remoteOptions.setRemoteOutputsMode(RemoteOutputsMode.MINIMAL);
 
     ActionResult succeededAction = ActionResult.newBuilder().setExitCode(0).build();
     RemoteActionResult actionResult =
@@ -1358,7 +1358,7 @@ public class RemoteSpawnRunnerTest {
   @Test
   public void testDownloadMinimalOnCacheMiss() throws Exception {
     // arrange
-    remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
+    remoteOptions.setRemoteOutputsMode(RemoteOutputsMode.MINIMAL);
 
     ActionResult succeededAction = ActionResult.newBuilder().setExitCode(0).build();
     ExecuteResponse succeeded = ExecuteResponse.newBuilder().setResult(succeededAction).build();
@@ -1390,7 +1390,7 @@ public class RemoteSpawnRunnerTest {
   @Test
   public void testDownloadMinimalIoError() throws Exception {
     // arrange
-    remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
+    remoteOptions.setRemoteOutputsMode(RemoteOutputsMode.MINIMAL);
 
     ActionResult succeededAction = ActionResult.newBuilder().setExitCode(0).build();
     RemoteActionResult cachedActionResult =

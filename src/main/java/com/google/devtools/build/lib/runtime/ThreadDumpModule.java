@@ -81,7 +81,7 @@ public final class ThreadDumpModule extends BlazeModule {
 
     var bepOptions = env.getOptions().getOptions(BuildEventProtocolOptions.class);
     BuildEventArtifactUploader uploader = null;
-    if (bepOptions != null && bepOptions.streamingLogFileUploads) {
+    if (bepOptions != null && bepOptions.getStreamingLogFileUploads()) {
       try {
         uploader = newUploader(env, bepOptions);
       } catch (InvalidPackagePathSymlinkException e) {
@@ -110,7 +110,7 @@ public final class ThreadDumpModule extends BlazeModule {
       throws InvalidPackagePathSymlinkException {
     return env.getRuntime()
         .getBuildEventArtifactUploaderFactoryMap()
-        .select(bepOptions.buildEventUploadStrategy)
+        .select(bepOptions.getBuildEventUploadStrategy())
         .create(env);
   }
 

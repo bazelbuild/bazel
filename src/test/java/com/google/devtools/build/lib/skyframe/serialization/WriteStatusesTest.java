@@ -46,8 +46,8 @@ public final class WriteStatusesTest {
     assertThat(status.cancel(true)).isFalse();
     assertThat(status.cancel(false)).isFalse();
 
-    assertThat(status.get()).isNull();
-    assertThat(status.get(0, SECONDS)).isNull();
+    assertThat(status.get()).isTrue();
+    assertThat(status.get(0, SECONDS)).isTrue();
 
     assertListenerExecutesImmediately(status);
   }
@@ -84,7 +84,7 @@ public final class WriteStatusesTest {
     assertThat(setOnRun.isSet).isTrue();
 
     assertThat(status.isDone()).isTrue();
-    assertThat(status.get()).isNull();
+    assertThat(status.get()).isTrue();
 
     assertListenerExecutesImmediately(status);
   }
@@ -146,8 +146,8 @@ public final class WriteStatusesTest {
     assertThat(setOnRun.isSet).isTrue();
 
     assertThat(status.isDone()).isTrue();
-    assertThat(status.get()).isNull();
-    assertThat(status.get(0, SECONDS)).isNull();
+    assertThat(status.get()).isTrue();
+    assertThat(status.get(0, SECONDS)).isTrue();
 
     assertListenerExecutesImmediately(status);
   }
@@ -191,8 +191,8 @@ public final class WriteStatusesTest {
     assertThat(setOnRun.isSet).isTrue();
     assertThat(status.isDone()).isTrue();
 
-    assertThat(status.get()).isNull();
-    assertThat(status.get(0, SECONDS)).isNull();
+    assertThat(status.get()).isTrue();
+    assertThat(status.get(0, SECONDS)).isTrue();
 
     assertListenerExecutesImmediately(status);
   }
@@ -292,8 +292,8 @@ public final class WriteStatusesTest {
     assertThat(setOnRun.isSet).isTrue();
 
     assertThat(status.isDone()).isTrue();
-    assertThat(status.get()).isNull();
-    assertThat(status.get(0, SECONDS)).isNull();
+    assertThat(status.get()).isTrue();
+    assertThat(status.get(0, SECONDS)).isTrue();
 
     assertListenerExecutesImmediately(status);
   }
@@ -344,8 +344,8 @@ public final class WriteStatusesTest {
     assertThat(status.cancel(true)).isFalse();
     assertThat(status.cancel(false)).isFalse();
 
-    assertThat(status.get()).isNull();
-    assertThat(status.get(0, SECONDS)).isNull();
+    assertThat(status.get()).isTrue();
+    assertThat(status.get(0, SECONDS)).isTrue();
 
     assertListenerExecutesImmediately(status);
   }
@@ -463,7 +463,7 @@ public final class WriteStatusesTest {
     WriteStatus status = builder.build();
 
     assertThat(status.isDone()).isTrue();
-    assertThat(status.get()).isNull();
+    assertThat(status.get()).isFalse();
   }
 
   @Test
@@ -495,7 +495,7 @@ public final class WriteStatusesTest {
 
     pending2.markSuccess();
     assertThat(status.isDone()).isTrue();
-    assertThat(status.get()).isNull();
+    assertThat(status.get()).isTrue();
   }
 
   @Test
@@ -528,7 +528,7 @@ public final class WriteStatusesTest {
     WriteStatus status = builder.build();
 
     assertThat(status.isDone()).isTrue();
-    assertThat(status.get()).isNull();
+    assertThat(status.get()).isFalse();
   }
 
   @Test
@@ -560,7 +560,7 @@ public final class WriteStatusesTest {
 
     pending2.markSuccess();
     assertThat(status.isDone()).isTrue();
-    assertThat(status.get()).isNull();
+    assertThat(status.get()).isTrue();
   }
 
   @Test
@@ -617,5 +617,178 @@ public final class WriteStatusesTest {
 
     sharedPending.notifyWriteSucceeded();
     assertThat(status1.isDone()).isTrue();
+  }
+
+  @Test
+  public void aggregate_propagatesNovelty() throws Exception {
+    var n1 = new SettableWriteStatus();
+    var n2 = new SettableWriteStatus();
+    var aggregate = aggregateWriteStatuses(ImmutableList.of(n1, n2));
+
+    assertThat(aggregate.isDone()).isFalse();
+
+    n1.markSuccess(true);
+    assertThat(aggregate.isDone()).isFalse();
+
+    n2.markSuccess(false);
+    assertThat(aggregate.isDone()).isTrue();
+    assertThat(aggregate.get()).isTrue();
+  }
+
+  @Test
+  public void aggregate_allFalse_isFalse() throws Exception {
+    var n1 = new SettableWriteStatus();
+    var n2 = new SettableWriteStatus();
+    var aggregate = aggregateWriteStatuses(ImmutableList.of(n1, n2));
+
+    n1.markSuccess(false);
+    n2.markSuccess(false);
+    assertThat(aggregate.get()).isFalse();
+  }
+
+  @Test
+  public void sparseAggregate_propagatesNovelty() throws Exception {
+    var n1 = new SparseAggregateWriteStatus();
+    var n2 = new SparseAggregateWriteStatus();
+    var aggregate = sparselyAggregateWriteStatuses(ImmutableList.of(n1, n2));
+
+    assertThat(aggregate.isDone()).isFalse();
+
+    n1.notifyWriteSucceeded(true);
+    assertThat(aggregate.isDone()).isFalse();
+
+    n2.notifyWriteSucceeded(false);
+    assertThat(aggregate.isDone()).isTrue();
+    assertThat(aggregate.get()).isTrue();
+  }
+
+  @Test
+  public void sparseAggregate_allFalse_isFalse() throws Exception {
+    var n1 = new SparseAggregateWriteStatus();
+    var n2 = new SparseAggregateWriteStatus();
+    var aggregate = sparselyAggregateWriteStatuses(ImmutableList.of(n1, n2));
+
+    n1.notifyWriteSucceeded(false);
+    n2.notifyWriteSucceeded(false);
+    assertThat(aggregate.get()).isFalse();
+  }
+
+  @Test
+  public void sparseAggregateWriteStatusBuilder_addDoneNovel() throws Exception {
+    var builder = new WriteStatuses.SparseAggregateWriteStatusBuilder();
+    var novel = new SettableWriteStatus();
+    novel.markSuccess(true);
+    builder.add(novel);
+    builder.add(immediateWriteStatus()); // Ensure it's an aggregate
+
+    WriteStatus status = builder.build();
+    assertThat(status.isDone()).isTrue();
+    assertThat(status.get()).isTrue();
+  }
+
+  @Test
+  public void sparseBuilder_propagatesNoveltyFromDoneInput() throws Exception {
+    SettableWriteStatus doneNovel = new SettableWriteStatus();
+    doneNovel.markSuccess(true);
+
+    WriteStatuses.SparseAggregateWriteStatusBuilder builder =
+        new WriteStatuses.SparseAggregateWriteStatusBuilder();
+    builder.add(doneNovel);
+    builder.add(immediateWriteStatus()); // need at least one more to not short-circuit?
+    // Actually SparseAggregateWriteStatusBuilder always creates a SparseAggregateWriteStatus if not
+    // empty.
+
+    WriteStatus aggregate = builder.build();
+    assertThat(aggregate.get()).isTrue();
+  }
+
+  @Test
+  public void aggregateWriteStatus_mixedPendingAndImmediate_trueThenFalse() throws Exception {
+    var pending = new SettableWriteStatus();
+    var status = aggregateWriteStatuses(ImmutableList.of(pending, immediateWriteStatus()));
+
+    assertThat(status.isDone()).isFalse();
+
+    pending.markSuccess(false);
+
+    assertThat(status.isDone()).isTrue();
+    // immediateWriteStatus() is true. (true OR false) is true.
+    assertThat(status.get()).isTrue();
+  }
+
+  @Test
+  public void aggregateWriteStatus_mixedPendingAndImmediate_falseThenTrue() throws Exception {
+    var pending = new SettableWriteStatus();
+    var immediateFalse = new SettableWriteStatus();
+    immediateFalse.markSuccess(false);
+    var status = aggregateWriteStatuses(ImmutableList.of(pending, immediateFalse));
+
+    assertThat(status.isDone()).isFalse();
+
+    pending.markSuccess(true);
+
+    assertThat(status.isDone()).isTrue();
+    assertThat(status.get()).isTrue();
+  }
+
+  @Test
+  public void sparseAggregate_notifyWriteSucceeded_directMixedValues() throws Exception {
+    var builder = new WriteStatuses.SparseAggregateWriteStatusBuilder();
+    builder.add(new SettableWriteStatus());
+    builder.add(new SettableWriteStatus());
+    SparseAggregateWriteStatus aggregate = builder.build();
+
+    aggregate.notifyWriteSucceeded(true);
+    assertThat(aggregate.isDone()).isFalse();
+    aggregate.notifyWriteSucceeded(false);
+    assertThat(aggregate.isDone()).isTrue();
+    assertThat(aggregate.get()).isTrue();
+
+    // Reverse order
+    builder = new WriteStatuses.SparseAggregateWriteStatusBuilder();
+    builder.add(new SettableWriteStatus());
+    builder.add(new SettableWriteStatus());
+    aggregate = builder.build();
+    aggregate.notifyWriteSucceeded(false);
+    assertThat(aggregate.isDone()).isFalse();
+    aggregate.notifyWriteSucceeded(true);
+    assertThat(aggregate.isDone()).isTrue();
+    assertThat(aggregate.get()).isTrue();
+  }
+
+  @Test
+  public void sparseAggregateWriteStatusBuilder_multipleDoneFutures_mixedValues() throws Exception {
+    var trueStatus = immediateWriteStatus();
+    var falseStatus = new SettableWriteStatus();
+    falseStatus.markSuccess(false);
+
+    // True then False
+    var builder = new WriteStatuses.SparseAggregateWriteStatusBuilder();
+    builder.add(trueStatus);
+    builder.add(falseStatus);
+    var aggregate = builder.build();
+    assertThat(aggregate.isDone()).isTrue();
+    assertThat(aggregate.get()).isTrue();
+
+    // False then True
+    builder = new WriteStatuses.SparseAggregateWriteStatusBuilder();
+    builder.add(falseStatus);
+    builder.add(trueStatus);
+    aggregate = builder.build();
+    assertThat(aggregate.isDone()).isTrue();
+    assertThat(aggregate.get()).isTrue();
+  }
+
+  @Test
+  public void sparseAggregate_addToAggregator_propagatesFalseNovelty() throws Exception {
+    var child = new SparseAggregateWriteStatus();
+    var builder = new WriteStatuses.SparseAggregateWriteStatusBuilder();
+    builder.add(child);
+    var parent = builder.build();
+
+    assertThat(parent.isDone()).isFalse();
+    child.notifyWriteSucceeded(false);
+    assertThat(parent.isDone()).isTrue();
+    assertThat(parent.get()).isFalse();
   }
 }

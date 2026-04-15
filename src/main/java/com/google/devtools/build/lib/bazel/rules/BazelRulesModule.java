@@ -29,6 +29,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.TriState;
 import java.util.List;
 
@@ -44,7 +45,8 @@ public final class BazelRulesModule extends BlazeModule {
    * <p>To deprecate Bazel+Blaze options common to all commands, use {@link
    * AllCommandGraveyardOptions}.
    */
-  public static class BuildGraveyardOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class BuildGraveyardOptions extends OptionsBase {
 
     @Deprecated
     @Option(
@@ -54,7 +56,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
-    public boolean incompatibleUseToolchainResolution;
+    public abstract boolean getIncompatibleUseToolchainResolution();
 
     @Deprecated
     @Option(
@@ -64,7 +66,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
-    public boolean objcProviderFromLinked;
+    public abstract boolean getObjcProviderFromLinked();
 
     @Deprecated
     @Option(
@@ -77,7 +79,7 @@ public final class BazelRulesModule extends BlazeModule {
                 + " --build_python_zip=false instead.",
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
-    public TriState buildPythonZip;
+    public abstract TriState getBuildPythonZip();
 
     @Deprecated
     @Option(
@@ -87,7 +89,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
-    public boolean incompatibleDefaultToExplicitInitPy;
+    public abstract boolean getIncompatibleDefaultToExplicitInitPy();
 
     @Deprecated
     @Option(
@@ -98,7 +100,7 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         converter = LabelConverter.class,
         help = "Deprecated. No-op.")
-    public Label nativeRulesAllowlist;
+    public abstract Label getNativeRulesAllowlist();
 
     @Deprecated
     @Option(
@@ -108,7 +110,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
-    public boolean disallowNativeRules;
+    public abstract boolean getDisallowNativeRules();
 
     @Deprecated
     @Option(
@@ -118,7 +120,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
-    public boolean disablePyFragment;
+    public abstract boolean getDisablePyFragment();
 
     @Deprecated
     @Option(
@@ -128,7 +130,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
-    public boolean incompatibleUsePythonToolchains;
+    public abstract boolean getIncompatibleUsePythonToolchains();
 
     @Deprecated
     @Option(
@@ -138,7 +140,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
-    public boolean experimentalStarlarkCcImport;
+    public abstract boolean getExperimentalStarlarkCcImport();
 
     @Deprecated
     @Option(
@@ -148,7 +150,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
-    public boolean experimentalPlatformCcTest;
+    public abstract boolean getExperimentalPlatformCcTest();
 
     @Deprecated
     @Option(
@@ -158,7 +160,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
-    public boolean removeDeadCode;
+    public abstract boolean getRemoveDeadCode();
 
     @Deprecated
     @Option(
@@ -168,7 +170,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
-    public boolean experimentalProtoExtraActions;
+    public abstract boolean getExperimentalProtoExtraActions();
 
     @Deprecated
     @Option(
@@ -178,7 +180,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
-    public boolean enableFdoProfileAbsolutePath;
+    public abstract boolean getEnableFdoProfileAbsolutePath();
 
     @Deprecated
     @Option(
@@ -188,7 +190,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
-    public TriState useGraphlessQuery;
+    public abstract TriState getUseGraphlessQuery();
 
     @Deprecated
     @Option(
@@ -198,7 +200,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
-    public boolean useTopLevelTargetsForSymlinks;
+    public abstract boolean getUseTopLevelTargetsForSymlinks();
 
     @Deprecated
     @Option(
@@ -209,7 +211,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
-    public boolean skyframePrepareAnalysis;
+    public abstract boolean getSkyframePrepareAnalysis();
 
     @Deprecated
     @Option(
@@ -219,7 +221,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
-    public boolean disableLegacyFlagsCcToolchainApi;
+    public abstract boolean getDisableLegacyFlagsCcToolchainApi();
 
     @Deprecated
     @Option(
@@ -229,7 +231,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean enableProfileByDefault;
+    public abstract boolean getEnableProfileByDefault();
 
     @Deprecated
     @Option(
@@ -240,7 +242,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = OptionEffectTag.NO_OP,
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated, this is no longer in use and should be removed.")
-    public boolean overrideToolchainTransition;
+    public abstract boolean getOverrideToolchainTransition();
 
     @Deprecated
     @Option(
@@ -250,7 +252,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean parseHeadersSkippedIfCorrespondingSrcsFound;
+    public abstract boolean getParseHeadersSkippedIfCorrespondingSrcsFound();
 
     @Deprecated
     @Option(
@@ -260,7 +262,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op, will be removed soon.")
-    public boolean workerAsResource;
+    public abstract boolean getWorkerAsResource();
 
     @Deprecated
     @Option(
@@ -271,7 +273,7 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op, will be removed soon.",
         allowMultiple = true)
-    public List<String> highPriorityWorkers;
+    public abstract List<String> getHighPriorityWorkers();
 
     @Deprecated
     @Option(
@@ -281,7 +283,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "This option is deprecated and has no effect.")
-    public String targetPlatformFallback;
+    public abstract String getTargetPlatformFallback();
 
     @Deprecated
     @Option(
@@ -291,7 +293,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "This option is deprecated and has no effect.")
-    public boolean autoConfigureHostPlatform;
+    public abstract boolean getAutoConfigureHostPlatform();
 
     @Deprecated
     @Option(
@@ -301,7 +303,7 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         defaultValue = "false",
         help = "Deprecated no-op.")
-    public boolean requireAvailabilityInfo;
+    public abstract boolean getRequireAvailabilityInfo();
 
     @Deprecated
     @Option(
@@ -311,7 +313,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-op.")
-    public boolean collectLocalExecutionStatistics;
+    public abstract boolean getCollectLocalExecutionStatistics();
 
     @Deprecated
     @Option(
@@ -321,7 +323,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-op.")
-    public boolean collectLocalSandboxExecutionStatistics;
+    public abstract boolean getCollectLocalSandboxExecutionStatistics();
 
     @Deprecated
     @Option(
@@ -331,7 +333,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-op.")
-    public boolean enableBzlDocDump;
+    public abstract boolean getEnableBzlDocDump();
 
     // TODO(b/274595070): Remove this option.
     @Deprecated
@@ -342,7 +344,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean parallelAqueryOutput;
+    public abstract boolean getParallelAqueryOutput();
 
     @Deprecated
     @Option(
@@ -352,7 +354,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-op.")
-    public boolean showArtifacts;
+    public abstract boolean getShowArtifacts();
 
     @Deprecated
     @Option(
@@ -363,7 +365,7 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.",
         deprecationWarning = "This option is now deprecated and is a no-op")
-    public boolean announce;
+    public abstract boolean getAnnounce();
 
     @Deprecated
     @Option(
@@ -374,7 +376,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "no-op")
-    public boolean actionCacheStoreOutputMetadata;
+    public abstract boolean getActionCacheStoreOutputMetadata();
 
     @Deprecated
     @Option(
@@ -384,7 +386,7 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         effectTags = {OptionEffectTag.NO_OP},
         help = "This option is deprecated and has no effect.")
-    public boolean discardActionsAfterExecution;
+    public abstract boolean getDiscardActionsAfterExecution();
 
     @Deprecated
     @Option(
@@ -394,7 +396,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "This option is deprecated and has no effect and will be removed in the future.")
-    public boolean deferParamFiles;
+    public abstract boolean getDeferParamFiles();
 
     @Deprecated
     @Option(
@@ -406,7 +408,7 @@ public final class BazelRulesModule extends BlazeModule {
                 + "to ensure correctness of builds.",
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED})
-    public boolean checkFilesetDependenciesRecursively;
+    public abstract boolean getCheckFilesetDependenciesRecursively();
 
     @Deprecated
     @Option(
@@ -416,7 +418,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         deprecationWarning = "This flag is a no-op and skyframe-native-filesets is always true.")
-    public boolean skyframeNativeFileset;
+    public abstract boolean getSkyframeNativeFileset();
 
     @Deprecated
     @Option(
@@ -426,7 +428,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "no-op")
-    public boolean collapseDuplicateDefines;
+    public abstract boolean getCollapseDuplicateDefines();
 
     @Deprecated
     @Option(
@@ -436,7 +438,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
-    public boolean requireJavaPluginInfo;
+    public abstract boolean getRequireJavaPluginInfo();
 
     @Deprecated
     @Option(
@@ -447,7 +449,7 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op",
         oldName = "incompatible_build_transitive_python_runfiles")
-    public boolean buildTransitiveRunfilesTrees;
+    public abstract boolean getBuildTransitiveRunfilesTrees();
 
     @Deprecated
     @Option(
@@ -457,7 +459,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op")
-    public boolean useNewWorkerPool;
+    public abstract boolean getUseNewWorkerPool();
 
     @Deprecated
     @Option(
@@ -467,7 +469,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public String hostCrosstoolTop;
+    public abstract String getHostCrosstoolTop();
 
     @Deprecated
     @Option(
@@ -477,7 +479,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean useSemaphoreForJobs;
+    public abstract boolean getUseSemaphoreForJobs();
 
     // TODO(b/410585542): Remove this once there are no more internal users trying to set it.
     @Deprecated
@@ -488,7 +490,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op. Will be removed soon.")
-    public boolean skipTtvs;
+    public abstract boolean getSkipTtvs();
 
     @Deprecated
     @Option(
@@ -498,7 +500,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public String remoteAnalysisCache;
+    public abstract String getRemoteAnalysisCache();
 
     @Deprecated
     @Option(
@@ -508,11 +510,12 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op")
-    public String unreachableCacheRetryInterval;
+    public abstract String getUnreachableCacheRetryInterval();
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
-  public static final class BazelBuildGraveyardOptions extends BuildGraveyardOptions {
+  @OptionsClass
+  public abstract static class BazelBuildGraveyardOptions extends BuildGraveyardOptions {
     @Option(
         name = "python_path",
         defaultValue = "",
@@ -525,7 +528,7 @@ public final class BazelRulesModule extends BlazeModule {
         // https://github.com/bazelbuild/bazel/blob/2576242fa867d0441b9015b004b7b35b6ed9187f/src/test/py/bazel/bzlmod/repo_contents_cache_test.py#L364.
         metadataTags = {OptionMetadataTag.HIDDEN},
         help = "Deprecated. No-op.")
-    public String pythonPath;
+    public abstract String getPythonPath();
 
     @Deprecated
     @Option(
@@ -535,7 +538,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
-    public boolean experimentalPythonImportAllRepositories;
+    public abstract boolean getExperimentalPythonImportAllRepositories();
 
     @Deprecated
     @Option(
@@ -545,7 +548,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
-    public String pythonTop;
+    public abstract String getPythonTop();
 
     @Deprecated
     @Option(
@@ -555,7 +558,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-op.")
-    public boolean loadPythonRulesFromBzl;
+    public abstract boolean getLoadPythonRulesFromBzl();
 
     @Deprecated
     @Option(
@@ -565,7 +568,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-op.")
-    public boolean loadProtoRulesFromBzl;
+    public abstract boolean getLoadProtoRulesFromBzl();
 
     @Deprecated
     @Option(
@@ -575,7 +578,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-op.")
-    public boolean loadJavaRulesFromBzl;
+    public abstract boolean getLoadJavaRulesFromBzl();
 
     @Deprecated
     @Option(
@@ -584,7 +587,7 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.HIDDEN, OptionMetadataTag.DEPRECATED},
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP})
-    public String makeVariableSource;
+    public abstract String getMakeVariableSource();
 
     @Deprecated
     @Option(
@@ -594,7 +597,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "noop")
-    public boolean forceIgnoreDashStatic;
+    public abstract boolean getForceIgnoreDashStatic();
 
     @Deprecated
     @Option(
@@ -604,7 +607,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean enableActionCountProfile;
+    public abstract boolean getEnableActionCountProfile();
 
     @Deprecated
     @Option(
@@ -614,7 +617,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean removeBinaryProfile;
+    public abstract boolean getRemoveBinaryProfile();
 
     @Deprecated
     @Option(
@@ -624,7 +627,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean postProfileStartedEvent;
+    public abstract boolean getPostProfileStartedEvent();
 
     @Deprecated
     @Option(
@@ -634,7 +637,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "No-op")
-    public boolean dontUseJavaSourceInfoProvider;
+    public abstract boolean getDontUseJavaSourceInfoProvider();
 
     private static final String ANDROID_FLAG_DEPRECATION =
         "Legacy Android flags have been deprecated. See"
@@ -650,7 +653,7 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op",
         deprecationWarning = ANDROID_FLAG_DEPRECATION)
-    public String sdk;
+    public abstract String getSdk();
 
     @Deprecated
     @Option(
@@ -661,7 +664,7 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op",
         deprecationWarning = ANDROID_FLAG_DEPRECATION)
-    public String cpu;
+    public abstract String getCpu();
 
     @Deprecated
     @Option(
@@ -672,7 +675,7 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op",
         deprecationWarning = ANDROID_FLAG_DEPRECATION)
-    public String androidCrosstoolTop;
+    public abstract String getAndroidCrosstoolTop();
 
     @Deprecated
     @Option(
@@ -683,7 +686,7 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op",
         deprecationWarning = ANDROID_FLAG_DEPRECATION)
-    public String androidLibcTopLabel;
+    public abstract String getAndroidLibcTopLabel();
 
     @Deprecated
     @Option(
@@ -695,7 +698,7 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op",
         deprecationWarning = ANDROID_FLAG_DEPRECATION)
-    public List<String> fatApkCpus;
+    public abstract List<String> getFatApkCpus();
 
     @Deprecated
     @Option(
@@ -705,14 +708,15 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "No-op")
-    public boolean incompatibleEnableGoToolchainResolution;
+    public abstract boolean getIncompatibleEnableGoToolchainResolution();
   }
 
   /**
    * This is where deprecated options which need to be available for all commands go to die. If you
    * want to graveyard an all-command option specific to Blaze or Bazel, create a subclass.
    */
-  public static final class AllCommandGraveyardOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class AllCommandGraveyardOptions extends OptionsBase {
 
     @Deprecated
     @Option(
@@ -723,7 +727,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
-    public List<String> incompatibleAutoloadExternally;
+    public abstract List<String> getIncompatibleAutoloadExternally();
 
     @Deprecated
     @Option(
@@ -734,7 +738,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
-    public List<String> repositoriesWithoutAutoloads;
+    public abstract List<String> getRepositoriesWithoutAutoloads();
 
     @Deprecated
     @Option(
@@ -744,7 +748,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "Deprecated. No-op.")
-    public boolean incompatibleDisableAutoloadsInMainRepo;
+    public abstract boolean getIncompatibleDisableAutoloadsInMainRepo();
 
     @Deprecated
     @Option(
@@ -754,7 +758,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean includeLabelInPyBinariesLinkstamp;
+    public abstract boolean getIncludeLabelInPyBinariesLinkstamp();
 
     @Deprecated
     @Option(
@@ -764,7 +768,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean disablePy2;
+    public abstract boolean getDisablePy2();
 
     @Deprecated
     @Option(
@@ -774,7 +778,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public String forcePython;
+    public abstract String getForcePython();
 
     @Deprecated
     @Option(
@@ -784,7 +788,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public String hostForcePython;
+    public abstract String getHostForcePython();
 
     @Deprecated
     @Option(
@@ -794,7 +798,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean incompatiblePy3IsDefault;
+    public abstract boolean getIncompatiblePy3IsDefault();
 
     @Deprecated
     @Option(
@@ -804,7 +808,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean incompatiblePy2OutputsAreSuffixed;
+    public abstract boolean getIncompatiblePy2OutputsAreSuffixed();
 
     @Deprecated
     @Option(
@@ -814,7 +818,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public String pythonVersion;
+    public abstract String getPythonVersion();
 
     @Deprecated
     @Option(
@@ -824,7 +828,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean incompatibleRemoveOldPythonVersionApi;
+    public abstract boolean getIncompatibleRemoveOldPythonVersionApi();
 
     @Deprecated
     @Option(
@@ -834,7 +838,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean incompatibleAllowPythonVersionTransitions;
+    public abstract boolean getIncompatibleAllowPythonVersionTransitions();
 
     @Deprecated
     @Option(
@@ -844,7 +848,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean incompatibleDisallowLegacyPyProvider;
+    public abstract boolean getIncompatibleDisallowLegacyPyProvider();
 
     @Deprecated
     @Option(
@@ -854,7 +858,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean experimentalDisallowLegacyJavaToolchainFlags;
+    public abstract boolean getExperimentalDisallowLegacyJavaToolchainFlags();
 
     @Deprecated
     @Option(
@@ -864,7 +868,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public String javabase;
+    public abstract String getJavabase();
 
     @Deprecated
     @Option(
@@ -874,7 +878,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public String javaToolchain;
+    public abstract String getJavaToolchain();
 
     @Deprecated
     @Option(
@@ -884,7 +888,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public String hostJavaToolchain;
+    public abstract String getHostJavaToolchain();
 
     @Deprecated
     @Option(
@@ -894,7 +898,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public String hostJavabase;
+    public abstract String getHostJavabase();
 
     @Deprecated
     @Option(
@@ -904,7 +908,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op")
-    public String appleCrosstoolTop;
+    public abstract String getAppleCrosstoolTop();
 
     @Deprecated
     @Option(
@@ -914,7 +918,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op")
-    public boolean legacyBazelJavaTest;
+    public abstract boolean getLegacyBazelJavaTest();
 
     @Deprecated
     @Option(
@@ -924,7 +928,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op")
-    public boolean strictDepsJavaProtos;
+    public abstract boolean getStrictDepsJavaProtos();
 
     @Deprecated
     @Option(
@@ -934,7 +938,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op")
-    public boolean isDisallowStrictDepsForJpl;
+    public abstract boolean getIsDisallowStrictDepsForJpl();
 
     @Deprecated
     @Option(
@@ -944,7 +948,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op")
-    public String importDepsCheckingLevel;
+    public abstract String getImportDepsCheckingLevel();
 
     @Deprecated
     @Option(
@@ -954,7 +958,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op")
-    public boolean allowRuntimeDepsOnNeverLink;
+    public abstract boolean getAllowRuntimeDepsOnNeverLink();
 
     @Deprecated
     @Option(
@@ -964,7 +968,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op")
-    public boolean limitAndroidLintToAndroidCompatible;
+    public abstract boolean getLimitAndroidLintToAndroidCompatible();
 
     @Deprecated
     @Option(
@@ -974,7 +978,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op")
-    public boolean experimentalJavaHeaderInputPruning;
+    public abstract boolean getExperimentalJavaHeaderInputPruning();
 
     @Deprecated
     @Option(
@@ -984,7 +988,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean dontCollectDataLibraries;
+    public abstract boolean getDontCollectDataLibraries();
 
     @Deprecated
     @Option(
@@ -994,7 +998,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean javaHeaderCompilationDirectDeps;
+    public abstract boolean getJavaHeaderCompilationDirectDeps();
 
     @Deprecated
     @Option(
@@ -1004,7 +1008,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op")
-    public boolean jplPropagateCcLinkParamsStore;
+    public abstract boolean getJplPropagateCcLinkParamsStore();
 
     @Deprecated
     @Option(
@@ -1014,7 +1018,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op")
-    public boolean incompatibleRequireLinkerInputCcApi;
+    public abstract boolean getIncompatibleRequireLinkerInputCcApi();
 
     @Deprecated
     @Option(
@@ -1024,7 +1028,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op")
-    public boolean incompatibleDepsetForLibrariesToLinkGetter;
+    public abstract boolean getIncompatibleDepsetForLibrariesToLinkGetter();
 
     @Deprecated
     @Option(
@@ -1034,7 +1038,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op")
-    public boolean legacyExternalRunfiles;
+    public abstract boolean getLegacyExternalRunfiles();
 
     @Deprecated
     @Option(
@@ -1044,7 +1048,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "No-op")
-    public boolean incompatibleDisableTargetProviderFields;
+    public abstract boolean getIncompatibleDisableTargetProviderFields();
 
     @Deprecated
     @Option(
@@ -1054,7 +1058,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "No-op")
-    public boolean incompatibleDisallowStructProviderSyntax;
+    public abstract boolean getIncompatibleDisallowStructProviderSyntax();
 
     @Deprecated
     @Option(
@@ -1068,7 +1072,7 @@ public final class BazelRulesModule extends BlazeModule {
           OptionMetadataTag.DEPRECATED
         },
         help = "No-op")
-    public String autoCpuEnvironmentGroup;
+    public abstract String getAutoCpuEnvironmentGroup();
 
     @Deprecated
     @Option(
@@ -1078,7 +1082,7 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op")
-    public boolean incompatibleTopLevelAspectsRequireProviders;
+    public abstract boolean getIncompatibleTopLevelAspectsRequireProviders();
 
     @Deprecated
     @Option(
@@ -1088,7 +1092,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op")
-    public boolean separateAspectDeps;
+    public abstract boolean getSeparateAspectDeps();
 
     @Deprecated
     @Option(
@@ -1098,7 +1102,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "No-op")
-    public boolean incompatibleVisibilityPrivateAttributesAtDefinition;
+    public abstract boolean getIncompatibleVisibilityPrivateAttributesAtDefinition();
 
     @Deprecated
     @Option(
@@ -1108,7 +1112,7 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op")
-    public boolean incompatibleNewActionsApi;
+    public abstract boolean getIncompatibleNewActionsApi();
 
     @Deprecated
     @Option(
@@ -1117,7 +1121,7 @@ public final class BazelRulesModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.DEPRECATED})
-    public boolean enableAspectHints;
+    public abstract boolean getEnableAspectHints();
 
     @Deprecated
     @Option(
@@ -1130,7 +1134,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op")
-    public boolean besBestEffort;
+    public abstract boolean getBesBestEffort();
 
     @Deprecated
     @Option(
@@ -1140,7 +1144,7 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.DEPRECATED},
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
         help = "No-op")
-    public boolean useEventBasedBuildCompletionStatus;
+    public abstract boolean getUseEventBasedBuildCompletionStatus();
 
     @Deprecated
     @Option(
@@ -1150,7 +1154,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.DEPRECATED},
         help = "This flag is a noop and scheduled for removal.")
-    public boolean experimentalJavaProtoAddAllowedPublicImports;
+    public abstract boolean getExperimentalJavaProtoAddAllowedPublicImports();
 
     @Deprecated
     @Option(
@@ -1160,7 +1164,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Do not use.")
-    public String javaOptimizationMode;
+    public abstract String getJavaOptimizationMode();
 
     @Deprecated
     @Option(
@@ -1170,7 +1174,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean incompatibleDepsetForJavaOutputSourceJars;
+    public abstract boolean getIncompatibleDepsetForJavaOutputSourceJars();
 
     @Deprecated
     @Option(
@@ -1180,7 +1184,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean incompatibleUsePlusInRepoNames;
+    public abstract boolean getIncompatibleUsePlusInRepoNames();
 
     @Deprecated
     @Option(
@@ -1191,7 +1195,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean enableBzlmod;
+    public abstract boolean getEnableBzlmod();
 
     @Deprecated
     @Option(
@@ -1201,7 +1205,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean enableWorkspace;
+    public abstract boolean getEnableWorkspace();
 
     @Deprecated
     @Option(
@@ -1211,7 +1215,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean announceProfilePath;
+    public abstract boolean getAnnounceProfilePath();
 
     @Deprecated
     @Option(
@@ -1221,7 +1225,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean incompatibleExistingRulesImmutableView;
+    public abstract boolean getIncompatibleExistingRulesImmutableView();
 
     @Deprecated
     @Option(
@@ -1231,7 +1235,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean incompatibleDisableNativeRepoRules;
+    public abstract boolean getIncompatibleDisableNativeRepoRules();
 
     // Safe to delete after July 2025
     @Deprecated
@@ -1242,7 +1246,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean incompatibleNoPackageDistribs;
+    public abstract boolean getIncompatibleNoPackageDistribs();
 
     @Deprecated
     @Option(
@@ -1252,7 +1256,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean experimentalActionResourceSet;
+    public abstract boolean getExperimentalActionResourceSet();
 
     @Deprecated
     @Option(
@@ -1262,7 +1266,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean macosSetInstallName;
+    public abstract boolean getMacosSetInstallName();
 
     @Deprecated
     @Option(
@@ -1272,7 +1276,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean verboseExplanations;
+    public abstract boolean getVerboseExplanations();
 
     @Deprecated
     @Option(
@@ -1282,7 +1286,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean experimentalCcStaticLibrary;
+    public abstract boolean getExperimentalCcStaticLibrary();
 
     @Deprecated
     @Option(
@@ -1292,7 +1296,7 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public boolean legacyLocalFallback;
+    public abstract boolean getLegacyLocalFallback();
 
     @Deprecated
     @Option(
@@ -1303,7 +1307,7 @@ public final class BazelRulesModule extends BlazeModule {
         converter = LabelConverter.class,
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
-    public Label protoToolchainForJ2Objc;
+    public abstract Label getProtoToolchainForJ2Objc();
   }
 
   @Override

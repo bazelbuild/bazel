@@ -72,7 +72,8 @@ public class SkymeldModule extends BlazeModule {
 
     if (effectiveValue
         && env.getOptions().getOptions(AnalysisOptions.class) != null
-        && env.getOptions().getOptions(AnalysisOptions.class).cpuHeavySkyKeysThreadPoolSize <= 0) {
+        && env.getOptions().getOptions(AnalysisOptions.class).getCpuHeavySkyKeysThreadPoolSize()
+            <= 0) {
       logger.atInfo().log(
           "--experimental_merged_skyframe_analysis_execution is incompatible with a"
               + " non-positive --experimental_skyframe_cpu_heavy_skykeys_thread_pool_size"

@@ -281,18 +281,18 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
     outErr = new FileOutErr(stdout, stderr);
     remoteOptions = Options.getDefaults(RemoteOptions.class);
 
-    remoteOptions.remoteHeaders =
+    remoteOptions.setRemoteHeaders(
         ImmutableList.of(
             Maps.immutableEntry("CommonKey1", "CommonValue1"),
-            Maps.immutableEntry("CommonKey2", "CommonValue2"));
-    remoteOptions.remoteExecHeaders =
+            Maps.immutableEntry("CommonKey2", "CommonValue2")));
+    remoteOptions.setRemoteExecHeaders(
         ImmutableList.of(
             Maps.immutableEntry("ExecKey1", "ExecValue1"),
-            Maps.immutableEntry("ExecKey2", "ExecValue2"));
-    remoteOptions.remoteCacheHeaders =
+            Maps.immutableEntry("ExecKey2", "ExecValue2")));
+    remoteOptions.setRemoteCacheHeaders(
         ImmutableList.of(
             Maps.immutableEntry("CacheKey1", "CacheValue1"),
-            Maps.immutableEntry("CacheKey2", "CacheValue2"));
+            Maps.immutableEntry("CacheKey2", "CacheValue2")));
 
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
     RemoteRetrier retrier =
@@ -1118,7 +1118,10 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
         });
     String stdOutResourceName =
         getResourceName(
-            remoteOptions.remoteInstanceName, stdOutDigest, false, DigestFunction.Value.SHA256);
+            remoteOptions.getRemoteInstanceName(),
+            stdOutDigest,
+            false,
+            DigestFunction.Value.SHA256);
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           @Override
@@ -1180,7 +1183,10 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
         });
     String stdOutResourceName =
         getResourceName(
-            remoteOptions.remoteInstanceName, stdOutDigest, false, DigestFunction.Value.SHA256);
+            remoteOptions.getRemoteInstanceName(),
+            stdOutDigest,
+            false,
+            DigestFunction.Value.SHA256);
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           @Override
@@ -1308,7 +1314,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
         });
     String dummyTreeResourceName =
         getResourceName(
-            remoteOptions.remoteInstanceName,
+            remoteOptions.getRemoteInstanceName(),
             DUMMY_OUTPUT_DIRECTORY.getTreeDigest(),
             false,
             DigestFunction.Value.SHA256);

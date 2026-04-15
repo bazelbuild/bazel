@@ -62,7 +62,7 @@ public class JsonOutputFormatter extends OutputFormatter {
     JsonObject json = new JsonObject();
     json.addProperty("key", extensionId.toString());
     json.addProperty("unexpanded", unexpanded);
-    if (options.extensionInfo == ExtensionShow.USAGES) {
+    if (options.getExtensionInfo() == ExtensionShow.USAGES) {
       return json;
     }
     ImmutableSortedSet<String> repoImports =
@@ -73,7 +73,7 @@ public class JsonOutputFormatter extends OutputFormatter {
     }
     json.add("used_repos", usedRepos);
 
-    if (unexpanded || options.extensionInfo == ExtensionShow.REPOS) {
+    if (unexpanded || options.getExtensionInfo() == ExtensionShow.REPOS) {
       return json;
     }
     ImmutableSortedSet<String> unusedRepos =
@@ -107,7 +107,7 @@ public class JsonOutputFormatter extends OutputFormatter {
     }
     json.addProperty("apparentName", apparentName);
 
-    if (indirect == IsIndirect.FALSE && options.verbose && parent != null) {
+    if (indirect == IsIndirect.FALSE && options.getVerbose() && parent != null) {
       Explanation explanation = getExtraResolutionExplanation(key, parent);
       if (explanation != null) {
         if (!module.isUsed()) {
@@ -150,7 +150,7 @@ public class JsonOutputFormatter extends OutputFormatter {
     json.add("indirectDependencies", indirectDeps);
     json.add("cycles", cycles);
 
-    if (options.extensionInfo == ExtensionShow.HIDDEN) {
+    if (options.getExtensionInfo() == ExtensionShow.HIDDEN) {
       return json;
     }
     ImmutableSortedSet<ModuleExtensionId> extensionsUsed =

@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.common.options.Options;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -58,7 +59,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link UiEventHandler}. */
 @RunWith(Enclosed.class)
-public sealed class UiEventHandlerTest {
+public class UiEventHandlerTest {
 
   private static final BuildCompleteEvent BUILD_COMPLETE_EVENT =
       new BuildCompleteEvent(new BuildResult(/* startTimeMillis= */ 0));
@@ -76,14 +77,14 @@ public sealed class UiEventHandlerTest {
 
   @TestParameter private boolean skymeldMode;
 
-  final UiOptions uiOptions = new UiOptions();
+  final UiOptions uiOptions = Options.createOptions(UiOptions.class);
   final FlushCollectingOutputStream output = new FlushCollectingOutputStream();
   final ManualClock clock = new ManualClock();
 
   UiEventHandler uiEventHandler;
 
   void createUiEventHandler(EventKind outputKind) {
-    uiOptions.eventKindFilters = ImmutableList.of();
+    uiOptions.setEventKindFilters(ImmutableList.of());
     output.flush();
     output.flushed.clear();
 
@@ -233,8 +234,8 @@ public sealed class UiEventHandlerTest {
     // any assertions on stderr (where the progress bar is written) when testing stdout.
     @Test
     public void noChangeOnUnflushedWrite() {
-      uiOptions.showProgress = true;
-      uiOptions.useCursesEnum = UseCurses.YES;
+      uiOptions.setShowProgress(true);
+      uiOptions.setUseCursesEnum(UseCurses.YES);
       createUiEventHandler();
       if (outputKind == EventKind.STDERR) {
         assertThat(output.flushed).hasSize(2);
@@ -279,8 +280,8 @@ public sealed class UiEventHandlerTest {
 
     @Test
     public void buildCompleteMessageDoesntOverrideError() {
-      uiOptions.showProgress = true;
-      uiOptions.useCursesEnum = UseCurses.YES;
+      uiOptions.setShowProgress(true);
+      uiOptions.setUseCursesEnum(UseCurses.YES);
       createUiEventHandler();
 
       uiEventHandler.buildComplete(BUILD_COMPLETE_EVENT);
@@ -294,10 +295,10 @@ public sealed class UiEventHandlerTest {
 
     @Test
     public void temporarilyDisableProgress() throws Exception {
-      uiOptions.showProgress = true;
-      uiOptions.useCursesEnum = UseCurses.YES;
-      uiOptions.showProgressRateLimit = 1;
-      uiOptions.uiActionsShown = 2;
+      uiOptions.setShowProgress(true);
+      uiOptions.setUseCursesEnum(UseCurses.YES);
+      uiOptions.setShowProgressRateLimit(1);
+      uiOptions.setUiActionsShown(2);
       createUiEventHandler();
       NullAction action1 = actionWithProgressMessage("Executing action 1", "action1.out");
       NullAction action2 = actionWithProgressMessage("Executing action 2", "action2.out");
@@ -333,14 +334,14 @@ public sealed class UiEventHandlerTest {
 
     @Test
     public void progressOff_disableProgressReturnsFalse() throws Exception {
-      uiOptions.showProgress = false;
+      uiOptions.setShowProgress(false);
       createUiEventHandler();
       assertThat(uiEventHandler.disableProgress()).isFalse();
     }
 
     @Test
     public void progressAlreadyDisabled_disableProgressReturnsFalse() throws Exception {
-      uiOptions.showProgress = true;
+      uiOptions.setShowProgress(true);
       createUiEventHandler();
       assertThat(uiEventHandler.disableProgress()).isTrue();
       assertThat(uiEventHandler.disableProgress()).isFalse();

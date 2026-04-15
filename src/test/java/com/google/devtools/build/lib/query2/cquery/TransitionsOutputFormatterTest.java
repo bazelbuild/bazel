@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.common.options.Options;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -55,7 +56,10 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
 
   @Before
   public final void setUpCqueryOptions() {
-    this.options = new CqueryOptions();
+    this.options = Options.getDefaults(CqueryOptions.class);
+    options.setIncludeToolDeps(false);
+    options.setIncludeImplicitDeps(false);
+    options.setIncludeNoDepDeps(false);
     helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
     this.reporter = new Reporter(new EventBus(), events::add);
   }
@@ -281,7 +285,7 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     PostAnalysisQueryEnvironment<CqueryNode> env =
         ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(targetPatternSet);
-    options.transitions = verbosity;
+    options.setTransitions(verbosity);
     // TODO(blaze-configurability): Test late-bound attributes.
     TransitionsOutputFormatterCallback callback =
         new TransitionsOutputFormatterCallback(

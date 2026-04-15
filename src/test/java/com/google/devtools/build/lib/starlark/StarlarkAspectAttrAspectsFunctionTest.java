@@ -1220,7 +1220,10 @@ my_rule(name = 'dep_1')
                 k ->
                     k.getLabel()
                         + " with foo = "
-                        + k.getConfigurationKey().getOptions().get(DummyTestOptions.class).foo);
+                        + k.getConfigurationKey()
+                            .getOptions()
+                            .get(DummyTestOptions.class)
+                            .getFoo());
     assertThat(aspectKeys)
         .containsExactly(
             "//pkg1:main_target with foo = default",

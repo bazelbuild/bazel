@@ -111,10 +111,10 @@ public class RoundTripping {
     SerializationResult<ByteString> result =
         codecs.serializeMemoizedAndBlocking(
             fingerprintValueService, subject, /* profileCollector= */ null);
-    ListenableFuture<Void> futureToBlockWritesOn = result.getFutureToBlockWritesOn();
+    ListenableFuture<?> futureToBlockWritesOn = result.getFutureToBlockWritesOn();
     if (futureToBlockWritesOn != null) {
       try {
-        Void unusedNull = getUninterruptibly(futureToBlockWritesOn);
+        var unused = getUninterruptibly(futureToBlockWritesOn);
       } catch (ExecutionException e) {
         throw new SerializationException("waiting for futureToBlockWritesOn", e.getCause());
       }

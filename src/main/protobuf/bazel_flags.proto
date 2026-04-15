@@ -14,6 +14,13 @@
 //
 // This file contains the protocol buffer representation of a list of supported
 // flags for Bazel commands.
+//
+// The output of 'bazel help flags-as-proto' is a base64-encoded binary
+// serialization of a FlagCollection message. To parse it, first decode from
+// base64, then parse as a FlagCollection proto. For example:
+//   bazel help flags-as-proto | base64 -d > flags.binarypb
+//   buf convert buf.build/bazel/bazel --type=bazel_flags.FlagCollection --from
+//   flags.binarypb
 syntax = "proto2";
 
 package bazel_flags;

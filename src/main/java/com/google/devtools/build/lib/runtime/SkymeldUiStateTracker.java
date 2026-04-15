@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.PositionAwareAnsiTerminalWriter;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -181,7 +182,7 @@ final class SkymeldUiStateTracker extends UiStateTracker {
     if (labelsCount == 1) {
       additionalMessage = "target " + Iterables.getOnlyElement(event.getLabels());
     } else {
-      additionalMessage = labelsCount + " targets";
+      additionalMessage = StringUtil.formatCount(labelsCount) + " targets";
     }
     mainRepositoryMapping = event.getMainRepositoryMapping();
   }

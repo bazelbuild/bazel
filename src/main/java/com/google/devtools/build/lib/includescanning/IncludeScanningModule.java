@@ -261,7 +261,7 @@ public class IncludeScanningModule extends BlazeModule {
       spawnScannerSupplier.set(
           new SpawnIncludeScanner(
               env.getExecRoot(),
-              options.experimentalRemoteExtractionThreshold,
+              options.getExperimentalRemoteExtractionThreshold(),
               env.getSyscallCache()));
       this.spawnScannerSupplier = spawnScannerSupplier;
       env.getEventBus().register(this);
@@ -313,7 +313,7 @@ public class IncludeScanningModule extends BlazeModule {
 
     @Override
     public void executionPhaseEnding() {
-      if (options.experimentalReuseIncludeScanningThreads) {
+      if (options.getExperimentalReuseIncludeScanningThreads()) {
         if (includePool != null && !includePool.isShutdown()) {
           ExecutorUtil.uninterruptibleShutdownNow(includePool);
         }
@@ -325,14 +325,14 @@ public class IncludeScanningModule extends BlazeModule {
     @Override
     public void executorCreated() {
       var useAsyncExecution = useAsyncExecution(env);
-      int threads = options.includeScanningParallelism;
+      int threads = options.getIncludeScanningParallelism();
       if (useAsyncExecution) {
         includePool =
             Executors.newThreadPerTaskExecutor(
                 Thread.ofVirtual().name("Include scanner ", 0).factory());
       } else if (threads > 0) {
         logger.atInfo().log("Include scanning configured to use a pool with %d threads", threads);
-        if (options.experimentalReuseIncludeScanningThreads) {
+        if (options.getExperimentalReuseIncludeScanningThreads()) {
           includePool =
               new ThreadPoolExecutor(
                   threads,
@@ -360,7 +360,7 @@ public class IncludeScanningModule extends BlazeModule {
               env.getExecRoot());
 
       spawnScannerSupplier.get().setOutputService(env.getOutputService());
-      spawnScannerSupplier.get().setInMemoryOutput(options.inMemoryIncludesFiles);
+      spawnScannerSupplier.get().setInMemoryOutput(options.getInMemoryIncludesFiles());
     }
   }
 

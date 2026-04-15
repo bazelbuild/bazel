@@ -580,8 +580,8 @@ public final class TerminalTestResultNotifierTest {
     ExecutionOptions executionOptions = Options.createOptions(ExecutionOptions.class);
     executionOptions.setTestSummary(testSummaryFormat);
     when(optionsParsingResult.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
-    TestSummaryOptions testSummaryOptions = new TestSummaryOptions();
-    testSummaryOptions.verboseSummary = true;
+    TestSummaryOptions testSummaryOptions = Options.createOptions(TestSummaryOptions.class);
+    testSummaryOptions.setVerboseSummary(true);
     when(optionsParsingResult.getOptions(TestSummaryOptions.class)).thenReturn(testSummaryOptions);
 
     ImmutableSortedSet.Builder<TestSummary> builder =
@@ -614,8 +614,8 @@ public final class TerminalTestResultNotifierTest {
     ExecutionOptions executionOptions = Options.createOptions(ExecutionOptions.class);
     executionOptions.setTestSummary(testSummaryFormat);
     when(optionsParsingResult.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
-    TestSummaryOptions testSummaryOptions = new TestSummaryOptions();
-    testSummaryOptions.verboseSummary = true;
+    TestSummaryOptions testSummaryOptions = Options.createOptions(TestSummaryOptions.class);
+    testSummaryOptions.setVerboseSummary(true);
     when(optionsParsingResult.getOptions(TestSummaryOptions.class)).thenReturn(testSummaryOptions);
 
     TerminalTestResultNotifier terminalTestResultNotifier =

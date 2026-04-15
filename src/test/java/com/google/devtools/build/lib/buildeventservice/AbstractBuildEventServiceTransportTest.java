@@ -72,7 +72,6 @@ import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.Any;
 import io.grpc.Status;
-import io.grpc.StatusException;
 import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.ReferenceCounted;
 import java.io.IOException;
@@ -323,9 +322,10 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     ExecutionException exception =
         assertThrows(ExecutionException.class, () -> transport.close().get());
     assertTransientError(exception, BuildProgress.Code.BES_UPLOAD_RETRY_LIMIT_EXCEEDED_FAILURE);
-    assertThat(exception).hasCauseThat().hasCauseThat().isInstanceOf(StatusException.class);
-    assertThat(((StatusException) exception.getCause().getCause()).getStatus().getCode())
-        .isEqualTo(Status.UNAVAILABLE.getCode());
+    assertThat(exception.getMessage())
+        .containsMatch(
+            "The Build Event Protocol upload failed: no publishBuildEvents retry attempts left:"
+                + " .*UNAVAILABLE");
 
     assertThat(
             fakeBesServer.getStreamEvents(
@@ -371,9 +371,10 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     ExecutionException exception =
         assertThrows(ExecutionException.class, () -> transport.close().get());
     assertTransientError(exception, BuildProgress.Code.BES_UPLOAD_RETRY_LIMIT_EXCEEDED_FAILURE);
-    assertThat(exception).hasCauseThat().hasCauseThat().isInstanceOf(StatusException.class);
-    assertThat(((StatusException) exception.getCause().getCause()).getStatus().getCode())
-        .isEqualTo(Status.UNAVAILABLE.getCode());
+    assertThat(exception.getMessage())
+        .contains(
+            "The Build Event Protocol upload failed: all 4 publishLifecycleEvent retry attempts"
+                + " failed: UNAVAILABLE");
 
     // should not proceed as lifecycle event failed
     assertThat(
@@ -422,9 +423,10 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     ExecutionException exception =
         assertThrows(ExecutionException.class, () -> transport.close().get());
     assertTransientError(exception, BuildProgress.Code.BES_UPLOAD_RETRY_LIMIT_EXCEEDED_FAILURE);
-    assertThat(exception).hasCauseThat().hasCauseThat().isInstanceOf(StatusException.class);
-    assertThat(((StatusException) exception.getCause().getCause()).getStatus().getCode())
-        .isEqualTo(Status.CANCELLED.getCode());
+    assertThat(exception.getMessage())
+        .contains(
+            "The Build Event Protocol upload failed: no publishBuildEvents retry attempts left:"
+                + " CANCELLED");
 
     assertThat(
             fakeBesServer.getSuccessfulStreamEvents(
@@ -568,9 +570,10 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     ExecutionException exception =
         assertThrows(ExecutionException.class, () -> transport.close().get());
     assertExecutionException(exception, exitCode, buildProgressCode);
-    assertThat(exception).hasCauseThat().hasCauseThat().isInstanceOf(StatusException.class);
-    assertThat(((StatusException) exception.getCause().getCause()).getStatus().getCode())
-        .isEqualTo(status.getCode());
+    assertThat(exception.getMessage())
+        .contains(
+            "The Build Event Protocol upload failed: not retrying publishBuildEvents: "
+                + status.getCode().name());
 
     assertThat(
             fakeBesServer.getStreamEvents(
@@ -600,9 +603,10 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     ExecutionException exception =
         assertThrows(ExecutionException.class, () -> transport.close().get());
     assertPersistentError(exception, BuildProgress.Code.BES_STREAM_NOT_RETRYING_FAILURE);
-    assertThat(exception).hasCauseThat().hasCauseThat().isInstanceOf(StatusException.class);
-    assertThat(((StatusException) exception.getCause().getCause()).getStatus().getCode())
-        .isEqualTo(Status.FAILED_PRECONDITION.getCode());
+    assertThat(exception.getMessage())
+        .contains(
+            "The Build Event Protocol upload failed: not retrying publishLifecycleEvent:"
+                + " FAILED_PRECONDITION");
 
     assertThat(
             fakeBesServer.getLifecycleEvents(
@@ -677,9 +681,10 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
         assertThrows(ExecutionException.class, () -> transport.close().get());
     assertPersistentError(
         exception, BuildProgress.Code.BES_STREAM_COMPLETED_WITH_UNACK_EVENTS_ERROR);
-    assertThat(exception).hasCauseThat().hasCauseThat().isInstanceOf(StatusException.class);
-    assertThat(((StatusException) exception.getCause().getCause()).getStatus().getCode())
-        .isEqualTo(Status.FAILED_PRECONDITION.getCode());
+    assertThat(exception.getMessage())
+        .contains(
+            "The Build Event Protocol upload failed: server closed stream with status OK but not"
+                + " all ACKs have been received");
   }
 
   /** Tests that uploading files referenced by a build event works. */
@@ -853,7 +858,8 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     ExecutionException exception =
         assertThrows(ExecutionException.class, () -> transport.close().get());
     assertTransientError(exception, BuildProgress.Code.BES_UPLOAD_LOCAL_FILE_ERROR);
-    assertThat(exception).hasCauseThat().hasCauseThat().isEqualTo(uploadFailed);
+    assertThat(exception.getMessage())
+        .contains("The Build Event Protocol local file upload failed: File upload failed.");
 
     assertThat(fakeBesServer.eventStreamError().getCode())
         .isAnyOf(Status.CANCELLED.getCode(), Status.INTERNAL.getCode());
@@ -880,9 +886,11 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     ExecutionException exception =
         assertThrows(ExecutionException.class, () -> transport.close().get());
     assertTransientError(exception, BuildProgress.Code.BES_UPLOAD_TIMEOUT_ERROR);
-    assertThat(exception).hasCauseThat().hasCauseThat().isInstanceOf(StatusException.class);
-    assertThat(((StatusException) exception.getCause().getCause()).getStatus().getCode())
-        .isEqualTo(Status.FAILED_PRECONDITION.getCode());
+    assertThat(exception.getMessage())
+        .contains(
+            "The Build Event Protocol upload failed: not retrying publishBuildEvents:"
+                + " FAILED_PRECONDITION: expected ACK with seqNum=1 but received ACK with"
+                + " seqNum=2");
   }
 
   /**

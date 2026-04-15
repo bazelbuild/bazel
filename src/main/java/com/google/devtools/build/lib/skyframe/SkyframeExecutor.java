@@ -1569,7 +1569,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // Get the current target platform and use it as the exec platform.
     // This value isn't actually important as long as it exists and is stable.
     // TODO(345289271): Make this a value that's stable even when the target platform changes.
-    Label hostPlatform = buildOptions.get(PlatformOptions.class).hostPlatform;
+    Label hostPlatform = buildOptions.get(PlatformOptions.class).getHostPlatform();
     return adjustForExec(buildOptions, execTransition, hostPlatform, eventHandler);
   }
 
@@ -1723,13 +1723,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     setCommandId(commandId);
     this.clientEnv.set(clientEnv);
 
-    setShowLoadingProgress(packageOptions.showLoadingProgress);
-    setDefaultVisibility(packageOptions.defaultVisibility);
-    if (!packageOptions.enforceConfigSettingVisibility) {
+    setShowLoadingProgress(packageOptions.getShowLoadingProgress());
+    setDefaultVisibility(packageOptions.getDefaultVisibility());
+    if (!packageOptions.getEnforceConfigSettingVisibility()) {
       setConfigSettingVisibilityPolicty(ConfigSettingVisibilityPolicy.LEGACY_OFF);
     } else {
       setConfigSettingVisibilityPolicty(
-          packageOptions.configSettingPrivateDefaultVisibility
+          packageOptions.getConfigSettingPrivateDefaultVisibility()
               ? ConfigSettingVisibilityPolicy.DEFAULT_STANDARD
               : ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC);
     }
@@ -1739,12 +1739,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     setSiblingDirectoryLayout(
         starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
     setPackageLocator(pkgLocator);
-    setLazyMacroExpansionPackages(packageOptions.lazyMacroExpansionPackages);
+    setLazyMacroExpansionPackages(packageOptions.getLazyMacroExpansionPackages());
     setStampSettingMarker();
 
     this.pkgFactory.setGlobbingThreads(executors.globbingParallelism());
     this.pkgFactory.setMaxDirectoriesToEagerlyVisitInGlobbing(
-        packageOptions.maxDirectoriesToEagerlyVisitInGlobbing);
+        packageOptions.getMaxDirectoriesToEagerlyVisitInGlobbing());
     emittedEventState.clear();
 
     // Clear internal caches used by SkyFunctions used for package loading. If the SkyFunctions
@@ -1970,7 +1970,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               parallelTests, topLevelArtifactContext, /* exclusiveTesting= */ false);
       EvaluationContext evaluationContext =
           newEvaluationContextBuilder()
-              .setKeepGoing(options.getOptions(KeepGoingOption.class).keepGoing)
+              .setKeepGoing(options.getOptions(KeepGoingOption.class).getKeepGoing())
               .setParallelism(options.getOptions(BuildRequestOptions.class).getJobs())
               .setEventHandler(reporter)
               .setExecutionPhase()
@@ -1998,7 +1998,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ActionOutputDirectoryHelper outputDirectoryHelper) {
     boolean keepStateAfterBuild =
         tracksStateForIncrementality()
-            && options.getOptions(KeepStateAfterBuildOption.class).keepStateAfterBuild;
+            && options.getOptions(KeepStateAfterBuildOption.class).getKeepStateAfterBuild();
     skyframeActionExecutor.prepareForExecution(
         reporter,
         executor,
@@ -2038,7 +2038,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               /* exclusiveTesting= */ true);
       return evaluate(
           testKeys,
-          /* keepGoing= */ options.getOptions(KeepGoingOption.class).keepGoing,
+          /* keepGoing= */ options.getOptions(KeepGoingOption.class).getKeepGoing(),
           /* numThreads= */ options.getOptions(BuildRequestOptions.class).getJobs(),
           reporter);
     } finally {
@@ -2310,7 +2310,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         reporter, executor, options, actionCacheChecker, outputDirectoryHelper);
     try {
       return evaluateSkyKeys(
-          reporter, skyKeys, options.getOptions(KeepGoingOption.class).keepGoing);
+          reporter, skyKeys, options.getOptions(KeepGoingOption.class).getKeepGoing());
     } finally {
       cleanUpAfterSingleEvaluationWithActionExecution(reporter);
     }
@@ -2985,7 +2985,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       throws InterruptedException, AbruptExitException {
     getActionEnvFromOptions(options.getOptions(CoreOptions.class));
     var platformOptions = options.getOptions(PlatformOptions.class);
-    platformMappingKey = platformOptions != null ? platformOptions.platformMappingKey : null;
+    platformMappingKey = platformOptions != null ? platformOptions.getPlatformMappingKey() : null;
     RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
     setRemoteExecutionEnabled(remoteOptions != null && remoteOptions.isRemoteExecutionEnabled());
     cpuBoundSemaphore.set(getUpdatedSkyFunctionsSemaphore(options));
@@ -3016,7 +3016,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       return cpuBoundSemaphore.get(); // Leaves as-is.
     }
 
-    int newSize = analysisOptions.oomSensitiveSkyFunctionsSemaphoreSize;
+    int newSize = analysisOptions.getOomSensitiveSkyFunctionsSemaphoreSize();
     if (newSize == 0) {
       return null;
     }
@@ -3046,7 +3046,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           tsgm);
     }
     try (SilentCloseable c = Profiler.instance().profile("setDeletedPackages")) {
-      setDeletedPackages(packageOptions.getDeletedPackages());
+      setDeletedPackages(packageOptions.getDeletedPackagesOrEmptySet());
     }
 
     incrementalBuildMonitor = new SkyframeIncrementalBuildMonitor();
@@ -3173,12 +3173,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         TargetPatternPhaseValue.key(
             ImmutableList.copyOf(targetPatterns),
             relativeWorkingDirectory,
-            options.compileOneDependency,
-            options.buildTestsOnly,
+            options.getCompileOneDependency(),
+            options.getBuildTestsOnly(),
             determineTests,
-            ImmutableList.copyOf(options.buildTagFilterList),
-            options.buildManualTests,
-            options.expandTestSuites,
+            ImmutableList.copyOf(options.getBuildTagFilterList()),
+            options.getBuildManualTests(),
+            options.getExpandTestSuites(),
             TestFilter.forOptions(options));
     return getTargetPatternPhaseValue(eventHandler, targetPatterns, threadCount, keepGoing, key);
   }
@@ -3655,7 +3655,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       dropConfiguredTargetsNow(eventHandler);
       lastAnalysisDiscarded = false;
     }
-    packageOptions.checkOutputFiles = false;
+    packageOptions.setCheckOutputFiles(false);
     ClassToInstanceMap<OptionsBase> options =
         ImmutableClassToInstanceMap.of(PackageOptions.class, packageOptions);
     handleDiffs(
@@ -3773,9 +3773,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           eventHandler,
           tsgm,
           pathEntriesWithoutDiffInformation,
-          packageOptions.checkOutputFiles,
-          repoOptions != null && repoOptions.checkExternalRepositoryFiles,
-          packageOptions.checkExternalOtherFiles,
+          packageOptions.getCheckOutputFiles(),
+          repoOptions != null && repoOptions.getCheckExternalRepositoryFiles(),
+          packageOptions.getCheckExternalOtherFiles(),
           fsvcThreads);
     } finally {
       if (scheduledExecutorService != null && diffCheckNotificationFuture != null) {
@@ -4599,7 +4599,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           getHeapSize(
               options
                   .getOptions(MemoryPressureOptions.class)
-                  .jvmHeapHistogramInternalObjectPattern
+                  .getJvmHeapHistogramInternalObjectPattern()
                   .regexPattern());
     }
     long beforeActionCacheEntries = actionCache == null ? 0 : actionCache.size();
@@ -4686,7 +4686,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           getHeapSize(
               options
                   .getOptions(MemoryPressureOptions.class)
-                  .jvmHeapHistogramInternalObjectPattern
+                  .getJvmHeapHistogramInternalObjectPattern()
                   .regexPattern()),
           StringUtilities::prettyPrintBytes);
     }

@@ -201,7 +201,7 @@ public class ExecutionTransitionFactory
       // Set the target to the saved execution platform if there is one.
       PlatformOptions platformOptions = execOptions.get(PlatformOptions.class);
       if (platformOptions != null) {
-        platformOptions.platforms = ImmutableList.of(executionPlatform);
+        platformOptions.setPlatforms(ImmutableList.of(executionPlatform));
       }
 
       // Remove any FeatureFlags that were set.

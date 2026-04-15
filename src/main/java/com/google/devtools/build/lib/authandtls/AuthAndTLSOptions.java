@@ -25,16 +25,16 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.net.IDN;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Common options for authentication and TLS.
- */
-public class AuthAndTLSOptions extends OptionsBase {
+/** Common options for authentication and TLS. */
+@OptionsClass
+public abstract class AuthAndTLSOptions extends OptionsBase {
   @Option(
       name = "google_default_credentials",
       oldName = "auth_enabled",
@@ -49,30 +49,34 @@ public class AuthAndTLSOptions extends OptionsBase {
 
           [gc-auth-methods]: https://cloud.google.com/docs/authentication
           """)
-  public boolean useGoogleDefaultCredentials;
+  public abstract boolean getUseGoogleDefaultCredentials();
+
+  public abstract void setUseGoogleDefaultCredentials(boolean value);
 
   @Option(
-    name = "google_auth_scopes",
-    oldName = "auth_scope",
-    defaultValue = "https://www.googleapis.com/auth/cloud-platform",
-    converter = CommaSeparatedOptionListConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "A comma-separated list of Google Cloud authentication scopes."
-  )
-  public List<String> googleAuthScopes;
+      name = "google_auth_scopes",
+      oldName = "auth_scope",
+      defaultValue = "https://www.googleapis.com/auth/cloud-platform",
+      converter = CommaSeparatedOptionListConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A comma-separated list of Google Cloud authentication scopes.")
+  public abstract List<String> getGoogleAuthScopes();
+
+  public abstract void setGoogleAuthScopes(List<String> value);
 
   @Option(
-    name = "google_credentials",
-    oldName = "auth_credentials",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Specifies the file to get authentication credentials from. See "
-            + "https://cloud.google.com/docs/authentication for details."
-  )
-  public String googleCredentials;
+      name = "google_credentials",
+      oldName = "auth_credentials",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specifies the file to get authentication credentials from. See "
+              + "https://cloud.google.com/docs/authentication for details.")
+  public abstract String getGoogleCredentials();
+
+  public abstract void setGoogleCredentials(String value);
 
   @Option(
       name = "tls_certificate",
@@ -80,7 +84,7 @@ public class AuthAndTLSOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Specify a path to a TLS certificate that is trusted to sign server certificates.")
-  public String tlsCertificate;
+  public abstract String getTlsCertificate();
 
   @Option(
       name = "tls_client_certificate",
@@ -90,7 +94,7 @@ public class AuthAndTLSOptions extends OptionsBase {
       help =
           "Specify the TLS client certificate to use; you also need to provide a client key to "
               + "enable client authentication.")
-  public String tlsClientCertificate;
+  public abstract String getTlsClientCertificate();
 
   @Option(
       name = "tls_client_key",
@@ -100,19 +104,18 @@ public class AuthAndTLSOptions extends OptionsBase {
       help =
           "Specify the TLS client key to use; you also need to provide a client certificate to "
               + "enable client authentication.")
-  public String tlsClientKey;
+  public abstract String getTlsClientKey();
 
   @Option(
-    name = "tls_authority_override",
-    defaultValue = "null",
-    metadataTags = {OptionMetadataTag.HIDDEN},
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "TESTING ONLY! Can be used with a self-signed certificate to consider the specified "
-            + "value a valid TLS authority."
-  )
-  public String tlsAuthorityOverride;
+      name = "tls_authority_override",
+      defaultValue = "null",
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "TESTING ONLY! Can be used with a self-signed certificate to consider the specified "
+              + "value a valid TLS authority.")
+  public abstract String getTlsAuthorityOverride();
 
   @Option(
       name = "grpc_keepalive_time",
@@ -126,7 +129,7 @@ public class AuthAndTLSOptions extends OptionsBase {
           sends pings after this much time of no read operations on the connection, but
           only if there is at least one pending gRPC call. The value 0 disables the keep-alives.
           """)
-  public Duration grpcKeepaliveTime;
+  public abstract Duration getGrpcKeepaliveTime();
 
   @Option(
       name = "grpc_keepalive_timeout",
@@ -142,7 +145,7 @@ public class AuthAndTLSOptions extends OptionsBase {
           granularity; it is an error to set a value less than one second. If keep-alive
           pings are disabled, then this setting is ignored.
           """)
-  public Duration grpcKeepaliveTimeout;
+  public abstract Duration getGrpcKeepaliveTimeout();
 
   @Option(
       name = "credential_helper",
@@ -176,7 +179,7 @@ public class AuthAndTLSOptions extends OptionsBase {
           [ch-spec]: https://github.com/EngFlow/credential-helper-spec
           [ch-example]: https://blog.engflow.com/2023/10/09/configuring-bazels-credential-helper/
           """)
-  public List<CredentialHelperOption> credentialHelpers;
+  public abstract List<CredentialHelperOption> getCredentialHelpers();
 
   @Option(
       name = "credential_helper_timeout",
@@ -191,7 +194,7 @@ public class AuthAndTLSOptions extends OptionsBase {
 
           Credential helpers failing to respond within this timeout will fail the invocation.
           """)
-  public Duration credentialHelperTimeout;
+  public abstract Duration getCredentialHelperTimeout();
 
   @Option(
       name = "credential_helper_cache_duration",
@@ -203,7 +206,9 @@ public class AuthAndTLSOptions extends OptionsBase {
       help =
           "How long to cache credentials for if the credential helper doesn't return an expiration"
               + " time. Changing the value of this flag clears the cache.")
-  public Duration credentialHelperCacheTimeout;
+  public abstract Duration getCredentialHelperCacheTimeout();
+
+  public abstract void setCredentialHelperCacheTimeout(Duration value);
 
   /**
    * One of the values of the `--credential_helper` flag.

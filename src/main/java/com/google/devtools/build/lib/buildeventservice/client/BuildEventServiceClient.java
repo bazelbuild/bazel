@@ -18,8 +18,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.auto.value.AutoBuilder;
-import io.grpc.Status;
-import io.grpc.StatusException;
 import java.time.Instant;
 import java.util.Set;
 import java.util.concurrent.Future;
@@ -135,6 +133,44 @@ public interface BuildEventServiceClient {
     void apply(long sequenceNumber);
   }
 
+  /** The status of a stream. */
+  public interface StreamStatus {
+    /** Returns whether the status is successful. */
+    boolean isOk();
+
+    /** Returns whether the status is retriable. */
+    boolean isRetriable();
+
+    /** Returns whether the status indicates a failed precondition. */
+    boolean isFailedPrecondition();
+
+    /** Returns an error message for this status. */
+    String getErrorMessage();
+  }
+
+  /** An exception with an underlying {@link StreamStatus}. */
+  public class StreamException extends Exception {
+    private final StreamStatus status;
+
+    public StreamException(StreamStatus status, @Nullable Throwable cause) {
+      super(status.getErrorMessage(), cause);
+      this.status = status;
+    }
+
+    /** Returns the underlying {@link StreamStatus}. */
+    public StreamStatus getStatus() {
+      return status;
+    }
+  }
+
+  /** The reason why a stream is being aborted. */
+  enum AbortReason {
+    /** The operation was cancelled. */
+    CANCELLED,
+    /** A precondition was failed. */
+    FAILED_PRECONDITION,
+  }
+
   /** A handle to a bidirectional stream. */
   interface StreamContext {
 
@@ -142,7 +178,7 @@ public interface BuildEventServiceClient {
      * The completed status of the stream. The future will never fail, but in case of error will
      * contain a corresponding status.
      */
-    Future<Status> getStatus();
+    Future<StreamStatus> getStatus();
 
     /**
      * Sends a {@link StreamEvent} over the currently open stream. In case of error, this method
@@ -165,12 +201,12 @@ public interface BuildEventServiceClient {
      * block on the future returned by {@link #getStatus()} in order to make sure that all
      * ackCallback calls have been received. This method is NOOP if the stream was already finished.
      */
-    void abortStream(Status status);
+    void abortStream(AbortReason reason, @Nullable String description);
   }
 
   /** Makes a blocking RPC call that publishes a {@link LifecycleEvent}. */
   void publish(CommandContext commandContext, LifecycleEvent lifecycleEvent)
-      throws StatusException, InterruptedException;
+      throws StreamException, InterruptedException;
 
   /**
    * Starts a new stream with the given {@link CommandContext} and {@link AckCallback}. Callers must
@@ -185,11 +221,4 @@ public interface BuildEventServiceClient {
    * should be the last method called on this object.
    */
   void shutdown();
-
-  /**
-   * If possible, returns a user readable error message for a given {@link Throwable}.
-   *
-   * <p>As a last resort, it's valid to return {@link Throwable#getMessage()}.
-   */
-  String userReadableError(Throwable t);
 }

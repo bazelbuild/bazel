@@ -20,11 +20,13 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.TriState;
 import java.util.Set;
 
 /** Command-line options for the Blaze query language, revision 2. */
-public class QueryOptions extends CommonQueryOptions {
+@OptionsClass
+public abstract class QueryOptions extends CommonQueryOptions {
 
   /** An enum converter for {@code OrderOutput} . Should be used internally only. */
   public static class OrderOutputConverter extends EnumConverter<OrderOutput> {
@@ -42,7 +44,7 @@ public class QueryOptions extends CommonQueryOptions {
           "The format in which the query results should be printed. Allowed values for query are:"
               + " build, graph, streamed_jsonproto, label, label_kind, location, maxrank, minrank,"
               + " package, proto, streamed_proto, xml.")
-  public String outputFormat;
+  public abstract String getOutputFormat();
 
   @Option(
       name = "output:display_full_kind",
@@ -52,7 +54,7 @@ public class QueryOptions extends CommonQueryOptions {
       help =
           "When displaying rule kind, whether to display the short rule name, or the full name for"
               + " Starlark rules.")
-  public boolean displayFullKind;
+  public abstract boolean getDisplayFullKind();
 
   @Option(
       name = "null",
@@ -61,7 +63,7 @@ public class QueryOptions extends CommonQueryOptions {
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help = "Whether each format is terminated with \\0 instead of newline.")
-  public Void isNull;
+  public abstract Void getIsNull();
 
   @Option(
       name = "order_results",
@@ -75,7 +77,7 @@ public class QueryOptions extends CommonQueryOptions {
           "Output the results in dependency-ordered (default) or unordered fashion. The "
               + "unordered output is faster but only supported when --output is not minrank, "
               + "maxrank, or graph.")
-  public Void orderResults;
+  public abstract Void getOrderResults();
 
   @Option(
       name = "noorder_results",
@@ -89,7 +91,7 @@ public class QueryOptions extends CommonQueryOptions {
           "Output the results in dependency-ordered (default) or unordered fashion. The "
               + "unordered output is faster but only supported when --output is not minrank, "
               + "maxrank, or graph.")
-  public Void noOrderResults;
+  public abstract Void getNoOrderResults();
 
   /** Whether and how output should be ordered. */
   public enum OrderOutput {
@@ -123,7 +125,9 @@ public class QueryOptions extends CommonQueryOptions {
               + " unvisited nodes are traversed in alphabetical order of the successor nodes."
               + " Finally, nodes are printed in the reverse of the order in which they were"
               + " visited.")
-  public OrderOutput orderOutput;
+  public abstract OrderOutput getOrderOutput();
+
+  public abstract void setOrderOutput(OrderOutput value);
 
   @Deprecated
   @Option(
@@ -133,7 +137,7 @@ public class QueryOptions extends CommonQueryOptions {
       effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.DEPRECATED},
       help = "No-op.")
-  public boolean lexicographicalOutput;
+  public abstract boolean getLexicographicalOutput();
 
   @Option(
       name = "graph:conditional_edges_limit",
@@ -143,7 +147,7 @@ public class QueryOptions extends CommonQueryOptions {
       help =
           "The maximum number of condition labels to show. -1 means no truncation and 0 means no "
               + "annotation. This option is only applicable to --output=graph.")
-  public int graphConditionalEdgesLimit;
+  public abstract int getGraphConditionalEdgesLimit();
 
   @Option(
       name = "xml:line_numbers",
@@ -153,7 +157,7 @@ public class QueryOptions extends CommonQueryOptions {
       help =
           "If true, XML output contains line numbers. Disabling this option may make diffs easier "
               + "to read.  This option is only applicable to --output=xml.")
-  public boolean xmlLineNumbers;
+  public abstract boolean getXmlLineNumbers();
 
   @Option(
       name = "xml:default_values",
@@ -163,7 +167,7 @@ public class QueryOptions extends CommonQueryOptions {
       help =
           "If true, rule attributes whose value is not explicitly specified in the BUILD file are "
               + "printed; otherwise they are omitted.")
-  public boolean xmlShowDefaultValues;
+  public abstract boolean getXmlShowDefaultValues();
 
   @Option(
       name = "strict_test_suite",
@@ -173,7 +177,7 @@ public class QueryOptions extends CommonQueryOptions {
       help =
           "If true, the tests() expression gives an error if it encounters a test_suite containing "
               + "non-test targets.")
-  public boolean strictTestSuite;
+  public abstract boolean getStrictTestSuite();
 
   @Option(
       name = "experimental_graphless_query",
@@ -184,13 +188,15 @@ public class QueryOptions extends CommonQueryOptions {
           "If true, uses a Query implementation that does not make a copy of the graph. The new"
               + " implementation only supports --order_output=no, as well as only a subset of"
               + " output formatters.")
-  public TriState useGraphlessQuery;
+  public abstract TriState getUseGraphlessQuery();
+
+  public abstract void setUseGraphlessQuery(TriState value);
 
   /** Return the current options as a set of QueryEnvironment settings. */
   @Override
   public Set<Setting> toSettings() {
     Set<Setting> settings = super.toSettings();
-    if (strictTestSuite) {
+    if (getStrictTestSuite()) {
       settings.add(Setting.TESTS_EXPRESSION_STRICT);
     }
     return settings;

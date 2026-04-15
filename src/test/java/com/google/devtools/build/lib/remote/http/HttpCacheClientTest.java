@@ -385,7 +385,10 @@ public class HttpCacheClientTest {
 
       HttpCacheClient blobStore =
           createHttpBlobStore(
-              server, /* timeoutSeconds= */ 1, /* creds= */ null, new AuthAndTLSOptions());
+              server,
+              /* timeoutSeconds= */ 1,
+              /* creds= */ null,
+              Options.getDefaults(AuthAndTLSOptions.class));
 
       ByteString data = ByteString.copyFrom("foo bar", StandardCharsets.UTF_8);
       Digest digest = DIGEST_UTIL.compute(data.toByteArray());
@@ -1012,15 +1015,15 @@ public class HttpCacheClientTest {
     ServerChannel server = null;
     try {
       RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-      remoteOptions.remoteHeaders =
+      remoteOptions.setRemoteHeaders(
           ImmutableList.of(
-              Map.entry("CommonKey1", "CommonValue1"), Map.entry("CommonKey2", "CommonValue2"));
-      remoteOptions.remoteCacheHeaders =
+              Map.entry("CommonKey1", "CommonValue1"), Map.entry("CommonKey2", "CommonValue2")));
+      remoteOptions.setRemoteCacheHeaders(
           ImmutableList.of(
-              Map.entry("CacheKey1", "CacheValue1"), Map.entry("CacheKey2", "CacheValue2"));
-      remoteOptions.remoteExecHeaders =
+              Map.entry("CacheKey1", "CacheValue1"), Map.entry("CacheKey2", "CacheValue2")));
+      remoteOptions.setRemoteExecHeaders(
           ImmutableList.of(
-              Map.entry("ExecKey1", "ExecValue1"), Map.entry("ExecKey2", "ExecValue2"));
+              Map.entry("ExecKey1", "ExecValue1"), Map.entry("ExecKey2", "ExecValue2")));
 
       server =
           testServer.start(

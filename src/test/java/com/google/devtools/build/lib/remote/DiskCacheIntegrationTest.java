@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModul
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.remote.options.RemoteStartupOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils.WorkerInstance;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayDeque;
@@ -88,6 +90,14 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
   private static PathFragment getDiskCacheDir() {
     PathFragment testTmpDir = PathFragment.create(tmpDirFile().getAbsolutePath());
     return testTmpDir.getRelative("disk_cache");
+  }
+
+  @Override
+  protected ImmutableList<Class<? extends OptionsBase>> getStartupOptionClasses() {
+    return ImmutableList.<Class<? extends OptionsBase>>builder()
+        .addAll(super.getStartupOptionClasses())
+        .add(RemoteStartupOptions.class)
+        .build();
   }
 
   @Override

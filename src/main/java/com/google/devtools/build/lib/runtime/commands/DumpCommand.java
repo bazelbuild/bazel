@@ -66,6 +66,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -120,7 +121,8 @@ public class DumpCommand implements BlazeCommand {
     CONFIGURED_TARGET,
   }
 
-  private record MemoryMode(
+  /** What exactly to dump about the memory use of Bazel. */
+  public record MemoryMode(
       MemoryCollectionMode collectionMode,
       DisplayMode displayMode,
       MemorySubjectType type,
@@ -227,7 +229,8 @@ public class DumpCommand implements BlazeCommand {
    * NB! Any changes to this class must be kept in sync with anyOutput variable value in the {@link
    * DumpCommand#exec} method below.
    */
-  public static class DumpOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class DumpOptions extends OptionsBase {
 
     @Option(
         name = "packages",
@@ -235,7 +238,7 @@ public class DumpCommand implements BlazeCommand {
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
         help = "Dump package cache content.")
-    public boolean dumpPackages;
+    public abstract boolean getDumpPackages();
 
     @Option(
         name = "action_cache",
@@ -243,7 +246,7 @@ public class DumpCommand implements BlazeCommand {
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
         help = "Dump action cache content.")
-    public boolean dumpActionCache;
+    public abstract boolean getDumpActionCache();
 
     @Option(
         name = "rule_classes",
@@ -251,7 +254,7 @@ public class DumpCommand implements BlazeCommand {
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
         help = "Dump rule classes.")
-    public boolean dumpRuleClasses;
+    public abstract boolean getDumpRuleClasses();
 
     @Option(
         name = "rules",
@@ -259,7 +262,7 @@ public class DumpCommand implements BlazeCommand {
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
         help = "Dump rules, including counts and memory usage (if memory is tracked).")
-    public boolean dumpRules;
+    public abstract boolean getDumpRules();
 
     @Option(
         name = "skylark_memory",
@@ -269,7 +272,7 @@ public class DumpCommand implements BlazeCommand {
         help =
             "Dumps a pprof-compatible memory profile to the specified path. To learn more please"
                 + " see https://github.com/google/pprof.")
-    public String starlarkMemory;
+    public abstract String getStarlarkMemory();
 
     @Option(
         name = "skyframe",
@@ -278,7 +281,7 @@ public class DumpCommand implements BlazeCommand {
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
         help = "Dump the Skyframe graph.")
-    public SkyframeDumpOption dumpSkyframe;
+    public abstract SkyframeDumpOption getDumpSkyframe();
 
     @Option(
         name = "skykey_filter",
@@ -289,7 +292,7 @@ public class DumpCommand implements BlazeCommand {
         help =
             "Regex filter of SkyKey names to output. Only used with --skyframe=deps, rdeps,"
                 + " function_graph.")
-    public RegexFilter skyKeyFilter;
+    public abstract RegexFilter getSkyKeyFilter();
 
     @Option(
         name = "memory",
@@ -298,7 +301,7 @@ public class DumpCommand implements BlazeCommand {
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
         help = "Dump the memory use of the given Skyframe node.")
-    public MemoryMode memory;
+    public abstract MemoryMode getMemory();
   }
 
   /** Different ways to dump information about Skyframe. */
@@ -331,13 +334,13 @@ public class DumpCommand implements BlazeCommand {
     DumpOptions dumpOptions = options.getOptions(DumpOptions.class);
 
     boolean anyOutput =
-        dumpOptions.dumpPackages
-            || dumpOptions.dumpActionCache
-            || dumpOptions.dumpRuleClasses
-            || dumpOptions.dumpRules
-            || dumpOptions.starlarkMemory != null
-            || dumpOptions.dumpSkyframe != SkyframeDumpOption.OFF
-            || dumpOptions.memory != null;
+        dumpOptions.getDumpPackages()
+            || dumpOptions.getDumpActionCache()
+            || dumpOptions.getDumpRuleClasses()
+            || dumpOptions.getDumpRules()
+            || dumpOptions.getStarlarkMemory() != null
+            || dumpOptions.getDumpSkyframe() != SkyframeDumpOption.OFF
+            || dumpOptions.getMemory() != null;
     if (!anyOutput) {
       Collection<Class<? extends OptionsBase>> optionList = new ArrayList<>();
       optionList.add(DumpOptions.class);
@@ -361,12 +364,12 @@ public class DumpCommand implements BlazeCommand {
       env.getReporter().handle(Event.warn(WARNING_MESSAGE));
       Optional<BlazeCommandResult> failure = Optional.empty();
 
-      if (dumpOptions.dumpPackages) {
+      if (dumpOptions.getDumpPackages()) {
         env.getPackageManager().dump(out);
         out.println();
       }
 
-      if (dumpOptions.dumpActionCache) {
+      if (dumpOptions.getDumpActionCache()) {
         if (!dumpActionCache(env, out)) {
           failure =
               Optional.of(
@@ -375,31 +378,31 @@ public class DumpCommand implements BlazeCommand {
         out.println();
       }
 
-      if (dumpOptions.dumpRuleClasses) {
+      if (dumpOptions.getDumpRuleClasses()) {
         dumpRuleClasses(runtime, out);
         out.println();
       }
 
-      if (dumpOptions.dumpRules) {
+      if (dumpOptions.getDumpRules()) {
         dumpRuleStats(env.getReporter(), env.getBlazeWorkspace(), env.getSkyframeExecutor(), out);
         out.println();
       }
 
-      if (dumpOptions.starlarkMemory != null) {
+      if (dumpOptions.getStarlarkMemory() != null) {
         try {
           InstrumentationOutput starlarkHeapOutput =
               runtime
                   .getInstrumentationOutputFactory()
                   .createInstrumentationOutput(
                       /* name= */ "starlark_heap",
-                      PathFragment.create(dumpOptions.starlarkMemory),
+                      PathFragment.create(dumpOptions.getStarlarkMemory()),
                       DestinationRelativeTo.WORKSPACE_OR_HOME,
                       env,
                       env.getReporter(),
                       /* append= */ null,
                       /* internal= */ null);
           dumpStarlarkHeap(
-              env.getBlazeWorkspace(), starlarkHeapOutput, dumpOptions.starlarkMemory, out);
+              env.getBlazeWorkspace(), starlarkHeapOutput, dumpOptions.getStarlarkMemory(), out);
         } catch (IOException e) {
           String message = "Could not dump Starlark memory";
           env.getReporter().error(null, message, e);
@@ -407,18 +410,18 @@ public class DumpCommand implements BlazeCommand {
         }
       }
 
-      if (dumpOptions.memory != null) {
+      if (dumpOptions.getMemory() != null) {
         failure = dumpSkyframeMemory(env, dumpOptions, out);
       }
 
       MemoizingEvaluator evaluator = env.getSkyframeExecutor().getEvaluator();
-      switch (dumpOptions.dumpSkyframe) {
+      switch (dumpOptions.getDumpSkyframe()) {
         case SUMMARY -> evaluator.dumpSummary(out);
         case COUNT -> evaluator.dumpCount(out);
-        case VALUE -> evaluator.dumpValues(out, dumpOptions.skyKeyFilter);
-        case DEPS -> evaluator.dumpDeps(out, dumpOptions.skyKeyFilter);
-        case RDEPS -> evaluator.dumpRdeps(out, dumpOptions.skyKeyFilter);
-        case FUNCTION_GRAPH -> evaluator.dumpFunctionGraph(out, dumpOptions.skyKeyFilter);
+        case VALUE -> evaluator.dumpValues(out, dumpOptions.getSkyKeyFilter());
+        case DEPS -> evaluator.dumpDeps(out, dumpOptions.getSkyKeyFilter());
+        case RDEPS -> evaluator.dumpRdeps(out, dumpOptions.getSkyKeyFilter());
+        case FUNCTION_GRAPH -> evaluator.dumpFunctionGraph(out, dumpOptions.getSkyKeyFilter());
         case ACTIVE_DIRECTORIES ->
             env.getSkyframeExecutor().getSkyfocusState().dumpActiveDirectories(out);
         case ACTIVE_DIRECTORIES_FRONTIER_DEPS ->
@@ -635,16 +638,16 @@ public class DumpCommand implements BlazeCommand {
     InMemoryGraph graph = env.getSkyframeExecutor().getEvaluator().getInMemoryGraph();
     SkyframeMemoryDumper dumper =
         new SkyframeMemoryDumper(
-            dumpOptions.memory.displayMode,
-            dumpOptions.memory.needle,
+            dumpOptions.getMemory().displayMode,
+            dumpOptions.getMemory().needle,
             env.getRuntime().getRuleClassProvider(),
             graph,
-            dumpOptions.memory.reportTransient,
-            dumpOptions.memory.reportConfiguration,
-            dumpOptions.memory.reportPrecomputed,
-            dumpOptions.memory.reportWorkspaceStatus);
+            dumpOptions.getMemory().reportTransient,
+            dumpOptions.getMemory().reportConfiguration,
+            dumpOptions.getMemory().reportPrecomputed,
+            dumpOptions.getMemory().reportWorkspaceStatus);
 
-    if (dumpOptions.memory.collectionMode == MemoryCollectionMode.FULL) {
+    if (dumpOptions.getMemory().collectionMode == MemoryCollectionMode.FULL) {
       try {
         // FULL mode doesn't have SkyKey as an argument, nor does it need a NodeEntry.
         dumper.dumpFull(out);
@@ -655,7 +658,7 @@ public class DumpCommand implements BlazeCommand {
       }
     }
 
-    SkyKey skyKey = getMemoryDumpSkyKey(env, dumpOptions.memory);
+    SkyKey skyKey = getMemoryDumpSkyKey(env, dumpOptions.getMemory());
     if (skyKey == null) {
       return Optional.of(
           createFailureResult("Cannot dump Skyframe memory", Code.SKYFRAME_MEMORY_DUMP_FAILED));
@@ -670,14 +673,14 @@ public class DumpCommand implements BlazeCommand {
     }
 
     Stats stats =
-        switch (dumpOptions.memory.collectionMode) {
+        switch (dumpOptions.getMemory().collectionMode) {
           case DEEP -> dumper.dumpReachable(nodeEntry);
           case SHALLOW -> dumper.dumpShallow(nodeEntry);
           case TRANSITIVE -> dumper.dumpTransitive(skyKey);
           case FULL -> throw new IllegalStateException();
         };
 
-    switch (dumpOptions.memory.displayMode) {
+    switch (dumpOptions.getMemory().displayMode) {
       case SUMMARY ->
           out.printf("%d objects, %d bytes retained", stats.getObjectCount(), stats.getMemoryUse());
       case COUNT -> SkyframeMemoryDumper.printByClass("", stats.getObjectCountByClass(), out);

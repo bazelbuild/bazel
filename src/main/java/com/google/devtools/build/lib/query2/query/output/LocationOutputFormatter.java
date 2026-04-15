@@ -51,7 +51,7 @@ class LocationOutputFormatter extends AbstractUnorderedFormatter {
   public void setOptions(
       CommonQueryOptions options, AspectResolver aspectResolver, HashFunction hashFunction) {
     super.setOptions(options, aspectResolver, hashFunction);
-    this.relativeLocations = options.relativeLocations;
+    this.relativeLocations = options.getRelativeLocations();
   }
 
   @Override

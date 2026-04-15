@@ -146,10 +146,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
       assertThat(
               collectPackagesUnderDirectoryValue
                   .getSubdirectoryTransitivelyContainsPackagesOrErrors())
-          .containsExactly(
-              rootedPath("tools"), Boolean.TRUE,
-              rootedPath("a1"), Boolean.TRUE,
-              rootedPath("a2"), Boolean.TRUE);
+          .containsExactly(rootedPath("tools"), rootedPath("a1"), rootedPath("a2"));
     }
 
     {
@@ -159,7 +156,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
       assertThat(
               collectPackagesUnderDirectoryValue
                   .getSubdirectoryTransitivelyContainsPackagesOrErrors())
-          .containsExactly(rootedPath("a1/b1"), Boolean.TRUE, rootedPath("a1/b2"), Boolean.FALSE);
+          .containsExactly(rootedPath("a1/b1"));
     }
 
     {
@@ -169,8 +166,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
       assertThat(
               collectPackagesUnderDirectoryValue
                   .getSubdirectoryTransitivelyContainsPackagesOrErrors())
-          .containsExactly(
-              rootedPath("a2/b1/c1"), Boolean.TRUE, rootedPath("a2/b1/c2"), Boolean.FALSE);
+          .containsExactly(rootedPath("a2/b1/c1"));
     }
   }
 
@@ -191,10 +187,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
     assertThat(
             collectPackagesUnderDirectoryValue
                 .getSubdirectoryTransitivelyContainsPackagesOrErrors())
-        .containsExactly(
-            rootedPath("tools"), Boolean.TRUE,
-            rootedPath("a1"), Boolean.TRUE,
-            rootedPath("a2"), Boolean.TRUE);
+        .containsExactly(rootedPath("tools"), rootedPath("a1"), rootedPath("a2"));
     MoreAsserts.assertContainsEvent(eventCollector, "Loading package: a1/b1");
     MoreAsserts.assertContainsEvent(eventCollector, "a1/b1/BUILD:1:1: name 'xxx' is not defined");
     MoreAsserts.assertContainsEvent(eventCollector, "Loading package: a2/b2");
@@ -222,11 +215,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
     assertThat(
             collectPackagesUnderDirectoryValue
                 .getSubdirectoryTransitivelyContainsPackagesOrErrors())
-        .containsExactly(
-            rootedPath("tools"), Boolean.TRUE,
-            rootedPath("a1"), Boolean.TRUE,
-            rootedPath("a2"), Boolean.TRUE,
-            rootedPath("a3"), Boolean.FALSE);
+        .containsExactly(rootedPath("tools"), rootedPath("a1"), rootedPath("a2"));
     MoreAsserts.assertContainsEvent(eventCollector, "Loading package: a1/b1/c1");
     MoreAsserts.assertContainsEvent(eventCollector, "Loading package: a2/b1/c1");
     MoreAsserts.assertDoesNotContainEvent(eventCollector, "Loading package: a3/b1/c1");
@@ -271,9 +260,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
     assertThat(
             collectPackagesUnderDirectoryValue
                 .getSubdirectoryTransitivelyContainsPackagesOrErrors())
-        .containsExactly(
-            rootedPath("tools"), Boolean.TRUE,
-            rootedPath("a2"), Boolean.TRUE);
+        .containsExactly(rootedPath("tools"), rootedPath("a2"));
     MoreAsserts.assertDoesNotContainEvents(
         eventCollector,
         "Loading package: a1/b1/c1",
@@ -292,7 +279,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
         PathPackageLocator.createWithoutExistenceCheck(
             directories.getOutputBase(), ImmutableList.of(root), getBuildFileNamesByPriority());
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    packageOptions.packagePath = ImmutableList.of(getWorkspacePathString());
+    packageOptions.setPackagePath(ImmutableList.of(getWorkspacePathString()));
     scratch.file("tools/BUILD");
     scratch.file("tools/empty_prelude.bzl");
     ruleClassProvider =

@@ -32,6 +32,7 @@ import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.remote.options.RemoteStartupOptions;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils.WorkerInstance;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -41,6 +42,7 @@ import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.BuildSummaryStatsModule;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.OptionsBase;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -60,6 +62,14 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ChunkedCacheIntegrationTest extends BuildIntegrationTestCase {
   @ClassRule @Rule public static final WorkerInstance worker = IntegrationTestUtils.createWorker();
+
+  @Override
+  protected ImmutableList<Class<? extends OptionsBase>> getStartupOptionClasses() {
+    return ImmutableList.<Class<? extends OptionsBase>>builder()
+        .addAll(super.getStartupOptionClasses())
+        .add(RemoteStartupOptions.class)
+        .build();
+  }
 
   @Override
   protected void setupOptions() throws Exception {

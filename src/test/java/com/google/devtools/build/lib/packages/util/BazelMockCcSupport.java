@@ -203,10 +203,17 @@ public final class BazelMockCcSupport extends MockCcSupport {
         load("//cc/private/toolchain_config:cc_toolchain_config_info.bzl", _CcToolchainConfigInfo = "CcToolchainConfigInfo")
         CcToolchainConfigInfo = _CcToolchainConfigInfo
         """);
-    config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/BUILD");
-    config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/impl/BUILD");
+    config.overwrite("third_party/bazel_rules/bazel_features_mock/BUILD");
     config.overwrite("third_party/bazel_rules/rules_cc/cc/common/BUILD");
     config.overwrite("third_party/bazel_rules/rules_cc/cc/private/BUILD");
+    config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/actions/BUILD");
+    config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/args/BUILD");
+    config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/artifacts/BUILD");
+    config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/BUILD");
+    config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/features/BUILD");
+    config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/features/legacy/BUILD");
+    config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/impl/BUILD");
+    config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/variables/BUILD");
   }
 
   @Override

@@ -572,13 +572,6 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = Boolean.class)},
             defaultValue = "unbound"),
         @Param(
-            name = "link_artifact_name_suffix",
-            positional = false,
-            named = true,
-            documented = false,
-            allowedTypes = {@ParamType(type = String.class)},
-            defaultValue = "unbound"),
-        @Param(
             name = "main_output",
             doc =
                 "Name of the main output artifact that will be produced by the linker. "
@@ -644,7 +637,6 @@ public interface CcModuleApi<
       Object wholeArchive,
       Object additionalLinkstampDefines,
       Object alwaysLink,
-      Object linkArtifactNameSuffix,
       Object mainOutput,
       Object useShareableArtifactFactory,
       Object buildConfig,

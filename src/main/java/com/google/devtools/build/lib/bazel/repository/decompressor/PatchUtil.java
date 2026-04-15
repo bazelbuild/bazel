@@ -221,7 +221,7 @@ public class PatchUtil {
       Patch<String> tmpPatch = new Patch<>();
       tmpPatch.addDelta(delta);
       try {
-        newContent = tmpPatch.applyFuzzy(newContent, 0);
+        newContent = tmpPatch.applyFuzzy(newContent, 2);
       } catch (PatchFailedException | IndexOutOfBoundsException e) {
         throw new PatchFailedException(
             String.format(

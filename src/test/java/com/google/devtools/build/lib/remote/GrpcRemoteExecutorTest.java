@@ -124,7 +124,7 @@ public class GrpcRemoteExecutorTest {
             .start();
 
     remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteMaxRetryAttempts = MAX_RETRY_ATTEMPTS;
+    remoteOptions.setRemoteMaxRetryAttempts(MAX_RETRY_ATTEMPTS);
 
     ReferenceCountedChannel channel =
         new ReferenceCountedChannel(

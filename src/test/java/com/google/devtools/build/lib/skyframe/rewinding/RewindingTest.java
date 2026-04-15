@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModul
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.includescanning.IncludeScanningModule;
 import com.google.devtools.build.lib.remote.RemoteModule;
+import com.google.devtools.build.lib.remote.options.RemoteStartupOptions;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils.WorkerInstance;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.testutil.ActionEventRecorder;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.common.options.OptionsBase;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -96,6 +98,14 @@ public final class RewindingTest extends BuildIntegrationTestCase {
     return ImmutableList.<BlazeModule>builder()
         .addAll(super.getSpawnModules())
         .add(new CredentialModule())
+        .build();
+  }
+
+  @Override
+  protected ImmutableList<Class<? extends OptionsBase>> getStartupOptionClasses() {
+    return ImmutableList.<Class<? extends OptionsBase>>builder()
+        .addAll(super.getStartupOptionClasses())
+        .add(RemoteStartupOptions.class)
         .build();
   }
 

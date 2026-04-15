@@ -30,6 +30,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 
@@ -49,7 +50,9 @@ public final class DummyTestFragment extends Fragment {
   public DummyTestFragment(BuildOptions buildOptions) {}
 
   /** Flags that exhibit a variety of flag behaviors. */
-  public static class DummyTestOptions extends FragmentOptions {
+  @OptionsClass
+  public abstract static class DummyTestOptions extends FragmentOptions {
+
     @Option(
         name = "nullable_option",
         converter = EmptyToNullLabelConverter.class,
@@ -57,7 +60,7 @@ public final class DummyTestFragment extends Fragment {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "An option that is sometimes set to null.")
-    public Label nullable;
+    public abstract Label getNullable();
 
     @Option(
         name = "foo",
@@ -65,7 +68,9 @@ public final class DummyTestFragment extends Fragment {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "A regular string-typed option")
-    public String foo;
+    public abstract String getFoo();
+
+    public abstract void setFoo(String value);
 
     @Option(
         name = "internal foo",
@@ -74,7 +79,7 @@ public final class DummyTestFragment extends Fragment {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INTERNAL},
         help = "A string-typed option that cannot be set on the commandline")
-    public String internalFoo;
+    public abstract String getInternalFoo();
 
     @Option(
         name = "bar",
@@ -82,7 +87,7 @@ public final class DummyTestFragment extends Fragment {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "A regular string-typed option")
-    public String bar;
+    public abstract String getBar();
 
     @Option(
         name = "bazes",
@@ -91,7 +96,7 @@ public final class DummyTestFragment extends Fragment {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "A regular string-typed option")
-    public List<String> bazes;
+    public abstract List<String> getBazes();
 
     @Option(
         name = "bool",
@@ -99,7 +104,7 @@ public final class DummyTestFragment extends Fragment {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "A regular bool-typed option")
-    public boolean bool;
+    public abstract boolean getBool();
 
     @Option(
         name = "unreadable_by_starlark",
@@ -108,7 +113,7 @@ public final class DummyTestFragment extends Fragment {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "This cannot be used as an input to a Starlark transition")
-    public UnreadableStringBox unreadableByStarlark;
+    public abstract UnreadableStringBox getUnreadableByStarlark();
 
     @Option(
         name = "allow_multiple_with_env_vars_converter",
@@ -118,7 +123,7 @@ public final class DummyTestFragment extends Fragment {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "allowMultiple flag with EnvVarsConverter")
-    public List<Converters.EnvVar> allowMultipleWithEnvVarsConverter;
+    public abstract List<Converters.EnvVar> getAllowMultipleWithEnvVarsConverter();
 
     @Option(
         name = "allow_multiple_with_list_converter",
@@ -128,7 +133,7 @@ public final class DummyTestFragment extends Fragment {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         help = "allowMultiple flag where the converter returns a list")
-    public List<String> allowMultipleWithListConverter;
+    public abstract List<String> getAllowMultipleWithListConverter();
 
     @AutoCodec
     public record UnreadableStringBox(String value) {

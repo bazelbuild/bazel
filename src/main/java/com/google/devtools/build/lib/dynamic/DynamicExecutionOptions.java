@@ -23,6 +23,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.time.Duration;
 import java.util.List;
@@ -31,7 +32,8 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Options related to dynamic spawn execution. */
-public class DynamicExecutionOptions extends OptionsBase {
+@OptionsClass
+public abstract class DynamicExecutionOptions extends OptionsBase {
 
   @Option(
       name = "experimental_spawn_scheduler",
@@ -56,7 +58,9 @@ public class DynamicExecutionOptions extends OptionsBase {
               + " to enable dynamic execution globally, pass `--internal_spawn_scheduler "
               + "--spawn_strategy=dynamic`.")
   @Deprecated
-  public Void experimentalSpawnScheduler;
+  public abstract Void getExperimentalSpawnScheduler();
+
+  public abstract void setExperimentalSpawnScheduler(Void value);
 
   @Option(
       name = "internal_spawn_scheduler",
@@ -66,7 +70,9 @@ public class DynamicExecutionOptions extends OptionsBase {
       help =
           "Placeholder option so that we can tell in Blaze whether the spawn scheduler was "
               + "enabled.")
-  public boolean internalSpawnScheduler;
+  public abstract boolean getInternalSpawnScheduler();
+
+  public abstract void setInternalSpawnScheduler(boolean value);
 
   @Option(
       name = "dynamic_local_strategy",
@@ -83,7 +89,9 @@ public class DynamicExecutionOptions extends OptionsBase {
               + "fallback for all mnemonics. The default fallback list is `worker,sandboxed`, or"
               + "`worker,sandboxed,standalone` if `experimental_local_lockfree_output` is set. "
               + "Takes [mnemonic=]local_strategy[,local_strategy,...]")
-  public List<Map.Entry<String, List<String>>> dynamicLocalStrategy;
+  public abstract List<Map.Entry<String, List<String>>> getDynamicLocalStrategy();
+
+  public abstract void setDynamicLocalStrategy(List<Map.Entry<String, List<String>>> value);
 
   @Option(
       name = "dynamic_remote_strategy",
@@ -98,7 +106,9 @@ public class DynamicExecutionOptions extends OptionsBase {
               + "fallback for all mnemonics. The default fallback list is `remote`, so this flag "
               + "usually does not need to be set explicitly. "
               + "Takes [mnemonic=]remote_strategy[,remote_strategy,...]")
-  public List<Map.Entry<String, List<String>>> dynamicRemoteStrategy;
+  public abstract List<Map.Entry<String, List<String>>> getDynamicRemoteStrategy();
+
+  public abstract void setDynamicRemoteStrategy(List<Map.Entry<String, List<String>>> value);
 
   @Option(
       name = "dynamic_local_execution_delay",
@@ -110,7 +120,9 @@ public class DynamicExecutionOptions extends OptionsBase {
       help =
           "How many milliseconds should local execution be delayed, if remote execution was faster"
               + " during a build at least once?")
-  public int localExecutionDelay;
+  public abstract int getLocalExecutionDelay();
+
+  public abstract void setLocalExecutionDelay(int value);
 
   @Option(
       name = "debug_spawn_scheduler",
@@ -119,7 +131,9 @@ public class DynamicExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "false")
-  public boolean debugSpawnScheduler;
+  public abstract boolean getDebugSpawnScheduler();
+
+  public abstract void setDebugSpawnScheduler(boolean value);
 
   @Option(
       name = "experimental_dynamic_slow_remote_time",
@@ -131,7 +145,9 @@ public class DynamicExecutionOptions extends OptionsBase {
               + " prioritize its local execution to avoid remote timeouts."
               + " This may hide some problems on the remote execution system. Do not turn this on"
               + " without monitoring of remote execution issues.")
-  public Duration slowRemoteTime;
+  public abstract Duration getSlowRemoteTime();
+
+  public abstract void setSlowRemoteTime(Duration value);
 
   @Option(
       name = "experimental_dynamic_local_load_factor",
@@ -149,7 +165,9 @@ public class DynamicExecutionOptions extends OptionsBase {
               + " scheduled actions when the number of actions waiting to schedule is high."
               + " This lessens the load on the local machine in the clean build case, where"
               + " the local machine does not contribute much.")
-  public double localLoadFactor;
+  public abstract double getLocalLoadFactor();
+
+  public abstract void setLocalLoadFactor(double value);
 
   @Option(
       name = "experimental_dynamic_exclude_tools",
@@ -160,7 +178,9 @@ public class DynamicExecutionOptions extends OptionsBase {
           "When set, targets that are build \"for tool\" are not subject to dynamic execution. Such"
               + " targets are extremely unlikely to be built incrementally and thus not worth"
               + " spending local cycles on.")
-  public boolean excludeTools;
+  public abstract boolean getExcludeTools();
+
+  public abstract void setExcludeTools(boolean value);
 
   @Option(
       name = "experimental_dynamic_ignore_local_signals",
@@ -173,7 +193,9 @@ public class DynamicExecutionOptions extends OptionsBase {
               + " gets killed with any of these signals, the remote branch will be allowed to"
               + " finish instead. For persistent workers, this only affects signals that kill"
               + " the worker process.")
-  public Set<Integer> ignoreLocalSignals;
+  public abstract Set<Integer> getIgnoreLocalSignals();
+
+  public abstract void setIgnoreLocalSignals(Set<Integer> value);
 
   /** Converts comma-separated lists of signal numbers into a set of signal numbers. */
   public static class SignalListConverter implements Converter<Set<Integer>> {

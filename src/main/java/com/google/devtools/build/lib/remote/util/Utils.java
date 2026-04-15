@@ -543,7 +543,7 @@ public final class Utils {
 
   public static boolean shouldUploadLocalResultsToRemoteCache(
       RemoteOptions remoteOptions, Map<String, String> executionInfo) {
-    return remoteOptions.remoteUploadLocalResults
+    return remoteOptions.getRemoteUploadLocalResults()
         && Spawns.mayBeCachedRemotely(executionInfo)
         && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE_CACHE_UPLOAD);
   }

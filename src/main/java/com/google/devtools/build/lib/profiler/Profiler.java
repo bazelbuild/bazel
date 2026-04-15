@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -173,6 +174,14 @@ public final class Profiler implements TraceProfilerService {
   public void logEvent(ProfilerTask type, String description) {
     if (traceProfilerService != null) {
       traceProfilerService.logEvent(type, description);
+    }
+  }
+
+  @Override
+  public void setVfsTypeHeuristics(
+      Map<String, ? extends Predicate<? super String>> vfsTypeHeuristics) {
+    if (traceProfilerService != null) {
+      traceProfilerService.setVfsTypeHeuristics(vfsTypeHeuristics);
     }
   }
 

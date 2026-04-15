@@ -388,4 +388,52 @@ public final class SpawnStatsTest {
     assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
         .isEqualTo("3 processes: 1 internal, 3 abc, 2 cde.");
   }
+
+  @Test
+  public void largeNumbersFormattedWithCommas() {
+    // Verify that large counts (>= 10,000 per IEEE style) are formatted with comma separators.
+    SpawnResult spawn =
+        new SpawnResult.Builder()
+            .setStatus(SpawnResult.Status.SUCCESS)
+            .setRunnerName("darwin-sandbox")
+            .build();
+
+    for (int i = 0; i < 12345; i++) {
+      ArrayList<SpawnResult> spawns = new ArrayList<>();
+      spawns.add(spawn);
+      stats.countActionResult(ActionResult.create(spawns));
+      stats.incrementActionCount();
+    }
+
+    for (int i = 0; i < 11234; i++) {
+      stats.incrementActionCount();
+    }
+
+    assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
+        .isEqualTo("23,579 processes: 11,234 internal, 12,345 darwin-sandbox.");
+  }
+
+  @Test
+  public void smallNumbersNotFormattedWithCommas() {
+    // Verify that counts below 10,000 (IEEE style threshold) are NOT formatted with commas.
+    SpawnResult spawn =
+        new SpawnResult.Builder()
+            .setStatus(SpawnResult.Status.SUCCESS)
+            .setRunnerName("darwin-sandbox")
+            .build();
+
+    for (int i = 0; i < 2345; i++) {
+      ArrayList<SpawnResult> spawns = new ArrayList<>();
+      spawns.add(spawn);
+      stats.countActionResult(ActionResult.create(spawns));
+      stats.incrementActionCount();
+    }
+
+    for (int i = 0; i < 1234; i++) {
+      stats.incrementActionCount();
+    }
+
+    assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
+        .isEqualTo("3579 processes: 1234 internal, 2345 darwin-sandbox.");
+  }
 }

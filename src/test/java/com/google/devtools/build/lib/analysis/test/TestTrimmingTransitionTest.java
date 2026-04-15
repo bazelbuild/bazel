@@ -143,7 +143,7 @@ public class TestTrimmingTransitionTest extends BuildViewTestCase {
     assertThat(execThenTrim).isNotNull();
     assertThat(execThenTrim).isNotEqualTo(options);
 
-    assertThat(execThenTrim.get(PlatformOptions.class).platforms)
+    assertThat(execThenTrim.get(PlatformOptions.class).getPlatforms())
         .containsExactly(executionPlatform);
     assertThat(execThenTrim.contains(TestOptions.class)).isFalse();
   }

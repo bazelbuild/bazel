@@ -33,6 +33,10 @@ public final class FilegroupRule implements RuleDefinition {
         /*<!-- #BLAZE_RULE(filegroup).ATTRIBUTE(srcs) -->
         The list of targets that are members of the file group.
         <p>
+          Targets named in the <code>srcs</code> attribute will be added to the
+          <code>runfiles</code> of this <code>filegroup</code> rule.
+        </p>
+        <p>
           It is common to use the result of a <a href="${link glob}">glob</a> expression for
           the value of the <code>srcs</code> attribute.
         </p>

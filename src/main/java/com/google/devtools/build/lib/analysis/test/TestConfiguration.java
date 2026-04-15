@@ -42,6 +42,7 @@ import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
@@ -76,11 +77,12 @@ public class TestConfiguration extends Fragment {
         }
         // LINT.ThenChange(TestTrimmingLogic.java)
         // other options in TestOptions require invalidation when --trim_test_configuration is off
-        return !options.get(TestOptions.class).trimTestConfiguration;
+        return !options.get(TestOptions.class).getTrimTestConfiguration();
       };
 
   /** Command-line options. */
-  public static class TestOptions extends FragmentOptions {
+  @OptionsClass
+  public abstract static class TestOptions extends FragmentOptions {
     private static final ImmutableSet<OptionDefinition> ALWAYS_INVALIDATE_WHEN_CHANGED =
         ImmutableSet.of(
             OptionsParser.getOptionDefinitionByName(TestOptions.class, "trim_test_configuration"),
@@ -104,7 +106,9 @@ public class TestConfiguration extends Fragment {
             This option can be used multiple times to specify several variables.
             Used only by the 'bazel test' command.
             """)
-    public List<Converters.EnvVar> testEnvironment;
+    public abstract List<Converters.EnvVar> getTestEnvironment();
+
+    public abstract void setTestEnvironment(List<Converters.EnvVar> value);
 
     @Option(
         name = "test_timeout",
@@ -120,7 +124,7 @@ public class TestConfiguration extends Fragment {
             `short`, `moderate`, `long` and `eternal` (in that order). In either form, a value of
             -1 tells blaze to use its default timeouts for that category.
             """)
-    public Map<TestTimeout, Duration> testTimeout;
+    public abstract Map<TestTimeout, Duration> getTestTimeout();
 
     @Option(
         name = "default_test_resources",
@@ -142,7 +146,7 @@ public class TestConfiguration extends Fragment {
             resources specified in tags.
             """)
     // We need to store these as Pair(s) instead of Map.Entry(s) so that they are serializable.
-    public List<Pair<String, Map<TestSize, Double>>> testResources;
+    public abstract List<Pair<String, Map<TestSize, Double>>> getTestResources();
 
     @Option(
         name = "test_filter",
@@ -153,7 +157,7 @@ public class TestConfiguration extends Fragment {
         help =
             "Specifies a filter to forward to the test framework.  Used to limit "
                 + "the tests run. Note that this does not affect which targets are built.")
-    public String testFilter;
+    public abstract String getTestFilter();
 
     @Option(
         name = "test_runner_fail_fast",
@@ -163,7 +167,7 @@ public class TestConfiguration extends Fragment {
         help =
             "Forwards fail fast option to the test runner. The test runner should stop execution"
                 + " upon first failure.")
-    public boolean testRunnerFailFast;
+    public abstract boolean getTestRunnerFailFast();
 
     @Option(
         name = "cache_test_results",
@@ -181,7 +185,7 @@ public class TestConfiguration extends Fragment {
             If set to `yes`, Bazel caches all test results except for tests marked as
             `external`. If set to `no`, Bazel does not cache any test results.
             """)
-    public TriState cacheTestResults;
+    public abstract TriState getCacheTestResults();
 
     @Deprecated
     @Option(
@@ -191,7 +195,7 @@ public class TestConfiguration extends Fragment {
         effectTags = {OptionEffectTag.UNKNOWN},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "This option is deprecated and has no effect.")
-    public int testResultExpiration;
+    public abstract int getTestResultExpiration();
 
     @Option(
         name = "trim_test_configuration",
@@ -206,7 +210,7 @@ public class TestConfiguration extends Fragment {
                 + " When this flag is active, tests cannot be built as dependencies of non-test"
                 + " rules, but changes to test-related options will not cause non-test rules to be"
                 + " re-analyzed.")
-    public boolean trimTestConfiguration;
+    public abstract boolean getTrimTestConfiguration();
 
     @Option(
         name = "experimental_retain_test_configuration_across_testonly",
@@ -224,7 +228,7 @@ public class TestConfiguration extends Fragment {
             rules depend on `cc_test` rules. No effect if `--trim_test_configuration` is
             false.
             """)
-    public boolean experimentalRetainTestConfigurationAcrossTestonly;
+    public abstract boolean getExperimentalRetainTestConfigurationAcrossTestonly();
 
     @Option(
         name = "test_arg",
@@ -239,7 +243,7 @@ public class TestConfiguration extends Fragment {
             If multiple tests are executed, each of them will receive identical arguments.
             Used only by the `bazel test` command.
             """)
-    public List<String> testArguments;
+    public abstract List<String> getTestArguments();
 
     @Option(
         name = "test_sharding_strategy",
@@ -256,7 +260,7 @@ public class TestConfiguration extends Fragment {
             - `forced=k` to enforce `k` shards for testing regardless of the `shard_count` `BUILD`
               attribute.
             """)
-    public TestShardingStrategy testShardingStrategy;
+    public abstract TestShardingStrategy getTestShardingStrategy();
 
     @Option(
         name = "runs_per_test",
@@ -282,7 +286,7 @@ public class TestConfiguration extends Fragment {
             recently passed argument that matches takes precedence. If nothing matches,
             the test is only run once.
             """)
-    public List<PerLabelOptions> runsPerTest;
+    public abstract List<PerLabelOptions> getRunsPerTest();
 
     @Option(
         name = "runs_per_test_detects_flakes",
@@ -292,7 +296,7 @@ public class TestConfiguration extends Fragment {
         help =
             "If true, any shard in which at least one run/attempt passes and at least one "
                 + "run/attempt fails gets a FLAKY status.")
-    public boolean runsPerTestDetectsFlakes;
+    public abstract boolean getRunsPerTestDetectsFlakes();
 
     /** When to cancel concurrently running tests. */
     public enum CancelConcurrentTests {
@@ -321,7 +325,7 @@ public class TestConfiguration extends Fragment {
             successful run with that result. This is only useful in combination with
             `--runs_per_test_detects_flakes`.
             """)
-    public CancelConcurrentTests cancelConcurrentTests;
+    public abstract CancelConcurrentTests getCancelConcurrentTests();
 
     @Option(
         name = "coverage_support",
@@ -338,7 +342,7 @@ public class TestConfiguration extends Fragment {
             Location of support files that are required on the inputs of every test action
             that collects code coverage. Defaults to `//tools/test:coverage_support`.
             """)
-    public Label coverageSupport;
+    public abstract Label getCoverageSupport();
 
     @Option(
         name = "experimental_fetch_all_coverage_outputs",
@@ -349,7 +353,7 @@ public class TestConfiguration extends Fragment {
         help =
             "If true, then Bazel fetches the entire coverage data directory for each test during a "
                 + "coverage run.")
-    public boolean fetchAllCoverageOutputs;
+    public abstract boolean getFetchAllCoverageOutputs();
 
     @Option(
         name = "incompatible_exclusive_test_sandboxed",
@@ -362,7 +366,7 @@ public class TestConfiguration extends Fragment {
             If true, exclusive tests will run with sandboxed strategy. Add `local` tag to force
             an exclusive test run locally
             """)
-    public boolean incompatibleExclusiveTestSandboxed;
+    public abstract boolean getIncompatibleExclusiveTestSandboxed();
 
     @Option(
         name = "experimental_split_coverage_postprocessing",
@@ -371,7 +375,7 @@ public class TestConfiguration extends Fragment {
         effectTags = {OptionEffectTag.EXECUTION},
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help = "If true, then Bazel will run coverage postprocessing for test in a new spawn.")
-    public boolean splitCoveragePostProcessing;
+    public abstract boolean getSplitCoveragePostProcessing();
 
     @Option(
         name = "zip_undeclared_test_outputs",
@@ -379,7 +383,7 @@ public class TestConfiguration extends Fragment {
         documentationCategory = OptionDocumentationCategory.TESTING,
         effectTags = {OptionEffectTag.TEST_RUNNER},
         help = "If true, undeclared test outputs will be archived in a zip file.")
-    public boolean zipUndeclaredTestOutputs;
+    public abstract boolean getZipUndeclaredTestOutputs();
 
     @Option(
         name = "allow_local_tests",
@@ -387,12 +391,12 @@ public class TestConfiguration extends Fragment {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.EXECUTION},
         help = "If true, Bazel will allow local tests to run.")
-    public boolean allowLocalTests;
+    public abstract boolean getAllowLocalTests();
 
     @Override
     public TestOptions getNormalized() {
       TestOptions result = (TestOptions) clone();
-      result.testEnvironment = normalizeEnvVars(testEnvironment);
+      result.setTestEnvironment(normalizeEnvVars(getTestEnvironment()));
       return result;
     }
   }
@@ -406,12 +410,12 @@ public class TestConfiguration extends Fragment {
     this.options = buildOptions.get(TestOptions.class);
     if (options != null) {
       this.shouldInclude = true;
-      this.testTimeout = ImmutableMap.copyOf(options.testTimeout);
+      this.testTimeout = ImmutableMap.copyOf(options.getTestTimeout());
       ImmutableMap.Builder<TestSize, ImmutableMap<String, Double>> testResources =
           ImmutableMap.builderWithExpectedSize(TestSize.values().length);
       for (TestSize size : TestSize.values()) {
         ImmutableMap.Builder<String, Double> resources = ImmutableMap.builder();
-        for (Pair<String, Map<TestSize, Double>> resource : options.testResources) {
+        for (Pair<String, Map<TestSize, Double>> resource : options.getTestResources()) {
           resources.put(resource.getFirst(), resource.getSecond().get(size));
         }
         testResources.put(size, resources.buildKeepingLast());
@@ -440,27 +444,27 @@ public class TestConfiguration extends Fragment {
   }
 
   public String getTestFilter() {
-    return options.testFilter;
+    return options.getTestFilter();
   }
 
   public boolean getTestRunnerFailFast() {
-    return options.testRunnerFailFast;
+    return options.getTestRunnerFailFast();
   }
 
   public TriState cacheTestResults() {
-    return options.cacheTestResults;
+    return options.getCacheTestResults();
   }
 
   public List<String> getTestArguments() {
-    return options.testArguments;
+    return options.getTestArguments();
   }
 
   public TestShardingStrategy testShardingStrategy() {
-    return options.testShardingStrategy;
+    return options.getTestShardingStrategy();
   }
 
   public Label getCoverageSupport() {
-    return options.coverageSupport;
+    return options.getCoverageSupport();
   }
 
   /**
@@ -468,7 +472,7 @@ public class TestConfiguration extends Fragment {
    *     filters, runs it once.
    */
   public int getRunsPerTestForLabel(Label label) {
-    for (PerLabelOptions perLabelRuns : Lists.reverse(options.runsPerTest)) {
+    for (PerLabelOptions perLabelRuns : Lists.reverse(options.getRunsPerTest())) {
       if (perLabelRuns.isIncluded(label)) {
         return Integer.parseInt(Iterables.getOnlyElement(perLabelRuns.getOptions()));
       }
@@ -477,31 +481,31 @@ public class TestConfiguration extends Fragment {
   }
 
   public boolean runsPerTestDetectsFlakes() {
-    return options.runsPerTestDetectsFlakes;
+    return options.getRunsPerTestDetectsFlakes();
   }
 
   public CancelConcurrentTests cancelConcurrentTests() {
-    return options.cancelConcurrentTests;
+    return options.getCancelConcurrentTests();
   }
 
   public boolean fetchAllCoverageOutputs() {
-    return options.fetchAllCoverageOutputs;
+    return options.getFetchAllCoverageOutputs();
   }
 
   public boolean incompatibleExclusiveTestSandboxed() {
-    return options.incompatibleExclusiveTestSandboxed;
+    return options.getIncompatibleExclusiveTestSandboxed();
   }
 
   public boolean splitCoveragePostProcessing() {
-    return options.splitCoveragePostProcessing;
+    return options.getSplitCoveragePostProcessing();
   }
 
   public boolean getZipUndeclaredTestOutputs() {
-    return options.zipUndeclaredTestOutputs;
+    return options.getZipUndeclaredTestOutputs();
   }
 
   public boolean allowLocalTests() {
-    return options.allowLocalTests;
+    return options.getAllowLocalTests();
   }
 
   /**

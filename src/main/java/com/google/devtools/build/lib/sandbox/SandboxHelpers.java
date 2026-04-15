@@ -770,7 +770,7 @@ public final class SandboxHelpers {
     // tag.
     return buildOptions
         .getOptions(TestConfiguration.TestOptions.class)
-        .testArguments
+        .getTestArguments()
         .contains("--wrapper_script_flag=--debug");
   }
 

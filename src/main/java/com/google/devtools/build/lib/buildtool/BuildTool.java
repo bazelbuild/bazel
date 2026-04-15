@@ -343,8 +343,9 @@ public class BuildTool {
                     runtime.getStartupOptionsProvider(),
                     request.getCommandName(),
                     optionsParser.getResidue(),
-                    optionsParser.getOptions(BuildEventProtocolOptions.class)
-                        .includeResidueInRunBepEvent,
+                    optionsParser
+                        .getOptions(BuildEventProtocolOptions.class)
+                        .getIncludeResidueInRunBepEvent(),
                     optionsParser.getExplicitStarlarkOptions(
                         OriginalCommandLineEvent::commandLinePriority),
                     optionsParser.getStarlarkOptions(),
@@ -423,7 +424,7 @@ public class BuildTool {
     } finally {
       if (!catastrophe) {
         // Delete dirty nodes to ensure that they do not accumulate indefinitely.
-        long versionWindow = request.getViewOptions().versionWindowForDirtyNodeGc;
+        long versionWindow = request.getViewOptions().getVersionWindowForDirtyNodeGc();
         if (versionWindow != -1) {
           env.getSkyframeExecutor().deleteOldNodes(versionWindow);
         }
@@ -755,11 +756,11 @@ public class BuildTool {
       OutputStream outputStream;
       UploadContext streamingContext = null;
 
-      if (bepOptions.streamingLogFileUploads) {
+      if (bepOptions.getStreamingLogFileUploads()) {
         streamingContext =
             runtime
                 .getBuildEventArtifactUploaderFactoryMap()
-                .select(bepOptions.buildEventUploadStrategy)
+                .select(bepOptions.getBuildEventUploadStrategy())
                 .create(env)
                 .startUpload(LocalFileType.PERFORMANCE_LOG, null);
         outputStream = streamingContext.getOutputStream();
@@ -812,11 +813,11 @@ public class BuildTool {
 
     if (outputFilePathFragment == null) {
       outputFileName = getDefaultOutputFileName(format);
-      if (besOptions != null && besOptions.streamingLogFileUploads) {
+      if (besOptions != null && besOptions.getStreamingLogFileUploads()) {
         streamingContext =
             runtime
                 .getBuildEventArtifactUploaderFactoryMap()
-                .select(besOptions.buildEventUploadStrategy)
+                .select(besOptions.getBuildEventUploadStrategy())
                 .create(env)
                 .startUpload(LocalFileType.PERFORMANCE_LOG, /* inputSupplier= */ null);
       } else {
@@ -1310,7 +1311,9 @@ public class BuildTool {
               env.getVersionGetter(),
               env.getReporter(),
               env.getEventBus(),
-              env.getOptions().getOptions(KeepStateAfterBuildOption.class).keepStateAfterBuild);
+              env.getOptions()
+                  .getOptions(KeepStateAfterBuildOption.class)
+                  .getKeepStateAfterBuild());
       if (maybeFailureDetail.isPresent()) {
         throw new AbruptExitException(DetailedExitCode.of(maybeFailureDetail.get()));
       }

@@ -180,7 +180,7 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
           StarlarkSemantics starlarkSemantics)
           throws QueryException, InterruptedException {
     AspectResolver aspectResolver =
-        cqueryOptions.aspectDeps.createResolver(packageManager, eventHandler);
+        cqueryOptions.getAspectDeps().createResolver(packageManager, eventHandler);
     return ImmutableList.of(
         new LabelAndConfigurationOutputFormatterCallback(
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor, true, getLabelPrinter()),
@@ -248,7 +248,7 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
 
   @Override
   public String getOutputFormat() {
-    return cqueryOptions.outputFormat;
+    return cqueryOptions.getOutputFormat();
   }
 
   @Override

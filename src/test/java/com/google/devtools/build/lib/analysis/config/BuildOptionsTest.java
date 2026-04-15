@@ -31,6 +31,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.protobuf.ByteString;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -52,7 +53,8 @@ import org.junit.runner.RunWith;
 public final class BuildOptionsTest {
 
   /** Extra options for this test. */
-  public static class DummyTestOptions extends FragmentOptions {
+  @OptionsClass
+  public abstract static class DummyTestOptions extends FragmentOptions {
     public DummyTestOptions() {}
 
     @Option(
@@ -60,21 +62,21 @@ public final class BuildOptionsTest {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "defVal")
-    public String strOption;
+    public abstract String getStrOption();
 
     @Option(
         name = "another_str_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "defVal")
-    public String anotherStrOption;
+    public abstract String getAnotherStrOption();
 
     @Option(
         name = "bool_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "false")
-    public boolean boolOption;
+    public abstract boolean getBoolOption();
 
     @Option(
         name = "list_option",
@@ -82,14 +84,14 @@ public final class BuildOptionsTest {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null")
-    public List<String> listOption;
+    public abstract List<String> getListOption();
 
     @Option(
         name = "null_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null")
-    public String nullOption;
+    public abstract String getNullOption();
 
     @Option(
         name = "accumulating_option",
@@ -97,7 +99,7 @@ public final class BuildOptionsTest {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null")
-    public List<String> accumulatingOption;
+    public abstract List<String> getAccumulatingOption();
 
     @Option(
         name = "dummy_option",
@@ -105,24 +107,25 @@ public final class BuildOptionsTest {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "internal_default",
         implicitRequirements = {"--implicit_option=set_implicitly"})
-    public String dummyOption;
+    public abstract String getDummyOption();
 
     @Option(
         name = "implicit_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "implicit_default")
-    public String implicitOption;
+    public abstract String getImplicitOption();
   }
 
   /** Extra options for this test. */
-  public static class SecondDummyTestOptions extends FragmentOptions {
+  @OptionsClass
+  public abstract static class SecondDummyTestOptions extends FragmentOptions {
     @Option(
         name = "second_str_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "defVal")
-    public String strOption;
+    public abstract String getStrOption();
   }
 
   private static final ImmutableList<Class<? extends FragmentOptions>> BUILD_CONFIG_OPTIONS =
@@ -265,7 +268,8 @@ public final class BuildOptionsTest {
             OptionsParser.builder().optionsClasses(BUILD_CONFIG_OPTIONS).build());
     DummyTestOptions dummyTestOptions = options.get(DummyTestOptions.class);
     assertThrows(
-        UnsupportedOperationException.class, () -> dummyTestOptions.accumulatingOption.add("foo"));
+        UnsupportedOperationException.class,
+        () -> dummyTestOptions.getAccumulatingOption().add("foo"));
   }
 
   @Test

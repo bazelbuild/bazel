@@ -50,7 +50,10 @@ public interface BlazeService extends OptionsSupplier {
   /**
    * Called at the beginning of Bazel startup, right before {@link BlazeModule#globalInit}.
    *
+   * @param startupOptions the server's startup options
+   * @param blazeServices the available services, including this service itself
    * @throws AbruptExitException to shut down the server immediately
    */
-  default void globalInit(OptionsParsingResult startupOptions) throws AbruptExitException {}
+  default void globalInit(OptionsParsingResult startupOptions, Iterable<BlazeService> blazeServices)
+      throws AbruptExitException {}
 }

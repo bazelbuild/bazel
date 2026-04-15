@@ -33,11 +33,11 @@ public class ShellConfigurationTest extends BuildViewTestCase {
   @Test
   public void optionsAlsoApplyToHost() throws Exception {
     BuildOptions options = targetConfig.getOptions().clone();
-    options.get(Options.class).shellExecutable = PathFragment.create("/my/shell/binary");
+    options.get(Options.class).setShellExecutable(PathFragment.create("/my/shell/binary"));
 
     ShellConfiguration.Options execOptions =
         AnalysisTestUtil.execOptions(options, skyframeExecutor, reporter)
             .get(ShellConfiguration.Options.class);
-    assertThat(execOptions.shellExecutable).isEqualTo(PathFragment.create("/my/shell/binary"));
+    assertThat(execOptions.getShellExecutable()).isEqualTo(PathFragment.create("/my/shell/binary"));
   }
 }

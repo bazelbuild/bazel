@@ -16,6 +16,10 @@ filegroup(
 java_test(
     name = "http",
     srcs = glob(["*.java"]),
+    jvm_flags = [
+        # Required for Mockito.spy.
+        "--add-opens=java.base/java.io=ALL-UNNAMED",
+    ],
     tags = [
         "requires-network",
     ],

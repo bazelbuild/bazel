@@ -128,7 +128,7 @@ public final class BuildConfigurationKeyProducer<C>
       return this::findBuildOptionsScopes;
     }
 
-    List<Label> targetPlatforms = platformOptions.platforms;
+    List<Label> targetPlatforms = platformOptions.getPlatforms();
     if (targetPlatforms.size() == 1) {
       // TODO: https://github.com/bazelbuild/bazel/issues/19807 - We define this flag to only use
       //  the first value and ignore any subsequent ones. Remove this check as part of cleanup.
@@ -211,7 +211,7 @@ public final class BuildConfigurationKeyProducer<C>
    */
   private StateMachine mergeFromPlatformMapping(Tasks tasks) {
     tasks.lookUp(
-        options.get(PlatformOptions.class).platformMappingKey,
+        options.get(PlatformOptions.class).getPlatformMappingKey(),
         PlatformMappingException.class,
         this);
     return this::applyPlatformMapping;

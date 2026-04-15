@@ -133,8 +133,8 @@ public class BuildEventServiceGrpcClientTest {
       ClientInterceptor interceptor = MetadataUtils.newAttachHeadersInterceptor(extraHeaders);
       BuildEventServiceGrpcClient grpcClient =
           new BuildEventServiceGrpcClient(server.getChannel(), null, interceptor);
-      assertThat(grpcClient.openStream(COMMAND_CONTEXT, ack -> {}).getStatus().get())
-          .isEqualTo(Status.OK);
+      assertThat(grpcClient.openStream(COMMAND_CONTEXT, ack -> {}).getStatus().get().isOk())
+          .isTrue();
       assertThat(seenHeaders).hasSize(1);
       Metadata headers = seenHeaders.get(0);
       assertThat(headers.get(Metadata.Key.of("metadata-foo", Metadata.ASCII_STRING_MARSHALLER)))
@@ -149,8 +149,9 @@ public class BuildEventServiceGrpcClientTest {
               new BuildEventServiceGrpcClient(server.getChannel(), null, null)
                   .openStream(COMMAND_CONTEXT, ack -> {})
                   .getStatus()
-                  .get())
-          .isEqualTo(Status.OK);
+                  .get()
+                  .isOk())
+          .isTrue();
     }
   }
 
@@ -170,8 +171,9 @@ public class BuildEventServiceGrpcClientTest {
               new BuildEventServiceGrpcClient(server.getChannel(), null, null)
                   .openStream(COMMAND_CONTEXT, ack -> {})
                   .getStatus()
-                  .get())
-          .isEqualTo(Status.INTERNAL);
+                  .get()
+                  .getErrorMessage())
+          .contains("INTERNAL");
     }
   }
 }

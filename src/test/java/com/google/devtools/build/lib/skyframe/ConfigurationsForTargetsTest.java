@@ -468,7 +468,7 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
     ConfiguredTarget toolDep = Iterables.getOnlyElement(getConfiguredDeps("//a:gen", "tools"));
     BuildConfigurationValue toolConfiguration = getConfiguration(toolDep);
     assertThat(toolConfiguration.isToolConfiguration()).isTrue();
-    assertThat(toolConfiguration.getOptions().get(PlatformOptions.class).platforms)
+    assertThat(toolConfiguration.getOptions().get(PlatformOptions.class).getPlatforms())
         .containsExactly(EXEC_PLATFORM_LABEL);
   }
 

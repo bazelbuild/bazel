@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver.Mode;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.common.options.Options;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -59,12 +60,15 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
   @Before
   public final void setUpCqueryOptions() throws Exception {
-    this.options = new CqueryOptions();
+    this.options = Options.getDefaults(CqueryOptions.class);
+    options.setIncludeToolDeps(false);
+    options.setIncludeImplicitDeps(false);
+    options.setIncludeNoDepDeps(false);
     // TODO(bazel-team): reduce the confusion about these two seemingly similar settings.
     // options.aspectDeps impacts how proto and similar output formatters output aspect results.
     // Setting.INCLUDE_ASPECTS impacts whether or not aspect dependencies are included when
     // following target deps. See CommonQueryOptions for further flag details.
-    options.aspectDeps = Mode.OFF;
+    options.setAspectDeps(Mode.OFF);
     helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
     this.reporter = new Reporter(new EventBus(), events::add);
     helper.useRuleClassProvider(

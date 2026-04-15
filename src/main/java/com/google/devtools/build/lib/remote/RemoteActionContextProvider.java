@@ -158,10 +158,10 @@ final class RemoteActionContextProvider {
       Path workingDirectory = env.getWorkingDirectory();
       RemoteOptions remoteOptions = checkNotNull(env.getOptions().getOptions(RemoteOptions.class));
       Path captureCorruptedOutputsDir = null;
-      if (remoteOptions.remoteCaptureCorruptedOutputs != null
-          && !remoteOptions.remoteCaptureCorruptedOutputs.isEmpty()) {
+      if (remoteOptions.getRemoteCaptureCorruptedOutputs() != null
+          && !remoteOptions.getRemoteCaptureCorruptedOutputs().isEmpty()) {
         captureCorruptedOutputsDir =
-            workingDirectory.getRelative(remoteOptions.remoteCaptureCorruptedOutputs);
+            workingDirectory.getRelative(remoteOptions.getRemoteCaptureCorruptedOutputs());
       }
 
       boolean verboseFailures =

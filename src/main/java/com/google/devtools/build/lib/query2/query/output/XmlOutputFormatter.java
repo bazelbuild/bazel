@@ -83,8 +83,8 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
     super.setOptions(options, aspectResolver, hashFunction);
     this.aspectResolver = aspectResolver;
     this.dependencyFilter = FormatUtils.getDependencyFilter(options);
-    this.packageGroupIncludesDoubleSlash = options.incompatiblePackageGroupIncludesDoubleSlash;
-    this.relativeLocations = options.relativeLocations;
+    this.packageGroupIncludesDoubleSlash = options.getIncompatiblePackageGroupIncludesDoubleSlash();
+    this.relativeLocations = options.getRelativeLocations();
 
     Preconditions.checkArgument(options instanceof QueryOptions);
     this.queryOptions = (QueryOptions) options;
@@ -151,7 +151,8 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       elem = doc.createElement("rule");
       elem.setAttribute("class", getRuleClass(queryOptions, rule));
       for (Attribute attr : rule.getAttributes()) {
-        if (rule.isAttributeValueExplicitlySpecified(attr) || queryOptions.xmlShowDefaultValues) {
+        if (rule.isAttributeValueExplicitlySpecified(attr)
+            || queryOptions.getXmlShowDefaultValues()) {
           // TODO(b/162524370): mayTreatMultipleAsNone should be true for types that drop multiple
           //  values.
           Iterable<Object> values =
@@ -243,7 +244,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
 
     elem.setAttribute("name", labelPrinter.toString(target.getLabel()));
     String location = FormatUtils.getLocation(target, relativeLocations);
-    if (!queryOptions.xmlLineNumbers) {
+    if (!queryOptions.getXmlLineNumbers()) {
       int firstColon = location.indexOf(':');
       if (firstColon != -1) {
         location = location.substring(0, firstColon);
@@ -257,7 +258,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   // This is distinct from AbstractUnorderedFormatter.getKind because it should **not** have the
   // " rule" suffix expected from --output=label_kind and --output=location.
   private static String getRuleClass(QueryOptions queryOptions, Rule rule) {
-    if (queryOptions.displayFullKind) {
+    if (queryOptions.getDisplayFullKind()) {
       return rule.getRuleClassObject().getRuleClassId().key();
     }
     return rule.getRuleClass();

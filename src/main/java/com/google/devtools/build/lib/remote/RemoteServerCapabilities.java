@@ -215,7 +215,7 @@ class RemoteServerCapabilities {
 
       // Check execution priority is in the supported range.
       checkPriorityInRange(
-          remoteOptions.remoteExecutionPriority,
+          remoteOptions.getRemoteExecutionPriority(),
           "remote_execution_priority",
           execCap.getExecutionPriorityCapabilities(),
           result);
@@ -232,7 +232,7 @@ class RemoteServerCapabilities {
                 digestFunction, cacheCap.getDigestFunctionsList()));
       }
 
-      if (remoteOptions.remoteUploadLocalResults
+      if (remoteOptions.getRemoteUploadLocalResults()
           && !cacheCap.getActionCacheUpdateCapabilities().getUpdateEnabled()) {
         result.addWarning(
             "--remote_upload_local_results is set, but the remote cache does not support uploading "
@@ -240,13 +240,13 @@ class RemoteServerCapabilities {
                 + "to the remote cache.");
       }
 
-      if (remoteOptions.cacheCompression
+      if (remoteOptions.getCacheCompression()
           && !cacheCap.getSupportedCompressorsList().contains(Compressor.Value.ZSTD)) {
         result.addError(
             "--remote_cache_compression requested but remote does not support compression");
       }
 
-      if (remoteOptions.experimentalRemoteCacheChunking) {
+      if (remoteOptions.getExperimentalRemoteCacheChunking()) {
         if (!cacheCap.getSplitBlobSupport()) {
           result.addError(
               "--experimental_remote_cache_chunking requested but remote does not support"
@@ -266,7 +266,7 @@ class RemoteServerCapabilities {
 
       // Check result cache priority is in the supported range.
       checkPriorityInRange(
-          remoteOptions.remoteResultCachePriority,
+          remoteOptions.getRemoteResultCachePriority(),
           "remote_result_cache_priority",
           cacheCap.getCachePriorityCapabilities(),
           result);

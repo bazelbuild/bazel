@@ -27,6 +27,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.time.Duration;
 import java.util.List;
@@ -34,7 +35,8 @@ import java.util.Map;
 import net.starlark.java.eval.EvalException;
 
 /** Command-line options for repositories. */
-public class RepositoryOptions extends OptionsBase {
+@OptionsClass
+public abstract class RepositoryOptions extends OptionsBase {
 
   @Option(
       name = "repository_cache",
@@ -50,7 +52,7 @@ public class RepositoryOptions extends OptionsBase {
           as argument requests the cache to be disabled,
           otherwise the default of `{--output_user_root}/cache/repos/v1` is used.
           """)
-  public PathFragment repositoryCache;
+  public abstract PathFragment getRepositoryCache();
 
   @Option(
       name = "repo_contents_cache",
@@ -68,7 +70,7 @@ public class RepositoryOptions extends OptionsBase {
           is used. Note that this means setting `--repository_cache=` would by default disable the
           repo contents cache as well, unless `--repo_contents_cache={some_path}` is also set.
           """)
-  public PathFragment repoContentsCache;
+  public abstract PathFragment getRepoContentsCache();
 
   @Option(
       name = "repo_contents_cache_gc_max_age",
@@ -81,7 +83,7 @@ public class RepositoryOptions extends OptionsBase {
           Specifies the amount of time an entry in the repo contents cache can stay unused before
           it's garbage collected. If set to zero, only duplicate entries will be garbage collected.
           """)
-  public Duration repoContentsCacheGcMaxAge;
+  public abstract Duration getRepoContentsCacheGcMaxAge();
 
   @Option(
       name = "repo_contents_cache_gc_idle_delay",
@@ -94,7 +96,7 @@ public class RepositoryOptions extends OptionsBase {
           Specifies the amount of time the server must remain idle before garbage collection happens
           to the repo contents cache.
           """)
-  public Duration repoContentsCacheGcIdleDelay;
+  public abstract Duration getRepoContentsCacheGcIdleDelay();
 
   @Option(
       name = "registry",
@@ -106,7 +108,7 @@ public class RepositoryOptions extends OptionsBase {
           "Specifies the registries to use to locate Bazel module dependencies. The order is"
               + " important: modules will be looked up in earlier registries first, and only fall"
               + " back to later registries when they're missing from the earlier ones.")
-  public List<String> registries;
+  public abstract List<String> getRegistries();
 
   @Option(
       name = "module_mirrors",
@@ -129,7 +131,7 @@ public class RepositoryOptions extends OptionsBase {
           The default set of mirrors may change over time, but all downloads from mirrors are
           verified by hashes stored in the registry (and thus pinned by the lockfile).
           """)
-  public List<Map.Entry<String, List<String>>> moduleMirrors;
+  public abstract List<Map.Entry<String, List<String>>> getModuleMirrors();
 
   @Option(
       name = "allow_yanked_versions",
@@ -149,7 +151,7 @@ public class RepositoryOptions extends OptionsBase {
 
           [`NonRegistryOverride`]: https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/bazel/bzlmod/NonRegistryOverride.java
           """)
-  public List<String> allowedYankedVersions;
+  public abstract List<String> getAllowedYankedVersions();
 
   @Option(
       name = "experimental_repository_cache_hardlinks",
@@ -159,7 +161,7 @@ public class RepositoryOptions extends OptionsBase {
       help =
           "If set, the repository cache will hardlink the file in case of a"
               + " cache hit, rather than copying. This is intended to save disk space.")
-  public boolean useHardlinks;
+  public abstract boolean getUseHardlinks();
 
   @Option(
       name = "repository_disable_download",
@@ -173,7 +175,7 @@ public class RepositoryOptions extends OptionsBase {
           fetching. Note that network access is not completely disabled; ctx.execute could
           still run an arbitrary executable that accesses the Internet.
           """)
-  public boolean disableDownload;
+  public abstract boolean getDisableDownload();
 
   @Option(
       name = "experimental_repository_downloader_retries",
@@ -184,7 +186,7 @@ public class RepositoryOptions extends OptionsBase {
       help =
           "The maximum number of attempts to retry a download error. If set to 0, retries are"
               + " disabled.")
-  public int repositoryDownloaderRetries;
+  public abstract int getRepositoryDownloaderRetries();
 
   @Option(
       name = "distdir",
@@ -197,7 +199,7 @@ public class RepositoryOptions extends OptionsBase {
       help =
           "Additional places to search for archives before accessing the network "
               + "to download them.")
-  public List<PathFragment> experimentalDistdir;
+  public abstract List<PathFragment> getExperimentalDistdir();
 
   @Option(
       name = "override_repository",
@@ -221,7 +223,7 @@ public class RepositoryOptions extends OptionsBase {
           with `%workspace%`, it is relative to the workspace root, which is the output of `bazel
           info workspace`. If the given path is empty, then remove any previous overrides.
           """)
-  public List<RepositoryOverride> repositoryOverrides;
+  public abstract List<RepositoryOverride> getRepositoryOverrides();
 
   @Option(
       name = "inject_repository",
@@ -241,7 +243,7 @@ public class RepositoryOptions extends OptionsBase {
           workspace root, which is the output of `bazel info workspace`. If the given path
           is empty, then remove any previous injections.
           """)
-  public List<RepositoryInjection> repositoryInjections;
+  public abstract List<RepositoryInjection> getRepositoryInjections();
 
   @Option(
       name = "override_module",
@@ -259,7 +261,7 @@ public class RepositoryOptions extends OptionsBase {
           output of `bazel info workspace`. If the given path is empty, then remove any
           previous overrides.
           """)
-  public List<ModuleOverride> moduleOverrides;
+  public abstract List<ModuleOverride> getModuleOverrides();
 
   @Option(
       name = "experimental_scale_timeouts",
@@ -272,7 +274,7 @@ public class RepositoryOptions extends OptionsBase {
               + " In this way, external repositories can be made working on machines"
               + " that are slower than the rule author expected, without changing the"
               + " source code")
-  public double experimentalScaleTimeouts;
+  public abstract double getExperimentalScaleTimeouts();
 
   @Option(
       name = "downloader_config",
@@ -289,7 +291,7 @@ public class RepositoryOptions extends OptionsBase {
               + "against, and one to use as a substitute URL, with back-references starting from "
               + "`$1`. It is possible for multiple `rewrite` directives for the same URL to be "
               + "given, and in this case multiple URLs will be returned.")
-  public List<PathFragment> downloaderConfigs;
+  public abstract List<PathFragment> getDownloaderConfigs();
 
   @Option(
       name = "ignore_dev_dependency",
@@ -303,7 +305,7 @@ public class RepositoryOptions extends OptionsBase {
           ignored in the `MODULE.bazel` if it's not the root module regardless of the value
           of this flag.
           """)
-  public boolean ignoreDevDependency;
+  public abstract boolean getIgnoreDevDependency();
 
   @Option(
       name = "check_direct_dependencies",
@@ -316,7 +318,7 @@ public class RepositoryOptions extends OptionsBase {
               + " versions you get in the resolved dependency graph. Valid values are `off` to"
               + " disable the check, `warning` to print a warning when mismatch detected or `error`"
               + " to escalate it to a resolution failure.")
-  public CheckDirectDepsMode checkDirectDependencies;
+  public abstract CheckDirectDepsMode getCheckDirectDependencies();
 
   @Option(
       name = "experimental_check_external_repository_files",
@@ -328,7 +330,7 @@ public class RepositoryOptions extends OptionsBase {
               + "this flag to false if you don't expect these files to change outside of bazel "
               + "since it will speed up subsequent runs as they won't have to check a "
               + "previous run's cache.")
-  public boolean checkExternalRepositoryFiles;
+  public abstract boolean getCheckExternalRepositoryFiles();
 
   @Option(
       name = "check_bazel_compatibility",
@@ -340,7 +342,7 @@ public class RepositoryOptions extends OptionsBase {
           "Check bazel version compatibility of Bazel modules. Valid values are `error` to escalate"
               + " it to a resolution failure, `off` to disable the check, or `warning` to print a"
               + " warning when mismatch detected.")
-  public BazelCompatibilityMode bazelCompatibilityMode;
+  public abstract BazelCompatibilityMode getBazelCompatibilityMode();
 
   @Option(
       name = "lockfile_mode",
@@ -355,7 +357,7 @@ public class RepositoryOptions extends OptionsBase {
               + " from remote registries from time to time, `error` to use the lockfile but throw"
               + " an error if it's not up-to-date, or `off` to neither read from or write to the"
               + " lockfile.")
-  public LockfileMode lockfileMode;
+  public abstract LockfileMode getLockfileMode();
 
   @Option(
       name = "vendor_dir",
@@ -368,7 +370,7 @@ public class RepositoryOptions extends OptionsBase {
               + "whether for the purpose of fetching them into it or using them while building. "
               + "The path can be specified as either an absolute path or a path relative to the "
               + "workspace directory.")
-  public PathFragment vendorDirectory;
+  public abstract PathFragment getVendorDirectory();
 
   /** An enum for specifying different modes for checking direct dependency accuracy. */
   public enum CheckDirectDepsMode {

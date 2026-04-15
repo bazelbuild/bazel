@@ -250,7 +250,7 @@ public class RemoteExecutionService {
             commandId,
             workspaceName);
 
-    this.scrubber = remoteOptions.scrubber;
+    this.scrubber = remoteOptions.getScrubber();
 
     this.tempPathGenerator = tempPathGenerator;
     this.captureCorruptedOutputsDir = captureCorruptedOutputsDir;
@@ -338,7 +338,9 @@ public class RemoteExecutionService {
     }
 
     boolean allowRemoteCache =
-        useRemoteCache() && remoteOptions.remoteAcceptCached && Spawns.mayBeCachedRemotely(spawn);
+        useRemoteCache()
+            && remoteOptions.getRemoteAcceptCached()
+            && Spawns.mayBeCachedRemotely(spawn);
     boolean allowDiskCache = useDiskCache() && Spawns.mayBeCached(spawn);
 
     return CachePolicy.create(allowRemoteCache, allowDiskCache);
@@ -404,7 +406,7 @@ public class RemoteExecutionService {
   @Nullable
   private ToolSignature getToolSignature(Spawn spawn, SpawnExecutionContext context)
       throws IOException, ExecException, InterruptedException {
-    return remoteOptions.markToolInputs
+    return remoteOptions.getMarkToolInputs()
             && Spawns.supportsWorkers(spawn)
             && !spawn.getToolFiles().isEmpty()
         ? computePersistentWorkerSignature(spawn, context)
@@ -413,7 +415,7 @@ public class RemoteExecutionService {
 
   private void maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask task)
       throws InterruptedException {
-    if (!remoteOptions.throttleRemoteActionBuilding) {
+    if (!remoteOptions.getThrottleRemoteActionBuilding()) {
       return;
     }
 
@@ -423,7 +425,7 @@ public class RemoteExecutionService {
   }
 
   private void maybeReleaseRemoteActionBuildingSemaphore() {
-    if (!remoteOptions.throttleRemoteActionBuilding) {
+    if (!remoteOptions.getThrottleRemoteActionBuilding()) {
       return;
     }
 
@@ -495,7 +497,7 @@ public class RemoteExecutionService {
     return buildRemoteAction(
         spawn,
         context,
-        remoteOptions.remoteDiscardMerkleTrees
+        remoteOptions.getRemoteDiscardMerkleTrees()
             ? MerkleTreeComputer.BlobPolicy.DISCARD
             : MerkleTreeComputer.BlobPolicy.KEEP_AND_REUPLOAD);
   }
@@ -1235,7 +1237,7 @@ public class RemoteExecutionService {
             combinedCache, digestUtil, context, action.getRemotePathResolver());
 
     // The expiration time for remote cache entries.
-    var expirationTime = Instant.now().plus(remoteOptions.remoteCacheTtl);
+    var expirationTime = Instant.now().plus(remoteOptions.getRemoteCacheTtl());
 
     ActionInput inMemoryOutput = null;
     AtomicReference<ByteString> inMemoryOutputData = new AtomicReference<>(null);
@@ -1762,7 +1764,7 @@ public class RemoteExecutionService {
       return;
     }
 
-    if (remoteOptions.remoteCacheAsync
+    if (remoteOptions.getRemoteCacheAsync()
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
       var uploadDone = new CountDownLatch(1);
       var future =
@@ -1926,17 +1928,19 @@ public class RemoteExecutionService {
 
     ExecuteRequest.Builder requestBuilder =
         ExecuteRequest.newBuilder()
-            .setInstanceName(remoteOptions.remoteInstanceName)
+            .setInstanceName(remoteOptions.getRemoteInstanceName())
             .setDigestFunction(digestUtil.getDigestFunction())
             .setActionDigest(action.getActionKey().digest())
             .setSkipCacheLookup(!acceptCachedResult);
-    if (remoteOptions.remoteResultCachePriority != 0) {
+    if (remoteOptions.getRemoteResultCachePriority() != 0) {
       requestBuilder
           .getResultsCachePolicyBuilder()
-          .setPriority(remoteOptions.remoteResultCachePriority);
+          .setPriority(remoteOptions.getRemoteResultCachePriority());
     }
-    if (remoteOptions.remoteExecutionPriority != 0) {
-      requestBuilder.getExecutionPolicyBuilder().setPriority(remoteOptions.remoteExecutionPriority);
+    if (remoteOptions.getRemoteExecutionPriority() != 0) {
+      requestBuilder
+          .getExecutionPolicyBuilder()
+          .setPriority(remoteOptions.getRemoteExecutionPriority());
     }
     PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
     if (inMemoryOutputPath != null) {

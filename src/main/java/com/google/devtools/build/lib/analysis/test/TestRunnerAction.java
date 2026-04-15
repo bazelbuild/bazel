@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.test;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -48,7 +47,6 @@ import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.AttemptGroup;
@@ -172,8 +170,7 @@ public class TestRunnerAction extends AbstractAction
   private final boolean splitCoveragePostProcessing;
   private final NestedSet<Artifact> lcovMergerFilesToRun;
 
-  // TODO(b/192694287): Remove once we migrate all tests from the allowlist.
-  private final PackageSpecificationProvider networkAllowlist;
+
 
   private static ImmutableSet<Artifact> nonNullAsSet(Artifact... artifacts) {
     ImmutableSet.Builder<Artifact> builder = ImmutableSet.builder();
@@ -218,8 +215,7 @@ public class TestRunnerAction extends AbstractAction
       @Nullable PathFragment shExecutable,
       CancelConcurrentTests cancelConcurrentTests,
       boolean splitCoveragePostProcessing,
-      NestedSet<Artifact> lcovMergerFilesToRun,
-      PackageSpecificationProvider networkAllowlist) {
+      NestedSet<Artifact> lcovMergerFilesToRun) {
     super(
         owner,
         inputs,
@@ -283,7 +279,7 @@ public class TestRunnerAction extends AbstractAction
     this.cancelConcurrentTests = cancelConcurrentTests;
     this.splitCoveragePostProcessing = splitCoveragePostProcessing;
     this.lcovMergerFilesToRun = lcovMergerFilesToRun;
-    this.networkAllowlist = networkAllowlist;
+
 
     // Mark all possible test outputs for deletion before test execution.
     // TestRunnerAction potentially can create many more non-declared outputs - xml output, coverage
@@ -964,7 +960,7 @@ public class TestRunnerAction extends AbstractAction
 
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
-    return mergeMaps(super.getExecutionInfo(), testProperties.getExecutionInfo());
+    return testProperties.getExecutionInfo();
   }
 
   public TestTargetExecutionSettings getExecutionSettings() {
@@ -993,9 +989,7 @@ public class TestRunnerAction extends AbstractAction
     return workspaceName;
   }
 
-  public PackageSpecificationProvider getNetworkAllowlist() {
-    return networkAllowlist;
-  }
+
 
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)

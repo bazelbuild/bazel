@@ -205,7 +205,7 @@ public class ActionGraphQueryEnvironment
 
   @Override
   public String getOutputFormat() {
-    return aqueryOptions.outputFormat;
+    return aqueryOptions.getOutputFormat();
   }
 
   @Override

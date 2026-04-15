@@ -21,13 +21,15 @@ import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
 
 /**
  * Command-line options for J2ObjC translation of Java source code to ObjC. These command line
  * options are used by Java rules that can be transpiled (specifically, J2ObjCAspects thereof).
  */
-public class J2ObjcCommandLineOptions extends FragmentOptions {
+@OptionsClass
+public abstract class J2ObjcCommandLineOptions extends FragmentOptions {
   @Option(
       name = "j2objc_translation_flags",
       converter = Converters.CommaSeparatedOptionListConverter.class,
@@ -36,18 +38,16 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Additional options to pass to the J2ObjC tool.")
-  public List<String> translationFlags;
+  public abstract List<String> getTranslationFlags();
 
   @Option(
-    name = "j2objc_dead_code_report",
-    defaultValue = "null",
-    converter = LabelConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Allows J2ObjC to strip dead code reported by ProGuard. Takes a label that can "
-            + "generate a dead code report as argument."
-  )
-  public Label deadCodeReport;
-
+      name = "j2objc_dead_code_report",
+      defaultValue = "null",
+      converter = LabelConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Allows J2ObjC to strip dead code reported by ProGuard. Takes a label that can "
+              + "generate a dead code report as argument.")
+  public abstract Label getDeadCodeReport();
 }

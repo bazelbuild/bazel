@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
+import com.google.devtools.common.options.Options;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.util.Arrays;
@@ -42,7 +43,7 @@ import org.junit.Test;
 /** Tests cquery's {@link --output=files} format. */
 public final class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest {
 
-  private final CqueryOptions options = new CqueryOptions();
+  private final CqueryOptions options = Options.getDefaults(CqueryOptions.class);
   private final Reporter reporter = new Reporter(new EventBus());
 
   @Before

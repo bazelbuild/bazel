@@ -18,13 +18,13 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.RegexPatternOption;
 import java.time.Duration;
 
-/**
- * Local execution options.
- */
-public class LocalExecutionOptions extends OptionsBase {
+/** Local execution options. */
+@OptionsClass
+public abstract class LocalExecutionOptions extends OptionsBase {
 
   @Option(
       name = "local_termination_grace_seconds",
@@ -35,7 +35,9 @@ public class LocalExecutionOptions extends OptionsBase {
       help =
           "Time to wait between terminating a local process due to timeout and forcefully "
               + "shutting it down.")
-  public int localSigkillGraceSeconds;
+  public abstract int getLocalSigkillGraceSeconds();
+
+  public abstract void setLocalSigkillGraceSeconds(int value);
 
   @Option(
       name = "allowed_local_actions_regex",
@@ -46,7 +48,9 @@ public class LocalExecutionOptions extends OptionsBase {
       help =
           "A regex whitelist for action types which may be run locally. If unset, "
               + "all actions are allowed to execute locally")
-  public RegexPatternOption allowedLocalAction;
+  public abstract RegexPatternOption getAllowedLocalAction();
+
+  public abstract void setAllowedLocalAction(RegexPatternOption value);
 
   @Option(
       name = "experimental_local_lockfree_output",
@@ -57,7 +61,9 @@ public class LocalExecutionOptions extends OptionsBase {
           "When true, the local spawn runner doesn't lock the output tree during dynamic "
               + "execution. Instead, spawns are allowed to execute until they are explicitly "
               + "interrupted by a faster remote action.")
-  public boolean localLockfreeOutput;
+  public abstract boolean getLocalLockfreeOutput();
+
+  public abstract void setLocalLockfreeOutput(boolean value);
 
   @Option(
       name = "experimental_process_wrapper_graceful_sigterm",
@@ -68,7 +74,9 @@ public class LocalExecutionOptions extends OptionsBase {
           "When true, make the process-wrapper propagate SIGTERMs (used by the dynamic scheduler "
               + "to stop process trees) to the subprocesses themselves, giving them the grace "
               + "period in --local_termination_grace_seconds before forcibly sending a SIGKILL.")
-  public boolean processWrapperGracefulSigterm;
+  public abstract boolean getProcessWrapperGracefulSigterm();
+
+  public abstract void setProcessWrapperGracefulSigterm(boolean value);
 
   @Option(
       name = "experimental_local_retries_on_crash",
@@ -81,10 +89,12 @@ public class LocalExecutionOptions extends OptionsBase {
               + "scheduler and --experimental_local_lockfree_output due to constant process "
               + "churn. The bug can be triggered by a cancelled process that ran *before* the "
               + "process we are trying to run, introducing corruption in its file reads.")
-  public int localRetriesOnCrash;
+  public abstract int getLocalRetriesOnCrash();
 
-  public Duration getLocalSigkillGraceSeconds() {
+  public abstract void setLocalRetriesOnCrash(int value);
+
+  public Duration getLocalSigkillGraceSecondsDuration() {
     // TODO(ulfjack): Change localSigkillGraceSeconds type to Duration.
-    return Duration.ofSeconds(localSigkillGraceSeconds);
+    return Duration.ofSeconds(getLocalSigkillGraceSeconds());
   }
 }

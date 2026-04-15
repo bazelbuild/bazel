@@ -53,6 +53,7 @@ public class RemoteAnalysisCacheDeps
 
   private final RemoteAnalysisCacheMode mode;
   private final boolean bailOutOnMissingFingerprint;
+  private final boolean minimizeMemory;
   private final String serializedFrontierProfile;
   private final Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher;
   private final RemoteAnalysisCachingEventListener listener;
@@ -75,6 +76,7 @@ public class RemoteAnalysisCacheDeps
       ExtendedEventHandler eventHandler,
       RemoteAnalysisCacheMode mode,
       boolean bailOutOnMissingFingerprint,
+      boolean minimizeMemory,
       RemoteAnalysisCachingServicesSupplier servicesSupplier,
       RemoteAnalysisCachingEventListener listener,
       RemoteAnalysisJsonLogWriter jsonLogWriter,
@@ -84,6 +86,7 @@ public class RemoteAnalysisCacheDeps
       String serializedFrontierProfile) {
     this.mode = mode;
     this.bailOutOnMissingFingerprint = bailOutOnMissingFingerprint;
+    this.minimizeMemory = minimizeMemory;
     this.serializedFrontierProfile = serializedFrontierProfile;
     this.activeDirectoriesMatcher = activeDirectoriesMatcher;
     this.eventHandler = eventHandler;
@@ -103,6 +106,7 @@ public class RemoteAnalysisCacheDeps
   private RemoteAnalysisCacheDeps() {
     this.mode = RemoteAnalysisCacheMode.OFF;
     this.bailOutOnMissingFingerprint = false;
+    this.minimizeMemory = false;
     this.serializedFrontierProfile = "";
     this.activeDirectoriesMatcher = Optional.empty();
     this.eventHandler = null;
@@ -136,6 +140,12 @@ public class RemoteAnalysisCacheDeps
   @Override
   public RemoteAnalysisCacheMode mode() {
     return mode;
+  }
+
+  @Override
+  public boolean shouldMinimizeMemory() {
+    checkEnabled();
+    return minimizeMemory;
   }
 
   @Override

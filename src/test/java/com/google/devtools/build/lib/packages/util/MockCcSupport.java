@@ -272,31 +272,35 @@ public abstract class MockCcSupport {
             "cc/objc_library.bzl",
             "cc/common/BUILD",
             "cc/common/cc_common.bzl",
+            "cc/common/cc_helper.bzl",
+            "cc/common/cc_shared_library_info.bzl",
+            "cc/common/semantics.bzl",
             "cc/find_cc_toolchain.bzl",
             "cc/toolchains/BUILD",
             "cc/toolchains/cc_toolchain.bzl",
             "cc/toolchains/cc_toolchain_alias.bzl",
             "cc/toolchains/cc_toolchain_config_info.bzl",
-            "cc/toolchain_utils.bzl",
-            "cc/private/rules_impl/BUILD")) {
+            "cc/toolchains/tool_map.bzl",
+            "cc/toolchain_utils.bzl")) {
       try {
-        config.overwrite(
-            "third_party/bazel_rules/rules_cc/" + path,
-            ResourceLoader.readFromResources(TestConstants.RULES_CC_REPOSITORY_EXECROOT + path));
+        String content =
+            ResourceLoader.readFromResources(TestConstants.RULES_CC_REPOSITORY_EXECROOT + path);
+        config.overwrite("third_party/bazel_rules/rules_cc/" + path, content);
       } catch (Exception e) {
         throw new RuntimeException("Couldn't read rules_cc file from " + path, e);
       }
     }
-    // We handle these files separately and ignore errors since only native.bzl will be found for
-    // bazel, but the other two for blaze
-    // TODO: once rules_cc is released and updated in bazel, move this into the set above
+
+    // We handle these files separately and ignore errors since some files are only present in Bazel
+    // or Blaze contexts.
     for (String path :
         ImmutableList.of(
+            "cc/private/rules_impl/BUILD",
             "cc/private/rules_impl/native.bzl",
+            "cc/private/rules_impl/blaze.bzl",
+            "cc/private/rules_impl/wrappers/BUILD",
             "cc/private/rules_impl/native_cc_common.bzl",
-            "cc/private/rules_impl/native_providers.bzl",
-            // New files, not yet visible to bazel.
-            "cc/private/rules_impl/wrappers/BUILD")) {
+            "cc/private/rules_impl/native_providers.bzl")) {
       try {
         config.overwrite(
             "third_party/bazel_rules/rules_cc/" + path,
@@ -315,14 +319,15 @@ public abstract class MockCcSupport {
         ResourceLoader.readFromResources(
             TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/action_names.bzl"));
     config.create(
-        TestConstants.RULES_CC_REPOSITORY_EXECROOT + "BUILD", "filegroup(name='license')");
+        TestConstants.RULES_CC_REPOSITORY_EXECROOT + "BUILD",
+        "filegroup(name='license', visibility=['//visibility:public'])");
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/BUILD");
     config.append(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD", "");
 
     // These could be a distinct method
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + TestConstants.MOCK_LICENSE_SCRATCH + "BUILD",
-        "filegroup(name='license')");
+        "filegroup(name='license', visibility=['//visibility:public'])");
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH
             + TestConstants.MOCK_LICENSE_SCRATCH

@@ -1190,6 +1190,7 @@ java_library(
 java_library(
     name = "analysis_progress_receiver",
     srcs = ["AnalysisProgressReceiver.java"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/util:string"],
 )
 
 java_library(
@@ -1959,6 +1960,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//third_party:guava",
     ],
 )

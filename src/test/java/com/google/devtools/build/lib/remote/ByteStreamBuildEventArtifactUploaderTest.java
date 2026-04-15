@@ -523,7 +523,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       RemoteRetrier retrier,
       MissingDigestsFinder missingDigestsFinder) {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteInstanceName = "instance";
+    remoteOptions.setRemoteInstanceName("instance");
     GrpcCacheClient cacheClient =
         spy(
             new GrpcCacheClient(

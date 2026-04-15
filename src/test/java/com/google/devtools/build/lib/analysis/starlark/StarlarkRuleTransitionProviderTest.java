@@ -135,7 +135,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     useConfiguration("--foo=pre-transition");
 
     BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
-    assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
+    assertThat(configuration.getOptions().get(DummyTestOptions.class).getFoo())
         .isEqualTo("post-transition");
   }
 
@@ -175,7 +175,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     useConfiguration("--foo=pre-transition");
 
     BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
-    assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
+    assertThat(configuration.getOptions().get(DummyTestOptions.class).getFoo())
         .isEqualTo("post-transition");
   }
 
@@ -453,7 +453,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     useConfiguration("--foo=pre-transition");
 
     BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
-    assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
+    assertThat(configuration.getOptions().get(DummyTestOptions.class).getFoo())
         .isEqualTo("post-transition");
   }
 
@@ -725,7 +725,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     useConfiguration("--unreadable_by_starlark=pre-transition");
 
     BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
-    assertThat(configuration.getOptions().get(DummyTestOptions.class).unreadableByStarlark)
+    assertThat(configuration.getOptions().get(DummyTestOptions.class).getUnreadableByStarlark())
         .isEqualTo(DummyTestOptions.UnreadableStringBox.create("post-transition"));
   }
 
@@ -1278,7 +1278,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     useConfiguration("--nullable_option=", "--foo=pre-transition");
 
     BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
-    assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
+    assertThat(configuration.getOptions().get(DummyTestOptions.class).getFoo())
         .isEqualTo("post-transition");
   }
 
@@ -1316,7 +1316,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
     BuildConfigurationValue configuration =
         getConfiguration(getConfiguredTarget("//neverland:test"));
-    assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
+    assertThat(configuration.getOptions().get(DummyTestOptions.class).getFoo())
         .isEqualTo("post-transition");
   }
 
@@ -1355,7 +1355,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     useConfiguration("--foo=pre-transition");
 
     BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
-    assertThat(configuration.getOptions().get(DummyTestOptions.class).foo)
+    assertThat(configuration.getOptions().get(DummyTestOptions.class).getFoo())
         .isEqualTo("post-transition");
   }
 
@@ -1634,7 +1634,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     useConfiguration("--bool=false");
     ConfiguredTarget ct = getConfiguredTarget("//test");
     assertNoEvents();
-    assertThat(getConfiguration(ct).getOptions().get(DummyTestOptions.class).bool).isTrue();
+    assertThat(getConfiguration(ct).getOptions().get(DummyTestOptions.class).getBool()).isTrue();
   }
 
   // Regression test for b/170729565
@@ -1669,7 +1669,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     useConfiguration("--bool=false");
     ConfiguredTarget ct = getConfiguredTarget("//test");
     assertNoEvents();
-    assertThat(getConfiguration(ct).getOptions().get(DummyTestOptions.class).bool).isFalse();
+    assertThat(getConfiguration(ct).getOptions().get(DummyTestOptions.class).getBool()).isFalse();
   }
 
   @Test
@@ -2082,7 +2082,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
             getConfiguration(getConfiguredTarget("//test:test"))
                 .getOptions()
                 .get(PlatformOptions.class)
-                .platforms)
+                .getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked(TestConstants.PLATFORM_LABEL));
   }
 
@@ -2139,7 +2139,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
             getConfiguration(getConfiguredTarget("//test:test"))
                 .getOptions()
                 .get(PlatformOptions.class)
-                .platforms)
+                .getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked("//platforms:my_other_platform"));
   }
 
@@ -2183,7 +2183,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
             getConfiguration(getConfiguredTarget("//test:test"))
                 .getOptions()
                 .get(PlatformOptions.class)
-                .platforms)
+                .getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked("//platforms:my_platform"));
   }
 
@@ -2231,7 +2231,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
             getConfiguration(getConfiguredTarget("//test:buildme"))
                 .getOptions()
                 .get(DummyTestOptions.class)
-                .foo)
+                .getFoo())
         .isEqualTo("first build");
 
     scratch.overwriteFile(
@@ -2253,7 +2253,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
             getConfiguration(getConfiguredTarget("//test:buildme"))
                 .getOptions()
                 .get(DummyTestOptions.class)
-                .foo)
+                .getFoo())
         .isEqualTo("second build");
   }
 

@@ -66,7 +66,7 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
               .append(shortId(getConfiguration(keyedConfiguredTarget.getConfigurationKey())))
               .append(")");
 
-      if (options.showRequiredConfigFragments != IncludeConfigFragmentsEnum.OFF) {
+      if (options.getShowRequiredConfigFragments() != IncludeConfigFragmentsEnum.OFF) {
         output.append(' ').append(requiredFragmentStrings(keyedConfiguredTarget));
       }
 

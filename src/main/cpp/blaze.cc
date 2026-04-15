@@ -446,6 +446,9 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   // TODO: Drop this when protobuf uses VarHandle.
   result.push_back("-Dsun.misc.unsafe.memory.access=allow");
 
+  // Let the system decide whether to prefer IPv6
+  result.push_back("-Djava.net.preferIPv6Addresses=system");
+
 #if defined(_WIN32)
   // See and use more than 64 CPUs on Windows.
   // https://bugs.openjdk.org/browse/JDK-6942632

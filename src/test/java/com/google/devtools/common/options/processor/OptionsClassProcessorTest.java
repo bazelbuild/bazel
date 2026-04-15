@@ -15,9 +15,11 @@ package com.google.devtools.common.options.processor;
 
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
+import static com.google.testing.compile.JavaSourcesSubjectFactory.javaSources;
 
 import com.google.common.io.Resources;
 import com.google.testing.compile.JavaFileObjects;
+import java.util.Arrays;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -91,6 +93,61 @@ public class OptionsClassProcessorTest {
   public void validOptionsClassCompiles() {
     assertAbout(javaSource())
         .that(getFile("ValidOptions.java"))
+        .processedWith(new OptionsClassProcessor())
+        .compilesWithoutError();
+  }
+
+  @Test
+  public void nestedOptionsClassesWithSameSimpleNameCompile() {
+    assertAbout(javaSources())
+        .that(Arrays.asList(getFile("Outer1.java"), getFile("Outer2.java")))
+        .processedWith(new OptionsClassProcessor())
+        .compilesWithoutError();
+  }
+
+  @Test
+  public void inheritingOptionsClassCompiles() {
+    JavaFileObject baseOptions =
+        JavaFileObjects.forSourceString(
+            "com.google.devtools.common.options.processor.BaseOptions",
+            """
+            package com.google.devtools.common.options.processor;
+            import com.google.devtools.common.options.Option;
+            import com.google.devtools.common.options.OptionDocumentationCategory;
+            import com.google.devtools.common.options.OptionEffectTag;
+            import com.google.devtools.common.options.OptionsBase;
+            public abstract class BaseOptions extends OptionsBase {
+              @Option(
+                  name = "base",
+                  documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+                  effectTags = {OptionEffectTag.NO_OP},
+                  defaultValue = "baseDefault")
+              public abstract String getBase();
+              public abstract void setBase(String base);
+            }
+            """);
+    JavaFileObject inheritingOptions =
+        JavaFileObjects.forSourceString(
+            "com.google.devtools.common.options.processor.InheritingOptions",
+            """
+            package com.google.devtools.common.options.processor;
+            import com.google.devtools.common.options.Option;
+            import com.google.devtools.common.options.OptionDocumentationCategory;
+            import com.google.devtools.common.options.OptionEffectTag;
+            import com.google.devtools.common.options.OptionsClass;
+            @OptionsClass
+            public abstract class InheritingOptions extends BaseOptions {
+              @Option(
+                  name = "derived",
+                  documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+                  effectTags = {OptionEffectTag.NO_OP},
+                  defaultValue = "derivedDefault")
+              public abstract String getDerived();
+              public abstract void setDerived(String derived);
+            }
+            """);
+    assertAbout(javaSources())
+        .that(Arrays.asList(baseOptions, inheritingOptions))
         .processedWith(new OptionsClassProcessor())
         .compilesWithoutError();
   }

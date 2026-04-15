@@ -429,7 +429,7 @@ public final class SkyframeActionExecutor {
   }
 
   boolean publishTargetSummaries() {
-    return options.getOptions(BuildEventProtocolOptions.class).publishTargetSummary;
+    return options.getOptions(BuildEventProtocolOptions.class).getPublishTargetSummary();
   }
 
   public boolean rewindingEnabled() {
@@ -1002,7 +1002,7 @@ public final class SkyframeActionExecutor {
    * </ul>
    */
   private boolean isBuilderAborting() {
-    return hadExecutionError.get() && !options.getOptions(KeepGoingOption.class).keepGoing;
+    return hadExecutionError.get() && !options.getOptions(KeepGoingOption.class).getKeepGoing();
   }
 
   public void configure(

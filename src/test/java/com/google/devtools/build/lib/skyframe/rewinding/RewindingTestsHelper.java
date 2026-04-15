@@ -3231,7 +3231,7 @@ public class RewindingTestsHelper {
   }
 
   private boolean keepGoing() {
-    return testCase.getRuntimeWrapper().getOptions(KeepGoingOption.class).keepGoing;
+    return testCase.getRuntimeWrapper().getOptions(KeepGoingOption.class).getKeepGoing();
   }
 
   final boolean buildRunfileManifests() {

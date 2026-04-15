@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.ConfiguredRule
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver.Mode;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.common.options.Options;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.Message;
 import com.google.protobuf.Parser;
@@ -81,15 +82,18 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
   @Before
   public final void setUpCqueryOptions() {
-    this.options = new CqueryOptions();
+    this.options = Options.getDefaults(CqueryOptions.class);
+    options.setIncludeToolDeps(false);
+    options.setIncludeImplicitDeps(false);
+    options.setIncludeNoDepDeps(false);
     // TODO(bazel-team): reduce the confusion about these two seemingly similar settings.
     // options.aspectDeps impacts how proto and similar output formatters output aspect results.
     // Setting.INCLUDE_ASPECTS impacts whether or not aspect dependencies are included when
     // following target deps. See CommonQueryOptions for further flag details.
-    options.aspectDeps = Mode.OFF;
+    options.setAspectDeps(Mode.OFF);
     helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
-    options.protoIncludeConfigurations = true;
-    options.protoIncludeRuleInputsAndOutputs = true;
+    options.setProtoIncludeConfigurations(true);
+    options.setProtoIncludeRuleInputsAndOutputs(true);
     this.reporter = new Reporter(new EventBus(), events::add);
   }
 
@@ -160,7 +164,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   @Test
   @SuppressWarnings("deprecation") // only use for tests
   public void testConfigurations() throws Exception {
-    options.transitions = Transitions.LITE;
+    options.setTransitions(Transitions.LITE);
 
     MockRule ruleWithPatch =
         () ->
@@ -348,7 +352,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   })
   public void testConfigurationCPU(
       String bepCpuFromPlatform, String platformToCpuMap, String platformName) throws Exception {
-    options.transitions = Transitions.NONE;
+    options.setTransitions(Transitions.NONE);
 
     List<String> args = new ArrayList<>();
     args.add("--cpu=cpu_val");
@@ -423,7 +427,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
   @Test
   public void configuredRuleInputsFromAspects() throws Exception {
-    options.transitions = Transitions.LITE;
+    options.setTransitions(Transitions.LITE);
     writeFile(
         "test/BUILD",
         """
@@ -540,7 +544,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         )
         """);
 
-    options.transitions = Transitions.LITE;
+    options.setTransitions(Transitions.LITE);
     AnalysisProtosV2.CqueryResult cqueryResult =
         getProtoOutput("deps(//test:my_alias)", AnalysisProtosV2.CqueryResult.parser());
 
@@ -604,7 +608,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         )
         """);
 
-    options.transitions = Transitions.LITE;
+    options.setTransitions(Transitions.LITE);
     AnalysisProtosV2.CqueryResult cqueryResult =
         getProtoOutput("deps(//test:my_target)", AnalysisProtosV2.CqueryResult.parser());
     Build.Rule targetRule =
@@ -765,7 +769,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   @Test
   public void testAllOutputFormatsEquivalentToProtoOutput_noIncludeConfigurations()
       throws Exception {
-    options.protoIncludeConfigurations = false;
+    options.setProtoIncludeConfigurations(false);
     MockRule depsRule =
         () ->
             MockRule.define(
@@ -866,8 +870,9 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             out,
             getHelper().getSkyframeExecutor(),
             env.getAccessor(),
-            options.aspectDeps.createResolver(
-                getHelper().getPackageManager(), NullEventHandler.INSTANCE),
+            options
+                .getAspectDeps()
+                .createResolver(getHelper().getPackageManager(), NullEventHandler.INSTANCE),
             outputType,
             LabelPrinter.legacy());
     env.evaluateQuery(expression, callback);

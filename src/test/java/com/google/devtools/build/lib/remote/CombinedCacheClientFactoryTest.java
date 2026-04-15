@@ -68,8 +68,8 @@ public class CombinedCacheClientFactoryTest {
 
   @Test
   public void createCombinedCacheWithExistingWorkingDirectory() throws IOException {
-    remoteOptions.remoteCache = "http://doesnotexist.com";
-    remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
+    remoteOptions.setRemoteCache("http://doesnotexist.com");
+    remoteOptions.setDiskCache(PathFragment.create("/etc/something/cache/here"));
     fs.getPath("/etc/something/cache/here").createDirectoryAndParents();
 
     var blobStore =
@@ -88,8 +88,8 @@ public class CombinedCacheClientFactoryTest {
 
   @Test
   public void createCombinedCacheWithNotExistingWorkingDirectory() throws IOException {
-    remoteOptions.remoteCache = "http://doesnotexist.com";
-    remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
+    remoteOptions.setRemoteCache("http://doesnotexist.com");
+    remoteOptions.setDiskCache(PathFragment.create("/etc/something/cache/here"));
     assertThat(workingDirectory.exists()).isFalse();
 
     var blobStore =
@@ -110,15 +110,15 @@ public class CombinedCacheClientFactoryTest {
   @Test
   public void createCombinedCacheWithMissingWorkingDirectoryShouldThrowException() {
     // interesting case: workingDirectory = null -> NPE.
-    remoteOptions.remoteCache = "http://doesnotexist.com";
-    remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
+    remoteOptions.setRemoteCache("http://doesnotexist.com");
+    remoteOptions.setDiskCache(PathFragment.create("/etc/something/cache/here"));
 
     assertThrows(
         NullPointerException.class,
         () ->
             CombinedCacheClientFactory.create(
                 remoteOptions,
-                remoteOptions.diskCache != null
+                remoteOptions.getDiskCache() != null
                     ? remoteOptions.getDiskCachePath(/* outputUserRoot= */ null)
                     : null,
                 /* creds= */ null,
@@ -133,8 +133,8 @@ public class CombinedCacheClientFactoryTest {
     // Unix domain sockets are not supported on Windows.
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
-    remoteOptions.remoteCache = "http://doesnotexist.com";
-    remoteOptions.remoteProxy = "unix://some-proxy";
+    remoteOptions.setRemoteCache("http://doesnotexist.com");
+    remoteOptions.setRemoteProxy("unix://some-proxy");
 
     var blobStore =
         CombinedCacheClientFactory.create(
@@ -152,8 +152,8 @@ public class CombinedCacheClientFactoryTest {
 
   @Test
   public void createHttpCacheFailsWithUnsupportedProxyProtocol() {
-    remoteOptions.remoteCache = "http://doesnotexist.com";
-    remoteOptions.remoteProxy = "bad-proxy";
+    remoteOptions.setRemoteCache("http://doesnotexist.com");
+    remoteOptions.setRemoteProxy("bad-proxy");
 
     assertThat(
             assertThrows(
@@ -173,7 +173,7 @@ public class CombinedCacheClientFactoryTest {
 
   @Test
   public void createHttpCacheWithoutProxy() throws IOException {
-    remoteOptions.remoteCache = "http://doesnotexist.com";
+    remoteOptions.setRemoteCache("http://doesnotexist.com");
 
     var blobStore =
         CombinedCacheClientFactory.create(
@@ -191,7 +191,7 @@ public class CombinedCacheClientFactoryTest {
 
   @Test
   public void createDiskCache() throws IOException {
-    remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
+    remoteOptions.setDiskCache(PathFragment.create("/etc/something/cache/here"));
 
     var blobStore =
         CombinedCacheClientFactory.create(
@@ -209,73 +209,73 @@ public class CombinedCacheClientFactoryTest {
 
   @Test
   public void isRemoteCacheOptions_httpCacheEnabled() {
-    remoteOptions.remoteCache = "http://doesnotexist:90";
+    remoteOptions.setRemoteCache("http://doesnotexist:90");
     assertThat(CombinedCacheClientFactory.isRemoteCacheOptions(remoteOptions)).isTrue();
   }
 
   @Test
   public void isRemoteCacheOptions_httpCacheEnabledInUpperCase() {
-    remoteOptions.remoteCache = "HTTP://doesnotexist:90";
+    remoteOptions.setRemoteCache("HTTP://doesnotexist:90");
     assertThat(CombinedCacheClientFactory.isRemoteCacheOptions(remoteOptions)).isTrue();
   }
 
   @Test
   public void isRemoteCacheOptions_httpsCacheEnabled() {
-    remoteOptions.remoteCache = "https://doesnotexist:90";
+    remoteOptions.setRemoteCache("https://doesnotexist:90");
     assertThat(CombinedCacheClientFactory.isRemoteCacheOptions(remoteOptions)).isTrue();
   }
 
   @Test
   public void isRemoteCacheOptions_badProtocolStartsWithHttp() {
-    remoteOptions.remoteCache = "httplolol://doesnotexist:90";
+    remoteOptions.setRemoteCache("httplolol://doesnotexist:90");
     assertThat(CombinedCacheClientFactory.isRemoteCacheOptions(remoteOptions)).isFalse();
   }
 
   @Test
   public void isRemoteCacheOptions_diskCacheEnabled() {
-    remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
+    remoteOptions.setDiskCache(PathFragment.create("/etc/something/cache/here"));
     assertThat(CombinedCacheClientFactory.isRemoteCacheOptions(remoteOptions)).isTrue();
   }
 
   @Test
   public void isRemoteCacheOptions_httpAndDiskCacheEnabled() {
-    remoteOptions.remoteCache = "http://doesnotexist:90";
-    remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
+    remoteOptions.setRemoteCache("http://doesnotexist:90");
+    remoteOptions.setDiskCache(PathFragment.create("/etc/something/cache/here"));
 
     assertThat(CombinedCacheClientFactory.isRemoteCacheOptions(remoteOptions)).isTrue();
   }
 
   @Test
   public void isRemoteCacheOptions_httpsAndDiskCacheEnabled() {
-    remoteOptions.remoteCache = "https://doesnotexist:90";
-    remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
+    remoteOptions.setRemoteCache("https://doesnotexist:90");
+    remoteOptions.setDiskCache(PathFragment.create("/etc/something/cache/here"));
 
     assertThat(CombinedCacheClientFactory.isRemoteCacheOptions(remoteOptions)).isTrue();
   }
 
   @Test
   public void isRemoteCacheOptions_httpCacheDisabledWhenGrpcEnabled() {
-    remoteOptions.remoteCache = "grpc://doesnotexist:90";
+    remoteOptions.setRemoteCache("grpc://doesnotexist:90");
 
     assertThat(CombinedCacheClientFactory.isRemoteCacheOptions(remoteOptions)).isFalse();
   }
 
   @Test
   public void isRemoteCacheOptions_httpCacheDisabledWhenNoProtocol() {
-    remoteOptions.remoteCache = "doesnotexist:90";
+    remoteOptions.setRemoteCache("doesnotexist:90");
 
     assertThat(CombinedCacheClientFactory.isRemoteCacheOptions(remoteOptions)).isFalse();
   }
 
   @Test
   public void isRemoteCacheOptions_diskCacheOptionNull() {
-    remoteOptions.diskCache = null;
+    remoteOptions.setDiskCache(null);
     assertThat(CombinedCacheClientFactory.isRemoteCacheOptions(remoteOptions)).isFalse();
   }
 
   @Test
   public void isRemoteCacheOptions_remoteHttpCacheOptionEmpty() {
-    remoteOptions.remoteCache = "";
+    remoteOptions.setRemoteCache("");
     assertThat(CombinedCacheClientFactory.isRemoteCacheOptions(remoteOptions)).isFalse();
   }
 

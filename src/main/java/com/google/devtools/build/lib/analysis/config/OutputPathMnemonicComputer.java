@@ -236,7 +236,7 @@ public final class OutputPathMnemonicComputer {
       return;
     }
 
-    if (platformOptions.platforms != null && platformOptions.platforms.size() > 1) {
+    if (platformOptions.getPlatforms() != null && platformOptions.getPlatforms().size() > 1) {
       ctx.checkedAddToMnemonic("multi-platform", "CPU/Platform descriptor");
       // Intentionally not marking anything as explicit in output path so ST-hash used if needed.
       return;

@@ -416,7 +416,7 @@ public final class AnalysisTestUtil {
             .create(
                 AttributeTransitionData.builder()
                     .attributes(FakeAttributeMapper.empty())
-                    .executionPlatform(targetOptions.get(PlatformOptions.class).hostPlatform)
+                    .executionPlatform(targetOptions.get(PlatformOptions.class).getHostPlatform())
                     .analysisData(
                         skyframeExecutor.getStarlarkExecTransition(
                             targetOptionsWithScopeInfo, handler))

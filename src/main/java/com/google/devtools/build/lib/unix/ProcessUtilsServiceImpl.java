@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.unix;
 
 import com.google.devtools.build.lib.jni.JniLoader;
+import com.google.devtools.build.lib.runtime.BlazeService;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.OptionsParsingResult;
 
@@ -21,7 +22,8 @@ import com.google.devtools.common.options.OptionsParsingResult;
 public final class ProcessUtilsServiceImpl implements ProcessUtilsService {
 
   @Override
-  public void globalInit(OptionsParsingResult startupOptions) {
+  public void globalInit(
+      OptionsParsingResult startupOptions, Iterable<BlazeService> blazeServices) {
     ProcessUtilsService.registerJniService(this);
   }
 

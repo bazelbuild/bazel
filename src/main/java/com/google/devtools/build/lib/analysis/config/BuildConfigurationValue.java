@@ -181,7 +181,7 @@ public class BuildConfigurationValue
     }
     // Order doesn't matter here as ActionEnvironment sorts by key.
     Map<String, String> testEnv = new HashMap<>();
-    for (Converters.EnvVar envVar : buildOptions.get(TestOptions.class).testEnvironment) {
+    for (Converters.EnvVar envVar : buildOptions.get(TestOptions.class).getTestEnvironment()) {
       switch (envVar) {
         case Converters.EnvVar.Set(String name, String value) -> testEnv.put(name, value);
         case Converters.EnvVar.Inherit(String name) -> testEnv.put(name, null);

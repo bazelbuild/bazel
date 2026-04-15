@@ -500,7 +500,7 @@ public final class BlazeWorkspace {
     }
     return PathPackageLocator.create(
         directories.getOutputBase(),
-        packageOptions.packagePath,
+        packageOptions.getPackagePath(),
         NullEventHandler.INSTANCE,
         workspace.asFragment(),
         workspace,

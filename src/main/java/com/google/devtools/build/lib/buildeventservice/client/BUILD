@@ -19,7 +19,6 @@ java_library(
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/grpc-java:grpc-jar",
     ],
 )
 

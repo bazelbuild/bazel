@@ -80,7 +80,9 @@ public final class GoogleAuthUtils {
     SslContext sslContext =
         isTlsEnabled(target)
             ? createSSlContext(
-                options.tlsCertificate, options.tlsClientCertificate, options.tlsClientKey)
+                options.getTlsCertificate(),
+                options.getTlsClientCertificate(),
+                options.getTlsClientKey())
             : null;
 
     String targetUrl = convertTargetScheme(target);
@@ -90,17 +92,17 @@ public final class GoogleAuthUtils {
               .executor(executor)
               .negotiationType(
                   isTlsEnabled(target) ? NegotiationType.TLS : NegotiationType.PLAINTEXT);
-      if (options.grpcKeepaliveTime != null && !options.grpcKeepaliveTime.isZero()) {
-        builder.keepAliveTime(options.grpcKeepaliveTime.toNanos(), NANOSECONDS);
-        builder.keepAliveTimeout(options.grpcKeepaliveTimeout.toNanos(), NANOSECONDS);
+      if (options.getGrpcKeepaliveTime() != null && !options.getGrpcKeepaliveTime().isZero()) {
+        builder.keepAliveTime(options.getGrpcKeepaliveTime().toNanos(), NANOSECONDS);
+        builder.keepAliveTimeout(options.getGrpcKeepaliveTimeout().toNanos(), NANOSECONDS);
       }
       if (interceptors != null) {
         builder.intercept(interceptors);
       }
       if (sslContext != null) {
         builder.sslContext(sslContext);
-        if (options.tlsAuthorityOverride != null) {
-          builder.overrideAuthority(options.tlsAuthorityOverride);
+        if (options.getTlsAuthorityOverride() != null) {
+          builder.overrideAuthority(options.getTlsAuthorityOverride());
         }
       }
       return builder.build();
@@ -279,7 +281,7 @@ public final class GoogleAuthUtils {
         newCredentialHelperProvider(
             credentialHelperEnvironment,
             commandLinePathFactory,
-            authAndTlsOptions.credentialHelpers),
+            authAndTlsOptions.getCredentialHelpers()),
         credentialHelperEnvironment,
         credentialCache,
         fallbackCredentials);
@@ -294,21 +296,21 @@ public final class GoogleAuthUtils {
   private static Optional<Credentials> newGoogleCredentials(AuthAndTLSOptions options)
       throws IOException {
     Preconditions.checkNotNull(options);
-    if (options.googleCredentials != null) {
+    if (options.getGoogleCredentials() != null) {
       // Credentials from file
-      try (InputStream authFile = new FileInputStream(options.googleCredentials)) {
-        return Optional.of(newGoogleCredentialsFromFile(authFile, options.googleAuthScopes));
+      try (InputStream authFile = new FileInputStream(options.getGoogleCredentials())) {
+        return Optional.of(newGoogleCredentialsFromFile(authFile, options.getGoogleAuthScopes()));
       } catch (FileNotFoundException e) {
         String message =
             String.format(
                 "Could not open auth credentials file '%s': %s",
-                options.googleCredentials, e.getMessage());
+                options.getGoogleCredentials(), e.getMessage());
         throw new IOException(message, e);
       }
-    } else if (options.useGoogleDefaultCredentials) {
+    } else if (options.getUseGoogleDefaultCredentials()) {
       return Optional.of(
           newGoogleCredentialsFromFile(
-              null /* Google Application Default Credentials */, options.googleAuthScopes));
+              null /* Google Application Default Credentials */, options.getGoogleAuthScopes()));
     }
     return Optional.empty();
   }

@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
 abstract class AbstractUnorderedFormatter extends OutputFormatter implements StreamedFormatter {
 
   static String getKind(QueryOptions options, Target target) {
-    if (options.displayFullKind && target instanceof Rule rule) {
+    if (options.getDisplayFullKind() && target instanceof Rule rule) {
       RuleClassId ruleClassId = rule.getRuleClassObject().getRuleClassId();
       return ruleClassId.key() + Rule.targetKindSuffix();
     }
@@ -68,12 +68,12 @@ abstract class AbstractUnorderedFormatter extends OutputFormatter implements Str
   }
 
   protected Iterable<Target> getOrderedTargets(Digraph<Target> result, QueryOptions options) {
-    if (options.orderOutput == OrderOutput.FULL) {
+    if (options.getOrderOutput() == OrderOutput.FULL) {
       // Get targets in total order, the difference here from topological ordering is the sorting of
       // nodes before post-order visitation (which ensures determinism at a time cost).
       return Iterables.transform(
           result.getTopologicalOrder(new FormatUtils.TargetOrdering()), Node::getLabel);
-    } else if (options.orderOutput == OrderOutput.DEPS) {
+    } else if (options.getOrderOutput() == OrderOutput.DEPS) {
       // Get targets in topological order.
       return Iterables.transform(result.getTopologicalOrder(), Node::getLabel);
     }

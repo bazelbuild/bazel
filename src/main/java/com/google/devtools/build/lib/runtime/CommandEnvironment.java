@@ -327,7 +327,7 @@ public class CommandEnvironment {
             options.getOptions(ClientOptions.class),
             "CommandEnvironment needs its options provider to have ClientOptions loaded.");
 
-    this.clientEnv = makeMapFromMapEntries(clientOptions.clientEnv);
+    this.clientEnv = makeMapFromMapEntries(clientOptions.getClientEnv());
     this.commandId = computeCommandId(commandOptions.getInvocationId(), warnings, attemptNumber);
     this.buildRequestId =
         commandOptions.getBuildRequestId() != null
@@ -372,7 +372,7 @@ public class CommandEnvironment {
       }
     }
     if (command.buildPhase().analyzes() || command.name().equals("info")) {
-      for (Converters.EnvVar envVar : options.getOptions(TestOptions.class).testEnvironment) {
+      for (Converters.EnvVar envVar : options.getOptions(TestOptions.class).getTestEnvironment()) {
         if (envVar instanceof Converters.EnvVar.Inherit(String name)) {
           visibleTestEnv.add(name);
         }
@@ -877,10 +877,10 @@ public class CommandEnvironment {
     var analysisOptions = options.getOptions(AnalysisOptions.class);
     skyframeExecutor.decideKeepIncrementalState(
         runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).getBatch(),
-        keepStateAfterBuildOption.keepStateAfterBuild,
+        keepStateAfterBuildOption.getKeepStateAfterBuild(),
         commonOptions.getTrackIncrementalState(),
         commonOptions.getHeuristicallyDropNodes(),
-        analysisOptions != null && analysisOptions.discardAnalysisCache,
+        analysisOptions != null && analysisOptions.getDiscardAnalysisCache(),
         reporter);
   }
 

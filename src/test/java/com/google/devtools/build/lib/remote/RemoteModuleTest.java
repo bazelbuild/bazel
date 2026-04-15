@@ -267,8 +267,8 @@ public final class RemoteModuleTest {
     cacheServer.start();
 
     try {
-      remoteOptions.remoteExecutor = EXECUTION_SERVER_NAME;
-      remoteOptions.remoteDownloader = CACHE_SERVER_NAME;
+      remoteOptions.setRemoteExecutor(EXECUTION_SERVER_NAME);
+      remoteOptions.setRemoteDownloader(CACHE_SERVER_NAME);
 
       beforeCommand();
 
@@ -307,7 +307,7 @@ public final class RemoteModuleTest {
     executionServer.start();
 
     try {
-      remoteOptions.remoteExecutor = EXECUTION_SERVER_NAME;
+      remoteOptions.setRemoteExecutor(EXECUTION_SERVER_NAME);
 
       beforeCommand();
 
@@ -339,7 +339,7 @@ public final class RemoteModuleTest {
     cacheServer.start();
 
     try {
-      remoteOptions.remoteCache = CACHE_SERVER_NAME;
+      remoteOptions.setRemoteCache(CACHE_SERVER_NAME);
 
       beforeCommand();
 
@@ -370,8 +370,8 @@ public final class RemoteModuleTest {
     cacheServer.start();
 
     try {
-      remoteOptions.remoteExecutor = EXECUTION_SERVER_NAME;
-      remoteOptions.remoteCache = CACHE_SERVER_NAME;
+      remoteOptions.setRemoteExecutor(EXECUTION_SERVER_NAME);
+      remoteOptions.setRemoteCache(CACHE_SERVER_NAME);
 
       beforeCommand();
 
@@ -412,8 +412,8 @@ public final class RemoteModuleTest {
     cacheServer.start();
 
     try {
-      remoteOptions.remoteExecutor = EXECUTION_SERVER_NAME;
-      remoteOptions.remoteCache = CACHE_SERVER_NAME;
+      remoteOptions.setRemoteExecutor(EXECUTION_SERVER_NAME);
+      remoteOptions.setRemoteCache(CACHE_SERVER_NAME);
 
       beforeCommand();
 
@@ -477,7 +477,7 @@ public final class RemoteModuleTest {
     cacheServer.start();
 
     try {
-      remoteOptions.remoteCache = CACHE_SERVER_NAME;
+      remoteOptions.setRemoteCache(CACHE_SERVER_NAME);
 
       beforeCommand();
 
@@ -501,7 +501,7 @@ public final class RemoteModuleTest {
     executionServer.start();
 
     try {
-      remoteOptions.remoteExecutor = EXECUTION_SERVER_NAME;
+      remoteOptions.setRemoteExecutor(EXECUTION_SERVER_NAME);
 
       beforeCommand();
 
@@ -526,8 +526,8 @@ public final class RemoteModuleTest {
     executionServer.start();
 
     try {
-      remoteOptions.remoteExecutor = EXECUTION_SERVER_NAME;
-      remoteOptions.circuitBreakerStrategy = RemoteOptions.CircuitBreakerStrategy.FAILURE;
+      remoteOptions.setRemoteExecutor(EXECUTION_SERVER_NAME);
+      remoteOptions.setCircuitBreakerStrategy(RemoteOptions.CircuitBreakerStrategy.FAILURE);
 
       beforeCommand();
 
@@ -553,8 +553,8 @@ public final class RemoteModuleTest {
     cacheServer.start();
 
     try {
-      remoteOptions.remoteCache = CACHE_SERVER_NAME;
-      remoteOptions.circuitBreakerStrategy = RemoteOptions.CircuitBreakerStrategy.FAILURE;
+      remoteOptions.setRemoteCache(CACHE_SERVER_NAME);
+      remoteOptions.setCircuitBreakerStrategy(RemoteOptions.CircuitBreakerStrategy.FAILURE);
 
       beforeCommand();
 
@@ -577,7 +577,7 @@ public final class RemoteModuleTest {
   public void bazelOutputService_noRemoteCache_exit() throws Exception {
     Server outputServiceService = createFakeServer(OUTPUT_SERVICE_SERVER_NAME);
     try {
-      remoteOptions.remoteOutputService = OUTPUT_SERVICE_SERVER_NAME;
+      remoteOptions.setRemoteOutputService(OUTPUT_SERVICE_SERVER_NAME);
 
       var exception = Assert.assertThrows(AbruptExitException.class, this::beforeCommand);
 
@@ -591,7 +591,7 @@ public final class RemoteModuleTest {
   @Test
   public void diskCacheGarbageCollectionIdleTask_disabled() throws Exception {
     var diskCacheDir = TestUtils.createUniqueTmpDir(null);
-    remoteOptions.diskCache = diskCacheDir.asFragment();
+    remoteOptions.setDiskCache(diskCacheDir.asFragment());
 
     var env = beforeCommand();
 
@@ -601,10 +601,10 @@ public final class RemoteModuleTest {
   @Test
   public void diskCacheGarbageCollectionIdleTask_enabled() throws Exception {
     var diskCacheDir = TestUtils.createUniqueTmpDir(null);
-    remoteOptions.diskCache = diskCacheDir.asFragment();
-    remoteOptions.diskCacheGcIdleDelay = Duration.ofMinutes(2);
-    remoteOptions.diskCacheGcMaxSize = 1234567890L;
-    remoteOptions.diskCacheGcMaxAge = Duration.ofDays(7);
+    remoteOptions.setDiskCache(diskCacheDir.asFragment());
+    remoteOptions.setDiskCacheGcIdleDelay(Duration.ofMinutes(2));
+    remoteOptions.setDiskCacheGcMaxSize(1234567890L);
+    remoteOptions.setDiskCacheGcMaxAge(Duration.ofDays(7));
 
     var env = beforeCommand();
 
@@ -628,7 +628,7 @@ public final class RemoteModuleTest {
 
   @Test
   public void diskCache_defaultLocation_resolvesToOutputUserRoot() throws Exception {
-    remoteOptions.diskCache = PathFragment.EMPTY_FRAGMENT;
+    remoteOptions.setDiskCache(PathFragment.EMPTY_FRAGMENT);
 
     var env = beforeCommand();
 
@@ -643,9 +643,9 @@ public final class RemoteModuleTest {
 
   @Test
   public void diskCache_defaultLocation_withGarbageCollection() throws Exception {
-    remoteOptions.diskCache = PathFragment.EMPTY_FRAGMENT;
-    remoteOptions.diskCacheGcIdleDelay = Duration.ofMinutes(2);
-    remoteOptions.diskCacheGcMaxSize = 1234567890L;
+    remoteOptions.setDiskCache(PathFragment.EMPTY_FRAGMENT);
+    remoteOptions.setDiskCacheGcIdleDelay(Duration.ofMinutes(2));
+    remoteOptions.setDiskCacheGcMaxSize(1234567890L);
 
     var env = beforeCommand();
 
@@ -660,11 +660,11 @@ public final class RemoteModuleTest {
 
   @Test
   public void diskCacheUnset_disablesDiskCache() throws Exception {
-    remoteOptions.diskCache = null;
+    remoteOptions.setDiskCache(null);
 
     var env = beforeCommand();
 
-    assertThat(remoteOptions.diskCache).isNull();
+    assertThat(remoteOptions.getDiskCache()).isNull();
     assertThat(env.getIdleTasks()).isEmpty();
   }
 
@@ -688,10 +688,10 @@ public final class RemoteModuleTest {
       return;
     }
 
-    if (remoteOptions.circuitBreakerStrategy == RemoteOptions.CircuitBreakerStrategy.FAILURE) {
+    if (remoteOptions.getCircuitBreakerStrategy() == RemoteOptions.CircuitBreakerStrategy.FAILURE) {
       assertThat(circuitBreaker).isInstanceOf(FailureCircuitBreaker.class);
     }
-    if (remoteOptions.circuitBreakerStrategy == null) {
+    if (remoteOptions.getCircuitBreakerStrategy() == null) {
       assertThat(circuitBreaker).isEqualTo(Retrier.ALLOW_ALL_CALLS);
     }
   }

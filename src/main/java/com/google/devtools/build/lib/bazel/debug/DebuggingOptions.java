@@ -20,9 +20,11 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /** Options for debugging and verbosity tools. */
-public final class DebuggingOptions extends OptionsBase {
+@OptionsClass
+public abstract class DebuggingOptions extends OptionsBase {
   @Option(
       name = "experimental_workspace_rules_log_file",
       defaultValue = "null",
@@ -32,5 +34,5 @@ public final class DebuggingOptions extends OptionsBase {
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
           "Log certain Workspace Rules events into this file as delimited WorkspaceEvent protos.")
-  public PathFragment workspaceRulesLogFile;
+  public abstract PathFragment getWorkspaceRulesLogFile();
 }

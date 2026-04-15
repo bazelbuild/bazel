@@ -892,7 +892,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
 """
 "zip", "jar", "war", "aar", "nupkg", "whl", "tar", "tar.gz", "tgz", "gz", \
 "tar.xz", "txz", "xz", "tar.zst", "tzst", "zst", "tar.bz2", "tbz", "bz2", "ar", \
-"deb" or "7z\"\
+"deb", "7z", "tar.br" or "br"\
 """;
 
   @StarlarkMethod(

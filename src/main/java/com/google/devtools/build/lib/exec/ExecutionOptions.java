@@ -503,6 +503,18 @@ public abstract class ExecutionOptions extends OptionsBase {
   public abstract boolean getExecutionLogSort();
 
   @Option(
+      name = "execution_log_mnemonic_filter",
+      defaultValue = ".*",
+      converter = RegexFilter.RegexFilterConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Filter the execution log by mnemonic. Only spawns with a matching mnemonic will be"
+              + " logged. Supports a comma-separated list of regexes, with optional '-' prefix"
+              + " for exclusions. The default is to log every spawn.")
+  public abstract RegexFilter getExecutionLogMnemonicFilter();
+
+  @Option(
       // TODO: when this flag is moved to non-experimental, rename it to a more general name
       // to reflect the new logic - it's not only about cache evictions.
       name = "experimental_remote_cache_eviction_retries",

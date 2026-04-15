@@ -328,7 +328,7 @@ public class ExecutionTool {
           skyframeBuilder.getFileCache(),
           skyframeBuilder.getActionInputPrefetcher(),
           actionExecutionSalt,
-          env.getOptions().getOptions(UiOptions.class).maxStdoutErrBytes);
+          env.getOptions().getOptions(UiOptions.class).getMaxStdoutErrBytes());
     }
     skyframeExecutor.setSaltAndDeleteActionsIfChanged(actionExecutionSalt);
     try (SilentCloseable c =
@@ -433,7 +433,7 @@ public class ExecutionTool {
     boolean buildCompleted = false;
     try {
       boolean shouldDiscardAnalysisCache =
-          request.getViewOptions().discardAnalysisCache
+          request.getViewOptions().getDiscardAnalysisCache()
               || !skyframeExecutor.tracksStateForIncrementality();
       if (shouldDiscardAnalysisCache) {
         if (skyframeExecutor
@@ -525,7 +525,7 @@ public class ExecutionTool {
               request.getBuildOptions().getFinalizeActions());
       informedOutputServiceToStartTheBuild = true;
     }
-    if (!request.getPackageOptions().checkOutputFiles) {
+    if (!request.getPackageOptions().getCheckOutputFiles()) {
       // Do not skip output invalidation if the output tree is empty: this can happen after it's
       // cleaned or corrupted.
       if (!modifiedOutputFiles.treatEverythingAsDeleted()) {

@@ -76,7 +76,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
 
   @Override
   public void processOutput(Iterable<CqueryNode> partialResult) throws InterruptedException {
-    CqueryOptions.Transitions verbosity = options.transitions;
+    CqueryOptions.Transitions verbosity = options.getTransitions();
     if (verbosity.equals(CqueryOptions.Transitions.NONE)) {
       eventHandler.handle(
           Event.error(

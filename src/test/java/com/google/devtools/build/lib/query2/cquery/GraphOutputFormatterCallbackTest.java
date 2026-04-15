@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
+import com.google.devtools.common.options.Options;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -64,8 +65,12 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
   @Before
   public final void setUpCqueryOptions() {
-    this.options = new CqueryOptions();
-    options.graphNodeStringLimit = 512;
+    this.options = Options.getDefaults(CqueryOptions.class);
+    options.setGraphNodeStringLimit(512);
+    options.setGraphFactored(false);
+    options.setIncludeToolDeps(false);
+    options.setIncludeImplicitDeps(false);
+    options.setIncludeNoDepDeps(false);
     this.reporter = new Reporter(new EventBus(), events::add);
   }
 
@@ -143,7 +148,7 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
   @Test
   public void factorEquivalentNodes() throws Exception {
-    options.graphFactored = true;
+    options.setGraphFactored(true);
     writeFile(
         "test/BUILD",
         """

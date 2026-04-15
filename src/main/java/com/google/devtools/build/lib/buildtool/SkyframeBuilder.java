@@ -125,7 +125,7 @@ public class SkyframeBuilder implements Builder {
           fileCache,
           actionInputPrefetcher,
           actionExecutionSalt,
-          options.getOptions(UiOptions.class).maxStdoutErrBytes);
+          options.getOptions(UiOptions.class).getMaxStdoutErrBytes());
     }
     // Note that executionProgressReceiver accesses builtTargets concurrently (after wrapping in a
     // synchronized collection), so unsynchronized access to this variable is unsafe while it runs.
@@ -189,7 +189,7 @@ public class SkyframeBuilder implements Builder {
                   result,
                   skyframeExecutor.getCyclesReporter(),
                   reporter,
-                  options.getOptions(KeepGoingOption.class).keepGoing,
+                  options.getOptions(KeepGoingOption.class).getKeepGoing(),
                   skyframeExecutor.tracksStateForIncrementality(),
                   skyframeExecutor.getEventBus(),
                   bugReporter,
@@ -222,7 +222,7 @@ public class SkyframeBuilder implements Builder {
                     result,
                     skyframeExecutor.getCyclesReporter(),
                     reporter,
-                    options.getOptions(KeepGoingOption.class).keepGoing,
+                    options.getOptions(KeepGoingOption.class).getKeepGoing(),
                     skyframeExecutor.tracksStateForIncrementality(),
                     skyframeExecutor.getEventBus(),
                     bugReporter,
@@ -254,7 +254,7 @@ public class SkyframeBuilder implements Builder {
                     result,
                     skyframeExecutor.getCyclesReporter(),
                     reporter,
-                    options.getOptions(KeepGoingOption.class).keepGoing,
+                    options.getOptions(KeepGoingOption.class).getKeepGoing(),
                     skyframeExecutor.tracksStateForIncrementality(),
                     skyframeExecutor.getEventBus(),
                     bugReporter,

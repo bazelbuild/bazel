@@ -135,7 +135,7 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
       new BuildEventStreamer.Builder()
           .artifactGroupNamer(artifactGroupNamer)
           .buildEventTransports(ImmutableSet.of(transport))
-          .besStreamOptions(new BuildEventStreamOptions())
+          .besStreamOptions(Options.getDefaults(BuildEventStreamOptions.class))
           .oomMessage(OOM_MESSAGE)
           .build();
 
@@ -660,6 +660,7 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
     // Verify that an event where the prerequisite is never coming till the end of
     // the build still gets posted, with the prerequisite aborted.
     BuildEventId expectedId = testId("the target");
+
     BuildEvent startEvent =
         new GenericBuildEvent(
             testId("Initial"),
@@ -1537,8 +1538,8 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
     EventBusHandler handler = new EventBusHandler();
     eventBus.register(handler);
 
-    BuildEventStreamOptions options = new BuildEventStreamOptions();
-    options.publishAllActions = true;
+    BuildEventStreamOptions options = Options.getDefaults(BuildEventStreamOptions.class);
+    options.setPublishAllActions(true);
 
     BuildEventStreamer streamer =
         new BuildEventStreamer.Builder()

@@ -272,6 +272,11 @@ macOS, `--config=freebsd` on FreeBSD, and `--config=openbsd` on OpenBSD.
 
 See [--enable_platform_specific_config](/reference/command-line-reference#flag--enable_platform_specific_config).
 
+Platform specific configurations also apply to `startup` options. For
+example `startup:linux --some_startup_option` will be applied when the
+host OS is Linux. Supported OS identifiers are `linux`, `macos`,
+`windows`, `freebsd`, and `openbsd`. This behavior is always enabled.
+
 #### Example {:#bazelrc-example}
 
 Here's an example `~/.bazelrc` file:

@@ -186,6 +186,7 @@ public final class RemoteAnalysisCacheFactory {
             env.getReporter(),
             options.getMode(),
             options.getAnalysisCacheBailOnMissingFingerprint(),
+            options.getSkycacheMinimizeMemory(),
             servicesSupplier,
             env.getRemoteAnalysisCachingEventListener(),
             jsonLogWriter,
@@ -432,7 +433,7 @@ public final class RemoteAnalysisCacheFactory {
         .map(Object::toString)
         .forEach(allOptionsAsStringsBuilder::add);
     for (FragmentOptions fragmentOptions : targetOptions.getNativeOptions()) {
-      if (fragmentOptions.getClass().equals(TestConfiguration.TestOptions.class)) {
+      if (fragmentOptions instanceof TestConfiguration.TestOptions) {
         continue;
       }
       fragmentOptions.asMap().keySet().forEach(allOptionsAsStringsBuilder::add);

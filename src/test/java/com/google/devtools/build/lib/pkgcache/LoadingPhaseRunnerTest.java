@@ -1805,16 +1805,16 @@ public final class LoadingPhaseRunnerTest {
       SkyframeExecutorTestHelper.process(skyframeExecutor);
       PathPackageLocator pkgLocator =
           PathPackageLocator.create(
-              /*outputBase=*/ null,
-              options.packagePath,
+              /* outputBase= */ null,
+              options.getPackagePath(),
               storedErrors,
               workspace.asFragment(),
               workspace,
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
       PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-      packageOptions.defaultVisibility = RuleVisibility.PRIVATE;
-      packageOptions.showLoadingProgress = true;
-      packageOptions.globbingThreads = 7;
+      packageOptions.setDefaultVisibility(RuleVisibility.PRIVATE);
+      packageOptions.setShowLoadingProgress(true);
+      packageOptions.setGlobbingThreads(7);
       skyframeExecutor.injectExtraPrecomputedValues(analysisMock.getPrecomputedValues());
       skyframeExecutor.preparePackageLoading(
           pkgLocator,

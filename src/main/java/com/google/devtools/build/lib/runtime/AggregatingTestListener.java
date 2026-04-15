@@ -94,7 +94,7 @@ public final class AggregatingTestListener {
         new AggregationPolicy(
             eventBus,
             executionOptions.getTestCheckUpToDate(),
-            summaryOptions.testVerboseTimeoutWarnings);
+            summaryOptions.getTestVerboseTimeoutWarnings());
     // Add all target runs to the map, assuming 1:1 status artifact <-> result.
     for (ConfiguredTarget target : event.getTestTargets()) {
       if (AliasProvider.isAlias(target)) {
@@ -138,7 +138,7 @@ public final class AggregatingTestListener {
                 new AggregationPolicy(
                     eventBus,
                     executionOptions.getTestCheckUpToDate(),
-                    summaryOptions.testVerboseTimeoutWarnings),
+                    summaryOptions.getTestVerboseTimeoutWarnings()),
                 event.isSkipped()));
   }
 

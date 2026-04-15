@@ -199,7 +199,7 @@ public class BlazeRuntimeTest {
     BlazeRuntime runtime = createRuntime();
     optionsParser.parse("--keep_state_after_build");
     CommandEnvironment env = createCommandEnvironment(runtime);
-    env.getOptions().getOptions(KeepStateAfterBuildOption.class).keepStateAfterBuild = true;
+    env.getOptions().getOptions(KeepStateAfterBuildOption.class).setKeepStateAfterBuild(true);
     CommonCommandOptions options = Options.createOptions(CommonCommandOptions.class);
 
     runtime.beforeCommand(env, options);

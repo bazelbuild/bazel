@@ -19,6 +19,8 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.Locale;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import javax.annotation.Nullable;
 
 /**
@@ -29,15 +31,13 @@ public class MethodOptionDefinition extends OptionDefinition {
 
   /** Returns an {@code MethodOptionDefinition} for the given method. */
   @Nullable
-  static MethodOptionDefinition extractOptionDefinition(Method method) {
+  static MethodOptionDefinition extractOptionDefinition(
+      Method method, Class<? extends OptionsBase> optionsClass) {
     Option annotation = method.getAnnotation(Option.class);
     if (annotation == null) {
       return null;
     }
-    Class<?> declaringClass = method.getDeclaringClass();
-    @SuppressWarnings("unchecked") // Can't do generics with reflection
-    Class<? extends OptionsBase> optionsClass = (Class<? extends OptionsBase>) declaringClass;
-    return new MethodOptionDefinition(method, annotation, getImplClass(optionsClass));
+    return new MethodOptionDefinition(method, annotation);
   }
 
   /** Returns the generated implementation class for the given options class. */
@@ -45,10 +45,11 @@ public class MethodOptionDefinition extends OptionDefinition {
       Class<? extends OptionsBase> optionsClass) {
     Verify.verify(optionsClass.isAnnotationPresent(OptionsClass.class));
     String packageName = optionsClass.getPackage().getName();
-    String simpleName = optionsClass.getSimpleName();
-    String implClassName = packageName + "." + simpleName + "Impl";
+    String className = optionsClass.getName().substring(packageName.length() + 1);
+    String implClassName = packageName + "." + className.replace('$', '_') + "Impl";
     try {
-      return Class.forName(implClassName).asSubclass(OptionsBase.class);
+      return Class.forName(implClassName, true, optionsClass.getClassLoader())
+          .asSubclass(OptionsBase.class);
     } catch (ClassNotFoundException e) {
       throw new IllegalStateException(e); // The annotation processor should have been run
     }
@@ -62,43 +63,36 @@ public class MethodOptionDefinition extends OptionDefinition {
   public static MethodOptionDefinition get(
       Class<? extends OptionsBase> optionsClass, String methodName) {
     try {
-      Class<?> methodsClass;
-      Class<? extends OptionsBase> implClass;
-      if (optionsClass.isAnnotationPresent(OptionsClass.class)) {
-        methodsClass = optionsClass;
-        implClass = getImplClass(optionsClass);
-      } else {
+      if (!optionsClass.isAnnotationPresent(OptionsClass.class)) {
         throw new IllegalStateException(optionsClass + " is not an @OptionsClass");
       }
-
-      Method method = methodsClass.getDeclaredMethod(methodName);
+      Method method = optionsClass.getMethod(methodName);
       Option result = method.getAnnotation(Option.class);
       if (result == null) {
         throw new IllegalStateException(methodName + " is not an @Option");
       }
-      return new MethodOptionDefinition(method, result, implClass);
+      return new MethodOptionDefinition(method, result);
     } catch (NoSuchMethodException e) {
       throw new IllegalStateException(e);
     }
   }
 
   private final Method method;
-  private final Field field;
+  private final String fieldName;
 
-  private MethodOptionDefinition(
-      Method method, Option optionAnnotation, Class<? extends OptionsBase> implClass) {
+  // This is needed because options classes sometimes inherit from each other. In this case, the
+  // field storing the value can be on multiple classes (e.g. if FooOptions inherits from
+  // BarOptions, the implementation of both will have fields corresponding to the options in
+  // BarOptions)
+  private final ConcurrentMap<Class<? extends OptionsBase>, Field> fieldCache =
+      new ConcurrentHashMap<>();
+
+  private MethodOptionDefinition(Method method, Option optionAnnotation) {
     super(optionAnnotation);
     this.method = method;
-    try {
-      String methodName = method.getName();
-      Verify.verify(methodName.startsWith("get")); // Enforced by the annotation processor
-      String fieldName =
-          methodName.substring(3, 4).toLowerCase(Locale.ROOT) + methodName.substring(4);
-      this.field = implClass.getDeclaredField(fieldName);
-      this.field.setAccessible(true);
-    } catch (ReflectiveOperationException e) {
-      throw new IllegalStateException(e);
-    }
+    String methodName = method.getName();
+    Verify.verify(methodName.startsWith("get")); // Enforced by the annotation processor
+    this.fieldName = methodName.substring(3, 4).toLowerCase(Locale.ROOT) + methodName.substring(4);
   }
 
   @Override
@@ -122,8 +116,24 @@ public class MethodOptionDefinition extends OptionDefinition {
     }
   }
 
+  private Field getField(Class<? extends OptionsBase> optionsClass) {
+    try {
+      Class<? extends OptionsBase> implClass =
+          getImplClass(optionsClass.asSubclass(OptionsBase.class));
+      Field f = implClass.getDeclaredField(fieldName);
+      f.setAccessible(true);
+      return f;
+    } catch (ReflectiveOperationException e) {
+      throw new IllegalStateException(
+          "Could not find field " + fieldName + " in implementation of " + optionsClass, e);
+    }
+  }
+
   @Override
   public void setValue(OptionsBase optionsBase, Object value) {
+    Field field =
+        fieldCache.computeIfAbsent(
+            optionsBase.getOptionsClass().asSubclass(OptionsBase.class), this::getField);
     try {
       field.set(optionsBase, value);
     } catch (ReflectiveOperationException e) {
@@ -162,5 +172,10 @@ public class MethodOptionDefinition extends OptionDefinition {
   @Override
   public String getMemberName() {
     return method.getName();
+  }
+
+  @Override
+  public String toString() {
+    return String.format("option '--%s'", getOptionName());
   }
 }

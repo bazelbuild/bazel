@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -64,20 +65,26 @@ import org.junit.runner.RunWith;
 public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
 
   /** test options to cause the output directory to change */
-  public static final class PathTestOptions extends FragmentOptions {
+  @OptionsClass
+  public abstract static class PathTestOptions extends FragmentOptions {
+
     @Option(
         name = "output_directory_name",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         defaultValue = "default")
-    public String outputDirectoryName;
+    public abstract String getOutputDirectoryName();
+
+    public abstract void setOutputDirectoryName(String value);
 
     @Option(
         name = "useless_option",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "default")
-    public String uselessOption;
+    public abstract String getUselessOption();
+
+    public abstract void setUselessOption(String value);
   }
 
   /** Test fragment. */
@@ -86,7 +93,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     private final String outputDirectoryName;
 
     public PathTestConfiguration(BuildOptions buildOptions) {
-      this.outputDirectoryName = buildOptions.get(PathTestOptions.class).outputDirectoryName;
+      this.outputDirectoryName = buildOptions.get(PathTestOptions.class).getOutputDirectoryName();
     }
 
     @Override
@@ -116,7 +123,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
         @Override
         public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
           BuildOptionsView clone = options.clone();
-          clone.get(PathTestOptions.class).outputDirectoryName = newPath;
+          clone.get(PathTestOptions.class).setOutputDirectoryName(newPath);
           return clone.underlying();
         }
       };
@@ -142,7 +149,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
         @Override
         public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
           BuildOptionsView clone = options.clone();
-          clone.get(PathTestOptions.class).outputDirectoryName = newPath;
+          clone.get(PathTestOptions.class).setOutputDirectoryName(newPath);
           return clone.underlying();
         }
       };
@@ -169,7 +176,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     @Override
     public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
       BuildOptionsView clone = options.clone();
-      clone.get(PathTestOptions.class).uselessOption = newValue;
+      clone.get(PathTestOptions.class).setUselessOption(newValue);
       return clone.underlying();
     }
   }

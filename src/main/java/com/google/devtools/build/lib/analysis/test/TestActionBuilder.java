@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.analysis.constraints.ConstraintConst
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME;
 
-import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -28,10 +27,8 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
@@ -215,8 +212,10 @@ public final class TestActionBuilder {
               ruleContext.getRulePrerequisitesCollection(), "$test_runtime");
       inputsBuilder.addTransitive(testRuntime);
     }
+
     TestTargetProperties testProperties =
-        new TestTargetProperties(ruleContext, executionRequirements);
+        new TestTargetProperties(
+            ruleContext, executionRequirements, actionOwner.getExecProperties());
 
     // If the test rule does not provide InstrumentedFilesProvider, there's not much that we can do.
     final boolean collectCodeCoverage = config.isCodeCoverageEnabled() && instrumentedFiles != null;
@@ -427,13 +426,7 @@ public final class TestActionBuilder {
                     : null,
                 cancelConcurrentTests,
                 splitCoveragePostProcessing,
-                lcovMergerFilesToRun,
-                // Network allowlist only makes sense in workspaces which explicitly add it, use an
-                // empty one as a fallback.
-                MoreObjects.firstNonNull(
-                    Allowlist.fetchPackageSpecificationProviderOrNull(
-                        ruleContext, "external_network"),
-                    PackageSpecificationProvider.EMPTY));
+                lcovMergerFilesToRun);
 
         testOutputs.addAll(testRunnerAction.getSpawnOutputs());
         testOutputs.addAll(testRunnerAction.getOutputs());

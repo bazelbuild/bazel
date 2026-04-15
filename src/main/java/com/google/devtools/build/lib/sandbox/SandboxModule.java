@@ -275,7 +275,10 @@ public final class SandboxModule extends BlazeModule {
     }
 
     Duration timeoutKillDelay =
-        cmdEnv.getOptions().getOptions(LocalExecutionOptions.class).getLocalSigkillGraceSeconds();
+        cmdEnv
+            .getOptions()
+            .getOptions(LocalExecutionOptions.class)
+            .getLocalSigkillGraceSecondsDuration();
 
     boolean processWrapperSupported = ProcessWrapperSandboxedSpawnRunner.isSupported(cmdEnv);
     boolean linuxSandboxSupported = LinuxSandboxedSpawnRunner.isSupported(cmdEnv);

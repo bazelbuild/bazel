@@ -54,14 +54,14 @@ public final class HighWaterMarkLimiter {
     this.skyframeExecutor = checkNotNull(skyframeExecutor);
     this.syscallCache = checkNotNull(syscallCache);
     this.options = checkNotNull(options);
-    this.minorGcDropsRemaining = options.skyframeHighWaterMarkMinorGcDropsPerInvocation;
-    this.fullGcDropsRemaining = options.skyframeHighWaterMarkFullGcDropsPerInvocation;
+    this.minorGcDropsRemaining = options.getSkyframeHighWaterMarkMinorGcDropsPerInvocation();
+    this.fullGcDropsRemaining = options.getSkyframeHighWaterMarkFullGcDropsPerInvocation();
   }
 
   @Subscribe
   void handle(MemoryPressureEvent event) {
     int actual = (int) ((event.tenuredSpaceUsedBytes() * 100L) / event.tenuredSpaceMaxBytes());
-    int threshold = options.skyframeHighWaterMarkMemoryThreshold;
+    int threshold = options.getSkyframeHighWaterMarkMemoryThreshold();
     if (actual < threshold) {
       return;
     }
@@ -102,8 +102,8 @@ public final class HighWaterMarkLimiter {
   public void populateStats(MemoryPressureStats.Builder memoryPressureStatsBuilder) {
     memoryPressureStatsBuilder
         .setMinorGcDrops(
-            options.skyframeHighWaterMarkMinorGcDropsPerInvocation - minorGcDropsRemaining)
+            options.getSkyframeHighWaterMarkMinorGcDropsPerInvocation() - minorGcDropsRemaining)
         .setFullGcDrops(
-            options.skyframeHighWaterMarkFullGcDropsPerInvocation - fullGcDropsRemaining);
+            options.getSkyframeHighWaterMarkFullGcDropsPerInvocation() - fullGcDropsRemaining);
   }
 }

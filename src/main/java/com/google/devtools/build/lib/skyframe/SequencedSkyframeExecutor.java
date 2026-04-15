@@ -330,7 +330,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       OptionsProvider options) {
     var someNodeDroppingExpected =
         (options.getOptions(AnalysisOptions.class) != null
-                && options.getOptions(AnalysisOptions.class).discardAnalysisCache)
+                && options.getOptions(AnalysisOptions.class).getDiscardAnalysisCache())
             || !trackIncrementalState
             || heuristicallyDropNodes;
     var skymeldInconsistenciesExpected =

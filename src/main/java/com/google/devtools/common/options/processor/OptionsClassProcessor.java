@@ -60,38 +60,39 @@ public final class OptionsClassProcessor extends AbstractProcessor {
   private void generateWrapper(TypeElement typeElement) {
     String packageName =
         processingEnv.getElementUtils().getPackageOf(typeElement).getQualifiedName().toString();
-    String className = typeElement.getSimpleName().toString();
-    String implClassName = className + "Impl";
+    String className =
+        typeElement.getQualifiedName().toString().substring(packageName.length() + 1);
+    String implClassName = className.replace('.', '_') + "Impl";
 
     record OptionInfo(String fieldType, String capitalizedFieldName, boolean hasSetterInBase) {}
     List<OptionInfo> options = new ArrayList<>();
 
     // First pass: collect option info
-    for (Element enclosed : typeElement.getEnclosedElements()) {
-      if (enclosed.getAnnotation(Option.class) == null) {
+    for (Element member : processingEnv.getElementUtils().getAllMembers(typeElement)) {
+      if (member.getAnnotation(Option.class) == null) {
         continue;
       }
-      if (enclosed.getKind() != ElementKind.METHOD) {
+      if (member.getKind() != ElementKind.METHOD) {
         processingEnv
             .getMessager()
             .printMessage(
                 Diagnostic.Kind.ERROR,
                 "@Option must be on a method in @OptionsClass classes",
-                enclosed);
+                member);
         continue;
       }
 
-      ExecutableElement method = (ExecutableElement) enclosed;
+      ExecutableElement method = (ExecutableElement) member;
       if (!method.getModifiers().contains(Modifier.ABSTRACT)) {
         processingEnv
             .getMessager()
-            .printMessage(Diagnostic.Kind.ERROR, "@Option method must be abstract", enclosed);
+            .printMessage(Diagnostic.Kind.ERROR, "@Option method must be abstract", member);
         continue;
       }
       if (!method.getModifiers().contains(Modifier.PUBLIC)) {
         processingEnv
             .getMessager()
-            .printMessage(Diagnostic.Kind.ERROR, "@Option method must be public", enclosed);
+            .printMessage(Diagnostic.Kind.ERROR, "@Option method must be public", member);
         continue;
       }
 
@@ -104,7 +105,7 @@ public final class OptionsClassProcessor extends AbstractProcessor {
             .printMessage(
                 Diagnostic.Kind.ERROR,
                 "Annotated method name must start with 'get' followed by an uppercase letter",
-                enclosed);
+                member);
         continue;
       }
 

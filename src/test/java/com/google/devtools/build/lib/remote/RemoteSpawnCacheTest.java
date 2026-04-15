@@ -446,7 +446,7 @@ public class RemoteSpawnCacheTest {
     // (even if it is a local cache) and that the results/artifacts are not uploaded to the cache.
 
     RemoteOptions withLocalCache = Options.getDefaults(RemoteOptions.class);
-    withLocalCache.diskCache = PathFragment.create("/etc/something/cache/here");
+    withLocalCache.setDiskCache(PathFragment.create("/etc/something/cache/here"));
     for (var remoteOptions :
         ImmutableList.of(Options.getDefaults(RemoteOptions.class), withLocalCache)) {
 
@@ -489,7 +489,7 @@ public class RemoteSpawnCacheTest {
     // remote cache, and that the results/artifacts are not uploaded to the remote cache.
 
     RemoteOptions remoteCacheOptions = Options.getDefaults(RemoteOptions.class);
-    remoteCacheOptions.remoteCache = "https://somecache.com";
+    remoteCacheOptions.setRemoteCache("https://somecache.com");
     RemoteCacheClient remoteCacheClient = mock(RemoteCacheClient.class);
     RemoteSpawnCache remoteSpawnCache = remoteSpawnCacheWithOptions(remoteCacheOptions);
     for (String requirement :
@@ -526,8 +526,8 @@ public class RemoteSpawnCacheTest {
     // The disk cache part of a combined cache is considered as a local cache hence spawns tagged
     // with NO_REMOTE can sill hit it.
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteCache = "https://somecache.com";
-    remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
+    remoteOptions.setRemoteCache("https://somecache.com");
+    remoteOptions.setDiskCache(PathFragment.create("/etc/something/cache/here"));
     RemoteSpawnCache remoteSpawnCache = remoteSpawnCacheWithOptions(remoteOptions);
     RemoteCacheClient remoteCacheClient = mock(RemoteCacheClient.class);
 
@@ -557,7 +557,7 @@ public class RemoteSpawnCacheTest {
   @Test
   public void noRemoteCacheStillUsesLocalCache() throws Exception {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
+    remoteOptions.setDiskCache(PathFragment.create("/etc/something/cache/here"));
     when(combinedCache.hasRemoteCache()).thenReturn(false);
     when(combinedCache.hasDiskCache()).thenReturn(true);
     RemoteSpawnCache cache = remoteSpawnCacheWithOptions(remoteOptions);
@@ -731,7 +731,7 @@ public class RemoteSpawnCacheTest {
   public void testDownloadMinimal() throws Exception {
     // arrange
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
+    remoteOptions.setRemoteOutputsMode(RemoteOutputsMode.MINIMAL);
     RemoteSpawnCache cache = remoteSpawnCacheWithOptions(remoteOptions);
 
     when(combinedCache.downloadActionResult(
@@ -758,7 +758,7 @@ public class RemoteSpawnCacheTest {
   public void testDownloadMinimalIoError() throws Exception {
     // arrange
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
+    remoteOptions.setRemoteOutputsMode(RemoteOutputsMode.MINIMAL);
     RemoteSpawnCache cache = remoteSpawnCacheWithOptions(remoteOptions);
 
     IOException downloadFailure = new IOException("downloadMinimal failed");

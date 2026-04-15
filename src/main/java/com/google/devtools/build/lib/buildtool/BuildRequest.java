@@ -249,7 +249,7 @@ public class BuildRequest implements OptionsProvider {
     }
 
     // All this, just to pass a global boolean from the client to the server. :(
-    this.runningInEmacs = options.getOptions(UiOptions.class).runningInEmacs;
+    this.runningInEmacs = options.getOptions(UiOptions.class).getRunningInEmacs();
   }
 
   /**
@@ -359,12 +359,12 @@ public class BuildRequest implements OptionsProvider {
 
   /** Returns the value of the --keep_going option. */
   public boolean getKeepGoing() {
-    return getOptions(KeepGoingOption.class).keepGoing;
+    return getOptions(KeepGoingOption.class).getKeepGoing();
   }
 
   /** Returns the value of the --loading_phase_threads option. */
   int getLoadingPhaseThreadCount() {
-    return getOptions(LoadingPhaseThreadsOption.class).threads;
+    return getOptions(LoadingPhaseThreadsOption.class).getThreads();
   }
 
   /** Returns the set of execution options specified for this request. */
@@ -418,7 +418,7 @@ public class BuildRequest implements OptionsProvider {
     BuildRequestOptions buildOptions = getBuildOptions();
     return new TopLevelArtifactContext(
         getOptions(ExecutionOptions.class).getTestStrategy().equals("exclusive"),
-        getOptions(BuildEventProtocolOptions.class).expandFilesets,
+        getOptions(BuildEventProtocolOptions.class).getExpandFilesets(),
         OutputGroupInfo.determineOutputGroups(
             buildOptions.getOutputGroups(),
             validationMode(),

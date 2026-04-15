@@ -18,9 +18,37 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.Locale;
 
 /** Various utility methods operating on strings. */
 public class StringUtil {
+
+  /**
+   * IEEE-style threshold for using thousands separators. Numbers with 5+ digits (>= 10,000) get
+   * comma formatting for readability.
+   */
+  private static final int IEEE_THOUSANDS_SEPARATOR_THRESHOLD = 10000;
+
+  /**
+   * Formats a count using IEEE-style thousands separators. Numbers >= 10,000 (5+ digits) are
+   * formatted with commas; smaller numbers are returned as plain strings.
+   *
+   * <p>Examples:
+   *
+   * <ul>
+   *   <li>999 → "999"
+   *   <li>9999 → "9999"
+   *   <li>10000 → "10,000"
+   *   <li>12345 → "12,345"
+   * </ul>
+   */
+  public static String formatCount(long count) {
+    if (count >= IEEE_THOUSANDS_SEPARATOR_THRESHOLD) {
+      return String.format(Locale.ENGLISH, "%,d", count);
+    }
+    return String.valueOf(count);
+  }
+
   /**
    * Creates a comma-separated list of words as in English.
    *

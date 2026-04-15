@@ -120,7 +120,7 @@ public final class SkyValueRetrieverTest {
               fingerprintValueService
                   .put(fingerprintValueService.fingerprint(keyBytes.getObject()), new byte[0])
                   .get())
-          .isNull();
+          .isTrue();
     }
 
     RetrievalContext state = new RetrievalContext();
@@ -170,7 +170,7 @@ public final class SkyValueRetrieverTest {
               fingerprintValueService
                   .put(fingerprintValueService.fingerprint(keyBytes.getObject()), new byte[0])
                   .get())
-          .isNull();
+          .isTrue();
     }
 
     RetrievalContext state = new RetrievalContext();

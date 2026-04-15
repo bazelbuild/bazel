@@ -59,6 +59,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionFilterDescriptions;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParser.HelpVerbosity;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -97,7 +98,9 @@ public final class HelpCommand implements BlazeCommand {
    */
   private static final Escaper HTML_ESCAPER = HtmlEscapers.htmlEscaper();
 
-  public static class Options extends OptionsBase {
+  /** Options for the {@code help} command. */
+  @OptionsClass
+  public abstract static class Options extends OptionsBase {
 
     @Option(
         name = "help_verbosity",
@@ -106,7 +109,7 @@ public final class HelpCommand implements BlazeCommand {
         documentationCategory = OptionDocumentationCategory.LOGGING,
         effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
         help = "Select the verbosity of the help command.")
-    public OptionsParser.HelpVerbosity helpVerbosity;
+    public abstract OptionsParser.HelpVerbosity getHelpVerbosity();
 
     @Option(
         name = "long",
@@ -116,7 +119,7 @@ public final class HelpCommand implements BlazeCommand {
         documentationCategory = OptionDocumentationCategory.LOGGING,
         effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
         help = "Show full description of each option, instead of just its name.")
-    public Void showLongFormOptions;
+    public abstract Void getShowLongFormOptions();
 
     @Option(
         name = "short",
@@ -125,7 +128,7 @@ public final class HelpCommand implements BlazeCommand {
         documentationCategory = OptionDocumentationCategory.LOGGING,
         effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
         help = "Show only the names of the options, not their types or meanings.")
-    public Void showShortFormOptions;
+    public abstract Void getShowShortFormOptions();
   }
 
   @Override
@@ -160,7 +163,7 @@ public final class HelpCommand implements BlazeCommand {
     switch (helpSubject) {
       case "startup_options" -> {
         emitBlazeVersionInfo(outErr, runtime.getProductName());
-        emitStartupOptions(outErr, helpOptions.helpVerbosity, runtime);
+        emitStartupOptions(outErr, helpOptions.getHelpVerbosity(), runtime);
         return BlazeCommandResult.success();
       }
       case "target-syntax" -> {
@@ -194,7 +197,7 @@ public final class HelpCommand implements BlazeCommand {
     outErr.printOut(
         BlazeCommandUtils.getUsage(
             command.getClass(),
-            helpOptions.helpVerbosity,
+            helpOptions.getHelpVerbosity(),
             runtime.getOptionsSuppliers(),
             runtime.getRuleClassProvider(),
             productName));
