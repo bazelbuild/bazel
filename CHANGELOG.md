@@ -1,3 +1,77 @@
+## Release 10.0.0-pre.20260408.3 (2026-04-15)
+
+```
+Baseline: ea7b4ba1ea04795b850965a590006e54344307c0
+
+Cherry picks:
+
+   + 47abc210d2d258fa586b8b97e6129c44c895e9a3:
+     Account for `DeserializedSkyValue` in change pruning.
+```
+
+New features:
+
+  - `--disk_cache` can now be set without an argument to enable the
+    disk cache using a default location at
+    `<outputUserRoot>/cache/disk`. Other boolean forms
+    (`--disk_cache=1` or `--disk_cache=true` to enable;
+    `--disk_cache=0`, `--disk_cache=false` or `--nodisk_cache` to
+    disable) are also accepted.
+
+Important changes:
+
+  - Adds `--output:display_full_kind` for query options to display
+    the full kind for Starlark rules with the `label_kind`,
+    `location`, and `xml` output formats.
+  - Changes the `debugPrint` of `ctx.download` to include the state
+    of the download. Adds an `error` key to the returned struct when
+    `success: false` to explain why it's false.
+  - The local and remote repo contents cache now include the host OS
+    and CPU architecture in the cache key.
+  - Fix launcher/launcher_maker for cross build, e.g. build windows
+    binary on linux machine.
+  - The flag `--fdo_optimize` now accepts repo labels as well as
+    package labels.
+
+This release contains contributions from many people at Google, as well as Alex Eagle, Alexey Tereshenkov, Boleyn Su, Denbeigh Stevens, dependabot[bot], Desel72, Fabian Meumertzheim, Jake Newfield, John Cater, Jordan Mele, Keith Smiley, Will Stranton.
+
+## Release 9.0.2 (2026-04-09)
+
+```
+
+Release Notes:
+
+```
+
+## Release 9.0.2 (2026-04-09)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20260329.2 (2026-04-08)
+
+```
+Baseline: b06b3774e7c5380756a2a0ce4d052afb7a5bbbe1
+
+Cherry picks:
+
+   + ba43bbd393f89bf1ebda1ec309018c9a7faec0fd:
+     Rollback of `PersistentStringIndexer` change.
+```
+
+Important changes:
+
+  - Module extension tags now have an implicit `_sort_key` field that
+    can be compared to derive the order in which tags from different
+    classes appear in the MODULE.bazel file.
+  - The remote repo contents cache now supports all reproducible repo
+    rules.
+
+This release contains contributions from many people at Google, as well as Armando Montanez, Chris Jakins, dependabot[bot], Fabian Meumertzheim, John Cater, Keith Smiley.
+
 ## Release 10.0.0-pre.20260322.2 (2026-04-01)
 
 ```
