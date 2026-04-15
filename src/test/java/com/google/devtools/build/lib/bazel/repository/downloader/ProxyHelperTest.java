@@ -21,7 +21,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.net.Proxy;
-import java.net.URI;
+import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -499,7 +499,7 @@ public class ProxyHelperTest {
   public void testCreateIfNeededSocks5Proxy() throws Exception {
     ProxyHelper helper =
         new ProxyHelper(ImmutableMap.of("HTTPS_PROXY", "socks5://localhost:5000"));
-    ProxyInfo proxyInfo = helper.createProxyIfNeeded(URI.create("https://www.something.com"));
+    ProxyInfo proxyInfo = helper.createProxyIfNeeded(new URL("https://www.something.com"));
     assertThat(proxyInfo.proxy().type()).isEqualTo(Proxy.Type.SOCKS);
     assertThat(proxyInfo.proxy().toString()).contains("localhost");
     assertThat(proxyInfo.proxy().toString()).endsWith(":5000");
