@@ -297,17 +297,17 @@ public abstract class RepositoryOptions extends OptionsBase {
           and preceded by a `#`. Example: `# evil.com is known to host malicious code`
 
           The `allow` and `block` directives take a host name as an argument. For
-          example: `block mvnrepository.com` or `allow github.com`. The given host
+          example: `block mvnrepository.com.example` or `allow github.com.example`. The given host
           and all subdomains will be allowed or blocked. Do not include the URL
           scheme (`http://` or `https://`). You can block all hosts with the `*`
           wildcard: `block *`.
 
           The `rewrite` directive takes two regex patterns: the first to match a URL
           and the second to substitute matched URLs with. For example, `rewrite
-          github.com/bazel-contrib/rules_python/releases/download/(.*)/(.*)
-          mycorp.com/rules_python_mirror/$1/$2` will cause the downloader
-          to access `mycorp.com/rules_python_mirror` whenever attempting
-          to download rules_python from GitHub. The substitute URL supports
+          github.com.example/bazel-contrib/rules_python/releases/download/(.*)/(.*)
+          mycorp.example/rules_python_mirror/$1/$2` will cause the downloader
+          to access `mycorp.example/rules_python_mirror` whenever attempting
+          to download rules_python from example.com. The substitute URL supports
           back-references starting from `$1`. It is possible for multiple
           `rewrite` directives for the same matched URL to be provided, and in
           this case multiple URLs will be returned and tried sequentially. Do not
@@ -324,23 +324,23 @@ public abstract class RepositoryOptions extends OptionsBase {
           worked around by rewrite the path to a blocked host:
 
           ```
-          block dummy_host.com
-          rewrite foo.com/bar/.* dummy_host.com
+          block dummy_host.invalid
+          rewrite example.com/bar/.* dummy_host.invalid
           ```
 
           An example config may look like:
 
           ```
-          all_blocked_message See mycorp.com/blocked-bazel-fetches for more information.
-          block mvnrepository.com
-          block maven-central.storage.googleapis.com
+          all_blocked_message See example.com/blocked-bazel-fetches for more information.
+          block mvnrepository.com.example
+          block maven-central.storage.googleapis.com.example
 
           # See internal doc id1234 for why gitblit is blocked
-          block gitblit.github.io
-          rewrite repo.maven.apache.org/maven2/(.*) artifacts.mycorp.com/libs-release/$1
+          block gitblit.github.com.example
+          rewrite repo.maven.apache.org.example/maven2/(.*) artifacts.mycorp.example/libs-release/$1
 
           # Use our GCS bucket for rules_python
-          rewrite github.com/bazel-contrib/rules_python/releases/download/(.*)/(.*) mycorp.com/rules_python_mirror/$1/$2
+          rewrite github.com.example/bazel-contrib/rules_python/releases/download/(.*)/(.*) mycorp.example/rules_python_mirror/$1/$2
           ```
 
           See also: [Insulating Builds from the Internet]
