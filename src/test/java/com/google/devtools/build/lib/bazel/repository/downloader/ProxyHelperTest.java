@@ -21,7 +21,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.net.Proxy;
-import java.net.URL;
+import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
