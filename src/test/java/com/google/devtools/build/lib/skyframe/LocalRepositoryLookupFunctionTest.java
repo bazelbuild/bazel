@@ -170,7 +170,8 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
     return evaluator.evaluate(ImmutableList.of(directoryKey), evaluationContext);
   }
 
-  private void addVisibleLocalRepository(RepositoryName repositoryName, String path) {
+  private void addVisibleLocalRepository(RepositoryName repositoryName, String path) throws Exception {
+    scratch.file(path + "/MODULE.bazel", "module(name='local_repo')");
     repositoryMappingValue.set(
         RepositoryMappingValue.createSpecial(
             RepositoryMapping.create(

@@ -208,7 +208,9 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     return evaluator.evaluate(ImmutableList.of(packageIdentifierSkyKey), evaluationContext);
   }
 
-  protected final void addVisibleLocalRepository(RepositoryName repositoryName, String path) {
+  protected final void addVisibleLocalRepository(RepositoryName repositoryName, String path)
+      throws Exception {
+    scratch.file(path + "/MODULE.bazel", "module(name='local_repo')");
     repositoryMappingValue.set(
         RepositoryMappingValue.createSpecial(
             RepositoryMapping.create(

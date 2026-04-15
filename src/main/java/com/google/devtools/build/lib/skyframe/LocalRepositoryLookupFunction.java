@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.LocalPathRepoSpecs;
 import com.google.devtools.build.lib.bazel.bzlmod.Module;
@@ -25,8 +27,10 @@ import com.google.devtools.build.lib.bazel.bzlmod.RepoRuleId;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpec;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionValue;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -35,6 +39,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.io.IOException;
 import javax.annotation.Nullable;
 
 /** SkyFunction for {@link LocalRepositoryLookupValue}s. */
@@ -74,6 +79,13 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
   @Nullable
   private LocalRepositoryLookupValue maybeCheckDirectoryForRepository(Environment env, RootedPath directory)
       throws InterruptedException {
+    Boolean hasRepositoryBoundary = directoryHasRepositoryBoundary(env, directory);
+    if (hasRepositoryBoundary == null) {
+      return null;
+    }
+    if (!hasRepositoryBoundary) {
+      return LocalRepositoryLookupValue.notFound();
+    }
     RepositoryMappingValue repositoryMappingValue =
         (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
     if (repositoryMappingValue == null) {
@@ -110,6 +122,43 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
     }
 
     return maybeMatchExtensionRepositories(directory, bazelDepGraphValue, env);
+  }
+
+  @Nullable
+  private static Boolean directoryHasRepositoryBoundary(Environment env, RootedPath directory)
+      throws InterruptedException {
+    ImmutableList<RootedPath> repoBoundaryPaths =
+        ImmutableList.of(
+            rootedPath(directory, LabelConstants.MODULE_DOT_BAZEL_FILE_NAME),
+            rootedPath(directory, LabelConstants.REPO_FILE_NAME),
+            rootedPath(directory, LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME),
+            rootedPath(directory, LabelConstants.WORKSPACE_FILE_NAME));
+    for (RootedPath repoBoundaryPath : repoBoundaryPaths) {
+      FileValue fileValue;
+      try {
+        fileValue = (FileValue) env.getValueOrThrow(FileValue.key(repoBoundaryPath), IOException.class);
+      } catch (FileSymlinkException e) {
+        // Package lookup will surface the symlink problem itself if the path is otherwise relevant.
+        return false;
+      } catch (IOException e) {
+        // This check is just a fast path to avoid unnecessary repository graph work. If probing a
+        // boundary file fails, defer to the main package-loading path instead of turning the lookup
+        // into a repository error.
+        return false;
+      }
+      if (fileValue == null) {
+        return null;
+      }
+      if (fileValue.exists()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static RootedPath rootedPath(RootedPath directory, PathFragment relativePath) {
+    return RootedPath.toRootedPath(
+        directory.getRoot(), directory.getRootRelativePath().getRelative(relativePath));
   }
 
   @Nullable
