@@ -35,6 +35,7 @@ import net.starlark.java.eval.Starlark;
 public class SymbolFamilies {
   private final ImmutableList<RuleDocumentation> nativeRules;
   private final ImmutableMap<Category, ImmutableList<StarlarkDocPage>> allDocPages;
+  private final ConfiguredRuleClassProvider ruleClassProvider;
 
   // Mappings between Starlark names and Starlark entities generated from the fakebuildapi.
   private final ImmutableMap<String, Object> globals;
@@ -55,18 +56,18 @@ public class SymbolFamilies {
           BuildEncyclopediaDocException,
           ClassNotFoundException,
           IOException {
-    ConfiguredRuleClassProvider configuredRuleClassProvider = createRuleClassProvider(provider);
+    this.ruleClassProvider = createRuleClassProvider(provider);
     this.nativeRules =
         ImmutableList.copyOf(
             collectNativeRules(
                 expander.ruleExpander,
                 urlMapper,
-                configuredRuleClassProvider,
+                ruleClassProvider,
                 inputJavaDirs,
                 buildEncyclopediaStardocProtos,
                 ruleDenyList));
     this.globals = Starlark.UNIVERSE;
-    this.bzlGlobals = collectBzlGlobals(configuredRuleClassProvider);
+    this.bzlGlobals = collectBzlGlobals(ruleClassProvider);
     this.allDocPages =
         StarlarkDocumentationCollector.getAllDocPages(
             expander, ImmutableList.copyOf(apiStardocProtos));
@@ -93,6 +94,10 @@ public class SymbolFamilies {
    */
   public Map<String, Object> getBzlGlobals() {
     return bzlGlobals;
+  }
+
+  public ConfiguredRuleClassProvider getRuleClassProvider() {
+    return ruleClassProvider;
   }
 
   // Returns a mapping between type names and module/type documentation.

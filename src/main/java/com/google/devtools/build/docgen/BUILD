@@ -75,6 +75,8 @@ java_binary(
     deps = [
         ":docgen_javalib",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:builtin_java_proto",

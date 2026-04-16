@@ -26,6 +26,9 @@ import com.google.devtools.build.docgen.starlark.MemberDoc;
 import com.google.devtools.build.docgen.starlark.ParamDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkDocExpander;
 import com.google.devtools.build.docgen.starlark.StarlarkDocPage;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
@@ -35,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -54,7 +58,10 @@ import net.starlark.java.eval.StarlarkSemantics;
 public class ApiExporter {
 
   private static void appendTypes(
-      Builtins.Builder builtins, StarlarkDocPage docPage, List<RuleDocumentation> nativeRules)
+      Builtins.Builder builtins,
+      StarlarkDocPage docPage,
+      List<RuleDocumentation> nativeRules,
+      ConfiguredRuleClassProvider ruleClassProvider)
       throws BuildEncyclopediaDocException {
     Type.Builder type = Type.newBuilder();
     type.setName(docPage.getName());
@@ -81,7 +88,7 @@ public class ApiExporter {
     }
     if (type.getName().equals("native")) {
       for (RuleDocumentation rule : nativeRules) {
-        Value.Builder field = collectRuleInfo(rule);
+        Value.Builder field = collectRuleInfo(rule, ruleClassProvider);
         field.setApiContext(ApiContext.BZL);
         type.addField(field);
       }
@@ -151,10 +158,12 @@ public class ApiExporter {
 
   // Native rules are available as top level functions in BUILD files.
   private static void appendNativeRules(
-      Builtins.Builder builtins, List<RuleDocumentation> nativeRules)
+      Builtins.Builder builtins,
+      List<RuleDocumentation> nativeRules,
+      ConfiguredRuleClassProvider ruleClassProvider)
       throws BuildEncyclopediaDocException {
     for (RuleDocumentation rule : nativeRules) {
-      Value.Builder global = collectRuleInfo(rule);
+      Value.Builder global = collectRuleInfo(rule, ruleClassProvider);
       global.setApiContext(ApiContext.BUILD);
       builtins.addGlobal(global);
     }
@@ -279,7 +288,8 @@ public class ApiExporter {
     return param;
   }
 
-  private static Value.Builder collectRuleInfo(RuleDocumentation rule)
+  private static Value.Builder collectRuleInfo(
+      RuleDocumentation rule, ConfiguredRuleClassProvider ruleClassProvider)
       throws BuildEncyclopediaDocException {
     Value.Builder value = Value.newBuilder();
     value.setName(rule.getRuleName());
@@ -288,8 +298,20 @@ public class ApiExporter {
     // All native rules have attribute "name". It is not included in the attributes list and needs
     // to be added separately.
     callable.addParam(newParam("name", true));
+    HashSet<String> seen = new HashSet<>();
+    seen.add("name");
     for (RuleDocumentationAttribute attr : rule.getAttributes()) {
       callable.addParam(newParam(attr.getAttributeName(), attr.isMandatory()));
+      seen.add(attr.getAttributeName());
+    }
+    RuleClass ruleClass = ruleClassProvider.getRuleClassMap().get(rule.getRuleName());
+    if (ruleClass != null) {
+      for (Attribute attribute : ruleClass.getAttributeProvider().getAttributes()) {
+        String attrName = attribute.getName();
+        if (seen.add(attrName)) {
+          callable.addParam(newParam(attrName, attribute.isMandatory()));
+        }
+      }
     }
     value.setCallable(callable);
     return value;
@@ -347,6 +369,7 @@ public class ApiExporter {
               options.buildEncyclopediaStardocProtos,
               options.denylist,
               options.apiStardocProtos);
+      ConfiguredRuleClassProvider ruleClassProvider = symbols.getRuleClassProvider();
       ImmutableMap<Category, ImmutableList<StarlarkDocPage>> allDocPages = symbols.getAllDocPages();
       Builtins.Builder builtins = Builtins.newBuilder();
 
@@ -366,14 +389,14 @@ public class ApiExporter {
       Map<String, MemberDoc> typeNameToConstructor = new HashMap<>();
       while (typesIterator.hasNext()) {
         StarlarkDocPage typeDocPage = typesIterator.next();
-        appendTypes(builtins, typeDocPage, symbols.getNativeRules());
+        appendTypes(builtins, typeDocPage, symbols.getNativeRules(), ruleClassProvider);
         typeNameToConstructor.put(typeDocPage.getName(), typeDocPage.getConstructor());
       }
       appendGlobals(
           builtins, symbols.getGlobals(), globalToDoc, typeNameToConstructor, ApiContext.ALL);
       appendGlobals(
           builtins, symbols.getBzlGlobals(), globalToDoc, typeNameToConstructor, ApiContext.BZL);
-      appendNativeRules(builtins, symbols.getNativeRules());
+      appendNativeRules(builtins, symbols.getNativeRules(), ruleClassProvider);
       writeBuiltins(options.outputFile, builtins);
 
     } catch (Throwable e) {
