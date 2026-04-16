@@ -48,17 +48,17 @@ import net.starlark.java.syntax.Location;
  * The directives are applied in the order `rewrite, allow, block'. An example config may look like:
  *
  * <pre>
- *     all_blocked_message See mycorp.com/blocked-bazel-fetches for more information.
- *     block mvnrepository.com
- *     block maven-central.storage.googleapis.com
- *     block gitblit.github.io
- *     rewrite repo.maven.apache.org/maven2/(.*) artifacts.mycorp.com/libs-release/$1
+ *     all_blocked_message See example.com/blocked-bazel-fetches for more information.
+ *     block mvnrepository.com.example
+ *     block maven-central.storage.googleapis.com.example
+ *     block gitblit.github.io.example
+ *     rewrite repo.maven.apache.org.example/maven2/(.*) artifacts.example.com/libs-release/$1
  *
- *     block github.com
- *     rewrite github.com/([^/]+)/([^/]+)/releases/download/([^/]+)/(.*) \
- *             artifacts.mycorp.com/github-releases/$1/$2/releases/download/$3/$4
- *     rewrite github.com/([^/]+)/([^/]+)/archive/(.+).(tar.gz|zip) \
- *             artifacts.mycorp.com/api/vcs/downloadRelease/github.com/$1/$2/$3?ext=$4
+ *     block github.com.example
+ *     rewrite github.com.example/([^/]+)/([^/]+)/releases/download/([^/]+)/(.*) \
+ *             artifacts.example.com/github-releases/$1/$2/releases/download/$3/$4
+ *     rewrite github.com.example/([^/]+)/([^/]+)/archive/(.+).(tar.gz|zip) \
+ *             artifacts.example.com/api/vcs/downloadRelease/github.com.example/$1/$2/$3?ext=$4
  * </pre>
  *
  * In addition, you can block all hosts using the {@code *} wildcard.
