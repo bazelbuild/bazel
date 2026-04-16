@@ -503,8 +503,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
                   data.writeTo(out);
                 } catch (IOException e) {
                   // The output stream was likely closed due to cancellation (e.g. dynamic execution
-                  // choosing the local branch). Cancel the RPC and propagate the error through the
-                  // future instead of throwing an unchecked exception that would crash the JVM.
+                  // choosing the local branch).
                   if (requestStream != null) {
                     requestStream.cancel("output stream closed", e);
                   }
