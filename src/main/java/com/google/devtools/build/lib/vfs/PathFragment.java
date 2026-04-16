@@ -675,7 +675,7 @@ public abstract sealed class PathFragment
     }
     if (numComponents < 0) {
       throw new IllegalArgumentException(
-          String.format("Invalid number of elements (%d)", numComponents));
+          String.format("Invalid number of components (%d)", numComponents));
     }
     if (numComponents >= this.segmentCount()) {
       return EMPTY_FRAGMENT;

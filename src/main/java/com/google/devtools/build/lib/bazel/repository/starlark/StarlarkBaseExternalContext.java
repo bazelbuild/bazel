@@ -1051,7 +1051,7 @@ the same path on case-insensitive filesystems.
             defaultValue = "0",
             doc =
 """
-Strip the given number leading components from file names on extraction. Only one of
+Strip the given number of leading components from file paths on extraction. Only one of
 <code>strip_components</code> or <code>strip_prefix</code> can be used.
 """),
       })
@@ -1073,7 +1073,7 @@ Strip the given number leading components from file names on extraction. Only on
       throws RepositoryFunctionException, InterruptedException, EvalException {
     stripPrefix = renamedStripPrefix("download_and_extract", stripPrefix, oldStripPrefix);
     int stripComponents = Starlark.toInt(stripComponentsI, "strip_components");
-    checkOneTypeOfStripping("download_and_extract", stripPrefix, stripComponents);
+    validateStripping("download_and_extract", stripPrefix, stripComponents);
     ImmutableMap<URI, Map<String, List<String>>> authHeaders =
         getAuthHeaders(getAuthContents(authUnchecked, "auth"));
 
@@ -1276,7 +1276,7 @@ Strip the given number leading components from file names on extraction. Only on
 
                 <p>For compatibility, this parameter may also be used under the deprecated name
                 <code>stripPrefix</code>. Only one of <code>strip_prefix</code> or
-	              <code>strip_components</code> can be set.
+                <code>strip_components</code> can be set.
                 """),
         @Param(
             name = "rename_files",
@@ -1314,7 +1314,7 @@ Strip the given number leading components from file names on extraction. Only on
             defaultValue = "0",
             doc =
 """
-Strip the given number leading components from file names on extraction. Only one of
+Strip the given number of leading components from file paths on extraction. Only one of
 <code>strip_components</code> or <code>strip_prefix</code> can be set.
 """),
         @Param(
@@ -1346,7 +1346,7 @@ Strip the given number leading components from file names on extraction. Only on
       throws RepositoryFunctionException, InterruptedException, EvalException {
     stripPrefix = renamedStripPrefix("extract", stripPrefix, oldStripPrefix);
     int stripComponents = Starlark.toInt(stripComponentsI, "strip_components");
-    checkOneTypeOfStripping("extract", stripPrefix, stripComponents);
+    validateStripping("extract", stripPrefix, stripComponents);
     StarlarkPath archivePath = getPath(archive);
 
     if (!archivePath.exists()) {
@@ -1439,8 +1439,14 @@ Strip the given number leading components from file names on extraction. Only on
         method);
   }
 
-  private static void checkOneTypeOfStripping(
-      String method, String stripPrefix, int stripComponents) throws EvalException {
+  private static void validateStripping(String method, String stripPrefix, int stripComponents)
+      throws EvalException {
+    if (stripComponents < 0) {
+      throw Starlark.errorf(
+          "%s() has an invalid argument for 'strip_components': %d. Must be non-negative.",
+          method, stripComponents);
+    }
+
     if (!stripPrefix.isEmpty() && stripComponents > 0) {
       throw Starlark.errorf(
           "%s() got multiple strip values. Only one of 'strip_prefix' or 'strip_components' can be set",

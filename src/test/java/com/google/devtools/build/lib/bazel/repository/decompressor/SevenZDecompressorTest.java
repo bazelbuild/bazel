@@ -173,7 +173,8 @@ public class SevenZDecompressorTest {
   /** Test decompressing a .7z file where everything is stripped */
   @Test
   public void testDecompressStripAllComponents() throws Exception {
-    Path outputDir = decompress(archiveDescriptor().createDescriptorBuilder().setStripComponents(1_000).build());
+    Path outputDir =
+        decompress(archiveDescriptor().createDescriptorBuilder().setStripComponents(1_000).build());
 
     assertThat(outputDir.exists()).isFalse();
   }

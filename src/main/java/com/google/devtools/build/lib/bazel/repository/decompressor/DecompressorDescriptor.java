@@ -70,8 +70,12 @@ public record DecompressorDescriptor(
 
     public DecompressorDescriptor build() {
       DecompressorDescriptor d = autoBuild();
-      if (d.stripComponents != 0 && d.prefix().isPresent() && !d.prefix().get().isEmpty()) {
-        throw new IllegalArgumentException("Only one of 'prefix' or 'stripComponents' can be set");
+      if (d.stripComponents() < 0) {
+        throw new IllegalArgumentException("'strip_components' must be non-negative");
+      }
+      if (d.stripComponents() != 0 && d.prefix().isPresent() && !d.prefix().get().isEmpty()) {
+        throw new IllegalArgumentException(
+            "Only one of 'strip_prefix' or 'strip_components' can be set");
       }
       return d;
     }
