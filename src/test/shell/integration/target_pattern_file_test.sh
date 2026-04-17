@@ -91,7 +91,7 @@ EOF
 
   echo "//foo:äöüÄÖÜß🌱" > my_targets || fail "Could not write my_query"
   bazel build --target_pattern_file=my_targets >& $TEST_log || fail "Expected success"
-  expect_log "//foo:äöüÄÖÜß🌱"
+  [[ "$(< "$TEST_log")" == *"//foo:äöüÄÖÜß🌱"* ]] || fail "Emoji target not found in log"
 }
 
 run_suite "Tests for using target_pattern_file"
