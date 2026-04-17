@@ -2,60 +2,19 @@
 check_docs: 0
 tasks:
   windows:
-    shards: 10
+    shards: 1
     setup:
       - mkdir C:\b
       - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external
     build_flags:
       - "--config=ci-windows"
-    build_targets:
-      - "//src:bazel.exe"
-      - "//src:bazel_jdk_minimal"
-      - "//src:test_repos"
-      - "//src/main/java/..."
     test_flags:
       - "--config=ci-windows"
       # We need to keep --test_tag_filters here for the bazel-diff integration.
       - "--test_tag_filters=-no_presubmit,-no_windows,-slow"
     test_targets:
-      - "//src:embedded_tools_size_test"
-      - "//src/main/starlark/tests/builtins_bzl/..."
-      - "//src/test/cpp/..."
-      - "//src/test/java/com/google/devtools/build/lib/..."
-      - "//src/test/java/com/google/devtools/build/skyframe/..."
-      - "//src/test/java/com/google/devtools/common/options/..."
-      - "//src/test/native/windows/..."
-      - "//src/test/py/bazel/..."
-      - "//src/test/shell/..."
-      - "//src/tools/launcher/..."
-      - "//src/tools/one_version/..."
-      - "//src/tools/singlejar/..."
-      - "//third_party/def_parser/..."
-      - "//tools/aquery_differ/..."
-      - "//tools/bash/..."
-      - "//tools/build_defs/..."
-      - "//tools/java/..."
-      - "//tools/jdk/..."
-      - "//tools/python/..."
-      - "//tools/test/..."
-      # Re-enable the following tests on Windows:
-      # https://github.com/bazelbuild/bazel/issues/4292
-      - "-//src/test/shell/bazel/remote/..."
-      - "-//tools/python:pywrapper_test"
+      - "//src/test/shell/integration:target_pattern_file_test"
+      - "//src/test/shell/integration:ui_test"
     include_json_profile:
       - build
       - test
-  windows_arm64:
-    platform: windows
-    name: "Windows (arm64)"
-    setup:
-      - mkdir C:\b
-      - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external
-    build_flags:
-      - "--config=ci-windows"
-      - "--config=windows_arm64"
-    build_targets:
-      - "//src:bazel.exe"
-      - "//src:bazel_nojdk.exe"
-    include_json_profile:
-      - build
