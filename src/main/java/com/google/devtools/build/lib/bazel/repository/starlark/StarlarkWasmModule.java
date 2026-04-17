@@ -20,9 +20,13 @@ import static com.google.devtools.build.lib.profiler.ProfilerTask.WASM_EXEC;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.WASM_LOAD;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
+import com.dylibso.chicory.compiler.InterpreterFallback;
+import com.dylibso.chicory.compiler.MachineFactoryCompiler;
 import com.dylibso.chicory.runtime.ByteArrayMemory;
 import com.dylibso.chicory.runtime.ExportFunction;
 import com.dylibso.chicory.runtime.Instance;
+import com.dylibso.chicory.runtime.InterpreterMachine;
+import com.dylibso.chicory.runtime.Machine;
 import com.dylibso.chicory.wasm.ChicoryException;
 import com.dylibso.chicory.wasm.WasmModule;
 import com.dylibso.chicory.wasm.types.MemoryLimits;
@@ -36,6 +40,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -50,14 +55,17 @@ import net.starlark.java.eval.StarlarkValue;
     category = DocCategory.BUILTIN,
     doc = "A WebAssembly module loaded by <code>repository_ctx.load_wasm()</code>.")
 final class StarlarkWasmModule implements StarlarkValue {
+  private static final StarlarkWasmCompilationCache compilationCache = new StarlarkWasmCompilationCache();
+
   private final StarlarkPath path;
   private final Object origPath;
   private final WasmModule wasmModule;
   private final String allocFnName;
   private final boolean hasInitializeFn;
+  private final Function<Instance, Machine> machineFactory;
 
   public StarlarkWasmModule(
-      StarlarkPath path, Object origPath, byte[] moduleContent, String allocFnName)
+      StarlarkPath path, Object origPath, byte[] moduleContent, boolean compile, String allocFnName)
       throws EvalException {
     WasmModule wasmModule;
     try (SilentCloseable c1 =
@@ -77,6 +85,14 @@ final class StarlarkWasmModule implements StarlarkValue {
     this.wasmModule = wasmModule;
     this.allocFnName = allocFnName;
     this.hasInitializeFn = hasInitializeFn(wasmModule);
+    if (compile) {
+      this.machineFactory = MachineFactoryCompiler.builder(wasmModule)
+          .withInterpreterFallback(InterpreterFallback.SILENT)
+          .withCache(compilationCache)
+          .compile();
+    } else {
+      this.machineFactory = InterpreterMachine::new;
+    }
   }
 
   private static boolean hasInitializeFn(WasmModule wasmModule) {
@@ -148,6 +164,7 @@ final class StarlarkWasmModule implements StarlarkValue {
     try {
       instance =
           Instance.builder(wasmModule)
+              .withMachineFactory(machineFactory)
               .withMemoryLimits(memLimits)
               // Disable calling `_start()`, which is the entry point for WASI-style
               // command modules.
