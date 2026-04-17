@@ -93,9 +93,16 @@ class AcornSafeMarkdownConverter(markdownify.MarkdownConverter):
   """Custom converter that produces Acorn-parsable MDX output."""
 
   def convert_code(self, node, text, parent_tags):
-    """Escape sensitive characters in code blocks so they're not mishandled."""
-    text = super().convert_code(node, text, parent_tags)
-    return _escape_chars(text, _REPLACED_CODE_CHARACTERS)
+    """Normalize whitespace in inline code before converting.
+
+    Multi-line <code> elements in the source HTML cause acorn parse errors
+    when curly braces span line boundaries. Collapsing whitespace first
+    lets the standard backtick conversion handle them on a single line.
+    """
+    if "pre" not in parent_tags:
+      text = " ".join(text.split())
+
+    return super().convert_code(node, text, parent_tags)
 
   def escape(self, text, parent_tags):
     """Custom escape handling."""
