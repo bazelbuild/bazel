@@ -382,6 +382,36 @@ public final class ArtifactTest {
   }
 
   @Test
+  public void sourceArtifactCodecPreservesDirectoryBit() throws Exception {
+    Root root = Root.fromPath(scratch.dir("/"));
+    ArtifactRoot artifactRoot = ArtifactRoot.asSourceRoot(root);
+    ArtifactFactory artifactFactory =
+        new ArtifactFactory(execDir.getParentDirectory(), "blaze-out");
+
+    ObjectCodecs objectCodecs =
+        new ObjectCodecs(
+            AutoRegistry.get()
+                .getBuilder()
+                .addReferenceConstant(scratch.getFileSystem())
+                .setAllowDefaultCodec(true)
+                .build(),
+            ImmutableClassToInstanceMap.builder()
+                .put(FileSystem.class, scratch.getFileSystem())
+                .put(ArtifactSerializationContext.class, artifactFactory::getSourceArtifact)
+                .put(RootCodecDependencies.class, new RootCodecDependencies(artifactRoot.getRoot()))
+                .build());
+
+    ArtifactOwner owner = new LabelArtifactOwner(Label.parseCanonicalUnchecked("//foo:bar"));
+    SourceArtifact sourceArtifact =
+        new SourceArtifact(artifactRoot, PathFragment.create("src/dir"), owner, true);
+
+    SourceArtifact deserialized =
+        (SourceArtifact) objectCodecs.deserialize(objectCodecs.serialize(sourceArtifact));
+
+    assertThat(deserialized.isDirectory()).isTrue();
+  }
+
+  @Test
   public void testLongDirname() throws Exception {
     String dirName = createDirNameArtifact().getDirname();
 
