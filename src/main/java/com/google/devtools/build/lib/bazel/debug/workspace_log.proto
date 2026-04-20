@@ -162,12 +162,14 @@ message ExecuteWasmEvent {
   int64 memory_limit_bytes = 5;
 }
 
-// Information on "integrity_hash" event in repository_ctx.
-message IntegrityHashEvent {
+// Information on "digest" event in repository_ctx.
+message DigestEvent {
   // The path of the file to hash.
   string path = 1;
+  // The format of the digest.
+  string format = 2;
   // The hash algorithm to use.
-  string algorithm = 2;
+  string algorithm = 3;
 }
 
 message WorkspaceEvent {
@@ -194,6 +196,6 @@ message WorkspaceEvent {
     RenameEvent rename_event = 15;
     LoadWasmEvent load_wasm_event = 16;
     ExecuteWasmEvent execute_wasm_event = 17;
-    IntegrityHashEvent integrity_hash_event = 18;
+    DigestEvent digest_event = 18;
   }
 }

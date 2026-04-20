@@ -51,6 +51,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.InvalidPathException;
 import java.util.Base64;
+import java.util.HexFormat;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -634,15 +635,20 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   }
 
   @StarlarkMethod(
-      name = "integrity_hash",
-      doc = "Calculates the subresource integrity hash for the given file.",
+      name = "digest",
+      doc = "Returns the digest for the given file.",
       useStarlarkThread = true,
       parameters = {
         @Param(
             name = "algorithm",
             defaultValue = "''",
             doc =
-                "The hash algorithm to use. Supported algorithms are: 'sha256', 'sha384', 'sha512'"),
+                "The hash algorithm to use. Supported algorithms are: 'sha256', 'sha384', 'sha512'."),
+        @Param(
+            name = "format",
+            defaultValue = "''",
+            doc =
+                "The format to output the digest in. Supported formats are: 'sri', 'hex'."),
         @Param(
             name = "path",
             defaultValue = "''",
@@ -667,13 +673,14 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
                   information.
                   """)
       })
-  public String integrityHash(String algorithm, Object path, String watch, StarlarkThread thread)
+  public String digest(String algorithm, String format, Object path, String watch, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     StarlarkPath p = getPath(path);
     maybeWatch(p, ShouldWatch.fromString(watch));
     if (p.isDir()) {
       throw Starlark.errorf("attempting to integrity_hash() a directory: %s", p);
     }
+    // Users can pass in "sha-256" as well as "sha256".
     String algorithmStandardized = algorithm.strip().toLowerCase().replace("-", "");
 
     // Bazel supports a wide set of hashing algorithms, but we reduce the set to the following
@@ -689,11 +696,18 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
           "algorithm '%s' is not supported. Allowed algorithms are: %s",
           algorithm, String.join(", ", allowedIntegrityHashes));
     }
+    ImmutableSet<String> allowedFormats = ImmutableSet.of("sri", "hex");
+    if (!allowedFormats.contains(format)) {
+      throw Starlark.errorf(
+          "format '%s' is not supported. Allowed formats are: %s",
+          format, String.join(", ", allowedFormats));
+    }
 
     WorkspaceRuleEvent w =
-        WorkspaceRuleEvent.newIntegrityHashEvent(
+        WorkspaceRuleEvent.newDigestEvent(
             p.toString(),
             algorithmStandardized,
+	    format,
             identifyingStringForLogging,
             thread.getCallerLocation());
     env.getListener().post(w);
@@ -707,8 +721,18 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
               return p.getPath().getInputStream();
             }
           };
-      String hash = Base64.getEncoder().encodeToString((byteSource.hash(hashFn).asBytes()));
-      return String.format("%s-%s", algorithmStandardized, hash);
+      byte[] b = byteSource.hash(hashFn).asBytes();
+      switch (format) {
+      case "sri":
+	  String hash = Base64.getEncoder().encodeToString(b);
+	  return String.format("%s-%s", algorithmStandardized, hash);
+      case "hex":
+	  return HexFormat.of().formatHex(b);
+      default:
+	  throw Starlark.errorf(
+              "unknown format '%s' is not supported. Allowed formats are: %s",
+	      format, String.join(", ", allowedFormats));
+      }
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }

@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.bazel.debug;
 
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos;
+import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.DigestEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.ExecuteWasmEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.ExtractEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.FileEvent;
-import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.IntegrityHashEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.LoadWasmEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.OsEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.RenameEvent;
@@ -393,16 +393,17 @@ public final class WorkspaceRuleEvent implements Postable {
     return new WorkspaceRuleEvent(result.build());
   }
 
-  /** Creates a new WorkspaceRuleEvent for an integrityHash event. */
-  public static WorkspaceRuleEvent newIntegrityHashEvent(
-      String path, String algorithm, String context, Location location) {
-    IntegrityHashEvent e =
-        WorkspaceLogProtos.IntegrityHashEvent.newBuilder()
+  /** Creates a new WorkspaceRuleEvent for a digest event. */
+  public static WorkspaceRuleEvent newDigestEvent(
+      String path, String format, String algorithm, String context, Location location) {
+    DigestEvent e =
+        WorkspaceLogProtos.DigestEvent.newBuilder()
             .setPath(path)
+            .setFormat(format)
             .setAlgorithm(algorithm)
             .build();
     WorkspaceLogProtos.WorkspaceEvent.Builder result =
-        WorkspaceLogProtos.WorkspaceEvent.newBuilder().setIntegrityHashEvent(e);
+        WorkspaceLogProtos.WorkspaceEvent.newBuilder().setDigestEvent(e);
     if (location != null) {
       result.setLocation(location.toString());
     }

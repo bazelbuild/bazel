@@ -620,28 +620,42 @@ public final class StarlarkRepositoryContextTest {
   }
 
   @Test
-  public void testIntegrityHash() throws Exception {
+  public void testDigest() throws Exception {
     setUpRepo("test");
     context.createFile(context.getPath("foo/bar"), "", false, false, thread);
 
     String integrity256 =
-        context.integrityHash("sha256", context.getPath("foo/bar"), "auto", thread);
+        context.digest("sha256", "sri", context.getPath("foo/bar"), "auto", thread);
+    String hex256 =
+        context.digest("sha256", "hex", context.getPath("foo/bar"), "auto", thread);
     String integrity384 =
-        context.integrityHash("sha384", context.getPath("foo/bar"), "auto", thread);
+        context.digest("sha384", "sri", context.getPath("foo/bar"), "auto", thread);
+    String hex384 =
+        context.digest("sha384", "hex", context.getPath("foo/bar"), "auto", thread);
     String integrity512 =
-        context.integrityHash("sha512", context.getPath("foo/bar"), "auto", thread);
+        context.digest("sha512", "sri", context.getPath("foo/bar"), "auto", thread);
+    String hex512 =
+        context.digest("sha512", "hex", context.getPath("foo/bar"), "auto", thread);
 
-    // This is the hash for an empty file. Example code to generate hashes (change hash alg
+    // This is the SRI hash for an empty file. Example code to generate hashes (change hash alg
     // accordingly)
-    // $ touch empty.txt
-    // $ shasum -a 256 empty.txt | awk '{ print $1 }' | xxd -r -p | base64
-    // $ openssl dgst -sha256 -binary empty.txt | openssl base64 -A; echo
+    // $ shasum -a 256 /dev/null | awk '{ print $1 }' | xxd -r -p | base64
+    // $ openssl dgst -sha256 -binary /dev/null | openssl base64 -A; echo
+    // Same for the hex format:
+    // $ shasum -a 256 /dev/null
+    // $ openssl dgst -sha256 /dev/null; echo
     assertThat(integrity256).isEqualTo("sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=");
+    assertThat(hex256).isEqualTo("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
     assertThat(integrity384)
         .isEqualTo("sha384-OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb");
+    assertThat(hex384)
+        .isEqualTo("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b");
     assertThat(integrity512)
         .isEqualTo(
             "sha512-z4PhNX7vuL3xVChQ1m2AB9Yg5AULVxXcg/SpIdNs6c5H0NE8XYXysP+DGNKHfuwvY7kxvUdBeoGlODJ6+SfaPg==");
+    assertThat(hex512)
+        .isEqualTo(
+            "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e");
   }
 
   @Test
@@ -652,7 +666,19 @@ public final class StarlarkRepositoryContextTest {
     EvalException thrown =
         assertThrows(
             EvalException.class,
-            () -> context.integrityHash("sha", context.getPath("foo/bar"), "auto", thread));
+            () -> context.digest("sha", "sri", context.getPath("foo/bar"), "auto", thread));
     assertThat(thrown).hasMessageThat().contains("algorithm 'sha' is not supported");
+  }
+
+  @Test
+  public void testIntegrityHash_incorrectFormat() throws Exception {
+    setUpRepo("test");
+    context.createFile(context.getPath("foo/bar"), "", false, false, thread);
+
+    EvalException thrown =
+        assertThrows(
+            EvalException.class,
+            () -> context.digest("sha256", "bytes", context.getPath("foo/bar"), "auto", thread));
+    assertThat(thrown).hasMessageThat().contains("format 'bytes' is not supported");
   }
 }
