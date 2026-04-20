@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
@@ -45,8 +44,7 @@ public class TypeCheckedTag implements Structure {
    * classes within a module file and across modules in BFS order.
    */
   @StarlarkBuiltin(name = "sort_key", documented = false)
-  private record SortKey(int moduleIndex, int tagIndex)
-      implements StarlarkValue, Comparable<SortKey> {
+  record SortKey(int moduleIndex, int tagIndex) implements StarlarkValue, Comparable<SortKey> {
     private static final Comparator<SortKey> COMPARATOR =
         Comparator.comparingInt(SortKey::moduleIndex).thenComparingInt(SortKey::tagIndex);
 
@@ -70,8 +68,6 @@ public class TypeCheckedTag implements Structure {
       printer.append("<sort_key module=%d tag=%d>".formatted(moduleIndex, tagIndex));
     }
   }
-
-  private static final String SORT_KEY = "_sort_key";
 
   private final TagClass tagClass;
   private final Object[] attrValues;
@@ -198,9 +194,6 @@ public class TypeCheckedTag implements Structure {
   public Object getValue(String name) throws EvalException {
     Integer attrIndex = tagClass.attributeIndices().get(name);
     if (attrIndex == null) {
-      if (name.equals(SORT_KEY)) {
-        return sortKey;
-      }
       return null;
     }
     return attrValues[attrIndex];
@@ -208,10 +201,11 @@ public class TypeCheckedTag implements Structure {
 
   @Override
   public ImmutableCollection<String> getFieldNames() {
-    return ImmutableSet.<String>builderWithExpectedSize(tagClass.attributeIndices().size() + 1)
-        .addAll(tagClass.attributeIndices().keySet())
-        .add(SORT_KEY)
-        .build();
+    return tagClass.attributeIndices().keySet();
+  }
+
+  public Object getSortKey() {
+    return sortKey;
   }
 
   @Nullable
