@@ -161,6 +161,29 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
   }
 
   @StarlarkMethod(
+      name = "tag_sort_key",
+      doc =
+          """
+          Returns an opaque <code>sort_key</code> object for the given tag, which can be compared \
+          with other <code>sort_key</code> objects to determine the relative order of tags, even \
+          across tag classes. Tags are ordered by their position within a module file and by the \
+          BFS ordering of modules in the dependency graph. This can be used with \
+          <code>sorted()</code> to recover the original order of tags: \
+          <code>sorted(tags, key=lambda tag: module_ctx.tag_sort_key(tag))</code>
+          """,
+      parameters = {
+        @Param(
+            name = "tag",
+            doc =
+                "A tag obtained from <a"
+                    + " href=\"../builtins/bazel_module.html#tags\">bazel_module.tags</a>.",
+            allowedTypes = {@ParamType(type = TypeCheckedTag.class)})
+      })
+  public Object getTagSortKey(TypeCheckedTag tag) {
+    return tag.getSortKey();
+  }
+
+  @StarlarkMethod(
       name = "is_isolated",
       doc =
           "Whether this particular usage of the extension had <code>isolate = True</code> "
