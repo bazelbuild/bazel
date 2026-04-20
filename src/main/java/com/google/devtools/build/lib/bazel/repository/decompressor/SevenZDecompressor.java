@@ -26,9 +26,12 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import org.apache.commons.compress.archivers.sevenz.SevenZArchiveEntry;
 import org.apache.commons.compress.archivers.sevenz.SevenZFile;
@@ -50,6 +53,7 @@ public class SevenZDecompressor implements Decompressor {
     Optional<String> prefix = descriptor.prefix();
     ImmutableMap<String, String> renameFiles = descriptor.renameFiles();
     boolean foundPrefix = false;
+    Map<String, Pattern> patternCache = new HashMap<>();
 
     try (SevenZFile sevenZFile =
         SevenZFile.builder().setFile(descriptor.archivePath().getPathFile()).get()) {
@@ -78,6 +82,9 @@ public class SevenZDecompressor implements Decompressor {
          */
         if (isNullOrEmpty(entryName)) {
           throw new IOException("7z archive contains unnamed entry");
+        }
+        if (descriptor.skipArchiveEntry(entryName, patternCache)) {
+          continue;
         }
         entryName = renameFiles.getOrDefault(entryName, entryName);
         StripPrefixedPath entryPath =

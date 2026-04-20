@@ -22,7 +22,9 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Pattern;
 import org.apache.commons.compress.archivers.ar.ArArchiveEntry;
 import org.apache.commons.compress.archivers.ar.ArArchiveInputStream;
 
@@ -45,6 +47,7 @@ public class ArFunction implements Decompressor {
     }
 
     Map<String, String> renameFiles = descriptor.renameFiles();
+    Map<String, Pattern> patternCache = new HashMap<>();
 
     try (InputStream decompressorStream =
         new BufferedInputStream(descriptor.archivePath().getInputStream(), BUFFER_SIZE)) {
@@ -52,6 +55,9 @@ public class ArFunction implements Decompressor {
       ArArchiveEntry entry;
       while ((entry = arStream.getNextArEntry()) != null) {
         String entryName = entry.getName();
+        if (descriptor.skipArchiveEntry(entryName, patternCache)) {
+          continue;
+        }
         entryName = renameFiles.getOrDefault(entryName, entryName);
         PathFragment entryPathRelative = PathFragment.create(entryName);
         if (entryPathRelative.isAbsolute()) {

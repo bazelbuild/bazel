@@ -14,14 +14,18 @@
 
 package com.google.devtools.build.lib.bazel.repository.decompressor;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.repository.decompressor.TestArchiveDescriptor.INNER_FOLDER_NAME;
 import static com.google.devtools.build.lib.bazel.repository.decompressor.TestArchiveDescriptor.ROOT_FOLDER_NAME;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -77,6 +81,24 @@ public class ZipDecompressorTest {
     Path outputDir = decompress(archiveDescriptor.createDescriptorBuilder().build());
 
     archiveDescriptor.assertOutputFiles(outputDir, ROOT_FOLDER_NAME, INNER_FOLDER_NAME);
+  }
+
+  @Test
+  public void testDecompressOnlyRegularFile() throws Exception {
+    TestArchiveDescriptor archiveDescriptor =
+        new TestArchiveDescriptor(ARCHIVE_NAME, "out/inner", false);
+    Path outputDir =
+        decompress(
+            archiveDescriptor
+                .createDescriptorBuilder()
+                .setIncludes(ImmutableList.of("**/" + TestArchiveDescriptor.REGULAR_FILE_NAME))
+                .build());
+
+    Path fileDir = outputDir.getRelative(ROOT_FOLDER_NAME).getRelative(INNER_FOLDER_NAME);
+
+    ImmutableList<String> files =
+        fileDir.readdir(Symlinks.NOFOLLOW).stream().map(Dirent::getName).collect(toImmutableList());
+    assertThat(files).containsExactly(TestArchiveDescriptor.REGULAR_FILE_NAME);
   }
 
   /**

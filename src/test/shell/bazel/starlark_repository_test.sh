@@ -3424,6 +3424,51 @@ EOF
   assert_contains "Second file: A" "$output_base/external/+repo+foo/out_dir/renamed-A.txt"
 }
 
+function test_extract_includes_excludes() {
+  local archive_tar="${TEST_TMPDIR}/archive.tar"
+
+  # Create a tar archive with multiple files.
+  pushd "${TEST_TMPDIR}"
+  mkdir prefix
+  mkdir prefix/include1
+  mkdir prefix/include2
+  echo "a" > prefix/include1/a.txt
+  echo "b" > prefix/include2/b.txt
+  echo "excluded" > prefix/include2/exclude.txt
+  echo "not included" > prefix/not_include.txt
+  tar -cvf archive.tar prefix
+  popd
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.extract(
+    '${archive_tar}', 'out_dir', 'prefix/',
+    include=['prefix/include**'],
+    exclude=['**/exclude.txt'])
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  assert_contains "a" "$output_base/external/+repo+foo/out_dir/include1/a.txt"
+  assert_contains "b" "$output_base/external/+repo+foo/out_dir/include2/b.txt"
+  if [ -e "$output_base/external/+repo+foo/out_dir/include2/exclude.txt" ]; then
+    fail "File exclude.txt should not exist"
+  fi
+  if [ -e "$output_base/external/+repo+foo/out_dir/not_include.txt" ]; then
+    fail "File not_include.txt should not exist"
+  fi
+}
+
 # Regression test for https://github.com/bazelbuild/bazel/issues/12986
 # Verifies that tar entries with PAX headers, which are always encoded in UTF-8, are extracted
 # correctly.

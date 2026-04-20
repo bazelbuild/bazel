@@ -38,7 +38,7 @@ import java.nio.file.Files;
  */
 public class TestArchiveDescriptor {
   /* Regular file */
-  private static final String REGULAR_FILE_NAME = "regularFile";
+  static final String REGULAR_FILE_NAME = "regularFile";
 
   /* Hard link file, created by ln <REGULAR_FILE_NAME> <HARD_LINK_FILE_NAME> */
   private static final String HARD_LINK_FILE_NAME = "hardLinkFile";
