@@ -46,3 +46,15 @@ index 426bf9124..fd17ac96c 100644
  
  upb_amalgamation(
 
+diff --git a/upb_generator/minitable/generator.cc b/upb_generator/minitable/generator.cc
+--- a/upb_generator/minitable/generator.cc
++++ b/upb_generator/minitable/generator.cc
+@@ -295,4 +295,4 @@
+ void WriteExtension(const DefPoolPair& pools, upb::FieldDefPtr ext,
+                     const MiniTableOptions& options, Output& output) {
+   output("UPB_LINKARR_APPEND(upb_AllExts)\n");
+-  output("const upb_MiniTableExtension $0 = {\n  ", ExtensionVarName(ext));
++  output("const UPB_RETAIN upb_MiniTableExtension $0 = {\n  ", ExtensionVarName(ext));
+   output("$0,\n", FieldInitializer(pools, ext));
+
+
