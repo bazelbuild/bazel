@@ -166,10 +166,10 @@ message ExecuteWasmEvent {
 message DigestEvent {
   // The path of the file to hash.
   string path = 1;
-  // The format of the digest.
-  string format = 2;
   // The hash algorithm to use.
-  string algorithm = 3;
+  string algorithm = 2;
+  // The format of the digest.
+  string format = 3;
 }
 
 message WorkspaceEvent {

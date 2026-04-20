@@ -395,12 +395,12 @@ public final class WorkspaceRuleEvent implements Postable {
 
   /** Creates a new WorkspaceRuleEvent for a digest event. */
   public static WorkspaceRuleEvent newDigestEvent(
-      String path, String format, String algorithm, String context, Location location) {
+      String path, String algorithm, String format, String context, Location location) {
     DigestEvent e =
         WorkspaceLogProtos.DigestEvent.newBuilder()
             .setPath(path)
-            .setFormat(format)
             .setAlgorithm(algorithm)
+            .setFormat(format)
             .build();
     WorkspaceLogProtos.WorkspaceEvent.Builder result =
         WorkspaceLogProtos.WorkspaceEvent.newBuilder().setDigestEvent(e);
