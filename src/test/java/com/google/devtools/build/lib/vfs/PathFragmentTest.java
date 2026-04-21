@@ -381,6 +381,25 @@ public final class PathFragmentTest {
   }
 
   @Test
+  public void testStripComponents() {
+    PathFragment pathFragmentStripZero = create("/foo/bar/baz");
+    assertThat(pathFragmentStripZero.stripComponents(0)).isSameInstanceAs(pathFragmentStripZero);
+
+    assertThat(create("/foo/bar/baz").stripComponents(0).getPathString()).isEqualTo("/foo/bar/baz");
+    assertThat(create("/foo/bar/baz").stripComponents(1).getPathString()).isEqualTo("bar/baz");
+    assertThat(create("/foo/bar/baz").stripComponents(2).getPathString()).isEqualTo("baz");
+    assertThat(create("/foo/bar/baz").stripComponents(3).getPathString()).isEqualTo("");
+    assertThat(create("/foo/bar/baz").stripComponents(4).getPathString()).isEqualTo("");
+
+    PathFragment pathFragmentStripAll = create("/foo/bar/baz");
+    assertThat(pathFragmentStripAll.stripComponents(3)).isSameInstanceAs(EMPTY_FRAGMENT);
+    assertThat(pathFragmentStripAll.stripComponents(4)).isSameInstanceAs(EMPTY_FRAGMENT);
+
+    PathFragment pathFragment = create("/foo/bar/baz");
+    assertThrows(IllegalArgumentException.class, () -> pathFragment.stripComponents(-2));
+  }
+
+  @Test
   public void testStartsWith() {
     PathFragment foobar = create("/foo/bar");
     PathFragment foobarRelative = create("foo/bar");
