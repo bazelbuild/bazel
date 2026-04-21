@@ -201,6 +201,7 @@ class OptionsParserImpl {
         allowMultiple = true,
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        metadataTags = {OptionMetadataTag.INTERNAL},
         effectTags = {OptionEffectTag.NO_OP},
         help = "Only used internally by OptionsParserImpl")
     public abstract List<String> getSkippedArgs();

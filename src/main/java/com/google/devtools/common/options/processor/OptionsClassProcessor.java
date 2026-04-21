@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.common.options.Converter;
-import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -74,9 +73,31 @@ public final class OptionsClassProcessor extends AbstractProcessor {
     return SourceVersion.latestSupported();
   }
 
+  // This method is necessary because when bootstrapping Bazel, we need to run the option class
+  // annotation processor so we need to build it first. But if we simply reference Converters, we
+  // also need all of its transitive dependencies, which is a lot. So instead reference it using
+  // reflection and report that no default converters are available during bootstrapping.
+  @Nullable
+  @SuppressWarnings("unchecked") // uses reflection, can't have generic arguments
+  private static Map<Class<?>, Converter<?>> getDefaultConverters() {
+    Class<?> converters;
+    try {
+      converters = Class.forName("com.google.devtools.common.options.Converters");
+    } catch (ClassNotFoundException e) {
+      return null;
+    }
+
+    try {
+      return (Map<Class<?>, Converter<?>>) converters.getField("DEFAULT_CONVERTERS").get(null);
+    } catch (ReflectiveOperationException e) {
+      throw new IllegalArgumentException(e);
+    }
+  }
+
   @Override
   public synchronized void init(ProcessingEnvironment processingEnv) {
     super.init(processingEnv);
+
     typeUtils = processingEnv.getTypeUtils();
     elementUtils = processingEnv.getElementUtils();
     messager = processingEnv.getMessager();
@@ -89,10 +110,15 @@ public final class OptionsClassProcessor extends AbstractProcessor {
             .put(long.class, typeUtils.getPrimitiveType(TypeKind.LONG))
             .buildOrThrow();
 
+    Map<Class<?>, Converter<?>> defaultConverterMap = getDefaultConverters();
+    if (defaultConverterMap == null) {
+      defaultConverters = null;
+      return;
+    }
     ImmutableMap.Builder<TypeMirror, Converter<?>> converterMapBuilder =
         new ImmutableMap.Builder<>();
 
-    for (Map.Entry<Class<?>, Converter<?>> entry : Converters.DEFAULT_CONVERTERS.entrySet()) {
+    for (Map.Entry<Class<?>, Converter<?>> entry : defaultConverterMap.entrySet()) {
       Class<?> converterClass = entry.getKey();
       String typeName = converterClass.getCanonicalName();
       TypeElement typeElement = elementUtils.getTypeElement(typeName);
@@ -549,6 +575,11 @@ public final class OptionsClassProcessor extends AbstractProcessor {
   private void checkForDefaultConverter(
       ExecutableElement method, List<TypeMirror> acceptedConverterReturnTypes, String defaultValue)
       throws OptionProcessorException {
+    if (defaultConverters == null) {
+      // Bootstrapping. Do not do this check.
+      return;
+    }
+
     for (TypeMirror acceptedConverterReturnType : acceptedConverterReturnTypes) {
       Converter<?> converterInstance = findDefaultConverter(acceptedConverterReturnType);
       if (converterInstance == null) {
