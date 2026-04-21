@@ -29,8 +29,9 @@ import java.io.OutputStream;
  * formats while all formats that collect multiple entries inside a single (potentially compressed)
  * archive are archiver formats. This class handles the former, compressor formats.
  *
- * <p>It ignores the {@link DecompressorDescriptor#prefix()} setting because compressed files cannot
- * contain directories.
+ * <p>It ignores the {@link DecompressorDescriptor#prefix()} and {@link
+ * DecompressorDescriptor#stripComponents()} setting because compressed files cannot contain
+ * directories.
  */
 public abstract class CompressedFunction implements Decompressor {
 

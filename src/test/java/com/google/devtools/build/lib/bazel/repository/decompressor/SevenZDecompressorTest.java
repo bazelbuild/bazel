@@ -94,6 +94,19 @@ public class SevenZDecompressorTest {
     assertThat(files).contains(REGULAR_FILENAME);
   }
 
+  /** Test decompressing a .7z file and stripping components. */
+  @Test
+  public void testDecompressWithStripComponents() throws Exception {
+    DecompressorDescriptor.Builder descriptorBuilder =
+        archiveDescriptor().createDescriptorBuilder().setStripComponents(1);
+    Path outputDir = decompress(descriptorBuilder.build());
+    Path fileDir = outputDir.getRelative(INNER_FOLDER_NAME);
+
+    ImmutableList<String> files =
+        fileDir.readdir(Symlinks.NOFOLLOW).stream().map(Dirent::getName).collect(toImmutableList());
+    assertThat(files).contains(REGULAR_FILENAME);
+  }
+
   /** Test decompressing a .7z with entries being renamed during the extraction process. */
   @Test
   public void testDecompressWithRenamedFiles() throws Exception {
@@ -133,6 +146,36 @@ public class SevenZDecompressorTest {
         fileDir.readdir(Symlinks.NOFOLLOW).stream().map(Dirent::getName).collect(toImmutableList());
     assertThat(files).contains("renamedFile");
     assertThat(fileDir.getRelative("renamedFile").getFileSize()).isNotEqualTo(0);
+  }
+
+  /** Test that entry renaming is applied prior to stripping components. */
+  @Test
+  public void testDecompressWithRenamedFilesAndStripComponents() throws Exception {
+    String innerDirName = ROOT_FOLDER_NAME + "/" + INNER_FOLDER_NAME;
+
+    HashMap<String, String> renameFiles = new HashMap<>();
+    renameFiles.put(innerDirName + "/" + REGULAR_FILENAME, innerDirName + "/renamedFile");
+    DecompressorDescriptor.Builder descriptorBuilder =
+        archiveDescriptor()
+            .createDescriptorBuilder()
+            .setStripComponents(1)
+            .setRenameFiles(renameFiles);
+    Path outputDir = decompress(descriptorBuilder.build());
+
+    Path fileDir = outputDir.getRelative(INNER_FOLDER_NAME);
+    ImmutableList<String> files =
+        fileDir.readdir(Symlinks.NOFOLLOW).stream().map(Dirent::getName).collect(toImmutableList());
+    assertThat(files).contains("renamedFile");
+    assertThat(fileDir.getRelative("renamedFile").getFileSize()).isNotEqualTo(0);
+  }
+
+  /** Test decompressing a .7z file where everything is stripped */
+  @Test
+  public void testDecompressStripAllComponents() throws Exception {
+    Path outputDir =
+        decompress(archiveDescriptor().createDescriptorBuilder().setStripComponents(1_000).build());
+
+    assertThat(outputDir.exists()).isFalse();
   }
 
   private File archiveDir;

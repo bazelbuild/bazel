@@ -40,6 +40,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -100,7 +101,12 @@ public abstract class CompressedTarFunction implements Decompressor {
           continue;
         }
 
-        Path filePath = descriptor.destinationPath().getRelative(entryPath.getPathFragment());
+        PathFragment strippedRelativePath = entryPath.getPathFragment();
+        strippedRelativePath = strippedRelativePath.stripComponents(descriptor.stripComponents());
+        if (Objects.equals(strippedRelativePath, PathFragment.EMPTY_FRAGMENT)) {
+          continue;
+        }
+        Path filePath = descriptor.destinationPath().getRelative(strippedRelativePath);
         filePath.getParentDirectory().createDirectoryAndParents();
         if (entry.isDirectory()) {
           filePath.createDirectoryAndParents();

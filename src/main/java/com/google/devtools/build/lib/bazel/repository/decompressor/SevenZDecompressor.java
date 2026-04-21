@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -85,7 +86,12 @@ public class SevenZDecompressor implements Decompressor {
         if (entryPath.skip()) {
           continue;
         }
-        extract7zEntry(sevenZFile, entry, destinationDirectory, entryPath.getPathFragment());
+        PathFragment pathFragment =
+            entryPath.getPathFragment().stripComponents(descriptor.stripComponents());
+        if (Objects.equals(pathFragment, PathFragment.EMPTY_FRAGMENT)) {
+          continue;
+        }
+        extract7zEntry(sevenZFile, entry, destinationDirectory, pathFragment);
       }
 
       if (prefix.isPresent() && !foundPrefix) {

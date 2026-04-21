@@ -18,15 +18,12 @@ import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorValue;
 import org.apache.commons.lang3.text.WordUtils;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ErrorCollector;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class StarlarkBaseExternalContextTest {
-  @Rule public ErrorCollector collector = new ErrorCollector();
 
   @Test
   public void docSupportedFormats() {

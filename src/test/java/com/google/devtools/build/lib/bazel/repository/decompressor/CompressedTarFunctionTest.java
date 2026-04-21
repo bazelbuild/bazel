@@ -67,6 +67,19 @@ public class CompressedTarFunctionTest {
   }
 
   /**
+   * Test decompressing a tar.gz file with hard link file and symbolic link file inside and
+   * stripping the first component.
+   */
+  @Test
+  public void testDecompressWithStripComponents() throws Exception {
+    DecompressorDescriptor.Builder descriptorBuilder =
+        archiveDescriptor.createDescriptorBuilder().setStripComponents(1);
+    Path outputDir = decompress(descriptorBuilder.build());
+
+    archiveDescriptor.assertOutputFiles(outputDir, INNER_FOLDER_NAME);
+  }
+
+  /**
    * Test decompressing a tar.gz file, with some entries being renamed during the extraction
    * process.
    */
@@ -95,6 +108,24 @@ public class CompressedTarFunctionTest {
         archiveDescriptor
             .createDescriptorBuilder()
             .setPrefix(ROOT_FOLDER_NAME)
+            .setRenameFiles(renameFiles);
+    Path outputDir = decompress(descriptorBuilder.build());
+
+    Path innerDir = outputDir.getRelative(INNER_FOLDER_NAME);
+    assertThat(innerDir.getRelative("renamedFile").exists()).isTrue();
+  }
+
+  /** Test that entry renaming is applied prior to component stripping. */
+  @Test
+  public void testDecompressWithRenamedFilesAndStripComponents() throws Exception {
+    String innerDirName = ROOT_FOLDER_NAME + "/" + INNER_FOLDER_NAME;
+
+    HashMap<String, String> renameFiles = new HashMap<>();
+    renameFiles.put(innerDirName + "/hardLinkFile", innerDirName + "/renamedFile");
+    DecompressorDescriptor.Builder descriptorBuilder =
+        archiveDescriptor
+            .createDescriptorBuilder()
+            .setStripComponents(1)
             .setRenameFiles(renameFiles);
     Path outputDir = decompress(descriptorBuilder.build());
 
