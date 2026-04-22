@@ -40,7 +40,11 @@ public final class StarlarkDebuggerModule extends BlazeModule {
     boolean enabled = buildOptions != null && buildOptions.debugStarlark;
     if (enabled) {
       initializeDebugging(
-          env, buildOptions.debugServerPort, buildOptions.verboseLogs, buildOptions.resetAnalysis);
+          env,
+          buildOptions.debugServerPort,
+          buildOptions.debugServerAddress,
+          buildOptions.verboseLogs,
+          buildOptions.resetAnalysis);
     } else {
       disableDebugging();
     }
@@ -69,13 +73,17 @@ public final class StarlarkDebuggerModule extends BlazeModule {
   }
 
   private static void initializeDebugging(
-      CommandEnvironment env, int debugPort, boolean verboseLogs, boolean resetAnalysis) {
+      CommandEnvironment env,
+      int debugPort,
+      String debugAddress,
+      boolean verboseLogs,
+      boolean resetAnalysis) {
     try {
       DebugCallback callback =
           resetAnalysis ? getBreakpointInvalidatingCallback(env) : DebugCallback.noop();
       StarlarkDebugServer server =
           StarlarkDebugServer.createAndWaitForConnection(
-              env.getReporter(), debugPort, verboseLogs, callback);
+              env.getReporter(), debugPort, debugAddress, verboseLogs, callback);
       Debug.setDebugger(server);
       // we need to block otherwise the build (i.e. analysis) may start and the request to set
       // breakpoints may lose the race to delete skyframe nodes

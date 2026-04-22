@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -36,14 +37,30 @@ public final class StarlarkDebugServer implements Debug.Debugger {
    * debug server socket and blocks waiting for an incoming connection.
    *
    * @param port the port on which the server should listen for connections
+   * @param listenAddress the address on which the server should listen for connections; if null
+   *     or empty, loopback is used
    * @param verboseLogging if true, debug-level events will be logged
    * @throws IOException if an I/O error occurs while opening the socket or waiting for a connection
    */
   public static StarlarkDebugServer createAndWaitForConnection(
-      EventHandler eventHandler, int port, boolean verboseLogging, DebugCallback callback)
+      EventHandler eventHandler,
+      int port,
+      @Nullable String listenAddress,
+      boolean verboseLogging,
+      DebugCallback callback)
       throws IOException {
-    ServerSocket serverSocket = new ServerSocket(port, /* backlog */ 1);
+    ServerSocket serverSocket = createServerSocket(port, listenAddress);
     return createAndWaitForConnection(eventHandler, serverSocket, verboseLogging, callback);
+  }
+
+  @VisibleForTesting
+  static ServerSocket createServerSocket(int port, @Nullable String listenAddress)
+      throws IOException {
+    InetAddress address =
+        listenAddress == null || listenAddress.isEmpty()
+            ? InetAddress.getLoopbackAddress()
+            : InetAddress.getByName(listenAddress);
+    return new ServerSocket(port, /* backlog */ 1, address);
   }
 
   /**

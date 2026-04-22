@@ -45,6 +45,17 @@ public final class StarlarkDebuggerOptions extends OptionsBase {
   public int debugServerPort;
 
   @Option(
+      name = "experimental_skylark_debug_server_address",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "The address on which the Starlark debug server will listen for connections. Defaults"
+              + " to the loopback interface; set this explicitly to allow non-local clients.")
+  public String debugServerAddress;
+
+  @Option(
       name = "experimental_skylark_debug_verbose_logging",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

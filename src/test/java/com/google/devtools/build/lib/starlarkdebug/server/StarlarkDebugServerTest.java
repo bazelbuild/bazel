@@ -128,6 +128,20 @@ public class StarlarkDebugServerTest {
   }
 
   @Test
+  public void testCreateServerSocketDefaultsToLoopback() throws Exception {
+    try (ServerSocket serverSocket = StarlarkDebugServer.createServerSocket(0, "")) {
+      assertThat(serverSocket.getInetAddress().isLoopbackAddress()).isTrue();
+    }
+  }
+
+  @Test
+  public void testCreateServerSocketHonorsExplicitAddress() throws Exception {
+    try (ServerSocket serverSocket = StarlarkDebugServer.createServerSocket(0, "0.0.0.0")) {
+      assertThat(serverSocket.getInetAddress().isAnyLocalAddress()).isTrue();
+    }
+  }
+
+  @Test
   public void testStartDebuggingResponseReceived() throws Exception {
     DebugEvent response =
         client.sendRequestAndWaitForResponse(
