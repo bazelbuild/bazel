@@ -11,7 +11,7 @@ that Android Studio does not officially support Bazel projects.
 This tutorial covers how to build a simple Android app using Bazel.
 
 Bazel supports building Android apps using the
-[Android rules](/versions/UNSAFE_release-9.1.0/reference/be/android).
+[Android rules](/versions/9.1.0/reference/be/android).
 
 This tutorial is intended for Windows, macOS and Linux users and does not
 require experience with Bazel or Android app development. You do not need to
@@ -38,7 +38,7 @@ In this tutorial you learn how to:
 
 Before you begin the tutorial, install the following software:
 
-* **Bazel.** To install, follow the [installation instructions](/versions/UNSAFE_release-9.1.0/install).
+* **Bazel.** To install, follow the [installation instructions](/versions/9.1.0/install).
 * **Android Studio.** To install, follow the steps to [download Android
   Studio](https://developer.android.com/sdk/index.html).
   Execute the setup wizard to download the SDK and configure your environment.
@@ -51,7 +51,7 @@ For the sample project, use the tutorial Android app project in
 
 This app has a single button that prints a greeting when clicked:
 
-![Button greeting](/versions/UNSAFE_release-9.1.0/docs/images/android_tutorial_app.png "Tutorial app button greeting")
+![Button greeting](/versions/9.1.0/docs/images/android_tutorial_app.png "Tutorial app button greeting")
 
 **Figure 1.** Android app button greeting.
 
@@ -102,7 +102,7 @@ The key files and directories are:
 
 ### Set up the workspace
 
-A [workspace](/versions/UNSAFE_release-9.1.0/concepts/build-ref#workspace) is a directory that contains the
+A [workspace](/versions/9.1.0/concepts/build-ref#workspace) is a directory that contains the
 source files for one or more software projects, and has a `MODULE.bazel` file at
 its root.
 
@@ -198,7 +198,7 @@ contains a map from Android releases to NDK-supported API levels.
 
 ### Create a BUILD file
 
-A [`BUILD` file](/versions/UNSAFE_release-9.1.0/concepts/build-files) describes the relationship
+A [`BUILD` file](/versions/9.1.0/concepts/build-files) describes the relationship
 between a set of build outputs, like compiled Android resources from `aapt` or
 class files from `javac`, and their dependencies. These dependencies may be
 source files (Java, C++) in your workspace or other build outputs. `BUILD` files
@@ -206,7 +206,7 @@ are written in a language called **Starlark**.
 
 `BUILD` files are part of a concept in Bazel known as the *package hierarchy*.
 The package hierarchy is a logical structure that overlays the directory
-structure in your workspace. Each [package](/versions/UNSAFE_release-9.1.0/concepts/build-ref#packages) is a
+structure in your workspace. Each [package](/versions/9.1.0/concepts/build-ref#packages) is a
 directory (and its subdirectories) that contains a related set of source files
 and a `BUILD` file. The package also includes any subdirectories, excluding
 those that contain their own `BUILD` file. The *package name* is the path to the
@@ -224,11 +224,11 @@ packages.
 
 A `BUILD` file contains several different types of declarations for Bazel. The
 most important type is the
-[build rule](/versions/UNSAFE_release-9.1.0/concepts/build-files#types-of-build-rules), which tells
+[build rule](/versions/9.1.0/concepts/build-files#types-of-build-rules), which tells
 Bazel how to build an intermediate or final software output from a set of source
 files or other dependencies. Bazel provides two build rules,
-[`android_library`](/versions/UNSAFE_release-9.1.0/reference/be/android#android_library) and
-[`android_binary`](/versions/UNSAFE_release-9.1.0/reference/be/android#android_binary), that you can use to
+[`android_library`](/versions/9.1.0/reference/be/android#android_library) and
+[`android_binary`](/versions/9.1.0/reference/be/android#android_binary), that you can use to
 build an Android app.
 
 For this tutorial, you'll first use the
@@ -267,7 +267,7 @@ rule using this name as a dependency in the `android_binary` rule.
 
 #### Add an android_binary rule
 
-The [`android_binary`](/versions/UNSAFE_release-9.1.0/reference/be/android#android_binary) rule builds
+The [`android_binary`](/versions/9.1.0/reference/be/android#android_binary) rule builds
 the Android application package (`.apk` file) for your app.
 
 Create a new `BUILD` file in the `src/main/` directory,
@@ -302,7 +302,7 @@ Try building the app! Run the following command to build the
 bazel build //src/main:app
 ```
 
-The [`build`](/versions/UNSAFE_release-9.1.0/docs/user-manual#build) subcommand instructs Bazel to build the
+The [`build`](/versions/9.1.0/docs/user-manual#build) subcommand instructs Bazel to build the
 target that follows. The target is specified as the name of a build rule inside
 a `BUILD` file, with along with the package path relative to your workspace
 directory. For this example, the target is `app` and the package path is
@@ -310,7 +310,7 @@ directory. For this example, the target is `app` and the package path is
 
 Note that you can sometimes omit the package path or target name, depending on
 your current working directory at the command line and the name of the target.
-For more details about target labels and paths, see [Labels](/versions/UNSAFE_release-9.1.0/concepts/labels).
+For more details about target labels and paths, see [Labels](/versions/9.1.0/concepts/labels).
 
 Bazel will start to build the sample app. During the build process, its output
 will appear similar to the following:
@@ -374,7 +374,7 @@ bazel mobile-install //src/main:app \
 ```
 
 Note that the extra flags required for mobile-install can be added to your
-project's [bazelrc file](/versions/UNSAFE_release-9.1.0/run/bazelrc). The mobile-install-specific flags
+project's [bazelrc file](/versions/9.1.0/run/bazelrc). The mobile-install-specific flags
 (`--mode`, `--mobile_install*`) will no longer be required starting from
 Bazel 8.4.0 and onwards. The various Java flags for language and runtime version
 may be required depending on your workspace's Java configuration.
@@ -382,7 +382,7 @@ _Mobile-install sub-tools require a language and runtime level of 17 or higher._
 
 Now the "Bazel Tutorial App" should install and launch automatically:
 
-![Bazel tutorial app](/versions/UNSAFE_release-9.1.0/docs/images/android_tutorial_before.png "Bazel tutorial app")
+![Bazel tutorial app](/versions/9.1.0/docs/images/android_tutorial_before.png "Bazel tutorial app")
 
 **Figure 2.** Bazel tutorial app.
 
@@ -393,12 +393,12 @@ Now the "Bazel Tutorial App" should install and launch automatically:
 For more details, see these pages:
 
 * Open issues on [rules_android GitHub](https://github.com/bazelbuild/rules_android/issues)
-* More information on [mobile-install](/versions/UNSAFE_release-9.1.0/docs/mobile-install)
+* More information on [mobile-install](/versions/9.1.0/docs/mobile-install)
 * Integrate external dependencies like AppCompat, Guava and JUnit from Maven
   repositories using [rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external)
 * Run Robolectric tests with the [robolectric-bazel](https://github.com/robolectric/robolectric-bazel)
   integration.
-* Integrating C and C++ code into your Android app with the [NDK](/versions/UNSAFE_release-9.1.0/docs/android-ndk)
+* Integrating C and C++ code into your Android app with the [NDK](/versions/9.1.0/docs/android-ndk)
 * See more Bazel example projects of:
   * [a Kotlin app](https://github.com/bazelbuild/rules_jvm_external/tree/master/examples/android_kotlin_app)
   * [Robolectric testing](https://github.com/bazelbuild/rules_jvm_external/tree/master/examples/android_local_test)

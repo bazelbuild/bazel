@@ -111,7 +111,7 @@ A string list-typed build setting. On the command line pass a list using comma-s
 BuildSetting config.string_set(*, flag=False, repeatable=False)
 ```
 
-A string set-typed build setting. The value of this setting will be a [set](https://bazel.build/versions/UNSAFE_release-9.1.0/rules/lib/core/set) of strings in Starlark. On the command line, pass a set using a comma-separated value like `--//my/setting=foo,bar`.
+A string set-typed build setting. The value of this setting will be a [set](https://bazel.build/versions/9.1.0/rules/lib/core/set) of strings in Starlark. On the command line, pass a set using a comma-separated value like `--//my/setting=foo,bar`.
 
 Unlike with a `string_list`, the order of the elements doesn't matter and only a single instance of each element is maintained. This is recommended over `string_list` for flags where these properties are not needed as it can improve build performance by avoiding unnecessary configurations forking.
 

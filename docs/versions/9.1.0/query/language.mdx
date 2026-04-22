@@ -6,7 +6,7 @@ This page is the reference manual for the _Bazel Query Language_ used
 when you use `bazel query` to analyze build dependencies. It also
 describes the output formats `bazel query` supports.
 
-For practical use cases, see the [Bazel Query How-To](/versions/UNSAFE_release-9.1.0/query/guide).
+For practical use cases, see the [Bazel Query How-To](/versions/9.1.0/query/guide).
 
 ## Additional query reference
 
@@ -21,18 +21,18 @@ their relationships. `aquery` is useful when you are interested in the
 properties of the Actions/Artifacts generated from the Configured Target Graph.
 For example, the actual commands run and their inputs, outputs, and mnemonics.
 
-For more details, see the [aquery reference](/versions/UNSAFE_release-9.1.0/query/aquery).
+For more details, see the [aquery reference](/versions/9.1.0/query/aquery).
 
 ### Configurable query {:#cquery}
 
 Traditional Bazel query runs on the post-loading phase target graph and
 therefore has no concept of configurations and their related concepts. Notably,
-it doesn't correctly resolve [select statements](/versions/UNSAFE_release-9.1.0/reference/be/functions#select)
+it doesn't correctly resolve [select statements](/versions/9.1.0/reference/be/functions#select)
 and instead returns all possible resolutions of selects. However, the
 configurable query environment, `cquery`, properly handles configurations but
 doesn't provide all of the functionality of this original query.
 
-For more details, see the [cquery reference](/versions/UNSAFE_release-9.1.0/query/cquery).
+For more details, see the [cquery reference](/versions/9.1.0/query/cquery).
 
 ## Examples {:#examples}
 
@@ -81,7 +81,7 @@ tokens:
   and the special characters `*/@.-_:$~[]` (asterisk, forward slash, at, period,
   hyphen, underscore, colon, dollar sign, tilde, left square brace, right square
   brace). However, unquoted words may not start with a hyphen `-` or asterisk `*`
-  even though relative [target names](/versions/UNSAFE_release-9.1.0/concepts/labels#target-names) may start
+  even though relative [target names](/versions/9.1.0/concepts/labels#target-names) may start
   with those characters. As a special rule meant to simplify the handling of
   labels referring to external repositories, unquoted words that start with
   `@@` may contain `+` characters.
@@ -159,7 +159,7 @@ not report cycles as errors.
 Note that the post-loading phase unconfigured target graph that `bazel query`
 operates over may contain cycles that do not exist in the configured target
 graph. Cycles in the configured target graph are detected and reported as errors
-by [`bazel cquery`](/versions/UNSAFE_release-9.1.0/query/cquery) and [`bazel aquery`](/versions/UNSAFE_release-9.1.0/query/aquery).
+by [`bazel cquery`](/versions/9.1.0/query/cquery) and [`bazel aquery`](/versions/9.1.0/query/aquery).
 
 ### Implicit dependencies {:#implicit-dependencies}
 
@@ -167,8 +167,8 @@ In addition to build dependencies that are defined explicitly in `BUILD` files,
 Bazel adds additional _implicit_ dependencies to rules. Implicit dependencies
 may be defined by:
 
-- [Private attributes](/versions/UNSAFE_release-9.1.0/extending/rules#private_attributes_and_implicit_dependencies)
-- [Toolchain requirements](/versions/UNSAFE_release-9.1.0/extending/toolchains#writing-rules-toolchains)
+- [Private attributes](/versions/9.1.0/extending/rules#private_attributes_and_implicit_dependencies)
+- [Toolchain requirements](/versions/9.1.0/extending/toolchains#writing-rules-toolchains)
 
 By default, `bazel query` takes implicit dependencies into account
 when computing the query result. This behavior can be changed with
@@ -177,7 +177,7 @@ the `--[no]implicit_deps` option.
 Note that, as query does not consider configurations, potential toolchain
 **implementations** are not considered dependencies, only the
 required toolchain types. See
-[toolchain documentation](/versions/UNSAFE_release-9.1.0/extending/toolchains#writing-rules-toolchains).
+[toolchain documentation](/versions/9.1.0/extending/toolchains#writing-rules-toolchains).
 
 ### Soundness {:#soundness}
 
@@ -187,7 +187,7 @@ rule declarations in all `BUILD` files. It is important to understand
 that this graph is somewhat abstract, and does not constitute a
 complete description of how to perform all the steps of a build. In
 order to perform a build, a _configuration_ is required too;
-see the [configurations](/versions/UNSAFE_release-9.1.0/docs/user-manual#configurations)
+see the [configurations](/versions/9.1.0/docs/user-manual#configurations)
 section of the User's Guide for more detail.
 
 The result of evaluating an expression in the Bazel query language
@@ -295,7 +295,7 @@ disadvantage is that it cannot order its output according to graph order, and th
 two operators ([`allrdeps`](#allrdeps) and
 [`rbuildfiles`](#rbuildfiles)) that are not available in the default query.
 As well, Sky Query does its work by introspecting the
-[Skyframe](/versions/UNSAFE_release-9.1.0/reference/skyframe) graph, rather than creating a new
+[Skyframe](/versions/9.1.0/reference/skyframe) graph, rather than creating a new
 graph, which is what the default implementation does. Thus, there are some circumstances in which
 it is faster and uses less memory.
 
@@ -348,7 +348,7 @@ useful than `:all` for queries. Conversely, the `:all` wildcard (implicit in
 target patterns like `foo/...`) is typically more useful for builds.
 
 `bazel query` target patterns work the same as `bazel build` build targets do.
-For more details, see [Target Patterns](/versions/UNSAFE_release-9.1.0/docs/user-manual#target-patterns), or
+For more details, see [Target Patterns](/versions/9.1.0/docs/user-manual#target-patterns), or
 type `bazel help target-syntax`.
 
 Target patterns may evaluate to a singleton set (in the case of a label), to a
@@ -660,7 +660,7 @@ See the section on [graph order](#graph-order) for more details.
   <tr>
     <td>
       <figure>
-        <img src="/versions/UNSAFE_release-9.1.0/docs/images/somepath1.svg" alt="Somepath">
+        <img src="/versions/9.1.0/docs/images/somepath1.svg" alt="Somepath">
         <figcaption><code>somepath(S1 + S2, E)</code>, one possible result.</figcaption>
       </figure>
 <!-- digraph somepath1 {
@@ -691,7 +691,7 @@ See the section on [graph order](#graph-order) for more details.
     </td>
     <td>
       <figure>
-        <img src="/versions/UNSAFE_release-9.1.0/docs/images/somepath2.svg" alt="Somepath">
+        <img src="/versions/9.1.0/docs/images/somepath2.svg" alt="Somepath">
         <figcaption><code>somepath(S1 + S2, E)</code>, another possible result.</figcaption>
       </figure>
 <!-- digraph somepath2 {
@@ -720,7 +720,7 @@ See the section on [graph order](#graph-order) for more details.
     </td>
     <td>
       <figure>
-        <img src="/versions/UNSAFE_release-9.1.0/docs/images/allpaths.svg" alt="Allpaths">
+        <img src="/versions/9.1.0/docs/images/allpaths.svg" alt="Allpaths">
         <figcaption><code>allpaths(S1 + S2, E)</code></figcaption>
       </figure>
 <!-- digraph allpaths {
@@ -1315,7 +1315,7 @@ are specified, respectively.
 
 <table>
   <tr>
-    <td><img src="/versions/UNSAFE_release-9.1.0/docs/images/out-ranked.svg" alt="Out ranked">
+    <td><img src="/versions/9.1.0/docs/images/out-ranked.svg" alt="Out ranked">
     </td>
     <td>
       <pre>
@@ -1529,7 +1529,7 @@ full syntax for
 
 ### Querying with external repositories {:#querying-external-repositories}
 
-If the build depends on rules from [external repositories](/versions/UNSAFE_release-9.1.0/external/overview)
+If the build depends on rules from [external repositories](/versions/9.1.0/external/overview)
 then query results will include these dependencies. For
 example, if `//foo:bar` depends on `@other-repo//baz:lib`, then
 `bazel query 'deps(//foo:bar)'` will list `@other-repo//baz:lib` as a

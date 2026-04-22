@@ -30,7 +30,7 @@ solutions to address common errors.
 
 Before you begin, do the following:
 
-1.  [Install Bazel](/versions/UNSAFE_release-9.1.0/install) if you have not already done so.
+1.  [Install Bazel](/versions/9.1.0/install) if you have not already done so.
 
 2.  If you're not familiar with Bazel and its concepts, complete the [iOS app
     tutorial](/start/ios-app)). You should understand the Bazel workspace,
@@ -160,7 +160,7 @@ simulator, also specify the `ios_application` target name as the value of the
 
 #### Step 3c: Add the library target(s) {:#add-library-target}
 
-Add an [`objc_library`](/versions/UNSAFE_release-9.1.0/reference/be/objective-c#objc_library) target for each
+Add an [`objc_library`](/versions/9.1.0/reference/be/objective-c#objc_library) target for each
 Objective-C library and a
 [`swift_library`](https://github.com/bazelbuild/rules_swift/blob/master/doc/rules.md#swift_library){: .external}
 target for each Swift library on which the application and/or tests depend.
@@ -176,7 +176,7 @@ Add the library targets as follows:
 
 *   List the headers in the `hdrs` attribute.
 
-Note: You can use the [`glob`](/versions/UNSAFE_release-9.1.0/reference/be/functions#glob) function to include
+Note: You can use the [`glob`](/versions/9.1.0/reference/be/functions#glob) function to include
 all sources and/or headers of a certain type. Use it carefully as it might
 include files you do not want Bazel to build.
 

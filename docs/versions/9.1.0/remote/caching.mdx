@@ -34,7 +34,7 @@ The remote cache stores two types of data:
 
 Note that the remote cache additionally stores the stdout and stderr for every
 action. Inspecting the stdout/stderr of Bazel thus is not a good signal for
-[estimating cache hits](/versions/UNSAFE_release-9.1.0/remote/cache-local).
+[estimating cache hits](/versions/9.1.0/remote/cache-local).
 
 ### How a build uses remote caching
 
@@ -154,8 +154,8 @@ to/from your GCS bucket.
 
 4. Connect to Cloud Storage by adding the following flags to your Bazel command:
    * Pass the following URL to Bazel by using the flag:
-       `--remote_cache=https://storage.googleapis.com{{ '<var>' }}/bucket-name{{ '</var>' }}` where `bucket-name` is the name of your storage bucket.
-   * Pass the authentication key using the flag: `--google_credentials={{ '<var>' }}/path/to/your/secret-key{{ '</var>'}}.json`, or
+       `--remote_cache=https://storage.googleapis.com/bucket-name` where `bucket-name` is the name of your storage bucket.
+   * Pass the authentication key using the flag: `--google_credentials=/path/to/your/secret-key.json`, or
      `--google_default_credentials` to use [Application Authentication](https://cloud.google.com/docs/authentication/production).
 
 5. You can configure Cloud Storage to automatically delete old files. To do so, see
@@ -355,8 +355,8 @@ and Bazel must rebuild it before using the remote cache.
 * **Faster Bazel builds with remote caching: a benchmark:** Nicolò Valigi wrote a [blog post](https://nicolovaligi.com/faster-bazel-remote-caching-benchmark.html)
 in which he benchmarks remote caching in Bazel.
 
-* [Adapting Rules for Remote Execution](/versions/UNSAFE_release-9.1.0/remote/rules)
-* [Troubleshooting Remote Execution](/versions/UNSAFE_release-9.1.0/remote/sandbox)
+* [Adapting Rules for Remote Execution](/versions/9.1.0/remote/rules)
+* [Troubleshooting Remote Execution](/versions/9.1.0/remote/sandbox)
 * [WebDAV module](https://nginx.org/en/docs/http/ngx_http_dav_module.html)
 * [Docker image](https://hub.docker.com/r/buchgr/bazel-remote-cache/)
 * [bazel-remote](https://github.com/buchgr/bazel-remote/)

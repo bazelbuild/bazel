@@ -5,11 +5,11 @@ title: 'Android Instrumentation Tests'
 _If you're new to Bazel, start with the [Building Android with
 Bazel](/start/android-app ) tutorial._
 
-![Running Android instrumentation tests in parallel](/versions/UNSAFE_release-9.1.0/docs/images/android_test.gif "Android instrumentation test")
+![Running Android instrumentation tests in parallel](/versions/9.1.0/docs/images/android_test.gif "Android instrumentation test")
 
 **Figure 1.** Running parallel Android instrumentation tests.
 
-[`android_instrumentation_test`](/versions/UNSAFE_release-9.1.0/reference/be/android#android_instrumentation_test)
+[`android_instrumentation_test`](/versions/9.1.0/reference/be/android#android_instrumentation_test)
 allows developers to test their apps on Android emulators and devices.
 It utilizes real Android framework APIs and the Android Test Library.
 
@@ -54,7 +54,7 @@ bazel info release
 ```
 This results in output similar to the following:
 
-```none 
+```none {:.devsite-disable-click-to-copy}
 release 4.1.0
 ```
 
@@ -72,7 +72,7 @@ apt-get install cpu-checker && kvm-ok
 
 If it prints the following message, you have the correct configuration:
 
-```none 
+```none {:.devsite-disable-click-to-copy}
 INFO: /dev/kvm exists
 KVM acceleration can be used
 ```
@@ -93,7 +93,7 @@ which Xvfb
 ```
 The output is the following:
 
-```
+```{:.devsite-disable-click-to-copy}
 /usr/bin/Xvfb
 ```
 
@@ -109,7 +109,7 @@ sudo apt-get install libc6:i386 libncurses5:i386 libstdc++6:i386 lib32z1 libbz2-
 
 Here is a typical target dependency graph of an `android_instrumentation_test`:
 
-![The target dependency graph on an Android instrumentation test](/versions/UNSAFE_release-9.1.0/docs/images/android_instrumentation_test.png "Target dependency graph")
+![The target dependency graph on an Android instrumentation test](/versions/9.1.0/docs/images/android_instrumentation_test.png "Target dependency graph")
 
 **Figure 2.** Target dependency graph of an `android_instrumentation_test`.
 
@@ -201,7 +201,7 @@ Here is an example `AndroidTestManifest.xml` for the test app:
         android:targetSdkVersion="27" />
 
     <application >
-       {/* ... */}
+       <!-- ... -->
     </application>
 </manifest>
 ```
@@ -284,7 +284,7 @@ android_device(
 The device target names use this template:
 
 ```
-@android_test_support//tools/android/emulated_devices/{{ "<var>" }}device_type{{ "</var>" }}:{{ "<var>" }}system{{ "</var>" }}_{{ "<var>" }}api_level{{ "</var>" }}_x86_qemu2
+@android_test_support//tools/android/emulated_devices/`device_type`:`system`_`api_level`_x86_qemu2
 ```
 
 In order to launch an `android_device`, the `system_image` for the selected API
@@ -306,7 +306,7 @@ Bazel currently supports x86-based emulators only. For better performance, use
 ## Running tests
 
 To run tests, add these lines to your project's
-`{{ '<var>' }}project root{{ '</var>' }}:{{ '<var>' }}/.bazelrc` file.
+`PROJECT_ROOT/.bazelrc` file.
 
 ```
 # Configurations for testing with Bazel
@@ -391,7 +391,7 @@ junit:junit
 ```
 
 One way to organize these dependencies is to create a `//:test_deps` shared
-library in your `{{ "<var>" }}project root{{ "</var>" }}/BUILD.bazel` file:
+library in your ``project root`/BUILD.bazel` file:
 
 ```python
 java_library(
@@ -408,7 +408,7 @@ java_library(
 )
 ```
 
-Then, add the required dependencies in `{{ "<var>" }}project root{{ "</var>" }}/WORKSPACE`:
+Then, add the required dependencies in ``project root`/WORKSPACE`:
 
 ```python
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")

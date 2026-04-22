@@ -2,7 +2,7 @@
 title: 'bazel mobile-install'
 ---
 
-{/* disableFinding(LINK_EXTERNAL) */}
+
 
 <p class="lead">Fast iterative development for Android</p>
 
@@ -153,7 +153,7 @@ and installing large apps after a small change.
 
 The following numbers were computed for a few Google products:
 
-<img src="/versions/UNSAFE_release-9.1.0/docs/images/mobile-install-performance.svg"/>
+<img src="/versions/9.1.0/docs/images/mobile-install-performance.svg"/>
 
 This, of course, depends on the nature of the change: recompilation after
 changing a base library takes more time.
@@ -175,7 +175,7 @@ The following cases highlight where it does not work as expected:
    of 17 or higher.
 
  - Bazel versions prior to 8.4.0 must specify some additional flags for
-   mobile-install. See [the Bazel Android tutorial](/versions/UNSAFE_release-9.1.0/start/android-app). These
+   mobile-install. See [the Bazel Android tutorial](/versions/9.1.0/start/android-app). These
    flags inform Bazel where the Starlark mobile-install aspect is and which
    rules are supported.
 
@@ -184,7 +184,7 @@ Earlier Bazel versions _natively_ included built-in build and test rules for
 popular languages and ecosystems such as C++, Java, and Android. These rules
 were therefore referred to as _native_ rules. Bazel 8 (released in 2024) removed
 support for these rules because many of them had been migrated to the
-[Starlark](/versions/UNSAFE_release-9.1.0/rules/language) language. See the ["Bazel 8.0 LTS blog post"](https://blog.bazel.build/2024/12/09/bazel-8-release.html)
+[Starlark](/versions/9.1.0/rules/language) language. See the ["Bazel 8.0 LTS blog post"](https://blog.bazel.build/2024/12/09/bazel-8-release.html)
 for more details.
 
 The legacy native Android rules also supported a legacy _native_ version of

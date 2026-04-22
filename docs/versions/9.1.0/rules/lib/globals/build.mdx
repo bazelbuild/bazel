@@ -2,7 +2,7 @@
 title: 'BUILD files'
 ---
 
-Methods available in BUILD files. See also the Build Encyclopedia for extra [functions](/versions/UNSAFE_release-9.1.0/reference/be/functions) and build rules, which can also be used in BUILD files.
+Methods available in BUILD files. See also the Build Encyclopedia for extra [functions](/versions/9.1.0/reference/be/functions) and build rules, which can also be used in BUILD files.
 
 ## Members
 
@@ -29,7 +29,7 @@ Methods available in BUILD files. See also the Build Encyclopedia for extra [fun
 depset depset(direct=None, order="default", *, transitive=None)
 ```
 
-Creates a [depset](../builtins/depset). The `direct` parameter is a list of direct elements of the depset, and `transitive` parameter is a list of depsets whose elements become indirect elements of the created depset. The order in which elements are returned when the depset is converted to a list is specified by the `order` parameter. See the [Depsets overview](https://bazel.build/versions/UNSAFE_release-9.1.0/extending/depsets) for more information.
+Creates a [depset](../builtins/depset). The `direct` parameter is a list of direct elements of the depset, and `transitive` parameter is a list of depsets whose elements become indirect elements of the created depset. The order in which elements are returned when the depset is converted to a list is specified by the `order` parameter. See the [Depsets overview](https://bazel.build/versions/9.1.0/extending/depsets) for more information.
 
 All elements (direct and indirect) of a depset must be of the same type, as obtained by the expression [`type(x)`](../globals/all#type).
 
@@ -67,7 +67,7 @@ The values of the result represent attribute values as follows:
 * `select` values are returned with their contents transformed as described above.
 * Attributes for which no value was specified during rule instantiation and whose default value is computed are excluded from the result. (Computed defaults cannot be computed until the analysis phase.).
 
-If possible, use this function only in [implementation functions of rule finalizer symbolic macros](https://bazel.build/versions/UNSAFE_release-9.1.0/extending/macros#finalizers). Use of this function in other contexts is not recommened, and will be disabled in a future Bazel release; it makes `BUILD` files brittle and order-dependent. Also, beware that it differs subtly from the two other conversions of rule attribute values from internal form to Starlark: one used by computed defaults, the other used by `ctx.attr.foo`.
+If possible, use this function only in [implementation functions of rule finalizer symbolic macros](https://bazel.build/versions/9.1.0/extending/macros#finalizers). Use of this function in other contexts is not recommened, and will be disabled in a future Bazel release; it makes `BUILD` files brittle and order-dependent. Also, beware that it differs subtly from the two other conversions of rule attribute values from internal form to Starlark: one used by computed defaults, the other used by `ctx.attr.foo`.
 
 ### Parameters
 
@@ -85,7 +85,7 @@ Returns an immutable dict-like object describing the rules so far instantiated i
 
 Here, an *immutable dict-like object* means a deeply immutable object `x` supporting dict-like iteration, `len(x)`, `name in x`, `x[name]`, `x.get(name)`, `x.items()`, `x.keys()`, and `x.values()`.
 
-If possible, use this function only in [implementation functions of rule finalizer symbolic macros](https://bazel.build/versions/UNSAFE_release-9.1.0/extending/macros#finalizers). Use of this function in other contexts is not recommened, and will be disabled in a future Bazel release; it makes `BUILD` files brittle and order-dependent.
+If possible, use this function only in [implementation functions of rule finalizer symbolic macros](https://bazel.build/versions/9.1.0/extending/macros#finalizers). Use of this function in other contexts is not recommened, and will be disabled in a future Bazel release; it makes `BUILD` files brittle and order-dependent.
 
 ## exports_files
 
@@ -155,7 +155,7 @@ Declares metadata that applies to every rule in the package. It must be called a
 
 | Parameter | Description |
 | --- | --- |
-| `kwargs` | required  See the [`package()`](/versions/UNSAFE_release-9.1.0/reference/be/functions#package) function in the Build Encyclopedia for applicable arguments. |
+| `kwargs` | required  See the [`package()`](/versions/9.1.0/reference/be/functions#package) function in the Build Encyclopedia for applicable arguments. |
 
 ## package_default_visibility
 
@@ -234,7 +234,7 @@ The canonical name of the repository containing the package currently being eval
 unknown select(x, no_match_error='')
 ```
 
-`select()` is the helper function that makes a rule attribute [configurable](/versions/UNSAFE_release-9.1.0/reference/be/common-definitions#configurable-attributes). See [build encyclopedia](/versions/UNSAFE_release-9.1.0/reference/be/functions#select) for details.
+`select()` is the helper function that makes a rule attribute [configurable](/versions/9.1.0/reference/be/common-definitions#configurable-attributes). See [build encyclopedia](/versions/9.1.0/reference/be/functions#select) for details.
 
 ### Parameters
 

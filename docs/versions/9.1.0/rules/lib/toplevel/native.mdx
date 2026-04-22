@@ -41,7 +41,7 @@ The values of the result represent attribute values as follows:
 * `select` values are returned with their contents transformed as described above.
 * Attributes for which no value was specified during rule instantiation and whose default value is computed are excluded from the result. (Computed defaults cannot be computed until the analysis phase.).
 
-If possible, use this function only in [implementation functions of rule finalizer symbolic macros](https://bazel.build/versions/UNSAFE_release-9.1.0/extending/macros#finalizers). Use of this function in other contexts is not recommened, and will be disabled in a future Bazel release; it makes `BUILD` files brittle and order-dependent. Also, beware that it differs subtly from the two other conversions of rule attribute values from internal form to Starlark: one used by computed defaults, the other used by `ctx.attr.foo`.
+If possible, use this function only in [implementation functions of rule finalizer symbolic macros](https://bazel.build/versions/9.1.0/extending/macros#finalizers). Use of this function in other contexts is not recommened, and will be disabled in a future Bazel release; it makes `BUILD` files brittle and order-dependent. Also, beware that it differs subtly from the two other conversions of rule attribute values from internal form to Starlark: one used by computed defaults, the other used by `ctx.attr.foo`.
 
 ### Parameters
 
@@ -59,7 +59,7 @@ Returns an immutable dict-like object describing the rules so far instantiated i
 
 Here, an *immutable dict-like object* means a deeply immutable object `x` supporting dict-like iteration, `len(x)`, `name in x`, `x[name]`, `x.get(name)`, `x.items()`, `x.keys()`, and `x.values()`.
 
-If possible, use this function only in [implementation functions of rule finalizer symbolic macros](https://bazel.build/versions/UNSAFE_release-9.1.0/extending/macros#finalizers). Use of this function in other contexts is not recommened, and will be disabled in a future Bazel release; it makes `BUILD` files brittle and order-dependent.
+If possible, use this function only in [implementation functions of rule finalizer symbolic macros](https://bazel.build/versions/9.1.0/extending/macros#finalizers). Use of this function in other contexts is not recommened, and will be disabled in a future Bazel release; it makes `BUILD` files brittle and order-dependent.
 
 ## exports_files
 
