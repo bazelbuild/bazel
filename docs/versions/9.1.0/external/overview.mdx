@@ -2,7 +2,7 @@
 title: 'External dependencies overview'
 ---
 
-{/* disableFinding("repo") */}
+
 
 Bazel supports *external dependencies*, source files (both text and binary) used
 in your build that are not from your workspace. For example, they could be a
@@ -95,7 +95,7 @@ Bazel's external dependency system offers a wide range of benefits.
 ### Advanced Features
 
 -   **[Module Extensions](extension)**: The
-    [`use_repo_rule`](/versions/UNSAFE_release-9.1.0/rules/lib/globals/module#use_repo_rule) and module
+    [`use_repo_rule`](/versions/9.1.0/rules/lib/globals/module#use_repo_rule) and module
     extension features allow flexible use of custom repository rules and
     resolution logic to introduce any non-Bazel dependencies.
 -   **[`bazel mod` Command](mod-command)**: The sub-command offers
@@ -183,9 +183,9 @@ See [Repository rules](repo) for more information about how to write
 your own repository rules.
 
 The most common repo rules by far are
-[`http_archive`](/versions/UNSAFE_release-9.1.0/rules/lib/repo/http#http_archive), which downloads an archive
+[`http_archive`](/versions/9.1.0/rules/lib/repo/http#http_archive), which downloads an archive
 from a URL and extracts it, and
-[`local_repository`](/versions/UNSAFE_release-9.1.0/reference/be/workspace#local_repository), which symlinks a
+[`local_repository`](/versions/9.1.0/reference/be/workspace#local_repository), which symlinks a
 local directory that is already a Bazel repository.
 
 ### Fetch a repository
@@ -207,24 +207,24 @@ However, when set to false (`--nofetch`), the command will utilize any cached
 version of the dependency, and if none exists, the command will result in
 failure.
 
-See [fetch options](/versions/UNSAFE_release-9.1.0/reference/command-line-reference#fetch-options) for more
+See [fetch options](/versions/9.1.0/reference/command-line-reference#fetch-options) for more
 information about controlling fetch.
 
 ### Directory layout
 
 After being fetched, the repo can be found in the subdirectory `external` in the
-[output base](/versions/UNSAFE_release-9.1.0/remote/output-directories), under its canonical name.
+[output base](/versions/9.1.0/remote/output-directories), under its canonical name.
 
 You can run the following command to see the contents of the repo with the
 canonical name `canonical_name`:
 
 ```posix-terminal
-ls $(bazel info output_base)/external/{{ '<var>' }} canonical_name {{ '</var>' }}
+ls $(bazel info output_base)/external/` canonical_name `
 ```
 
 ### REPO.bazel file
 
-The [`REPO.bazel`](/versions/UNSAFE_release-9.1.0/rules/lib/globals/repo) file is used to mark the topmost
+The [`REPO.bazel`](/versions/9.1.0/rules/lib/globals/repo) file is used to mark the topmost
 boundary of the directory tree that constitutes a repo. It doesn't need to
 contain anything to serve as a repo boundary file; however, it can also be used
 to specify some common attributes for all build targets inside the repo.
@@ -266,7 +266,7 @@ The snippet defines a repo whose canonical name is `foo`. In the `WORKSPACE`
 system, by default, the canonical name of a repo is also its apparent name to
 all other repos.
 
-See the [full list](/versions/UNSAFE_release-9.1.0/rules/lib/globals/workspace) of functions available in
+See the [full list](/versions/9.1.0/rules/lib/globals/workspace) of functions available in
 `WORKSPACE` files.
 
 ### Shortcomings of the `WORKSPACE` system

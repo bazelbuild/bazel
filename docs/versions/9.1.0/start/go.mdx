@@ -1,6 +1,3 @@
-{/* disableFinding(LINE_OVER_80_LINK) */}
-{/* disableFinding("below") */}
-
 ---
 title: 'Bazel Tutorial: Build a Go Project'
 ---
@@ -16,7 +13,7 @@ Estimated completion time: 30 minutes
 
 ### Install Bazel
 
-Before you get started, first [install bazel](/versions/UNSAFE_release-9.1.0/install) if you haven't done so
+Before you get started, first [install bazel](/versions/9.1.0/install) if you haven't done so
 already.
 
 You can check if Bazel is installed by running `bazel version` in any directory.
@@ -154,22 +151,22 @@ equivalently, `BUILD.bazel` files), so it's important to understand what they
 do.
 
 `BUILD` files are written in a scripting language called
-[Starlark](https://bazel.build/versions/UNSAFE_release-9.1.0/rules/language), a limited subset of Python.
+[Starlark](https://bazel.build/versions/9.1.0/rules/language), a limited subset of Python.
 
 A `BUILD` file contains a list of
-[targets](https://bazel.build/versions/UNSAFE_release-9.1.0/reference/glossary#target). A target is something
+[targets](https://bazel.build/versions/9.1.0/reference/glossary#target). A target is something
 Bazel can build, like a binary, library, or test.
 
 A target calls a rule function with a list of
-[attributes](https://bazel.build/versions/UNSAFE_release-9.1.0/reference/glossary#attribute) to describe what
+[attributes](https://bazel.build/versions/9.1.0/reference/glossary#attribute) to describe what
 should be built. Our example has two attributes: `name` identifies the target on
 the command line, and `srcs` is a list of source file paths (slash-separated,
 relative to the directory containing the `BUILD` file).
 
-A [rule](https://bazel.build/versions/UNSAFE_release-9.1.0/reference/glossary#rule) tells Bazel how to build a
+A [rule](https://bazel.build/versions/9.1.0/reference/glossary#rule) tells Bazel how to build a
 target. In our example, we used the
 [`go_binary`](https://github.com/bazel-contrib/rules_go/blob/master/docs/go/core/rules.md#go_binary)
-rule. Each rule defines [actions](https://bazel.build/versions/UNSAFE_release-9.1.0/reference/glossary#action)
+rule. Each rule defines [actions](https://bazel.build/versions/9.1.0/reference/glossary#action)
 (commands) that generate a set of output files. For example, `go_binary` defines
 Go compile and link actions that produce an executable output file.
 
@@ -227,7 +224,7 @@ repository path (or module path) concatenated with the directory within the
 repository.
 
 Finally, we need to set the `visibility` attribute to `["//visibility:public"]`.
-[`visibility`](https://bazel.build/versions/UNSAFE_release-9.1.0/concepts/visibility) may be set on any
+[`visibility`](https://bazel.build/versions/9.1.0/concepts/visibility) may be set on any
 target. It determines which Bazel packages may depend on this target. In our
 case, we want any target to be able to depend on this library, so we use the
 special value `//visibility:public`.
@@ -294,15 +291,15 @@ in the `fortune` directory named `fortune`.
 Bazel requires that all targets declare their dependencies explicitly with
 attributes like `deps`. This may seem cumbersome since dependencies are *also*
 specified in source files, but Bazel's explictness gives it an advantage. Bazel
-builds an [action graph](https://bazel.build/versions/UNSAFE_release-9.1.0/reference/glossary#action-graph)
+builds an [action graph](https://bazel.build/versions/9.1.0/reference/glossary#action-graph)
 containing all commands, inputs, and outputs before running any commands,
 without reading any source files. Bazel can then cache action results or send
-actions for [remote execution](https://bazel.build/versions/UNSAFE_release-9.1.0/remote/rbe) without built-in
+actions for [remote execution](https://bazel.build/versions/9.1.0/remote/rbe) without built-in
 language-specific logic.
 
 ### Understanding labels
 
-A [label](https://bazel.build/versions/UNSAFE_release-9.1.0/reference/glossary#label) is a string Bazel uses
+A [label](https://bazel.build/versions/9.1.0/reference/glossary#label) is a string Bazel uses
 to identify a target or a file. Labels are used in command line arguments and in
 `BUILD` file attributes like `deps`. We've seen a few already, like `//fortune`,
 `//:print-fortune`, and `@rules_go//go:def.bzl`.
@@ -319,7 +316,7 @@ can be omitted when referring to targets in the same repository.
 The package name is written between `//` and `:` and is used to refer to a
 target in from a different Bazel package. In the label `@rules_go//go:def.bzl`,
 the package name is `go`. A Bazel
-[package](https://bazel.build/versions/UNSAFE_release-9.1.0/reference/glossary#package) is a set of files and
+[package](https://bazel.build/versions/9.1.0/reference/glossary#package) is a set of files and
 targets defined by a `BUILD` or `BUILD.bazel` file in its top-level directory.
 Its package name is a slash-separated path from the module root directory
 (containing `MODULE.bazel`) to the directory containing the `BUILD` file. A
@@ -445,9 +442,9 @@ In this tutorial, we built and tested a small Go project with Bazel, and we
 learned some core Bazel concepts along the way.
 
 -   To get started building other applications with Bazel, see the tutorials for
-    [C++](/versions/UNSAFE_release-9.1.0/start/cpp), [Java](/versions/UNSAFE_release-9.1.0/start/java), [Android](/versions/UNSAFE_release-9.1.0/start/android-app), and
-    [iOS](/versions/UNSAFE_release-9.1.0/start/ios-app).
--   You can also check the list of [recommended rules](/versions/UNSAFE_release-9.1.0/rules) for other
+    [C++](/versions/9.1.0/start/cpp), [Java](/versions/9.1.0/start/java), [Android](/versions/9.1.0/start/android-app), and
+    [iOS](/versions/9.1.0/start/ios-app).
+-   You can also check the list of [recommended rules](/versions/9.1.0/rules) for other
     languages.
 -   For more information on Go, see the
     [rules_go](https://github.com/bazel-contrib/rules_go) module, especially the
@@ -455,7 +452,7 @@ learned some core Bazel concepts along the way.
     rules](https://github.com/bazel-contrib/rules_go/blob/master/docs/go/core/rules.md)
     documentation.
 -   To learn more about working with Bazel modules outside your project, see
-    [external dependencies](/versions/UNSAFE_release-9.1.0/docs/external). In particular, for information on
+    [external dependencies](/versions/9.1.0/docs/external). In particular, for information on
     how to depend on Go modules and toolchains through Bazel's module system,
     see [Go with
     bzlmod](https://github.com/bazel-contrib/rules_go/tree/master/docs/go/core/bzlmod.md).

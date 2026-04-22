@@ -80,7 +80,7 @@ a specific version of a module. The schema of this file depends on its `type`
 field, which defaults to `archive`.
 
 *   If `type` is `archive` (the default), this module version is backed by an
-    [`http_archive`](/versions/UNSAFE_release-9.1.0/rules/lib/repo/http#http_archive) repo rule; it's fetched
+    [`http_archive`](/versions/9.1.0/rules/lib/repo/http#http_archive) repo rule; it's fetched
     by downloading an archive from a given URL and extracting its contents. It
     supports the following fields:
     *   `url`: A string, the URL of the source archive
@@ -104,9 +104,9 @@ field, which defaults to `archive`.
     *   `patch_strip`: A number; the same as the `--strip` argument of Unix
         `patch`.
     *   `archive_type`: A string, the archive type of the downloaded file (Same
-        as [`type` on `http_archive`](/versions/UNSAFE_release-9.1.0/rules/lib/repo/http#http_archive-type)).
+        as [`type` on `http_archive`](/versions/9.1.0/rules/lib/repo/http#http_archive-type)).
 *   If `type` is `git_repository`, this module version is backed by a
-    [`git_repository`](/versions/UNSAFE_release-9.1.0/rules/lib/repo/git#git_repository) repo rule; it's
+    [`git_repository`](/versions/9.1.0/rules/lib/repo/git#git_repository) repo rule; it's
     fetched by cloning a Git repository.
     *   The following fields are supported, and are directly forwarded to the
         underlying `git_repository` repo rule: `remote`, `commit`,
@@ -119,7 +119,7 @@ field, which defaults to `archive`.
         the patch files. The patches are applied in the order they appear in
         `patches`.
 *   If `type` is `local_path`, this module version is backed by a
-    [`local_repository`](/versions/UNSAFE_release-9.1.0/rules/lib/repo/local#local_repository) repo rule;
+    [`local_repository`](/versions/9.1.0/rules/lib/repo/local#local_repository) repo rule;
     it's symlinked to a directory on local disk. It supports the following
     field:
     *   `path`: The local path to the repo, calculated as following:

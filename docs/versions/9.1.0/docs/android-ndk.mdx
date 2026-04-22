@@ -118,7 +118,7 @@ android_binary(
 
 This `BUILD` file results in the following target graph:
 
-![Example results](/versions/UNSAFE_release-9.1.0/docs/images/android_ndk.png "Build graph results")
+![Example results](/versions/9.1.0/docs/images/android_ndk.png "Build graph results")
 
 **Figure 1.** Build graph of Android project with cc_library dependencies.
 
@@ -212,11 +212,11 @@ level `android_binary` target. In this example, it is `app`.
 To configure the target ABI, use the `--android_platforms` flag as follows:
 
 ```posix-terminal
-bazel build //:app --android_platforms={{ "<var>" }}comma-separated list of platforms{{ "</var>" }}
+bazel build //:app --android_platforms=`comma-separated list of platforms`
 ```
 
 Just like the `--platforms` flag, the values passed to `--android_platforms` are
-the labels of [`platform`](https://bazel.build/versions/UNSAFE_release-9.1.0/reference/be/platforms-and-toolchains#platform)
+the labels of [`platform`](https://bazel.build/versions/9.1.0/reference/be/platforms-and-toolchains#platform)
 targets, using standard constraint values to describe your device.
 
 For example, for an Android device with a 64-bit ARM processor, you'd define
@@ -281,7 +281,7 @@ bazel build //:app --cxxopt=-std=c++11
 ```
 
 Read more about passing compiler and linker flags with `--cxxopt`, `--copt`, and
-`--linkopt` in the [User Manual](/versions/UNSAFE_release-9.1.0/docs/user-manual#cxxopt).
+`--linkopt` in the [User Manual](/versions/9.1.0/docs/user-manual#cxxopt).
 
 Compiler and linker flags can also be specified as attributes in `cc_library`
 using `copts` and `linkopts`. For example:
@@ -312,11 +312,11 @@ With this approach, the entire build tree is affected.
 
 Note: All of the targets on the command line must be compatible with
 building for Android when specifying these flags, which may make it difficult to
-use [Bazel wild-cards](/versions/UNSAFE_release-9.1.0/run/build#specifying-build-targets) like
+use [Bazel wild-cards](/versions/9.1.0/run/build#specifying-build-targets) like
 `/...` and `:all`.
 
 These flags can be put into a `bazelrc` config (one for each ABI), in
-`{{ "<var>" }}project{{ "</var>" }}/.bazelrc`:
+`PROJECT/.bazelrc`:
 
 ```
 common:android_x86 --platforms=//my/platforms:x86

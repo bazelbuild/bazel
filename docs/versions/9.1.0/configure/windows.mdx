@@ -3,7 +3,7 @@ title: 'Using Bazel on Windows'
 ---
 
 This page covers Best Practices for using Bazel on Windows. For installation
-instructions, see [Install Bazel on Windows](/versions/UNSAFE_release-9.1.0/install/windows).
+instructions, see [Install Bazel on Windows](/versions/9.1.0/install/windows).
 
 ## Known issues
 
@@ -17,7 +17,7 @@ Windows-related Bazel issues are marked with the "area-Windows" label on GitHub.
 ### Avoid long path issues
 
 Some tools have the [Maximum Path Length Limitation](https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#maximum-path-length-limitation) on Windows, including the MSVC compiler.
-To avoid hitting this issue, you can specify a short output directory for Bazel by the [\-\-output_user_root](/versions/UNSAFE_release-9.1.0/reference/command-line-reference#flag--output_user_root) flag.
+To avoid hitting this issue, you can specify a short output directory for Bazel by the [\-\-output_user_root](/versions/9.1.0/reference/command-line-reference#flag--output_user_root) flag.
 
 For example, add the following line to your bazelrc file:
 
@@ -33,8 +33,8 @@ either by enabling
 (on Windows 10 version 1703 or newer), or by running Bazel as an administrator.
 This enables the following features:
 
-* [\-\-windows_enable_symlinks](/versions/UNSAFE_release-9.1.0/reference/command-line-reference#flag--windows_enable_symlinks)
-* [\-\-enable_runfiles](/versions/UNSAFE_release-9.1.0/reference/command-line-reference#flag--enable_runfiles)
+* [\-\-windows_enable_symlinks](/versions/9.1.0/reference/command-line-reference#flag--windows_enable_symlinks)
+* [\-\-enable_runfiles](/versions/9.1.0/reference/command-line-reference#flag--enable_runfiles)
 
 To make it easier, add the following lines to your bazelrc file:
 
@@ -127,7 +127,7 @@ System Properties > Advanced > Environment Variables...` dialog box.
 
 To build C++ targets with MSVC, you need:
 
-*   [The Visual C++ compiler](/versions/UNSAFE_release-9.1.0/install/windows#install-vc).
+*   [The Visual C++ compiler](/versions/9.1.0/install/windows#install-vc).
 
 *   (Optional) The `BAZEL_VC` and `BAZEL_VC_FULL_VERSION` environment variable.
 
@@ -266,7 +266,7 @@ To enable the Clang toolchain for building C++, there are several situations.
 
 To build Java targets, you need:
 
-*   [The Java SE Development Kit](/versions/UNSAFE_release-9.1.0/install/windows#install-jdk)
+*   [The Java SE Development Kit](/versions/9.1.0/install/windows#install-jdk)
 
 On Windows, Bazel builds two output files for `java_binary` rules:
 
@@ -285,7 +285,7 @@ C:\projects\bazel> bazel-bin\examples\java-native\src\main\java\com\example\mypr
 
 To build Python targets, you need:
 
-*   The [Python interpreter](/versions/UNSAFE_release-9.1.0/install/windows#install-python)
+*   The [Python interpreter](/versions/9.1.0/install/windows#install-python)
 
 On Windows, Bazel builds two output files for `py_binary` rules:
 

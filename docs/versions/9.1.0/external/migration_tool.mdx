@@ -26,7 +26,7 @@ The script's primary functions are:
 *   **Collecting dependency information:** Analyzing your project's `WORKSPACE`
     file to identify external repositories used by specified build targets,
     using Bazel's
-    [experimental_repository_resolved_file](https://bazel.build/versions/UNSAFE_release-9.1.0/versions/8.2.0/reference/command-line-reference#flag--experimental_repository_resolved_file)
+    [experimental_repository_resolved_file](https://bazel.build/versions/9.1.0/versions/8.2.0/reference/command-line-reference#flag--experimental_repository_resolved_file)
     flag to generate a resolved dependencies file containing this information.
 *   **Identifying direct dependencies:** Using `bazel query` to determine which
     repositories are direct dependencies for the specified targets.
@@ -611,16 +611,16 @@ may arise during the Bzlmod migration.
 
 *   Override version - Not rarely it happens that upgrading the version of a
     dependency causes troubles. Bzlmod could change the version of the
-    dependency due to the [MVS algorithm](/versions/UNSAFE_release-9.1.0/external/module#version-selection).
+    dependency due to the [MVS algorithm](/versions/9.1.0/external/module#version-selection).
     In order to use the same or similar version as it was in the WORKSPACE,
     override it with
-    [single_version_override](/versions/UNSAFE_release-9.1.0/rules/lib/globals/module#single_version_override).
+    [single_version_override](/versions/9.1.0/rules/lib/globals/module#single_version_override).
     Note that this is useful for debugging differences between WORKSPACE and
     Bzlmod, but you shouldn't rely on this feature in the long term.
 
     `single_version_override(module_name = "{dep_name}", version = "{version}")`
 
-*   Use [bazel mod](/versions/UNSAFE_release-9.1.0/external/mod-command#syntax) command.
+*   Use [bazel mod](/versions/9.1.0/external/mod-command#syntax) command.
     *   Check the version of a specified repo with `show_repo`
         command. For example:
 
@@ -631,7 +631,7 @@ may arise during the Bzlmod migration.
 
         `bazel mod show_extension @rules_python//python/extensions:pip.bzl%pip`
 
-*   Use [vendor mode](/versions/UNSAFE_release-9.1.0/external/vendor) to create a local copy of a repo when
+*   Use [vendor mode](/versions/9.1.0/external/vendor) to create a local copy of a repo when
     you want to monitor or control the source of the repo. For example:
 
     `bazel vendor --enable_bzlmod --vendor_dir=vendor_src --repo=@protobuf`

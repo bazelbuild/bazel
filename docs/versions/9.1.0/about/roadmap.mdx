@@ -6,12 +6,12 @@ As Bazel continues to evolve in response to your needs, we want to share our
 2025 roadmap update.
 
 We plan to bring Bazel 9.0
-[long term support (LTS)](https://bazel.build/versions/UNSAFE_release-9.1.0/release/versioning) to you in late
+[long term support (LTS)](https://bazel.build/versions/9.1.0/release/versioning) to you in late
 2025.
 
 ## Full transition to Bzlmod
 
-[Bzlmod](https://bazel.build/versions/UNSAFE_release-9.1.0/docs/bzlmod) has been the standard external
+[Bzlmod](https://bazel.build/versions/9.1.0/docs/bzlmod) has been the standard external
 dependency system in Bazel since Bazel 7, replacing the legacy WORKSPACE system.
 As of March 2025, the [Bazel Central Registry](https://registry.bazel.build/)
 hosts more than 650 modules.
@@ -19,7 +19,7 @@ hosts more than 650 modules.
 With Bazel 9, we will completely remove WORKSPACE functionality, and Bzlmod will
 be the only way to introduce external dependencies in Bazel. To minimize the
 migration cost for the community, we'll focus on further improving our migration
-[guide](https://bazel.build/versions/UNSAFE_release-9.1.0/external/migration) and
+[guide](https://bazel.build/versions/9.1.0/external/migration) and
 [tool](https://github.com/bazelbuild/bazel-central-registry/tree/main/tools#migrate_to_bzlmodpy).
 
 Additionally, we aim to implement an improved shared repository cache (see
@@ -71,11 +71,11 @@ experimental in 9.0 but guiding feedback is welcome.
 [Flag scoping](https://github.com/bazelbuild/bazel/issues/24042) lets you strip
 out Starlark flags when they leave project boundaries, so they don't break
 caching on transitive dependencies that don't need them. This makes builds that
-use [transitions](https://bazel.build/versions/UNSAFE_release-9.1.0/extending/config#user-defined-transitions)
+use [transitions](https://bazel.build/versions/9.1.0/extending/config#user-defined-transitions)
 cheaper and faster.
 [Here's](https://github.com/gregestren/snippets/tree/master/project_scoped_flags)
 an example. We're extending the idea to control which flags propagate to
-[exec configurations](https://bazel.build/versions/UNSAFE_release-9.1.0/extending/rules#configurations) and
+[exec configurations](https://bazel.build/versions/9.1.0/extending/rules#configurations) and
 are considering even more flexible support like custom Starlark to determine
 which dependency edges should propagate flags.
 

@@ -2,8 +2,8 @@
 title: 'Frequently asked questions'
 ---
 
-{/* disableFinding("repo") */}
-{/* disableFinding(HEADING_STACKED) */}
+
+
 
 This page answers some frequently asked questions about external dependencies in
 Bazel.
@@ -104,11 +104,11 @@ generally interested in, and they can be solved without `load`s:
 *   Ensuring that the version listed in MODULE.bazel is consistent with build
     metadata stored elsewhere, for example in a .bzl file: This can be achieved
     by using the
-    [`native.module_version`](/versions/UNSAFE_release-9.1.0/rules/lib/toplevel/native#module_version) method
+    [`native.module_version`](/versions/9.1.0/rules/lib/toplevel/native#module_version) method
     in a .bzl file loaded from a BUILD file.
 *   Splitting up a very large MODULE.bazel file into manageable sections,
     particularly for monorepos: The root module can use the
-    [`include`](/versions/UNSAFE_release-9.1.0/rules/lib/globals/module#include) directive to split its
+    [`include`](/versions/9.1.0/rules/lib/globals/module#include) directive to split its
     MODULE.bazel file into multiple segments. For the same reason we don't allow
     `load`s in MODULE.bazel files, `include` cannot be used in non-root modules.
 *   Users of the old WORKSPACE system might remember declaring a repo, and then
@@ -144,7 +144,7 @@ Bazel modules.
 
 Sometimes, users asking this question are really looking for a way to quickly
 iterate during local development. This can be achieved by using a
-[`local_path_override`](/versions/UNSAFE_release-9.1.0/rules/lib/globals/module#local_path_override).
+[`local_path_override`](/versions/9.1.0/rules/lib/globals/module#local_path_override).
 
 ### Why all these `use_repo`s?
 
@@ -179,7 +179,7 @@ tell Bazel which repos they expect the extension to generate, and Bazel would
 then only run the extension when these specific repos are used.
 
 To help the maintain this `use_repo` directive, a module extension can return
-an [`extension_metadata`](/versions/UNSAFE_release-9.1.0/rules/lib/builtins/module_ctx#extension_metadata)
+an [`extension_metadata`](/versions/9.1.0/rules/lib/builtins/module_ctx#extension_metadata)
 object from its implementation function. The user can run the `bazel mod tidy`
 command to update the `use_repo` directives for these module extensions.
 
@@ -210,10 +210,10 @@ be used to find out which repo an apparent name actually resolves to.
 *   If the context repo is the main repo (`@@`):
     1.  If `bar` is an apparent repo name introduced by the root module's
         MODULE.bazel file (through any of
-        [`bazel_dep`](/versions/UNSAFE_release-9.1.0/rules/lib/globals/module#bazel_dep.repo_name),
-        [`use_repo`](/versions/UNSAFE_release-9.1.0/rules/lib/globals/module#use_repo),
-        [`module`](/versions/UNSAFE_release-9.1.0/rules/lib/globals/module#module.repo_name),
-        [`use_repo_rule`](/versions/UNSAFE_release-9.1.0/rules/lib/globals/module#use_repo_rule)), then `@bar`
+        [`bazel_dep`](/versions/9.1.0/rules/lib/globals/module#bazel_dep.repo_name),
+        [`use_repo`](/versions/9.1.0/rules/lib/globals/module#use_repo),
+        [`module`](/versions/9.1.0/rules/lib/globals/module#module.repo_name),
+        [`use_repo_rule`](/versions/9.1.0/rules/lib/globals/module#use_repo_rule)), then `@bar`
         resolves to what that MODULE.bazel file claims.
     2.  Otherwise, if `bar` is a repo defined in WORKSPACE (which means that its
         canonical name is `@@bar`), then `@bar` resolves to `@@bar`.
@@ -287,7 +287,7 @@ Specifically:
 
 *   Use `--host_jvm_args=-Djava.net.preferIPv6Addresses=true` [startup
     option](/docs/user-manual#startup-options), for example by adding the
-    following line in your [`.bazelrc` file](/versions/UNSAFE_release-9.1.0/run/bazelrc):
+    following line in your [`.bazelrc` file](/versions/9.1.0/run/bazelrc):
 
     `startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true`
 

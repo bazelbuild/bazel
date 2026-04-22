@@ -12,7 +12,7 @@ or
 bazel [<startup options>] <command> [<args>] -- [<target patterns>]
 ```
 
-See the [User's Guide](/versions/UNSAFE_release-9.1.0/docs/build#specifying-build-targets) for the
+See the [User's Guide](/versions/9.1.0/docs/build#specifying-build-targets) for the
 target patterns syntax.
 
 ## Option Syntax
@@ -578,7 +578,7 @@ This option affects semantics of the Starlark language or the build API accessib
     [`loading_and_analysis`](#effect_tag_LOADING_AND_ANALYSIS), [`experimental`](#metadata_tag_EXPERIMENTAL)
 
 `--[no]experimental_isolated_extension_usages` default: "false"
-:   If true, enables the &lt;code&gt;isolate&lt;/code&gt; parameter in the &lt;a href="https://bazel.build/versions/UNSAFE_release-9.1.0/rules/lib/globals/module#use_extension"&gt;&lt;code&gt;use_extension&lt;/code&gt;&lt;/a&gt; function.
+:   If true, enables the &lt;code&gt;isolate&lt;/code&gt; parameter in the &lt;a href="https://bazel.build/versions/9.1.0/rules/lib/globals/module#use_extension"&gt;&lt;code&gt;use_extension&lt;/code&gt;&lt;/a&gt; function.
 
     Tags:
     [`loading_and_analysis`](#effect_tag_LOADING_AND_ANALYSIS)
@@ -2442,7 +2442,7 @@ Options that control the output of the command:
 
 `--[no]incompatible_always_include_files_in_data` default: "true"
 :   If true, native rules add `DefaultInfo.files` of data dependencies to their runfiles,
-    which matches the recommended behavior for Starlark rules ([runfiles features to avoid](https://bazel.build/versions/UNSAFE_release-9.1.0/extending/rules#runfiles_features_to_avoid)).
+    which matches the recommended behavior for Starlark rules ([runfiles features to avoid](https://bazel.build/versions/9.1.0/extending/rules#runfiles_features_to_avoid)).
 
     Tags:
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS), [`incompatible_change`](#metadata_tag_INCOMPATIBLE_CHANGE)
@@ -3931,7 +3931,7 @@ Options that control build execution:
 `--[no]skip_incompatible_explicit_targets` default: "false"
 :   Skip incompatible targets that are explicitly listed on the command line.
     By default, building such targets results in an error but they are
-    silently skipped when this option is enabled. See: [Skipping incompatible targets](https://bazel.build/versions/UNSAFE_release-9.1.0/extending/platforms#skipping-incompatible-targets)
+    silently skipped when this option is enabled. See: [Skipping incompatible targets](https://bazel.build/versions/9.1.0/extending/platforms#skipping-incompatible-targets)
 
     Tags:
     [`loading_and_analysis`](#effect_tag_LOADING_AND_ANALYSIS)
@@ -4023,7 +4023,7 @@ Options that control the output of the command:
     [`execution`](#effect_tag_EXECUTION), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
 
 `--[no]run_validations` default: "true"
-:   Whether to run validation actions as part of the build. See [Validation Actions](https://bazel.build/versions/UNSAFE_release-9.1.0/extending/rules#validation_actions).
+:   Whether to run validation actions as part of the build. See [Validation Actions](https://bazel.build/versions/9.1.0/extending/rules#validation_actions).
 
     Tags:
     [`execution`](#effect_tag_EXECUTION), [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
@@ -5268,7 +5268,7 @@ Options that control the output of the command:
 
 `--[no]incompatible_always_include_files_in_data` default: "true"
 :   If true, native rules add `DefaultInfo.files` of data dependencies to their runfiles,
-    which matches the recommended behavior for Starlark rules ([runfiles features to avoid](https://bazel.build/versions/UNSAFE_release-9.1.0/extending/rules#runfiles_features_to_avoid)).
+    which matches the recommended behavior for Starlark rules ([runfiles features to avoid](https://bazel.build/versions/9.1.0/extending/rules#runfiles_features_to_avoid)).
 
     Tags:
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS), [`incompatible_change`](#metadata_tag_INCOMPATIBLE_CHANGE)
@@ -7242,7 +7242,7 @@ Options that control the output of the command:
 
 `--[no]incompatible_always_include_files_in_data` default: "true"
 :   If true, native rules add `DefaultInfo.files` of data dependencies to their runfiles,
-    which matches the recommended behavior for Starlark rules ([runfiles features to avoid](https://bazel.build/versions/UNSAFE_release-9.1.0/extending/rules#runfiles_features_to_avoid)).
+    which matches the recommended behavior for Starlark rules ([runfiles features to avoid](https://bazel.build/versions/9.1.0/extending/rules#runfiles_features_to_avoid)).
 
     Tags:
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS), [`incompatible_change`](#metadata_tag_INCOMPATIBLE_CHANGE)
@@ -9043,7 +9043,7 @@ Options that control the output of the command:
 
 `--[no]incompatible_always_include_files_in_data` default: "true"
 :   If true, native rules add `DefaultInfo.files` of data dependencies to their runfiles,
-    which matches the recommended behavior for Starlark rules ([runfiles features to avoid](https://bazel.build/versions/UNSAFE_release-9.1.0/extending/rules#runfiles_features_to_avoid)).
+    which matches the recommended behavior for Starlark rules ([runfiles features to avoid](https://bazel.build/versions/9.1.0/extending/rules#runfiles_features_to_avoid)).
 
     Tags:
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS), [`incompatible_change`](#metadata_tag_INCOMPATIBLE_CHANGE)
@@ -10464,7 +10464,7 @@ Options that control the output of the command:
 
 `--[no]incompatible_always_include_files_in_data` default: "true"
 :   If true, native rules add `DefaultInfo.files` of data dependencies to their runfiles,
-    which matches the recommended behavior for Starlark rules ([runfiles features to avoid](https://bazel.build/versions/UNSAFE_release-9.1.0/extending/rules#runfiles_features_to_avoid)).
+    which matches the recommended behavior for Starlark rules ([runfiles features to avoid](https://bazel.build/versions/9.1.0/extending/rules#runfiles_features_to_avoid)).
 
     Tags:
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS), [`incompatible_change`](#metadata_tag_INCOMPATIBLE_CHANGE)
@@ -11018,7 +11018,7 @@ Options that control the output of the command:
 
 `--[no]incompatible_always_include_files_in_data` default: "true"
 :   If true, native rules add `DefaultInfo.files` of data dependencies to their runfiles,
-    which matches the recommended behavior for Starlark rules ([runfiles features to avoid](https://bazel.build/versions/UNSAFE_release-9.1.0/extending/rules#runfiles_features_to_avoid)).
+    which matches the recommended behavior for Starlark rules ([runfiles features to avoid](https://bazel.build/versions/9.1.0/extending/rules#runfiles_features_to_avoid)).
 
     Tags:
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS), [`incompatible_change`](#metadata_tag_INCOMPATIBLE_CHANGE)
@@ -12220,7 +12220,7 @@ Options that control the output of the command:
 
 `--[no]incompatible_always_include_files_in_data` default: "true"
 :   If true, native rules add `DefaultInfo.files` of data dependencies to their runfiles,
-    which matches the recommended behavior for Starlark rules ([runfiles features to avoid](https://bazel.build/versions/UNSAFE_release-9.1.0/extending/rules#runfiles_features_to_avoid)).
+    which matches the recommended behavior for Starlark rules ([runfiles features to avoid](https://bazel.build/versions/9.1.0/extending/rules#runfiles_features_to_avoid)).
 
     Tags:
     [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS), [`incompatible_change`](#metadata_tag_INCOMPATIBLE_CHANGE)

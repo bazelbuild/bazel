@@ -2,7 +2,7 @@
 title: 'Creating a Legacy Macro'
 ---
 
-IMPORTANT: This tutorial is for [*legacy macros*](/versions/UNSAFE_release-9.1.0/extending/legacy-macros). If
+IMPORTANT: This tutorial is for [*legacy macros*](/versions/9.1.0/extending/legacy-macros). If
 you only need to support Bazel 8 or newer, we recommend using [symbolic
 macros](/extending/macros) instead; take a look at [Creating a Symbolic
 Macro](macro-tutorial).
@@ -13,7 +13,7 @@ tutorial, you are going to create a legacy macro that resizes an image.
 
 Macros are suitable for simple tasks. If you want to do anything more
 complicated, for example add support for a new programming language, consider
-creating a [rule](/versions/UNSAFE_release-9.1.0/extending/rules). Rules give you more control and flexibility.
+creating a [rule](/versions/9.1.0/extending/rules). Rules give you more control and flexibility.
 
 The easiest way to create a macro that resizes an image is to use a `genrule`:
 
@@ -86,11 +86,11 @@ cc_binary(
 And finally, a **warning note**: the macro assumes that `src` is a filename
 string (otherwise, `outs = ["small_" + src]` will fail). So `src = "image.png"`
 works; but what happens if the `BUILD` file instead used `src =
-"/versions/UNSAFE_release-9.1.0//other/package:image.png"`, or even `src = select(...)`?
+"/versions/9.1.0//other/package:image.png"`, or even `src = select(...)`?
 
 You should make sure to declare such assumptions in your macro's documentation.
 Unfortunately, legacy macros, especially large ones, tend to be fragile because
 it can be hard to notice and document all such assumptions in your code – and,
 of course, some users of the macro won't read the documentation. We recommend,
-if possible, instead using [symbolic macros](/versions/UNSAFE_release-9.1.0/extending/macros), which have
+if possible, instead using [symbolic macros](/versions/9.1.0/extending/macros), which have
 built\-in checks on attribute types.
