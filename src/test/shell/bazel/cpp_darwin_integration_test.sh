@@ -199,7 +199,7 @@ EOF
 
 function test_cc_test_with_explicit_install_name_apple_support() {
   cat > MODULE.bazel <<EOF
-bazel_dep(name = "apple_support", version = "2.5.2")
+bazel_dep(name = "apple_support", version = "2.6.1")
 EOF
   add_rules_cc MODULE.bazel
 
@@ -248,4 +248,3 @@ EOF
 }
 
 run_suite "Tests for Bazel's C++ rules on Darwin"
-
