@@ -15,7 +15,7 @@ module(
 
 bazel_dep(name = "abseil-cpp", version = "20250814.1")
 bazel_dep(name = "bazel_features", version = "1.47.0")
-bazel_dep(name = "bazel_skylib", version = "1.8.2")
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
 bazel_dep(name = "blake3", version = "1.8.2.bcr.1")
 bazel_dep(name = "googleapis-grpc-java", version = "1.0.0")
 bazel_dep(name = "googleapis-java", version = "1.0.0")
@@ -42,7 +42,7 @@ bazel_dep(name = "zstd-jni", version = "1.5.6-9.bcr.1")
 
 # Depend on apple_support first and then rules_cc so that the Xcode toolchain
 # from apple_support wins over the generic Unix toolchain from rules_cc.
-bazel_dep(name = "apple_support", version = "2.3.0")
+bazel_dep(name = "apple_support", version = "2.6.1")
 bazel_dep(name = "rules_cc", version = "0.2.19")
 
 # The starlark rules in @rules_cc are hidden behind macros but docgen needs to
@@ -272,10 +272,10 @@ maven.override(
 # Pin to the version in //third_party/asm/... to avoid one-version violations.
 [
     maven.artifact(
-        group = "org.ow2.asm",
         artifact = artifact,
-        version = "9.10",
         force_version = True,
+        group = "org.ow2.asm",
+        version = "9.10",
     )
     for artifact in [
         "asm",
@@ -452,7 +452,6 @@ use_repo(
 bazel_dep(name = "bazel_ci_rules", version = "2.0.0")
 bazel_dep(name = "rules_fuzzing", version = "0.6.0")
 bazel_dep(name = "wabt", version = "1.0.37")
-
 
 rbe = use_extension("@bazel_ci_rules//:rbe_config.bzl", "rbe_config_extension")
 rbe.config(
