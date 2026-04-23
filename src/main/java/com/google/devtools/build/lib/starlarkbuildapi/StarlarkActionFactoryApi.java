@@ -27,6 +27,7 @@ import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -611,6 +612,21 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
                     + " `toolchain` and `exec_group` parameters are both set, `exec_group` will be"
                     + " used. An error is raised in case the `exec_group` doesn't specify the same"
                     + " toolchain.</p>"),
+        @Param(
+            name = "timeout",
+            allowedTypes = {
+              @ParamType(type = StarlarkInt.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "Maximum duration of the action in seconds, or <code>None</code> for no timeout."
+                    + " If the action runs longer than this, it is killed and the build fails."
+                    + " Overrides any rule-level <code>timeout</code> attribute for this specific"
+                    + " action. Must be a non-negative integer; 0 is treated the same as"
+                    + " <code>None</code>."),
       })
   void run(
       Sequence<?> outputs,
@@ -628,7 +644,8 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
       Object execGroupUnchecked,
       Object shadowedAction,
       Object resourceSetUnchecked,
-      Object toolchainUnchecked)
+      Object toolchainUnchecked,
+      Object timeoutUnchecked)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(
@@ -854,6 +871,21 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
                     + " `toolchain` and `exec_group` parameters are both set, `exec_group` will be"
                     + " used. An error is raised in case the `exec_group` doesn't specify the same"
                     + " toolchain.</p>"),
+        @Param(
+            name = "timeout",
+            allowedTypes = {
+              @ParamType(type = StarlarkInt.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "Maximum duration of the action in seconds, or <code>None</code> for no timeout."
+                    + " If the action runs longer than this, it is killed and the build fails."
+                    + " Overrides any rule-level <code>timeout</code> attribute for this specific"
+                    + " action. Must be a non-negative integer; 0 is treated the same as"
+                    + " <code>None</code>."),
       })
   void runShell(
       Sequence<?> outputs,
@@ -870,7 +902,8 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
       Object execGroupUnchecked,
       Object shadowedAction,
       Object resourceSetUnchecked,
-      Object toolchainUnchecked)
+      Object toolchainUnchecked,
+      Object timeoutUnchecked)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(
