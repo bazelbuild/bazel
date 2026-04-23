@@ -14,7 +14,7 @@ bazel_dep(name = "rules_apple", version = "4.1.0", repo_name = None)  # version 
 bazel_dep(name = "rules_swift", version = "3.1.2", repo_name = None)  # version bump, older versions don't load CcInfo
 bazel_dep(name = "abseil-cpp", version = "20250814.1", repo_name = None)  # version bump, fixes errors with older compilers
 
-xcode_configure = use_extension("//tools/osx:xcode_configure.bzl", "xcode_configure_extension")
+xcode_configure = use_extension("@apple_support//xcode:xcode_configure.bzl", "xcode_configure_extension")
 use_repo(xcode_configure, "local_config_xcode")
 
 java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
@@ -53,7 +53,7 @@ bazel_dep(name = "rules_python", version = "1.7.0")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 
 # //tools/objc, //tools/osx (including xcode_configure.bzl and its generated repo).
-bazel_dep(name = "apple_support", version = "2.5.2")
+bazel_dep(name = "apple_support", version = "2.6.1")
 
 # //third_party/ijar (zipper built from source when the execution platform differs
 # from the host).
