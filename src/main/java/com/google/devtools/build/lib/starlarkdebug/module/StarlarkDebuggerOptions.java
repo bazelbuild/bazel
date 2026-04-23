@@ -52,7 +52,8 @@ public final class StarlarkDebuggerOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "The address on which the Starlark debug server will listen for connections. Defaults"
-              + " to the loopback interface; set this explicitly to allow non-local clients.")
+              + " to the existing wildcard bind behavior. Set this to a loopback address to accept"
+              + " local clients only.")
   public String debugServerAddress;
 
   @Option(

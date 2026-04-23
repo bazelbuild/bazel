@@ -37,15 +37,15 @@ public final class StarlarkDebugServer implements Debug.Debugger {
    * debug server socket and blocks waiting for an incoming connection.
    *
    * @param port the port on which the server should listen for connections
-   * @param listenAddress the address on which the server should listen for connections; if null
-   *     or empty, loopback is used
+   * @param listenAddress the address on which the server should listen for connections; if empty,
+   *     the existing wildcard bind behavior is used
    * @param verboseLogging if true, debug-level events will be logged
    * @throws IOException if an I/O error occurs while opening the socket or waiting for a connection
    */
   public static StarlarkDebugServer createAndWaitForConnection(
       EventHandler eventHandler,
       int port,
-      @Nullable String listenAddress,
+      String listenAddress,
       boolean verboseLogging,
       DebugCallback callback)
       throws IOException {
@@ -54,13 +54,11 @@ public final class StarlarkDebugServer implements Debug.Debugger {
   }
 
   @VisibleForTesting
-  static ServerSocket createServerSocket(int port, @Nullable String listenAddress)
-      throws IOException {
-    InetAddress address =
-        listenAddress == null || listenAddress.isEmpty()
-            ? InetAddress.getLoopbackAddress()
-            : InetAddress.getByName(listenAddress);
-    return new ServerSocket(port, /* backlog */ 1, address);
+  static ServerSocket createServerSocket(int port, String listenAddress) throws IOException {
+    if (listenAddress.isEmpty()) {
+      return new ServerSocket(port, /* backlog */ 1);
+    }
+    return new ServerSocket(port, /* backlog */ 1, InetAddress.getByName(listenAddress));
   }
 
   /**
