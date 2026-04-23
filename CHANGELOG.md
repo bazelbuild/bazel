@@ -1,3 +1,46 @@
+## Release 10.0.0-pre.20260416.1 (2026-04-23)
+
+```
+Baseline: ee72e6ddbcf19db6e4ddf127bde56ca5676de780
+```
+
+Important changes:
+
+  - Large numbers with 5+ digits in CLI output are now formatted with
+    comma separators for improved readability (e.g., "12,345 targets
+    configured" instead of "12345 targets configured")
+
+This release contains contributions from many people at Google, as well as Anthony Pratti, giria660, Jacob Nowjack, John Cater, Keith Smiley, Sarad Pant, Sarad, Tyler Breisacher, Tyler French.
+
+## Release 9.1.0 (2026-04-20)
+
+```
+
+Release Notes:
+
+```
+
+## Release 10.0.0-pre.20260412.1 (2026-04-20)
+
+```
+Baseline: b938ef2838f83980e894c2a0b9ec916f2dea7e14
+```
+
+Incompatible changes:
+
+  - Add support for decompressing Brotli archives (.br, .tar.br)
+  - Removes the deprecated repository rule `new_git_repository`.
+    Users should use `git_repository` instead (they are the same)
+
+Important changes:
+
+  - Adds `-Djava.net.preferIPv6Addresses=system` to startup JVM args
+    which may impact certain IPv4-only environments. Override as
+    necessary with `--host_jvm_args`.
+  - bazelrc config declarations can now be empty
+
+This release contains contributions from many people at Google, as well as Alex Eagle, ijuren8, Jeremy Volkman, Keith Smiley, Mike Lundy, Will Stranton.
+
 ## Release 10.0.0-pre.20260408.3 (2026-04-15)
 
 ```
