@@ -6,8 +6,7 @@ title: ' Configurable Query (cquery)'
 [`select()`](/versions/8.1.1/docs/configurable-attributes) and build options' effects on the build
 graph.
 
-It achieves this by running over the results of Bazel's [analysis
-phase](/versions/8.1.1/extending/concepts#evaluation-model),
+It achieves this by running over the results of Bazel's [analysis phase](/versions/8.1.1/extending/concepts#evaluation-model),
 which integrates these effects. `query`, by contrast, runs over the results of
 Bazel's loading phase, before options are evaluated.
 
@@ -137,8 +136,7 @@ $ bazel cquery //foo --universe_scope=//foo,//genrule_with_foo_as_tool
 If you want to precisely declare which instance to query over, use
 the [`config`](#config) function.
 
-See `query`'s [target pattern
-documentation](/versions/8.1.1/query/language#target-patterns) for more information on target patterns.
+See `query`'s [target pattern documentation](/versions/8.1.1/query/language#target-patterns) for more information on target patterns.
 
 ## Functions {#functions}
 

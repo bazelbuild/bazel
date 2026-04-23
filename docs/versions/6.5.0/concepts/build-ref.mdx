@@ -14,8 +14,7 @@ outputs can be built from the source.
 
 A _workspace_ is a directory tree on your filesystem that contains the source
 files for the software you want to build. Each workspace has a text file named
-`WORKSPACE` which may be empty, or may contain references to [external
-dependencies](/docs/external) required to build the outputs.
+`WORKSPACE` which may be empty, or may contain references to [external dependencies](/docs/external) required to build the outputs.
 
 Directories containing a file called `WORKSPACE` are considered the root of a
 workspace. Therefore, Bazel ignores any directory trees in a workspace rooted at
@@ -29,13 +28,9 @@ both files exist, `WORKSPACE.bazel` is used.
 Code is organized in _repositories_. The directory containing the `WORKSPACE`
 file is the root of the main repository, also called `@`. Other, (external)
 repositories are defined in the `WORKSPACE` file using workspace rules, or
-generated from modules and extensions in the Bzlmod system. See [external
-dependencies overview](/external/overview) for more information.
+generated from modules and extensions in the Bzlmod system. See [external dependencies overview](/external/overview) for more information.
 
-The workspace rules bundled with Bazel are documented in the [Workspace
-Rules](/reference/be/workspace) section in the [Build
-Encyclopedia](/reference/be/overview) and the documentation on [embedded
-Starlark repository rules](/rules/lib/repo/index).
+The workspace rules bundled with Bazel are documented in the [Workspace Rules](/reference/be/workspace) section in the [Build Encyclopedia](/reference/be/overview) and the documentation on [embedded Starlark repository rules](/rules/lib/repo/index).
 
 As external repositories are repositories themselves, they often contain a
 `WORKSPACE` file as well. However, these additional `WORKSPACE` files are
@@ -107,5 +102,4 @@ have three properties: the list of packages they contain, their name, and other
 package groups they include. The only allowed ways to refer to them are from the
 `visibility` attribute of rules or from the `default_visibility` attribute of
 the `package` function; they do not generate or consume files. For more
-information, refer to the [`package_group`
-documentation](/reference/be/functions#package_group).
+information, refer to the [`package_group` documentation](/reference/be/functions#package_group).

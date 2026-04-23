@@ -19,8 +19,7 @@ directly run by Bazel since there's no Maven compatibility layer.
 ## Before you begin {#before-you-begin}
 
 *   [Install Bazel](/versions/8.4.2/install) if it's not yet installed.
-*   If you're new to Bazel, go through the tutorial [Introduction to Bazel:
-    Build Java](/versions/8.4.2/start/java) before you start migrating. The tutorial explains
+*   If you're new to Bazel, go through the tutorial [Introduction to Bazel: Build Java](/versions/8.4.2/start/java) before you start migrating. The tutorial explains
     Bazel's concepts, structure, and label syntax.
 
 ## Differences between Maven and Bazel {#dif-maven-bazel}
@@ -44,8 +43,7 @@ The steps below describe how to migrate your project to Bazel:
 3.  [Create more BUILD files](#3-build)
 4.  [Build using Bazel](#4-build)
 
-Examples below come from a migration of the [Guava
-project](https://github.com/google/guava) from Maven to Bazel. The
+Examples below come from a migration of the [Guava project](https://github.com/google/guava) from Maven to Bazel. The
 Guava project used is release `v31.1`. The examples using Guava do not walk
 through each step in the migration, but they do show the files and contents that
 are generated or added manually for the migration.
@@ -63,14 +61,12 @@ has no external dependencies, this file can be empty.
 If your project depends on files or packages that are not in one of the
 project's directories, specify these external dependencies in the MODULE.bazel
 file. You can use `rules_jvm_external` to manage dependencies from Maven. For
-instructions about using this ruleset, see [the
-README](https://github.com/bazelbuild/rules_jvm_external/#rules_jvm_external)
+instructions about using this ruleset, see [the README](https://github.com/bazelbuild/rules_jvm_external/#rules_jvm_external)
 .
 
 #### Guava project example: external dependencies {#guava-1}
 
-You can list the external dependencies of the [Guava
-project](https://github.com/google/guava) with the
+You can list the external dependencies of the [Guava project](https://github.com/google/guava) with the
 [`rules_jvm_external`](https://github.com/bazelbuild/rules_jvm_external)
 ruleset.
 
@@ -164,8 +160,7 @@ your build by adding more `BUILD` files with more granular targets.
             *   `resources`: Use globbing to list all resources in your project.
             *   `deps`: You need to determine which external dependencies your
                 project needs.
-        *   Take a look at the [example below of this top-level BUILD
-            file](#guava-2) from the migration of the Guava project.
+        *   Take a look at the [example below of this top-level BUILD file](#guava-2) from the migration of the Guava project.
 
 3.  Now that you have a `BUILD` file at the root of your project, build your
     project to ensure that it works. On the command line, from your workspace

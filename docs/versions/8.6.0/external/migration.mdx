@@ -4,8 +4,7 @@ keywords: bzlmod
 title: 'Bzlmod Migration Guide'
 ---
 
-Due to the [shortcomings of
-WORKSPACE](/versions/8.6.0/external/overview#workspace-shortcomings), Bzlmod is going to
+Due to the [shortcomings of WORKSPACE](/versions/8.6.0/external/overview#workspace-shortcomings), Bzlmod is going to
 replace the legacy WORKSPACE system. The WORKSPACE file will be disabled by
 default in Bazel 8 (late 2024) and will be removed in Bazel 9 (late 2025).
 This guide helps you migrate your project to Bzlmod and drop WORKSPACE for
@@ -119,9 +118,7 @@ Bazel module when it also adopts Bzlmod.
 
 *   **Bzlmod**
 
-    With Bzlmod, as long as the your dependency is available in [Bazel Central
-    Registry](https://registry.bazel.build) or your custom [Bazel
-    registry](/versions/8.6.0/external/registry), you can simply depend on it with a
+    With Bzlmod, as long as the your dependency is available in [Bazel Central Registry](https://registry.bazel.build) or your custom [Bazel registry](/versions/8.6.0/external/registry), you can simply depend on it with a
     [`bazel_dep`](/versions/8.6.0/rules/lib/globals/module#bazel_dep) directive.
 
     ```python
@@ -152,8 +149,7 @@ repository.
 
 If your dependency is not a Bazel project or not yet available in any Bazel
 registry, you can introduce it using
-[`use_repo_rule`](/versions/8.6.0/external/module#use_repo_rule) or [module
-extensions](/versions/8.6.0/external/extension).
+[`use_repo_rule`](/versions/8.6.0/external/module#use_repo_rule) or [module extensions](/versions/8.6.0/external/extension).
 
 *   **WORKSPACE**
 
@@ -606,8 +602,7 @@ macros.
 Fortunately, the flag
 [`--experimental_repository_resolved_file`][resolved_file_flag]
 can help. This flag essentially generates a "lock file" of all fetched external
-dependencies in your last Bazel command. You can find more details in this [blog
-post](https://blog.bazel.build/2018/07/09/bazel-sync-and-resolved-file.html).
+dependencies in your last Bazel command. You can find more details in this [blog post](https://blog.bazel.build/2018/07/09/bazel-sync-and-resolved-file.html).
 
 [resolved_file_flag]: /reference/command-line-reference#flag--experimental_repository_resolved_file
 
@@ -648,11 +643,9 @@ You may also know `bazel query` can be used for inspecting repository rules with
 bazel query --output=build //external:<repo name>
 ```
 
-While it is more convenient and much faster, [bazel query can lie about
-external dependency version](https://github.com/bazelbuild/bazel/issues/12947),
+While it is more convenient and much faster, [bazel query can lie about external dependency version](https://github.com/bazelbuild/bazel/issues/12947),
 so be careful using it! Querying and inspecting external
-dependencies with Bzlmod is going to achieved by a [new
-subcommand](https://github.com/bazelbuild/bazel/issues/15365).
+dependencies with Bzlmod is going to achieved by a [new subcommand](https://github.com/bazelbuild/bazel/issues/15365).
 
 #### Built-in default dependencies
 
@@ -699,8 +692,7 @@ Using the WORKSPACE.bzlmod file can make the migration easier because:
 #### Repository visibility
 
 Bzlmod is able to control which other repositories are visible from a given
-repository, check [repository names and strict
-deps](/versions/8.6.0/external/module#repository_names_and_strict_deps) for more details.
+repository, check [repository names and strict deps](/versions/8.6.0/external/module#repository_names_and_strict_deps) for more details.
 
 Here is a summary of repository visibilities from different types of
 repositories when also taking WORKSPACE into consideration.
@@ -713,8 +705,7 @@ repositories when also taking WORKSPACE into consideration.
 | WORKSPACE Repos | All visible | Not visible | Not visible | All visible |
 
 Note: For the root module, if a repository `@foo` is defined in WORKSPACE and
-`@foo` is also used as an [apparent repository
-name](/versions/8.6.0/external/overview#apparent-repo-name) in MODULE.bazel, then `@foo`
+`@foo` is also used as an [apparent repository name](/versions/8.6.0/external/overview#apparent-repo-name) in MODULE.bazel, then `@foo`
 refers to the one introduced in MODULE.bazel.
 
 Note: For a module extension generated repository `@bar`, if `@foo` is used as
@@ -789,9 +780,7 @@ the project. Take note of a few things when creating the source archive:
     GitHub isn't going to guarantee the checksum of source archives generated on
     demand. In short, URLs in the form of
     `https://github.com/<org>/<repo>/releases/download/...` is considered stable
-    while `https://github.com/<org>/<repo>/archive/...` is not. Check [GitHub
-    Archive Checksum
-    Outage](https://blog.bazel.build/2023/02/15/github-archive-checksum.html)
+    while `https://github.com/<org>/<repo>/archive/...` is not. Check [GitHub Archive Checksum Outage](https://blog.bazel.build/2023/02/15/github-archive-checksum.html)
     for more context.
 
 *   **Make sure the source tree follows the layout of the original repository.**
@@ -820,8 +809,7 @@ Pull Request.
 
 [bcr_contrib_guide]: https://github.com/bazelbuild/bazel-central-registry/tree/main/docs#contribute-a-bazel-module
 
-It is **highly recommended** to set up the [Publish to
-BCR](https://github.com/bazel-contrib/publish-to-bcr) GitHub App for your
+It is **highly recommended** to set up the [Publish to BCR](https://github.com/bazel-contrib/publish-to-bcr) GitHub App for your
 repository to automate the process of submitting your module to the BCR.
 
 ## Best practices

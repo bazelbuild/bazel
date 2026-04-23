@@ -15,8 +15,7 @@ concepts in more detail.
 
 ## Overview of the system {#overview}
 
-Bazel's external dependency system works on the basis of [*Bazel
-modules*](#module), each of which is a versioned Bazel project, and
+Bazel's external dependency system works on the basis of [*Bazel modules*](#module), each of which is a versioned Bazel project, and
 [*repositories*](#repository) (or repos), which are directory trees containing
 source files.
 
@@ -33,8 +32,7 @@ bazel_dep(name = "platforms", version = "0.0.11")
 ```
 
 From there, Bazel looks up all transitive dependency modules in a
-[*Bazel registry*](registry) — by default, the [Bazel Central
-Registry](https://bcr.bazel.build/). The registry provides the
+[*Bazel registry*](registry) — by default, the [Bazel Central Registry](https://bcr.bazel.build/). The registry provides the
 dependencies' `MODULE.bazel` files, which allows Bazel to discover the entire
 transitive dependency graph before performing version resolution.
 
@@ -106,8 +104,7 @@ Bazel's external dependency system offers a wide range of benefits.
     need to facilitate offline builds.
 -   **[Lockfile](lockfile)**: The lockfile improves build reproducibility and
     accelerates dependency resolution.
--   **(Upcoming) [BCR Provenance
-    Attestations](https://github.com/bazelbuild/bazel-central-registry/discussions/2721)**:
+-   **(Upcoming) [BCR Provenance Attestations](https://github.com/bazelbuild/bazel-central-registry/discussions/2721)**:
     Strengthen supply chain security by ensuring verified provenance of
     dependencies.
 
@@ -231,8 +228,7 @@ contain anything to serve as a repo boundary file; however, it can also be used
 to specify some common attributes for all build targets inside the repo.
 
 The syntax of a `REPO.bazel` file is similar to `BUILD` files, except that no
-`load` statements are supported. The `repo()` function takes the same arguments as the [`package()`
-function](/reference/be/functions#package) in `BUILD` files; whereas `package()`
+`load` statements are supported. The `repo()` function takes the same arguments as the [`package()` function](/reference/be/functions#package) in `BUILD` files; whereas `package()`
 specifies common attributes for all build targets inside the package, `repo()`
 analogously does so for all build targets inside the repo.
 

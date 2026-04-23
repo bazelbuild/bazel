@@ -112,16 +112,14 @@ Bazel instead uses [Minimal Version Selection](module#version-selection) like
 Go, which in contrast makes the output easy to predict and guarantees
 reproducibility. This is a tradeoff that matches Bazel's design goals.
 
-Furthermore, Bazel module versions are [a superset of
-SemVer](module#version-format), so what makes sense in a strict SemVer
+Furthermore, Bazel module versions are [a superset of SemVer](module#version-format), so what makes sense in a strict SemVer
 environment doesn't always carry over to Bazel module versions.
 
 ### Can I automatically get the latest version for a `bazel_dep`? {#can-i-automatically-get-the-latest-version-for-a-bazel-dep}
 
 Some users occasionally ask for the ability to specify `bazel_dep(name = "foo",
 version = "latest")` to automatically get the latest version of a dep. This is
-similar to [the question about SemVer
-ranges](#can-i-specify-a-semver-range-for-a-bazel-dep), and the answer is also
+similar to [the question about SemVer ranges](#can-i-specify-a-semver-range-for-a-bazel-dep), and the answer is also
 no.
 
 The recommended solution here is to have automation take care of this. For
@@ -179,8 +177,7 @@ wonder which system is consulted first. The short answer is that MODULE.bazel
 
 The long answer is that "which evaluates first" is not the right question to
 ask; rather, the right question to ask is: in the context of the repo with
-[canonical name](overview#canonical-repo-name) `@@foo`, what does the [apparent
-repo name](overview#apparent-repo-name) `@bar` resolve to? Alternatively, what
+[canonical name](overview#canonical-repo-name) `@@foo`, what does the [apparent repo name](overview#apparent-repo-name) `@bar` resolve to? Alternatively, what
 is the repo mapping of `@@base`?
 
 Labels with apparent repo names (a single leading `@`) can refer to different
@@ -189,8 +186,7 @@ things based on the context they're resolved from. When you see a label
 what the context repo is: for example, if the label is in a BUILD file located
 in the repo `@@foo`, then the context repo is `@@foo`.
 
-Then, depending on what the context repo is, the ["repository
-visibility" table](migration#repository-visibility) in the migration guide can
+Then, depending on what the context repo is, the ["repository visibility" table](migration#repository-visibility) in the migration guide can
 be used to find out which repo an apparent name actually resolves to.
 
 *   If the context repo is the main repo (`@@`):
@@ -242,8 +238,7 @@ as the context repo.
 
 Use the `bazel fetch` command to prefetch repos. You can use the `--repo` flag
 (like `bazel fetch --repo @foo`) to fetch only the repo `@foo` (resolved in the
-context of the main repo, see [question
-above](#which-is-evaluated-first-module-bazel-or-workspace)), or use a target
+context of the main repo, see [question above](#which-is-evaluated-first-module-bazel-or-workspace)), or use a target
 pattern (like `bazel fetch @foo//:bar`) to fetch all transitive dependencies of
 `@foo//:bar` (this is equivalent to `bazel build --nobuild @foo//:bar`).
 
@@ -267,21 +262,17 @@ preferring IPv4 if enabled. In some situations, for example when the IPv4
 network cannot resolve/reach external addresses, this can cause `Network
 unreachable` exceptions and build failures. In these cases, you can override
 Bazel's behavior to prefer IPv6 by using the
-[`java.net.preferIPv6Addresses=true` system
-property](https://docs.oracle.com/javase/8/docs/api/java/net/doc-files/net-properties.html).
+[`java.net.preferIPv6Addresses=true` system property](https://docs.oracle.com/javase/8/docs/api/java/net/doc-files/net-properties.html).
 Specifically:
 
-*   Use `--host_jvm_args=-Djava.net.preferIPv6Addresses=true` [startup
-    option](/versions/9.0.0/docs/user-manual#startup-options), for example by adding the
+*   Use `--host_jvm_args=-Djava.net.preferIPv6Addresses=true` [startup option](/versions/9.0.0/docs/user-manual#startup-options), for example by adding the
     following line in your [`.bazelrc` file](/versions/9.0.0/run/bazelrc):
 
     `startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true`
 
 *   When running Java build targets that need to connect to the internet (such
     as for integration tests), use the
-    `--jvmopt=-Djava.net.preferIPv6Addresses=true` [tool
-    flag](/versions/9.0.0/docs/user-manual#jvmopt). For example, include in your [`.bazelrc`
-    file](/versions/9.0.0/run/bazelrc):
+    `--jvmopt=-Djava.net.preferIPv6Addresses=true` [tool flag](/versions/9.0.0/docs/user-manual#jvmopt). For example, include in your [`.bazelrc` file](/versions/9.0.0/run/bazelrc):
 
     `build --jvmopt=-Djava.net.preferIPv6Addresses`
 
@@ -289,8 +280,7 @@ Specifically:
     [`rules_jvm_external`](https://github.com/bazelbuild/rules_jvm_external) for
     dependency version resolution, also add
     `-Djava.net.preferIPv6Addresses=true` to the `COURSIER_OPTS` environment
-    variable to [provide JVM options for
-    Coursier](https://github.com/bazelbuild/rules_jvm_external#provide-jvm-options-for-coursier-with-coursier_opts).
+    variable to [provide JVM options for Coursier](https://github.com/bazelbuild/rules_jvm_external#provide-jvm-options-for-coursier-with-coursier_opts).
 
 ### Can repo rules be run remotely with remote execution? {#can-repo-rules-be-run-remotely-with-remote-execution}
 
@@ -315,9 +305,7 @@ build rules, which would naturally allow them to be run remotely, but conversely
 raise new architectural concerns (for example, the `query` commands would
 potentially need to run actions, complicating their design).
 
-For more previous discussion on this topic, see [A way to support repositories
-that need Bazel for being
-fetched](https://github.com/bazelbuild/bazel/discussions/20464).
+For more previous discussion on this topic, see [A way to support repositories that need Bazel for being fetched](https://github.com/bazelbuild/bazel/discussions/20464).
 
 [npm-semver]: https://docs.npmjs.com/about-semantic-versioning
 [cargo-semver]: https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#version-requirement-syntax

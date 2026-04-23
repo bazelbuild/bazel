@@ -102,8 +102,7 @@ migrate2bzlmod -t &lt;targets&gt;
     script.
 *   `extension_for_XXX` - A file containing a module extension
     definition. The migration tool generates these files for dependencies that
-    are not standard Bazel modules but can be managed using Bzlmod's [module
-    extensions](/external/extension).
+    are not standard Bazel modules but can be managed using Bzlmod's [module extensions](/external/extension).
 
 ### Flags {#migration-script-flags}
 
@@ -300,8 +299,7 @@ def my_custom_macro(name):
 The end goal is to have `MODULE.bazel` file and delete the `WORKSPACE` file,
 without impacting the user experience.
 
-The first step is to follow [How to Use the Migration
-Tool](#migration-tool-how-to-use), which mostly is checking the bazel version
+The first step is to follow [How to Use the Migration Tool](#migration-tool-how-to-use), which mostly is checking the bazel version
 (it must be Bazel 7) and adding an alias to the migration script.
 
 Then, running `migrate2bzlmod -t=//...` outputs:
@@ -634,8 +632,7 @@ may arise during the Bzlmod migration.
 ### Migration Report Generation {#migration-tool-report-generation}
 
 This file is updated with each run of the migration script or it's generated
-from scratch if it's the first run or if the [`--i`
-flag](#migration-script-flags) is used. The report contains:
+from scratch if it's the first run or if the [`--i` flag](#migration-script-flags) is used. The report contains:
 
 *   Command for local testing.
 *   List of direct dependencies (at least the ones which are directly used in

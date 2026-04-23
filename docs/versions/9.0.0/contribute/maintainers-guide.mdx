@@ -4,8 +4,7 @@ title: 'Guide for Bazel Maintainers'
 
 This is a guide for the maintainers of the Bazel open source project.
 
-If you are looking to contribute to Bazel, please read [Contributing to
-Bazel](/versions/9.0.0/contribute) instead.
+If you are looking to contribute to Bazel, please read [Contributing to Bazel](/versions/9.0.0/contribute) instead.
 
 The objectives of this page are to:
 
@@ -37,8 +36,7 @@ repository.
 
 1. A user creates an issue by choosing one of the
 [issue templates](https://github.com/bazelbuild/bazel/issues/new/choose)
-   and it enters the pool of [unreviewed open
-   issues](https://github.com/bazelbuild/bazel/issues?utf8=%E2%9C%93&q=is%3Aissue+is%3Aopen+-label%3Auntriaged+-label%3Ap2+-label%3Ap1+-label%3Ap3+-label%3Ap4+-label%3Ateam-Starlark+-label%3Ateam-Rules-CPP+-label%3Ateam-Rules-Java+-label%3Ateam-XProduct+-label%3Ateam-Android+-label%3Ateam-Apple+-label%3Ateam-Configurability++-label%3Ateam-Performance+-label%3Ateam-Rules-Server+-label%3Ateam-Core+-label%3Ateam-Rules-Python+-label%3Ateam-Remote-Exec+-label%3Ateam-Local-Exec+-label%3Ateam-Bazel).
+   and it enters the pool of [unreviewed open issues](https://github.com/bazelbuild/bazel/issues?utf8=%E2%9C%93&q=is%3Aissue+is%3Aopen+-label%3Auntriaged+-label%3Ap2+-label%3Ap1+-label%3Ap3+-label%3Ap4+-label%3Ateam-Starlark+-label%3Ateam-Rules-CPP+-label%3Ateam-Rules-Java+-label%3Ateam-XProduct+-label%3Ateam-Android+-label%3Ateam-Apple+-label%3Ateam-Configurability++-label%3Ateam-Performance+-label%3Ateam-Rules-Server+-label%3Ateam-Core+-label%3Ateam-Rules-Python+-label%3Ateam-Remote-Exec+-label%3Ateam-Local-Exec+-label%3Ateam-Bazel).
 1. A member on the Developer Experience (DevEx) subteam rotation reviews the
    issue.
    1. If the issue is **not a bug** or a **feature request**, the DevEx member
@@ -58,21 +56,18 @@ repository.
 1. After reviewing the issue, the DevEx member decides if the issue requires
    immediate attention. If it does, they will assign the **P0**
    [priority](#priority) label and an owner from the list of team leads.
-1. The DevEx member assigns the `untriaged` label and exactly one [team
-   label](#team-labels) for routing.
+1. The DevEx member assigns the `untriaged` label and exactly one [team label](#team-labels) for routing.
 1. The DevEx member also assigns exactly one `type:` label, such as `type: bug`
    or `type: feature request`, according to the type of the issue.
 1. For platform-specific issues, the DevEx member assigns one `platform:` label,
    such as `platform:apple` for Mac-specific issues.
 1. If the issue is low priority and can be worked on by a new community
    contributor, the DevEx member assigns the `good first issue` label.
-At this stage, the issue enters the pool of [untriaged open
-issues](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3Auntriaged).
+At this stage, the issue enters the pool of [untriaged open issues](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3Auntriaged).
 
 Each Bazel subteam will triage all issues under labels they own, preferably on a
 weekly basis. The subteam will review and evaluate the issue and provide a
-resolution, if possible. If you are an owner of a team label, see [this section
-](#label-own) for more information.
+resolution, if possible. If you are an owner of a team label, see [this section](#label-own) for more information.
 
 When an issue is resolved, it can be closed.
 
@@ -111,8 +106,7 @@ preferably on a weekly basis.
      issue is either P0 or P1 we assume that is actively worked on.
 1. Remove the `untriaged` label.
 
-Note that you need to be in the [bazelbuild
-organization](https://github.com/bazelbuild) to be able to add or remove labels.
+Note that you need to be in the [bazelbuild organization](https://github.com/bazelbuild) to be able to add or remove labels.
 
 ### Pull Requests {#pull-requests}
 
@@ -138,8 +132,7 @@ issues.
   unusable, or a downed service that severely impacts development of the Bazel
   project. This includes regressions introduced in a new release that blocks a
   significant number of users, or an incompatible breaking change that was not
-  compliant to the [Breaking
-  Change](https://docs.google.com/document/d/1q5GGRxKrF_mnwtaPKI487P8OdDRh2nN7jX6U-FXnHL0/edit?pli=1#heading=h.ceof6vpkb3ik)
+  compliant to the [Breaking Change](https://docs.google.com/document/d/1q5GGRxKrF_mnwtaPKI487P8OdDRh2nN7jX6U-FXnHL0/edit?pli=1#heading=h.ceof6vpkb3ik)
   policy. No practical workaround exists.
 * [**P1**](https://github.com/bazelbuild/bazel/labels/P1) - Critical defect or
   feature which should be addressed in the next release, or a serious issue that
