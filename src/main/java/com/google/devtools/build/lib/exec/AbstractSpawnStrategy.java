@@ -22,6 +22,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.DeferredSpawnCacheStore;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -127,7 +128,10 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
     SpawnResult spawnResult;
     ExecException ex = null;
-    try (CacheHandle cacheHandle = cache.lookup(spawn, context)) {
+    CacheHandle cacheHandle = null;
+    boolean closeCacheHandle = true;
+    try {
+      cacheHandle = cache.lookup(spawn, context);
       if (cacheHandle.hasResult()) {
         spawnResult = Preconditions.checkNotNull(cacheHandle.getResult());
       } else {
@@ -152,7 +156,25 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
                     startTime,
                     spawnIdentifier));
         if (cacheHandle.willStore()) {
-          cacheHandle.store(spawnResult);
+          if (spawn.getResourceOwner().shouldDeferSpawnCacheStore()) {
+            CacheHandle cacheHandleForStore = cacheHandle;
+            SpawnResult spawnResultForStore = spawnResult;
+            actionExecutionContext.deferSpawnCacheStore(
+                new DeferredSpawnCacheStore() {
+                  @Override
+                  public void store() throws ExecException, InterruptedException, IOException {
+                    cacheHandleForStore.store(spawnResultForStore);
+                  }
+
+                  @Override
+                  public void close() {
+                    cacheHandleForStore.close();
+                  }
+                });
+            closeCacheHandle = false;
+          } else {
+            cacheHandle.store(spawnResult);
+          }
         }
       }
     } catch (InterruptedIOException e) {
@@ -168,6 +190,10 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
       ex = e;
       spawnResult = e.getSpawnResult();
       // Log the Spawn and re-throw.
+    } finally {
+      if (closeCacheHandle && cacheHandle != null) {
+        cacheHandle.close();
+      }
     }
 
     SpawnLogContext spawnLogContext = actionExecutionContext.getContext(SpawnLogContext.class);
