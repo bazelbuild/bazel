@@ -96,6 +96,12 @@ landing_page:
       icon:
         name: grid_view
         position: left
+    - heading: Python
+      classname: fully-clickable
+      path: /start/python
+      icon:
+        name: grid_view
+        position: left
     - heading: Android
       classname: fully-clickable
       path: /start/android-app
