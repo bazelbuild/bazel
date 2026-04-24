@@ -45,6 +45,9 @@ set via [user-defined transitions](#user-defined-transitions).
 
 [End to end example](https://github.com/bazelbuild/examples/tree/HEAD/configurations/basic_build_setting)
 
+Note: Before defining your own build setting, check if one of the [predefined
+settings](#predefined-settings) is suitable.
+
 #### The `build_setting` `rule()` parameter {#rule-parameter}
 
 Build settings are rules like any other rule and are differentiated using the
@@ -168,6 +171,22 @@ load("//example/buildsettings:build_settings.bzl", "flavor")
 flavor(
     name = "favorite_flavor",
     build_setting_default = "APPLE"
+)
+```
+
+#### Scope
+
+Build settings are by default only applied to the `target` [configuration]
+(/extending/rules#configurations), and won't be applied to the `exec`
+configuration. To have the build setting applied to both the `target` and `exec`
+configurations set the `scope` attribute to `"universal"`.
+
+```python
+# example/BUILD
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+bool_flag(
+    name = "use_this_for_compiler_and_sources",
+    scope = "universal"
 )
 ```
 
