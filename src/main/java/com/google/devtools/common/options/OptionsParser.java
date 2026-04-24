@@ -208,6 +208,15 @@ public class OptionsParser implements OptionsParsingResult {
       return this;
     }
 
+    /**
+     * Sets whether unknown long options should be preserved as skipped options for a later parse.
+     */
+    @CanIgnoreReturnValue
+    public Builder allowUnknownOptions(boolean allowUnknownOptions) {
+      this.implBuilder.allowUnknownOptions(allowUnknownOptions);
+      return this;
+    }
+
     /** Sets whether the parser should ignore user options. If true, returns no user options. */
     @CanIgnoreReturnValue
     public Builder ignoreUserOptions() {

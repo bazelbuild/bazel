@@ -635,7 +635,12 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             Profiler.instance().profile(ProfilerTask.BZLMOD, "compute main repo mapping")) {
           RepositoryMapping mainRepoMapping =
               env.getSkyframeExecutor().getMainRepoMapping(reporter);
-          optionsParser = optionsParser.toBuilder().withConversionContext(mainRepoMapping).build();
+          optionsParser =
+              optionsParser
+                  .toBuilder()
+                  .allowUnknownOptions(false)
+                  .withConversionContext(mainRepoMapping)
+                  .build();
           // Collect MODULE.bazel flag_alias(name = "foo", starlark_flag = "//bar") entries, so when
           // builds set "--foo=1", that maps to "--//bar=1". Inject this as an implicit
           // "--flag_alias=foo=//bar" flag. This is because select()s and configuration transitions
@@ -673,10 +678,15 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                   runtime, workspace, command, commandAnnotation, optionsParser, invocationPolicy);
           ImmutableList.Builder<OptionAndRawValue> invocationPolicyFlagListBuilder =
               ImmutableList.builder();
-          // Do not handle any events since this is the second time we parse the options.
+          // Do not replay events unless this parse fails, since this is the second time we parse
+          // the options.
+          StoredEventHandler reparseEventHandler = new StoredEventHandler();
           earlyExitCode =
               optionHandler.parseOptions(
-                  args, ExtendedEventHandler.NOOP, invocationPolicyFlagListBuilder);
+                  args, reparseEventHandler, invocationPolicyFlagListBuilder);
+          if (!earlyExitCode.isSuccess()) {
+            reparseEventHandler.replayOn(reporter);
+          }
           env.setInvocationPolicyFlags(invocationPolicyFlagListBuilder.build());
         }
         if (!earlyExitCode.isSuccess()) {
@@ -939,6 +949,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         OptionsParser.builder()
             .optionsData(optionsData)
             .skipStarlarkOptionPrefixes()
+            // MODULE.bazel flag_alias() entries are only known after module resolution. Defer
+            // unknown long options during the first parse so they can be resolved on the reparse.
+            .allowUnknownOptions(annotation.buildPhase().analyzes())
             .allowResidue(annotation.allowResidue())
             .withAliasFlag(CoreOptionConverters.BLAZE_ALIASING_FLAG)
             .build();

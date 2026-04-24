@@ -131,6 +131,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.LabelInterner;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -3323,17 +3324,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     EvaluationResult<BazelDepGraphValue> evalResult =
         evaluate(
             ImmutableList.of(BazelDepGraphValue.KEY), false, DEFAULT_THREAD_COUNT, eventHandler);
-    var bzlmodDepGraph = evalResult.get(BazelDepGraphValue.KEY).getDepGraph();
+    BazelDepGraphValue bzlmodDepGraphValue = evalResult.get(BazelDepGraphValue.KEY);
+    var bzlmodDepGraph = bzlmodDepGraphValue.getDepGraph();
     LinkedHashMap<String, String> aliasesMap = new LinkedHashMap<>();
     var rootModule = bzlmodDepGraph.entrySet().iterator().next().getValue();
     for (var module : bzlmodDepGraph.entrySet()) {
       ImmutableMap<String, String> flagAliases = module.getValue().getFlagAliases();
+      RepositoryMapping repoMapping = bzlmodDepGraphValue.getFullRepoMapping(module.getKey());
       for (var flagAlias : flagAliases.entrySet()) {
-        aliasesMap.put(
-            flagAlias.getKey(),
-            flagAlias.getValue().startsWith("//")
-                ? module.getKey().getCanonicalRepoNameWithoutVersion() + flagAlias.getValue()
-                : flagAlias.getValue());
+        String aliasValue = canonicalizeModuleFlagAliasValue(repoMapping, flagAlias.getValue());
+        aliasesMap.put(flagAlias.getKey(), aliasValue);
       }
       if (!module.getValue().getName().equals("rules_python")) {
         continue;
@@ -3363,6 +3363,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
 
     return ImmutableMap.copyOf(aliasesMap);
+  }
+
+  private static String canonicalizeModuleFlagAliasValue(
+      RepositoryMapping repoMapping, String aliasValue) {
+    try {
+      return Label.parseWithPackageContext(
+              aliasValue,
+              PackageContext.of(
+                  PackageIdentifier.create(repoMapping.contextRepo(), PathFragment.EMPTY_FRAGMENT),
+                  repoMapping))
+          .getUnambiguousCanonicalForm();
+    } catch (LabelSyntaxException e) {
+      throw new IllegalStateException(
+          String.format("Invalid MODULE.bazel flag_alias label %s", aliasValue), e);
+    }
   }
 
   public RepositoryMapping getMainRepoMapping(ExtendedEventHandler eventHandler)

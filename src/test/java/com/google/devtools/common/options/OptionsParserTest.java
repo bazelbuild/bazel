@@ -2535,6 +2535,32 @@ public final class OptionsParserTest {
   }
 
   @Test
+  public void allowUnknownOptions_skipsUnknownLongOptions() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(ExampleFoo.class).allowUnknownOptions(true).build();
+
+    parser.parse("--unknown_option=1", "--foo=bar");
+
+    assertThat(parser.getSkippedArgs()).containsExactly("--unknown_option=1");
+    assertThat(parser.getOptions(ExampleFoo.class).getFoo()).isEqualTo("bar");
+    assertThat(
+            parser.asCompleteListOfParsedOptions().stream()
+                .map(ParsedOptionDescription::getCommandLineForm))
+        .containsExactly("--foo=bar");
+  }
+
+  @Test
+  public void allowUnknownOptions_canBeDisabledOnRebuiltParser() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(ExampleFoo.class).allowUnknownOptions(true).build();
+    parser.parse("--unknown_option=1");
+
+    OptionsParser strictParser = parser.toBuilder().allowUnknownOptions(false).build();
+
+    assertThrows(OptionsParsingException.class, () -> strictParser.parse("--unknown_option=1"));
+  }
+
+  @Test
   public void fallbackOptions_optionsParsingEquivalently() throws OptionsParsingException {
     OpaqueOptionsData fallbackData =
         OptionsParser.getFallbackOptionsData(
