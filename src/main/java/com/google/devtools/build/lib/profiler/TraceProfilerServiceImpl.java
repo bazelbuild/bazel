@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.collect.Extrema;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -212,7 +213,10 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
 
   @Override
   public long nanoTimeMaybe() {
-    return isActive() ? clock.nanoTime() : -1;
+    // Note that we fall back to an actual clock instead of disabling nanoTime entirely if the
+    // profiler is not active. This is because some callers of the profiler service may use
+    // nanoTime for latency tracking even without starting the rest of the profiler features.
+    return isActive() ? clock.nanoTime() : BlazeClock.nanoTime();
   }
 
   @Override
