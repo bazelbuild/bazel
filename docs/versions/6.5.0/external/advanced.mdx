@@ -6,10 +6,8 @@ title: 'Advanced topics on external dependencies'
 
 ## Shadowing dependencies in WORKSPACE
 
-Note: This section applies to the [WORKSPACE
-system](/external/overview#workspace-system) only. For
-[Bzlmod](/external/overview#bzlmod), use a [multiple-version
-override](/external/module#multiple-version_override).
+Note: This section applies to the [WORKSPACE system](/external/overview#workspace-system) only. For
+[Bzlmod](/external/overview#bzlmod), use a [multiple-version override](/external/module#multiple-version_override).
 
 Whenever possible, have a single version policy in your project, which is
 required for dependencies that you compile against and end up in your final
@@ -130,29 +128,24 @@ preferring IPv4 if enabled. In some situations, for example when the IPv4
 network cannot resolve/reach external addresses, this can cause `Network
 unreachable` exceptions and build failures. In these cases, you can override
 Bazel's behavior to prefer IPv6 by using the
-[`java.net.preferIPv6Addresses=true` system
-property](https://docs.oracle.com/javase/8/docs/api/java/net/doc-files/net-properties.html).
+[`java.net.preferIPv6Addresses=true` system property](https://docs.oracle.com/javase/8/docs/api/java/net/doc-files/net-properties.html).
 Specifically:
 
-*   Use `--host_jvm_args=-Djava.net.preferIPv6Addresses=true` [startup
-    option](/docs/user-manual#startup-options), for example by adding the
+*   Use `--host_jvm_args=-Djava.net.preferIPv6Addresses=true` [startup option](/docs/user-manual#startup-options), for example by adding the
     following line in your [`.bazelrc` file](/run/bazelrc):
 
     `startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true`
 
 *   When running Java build targets that need to connect to the internet (such
     as for integration tests), use the
-    `--jvmopt=-Djava.net.preferIPv6Addresses=true` [tool
-    flag](/docs/user-manual#jvmopt). For example, include in your [`.bazelrc`
-    file](/run/bazelrc):
+    `--jvmopt=-Djava.net.preferIPv6Addresses=true` [tool flag](/docs/user-manual#jvmopt). For example, include in your [`.bazelrc` file](/run/bazelrc):
 
     `build --jvmopt=-Djava.net.preferIPv6Addresses`
 
 *   If you are using [`rules_jvm_external`](https://github.com/bazelbuild/rules_jvm_external)
     for dependency version resolution, also add
     `-Djava.net.preferIPv6Addresses=true` to the `COURSIER_OPTS` environment
-    variable to [provide JVM options for
-    Coursier](https://github.com/bazelbuild/rules_jvm_external#provide-jvm-options-for-coursier-with-coursier_opts).
+    variable to [provide JVM options for Coursier](https://github.com/bazelbuild/rules_jvm_external#provide-jvm-options-for-coursier-with-coursier_opts).
 
 ## Offline builds
 
@@ -169,15 +162,12 @@ fetch a file with [`ctx.download`](/rules/lib/repository_ctx#download) or
 providing a hash sum of the file needed, Bazel looks for a file matching the
 basename of the first URL, and uses the local copy if the hash matches.
 
-Bazel itself uses this technique to bootstrap offline from the [distribution
-artifact](https://github.com/bazelbuild/bazel-website/blob/master/designs/_posts/2016-10-11-distribution-artifact.md).
-It does so by [collecting all the needed external
-dependencies](https://github.com/bazelbuild/bazel/blob/5cfa0303d6ac3b5bd031ff60272ce80a704af8c2/WORKSPACE#L116)
+Bazel itself uses this technique to bootstrap offline from the [distribution artifact](https://github.com/bazelbuild/bazel-website/blob/master/designs/_posts/2016-10-11-distribution-artifact.md).
+It does so by [collecting all the needed external dependencies](https://github.com/bazelbuild/bazel/blob/5cfa0303d6ac3b5bd031ff60272ce80a704af8c2/WORKSPACE#L116)
 in an internal
 [`distdir_tar`](https://github.com/bazelbuild/bazel/blob/5cfa0303d6ac3b5bd031ff60272ce80a704af8c2/distdir.bzl#L44).
 
 Bazel allows execution of arbitrary commands in repository rules without knowing
 if they call out to the network, and so cannot enforce fully offline builds. To
 test if a build works correctly offline, manually block off the network (as
-Bazel does in its [bootstrap
-test](https://cs.opensource.google/bazel/bazel/+/master:src/test/shell/bazel/BUILD;l=1073;drc=88c426e73cc0eb0a41c0d7995e36acd94e7c9a48)).
+Bazel does in its [bootstrap test](https://cs.opensource.google/bazel/bazel/+/master:src/test/shell/bazel/BUILD;l=1073;drc=88c426e73cc0eb0a41c0d7995e36acd94e7c9a48)).

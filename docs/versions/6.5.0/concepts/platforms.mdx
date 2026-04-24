@@ -157,10 +157,8 @@ attributes declare a language's tools (like `compiler =
 this information to rules that need to build with these tools.
 
 Toolchains declare the `constraint_value`s of machines they can
-[target][target_compatible_with Attribute]
-(`target_compatible_with = ["@platforms//os:linux"]`) and machines their tools can
-[run on][exec_compatible_with Attribute]
-(`exec_compatible_with = ["@platforms//os:mac"]`).
+[target][target_compatible_with Attribute](`target_compatible_with = ["@platforms//os:linux"]`) and machines their tools can
+[run on][exec_compatible_with Attribute](`exec_compatible_with = ["@platforms//os:mac"]`).
 
 When building `$ bazel build //:myproject --platforms=//:myplatform`, Bazel
 automatically selects a toolchain that can run on the build machine and
@@ -283,8 +281,7 @@ Bazel's Apple rules do not yet support platforms to select Apple toolchains.
 
 They also don't support platform-enabled C++ dependencies because they use the
 legacy `--crosstool_top` to set the C++ toolchain. Until this is migrated, you
-can mix Apple projects with platorm-enabled C++ with [platform
-mappings](#platform-mappings)
+can mix Apple projects with platorm-enabled C++ with [platform mappings](#platform-mappings)
 ([example](https://github.com/bazelbuild/bazel/issues/8716#issuecomment-516572378)).
 
 ### Other languages {#other-languages}
@@ -345,8 +342,7 @@ sets `--cpu`, `--crossstool_top`, or other legacy flags, rules that read
 
 When migrating your project to platforms, you must either convert changes like
 `return { "//command_line_option:cpu": "arm" }` to `return {
-"//command_line_option:platforms": "//:my_arm_platform" }` or use [platform
-mappings](#platform-mappings) to support both styles through the migration
+"//command_line_option:platforms": "//:my_arm_platform" }` or use [platform mappings](#platform-mappings) to support both styles through the migration
 window.
 
 ## How to use platforms today
@@ -359,8 +355,7 @@ If you're a project, language, or toolchain maintainer and your build doesn't
 use platforms by default, you have three options (besides waiting for the global
 migration):
 
-1. Flip on the "use platforms" flag for your project's languages ([if they have
-   one](#status)) and do whatever testing you need to see if the projects you care
+1. Flip on the "use platforms" flag for your project's languages ([if they have one](#status)) and do whatever testing you need to see if the projects you care
    about work.
 
 1. If the projects you care about still depend on legacy flags like `--cpu` and

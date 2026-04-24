@@ -93,10 +93,8 @@ values returned by rules are immutable.
 `BUILD` files register targets via making calls to rules. `.bzl` files provide
 definitions for constants, rules, macros, and functions.
 
-[Native functions](/versions/8.3.1/reference/be/functions) and [native rules](
-/reference/be/overview#language-specific-native-rules) are global symbols in
-`BUILD` files. `bzl` files need to load them using the [`native` module](
-/rules/lib/toplevel/native).
+[Native functions](/versions/8.3.1/reference/be/functions) and [native rules](/reference/be/overview#language-specific-native-rules) are global symbols in
+`BUILD` files. `bzl` files need to load them using the [`native` module](/rules/lib/toplevel/native).
 
 There are two syntactic restrictions in `BUILD` files: 1) declaring functions is
 illegal, and 2) `*args` and `**kwargs` arguments are not allowed.

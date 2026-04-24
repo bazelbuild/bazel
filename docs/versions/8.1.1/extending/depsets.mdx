@@ -111,8 +111,7 @@ need to ensure that if `B` depends on `A`, then `A.o` comes before `B.o` on the
 linker’s command line. Other tools might have the opposite requirement.
 
 Three traversal orders are supported: `postorder`, `preorder`, and
-`topological`. The first two work exactly like [tree
-traversals](https://en.wikipedia.org/wiki/Tree_traversal#Depth-first_search)
+`topological`. The first two work exactly like [tree traversals](https://en.wikipedia.org/wiki/Tree_traversal#Depth-first_search)
 except that they operate on DAGs and skip already visited nodes. The third order
 works as a topological sort from root to leaves, essentially the same as
 preorder except that shared children are listed only after all of their parents.

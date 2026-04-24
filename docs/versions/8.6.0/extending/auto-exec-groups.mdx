@@ -27,9 +27,7 @@ doesn't detect that ([the error](#first-error-message) is raised), you can set
 
 If you need to use multiple toolchains on a single execution platform (an action
 uses executable or tools from two or more toolchains), you need to manually
-define [exec_groups][exec_groups] (check
-[When should I use a custom exec_group?][multiple_toolchains_exec_groups]
-section).
+define [exec_groups][exec_groups](check [When should I use a custom exec_group?][multiple_toolchains_exec_groups] section).
 
 ## History
 
@@ -42,8 +40,7 @@ my_rule = rule(
 )
 ```
 
-Rule `my_rule` registers two toolchain types. This means that the [Toolchain
-Resolution](https://bazel.build/versions/8.6.0/extending/toolchains#toolchain-resolution) used
+Rule `my_rule` registers two toolchain types. This means that the [Toolchain Resolution](https://bazel.build/versions/8.6.0/extending/toolchains#toolchain-resolution) used
 to find an execution platform which supports both toolchain types. The selected
 execution platform was used for each registered action inside the rule, unless
 specified differently with [exec_groups][exec_groups].

@@ -77,8 +77,7 @@ To test your Android project with platforms, see
 for support.
 
 You can still use platform APIs with Apple builds (for example, when building
-with a mixture of Apple rules and pure C++) with [platform
-mappings](#platform-mappings).
+with a mixture of Apple rules and pure C++) with [platform mappings](#platform-mappings).
 
 ### Other languages
 
@@ -241,8 +240,7 @@ sets `--cpu`, `--crossstool_top`, or other legacy flags, rules that read
 
 When migrating your project to platforms, you must either convert changes like
 `return { "//command_line_option:cpu": "arm" }` to `return {
-"//command_line_option:platforms": "//:my_arm_platform" }` or use [platform
-mappings](#platform-mappings) to support both styles during migration.
+"//command_line_option:platforms": "//:my_arm_platform" }` or use [platform mappings](#platform-mappings) to support both styles during migration.
 window.
 
 ## Migrating your rule set
@@ -361,10 +359,8 @@ attributes declare a language's tools (like `compiler =
 this information to rules that need to build with these tools.
 
 Toolchains declare the `constraint_value`s of machines they can
-[target][target_compatible_with Attribute]
-(`target_compatible_with = ["@platforms//os:linux"]`) and machines their tools can
-[run on][exec_compatible_with Attribute]
-(`exec_compatible_with = ["@platforms//os:mac"]`).
+[target][target_compatible_with Attribute](`target_compatible_with = ["@platforms//os:linux"]`) and machines their tools can
+[run on][exec_compatible_with Attribute](`exec_compatible_with = ["@platforms//os:mac"]`).
 
 When building `$ bazel build //:myproject --platforms=//:myplatform`, Bazel
 automatically selects a toolchain that can run on the build machine and

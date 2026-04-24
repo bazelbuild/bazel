@@ -685,8 +685,7 @@ mark it as having failed.
 ## Execution platform {#execution-platform}
 The [execution platform](/versions/9.0.0/extending/platforms) for a test action is determined
 via [toolchain resolution](/versions/9.0.0/extending/toolchains#toolchain-resolution), just
-like for any other action. Each test rule has an implicitly defined [
-`test` exec group](/versions/9.0.0/extending/exec-groups#exec-groups-for-native-rules) that,
+like for any other action. Each test rule has an implicitly defined [`test` exec group](/versions/9.0.0/extending/exec-groups#exec-groups-for-native-rules) that,
 unless overridden, has a mandatory toolchain requirement on
 `@bazel_tools//tools/test:default_test_toolchain_type`.
 
@@ -726,8 +725,7 @@ a default toolchain for it.
 ## Tag conventions {#tag-conventions}
 Some tags in the test rules have a special meaning.
 See also the
-[Bazel Build Encyclopedia on the `tags` attribute]
-(/reference/be/common-definitions#common.tags).
+[Bazel Build Encyclopedia on the `tags` attribute](/reference/be/common-definitions#common.tags).
 
 <table>
   <tr>

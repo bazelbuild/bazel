@@ -250,8 +250,7 @@ There are several important limitations and caveats:
    package called "Foo.java" (which is allowed, though Bazel warns about it),
    then the consumer of the `glob()` will use the "Foo.java" rule
    (its outputs) instead of the "Foo.java" file. See
-   [GitHub
-   issue #10395](https://github.com/bazelbuild/bazel/issues/10395#issuecomment-583714657) for more details.
+   [GitHub issue #10395](https://github.com/bazelbuild/bazel/issues/10395#issuecomment-583714657) for more details.
 3. Globs may match files in subdirectories. And subdirectory names
    may be wildcarded. However...
 4. Labels are not allowed to cross the package boundary and glob does
