@@ -316,3 +316,8 @@ y that it depends on. Use `maxrank`:
 
 The result indicates that there exist paths of length 85 that must occur in
 order in this build.
+
+
+## Output Formats
+
+To display the full provider path for a Starlark rule's kind, you can pass the `--display_full_kind` flag. When enabled, the output for a Starlark rule will appear as `@my_repo//pkg:rules.bzl%my_rule rule //foo:bar`.

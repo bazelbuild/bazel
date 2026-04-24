@@ -209,6 +209,9 @@ with_features = [
   </tr>
 </table>
 
+- `remap_paths` (boolean, optional): When `True`, paths in variables expanded within this feature's `flag_set`s will be remapped if path remapping is configured for the build. This is useful for normalizing paths, such as include directories, for improved cacheability.
+
+
 ## Actions {#actions}
 
 Actions provide the flexibility to modify the circumstances under

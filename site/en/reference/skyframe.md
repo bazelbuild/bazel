@@ -197,3 +197,7 @@ As a visual aid, this diagram shows the relationships between
 SkyFunction implementations after a build of Bazel itself:
 
 ![A graph of SkyFunction implementation relationships](/reference/skyframe.png)
+
+## Skyframe
+
+The validity of a cached value also depends on build-wide state. This includes the configuration, relevant command-line flags, and the Starlark semantics in effect. Changes to these elements will correctly invalidate the cache and trigger re-evaluation.

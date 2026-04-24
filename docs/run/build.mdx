@@ -699,3 +699,8 @@ the majority of its time, ranging from a few seconds to over an hour for a large
 build. Errors reported during this phase include: missing source files, errors
 in a tool executed by some build action, or failure of a tool to produce the
 expected set of outputs.
+
+
+## Running executables with "bazel run"
+
+Note: `bazel run` will execute the target even if a post-build task, such as uploading to the Build Event Service, fails. The command will still report a non-zero exit code to indicate the task failure.

@@ -421,3 +421,8 @@ projects](https://github.com/bazelbuild/bazel/tree/master/examples){: .external}
 If you are interested in details about how Bazel builds Python targets on
 Windows, check out this [design
 doc](https://github.com/bazelbuild/bazel-website/blob/master/designs/_posts/2016-09-05-build-python-on-windows.md){: .external}.
+
+
+## Known issues
+
+Bazel's C++ include scanning is aware of Windows' case-insensitive filesystem. This ensures that headers included with different casing (e.g., `MyHeader.h` vs. `myheader.h`) are correctly resolved, preventing potential dependency analysis errors.

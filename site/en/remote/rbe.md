@@ -32,3 +32,8 @@ self-service tools, see
 Remote execution of Bazel builds imposes a set of mandatory configuration
 constraints on the build. For more information, see
 [Adapting Bazel Rules for Remote Execution](/remote/rules).
+
+
+## Remote Build Execution
+
+Bazel's remote execution client now materializes symlinks that point outside the execution root (such as those from the repository cache) during the input prefetching stage. This preserves the symlink structure for remote actions, more closely matching local execution behavior.

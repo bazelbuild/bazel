@@ -177,3 +177,8 @@ do the following:
 
 4. Use your favourite text differ to diff `/tmp/exec1.log.txt` and
    `/tmp/exec2.log.txt`.
+
+
+## Remote Caching
+
+For repositories with very large artifacts, you can enable chunking to split blobs into smaller pieces. This can help avoid timeouts and improve upload/download performance. Enable it with the `--experimental_remote_cache_chunking` flag. Note that your remote cache server must also support this feature.
