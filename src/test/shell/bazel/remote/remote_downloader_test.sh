@@ -100,7 +100,7 @@ EOF
   # Build using the remote downloader
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
-      --experimental_remote_downloader=grpc://localhost:${worker_port} \
+      --remote_downloader=grpc://localhost:${worker_port} \
       //:test >& $TEST_log \
       || fail "Failed to build with remote downloader"
 
@@ -153,7 +153,7 @@ EOF
   # The build should fail due to checksum mismatch
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
-      --experimental_remote_downloader=grpc://localhost:${worker_port} \
+      --remote_downloader=grpc://localhost:${worker_port} \
       //:check >& $TEST_log \
       && fail "Expected build to fail due to checksum mismatch"
 
@@ -207,7 +207,7 @@ EOF
 
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
-      --experimental_remote_downloader=grpc://localhost:${worker_port} \
+      --remote_downloader=grpc://localhost:${worker_port} \
       //:test >& $TEST_log \
       || fail "Failed first build with canonical_id"
 
@@ -244,7 +244,7 @@ EOF
   # and re-download the file
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
-      --experimental_remote_downloader=grpc://localhost:${worker_port} \
+      --remote_downloader=grpc://localhost:${worker_port} \
       //:test >& $TEST_log \
       || fail "Failed to build with new canonical_id"
 
@@ -298,7 +298,7 @@ EOF
   # First build - should download from the origin
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
-      --experimental_remote_downloader=grpc://localhost:${worker_port} \
+      --remote_downloader=grpc://localhost:${worker_port} \
       //:test >& $TEST_log \
       || fail "Failed first build"
 
@@ -312,7 +312,7 @@ EOF
   # (no HTTP server running, so it would fail if trying to re-download)
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
-      --experimental_remote_downloader=grpc://localhost:${worker_port} \
+      --remote_downloader=grpc://localhost:${worker_port} \
       //:test >& $TEST_log \
       || fail "Failed second build - should have used cache"
 

@@ -155,7 +155,8 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   public abstract void setRemoteCache(String value);
 
   @Option(
-      name = "experimental_remote_downloader",
+      name = "remote_downloader",
+      oldName = "experimental_remote_downloader",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -169,7 +170,8 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   public abstract void setRemoteDownloader(String value);
 
   @Option(
-      name = "experimental_remote_downloader_local_fallback",
+      name = "remote_downloader_local_fallback",
+      oldName = "experimental_remote_downloader_local_fallback",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -179,7 +181,8 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   public abstract void setRemoteDownloaderLocalFallback(boolean value);
 
   @Option(
-      name = "experimental_remote_downloader_propagate_credentials",
+      name = "remote_downloader_propagate_credentials",
+      oldName = "experimental_remote_downloader_propagate_credentials",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
