@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
-import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -52,10 +51,6 @@ import javax.annotation.Nullable;
 
 /** Spawn runner that uses Darwin (macOS) sandboxing to execute a process. */
 final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
-
-  /** Path to the {@code getconf} system tool to use. */
-  @VisibleForTesting
-  static String getconfBinary = "/usr/bin/getconf";
 
   /** Path to the {@code sandbox-exec} system tool to use. */
   @VisibleForTesting
@@ -129,12 +124,13 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       CommandEnvironment cmdEnv,
       Path sandboxBase,
       TreeDeleter treeDeleter)
-      throws IOException, InterruptedException {
+      throws IOException {
     super(cmdEnv);
     this.helpers = helpers;
     this.execRoot = cmdEnv.getExecRoot();
     this.allowNetwork = helpers.shouldAllowNetwork(cmdEnv.getOptions());
-    this.alwaysWritableDirs = getAlwaysWritableDirs(cmdEnv.getRuntime().getFileSystem());
+    this.alwaysWritableDirs =
+        getAlwaysWritableDirs(cmdEnv.getRuntime().getFileSystem(), cmdEnv.getClientEnv());
     this.processWrapper = ProcessWrapper.fromCommandEnvironment(cmdEnv);
     this.localEnvProvider = LocalEnvProvider.forCurrentOs(cmdEnv.getClientEnv());
     this.sandboxBase = sandboxBase;
@@ -154,8 +150,8 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     }
   }
 
-  private static ImmutableSet<Path> getAlwaysWritableDirs(FileSystem fs)
-      throws IOException, InterruptedException {
+  private static ImmutableSet<Path> getAlwaysWritableDirs(
+      FileSystem fs, ImmutableMap<String, String> clientEnv) throws IOException {
     HashSet<Path> writableDirs = new HashSet<>();
 
     addPathToSetIfExists(fs, writableDirs, "/dev");
@@ -164,9 +160,12 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     addPathToSetIfExists(fs, writableDirs, "/private/var/tmp");
 
     // On macOS, processes may write to not only $TMPDIR but also to two other temporary
-    // directories. We have to get their location by calling "getconf".
-    addPathToSetIfExists(fs, writableDirs, getConfStr("DARWIN_USER_TEMP_DIR"));
-    addPathToSetIfExists(fs, writableDirs, getConfStr("DARWIN_USER_CACHE_DIR"));
+    // directories. We get their values from from getconf from the client. This comes
+    // from the client instead of being computed here because after logging out and back
+    // in getconf no longer works when run from a server process from a previous user
+    // session. See https://github.com/bazelbuild/bazel/issues/7692.
+    addPathToSetIfExists(fs, writableDirs, clientEnv.get("DARWIN_USER_TEMP_DIR"));
+    addPathToSetIfExists(fs, writableDirs, clientEnv.get("DARWIN_USER_CACHE_DIR"));
     // We don't add any value for $TMPDIR here, instead we compute its value later in
     // {@link #actuallyExec} and add it as a writable directory in
     // {@link AbstractSandboxSpawnRunner#getWritableDirs}.
@@ -180,21 +179,6 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     addPathToSetIfExists(writableDirs, homeDir.getRelative("Library/Developer"));
 
     return ImmutableSet.copyOf(writableDirs);
-  }
-
-  /** Returns the value of a POSIX or X/Open system configuration variable. */
-  private static String getConfStr(String confVar) throws IOException, InterruptedException {
-    String[] commandArr = new String[2];
-    commandArr[0] = getconfBinary;
-    commandArr[1] = confVar;
-    Command cmd = new Command(commandArr);
-    CommandResult res;
-    try {
-      res = cmd.execute();
-    } catch (CommandException e) {
-      throw new IOException("getconf failed", e);
-    }
-    return new String(res.getStdout(), UTF_8).trim();
   }
 
   @Override

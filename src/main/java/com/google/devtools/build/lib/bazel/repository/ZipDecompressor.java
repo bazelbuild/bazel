@@ -33,6 +33,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -95,8 +96,12 @@ public class ZipDecompressor implements Decompressor {
         if (entryPath.skip()) {
           continue;
         }
-        extractZipEntry(
-            reader, entry, destinationDirectory, entryPath.getPathFragment(), prefix, symlinks);
+        PathFragment pathFragment =
+            entryPath.getPathFragment().stripComponents(descriptor.stripComponents());
+        if (Objects.equals(pathFragment, PathFragment.EMPTY_FRAGMENT)) {
+          continue;
+        }
+        extractZipEntry(reader, entry, destinationDirectory, pathFragment, prefix, symlinks);
       }
 
       if (prefix.isPresent() && !foundPrefix) {

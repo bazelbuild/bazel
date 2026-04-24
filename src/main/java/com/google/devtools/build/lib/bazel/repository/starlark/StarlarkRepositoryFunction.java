@@ -329,8 +329,6 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
 
       // Modify marker data to include the files/dirents/env vars used by the rule's implementation
       // function.
-      recordedInputValues.putAll(
-          Maps.transformValues(RepoRecordedInput.EnvVar.wrap(envVarValues), v -> v.orElse(null)));
       recordedInputValues.putAll(starlarkRepositoryContext.getRecordedFileInputs());
       recordedInputValues.putAll(starlarkRepositoryContext.getRecordedDirentsInputs());
       recordedInputValues.putAll(starlarkRepositoryContext.getRecordedDirTreeInputs());

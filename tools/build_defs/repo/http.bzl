@@ -152,6 +152,9 @@ def _http_archive_impl(ctx):
     if ctx.attr.build_file and ctx.attr.build_file_content:
         fail("Only one of build_file and build_file_content can be provided.")
 
+    if ctx.attr.strip_prefix and ctx.attr.strip_components:
+        fail("Only one of strip_prefix and strip_components can be provided.")
+
     source_urls = _get_source_urls(ctx)
     download_info = ctx.download_and_extract(
         source_urls,
@@ -159,6 +162,7 @@ def _http_archive_impl(ctx):
         ctx.attr.sha256,
         ctx.attr.type,
         ctx.attr.strip_prefix,
+        strip_components = ctx.attr.strip_components,
         canonical_id = ctx.attr.canonical_id or get_default_canonical_id(ctx, source_urls),
         auth = get_auth(ctx, source_urls),
         integrity = ctx.attr.integrity,
@@ -301,7 +305,16 @@ Note that if there are files outside of this directory, they will be
 discarded and inaccessible (e.g., a top-level license file). This includes
 files/directories that start with the prefix but are not in the directory
 (e.g., `foo-lib-1.2.3.release-notes`). If the specified prefix does not
-match a directory in the archive, Bazel will return an error.""",
+match a directory in the archive, Bazel will return an error.
+
+Only one of `strip_prefix` and `strip_components` can be set.""",
+    ),
+    "strip_components": attr.int(
+        default = 0,
+        doc = """Strip the given number of leading components from file paths
+        on extraction.
+
+        Only one of `strip_components` and `strip_prefix` can be set.""",
     ),
     "add_prefix": attr.string(
         default = "",

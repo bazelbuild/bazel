@@ -453,4 +453,55 @@ public class ProxyHelperTest {
       }
     }
   }
+
+  // Tests for SOCKS proxy support
+
+  @Test
+  public void testSocks5ProxyDefaultPort() throws Exception {
+    ProxyInfo proxyInfo = ProxyHelper.createProxy("socks5://my.example.com");
+    assertThat(proxyInfo.proxy().type()).isEqualTo(Proxy.Type.SOCKS);
+    assertThat(proxyInfo.proxy().toString()).endsWith(":1080");
+  }
+
+  @Test
+  public void testSocks5ProxyExplicitPort() throws Exception {
+    ProxyInfo proxyInfo = ProxyHelper.createProxy("socks5://my.example.com:5000");
+    assertThat(proxyInfo.proxy().type()).isEqualTo(Proxy.Type.SOCKS);
+    assertThat(proxyInfo.proxy().toString()).endsWith(":5000");
+  }
+
+  @Test
+  public void testSocks4ProxyDefaultPort() throws Exception {
+    ProxyInfo proxyInfo = ProxyHelper.createProxy("socks4://my.example.com");
+    assertThat(proxyInfo.proxy().type()).isEqualTo(Proxy.Type.SOCKS);
+    assertThat(proxyInfo.proxy().toString()).endsWith(":1080");
+  }
+
+  @Test
+  public void testSocksProxyDefaultPort() throws Exception {
+    ProxyInfo proxyInfo = ProxyHelper.createProxy("socks://my.example.com");
+    assertThat(proxyInfo.proxy().type()).isEqualTo(Proxy.Type.SOCKS);
+    assertThat(proxyInfo.proxy().toString()).endsWith(":1080");
+  }
+
+  @Test
+  public void testSocks5ProxyWithAuth() throws Exception {
+    ProxyInfo proxyInfo = ProxyHelper.createProxy("socks5://user:pass@my.example.com:1080");
+    assertThat(proxyInfo.proxy().type()).isEqualTo(Proxy.Type.SOCKS);
+    assertThat(proxyInfo.proxy().toString()).endsWith(":1080");
+    assertThat(proxyInfo.hasCredentials()).isTrue();
+    String encoded = proxyInfo.getProxyAuthorizationHeader().substring("Basic ".length());
+    String decoded = new String(Base64.getDecoder().decode(encoded), UTF_8);
+    assertThat(decoded).isEqualTo("user:pass");
+  }
+
+  @Test
+  public void testCreateIfNeededSocks5Proxy() throws Exception {
+    ProxyHelper helper =
+        new ProxyHelper(ImmutableMap.of("HTTPS_PROXY", "socks5://localhost:5000"));
+    ProxyInfo proxyInfo = helper.createProxyIfNeeded(new URL("https://www.something.com"));
+    assertThat(proxyInfo.proxy().type()).isEqualTo(Proxy.Type.SOCKS);
+    assertThat(proxyInfo.proxy().toString()).contains("localhost");
+    assertThat(proxyInfo.proxy().toString()).endsWith(":5000");
+  }
 }

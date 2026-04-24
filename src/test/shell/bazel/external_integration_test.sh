@@ -865,6 +865,13 @@ http_archive(
     strip_prefix = "x/y/z",
     build_file = "@//:x.BUILD",
 )
+http_archive(
+    name = "x2",
+    url = "http://127.0.0.1:$nc_port/x.tar.gz",
+    sha256 = "$sha256",
+    strip_components = 3,
+    build_file = "@//:x.BUILD",
+)
 EOF
   cat > x.BUILD <<EOF
 genrule(
@@ -876,8 +883,10 @@ genrule(
 EOF
   touch BUILD
 
-  bazel build @x//:catter &> $TEST_log || fail "Build failed"
+  bazel build @x//:catter &> $TEST_log || fail "Build x failed"
   assert_contains "abc" bazel-genfiles/external/+_repo_rules+x/catter.out
+  bazel build @x2//:catter &> $TEST_log || fail "Build x2 failed"
+  assert_contains "abc" bazel-genfiles/external/+_repo_rules+x2/catter.out
 }
 
 function test_prefix_stripping_zip() {
@@ -896,6 +905,13 @@ http_archive(
     strip_prefix = "x/y/z",
     build_file = "@//:x.BUILD",
 )
+http_archive(
+    name = "x2",
+    url = "http://127.0.0.1:$nc_port/x.zip",
+    sha256 = "$sha256",
+    strip_components = 3,
+    build_file = "@//:x.BUILD",
+)
 EOF
   cat > x.BUILD <<EOF
 genrule(
@@ -907,8 +923,10 @@ genrule(
 EOF
   touch BUILD
 
-  bazel build @x//:catter &> $TEST_log || fail "Build failed"
+  bazel build @x//:catter &> $TEST_log || fail "Build x failed"
   assert_contains "abc" bazel-genfiles/external/+_repo_rules+x/catter.out
+  bazel build @x2//:catter &> $TEST_log || fail "Build x2 failed"
+  assert_contains "abc" bazel-genfiles/external/+_repo_rules+x2/catter.out
 }
 
 function test_prefix_stripping_existing_repo() {
@@ -935,10 +953,18 @@ http_archive(
     sha256 = "$sha256",
     strip_prefix = "x/y/z",
 )
+http_archive(
+    name = "x2",
+    url = "http://127.0.0.1:$nc_port/x.zip",
+    sha256 = "$sha256",
+    strip_components = 3,
+)
 EOF
 
-  bazel build @x//:catter &> $TEST_log || fail "Build failed"
+  bazel build @x//:catter &> $TEST_log || fail "Build x failed"
   assert_contains "abc" bazel-genfiles/external/+_repo_rules+x/catter.out
+  bazel build @x2//:catter &> $TEST_log || fail "Build x2 failed"
+  assert_contains "abc" bazel-genfiles/external/+_repo_rules+x2/catter.out
 }
 
 function test_adding_prefix_zip() {
@@ -989,6 +1015,14 @@ http_archive(
     add_prefix = "x",
     build_file = "@//:ws.BUILD",
 )
+http_archive(
+    name = "ws2",
+    url = "http://127.0.0.1:$nc_port/z.zip",
+    sha256 = "$sha256",
+    strip_components = 1,
+    add_prefix = "x",
+    build_file = "@//:ws.BUILD",
+)
 EOF
   cat > ws.BUILD <<EOF
 genrule(
@@ -1000,8 +1034,10 @@ genrule(
 EOF
   touch BUILD
 
-  bazel build @ws//:catter &> $TEST_log || fail "Build failed"
+  bazel build @ws//:catter &> $TEST_log || fail "Build ws failed"
   assert_contains "abc" bazel-genfiles/external/+_repo_rules+ws/catter.out
+  bazel build @ws2//:catter &> $TEST_log || fail "Build ws2 failed"
+  assert_contains "abc" bazel-genfiles/external/+_repo_rules+ws2/catter.out
 }
 
 function test_moving_build_file() {

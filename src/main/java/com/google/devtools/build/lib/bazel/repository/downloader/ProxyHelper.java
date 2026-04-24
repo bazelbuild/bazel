@@ -231,8 +231,8 @@ public class ProxyHelper {
     }
 
     // Here there be dragons.
-    Pattern urlPattern =
-        Pattern.compile("^(https?://)?(([^:@]+?)(?::([^@]+?))?@)?([^:]+)(?::(\\d+))?/?$");
+    // Supports http://, https://, socks://, socks4://, socks5:// or no protocol (defaults to HTTP)
+    Pattern urlPattern = Pattern.compile("^(https?://|socks[45]?://)?(([^:@]+?)(?::([^@]+?))?@)?([^:]+)(?::(\\d+))?/?$");
     Matcher matcher = urlPattern.matcher(proxyAddress);
     if (!matcher.matches()) {
       throw new IOException("Proxy address " + proxyAddress + " is not a valid URL");
@@ -251,19 +251,31 @@ public class ProxyHelper {
           proxyAddress.replace(idAndPassword, ""); // Used to remove id+pwd from logging
     }
 
-    boolean https;
-    if (protocol == null) {
-      https = false;
+    Proxy.Type proxyType;
+    int defaultPort;
+
+    if (protocol != null) {
+      switch (protocol) {
+        case "https://" -> {
+          proxyType = Proxy.Type.HTTP;
+          defaultPort = 443;
+        }
+        case "http://" -> {
+          proxyType = Proxy.Type.HTTP;
+          defaultPort = 80;
+        }
+        case "socks://", "socks4://", "socks5://" -> {
+          proxyType = Proxy.Type.SOCKS;
+          defaultPort = 1080;
+        }
+        default -> throw new IOException("Invalid proxy protocol for " + cleanProxyAddress);
+      }
     } else {
-      https =
-          switch (protocol) {
-            case "https://" -> true;
-            case "http://" -> false;
-            default -> throw new IOException("Invalid proxy protocol for " + cleanProxyAddress);
-          };
+      proxyType = Proxy.Type.HTTP;
+      defaultPort = 80;
     }
 
-    int port = https ? 443 : 80; // Default port numbers
+    int port = defaultPort;
 
     if (portRaw != null) {
       try {
@@ -273,7 +285,7 @@ public class ProxyHelper {
       }
     }
 
-    Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(hostname, port));
+    Proxy proxy = new Proxy(proxyType, new InetSocketAddress(hostname, port));
 
     // Determine credentials: URL credentials take precedence over system properties
     String username = urlUsername;

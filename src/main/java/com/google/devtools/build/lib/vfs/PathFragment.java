@@ -584,7 +584,7 @@ public abstract sealed class PathFragment
    * @param beginIndex the beginning index, inclusive.
    * @param endIndex the ending index, exclusive.
    * @return the specified sub fragment, never null.
-   * @exception IndexOutOfBoundsException if the <code>beginIndex</code> is negative, or <code>
+   * @throws IndexOutOfBoundsException if the <code>beginIndex</code> is negative, or <code>
    *     endIndex</code> is larger than the length of this <code>String</code> object, or <code>
    *     beginIndex</code> is larger than <code>endIndex</code>.
    */
@@ -643,6 +643,21 @@ public abstract sealed class PathFragment
       endi = Math.max(endi, driveStrLength);
     }
     return makePathFragment(normalizedPath.substring(starti, endi), driveStrLength);
+  }
+
+  /** Strip <code>numComponents</code> leading components from file names on extraction. */
+  public PathFragment stripComponents(int numComponents) {
+    if (numComponents == 0) {
+      return this;
+    }
+    if (numComponents < 0) {
+      throw new IllegalArgumentException(
+          String.format("Invalid number of components (%d)", numComponents));
+    }
+    if (numComponents >= this.segmentCount()) {
+      return EMPTY_FRAGMENT;
+    }
+    return this.subFragment(numComponents);
   }
 
   /**

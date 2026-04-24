@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
 import com.google.gson.TypeAdapterFactory;
@@ -34,6 +35,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -70,6 +73,14 @@ public final class DelegateTypeAdapterFactory<I, R extends I, D extends I>
           LinkedHashMap.class,
           raw -> new LinkedHashMap<>((Map<?, ?>) raw),
           delegate -> ImmutableMap.copyOf((Map<?, ?>) delegate));
+
+  public static final TypeAdapterFactory IMMUTABLE_SORTED_MAP =
+      new DelegateTypeAdapterFactory<>(
+          ImmutableSortedMap.class,
+          SortedMap.class,
+          TreeMap.class,
+          raw -> new TreeMap<>((SortedMap<?, ?>) raw),
+          delegate -> ImmutableSortedMap.copyOf((SortedMap<?, ?>) delegate));
 
   public static final TypeAdapterFactory IMMUTABLE_BIMAP =
       new DelegateTypeAdapterFactory<>(
