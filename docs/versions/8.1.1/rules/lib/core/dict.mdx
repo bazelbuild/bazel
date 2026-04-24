@@ -22,7 +22,7 @@ There are four ways to construct a dictionary:
      {i: 2*i for i in range(3)}  # {0: 0, 1: 2, 2: 4}
      ```
 
-     - A call to the built-in [dict](../globals/all#dict) function returns a dictionary containing the specified entries, which are inserted in argument order, positional arguments before named. As with comprehensions, duplicate keys are permitted.- The union expression `x | y` yields a new dictionary by combining two existing dictionaries. If the two dictionaries have a key `k` in common, the right hand side dictionary's value of the key (in other words, `y[k]`) wins. The `|=` variant of the union operator modifies a dictionary in-place. Example:
+     - A call to the built-in [dict](/versions/8.1.1/rules/lib/globals/all#dict) function returns a dictionary containing the specified entries, which are inserted in argument order, positional arguments before named. As with comprehensions, duplicate keys are permitted.- The union expression `x | y` yields a new dictionary by combining two existing dictionaries. If the two dictionaries have a key `k` in common, the right hand side dictionary's value of the key (in other words, `y[k]`) wins. The `|=` variant of the union operator modifies a dictionary in-place. Example:
 
          ```
          d = {"foo": "FOO", "bar": "BAR"} | {"foo": "FOO2", "baz": "BAZ"}

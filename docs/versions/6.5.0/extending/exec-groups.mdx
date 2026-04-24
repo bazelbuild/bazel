@@ -4,8 +4,8 @@ title: 'Execution Groups'
 
 
 Execution groups allow for multiple execution platforms within a single target.
-Each execution group has its own [toolchain](/docs/toolchains) dependencies and
-performs its own [toolchain resolution](/docs/toolchains#toolchain-resolution).
+Each execution group has its own [toolchain](/versions/6.5.0/docs/toolchains) dependencies and
+performs its own [toolchain resolution](/versions/6.5.0/docs/toolchains#toolchain-resolution).
 
 ## Background {#background}
 
@@ -23,7 +23,7 @@ like linking in C++ builds without over-allocating to less demanding tasks.
 ## Defining execution groups {#defining-exec-groups}
 
 During rule definition, rule authors can
-[declare](/rules/lib/globals#exec_group)
+[declare](/versions/6.5.0/rules/lib/globals#exec_group)
 a set of execution groups. On each execution group, the rule author can specify
 everything needed to select an execution platform for that execution group,
 namely any constraints via `exec_compatible_with` and toolchain types via
@@ -50,9 +50,9 @@ my_rule = rule(
 
 In the code snippet above, you can see that tool dependencies can also specify
 transition for an exec group using the
-[`cfg`](/rules/lib/attr#label)
+[`cfg`](/versions/6.5.0/rules/lib/toplevel/attr#label)
 attribute param and the
-[`config`](/rules/lib/config)
+[`config`](/versions/6.5.0/rules/lib/toplevel/config)
 module. The module exposes an `exec` function which takes a single string
 parameter which is the name of the exec group for which the dependency should be
 built.
@@ -106,8 +106,8 @@ of:
 
 In the rule implementation, you can declare that actions should be run on the
 execution platform of an execution group. You can do this by using the `exec_group`
-param of action generating methods, specifically [`ctx.actions.run`](/rules/lib/actions#run) and
-[`ctx.actions.run_shell`](/rules/lib/actions#run_shell).
+param of action generating methods, specifically [`ctx.actions.run`](/versions/6.5.0/rules/lib/builtins/actions#run) and
+[`ctx.actions.run_shell`](/versions/6.5.0/rules/lib/builtins/actions#run_shell).
 
 ```python
 # foo.bzl
@@ -119,7 +119,7 @@ def _impl(ctx):
   )
 ```
 
-Rule authors will also be able to access the [resolved toolchains](/docs/toolchains#toolchain-resolution)
+Rule authors will also be able to access the [resolved toolchains](/versions/6.5.0/docs/toolchains#toolchain-resolution)
 of execution groups, similarly to how you
 can access the resolved toolchain of a target:
 
@@ -142,7 +142,7 @@ problem.
 ## Using execution groups to set execution properties {#using-exec-groups-for-exec-properties}
 
 Execution groups are integrated with the
-[`exec_properties`](/reference/be/common-definitions#common-attributes)
+[`exec_properties`](/versions/6.5.0/reference/be/common-definitions#common-attributes)
 attribute that exists on every rule and allows the target writer to specify a
 string dict of properties that is then passed to the execution machinery. For
 example, if you wanted to set some property, say memory, for the target and give

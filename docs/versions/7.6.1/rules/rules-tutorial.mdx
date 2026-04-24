@@ -31,9 +31,9 @@ foo_binary = rule(
 )
 ```
 
-When you call the [`rule`](lib/globals#rule) function, you
+When you call the [`rule`](/versions/7.6.1/rules/lib/globals#rule) function, you
 must define a callback function. The logic will go there, but you
-can leave the function empty for now. The [`ctx`](lib/ctx) argument
+can leave the function empty for now. The [`ctx`](/versions/7.6.1/rules/lib/builtins/ctx) argument
 provides information about the target.
 
 You can load the rule and use it from a `BUILD` file.
@@ -86,10 +86,10 @@ foo_binary(name = "bin1")
 foo_binary(name = "bin2")
 ```
 
-[`ctx.label`](lib/ctx#label)
+[`ctx.label`](/versions/7.6.1/rules/lib/builtins/ctx#label)
 corresponds to the label of the target being analyzed. The `ctx` object has
 many useful fields and methods; you can find an exhaustive list in the
-[API reference](lib/ctx).
+[API reference](/versions/7.6.1/rules/lib/builtins/ctx).
 
 Query the code:
 
@@ -145,7 +145,7 @@ bin2
 ```
 
 Whenever you declare a file, you have to tell Bazel how to generate it by
-creating an action. Use [`ctx.actions.write`](lib/actions#write),
+creating an action. Use [`ctx.actions.write`](/versions/7.6.1/rules/lib/builtins/actions#write),
 to create a file with the given content.
 
 ```python
@@ -200,7 +200,7 @@ You have successfully generated a file!
 ## Attributes
 
 To make the rule more useful, add new attributes using
-[the `attr` module](lib/attr) and update the rule definition.
+[the `attr` module](/versions/7.6.1/rules/lib/toplevel/attr) and update the rule definition.
 
 Add a string attribute called `username`:
 
@@ -236,22 +236,22 @@ def _foo_binary_impl(ctx):
 ```
 
 Note that you can make the attribute mandatory or set a default value. Look at
-the documentation of [`attr.string`](lib/attr#string).
-You may also use other types of attributes, such as [boolean](lib/attr#bool)
-or [list of integers](lib/attr#int_list).
+the documentation of [`attr.string`](/versions/7.6.1/rules/lib/toplevel/attr#string).
+You may also use other types of attributes, such as [boolean](/versions/7.6.1/rules/lib/toplevel/attr#bool)
+or [list of integers](/versions/7.6.1/rules/lib/toplevel/attr#int_list).
 
 ## Dependencies
 
-Dependency attributes, such as [`attr.label`](lib/attr#label)
-and [`attr.label_list`](lib/attr#label_list),
+Dependency attributes, such as [`attr.label`](/versions/7.6.1/rules/lib/toplevel/attr#label)
+and [`attr.label_list`](/versions/7.6.1/rules/lib/toplevel/attr#label_list),
 declare a dependency from the target that owns the attribute to the target whose
 label appears in the attribute's value. This kind of attribute forms the basis
 of the target graph.
 
 In the `BUILD` file, the target label appears as a string object, such as
 `//pkg:name`. In the implementation function, the target will be accessible as a
-[`Target`](lib/Target) object. For example, view the files returned
-by the target using [`Target.files`](lib/Target#modules.Target.files).
+[`Target`](/versions/7.6.1/rules/lib/builtins/Target) object. For example, view the files returned
+by the target using [`Target.files`](/versions/7.6.1/rules/lib/builtins/Target#modules.Target.files).
 
 ### Multiple files
 
@@ -294,7 +294,7 @@ implementation function, but this has two problems. First, as the template gets
 bigger, it becomes more memory efficient to put it in a separate file and avoid
 constructing large strings during the analysis phase. Second, using a separate
 file is more convenient for the user. Instead, use
-[`ctx.actions.expand_template`](lib/actions#expand_template),
+[`ctx.actions.expand_template`](/versions/7.6.1/rules/lib/builtins/actions#expand_template),
 which performs substitutions on a template file.
 
 Create a `template` attribute to declare a dependency on the template

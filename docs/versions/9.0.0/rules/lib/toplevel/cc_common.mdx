@@ -43,8 +43,8 @@ Returns True if given action\_config is enabled in the feature configuration.
 
 | Parameter | Description |
 | --- | --- |
-| `feature_configuration` | [FeatureConfiguration](../builtins/FeatureConfiguration); required  Feature configuration to be queried. |
-| `action_name` | [string](../core/string); required  Name of the action\_config. |
+| `feature_configuration` | [FeatureConfiguration](/versions/9.0.0/rules/lib/builtins/FeatureConfiguration); required  Feature configuration to be queried. |
+| `action_name` | [string](/versions/9.0.0/rules/lib/core/string); required  Name of the action\_config. |
 
 ## CcToolchainInfo
 
@@ -66,29 +66,29 @@ Should be used for C++ compilation. Returns tuple of (`CompilationContext`, `CcC
 
 | Parameter | Description |
 | --- | --- |
-| `actions` | [actions](../builtins/actions); required  `actions` object. |
-| `feature_configuration` | [FeatureConfiguration](../builtins/FeatureConfiguration); required  `feature_configuration` to be queried. |
+| `actions` | [actions](/versions/9.0.0/rules/lib/builtins/actions); required  `actions` object. |
+| `feature_configuration` | [FeatureConfiguration](/versions/9.0.0/rules/lib/builtins/FeatureConfiguration); required  `feature_configuration` to be queried. |
 | `cc_toolchain` | Info; required  `CcToolchainInfo` provider to be used. |
-| `srcs` | [sequence](../core/list); default is `[]`  The list of source files to be compiled. |
-| `public_hdrs` | [sequence](../core/list); default is `[]`  List of headers needed for compilation of srcs and may be included by dependent rules transitively. |
-| `private_hdrs` | [sequence](../core/list); default is `[]`  List of headers needed for compilation of srcs and NOT to be included by dependent rules. |
-| `includes` | [sequence](../core/list); or [depset](../builtins/depset); default is `[]`  Search paths for header files referenced both by angle bracket and quotes. Usually passed with -I. Propagated to dependents transitively. |
-| `quote_includes` | [sequence](../core/list); default is `[]`  Search paths for header files referenced by quotes, e.g. #include "foo/bar/header.h". They can be either relative to the exec root or absolute. Usually passed with -iquote. Propagated to dependents transitively. |
-| `system_includes` | [sequence](../core/list); default is `[]`  Search paths for header files referenced by angle brackets, e.g. #include &lt;foo/bar/header.h>. They can be either relative to the exec root or absolute. Usually passed with -isystem. Propagated to dependents transitively. |
-| `framework_includes` | [sequence](../core/list); default is `[]`  Search paths for header files from Apple frameworks. They can be either relative to the exec root or absolute. Usually passed with -F. Propagated to dependents transitively. |
-| `defines` | [sequence](../core/list); default is `[]`  Set of defines needed to compile this target. Each define is a string. Propagated to dependents transitively. |
-| `local_defines` | [sequence](../core/list); default is `[]`  Set of defines needed to compile this target. Each define is a string. Not propagated to dependents transitively. |
-| `include_prefix` | [string](../core/string); default is `''`  The prefix to add to the paths of the headers of this rule. When set, the headers in the hdrs attribute of this rule are accessible at is the value of this attribute prepended to their repository-relative path. The prefix in the strip\_include\_prefix attribute is removed before this prefix is added. |
-| `strip_include_prefix` | [string](../core/string); default is `''`  The prefix to strip from the paths of the headers of this rule. When set, the headers in the hdrs attribute of this rule are accessible at their path with this prefix cut off. If it's a relative path, it's taken as a package-relative one. If it's an absolute one, it's understood as a repository-relative path. The prefix in the include\_prefix attribute is added after this prefix is stripped. |
-| `user_compile_flags` | [sequence](../core/list); default is `[]`  Additional list of compilation options. |
-| `conly_flags` | [sequence](../core/list); default is `[]`  Additional list of compilation options for C compiles. |
-| `cxx_flags` | [sequence](../core/list); default is `[]`  Additional list of compilation options for C++ compiles. |
-| `compilation_contexts` | [sequence](../core/list); default is `[]`  Headers from dependencies used for compilation. |
-| `name` | [string](../core/string); required  This is used for naming the output artifacts of actions created by this method. See also the `main\_output` arg. |
-| `disallow_pic_outputs` | [bool](../core/bool); default is `False`  Whether PIC outputs should be created. |
-| `disallow_nopic_outputs` | [bool](../core/bool); default is `False`  Whether NOPIC outputs should be created. |
-| `additional_inputs` | [sequence](../core/list); default is `[]`  List of additional files needed for compilation of srcs |
-| `module_interfaces` | [sequence](../core/list); default is `unbound`  The list of module interfaces source files to be compiled. Note: this is an experimental feature, only enabled with --experimental\_cpp\_modules |
+| `srcs` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  The list of source files to be compiled. |
+| `public_hdrs` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  List of headers needed for compilation of srcs and may be included by dependent rules transitively. |
+| `private_hdrs` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  List of headers needed for compilation of srcs and NOT to be included by dependent rules. |
+| `includes` | [sequence](/versions/9.0.0/rules/lib/core/list); or [depset](/versions/9.0.0/rules/lib/builtins/depset); default is `[]`  Search paths for header files referenced both by angle bracket and quotes. Usually passed with -I. Propagated to dependents transitively. |
+| `quote_includes` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  Search paths for header files referenced by quotes, e.g. #include "foo/bar/header.h". They can be either relative to the exec root or absolute. Usually passed with -iquote. Propagated to dependents transitively. |
+| `system_includes` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  Search paths for header files referenced by angle brackets, e.g. #include &lt;foo/bar/header.h>. They can be either relative to the exec root or absolute. Usually passed with -isystem. Propagated to dependents transitively. |
+| `framework_includes` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  Search paths for header files from Apple frameworks. They can be either relative to the exec root or absolute. Usually passed with -F. Propagated to dependents transitively. |
+| `defines` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  Set of defines needed to compile this target. Each define is a string. Propagated to dependents transitively. |
+| `local_defines` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  Set of defines needed to compile this target. Each define is a string. Not propagated to dependents transitively. |
+| `include_prefix` | [string](/versions/9.0.0/rules/lib/core/string); default is `''`  The prefix to add to the paths of the headers of this rule. When set, the headers in the hdrs attribute of this rule are accessible at is the value of this attribute prepended to their repository-relative path. The prefix in the strip\_include\_prefix attribute is removed before this prefix is added. |
+| `strip_include_prefix` | [string](/versions/9.0.0/rules/lib/core/string); default is `''`  The prefix to strip from the paths of the headers of this rule. When set, the headers in the hdrs attribute of this rule are accessible at their path with this prefix cut off. If it's a relative path, it's taken as a package-relative one. If it's an absolute one, it's understood as a repository-relative path. The prefix in the include\_prefix attribute is added after this prefix is stripped. |
+| `user_compile_flags` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  Additional list of compilation options. |
+| `conly_flags` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  Additional list of compilation options for C compiles. |
+| `cxx_flags` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  Additional list of compilation options for C++ compiles. |
+| `compilation_contexts` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  Headers from dependencies used for compilation. |
+| `name` | [string](/versions/9.0.0/rules/lib/core/string); required  This is used for naming the output artifacts of actions created by this method. See also the `main\_output` arg. |
+| `disallow_pic_outputs` | [bool](/versions/9.0.0/rules/lib/core/bool); default is `False`  Whether PIC outputs should be created. |
+| `disallow_nopic_outputs` | [bool](/versions/9.0.0/rules/lib/core/bool); default is `False`  Whether NOPIC outputs should be created. |
+| `additional_inputs` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  List of additional files needed for compilation of srcs |
+| `module_interfaces` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `unbound`  The list of module interfaces source files to be compiled. Note: this is an experimental feature, only enabled with --experimental\_cpp\_modules |
 
 ## configure\_features
 
@@ -102,11 +102,11 @@ Creates a feature\_configuration instance. Requires the cpp configuration fragme
 
 | Parameter | Description |
 | --- | --- |
-| `ctx` | [ctx](../builtins/ctx); required  The rule context. |
+| `ctx` | [ctx](/versions/9.0.0/rules/lib/builtins/ctx); required  The rule context. |
 | `cc_toolchain` | Info; required  cc\_toolchain for which we configure features. |
-| `language` | [string](../core/string); or `None`; default is `None`  The language to configure for: either c++ or objc (default c++) |
-| `requested_features` | [sequence](../core/list); default is `[]`  List of features to be enabled. |
-| `unsupported_features` | [sequence](../core/list); default is `[]`  List of features that are unsupported by the current rule. |
+| `language` | [string](/versions/9.0.0/rules/lib/core/string); or `None`; default is `None`  The language to configure for: either c++ or objc (default c++) |
+| `requested_features` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  List of features to be enabled. |
+| `unsupported_features` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  List of features that are unsupported by the current rule. |
 
 ## create\_cc\_toolchain\_config\_info
 
@@ -120,22 +120,22 @@ Creates a `CcToolchainConfigInfo` provider
 
 | Parameter | Description |
 | --- | --- |
-| `ctx` | [ctx](../builtins/ctx); required  The rule context. |
-| `features` | [sequence](../core/list); default is `[]`  Contains all flag specifications for one feature. Arguments:  `name`: The feature's name. It is possible to introduce a feature without a change to Bazel by adding a 'feature' section to the toolchain and adding the corresponding string as feature in the `BUILD` file.  `enabled`: If 'True', this feature is enabled unless a rule type explicitly marks it as unsupported.  `flag_sets`: A FlagSet list. If the given feature is enabled, the flag sets will be applied for the actions are specified for.  `env_sets`: an EnvSet list. If the given feature is enabled, the env sets will be applied for the actions they are specified for.  `requires`: A list of feature sets defining when this feature is supported by the toolchain. The feature is supported if any of the feature sets fully apply, that is, when all features of a feature set are enabled. If `requires` is omitted, the feature is supported independently of which other features are enabled. Use this for example to filter flags depending on the build mode enabled (opt / fastbuild / dbg).  `implies`: A string list of features or action configs that are automatically enabled when this feature is enabled. If any of the implied features or action configs cannot be enabled, this feature will (silently) not be enabled either.  `provides`: A list of names this feature conflicts with. A feature cannot be enabled if:- `provides` contains the name of a different feature or action config that we want to enable.- `provides` contains the same value as a 'provides' in a different feature or action config that we want to enable. Use this in order to ensure that incompatible features cannot be accidentally activated at the same time, leading to hard to diagnose compiler errors. |
-| `action_configs` | [sequence](../core/list); default is `[]`  An action config corresponds to a Bazel action, and allows selection of a tool based on activated features. Action config activation occurs by the same semantics as features: a feature can 'require' or 'imply' an action config in the same way that it would another feature. Arguments:  `action_name`: The name of the Bazel action that this config applies to, e.g. 'c-compile' or 'c-module-compile'.  `enabled`: If 'True', this action is enabled unless a rule type explicitly marks it as unsupported.  `tools`: The tool applied to the action will be the first tool with a feature set that matches the feature configuration. An error will be thrown if no tool matches a provided feature configuration - for that reason, it's a good idea to provide a default tool with an empty feature set.  `flag_sets`: If the given action config is enabled, the flag sets will be applied to the corresponding action.  `implies`: A list of features or action configs that are automatically enabled when this action config is enabled. If any of the implied features or action configs cannot be enabled, this action config will (silently) not be enabled either. |
-| `artifact_name_patterns` | [sequence](../core/list); default is `[]`  The name for an artifact of a given category of input or output artifacts to an action. Arguments:  `category_name`: The category of artifacts that this selection applies to. This field is compared against a list of categories defined in Bazel. Example categories include "linked\_output" or the artifact for this selection. Together with the extension it is used to create an artifact name based on the target name.  `extension`: The extension for creating the artifact for this selection. Together with the prefix it is used to create an artifact name based on the target name. |
-| `cxx_builtin_include_directories` | [sequence](../core/list); default is `[]`  Built-in include directories for C++ compilation. These should be the exact paths used by the compiler, and are generally relative to the exec root.  The paths used by the compiler can be determined by 'gcc -E -xc++ - -v'.  We currently use the C++ paths also for C compilation, which is safe as long as there are no name clashes between C++ and C header files.  Relative paths are resolved relative to the configuration file directory.  If the compiler has --sysroot support, then these paths should use %sysroot% rather than the include path, and specify the sysroot attribute in order to give blaze the information necessary to make the correct replacements. |
-| `toolchain_identifier` | [string](../core/string); required  The unique identifier of the toolchain within the crosstool release. It must be possible to use this as a directory name in a path.  It has to match the following regex: [a-zA-Z\_][\.\- \w]\* |
-| `host_system_name` | [string](../core/string); or `None`; default is `None`  Ignored. |
-| `target_system_name` | [string](../core/string); or `None`; default is `None`  Deprecated. The GNU System Name. The string is exposed to CcToolchainInfo.target\_gnu\_system\_name. |
-| `target_cpu` | [string](../core/string); or `None`; default is `None`  Deprecated: Use cpu based constraints instead. If the string is "k8", `target\_cpu` will be omitted from the filename of raw FDO profile data. |
-| `target_libc` | [string](../core/string); or `None`; default is `None`  Deprecated: Use OS based constraints instead. The libc version string (e.g. "glibc-2.2.2"). If the string is "macosx", platform is assumed to be MacOS. Otherwise, Linux. The string is exposed to CcToolchainInfo.libc. |
-| `compiler` | [string](../core/string); required  The compiler string (e.g. "gcc"). The current toolchain's compiler is exposed to `@bazel\_tools//tools/cpp:compiler (compiler\_flag)` as a flag value. Targets that require compiler-specific flags can use the config\_settings in https://github.com/bazelbuild/rules\_cc/blob/main/cc/compiler/BUILD in select() statements or create custom config\_setting if the existing settings don't suffice. |
-| `abi_version` | [string](../core/string); or `None`; default is `None`  The abi in use, which is a gcc version. E.g.: "gcc-3.4". The string is set to C++ toolchain variable ABI. |
-| `abi_libc_version` | [string](../core/string); or `None`; default is `None`  The glibc version used by the abi we're using. The string is set to C++ toolchain variable ABI\_LIBC\_VERSION. |
-| `tool_paths` | [sequence](../core/list); default is `[]`  Tool locations. Arguments:  `name`: Name of the tool.  `path`: Location of the tool; Can be absolute path (in case of non hermetic toolchain), or path relative to the cc\_toolchain's package. |
-| `make_variables` | [sequence](../core/list); default is `[]`  A make variable that is made accessible to rules. |
-| `builtin_sysroot` | [string](../core/string); or `None`; default is `None`  The built-in sysroot. If this attribute is not present, Bazel does not allow using a different sysroot, i.e. through the --grte\_top option. |
+| `ctx` | [ctx](/versions/9.0.0/rules/lib/builtins/ctx); required  The rule context. |
+| `features` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  Contains all flag specifications for one feature. Arguments:  `name`: The feature's name. It is possible to introduce a feature without a change to Bazel by adding a 'feature' section to the toolchain and adding the corresponding string as feature in the `BUILD` file.  `enabled`: If 'True', this feature is enabled unless a rule type explicitly marks it as unsupported.  `flag_sets`: A FlagSet list. If the given feature is enabled, the flag sets will be applied for the actions are specified for.  `env_sets`: an EnvSet list. If the given feature is enabled, the env sets will be applied for the actions they are specified for.  `requires`: A list of feature sets defining when this feature is supported by the toolchain. The feature is supported if any of the feature sets fully apply, that is, when all features of a feature set are enabled. If `requires` is omitted, the feature is supported independently of which other features are enabled. Use this for example to filter flags depending on the build mode enabled (opt / fastbuild / dbg).  `implies`: A string list of features or action configs that are automatically enabled when this feature is enabled. If any of the implied features or action configs cannot be enabled, this feature will (silently) not be enabled either.  `provides`: A list of names this feature conflicts with. A feature cannot be enabled if:- `provides` contains the name of a different feature or action config that we want to enable.- `provides` contains the same value as a 'provides' in a different feature or action config that we want to enable. Use this in order to ensure that incompatible features cannot be accidentally activated at the same time, leading to hard to diagnose compiler errors. |
+| `action_configs` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  An action config corresponds to a Bazel action, and allows selection of a tool based on activated features. Action config activation occurs by the same semantics as features: a feature can 'require' or 'imply' an action config in the same way that it would another feature. Arguments:  `action_name`: The name of the Bazel action that this config applies to, e.g. 'c-compile' or 'c-module-compile'.  `enabled`: If 'True', this action is enabled unless a rule type explicitly marks it as unsupported.  `tools`: The tool applied to the action will be the first tool with a feature set that matches the feature configuration. An error will be thrown if no tool matches a provided feature configuration - for that reason, it's a good idea to provide a default tool with an empty feature set.  `flag_sets`: If the given action config is enabled, the flag sets will be applied to the corresponding action.  `implies`: A list of features or action configs that are automatically enabled when this action config is enabled. If any of the implied features or action configs cannot be enabled, this action config will (silently) not be enabled either. |
+| `artifact_name_patterns` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  The name for an artifact of a given category of input or output artifacts to an action. Arguments:  `category_name`: The category of artifacts that this selection applies to. This field is compared against a list of categories defined in Bazel. Example categories include "linked\_output" or the artifact for this selection. Together with the extension it is used to create an artifact name based on the target name.  `extension`: The extension for creating the artifact for this selection. Together with the prefix it is used to create an artifact name based on the target name. |
+| `cxx_builtin_include_directories` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  Built-in include directories for C++ compilation. These should be the exact paths used by the compiler, and are generally relative to the exec root.  The paths used by the compiler can be determined by 'gcc -E -xc++ - -v'.  We currently use the C++ paths also for C compilation, which is safe as long as there are no name clashes between C++ and C header files.  Relative paths are resolved relative to the configuration file directory.  If the compiler has --sysroot support, then these paths should use %sysroot% rather than the include path, and specify the sysroot attribute in order to give blaze the information necessary to make the correct replacements. |
+| `toolchain_identifier` | [string](/versions/9.0.0/rules/lib/core/string); required  The unique identifier of the toolchain within the crosstool release. It must be possible to use this as a directory name in a path.  It has to match the following regex: [a-zA-Z\_][\.\- \w]\* |
+| `host_system_name` | [string](/versions/9.0.0/rules/lib/core/string); or `None`; default is `None`  Ignored. |
+| `target_system_name` | [string](/versions/9.0.0/rules/lib/core/string); or `None`; default is `None`  Deprecated. The GNU System Name. The string is exposed to CcToolchainInfo.target\_gnu\_system\_name. |
+| `target_cpu` | [string](/versions/9.0.0/rules/lib/core/string); or `None`; default is `None`  Deprecated: Use cpu based constraints instead. If the string is "k8", `target\_cpu` will be omitted from the filename of raw FDO profile data. |
+| `target_libc` | [string](/versions/9.0.0/rules/lib/core/string); or `None`; default is `None`  Deprecated: Use OS based constraints instead. The libc version string (e.g. "glibc-2.2.2"). If the string is "macosx", platform is assumed to be MacOS. Otherwise, Linux. The string is exposed to CcToolchainInfo.libc. |
+| `compiler` | [string](/versions/9.0.0/rules/lib/core/string); required  The compiler string (e.g. "gcc"). The current toolchain's compiler is exposed to `@bazel\_tools//tools/cpp:compiler (compiler\_flag)` as a flag value. Targets that require compiler-specific flags can use the config\_settings in https://github.com/bazelbuild/rules\_cc/blob/main/cc/compiler/BUILD in select() statements or create custom config\_setting if the existing settings don't suffice. |
+| `abi_version` | [string](/versions/9.0.0/rules/lib/core/string); or `None`; default is `None`  The abi in use, which is a gcc version. E.g.: "gcc-3.4". The string is set to C++ toolchain variable ABI. |
+| `abi_libc_version` | [string](/versions/9.0.0/rules/lib/core/string); or `None`; default is `None`  The glibc version used by the abi we're using. The string is set to C++ toolchain variable ABI\_LIBC\_VERSION. |
+| `tool_paths` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  Tool locations. Arguments:  `name`: Name of the tool.  `path`: Location of the tool; Can be absolute path (in case of non hermetic toolchain), or path relative to the cc\_toolchain's package. |
+| `make_variables` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  A make variable that is made accessible to rules. |
+| `builtin_sysroot` | [string](/versions/9.0.0/rules/lib/core/string); or `None`; default is `None`  The built-in sysroot. If this attribute is not present, Bazel does not allow using a different sysroot, i.e. through the --grte\_top option. |
 
 ## create\_compilation\_context
 
@@ -169,8 +169,8 @@ Create compilation outputs object.
 
 | Parameter | Description |
 | --- | --- |
-| `objects` | [depset](../builtins/depset); or `None`; default is `None`  List of object files. |
-| `pic_objects` | [depset](../builtins/depset); or `None`; default is `None`  List of pic object files. |
+| `objects` | [depset](/versions/9.0.0/rules/lib/builtins/depset); or `None`; default is `None`  List of object files. |
+| `pic_objects` | [depset](/versions/9.0.0/rules/lib/builtins/depset); or `None`; default is `None`  List of pic object files. |
 
 ## create\_compile\_variables
 
@@ -185,21 +185,21 @@ Returns variables used for compilation actions.
 | Parameter | Description |
 | --- | --- |
 | `cc_toolchain` | Info; required  cc\_toolchain for which we are creating build variables. |
-| `feature_configuration` | [FeatureConfiguration](../builtins/FeatureConfiguration); required  Feature configuration to be queried. |
-| `source_file` | [File](../builtins/File); or [string](../core/string); or `None`; default is `None`  Optional source file path for the compilation. Please prefer passing source\_file here over appending it to the end of the command line generated from cc\_common.get\_memory\_inefficient\_command\_line, as then it's in the power of the toolchain author to properly specify and position compiler flags. |
-| `output_file` | [File](../builtins/File); or [string](../core/string); or `None`; default is `None`  Optional output file path of the compilation. Please prefer passing output\_file here over appending it to the end of the command line generated from cc\_common.get\_memory\_inefficient\_command\_line, as then it's in the power of the toolchain author to properly specify and position compiler flags. |
-| `user_compile_flags` | [sequence](../core/list) of [string](../core/string)s; or `None`; default is `None`  List of additional compilation flags (copts). |
-| `include_directories` | [depset](../builtins/depset); or `None`; default is `None`  Depset of include directories. |
-| `quote_include_directories` | [depset](../builtins/depset); or `None`; default is `None`  Depset of quote include directories. |
-| `system_include_directories` | [depset](../builtins/depset); or `None`; default is `None`  Depset of system include directories. |
-| `framework_include_directories` | [depset](../builtins/depset); or `None`; default is `None`  Depset of framework include directories. |
-| `preprocessor_defines` | [depset](../builtins/depset); or `None`; default is `None`  Depset of preprocessor defines. |
-| `thinlto_index` | [string](../core/string); or `None`; default is `None`  LTO index file path. |
-| `thinlto_input_bitcode_file` | [string](../core/string); or `None`; default is `None`  Bitcode file that is input to LTO backend. |
-| `thinlto_output_object_file` | [string](../core/string); or `None`; default is `None`  Object file that is output by LTO backend. |
-| `use_pic` | [bool](../core/bool); default is `False`  When true the compilation will generate position independent code. |
-| `add_legacy_cxx_options` | [bool](../core/bool); default is `False`  Unused. |
-| `variables_extension` | [dict](../core/dict); default is `unbound`  A dictionary of additional variables used by compile actions. |
+| `feature_configuration` | [FeatureConfiguration](/versions/9.0.0/rules/lib/builtins/FeatureConfiguration); required  Feature configuration to be queried. |
+| `source_file` | [File](/versions/9.0.0/rules/lib/builtins/File); or [string](/versions/9.0.0/rules/lib/core/string); or `None`; default is `None`  Optional source file path for the compilation. Please prefer passing source\_file here over appending it to the end of the command line generated from cc\_common.get\_memory\_inefficient\_command\_line, as then it's in the power of the toolchain author to properly specify and position compiler flags. |
+| `output_file` | [File](/versions/9.0.0/rules/lib/builtins/File); or [string](/versions/9.0.0/rules/lib/core/string); or `None`; default is `None`  Optional output file path of the compilation. Please prefer passing output\_file here over appending it to the end of the command line generated from cc\_common.get\_memory\_inefficient\_command\_line, as then it's in the power of the toolchain author to properly specify and position compiler flags. |
+| `user_compile_flags` | [sequence](/versions/9.0.0/rules/lib/core/list) of [string](/versions/9.0.0/rules/lib/core/string)s; or `None`; default is `None`  List of additional compilation flags (copts). |
+| `include_directories` | [depset](/versions/9.0.0/rules/lib/builtins/depset); or `None`; default is `None`  Depset of include directories. |
+| `quote_include_directories` | [depset](/versions/9.0.0/rules/lib/builtins/depset); or `None`; default is `None`  Depset of quote include directories. |
+| `system_include_directories` | [depset](/versions/9.0.0/rules/lib/builtins/depset); or `None`; default is `None`  Depset of system include directories. |
+| `framework_include_directories` | [depset](/versions/9.0.0/rules/lib/builtins/depset); or `None`; default is `None`  Depset of framework include directories. |
+| `preprocessor_defines` | [depset](/versions/9.0.0/rules/lib/builtins/depset); or `None`; default is `None`  Depset of preprocessor defines. |
+| `thinlto_index` | [string](/versions/9.0.0/rules/lib/core/string); or `None`; default is `None`  LTO index file path. |
+| `thinlto_input_bitcode_file` | [string](/versions/9.0.0/rules/lib/core/string); or `None`; default is `None`  Bitcode file that is input to LTO backend. |
+| `thinlto_output_object_file` | [string](/versions/9.0.0/rules/lib/core/string); or `None`; default is `None`  Object file that is output by LTO backend. |
+| `use_pic` | [bool](/versions/9.0.0/rules/lib/core/bool); default is `False`  When true the compilation will generate position independent code. |
+| `add_legacy_cxx_options` | [bool](/versions/9.0.0/rules/lib/core/bool); default is `False`  Unused. |
+| `variables_extension` | [dict](/versions/9.0.0/rules/lib/core/dict); default is `unbound`  A dictionary of additional variables used by compile actions. |
 
 ## create\_library\_to\_link
 
@@ -216,15 +216,15 @@ Creates `LibraryToLink`
 | `actions` | required  `actions` object. |
 | `feature_configuration` | default is `None`  `feature_configuration` to be queried. |
 | `cc_toolchain` | default is `None`  `CcToolchainInfo` provider to be used. |
-| `static_library` | [File](../builtins/File); or `None`; default is `None`  `File` of static library to be linked. |
-| `pic_static_library` | [File](../builtins/File); or `None`; default is `None`  `File` of pic static library to be linked. |
-| `dynamic_library` | [File](../builtins/File); or `None`; default is `None`  `File` of dynamic library to be linked. Always used for runtime and used for linking if `interface_library` is not passed. |
-| `interface_library` | [File](../builtins/File); or `None`; default is `None`  `File` of interface library to be linked. |
-| `pic_objects` | [sequence](../core/list) of [File](../builtins/File)s; default is `unbound`  Experimental, do not use |
-| `objects` | [sequence](../core/list) of [File](../builtins/File)s; default is `unbound`  Experimental, do not use |
-| `alwayslink` | [bool](../core/bool); default is `False`  Whether to link the static library/objects in the --whole\_archive block. |
-| `dynamic_library_symlink_path` | [string](../core/string); default is `''`  Override the default path of the dynamic library link in the solib directory. Empty string to use the default. |
-| `interface_library_symlink_path` | [string](../core/string); default is `''`  Override the default path of the interface library link in the solib directory. Empty string to use the default. |
+| `static_library` | [File](/versions/9.0.0/rules/lib/builtins/File); or `None`; default is `None`  `File` of static library to be linked. |
+| `pic_static_library` | [File](/versions/9.0.0/rules/lib/builtins/File); or `None`; default is `None`  `File` of pic static library to be linked. |
+| `dynamic_library` | [File](/versions/9.0.0/rules/lib/builtins/File); or `None`; default is `None`  `File` of dynamic library to be linked. Always used for runtime and used for linking if `interface_library` is not passed. |
+| `interface_library` | [File](/versions/9.0.0/rules/lib/builtins/File); or `None`; default is `None`  `File` of interface library to be linked. |
+| `pic_objects` | [sequence](/versions/9.0.0/rules/lib/core/list) of [File](/versions/9.0.0/rules/lib/builtins/File)s; default is `unbound`  Experimental, do not use |
+| `objects` | [sequence](/versions/9.0.0/rules/lib/core/list) of [File](/versions/9.0.0/rules/lib/builtins/File)s; default is `unbound`  Experimental, do not use |
+| `alwayslink` | [bool](/versions/9.0.0/rules/lib/core/bool); default is `False`  Whether to link the static library/objects in the --whole\_archive block. |
+| `dynamic_library_symlink_path` | [string](/versions/9.0.0/rules/lib/core/string); default is `''`  Override the default path of the dynamic library link in the solib directory. Empty string to use the default. |
+| `interface_library_symlink_path` | [string](/versions/9.0.0/rules/lib/core/string); default is `''`  Override the default path of the interface library link in the solib directory. Empty string to use the default. |
 
 ## create\_link\_variables
 
@@ -239,17 +239,17 @@ Returns link variables used for linking actions.
 | Parameter | Description |
 | --- | --- |
 | `cc_toolchain` | Info; required  cc\_toolchain for which we are creating build variables. |
-| `feature_configuration` | [FeatureConfiguration](../builtins/FeatureConfiguration); required  Feature configuration to be queried. |
-| `library_search_directories` | [depset](../builtins/depset); default is `[]`  Depset of directories where linker will look for libraries at link time. |
-| `runtime_library_search_directories` | [depset](../builtins/depset); default is `[]`  Depset of directories where loader will look for libraries at runtime. |
-| `user_link_flags` | [sequence](../core/list); default is `[]`  List of additional link flags (linkopts). |
+| `feature_configuration` | [FeatureConfiguration](/versions/9.0.0/rules/lib/builtins/FeatureConfiguration); required  Feature configuration to be queried. |
+| `library_search_directories` | [depset](/versions/9.0.0/rules/lib/builtins/depset); default is `[]`  Depset of directories where linker will look for libraries at link time. |
+| `runtime_library_search_directories` | [depset](/versions/9.0.0/rules/lib/builtins/depset); default is `[]`  Depset of directories where loader will look for libraries at runtime. |
+| `user_link_flags` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  List of additional link flags (linkopts). |
 | `output_file` | default is `None`  Optional output file path. |
 | `param_file` | default is `None`  Optional param file path. |
-| `is_using_linker` | [bool](../core/bool); default is `True`  True when using linker, False when archiver. Caller is responsible for keeping this in sync with action name used (is\_using\_linker = True for linking executable or dynamic library, is\_using\_linker = False for archiving static library). |
-| `is_linking_dynamic_library` | [bool](../core/bool); default is `False`  True when creating dynamic library, False when executable or static library. Caller is responsible for keeping this in sync with action name used. This field will be removed once b/65151735 is fixed. |
-| `must_keep_debug` | [bool](../core/bool); default is `True`  When set to False, bazel will expose 'strip\_debug\_symbols' variable, which is usually used to use the linker to strip debug symbols from the output file. |
-| `use_test_only_flags` | [bool](../core/bool); default is `False`  When set to true, 'is\_cc\_test' variable will be set. |
-| `is_static_linking_mode` | [bool](../core/bool); default is `True`  Unused. |
+| `is_using_linker` | [bool](/versions/9.0.0/rules/lib/core/bool); default is `True`  True when using linker, False when archiver. Caller is responsible for keeping this in sync with action name used (is\_using\_linker = True for linking executable or dynamic library, is\_using\_linker = False for archiving static library). |
+| `is_linking_dynamic_library` | [bool](/versions/9.0.0/rules/lib/core/bool); default is `False`  True when creating dynamic library, False when executable or static library. Caller is responsible for keeping this in sync with action name used. This field will be removed once b/65151735 is fixed. |
+| `must_keep_debug` | [bool](/versions/9.0.0/rules/lib/core/bool); default is `True`  When set to False, bazel will expose 'strip\_debug\_symbols' variable, which is usually used to use the linker to strip debug symbols from the output file. |
+| `use_test_only_flags` | [bool](/versions/9.0.0/rules/lib/core/bool); default is `False`  When set to true, 'is\_cc\_test' variable will be set. |
+| `is_static_linking_mode` | [bool](/versions/9.0.0/rules/lib/core/bool); default is `True`  Unused. |
 
 ## create\_linker\_input
 
@@ -263,10 +263,10 @@ Creates a `LinkerInput`.
 
 | Parameter | Description |
 | --- | --- |
-| `owner` | [Label](../builtins/Label); required  The label of the target that produced all files used in this input. |
-| `libraries` | `None`; or [depset](../builtins/depset); default is `None`  List of `LibraryToLink`. |
-| `user_link_flags` | `None`; or [depset](../builtins/depset) of [string](../core/string)s; or [sequence](../core/list) of [string](../core/string)s; default is `None`  User link flags passed as strings. Accepts either [String], [[String]] or depset(String). The latter is discouraged as it's only kept for compatibility purposes, the depset is flattened. If you want to propagate user\_link\_flags via unflattened depsets() wrap them in a LinkerInput so that they are not flattened till the end. |
-| `additional_inputs` | `None`; or [depset](../builtins/depset); default is `None`  For additional inputs to the linking action, e.g.: linking scripts. |
+| `owner` | [Label](/versions/9.0.0/rules/lib/builtins/Label); required  The label of the target that produced all files used in this input. |
+| `libraries` | `None`; or [depset](/versions/9.0.0/rules/lib/builtins/depset); default is `None`  List of `LibraryToLink`. |
+| `user_link_flags` | `None`; or [depset](/versions/9.0.0/rules/lib/builtins/depset) of [string](/versions/9.0.0/rules/lib/core/string)s; or [sequence](/versions/9.0.0/rules/lib/core/list) of [string](/versions/9.0.0/rules/lib/core/string)s; default is `None`  User link flags passed as strings. Accepts either [String], [[String]] or depset(String). The latter is discouraged as it's only kept for compatibility purposes, the depset is flattened. If you want to propagate user\_link\_flags via unflattened depsets() wrap them in a LinkerInput so that they are not flattened till the end. |
+| `additional_inputs` | `None`; or [depset](/versions/9.0.0/rules/lib/builtins/depset); default is `None`  For additional inputs to the linking action, e.g.: linking scripts. |
 
 ## create\_linking\_context
 
@@ -280,7 +280,7 @@ Creates a `LinkingContext`.
 
 | Parameter | Description |
 | --- | --- |
-| `linker_inputs` | [depset](../builtins/depset); required  Depset of `LinkerInput`. |
+| `linker_inputs` | [depset](/versions/9.0.0/rules/lib/builtins/depset); required  Depset of `LinkerInput`. |
 
 ## create\_linking\_context\_from\_compilation\_outputs
 
@@ -294,19 +294,19 @@ Should be used for creating library rules that can propagate information downstr
 
 | Parameter | Description |
 | --- | --- |
-| `actions` | [actions](../builtins/actions); required  `actions` object. |
-| `name` | [string](../core/string); required  This is used for naming the output artifacts of actions created by this method. |
-| `feature_configuration` | [FeatureConfiguration](../builtins/FeatureConfiguration); required  `feature_configuration` to be queried. |
+| `actions` | [actions](/versions/9.0.0/rules/lib/builtins/actions); required  `actions` object. |
+| `name` | [string](/versions/9.0.0/rules/lib/core/string); required  This is used for naming the output artifacts of actions created by this method. |
+| `feature_configuration` | [FeatureConfiguration](/versions/9.0.0/rules/lib/builtins/FeatureConfiguration); required  `feature_configuration` to be queried. |
 | `cc_toolchain` | Info; required  `CcToolchainInfo` provider to be used. |
-| `language` | [string](../core/string); default is `'c++'`  Only C++ supported for now. Do not use this parameter. |
-| `disallow_static_libraries` | [bool](../core/bool); default is `False`  Whether static libraries should be created. |
-| `disallow_dynamic_library` | [bool](../core/bool); default is `False`  Whether a dynamic library should be created. |
-| `compilation_outputs` | [CcCompilationOutputs](../builtins/CcCompilationOutputs); required  Compilation outputs containing object files to link. |
-| `linking_contexts` | [sequence](../core/list); default is `[]`  Libraries from dependencies. These libraries will be linked into the output artifact of the link() call, be it a binary or a library. |
-| `user_link_flags` | [sequence](../core/list); default is `[]`  Additional list of linking options. |
-| `alwayslink` | [bool](../core/bool); default is `False`  Whether this library should always be linked. |
-| `additional_inputs` | [sequence](../core/list); default is `[]`  For additional inputs to the linking action, e.g.: linking scripts. |
-| `variables_extension` | [dict](../core/dict); default is `unbound`  Additional variables to pass to the toolchain configuration when creating link command line. |
+| `language` | [string](/versions/9.0.0/rules/lib/core/string); default is `'c++'`  Only C++ supported for now. Do not use this parameter. |
+| `disallow_static_libraries` | [bool](/versions/9.0.0/rules/lib/core/bool); default is `False`  Whether static libraries should be created. |
+| `disallow_dynamic_library` | [bool](/versions/9.0.0/rules/lib/core/bool); default is `False`  Whether a dynamic library should be created. |
+| `compilation_outputs` | [CcCompilationOutputs](/versions/9.0.0/rules/lib/builtins/CcCompilationOutputs); required  Compilation outputs containing object files to link. |
+| `linking_contexts` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  Libraries from dependencies. These libraries will be linked into the output artifact of the link() call, be it a binary or a library. |
+| `user_link_flags` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  Additional list of linking options. |
+| `alwayslink` | [bool](/versions/9.0.0/rules/lib/core/bool); default is `False`  Whether this library should always be linked. |
+| `additional_inputs` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  For additional inputs to the linking action, e.g.: linking scripts. |
+| `variables_extension` | [dict](/versions/9.0.0/rules/lib/core/dict); default is `unbound`  Additional variables to pass to the toolchain configuration when creating link command line. |
 
 ## create\_lto\_compilation\_context
 
@@ -320,7 +320,7 @@ Create LTO compilation context
 
 | Parameter | Description |
 | --- | --- |
-| `objects` | [dict](../core/dict); default is `{}`  map of full object to index object |
+| `objects` | [dict](/versions/9.0.0/rules/lib/core/dict); default is `{}`  map of full object to index object |
 
 ## do\_not\_use\_tools\_cpp\_compiler\_present
 
@@ -342,8 +342,8 @@ Returns environment variables to be set for given action.
 
 | Parameter | Description |
 | --- | --- |
-| `feature_configuration` | [FeatureConfiguration](../builtins/FeatureConfiguration); required  Feature configuration to be queried. |
-| `action_name` | [string](../core/string); required  Name of the action. Has to be one of the names in @bazel\_tools//tools/build\_defs/cc:action\_names.bzl (https://github.com/bazelbuild/bazel/blob/master/tools/build\_defs/cc/action\_names.bzl) |
+| `feature_configuration` | [FeatureConfiguration](/versions/9.0.0/rules/lib/builtins/FeatureConfiguration); required  Feature configuration to be queried. |
+| `action_name` | [string](/versions/9.0.0/rules/lib/core/string); required  Name of the action. Has to be one of the names in @bazel\_tools//tools/build\_defs/cc:action\_names.bzl (https://github.com/bazelbuild/bazel/blob/master/tools/build\_defs/cc/action\_names.bzl) |
 | `variables` | Variables; required  Build variables to be used for template expansion. |
 
 ## get\_execution\_requirements
@@ -358,8 +358,8 @@ Returns execution requirements for given action.
 
 | Parameter | Description |
 | --- | --- |
-| `feature_configuration` | [FeatureConfiguration](../builtins/FeatureConfiguration); required  Feature configuration to be queried. |
-| `action_name` | [string](../core/string); required  Name of the action. Has to be one of the names in @bazel\_tools//tools/build\_defs/cc:action\_names.bzl (https://github.com/bazelbuild/bazel/blob/master/tools/build\_defs/cc/action\_names.bzl) |
+| `feature_configuration` | [FeatureConfiguration](/versions/9.0.0/rules/lib/builtins/FeatureConfiguration); required  Feature configuration to be queried. |
+| `action_name` | [string](/versions/9.0.0/rules/lib/core/string); required  Name of the action. Has to be one of the names in @bazel\_tools//tools/build\_defs/cc:action\_names.bzl (https://github.com/bazelbuild/bazel/blob/master/tools/build\_defs/cc/action\_names.bzl) |
 
 ## get\_memory\_inefficient\_command\_line
 
@@ -373,8 +373,8 @@ Returns flattened command line flags for given action, using given variables for
 
 | Parameter | Description |
 | --- | --- |
-| `feature_configuration` | [FeatureConfiguration](../builtins/FeatureConfiguration); required  Feature configuration to be queried. |
-| `action_name` | [string](../core/string); required  Name of the action. Has to be one of the names in @bazel\_tools//tools/build\_defs/cc:action\_names.bzl (https://github.com/bazelbuild/bazel/blob/master/tools/build\_defs/cc/action\_names.bzl) |
+| `feature_configuration` | [FeatureConfiguration](/versions/9.0.0/rules/lib/builtins/FeatureConfiguration); required  Feature configuration to be queried. |
+| `action_name` | [string](/versions/9.0.0/rules/lib/core/string); required  Name of the action. Has to be one of the names in @bazel\_tools//tools/build\_defs/cc:action\_names.bzl (https://github.com/bazelbuild/bazel/blob/master/tools/build\_defs/cc/action\_names.bzl) |
 | `variables` | Variables; required  Build variables to be used for template expansions. |
 
 ## get\_tool\_for\_action
@@ -389,8 +389,8 @@ Returns tool path for given action.
 
 | Parameter | Description |
 | --- | --- |
-| `feature_configuration` | [FeatureConfiguration](../builtins/FeatureConfiguration); required  Feature configuration to be queried. |
-| `action_name` | [string](../core/string); required  Name of the action. Has to be one of the names in @bazel\_tools//tools/build\_defs/cc:action\_names.bzl (https://github.com/bazelbuild/bazel/blob/master/tools/build\_defs/cc/action\_names.bzl) |
+| `feature_configuration` | [FeatureConfiguration](/versions/9.0.0/rules/lib/builtins/FeatureConfiguration); required  Feature configuration to be queried. |
+| `action_name` | [string](/versions/9.0.0/rules/lib/core/string); required  Name of the action. Has to be one of the names in @bazel\_tools//tools/build\_defs/cc:action\_names.bzl (https://github.com/bazelbuild/bazel/blob/master/tools/build\_defs/cc/action\_names.bzl) |
 
 ## is\_enabled
 
@@ -404,8 +404,8 @@ Returns True if given feature is enabled in the feature configuration.
 
 | Parameter | Description |
 | --- | --- |
-| `feature_configuration` | [FeatureConfiguration](../builtins/FeatureConfiguration); required  Feature configuration to be queried. |
-| `feature_name` | [string](../core/string); required  Name of the feature. |
+| `feature_configuration` | [FeatureConfiguration](/versions/9.0.0/rules/lib/builtins/FeatureConfiguration); required  Feature configuration to be queried. |
+| `feature_name` | [string](/versions/9.0.0/rules/lib/core/string); required  Name of the feature. |
 
 ## link
 
@@ -419,20 +419,20 @@ Should be used for C++ transitive linking.
 
 | Parameter | Description |
 | --- | --- |
-| `actions` | [actions](../builtins/actions); required  `actions` object. |
-| `name` | [string](../core/string); required  This is used for naming the output artifacts of actions created by this method. |
-| `feature_configuration` | [FeatureConfiguration](../builtins/FeatureConfiguration); required  `feature_configuration` to be queried. |
+| `actions` | [actions](/versions/9.0.0/rules/lib/builtins/actions); required  `actions` object. |
+| `name` | [string](/versions/9.0.0/rules/lib/core/string); required  This is used for naming the output artifacts of actions created by this method. |
+| `feature_configuration` | [FeatureConfiguration](/versions/9.0.0/rules/lib/builtins/FeatureConfiguration); required  `feature_configuration` to be queried. |
 | `cc_toolchain` | Info; required  `CcToolchainInfo` provider to be used. |
-| `language` | [string](../core/string); default is `'c++'`  Only C++ supported for now. Do not use this parameter. |
-| `output_type` | [string](../core/string); default is `'executable'`  Can be either 'executable' or 'dynamic\_library'. |
-| `link_deps_statically` | [bool](../core/bool); default is `True`  True to link dependencies statically, False dynamically. |
-| `compilation_outputs` | [CcCompilationOutputs](../builtins/CcCompilationOutputs); or `None`; default is `None`  Compilation outputs containing object files to link. |
-| `linking_contexts` | [sequence](../core/list); default is `[]`  Linking contexts from dependencies to be linked into the linking context generated by this rule. |
-| `user_link_flags` | [sequence](../core/list); default is `[]`  Additional list of linker options. |
-| `stamp` | [int](../core/int); default is `0`  Whether to include build information in the linked executable, if output\_type is 'executable'. If 1, build information is always included. If 0 (the default build information is always excluded. If -1, uses the default behavior, which may be overridden by the --[no]stamp flag. This should be unset (or set to 0) when generating the executable output for test rules. |
-| `additional_inputs` | [sequence](../core/list); or [depset](../builtins/depset); default is `[]`  For additional inputs to the linking action, e.g.: linking scripts. |
-| `additional_outputs` | [sequence](../core/list); default is `[]`  For additional outputs to the linking action, e.g.: map files. |
-| `variables_extension` | [dict](../core/dict); default is `{}`  Additional variables to pass to the toolchain configuration when create link command line. |
+| `language` | [string](/versions/9.0.0/rules/lib/core/string); default is `'c++'`  Only C++ supported for now. Do not use this parameter. |
+| `output_type` | [string](/versions/9.0.0/rules/lib/core/string); default is `'executable'`  Can be either 'executable' or 'dynamic\_library'. |
+| `link_deps_statically` | [bool](/versions/9.0.0/rules/lib/core/bool); default is `True`  True to link dependencies statically, False dynamically. |
+| `compilation_outputs` | [CcCompilationOutputs](/versions/9.0.0/rules/lib/builtins/CcCompilationOutputs); or `None`; default is `None`  Compilation outputs containing object files to link. |
+| `linking_contexts` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  Linking contexts from dependencies to be linked into the linking context generated by this rule. |
+| `user_link_flags` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  Additional list of linker options. |
+| `stamp` | [int](/versions/9.0.0/rules/lib/core/int); default is `0`  Whether to include build information in the linked executable, if output\_type is 'executable'. If 1, build information is always included. If 0 (the default build information is always excluded. If -1, uses the default behavior, which may be overridden by the --[no]stamp flag. This should be unset (or set to 0) when generating the executable output for test rules. |
+| `additional_inputs` | [sequence](/versions/9.0.0/rules/lib/core/list); or [depset](/versions/9.0.0/rules/lib/builtins/depset); default is `[]`  For additional inputs to the linking action, e.g.: linking scripts. |
+| `additional_outputs` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  For additional outputs to the linking action, e.g.: map files. |
+| `variables_extension` | [dict](/versions/9.0.0/rules/lib/core/dict); default is `{}`  Additional variables to pass to the toolchain configuration when create link command line. |
 
 ## merge\_cc\_infos
 
@@ -446,8 +446,8 @@ Merges multiple `CcInfo`s into one.
 
 | Parameter | Description |
 | --- | --- |
-| `direct_cc_infos` | [sequence](../core/list); default is `[]`  List of `CcInfo`s to be merged, whose headers will be exported by the direct fields in the returned provider. |
-| `cc_infos` | [sequence](../core/list); default is `[]`  List of `CcInfo`s to be merged, whose headers will not be exported by the direct fields in the returned provider. |
+| `direct_cc_infos` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  List of `CcInfo`s to be merged, whose headers will be exported by the direct fields in the returned provider. |
+| `cc_infos` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  List of `CcInfo`s to be merged, whose headers will not be exported by the direct fields in the returned provider. |
 
 ## merge\_compilation\_contexts
 
@@ -461,7 +461,7 @@ Merges multiple `CompilationContexts`s into one.
 
 | Parameter | Description |
 | --- | --- |
-| `compilation_contexts` | [sequence](../core/list); default is `[]`  List of `CompilationContexts`s to be merged. The headers of each context will be exported by the direct fields in the returned provider. |
+| `compilation_contexts` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  List of `CompilationContexts`s to be merged. The headers of each context will be exported by the direct fields in the returned provider. |
 
 ## merge\_compilation\_outputs
 
@@ -475,4 +475,4 @@ Merge compilation outputs.
 
 | Parameter | Description |
 | --- | --- |
-| `compilation_outputs` | [sequence](../core/list); default is `[]` |
+| `compilation_outputs` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]` |

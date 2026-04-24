@@ -40,7 +40,7 @@ my_rule = rule(
 )
 ```
 
-Rule `my_rule` registers two toolchain types. This means that the [Toolchain Resolution](https://bazel.build/extending/toolchains#toolchain-resolution) used
+Rule `my_rule` registers two toolchain types. This means that the [Toolchain Resolution](https://bazel.build/versions/8.3.1/extending/toolchains#toolchain-resolution) used
 to find an execution platform which supports both toolchain types. The selected
 execution platform was used for each registered action inside the rule, unless
 specified differently with [exec_groups][exec_groups].

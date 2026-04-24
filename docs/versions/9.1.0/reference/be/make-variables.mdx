@@ -65,7 +65,7 @@ and look at the top output lines with capital letters.
 
 * `COMPILATION_MODE`:
   `fastbuild`, `dbg`, or `opt`. ([more
-  details](https://bazel.build/docs/user-manual#flag--compilation_mode))
+  details](https://bazel.build/versions/9.1.0/docs/user-manual#flag--compilation_mode))
 
 **Path variables**
 
@@ -324,7 +324,7 @@ rare cases. If you are tempted to use them, please [contact the Bazel devs](http
 
 Rule and [toolchain](/versions/9.1.0/docs/toolchains) writers can define
 completely custom variables by returning a
-[TemplateVariableInfo](/versions/9.1.0/rules/lib/TemplateVariableInfo)
+[TemplateVariableInfo](/versions/9.1.0/rules/lib/providers/TemplateVariableInfo)
 provider. Any rules depending on these through the
 `toolchains` attribute can then read their values:
 

@@ -55,7 +55,7 @@ SemVer versions `a` and `b` compare `a < b` if and only if the same holds when
 they're compared as Bazel module versions.
 
 Finally, to learn more about module versioning, [see the `MODULE.bazel`
-FAQ](faq#module-versioning-best-practices).
+FAQ](/versions/9.1.0/external/faq#module-versioning-best-practices).
 
 ## Version selection {#version-selection}
 
@@ -110,7 +110,7 @@ serves multiple purposes:
     dependency graph.
 *   With the `registry` attribute, you can force this dependency to come from a
     specific registry, instead of following the normal [registry
-    selection](/external/registry#selecting_registries) process.
+    selection](/versions/9.1.0/external/registry#selecting_registries) process.
 *   With the `patch*` attributes, you can specify a set of patches to apply to
     the downloaded module.
 
@@ -152,7 +152,7 @@ Bazel supports the following non-registry overrides:
 Note that setting a version value in the source archive `MODULE.bazel` can have
 downsides when the module is being overridden with a non-registry override. To
 learn more about this [see the `MODULE.bazel`
-FAQ](faq#module-versioning-best-practices).
+FAQ](/versions/9.1.0/external/faq#module-versioning-best-practices).
 
 ## Define repos that don't represent Bazel modules {#use_repo_rule}
 
@@ -161,12 +161,12 @@ Sometimes there is a need to define a repo that does _not_ represent a Bazel
 module; for example, one that contains a plain JSON file to be read as data.
 
 In this case, you could use the [`use_repo_rule`
-directive](/rules/lib/globals/module#use_repo_rule) to directly define a repo
+directive](/versions/9.1.0/rules/lib/globals/module#use_repo_rule) to directly define a repo
 by invoking a repo rule. This repo will only be visible to the module it's
 defined in.
 
 Under the hood, this is implemented using the same mechanism as [module
-extensions](/external/extension), which lets you define repos with more
+extensions](/versions/9.1.0/external/extension), which lets you define repos with more
 flexibility.
 
 ## Repository names and strict deps

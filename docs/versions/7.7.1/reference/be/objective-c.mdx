@@ -124,8 +124,8 @@ This allows selection of an official xcode version from the collectively availab
 | Attributes | |
 | --- | --- |
 | `name` | [Name](/versions/7.7.1/concepts/labels#target-names); required  A unique name for this target. |
-| `default` | [Label](/versions/7.7.1/concepts/labels); [nonconfigurable](common-definitions#configurable-attributes); required The default xcode version for this platform. |
-| `versions` | List of [labels](/versions/7.7.1/concepts/labels); [nonconfigurable](common-definitions#configurable-attributes); default is `[]` The xcode versions that are available on this platform. |
+| `default` | [Label](/versions/7.7.1/concepts/labels); [nonconfigurable](/versions/7.7.1/reference/be/common-definitions#configurable-attributes); required The default xcode version for this platform. |
+| `versions` | List of [labels](/versions/7.7.1/concepts/labels); [nonconfigurable](/versions/7.7.1/reference/be/common-definitions#configurable-attributes); default is `[]` The xcode versions that are available on this platform. |
 
 ## xcode\_config
 
@@ -144,10 +144,10 @@ This allows selection of an official xcode version from a number of registered a
 | Attributes | |
 | --- | --- |
 | `name` | [Name](/versions/7.7.1/concepts/labels#target-names); required  A unique name for this target. |
-| `default` | [Label](/versions/7.7.1/concepts/labels); [nonconfigurable](common-definitions#configurable-attributes); default is `None` The default official version of xcode to use. The version specified by the provided `xcode_version` target is to be used if no `xcode_version` build flag is specified. This is required if any `versions` are set. This may not be set if `remote_versions` or `local_versions` is set. |
-| `local_versions` | [Label](/versions/7.7.1/concepts/labels); [nonconfigurable](common-definitions#configurable-attributes); default is `None` The `xcode_version` targets that are available locally. These are used along with `local_versions` to select a mutually available version. This may not be set if `versions` is set. |
-| `remote_versions` | [Label](/versions/7.7.1/concepts/labels); [nonconfigurable](common-definitions#configurable-attributes); default is `None` The `xcode_version` targets that are available remotely. These are used along with `remote_versions` to select a mutually available version. This may not be set if `versions` is set. |
-| `versions` | List of [labels](/versions/7.7.1/concepts/labels); [nonconfigurable](common-definitions#configurable-attributes); default is `[]` Accepted `xcode_version` targets that may be used. If the value of the `xcode_version` build flag matches one of the aliases or version number of any of the given `xcode_version` targets, the matching target will be used. This may not be set if `remote_versions` or `local_versions` is set. |
+| `default` | [Label](/versions/7.7.1/concepts/labels); [nonconfigurable](/versions/7.7.1/reference/be/common-definitions#configurable-attributes); default is `None` The default official version of xcode to use. The version specified by the provided `xcode_version` target is to be used if no `xcode_version` build flag is specified. This is required if any `versions` are set. This may not be set if `remote_versions` or `local_versions` is set. |
+| `local_versions` | [Label](/versions/7.7.1/concepts/labels); [nonconfigurable](/versions/7.7.1/reference/be/common-definitions#configurable-attributes); default is `None` The `xcode_version` targets that are available locally. These are used along with `local_versions` to select a mutually available version. This may not be set if `versions` is set. |
+| `remote_versions` | [Label](/versions/7.7.1/concepts/labels); [nonconfigurable](/versions/7.7.1/reference/be/common-definitions#configurable-attributes); default is `None` The `xcode_version` targets that are available remotely. These are used along with `remote_versions` to select a mutually available version. This may not be set if `versions` is set. |
+| `versions` | List of [labels](/versions/7.7.1/concepts/labels); [nonconfigurable](/versions/7.7.1/reference/be/common-definitions#configurable-attributes); default is `[]` Accepted `xcode_version` targets that may be used. If the value of the `xcode_version` build flag matches one of the aliases or version number of any of the given `xcode_version` targets, the matching target will be used. This may not be set if `remote_versions` or `local_versions` is set. |
 
 ## xcode\_version
 
@@ -165,9 +165,9 @@ See the `xcode_config` rule.
 | Attributes | |
 | --- | --- |
 | `name` | [Name](/versions/7.7.1/concepts/labels#target-names); required  A unique name for this target. |
-| `default_ios_sdk_version` | String; [nonconfigurable](common-definitions#configurable-attributes); default is `""` The ios sdk version that is used by default when this version of xcode is being used. The `ios_sdk_version` build flag will override the value specified here. |
-| `default_macos_sdk_version` | String; [nonconfigurable](common-definitions#configurable-attributes); default is `""` The macosx sdk version that is used by default when this version of xcode is being used. The `macos_sdk_version` build flag will override the value specified here. |
-| `default_tvos_sdk_version` | String; [nonconfigurable](common-definitions#configurable-attributes); default is `""` The tvos sdk version that is used by default when this version of xcode is being used. The `tvos_sdk_version` build flag will override the value specified here. |
-| `default_visionos_sdk_version` | String; [nonconfigurable](common-definitions#configurable-attributes); default is `""` The visionos sdk version that is used by default when this version of xcode is being used. The `visionos_sdk_version` build flag will override the value specified here. |
-| `default_watchos_sdk_version` | String; [nonconfigurable](common-definitions#configurable-attributes); default is `""` The watchos sdk version that is used by default when this version of xcode is being used. The `watchos_sdk_version` build flag will override the value specified here. |
-| `version` | String; [nonconfigurable](common-definitions#configurable-attributes); required The official version number of a version of Xcode. |
+| `default_ios_sdk_version` | String; [nonconfigurable](/versions/7.7.1/reference/be/common-definitions#configurable-attributes); default is `""` The ios sdk version that is used by default when this version of xcode is being used. The `ios_sdk_version` build flag will override the value specified here. |
+| `default_macos_sdk_version` | String; [nonconfigurable](/versions/7.7.1/reference/be/common-definitions#configurable-attributes); default is `""` The macosx sdk version that is used by default when this version of xcode is being used. The `macos_sdk_version` build flag will override the value specified here. |
+| `default_tvos_sdk_version` | String; [nonconfigurable](/versions/7.7.1/reference/be/common-definitions#configurable-attributes); default is `""` The tvos sdk version that is used by default when this version of xcode is being used. The `tvos_sdk_version` build flag will override the value specified here. |
+| `default_visionos_sdk_version` | String; [nonconfigurable](/versions/7.7.1/reference/be/common-definitions#configurable-attributes); default is `""` The visionos sdk version that is used by default when this version of xcode is being used. The `visionos_sdk_version` build flag will override the value specified here. |
+| `default_watchos_sdk_version` | String; [nonconfigurable](/versions/7.7.1/reference/be/common-definitions#configurable-attributes); default is `""` The watchos sdk version that is used by default when this version of xcode is being used. The `watchos_sdk_version` build flag will override the value specified here. |
+| `version` | String; [nonconfigurable](/versions/7.7.1/reference/be/common-definitions#configurable-attributes); required The official version number of a version of Xcode. |

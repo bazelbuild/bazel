@@ -139,7 +139,7 @@ Note that `native` can only be used in `.bzl` files, and not in `BUILD` files.
 
 ## Label resolution in macros
 
-Since macros are evaluated in the [loading phase](concepts.md#evaluation-model),
+Since macros are evaluated in the [loading phase](/versions/7.6.1/extending/concepts#evaluation-model),
 label strings such as `"//foo:bar"` that occur in a macro are interpreted
 relative to the `BUILD` file in which the macro is used rather than relative to
 the `.bzl` file in which it is defined. This behavior is generally undesirable

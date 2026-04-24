@@ -35,11 +35,11 @@ Specifies that this dependency should come from an archive file (zip, gzip, etc)
 | Parameter | Description |
 | --- | --- |
 | `module_name` | required  The name of the Bazel module dependency to apply this override to. |
-| `urls` | [string](../core/string); or Iterable of [string](../core/string)s; required  The URLs of the archive; can be http(s):// or file:// URLs. |
+| `urls` | [string](/versions/7.6.1/rules/lib/core/string); or Iterable of [string](/versions/7.6.1/rules/lib/core/string)s; required  The URLs of the archive; can be http(s):// or file:// URLs. |
 | `integrity` | default is `''`  The expected checksum of the archive file, in Subresource Integrity format. |
 | `strip_prefix` | default is `''`  A directory prefix to strip from the extracted files. |
-| `patches` | Iterable of [string](../core/string)s; default is `[]`  A list of labels pointing to patch files to apply for this module. The patch files must exist in the source tree of the top level project. They are applied in the list order. |
-| `patch_cmds` | Iterable of [string](../core/string)s; default is `[]`  Sequence of Bash commands to be applied on Linux/Macos after patches are applied. |
+| `patches` | Iterable of [string](/versions/7.6.1/rules/lib/core/string)s; default is `[]`  A list of labels pointing to patch files to apply for this module. The patch files must exist in the source tree of the top level project. They are applied in the list order. |
+| `patch_cmds` | Iterable of [string](/versions/7.6.1/rules/lib/core/string)s; default is `[]`  Sequence of Bash commands to be applied on Linux/Macos after patches are applied. |
 | `patch_strip` | default is `0`  Same as the --strip argument of Unix patch. |
 
 ## bazel\_dep
@@ -57,7 +57,7 @@ Declares a direct dependency on another Bazel module.
 | `name` | required  The name of the module to be added as a direct dependency. |
 | `version` | default is `''`  The version of the module to be added as a direct dependency. |
 | `max_compatibility_level` | default is `-1`  The maximum `compatibility_level` supported for the module to be added as a direct dependency. The version of the module implies the minimum compatibility\_level supported, as well as the maximum if this attribute is not specified. |
-| `repo_name` | [string](../core/string); or `None`; default is `''`  The name of the external repo representing this dependency. This is by default the name of the module. Can be set to `None` to make this dependency a "*nodep*" dependency: in this case, this `bazel_dep` specification is only honored if the target module already exists in the dependency graph by some other means. |
+| `repo_name` | [string](/versions/7.6.1/rules/lib/core/string); or `None`; default is `''`  The name of the external repo representing this dependency. This is by default the name of the module. Can be set to `None` to make this dependency a "*nodep*" dependency: in this case, this `bazel_dep` specification is only honored if the target module already exists in the dependency graph by some other means. |
 | `dev_dependency` | default is `False`  If true, this dependency will be ignored if the current module is not the root module or `--ignore_dev_dependency` is enabled. |
 
 ## git\_override
@@ -75,8 +75,8 @@ Specifies that a dependency should come from a certain commit of a Git repositor
 | `module_name` | required  The name of the Bazel module dependency to apply this override to. |
 | `remote` | required  The URL of the remote Git repository. |
 | `commit` | default is `''`  The commit that should be checked out. |
-| `patches` | Iterable of [string](../core/string)s; default is `[]`  A list of labels pointing to patch files to apply for this module. The patch files must exist in the source tree of the top level project. They are applied in the list order. |
-| `patch_cmds` | Iterable of [string](../core/string)s; default is `[]`  Sequence of Bash commands to be applied on Linux/Macos after patches are applied. |
+| `patches` | Iterable of [string](/versions/7.6.1/rules/lib/core/string)s; default is `[]`  A list of labels pointing to patch files to apply for this module. The patch files must exist in the source tree of the top level project. They are applied in the list order. |
+| `patch_cmds` | Iterable of [string](/versions/7.6.1/rules/lib/core/string)s; default is `[]`  Sequence of Bash commands to be applied on Linux/Macos after patches are applied. |
 | `patch_strip` | default is `0`  Same as the --strip argument of Unix patch. |
 | `init_submodules` | default is `False`  Whether git submodules in the fetched repo should be recursively initialized. |
 | `strip_prefix` | default is `''`  A directory prefix to strip from the extracted files. This can be used to target a subdirectory of the git repo. Note that the subdirectory must have its own `MODULE.bazel` file with a module name that is the same as the `module\_name` arg passed to this `git\_override`. |
@@ -155,7 +155,7 @@ It should be called at most once, and if called, it must be the very first direc
 | `version` | default is `''`  The version of the module. Can be omitted only if this module is the root module (as in, if it's not going to be depended on by another module). The version must be in a relaxed SemVer format; see [the documentation](/versions/7.6.1/external/module#version_format) for more details. |
 | `compatibility_level` | default is `0`  The compatibility level of the module; this should be changed every time a major incompatible change is introduced. This is essentially the "major version" of the module in terms of SemVer, except that it's not embedded in the version string itself, but exists as a separate field. Modules with different compatibility levels participate in version resolution as if they're modules with different names, but the final dependency graph cannot contain multiple modules with the same name but different compatibility levels (unless `multiple_version_override` is in effect). See [the documentation](/versions/7.6.1/external/module#compatibility_level) for more details. |
 | `repo_name` | default is `''`  The name of the repository representing this module, as seen by the module itself. By default, the name of the repo is the name of the module. This can be specified to ease migration for projects that have been using a repo name for itself that differs from its module name. |
-| `bazel_compatibility` | Iterable of [string](../core/string)s; default is `[]`  A list of bazel versions that allows users to declare which Bazel versions are compatible with this module. It does NOT affect dependency resolution, but bzlmod will use this information to check if your current Bazel version is compatible. The format of this value is a string of some constraint values separated by comma. Three constraints are supported: &lt;=X.X.X: The Bazel version must be equal or older than X.X.X. Used when there is a known incompatible change in a newer version. &gt;=X.X.X: The Bazel version must be equal or newer than X.X.X.Used when you depend on some features that are only available since X.X.X. -X.X.X: The Bazel version X.X.X is not compatible. Used when there is a bug in X.X.X that breaks you, but fixed in later versions. |
+| `bazel_compatibility` | Iterable of [string](/versions/7.6.1/rules/lib/core/string)s; default is `[]`  A list of bazel versions that allows users to declare which Bazel versions are compatible with this module. It does NOT affect dependency resolution, but bzlmod will use this information to check if your current Bazel version is compatible. The format of this value is a string of some constraint values separated by comma. Three constraints are supported: &lt;=X.X.X: The Bazel version must be equal or older than X.X.X. Used when there is a known incompatible change in a newer version. &gt;=X.X.X: The Bazel version must be equal or newer than X.X.X.Used when you depend on some features that are only available since X.X.X. -X.X.X: The Bazel version X.X.X is not compatible. Used when there is a bug in X.X.X that breaks you, but fixed in later versions. |
 
 ## multiple\_version\_override
 
@@ -170,7 +170,7 @@ Specifies that a dependency should still come from a registry, but multiple vers
 | Parameter | Description |
 | --- | --- |
 | `module_name` | required  The name of the Bazel module dependency to apply this override to. |
-| `versions` | Iterable of [string](../core/string)s; required  Explicitly specifies the versions allowed to coexist. These versions must already be present in the dependency graph pre-selection. Dependencies on this module will be "upgraded" to the nearest higher allowed version at the same compatibility level, whereas dependencies that have a higher version than any allowed versions at the same compatibility level will cause an error. |
+| `versions` | Iterable of [string](/versions/7.6.1/rules/lib/core/string)s; required  Explicitly specifies the versions allowed to coexist. These versions must already be present in the dependency graph pre-selection. Dependencies on this module will be "upgraded" to the nearest higher allowed version at the same compatibility level, whereas dependencies that have a higher version than any allowed versions at the same compatibility level will cause an error. |
 | `registry` | default is `''`  Overrides the registry for this module; instead of finding this module from the default list of registries, the given registry should be used. |
 
 ## override\_repo
@@ -206,7 +206,7 @@ Specifies already-defined execution platforms to be registered when this module 
 | Parameter | Description |
 | --- | --- |
 | `dev_dependency` | default is `False`  If true, the execution platforms will not be registered if the current module is not the root module or `--ignore\_dev\_dependency` is enabled. |
-| `platform_labels` | [sequence](../core/list) of [string](../core/string)s; required  The labels of the platforms to register. |
+| `platform_labels` | [sequence](/versions/7.6.1/rules/lib/core/list) of [string](/versions/7.6.1/rules/lib/core/string)s; required  The labels of the platforms to register. |
 
 ## register\_toolchains
 
@@ -221,7 +221,7 @@ Specifies already-defined toolchains to be registered when this module is select
 | Parameter | Description |
 | --- | --- |
 | `dev_dependency` | default is `False`  If true, the toolchains will not be registered if the current module is not the root module or `--ignore\_dev\_dependency` is enabled. |
-| `toolchain_labels` | [sequence](../core/list) of [string](../core/string)s; required  The labels of the toolchains to register. Labels can include `:all`, in which case, all toolchain-providing targets in the package will be registered in lexicographical order by name. |
+| `toolchain_labels` | [sequence](/versions/7.6.1/rules/lib/core/list) of [string](/versions/7.6.1/rules/lib/core/string)s; required  The labels of the toolchains to register. Labels can include `:all`, in which case, all toolchain-providing targets in the package will be registered in lexicographical order by name. |
 
 ## single\_version\_override
 
@@ -238,8 +238,8 @@ Specifies that a dependency should still come from a registry, but its version s
 | `module_name` | required  The name of the Bazel module dependency to apply this override to. |
 | `version` | default is `''`  Overrides the declared version of this module in the dependency graph. In other words, this module will be "pinned" to this override version. This attribute can be omitted if all one wants to override is the registry or the patches. |
 | `registry` | default is `''`  Overrides the registry for this module; instead of finding this module from the default list of registries, the given registry should be used. |
-| `patches` | Iterable of [string](../core/string)s; default is `[]`  A list of labels pointing to patch files to apply for this module. The patch files must exist in the source tree of the top level project. They are applied in the list order. If a patch makes changes to the MODULE.bazel file, these changes will only be effective if the patch file is provided by the root module. |
-| `patch_cmds` | Iterable of [string](../core/string)s; default is `[]`  Sequence of Bash commands to be applied on Linux/Macos after patches are applied. Changes to the MODULE.bazel file will not be effective. |
+| `patches` | Iterable of [string](/versions/7.6.1/rules/lib/core/string)s; default is `[]`  A list of labels pointing to patch files to apply for this module. The patch files must exist in the source tree of the top level project. They are applied in the list order. If a patch makes changes to the MODULE.bazel file, these changes will only be effective if the patch file is provided by the root module. |
+| `patch_cmds` | Iterable of [string](/versions/7.6.1/rules/lib/core/string)s; default is `[]`  Sequence of Bash commands to be applied on Linux/Macos after patches are applied. Changes to the MODULE.bazel file will not be effective. |
 | `patch_strip` | default is `0`  Same as the --strip argument of Unix patch. |
 
 ## use\_extension

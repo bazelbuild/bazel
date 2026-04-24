@@ -302,7 +302,7 @@ rare cases. If you are tempted to use them, please [contact the Bazel devs](http
 
 Rule and [toolchain](/versions/8.4.2/docs/toolchains) writers can define
 completely custom variables by returning a
-[TemplateVariableInfo](/versions/8.4.2/rules/lib/TemplateVariableInfo)
+[TemplateVariableInfo](/versions/8.4.2/rules/lib/providers/TemplateVariableInfo)
 provider. Any rules depending on these through the
 `toolchains` attribute can then read their values:
 

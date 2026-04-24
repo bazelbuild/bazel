@@ -14,7 +14,7 @@ of Bazel. Bazel augments the core language with numerous build-related functions
 such as `glob`, `genrule`, `java_binary`, and so on.
 
 See the
-[Bazel](/start/getting-started) and [Starlark](/rules/concepts) documentation for
+[Bazel](/versions/6.5.0/start/getting-started) and [Starlark](/versions/6.5.0/rules/concepts) documentation for
 more details, and the
 [Rules SIG template](https://github.com/bazel-contrib/rules-template) as a
 starting point for new rulesets.
@@ -32,9 +32,9 @@ foo_binary = rule(
 )
 ```
 
-When you call the [`rule`](lib/globals#rule) function, you
+When you call the [`rule`](/versions/6.5.0/rules/lib/globals#rule) function, you
 must define a callback function. The logic will go there, but you
-can leave the function empty for now. The [`ctx`](lib/ctx) argument
+can leave the function empty for now. The [`ctx`](/versions/6.5.0/rules/lib/ctx) argument
 provides information about the target.
 
 You can load the rule and use it from a `BUILD` file.
@@ -87,10 +87,10 @@ foo_binary(name = "bin1")
 foo_binary(name = "bin2")
 ```
 
-[`ctx.label`](lib/ctx#label)
+[`ctx.label`](/versions/6.5.0/rules/lib/ctx#label)
 corresponds to the label of the target being analyzed. The `ctx` object has
 many useful fields and methods; you can find an exhaustive list in the
-[API reference](lib/ctx).
+[API reference](/versions/6.5.0/rules/lib/ctx).
 
 Query the code:
 
@@ -111,7 +111,7 @@ Make a few observations:
 * The callback function `_foo_binary_impl` is not called. Bazel query loads
   `BUILD` files, but doesn't analyze targets.
 
-To analyze the targets, use the [`cquery`](/docs/cquery) ("configured
+To analyze the targets, use the [`cquery`](/versions/6.5.0/docs/cquery) ("configured
 query") or the `build` command:
 
 ```
@@ -149,7 +149,7 @@ bin2
 ```
 
 Whenever you declare a file, you have to tell Bazel how to generate it by
-creating an action. Use [`ctx.actions.write`](lib/actions#write),
+creating an action. Use [`ctx.actions.write`](/versions/6.5.0/rules/lib/actions#write),
 to create a file with the given content.
 
 ```python
@@ -204,7 +204,7 @@ You have successfully generated a file!
 ## Attributes
 
 To make the rule more useful, add new attributes using
-[the `attr` module](lib/attr) and update the rule definition.
+[the `attr` module](/versions/6.5.0/rules/lib/attr) and update the rule definition.
 
 Add a string attribute called `username`:
 
@@ -240,22 +240,22 @@ def _foo_binary_impl(ctx):
 ```
 
 Note that you can make the attribute mandatory or set a default value. Look at
-the documentation of [`attr.string`](lib/attr#string).
-You may also use other types of attributes, such as [boolean](lib/attr#bool)
-or [list of integers](lib/attr#int_list).
+the documentation of [`attr.string`](/versions/6.5.0/rules/lib/attr#string).
+You may also use other types of attributes, such as [boolean](/versions/6.5.0/rules/lib/attr#bool)
+or [list of integers](/versions/6.5.0/rules/lib/attr#int_list).
 
 ## Dependencies
 
-Dependency attributes, such as [`attr.label`](lib/attr#label)
-and [`attr.label_list`](lib/attr#label_list),
+Dependency attributes, such as [`attr.label`](/versions/6.5.0/rules/lib/attr#label)
+and [`attr.label_list`](/versions/6.5.0/rules/lib/attr#label_list),
 declare a dependency from the target that owns the attribute to the target whose
 label appears in the attribute's value. This kind of attribute forms the basis
 of the target graph.
 
 In the `BUILD` file, the target label appears as a string object, such as
 `//pkg:name`. In the implementation function, the target will be accessible as a
-[`Target`](lib/Target) object. For example, view the files returned
-by the target using [`Target.files`](lib/Target#modules.Target.files).
+[`Target`](/versions/6.5.0/rules/lib/Target) object. For example, view the files returned
+by the target using [`Target.files`](/versions/6.5.0/rules/lib/Target#modules.Target.files).
 
 ### Multiple files
 
@@ -298,7 +298,7 @@ implementation function, but this has two problems. First, as the template gets
 bigger, it becomes more memory efficient to put it in a separate file and avoid
 constructing large strings during the analysis phase. Second, using a separate
 file is more convenient for the user. Instead, use
-[`ctx.actions.expand_template`](lib/actions#expand_template),
+[`ctx.actions.expand_template`](/versions/6.5.0/rules/lib/actions#expand_template),
 which performs substitutions on a template file.
 
 Create a `template` attribute to declare a dependency on the template
@@ -355,7 +355,7 @@ Attributes that start with an underscore are private and cannot be set in a
 `BUILD` file. The template is now an _implicit dependency_: Every `hello_world`
 target has a dependency on this file. Don't forget to make this file visible
 to other packages by updating the `BUILD` file and using
-[`exports_files`](/reference/be/functions#exports_files):
+[`exports_files`](/versions/6.5.0/reference/be/functions#exports_files):
 
 ```python
 exports_files(["file.cc.tpl"])
@@ -363,7 +363,7 @@ exports_files(["file.cc.tpl"])
 
 ## Going further
 
-*   Take a look at the [reference documentation for rules](rules#contents).
-*   Get familiar with [depsets](depsets).
+*   Take a look at the [reference documentation for rules](/versions/6.5.0/rules/rules#contents).
+*   Get familiar with [depsets](/versions/6.5.0/rules/depsets).
 *   Check out the [examples repository](https://github.com/bazelbuild/examples/tree/master/rules)
     which includes additional examples of rules.

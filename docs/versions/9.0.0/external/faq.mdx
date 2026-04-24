@@ -61,7 +61,7 @@ expected when sorting (the empty string is treated as the highest version).
 
 ### When should I increment the compatibility level?
 
-The [`compatibility_level`](module.md#compatibility_level) of a Bazel module
+The [`compatibility_level`](/versions/9.0.0/external/module#compatibility_level) of a Bazel module
 should be incremented _in the same commit_ that introduces a backwards
 incompatible ("breaking") change.
 
@@ -99,7 +99,7 @@ generally interested in, and they can be solved without `load`s:
     `load`s in MODULE.bazel files, `include` cannot be used in non-root modules.
 *   Users of the old WORKSPACE system might remember declaring a repo, and then
     immediately `load`ing from that repo to perform complex logic. This
-    capability has been replaced by [module extensions](extension).
+    capability has been replaced by [module extensions](/versions/9.0.0/external/extension).
 
 ### Can I specify a SemVer range for a `bazel_dep`? {#can-i-specify-a-semver-range-for-a-bazel-dep}
 
@@ -108,11 +108,11 @@ support version ranges (implicitly or explicitly), and this often requires a
 constraint solver (making the output harder to predict for users) and makes
 version resolution nonreproducible without a lockfile.
 
-Bazel instead uses [Minimal Version Selection](module#version-selection) like
+Bazel instead uses [Minimal Version Selection](/versions/9.0.0/external/module#version-selection) like
 Go, which in contrast makes the output easy to predict and guarantees
 reproducibility. This is a tradeoff that matches Bazel's design goals.
 
-Furthermore, Bazel module versions are [a superset of SemVer](module#version-format), so what makes sense in a strict SemVer
+Furthermore, Bazel module versions are [a superset of SemVer](/versions/9.0.0/external/module#version-format), so what makes sense in a strict SemVer
 environment doesn't always carry over to Bazel module versions.
 
 ### Can I automatically get the latest version for a `bazel_dep`? {#can-i-automatically-get-the-latest-version-for-a-bazel-dep}
@@ -177,7 +177,7 @@ wonder which system is consulted first. The short answer is that MODULE.bazel
 
 The long answer is that "which evaluates first" is not the right question to
 ask; rather, the right question to ask is: in the context of the repo with
-[canonical name](overview#canonical-repo-name) `@@foo`, what does the [apparent repo name](overview#apparent-repo-name) `@bar` resolve to? Alternatively, what
+[canonical name](/versions/9.0.0/external/overview#canonical-repo-name) `@@foo`, what does the [apparent repo name](/versions/9.0.0/external/overview#apparent-repo-name) `@bar` resolve to? Alternatively, what
 is the repo mapping of `@@base`?
 
 Labels with apparent repo names (a single leading `@`) can refer to different
@@ -186,7 +186,7 @@ things based on the context they're resolved from. When you see a label
 what the context repo is: for example, if the label is in a BUILD file located
 in the repo `@@foo`, then the context repo is `@@foo`.
 
-Then, depending on what the context repo is, the ["repository visibility" table](migration#repository-visibility) in the migration guide can
+Then, depending on what the context repo is, the ["repository visibility" table](/versions/9.0.0/external/migration#repository-visibility) in the migration guide can
 be used to find out which repo an apparent name actually resolves to.
 
 *   If the context repo is the main repo (`@@`):
@@ -246,7 +246,7 @@ The make sure no fetches happen during a build, use `--nofetch`. More precisely,
 this makes any attempt to run a non-local repository rule fail.
 
 If you want to fetch repos _and_ modify them to test locally, consider using
-the [`bazel vendor`](vendor) command.
+the [`bazel vendor`](/versions/9.0.0/external/vendor) command.
 
 ### How do I use HTTP proxies? {#how-do-i-use-http-proxies}
 

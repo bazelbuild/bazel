@@ -70,7 +70,7 @@ Should be used for C++ compilation. Returns tuple of (`CompilationContext`, `CcC
 | `srcs` | default is `[]`  The list of source files to be compiled. |
 | `public_hdrs` | default is `[]`  List of headers needed for compilation of srcs and may be included by dependent rules transitively. |
 | `private_hdrs` | default is `[]`  List of headers needed for compilation of srcs and NOT to be included by dependent rules. |
-| `includes` | [sequence](../core/list); or [depset](../builtins/depset); default is `[]`  Search paths for header files referenced both by angle bracket and quotes. Usually passed with -I. Propagated to dependents transitively. |
+| `includes` | [sequence](/versions/7.7.1/rules/lib/core/list); or [depset](/versions/7.7.1/rules/lib/builtins/depset); default is `[]`  Search paths for header files referenced both by angle bracket and quotes. Usually passed with -I. Propagated to dependents transitively. |
 | `quote_includes` | default is `[]`  Search paths for header files referenced by quotes, e.g. #include "foo/bar/header.h". They can be either relative to the exec root or absolute. Usually passed with -iquote. Propagated to dependents transitively. |
 | `system_includes` | default is `[]`  Search paths for header files referenced by angle brackets, e.g. #include &lt;foo/bar/header.h&gt;. They can be either relative to the exec root or absolute. Usually passed with -isystem. Propagated to dependents transitively. |
 | `framework_includes` | default is `[]`  Search paths for header files from Apple frameworks. They can be either relative to the exec root or absolute. Usually passed with -F. Propagated to dependents transitively. |
@@ -99,9 +99,9 @@ Creates a feature\_configuration instance. Requires the cpp configuration fragme
 
 | Parameter | Description |
 | --- | --- |
-| `ctx` | [ctx](../builtins/ctx); or `None`; default is `None`  The rule context. |
+| `ctx` | [ctx](/versions/7.7.1/rules/lib/builtins/ctx); or `None`; default is `None`  The rule context. |
 | `cc_toolchain` | required  cc\_toolchain for which we configure features. |
-| `language` | [string](../core/string); or `None`; default is `None`  The language to configure for: either c++ or objc (default c++) |
+| `language` | [string](/versions/7.7.1/rules/lib/core/string); or `None`; default is `None`  The language to configure for: either c++ or objc (default c++) |
 | `requested_features` | default is `[]`  List of features to be enabled. |
 | `unsupported_features` | default is `[]`  List of features that are unsupported by the current rule. |
 
@@ -123,17 +123,17 @@ Creates a `CcToolchainConfigInfo` provider
 | `artifact_name_patterns` | default is `[]`  The name for an artifact of a given category of input or output artifacts to an action. Arguments:  `category_name`: The category of artifacts that this selection applies to. This field is compared against a list of categories defined in Bazel. Example categories include "linked\_output" or the artifact for this selection. Together with the extension it is used to create an artifact name based on the target name.  `extension`: The extension for creating the artifact for this selection. Together with the prefix it is used to create an artifact name based on the target name. |
 | `cxx_builtin_include_directories` | default is `[]`  Built-in include directories for C++ compilation. These should be the exact paths used by the compiler, and are generally relative to the exec root.  The paths used by the compiler can be determined by 'gcc -E -xc++ - -v'.  We currently use the C++ paths also for C compilation, which is safe as long as there are no name clashes between C++ and C header files.  Relative paths are resolved relative to the configuration file directory.  If the compiler has --sysroot support, then these paths should use %sysroot% rather than the include path, and specify the sysroot attribute in order to give blaze the information necessary to make the correct replacements. |
 | `toolchain_identifier` | required  The unique identifier of the toolchain within the crosstool release. It must be possible to use this as a directory name in a path.  It has to match the following regex: [a-zA-Z\_][\.\- \w]\* |
-| `host_system_name` | [string](../core/string); or `None`; default is `None`  Ignored. |
+| `host_system_name` | [string](/versions/7.7.1/rules/lib/core/string); or `None`; default is `None`  Ignored. |
 | `target_system_name` | required  The GNU System Name. |
 | `target_cpu` | required  The target architecture string. |
 | `target_libc` | required  The libc version string (e.g. "glibc-2.2.2"). |
 | `compiler` | required  The compiler version string (e.g. "gcc-4.1.1"). |
-| `abi_version` | [string](../core/string); or `None`; default is `None`  The abi in use, which is a gcc version. E.g.: "gcc-3.4" |
-| `abi_libc_version` | [string](../core/string); or `None`; default is `None`  The glibc version used by the abi we're using. |
+| `abi_version` | [string](/versions/7.7.1/rules/lib/core/string); or `None`; default is `None`  The abi in use, which is a gcc version. E.g.: "gcc-3.4" |
+| `abi_libc_version` | [string](/versions/7.7.1/rules/lib/core/string); or `None`; default is `None`  The glibc version used by the abi we're using. |
 | `tool_paths` | default is `[]`  Tool locations. Arguments:  `name`: Name of the tool.  `path`: Location of the tool; Can be absolute path (in case of non hermetic toolchain), or path relative to the cc\_toolchain's package. |
 | `make_variables` | default is `[]`  A make variable that is made accessible to rules. |
-| `builtin_sysroot` | [string](../core/string); or `None`; default is `None`  The built-in sysroot. If this attribute is not present, Bazel does not allow using a different sysroot, i.e. through the --grte\_top option. |
-| `cc_target_os` | [string](../core/string); or `None`; default is `None`  Internal purpose only, do not use. |
+| `builtin_sysroot` | [string](/versions/7.7.1/rules/lib/core/string); or `None`; default is `None`  The built-in sysroot. If this attribute is not present, Bazel does not allow using a different sysroot, i.e. through the --grte\_top option. |
+| `cc_target_os` | [string](/versions/7.7.1/rules/lib/core/string); or `None`; default is `None`  Internal purpose only, do not use. |
 
 ## create\_compilation\_context
 
@@ -167,8 +167,8 @@ Create compilation outputs object.
 
 | Parameter | Description |
 | --- | --- |
-| `objects` | [depset](../builtins/depset); or `None`; default is `None`  List of object files. |
-| `pic_objects` | [depset](../builtins/depset); or `None`; default is `None`  List of pic object files. |
+| `objects` | [depset](/versions/7.7.1/rules/lib/builtins/depset); or `None`; default is `None`  List of object files. |
+| `pic_objects` | [depset](/versions/7.7.1/rules/lib/builtins/depset); or `None`; default is `None`  List of pic object files. |
 
 ## create\_compile\_variables
 
@@ -186,18 +186,18 @@ Returns variables used for compilation actions.
 | `feature_configuration` | required  Feature configuration to be queried. |
 | `source_file` | default is `None`  Optional source file for the compilation. Please prefer passing source\_file here over appending it to the end of the command line generated from cc\_common.get\_memory\_inefficient\_command\_line, as then it's in the power of the toolchain author to properly specify and position compiler flags. |
 | `output_file` | default is `None`  Optional output file of the compilation. Please prefer passing output\_file here over appending it to the end of the command line generated from cc\_common.get\_memory\_inefficient\_command\_line, as then it's in the power of the toolchain author to properly specify and position compiler flags. |
-| `user_compile_flags` | [sequence](../core/list) of [string](../core/string)s; or `None`; default is `None`  List of additional compilation flags (copts). |
-| `include_directories` | [depset](../builtins/depset); or `None`; default is `None`  Depset of include directories. |
-| `quote_include_directories` | [depset](../builtins/depset); or `None`; default is `None`  Depset of quote include directories. |
-| `system_include_directories` | [depset](../builtins/depset); or `None`; default is `None`  Depset of system include directories. |
-| `framework_include_directories` | [depset](../builtins/depset); or `None`; default is `None`  Depset of framework include directories. |
-| `preprocessor_defines` | [depset](../builtins/depset); or `None`; default is `None`  Depset of preprocessor defines. |
-| `thinlto_index` | [string](../core/string); or `None`; default is `None`  LTO index file path. |
-| `thinlto_input_bitcode_file` | [string](../core/string); or `None`; default is `None`  Bitcode file that is input to LTO backend. |
-| `thinlto_output_object_file` | [string](../core/string); or `None`; default is `None`  Object file that is output by LTO backend. |
+| `user_compile_flags` | [sequence](/versions/7.7.1/rules/lib/core/list) of [string](/versions/7.7.1/rules/lib/core/string)s; or `None`; default is `None`  List of additional compilation flags (copts). |
+| `include_directories` | [depset](/versions/7.7.1/rules/lib/builtins/depset); or `None`; default is `None`  Depset of include directories. |
+| `quote_include_directories` | [depset](/versions/7.7.1/rules/lib/builtins/depset); or `None`; default is `None`  Depset of quote include directories. |
+| `system_include_directories` | [depset](/versions/7.7.1/rules/lib/builtins/depset); or `None`; default is `None`  Depset of system include directories. |
+| `framework_include_directories` | [depset](/versions/7.7.1/rules/lib/builtins/depset); or `None`; default is `None`  Depset of framework include directories. |
+| `preprocessor_defines` | [depset](/versions/7.7.1/rules/lib/builtins/depset); or `None`; default is `None`  Depset of preprocessor defines. |
+| `thinlto_index` | [string](/versions/7.7.1/rules/lib/core/string); or `None`; default is `None`  LTO index file path. |
+| `thinlto_input_bitcode_file` | [string](/versions/7.7.1/rules/lib/core/string); or `None`; default is `None`  Bitcode file that is input to LTO backend. |
+| `thinlto_output_object_file` | [string](/versions/7.7.1/rules/lib/core/string); or `None`; default is `None`  Object file that is output by LTO backend. |
 | `use_pic` | default is `False`  When true the compilation will generate position independent code. |
 | `add_legacy_cxx_options` | default is `False`  Unused. |
-| `variables_extension` | [dict](../core/dict); default is `unbound`  A dictionary of additional variables used by compile actions. |
+| `variables_extension` | [dict](/versions/7.7.1/rules/lib/core/dict); default is `unbound`  A dictionary of additional variables used by compile actions. |
 
 ## create\_library\_to\_link
 
@@ -214,14 +214,14 @@ Creates `LibraryToLink`
 | `actions` | required  `actions` object. |
 | `feature_configuration` | default is `None`  `feature_configuration` to be queried. |
 | `cc_toolchain` | default is `None`  `CcToolchainInfo` provider to be used. |
-| `static_library` | [File](../builtins/File); or `None`; default is `None`  `File` of static library to be linked. |
-| `pic_static_library` | [File](../builtins/File); or `None`; default is `None`  `File` of pic static library to be linked. |
-| `dynamic_library` | [File](../builtins/File); or `None`; default is `None`  `File` of dynamic library to be linked. Always used for runtime and used for linking if `interface_library` is not passed. |
-| `interface_library` | [File](../builtins/File); or `None`; default is `None`  `File` of interface library to be linked. |
-| `pic_objects` | [sequence](../core/list) of [File](../builtins/File)s; default is `unbound`  Experimental, do not use |
-| `objects` | [sequence](../core/list) of [File](../builtins/File)s; default is `unbound`  Experimental, do not use |
+| `static_library` | [File](/versions/7.7.1/rules/lib/builtins/File); or `None`; default is `None`  `File` of static library to be linked. |
+| `pic_static_library` | [File](/versions/7.7.1/rules/lib/builtins/File); or `None`; default is `None`  `File` of pic static library to be linked. |
+| `dynamic_library` | [File](/versions/7.7.1/rules/lib/builtins/File); or `None`; default is `None`  `File` of dynamic library to be linked. Always used for runtime and used for linking if `interface_library` is not passed. |
+| `interface_library` | [File](/versions/7.7.1/rules/lib/builtins/File); or `None`; default is `None`  `File` of interface library to be linked. |
+| `pic_objects` | [sequence](/versions/7.7.1/rules/lib/core/list) of [File](/versions/7.7.1/rules/lib/builtins/File)s; default is `unbound`  Experimental, do not use |
+| `objects` | [sequence](/versions/7.7.1/rules/lib/core/list) of [File](/versions/7.7.1/rules/lib/builtins/File)s; default is `unbound`  Experimental, do not use |
 | `alwayslink` | default is `False`  Whether to link the static library/objects in the --whole\_archive block. |
-| `dynamic_library_symlink_path` | [string](../core/string); default is `''`  Override the default path of the dynamic library link in the solib directory. Empty string to use the default. |
+| `dynamic_library_symlink_path` | [string](/versions/7.7.1/rules/lib/core/string); default is `''`  Override the default path of the dynamic library link in the solib directory. Empty string to use the default. |
 | `interface_library_symlink_path` | default is `''`  Override the default path of the interface library link in the solib directory. Empty string to use the default. |
 
 ## create\_link\_variables
@@ -238,9 +238,9 @@ Returns link variables used for linking actions.
 | --- | --- |
 | `cc_toolchain` | required  cc\_toolchain for which we are creating build variables. |
 | `feature_configuration` | required  Feature configuration to be queried. |
-| `library_search_directories` | `None`; or [depset](../builtins/depset); default is `None`  Depset of directories where linker will look for libraries at link time. |
-| `runtime_library_search_directories` | `None`; or [depset](../builtins/depset); default is `None`  Depset of directories where loader will look for libraries at runtime. |
-| `user_link_flags` | `None`; or [sequence](../core/list); default is `None`  List of additional link flags (linkopts). |
+| `library_search_directories` | `None`; or [depset](/versions/7.7.1/rules/lib/builtins/depset); default is `None`  Depset of directories where linker will look for libraries at link time. |
+| `runtime_library_search_directories` | `None`; or [depset](/versions/7.7.1/rules/lib/builtins/depset); default is `None`  Depset of directories where loader will look for libraries at runtime. |
+| `user_link_flags` | `None`; or [sequence](/versions/7.7.1/rules/lib/core/list); default is `None`  List of additional link flags (linkopts). |
 | `output_file` | default is `None`  Optional output file path. |
 | `param_file` | default is `None`  Optional param file path. |
 | `def_file` | default is `None`  Optional .def file path. |
@@ -263,9 +263,9 @@ Creates a `LinkerInput`.
 | Parameter | Description |
 | --- | --- |
 | `owner` | required  The label of the target that produced all files used in this input. |
-| `libraries` | `None`; or [depset](../builtins/depset); default is `None`  List of `LibraryToLink`. |
-| `user_link_flags` | `None`; or [depset](../builtins/depset) of [string](../core/string)s; or [sequence](../core/list) of [string](../core/string)s; default is `None`  User link flags passed as strings. Accepts either [String], [[String]] or depset(String). The latter is discouraged as it's only kept for compatibility purposes, the depset is flattened. If you want to propagate user\_link\_flags via unflattened depsets() wrap them in a LinkerInput so that they are not flattened till the end. |
-| `additional_inputs` | `None`; or [depset](../builtins/depset); default is `None`  For additional inputs to the linking action, e.g.: linking scripts. |
+| `libraries` | `None`; or [depset](/versions/7.7.1/rules/lib/builtins/depset); default is `None`  List of `LibraryToLink`. |
+| `user_link_flags` | `None`; or [depset](/versions/7.7.1/rules/lib/builtins/depset) of [string](/versions/7.7.1/rules/lib/core/string)s; or [sequence](/versions/7.7.1/rules/lib/core/list) of [string](/versions/7.7.1/rules/lib/core/string)s; default is `None`  User link flags passed as strings. Accepts either [String], [[String]] or depset(String). The latter is discouraged as it's only kept for compatibility purposes, the depset is flattened. If you want to propagate user\_link\_flags via unflattened depsets() wrap them in a LinkerInput so that they are not flattened till the end. |
+| `additional_inputs` | `None`; or [depset](/versions/7.7.1/rules/lib/builtins/depset); default is `None`  For additional inputs to the linking action, e.g.: linking scripts. |
 
 ## create\_linking\_context
 
@@ -279,10 +279,10 @@ Creates a `LinkingContext`.
 
 | Parameter | Description |
 | --- | --- |
-| `linker_inputs` | `None`; or [depset](../builtins/depset); default is `None`  Depset of `LinkerInput`. |
-| `libraries_to_link` | `None`; or [sequence](../core/list); default is `None`  **Deprecated**. This parameter is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `--+incompatible_require_linker_input_cc_api`. Use this flag to verify your code is compatible with its imminent removal.  List of `LibraryToLink`. |
-| `user_link_flags` | `None`; or [sequence](../core/list); default is `None` |
-| `additional_inputs` | `None`; or [sequence](../core/list); default is `None` |
+| `linker_inputs` | `None`; or [depset](/versions/7.7.1/rules/lib/builtins/depset); default is `None`  Depset of `LinkerInput`. |
+| `libraries_to_link` | `None`; or [sequence](/versions/7.7.1/rules/lib/core/list); default is `None`  **Deprecated**. This parameter is deprecated and will be removed soon. Please do not depend on it. It is *disabled* with `--+incompatible_require_linker_input_cc_api`. Use this flag to verify your code is compatible with its imminent removal.  List of `LibraryToLink`. |
+| `user_link_flags` | `None`; or [sequence](/versions/7.7.1/rules/lib/core/list); default is `None` |
+| `additional_inputs` | `None`; or [sequence](/versions/7.7.1/rules/lib/core/list); default is `None` |
 
 ## create\_linking\_context\_from\_compilation\_outputs
 
@@ -409,7 +409,7 @@ Should be used for C++ transitive linking.
 | `actions` | required  `actions` object. |
 | `feature_configuration` | required  `feature_configuration` to be queried. |
 | `cc_toolchain` | required  `CcToolchainInfo` provider to be used. |
-| `compilation_outputs` | [CcCompilationOutputs](../builtins/CcCompilationOutputs); or `None`; default is `None`  Compilation outputs containing object files to link. |
+| `compilation_outputs` | [CcCompilationOutputs](/versions/7.7.1/rules/lib/builtins/CcCompilationOutputs); or `None`; default is `None`  Compilation outputs containing object files to link. |
 | `user_link_flags` | default is `[]`  Additional list of linker options. |
 | `linking_contexts` | default is `[]`  Linking contexts from dependencies to be linked into the linking context generated by this rule. |
 | `name` | required  This is used for naming the output artifacts of actions created by this method. |
@@ -417,8 +417,8 @@ Should be used for C++ transitive linking.
 | `output_type` | default is `'executable'`  Can be either 'executable' or 'dynamic\_library'. |
 | `link_deps_statically` | default is `True`  True to link dependencies statically, False dynamically. |
 | `stamp` | default is `0`  Whether to include build information in the linked executable, if output\_type is 'executable'. If 1, build information is always included. If 0 (the default build information is always excluded. If -1, uses the default behavior, which may be overridden by the --[no]stamp flag. This should be unset (or set to 0) when generating the executable output for test rules. |
-| `additional_inputs` | [sequence](../core/list); or [depset](../builtins/depset); default is `[]`  For additional inputs to the linking action, e.g.: linking scripts. |
-| `additional_outputs` | [sequence](../core/list); default is `unbound`  For additional outputs to the linking action, e.g.: map files. |
+| `additional_inputs` | [sequence](/versions/7.7.1/rules/lib/core/list); or [depset](/versions/7.7.1/rules/lib/builtins/depset); default is `[]`  For additional inputs to the linking action, e.g.: linking scripts. |
+| `additional_outputs` | [sequence](/versions/7.7.1/rules/lib/core/list); default is `unbound`  For additional outputs to the linking action, e.g.: map files. |
 
 ## merge\_compilation\_contexts
 

@@ -31,10 +31,10 @@ troubleshooting solutions to address common errors.
 
 Before you begin, do the following:
 
-1.  [Install Bazel](/install) if you have not already done so.
+1.  [Install Bazel](/versions/6.5.0/install) if you have not already done so.
 
 2.  If you're not familiar with Bazel and its concepts, complete the
-    [iOS app tutorial](/tutorials/ios-app). You should understand the Bazel
+    [iOS app tutorial](/versions/6.5.0/tutorials/ios-app). You should understand the Bazel
     workspace, including the `WORKSPACE` and `BUILD` files, as well as the
     concepts of targets, build rules, and Bazel packages.
 
@@ -46,7 +46,7 @@ Unlike Xcode, Bazel requires you to explicitly declare all dependencies for
 every target in the `BUILD` file.
 
 For more information on external dependencies, see
-[Working with external dependencies](/docs/external).
+[Working with external dependencies](/versions/6.5.0/docs/external).
 
 ## Build or test an Xcode project with Bazel {#build-xcode-project}
 
@@ -102,7 +102,7 @@ initial build of the project as follows:
 *  [Step 3c: Add the library target(s)](#step-3c-add-the-library-target-s)
 
 **Tip:** To learn more about packages and other Bazel concepts, see
-[Workspaces, packages, and targets](/concepts/build-ref).
+[Workspaces, packages, and targets](/versions/6.5.0/concepts/build-ref).
 
 #### Step 3a: Add the application target {#add-app-target}
 
@@ -157,7 +157,7 @@ simulator, also specify the `ios_application` target name as the value of the
 
 #### Step 3c: Add the library target(s) {#add-library-target}
 
-Add an [`objc_library`](/reference/be/objective-c#objc_library)
+Add an [`objc_library`](/versions/6.5.0/reference/be/objective-c#objc_library)
 target for each Objective-C library and a [`swift_library`](https://github.com/bazelbuild/rules_swift/blob/master/doc/rules.md#swift_library)
 target for each Swift library on which the application and/or tests depend.
 
@@ -173,7 +173,7 @@ Add the library targets as follows:
 
 *   List the headers in the `hdrs` attribute.
 
-Note: You can use the [`glob`](/reference/be/functions#glob)
+Note: You can use the [`glob`](/versions/6.5.0/reference/be/functions#glob)
 function to include all sources and/or headers of a certain type. Use it
 carefully as it might include files you do not want Bazel to build.
 

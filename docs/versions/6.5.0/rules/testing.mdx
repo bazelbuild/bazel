@@ -24,7 +24,7 @@ Some caveats:
 
 *   It requires a fair amount of boilerplate to set up the rules under test and
     the rules containing test assertions. This boilerplate may seem daunting at
-    first. It helps to [keep in mind](/rules/concepts#evaluation-model) that macros
+    first. It helps to [keep in mind](/versions/6.5.0/rules/concepts#evaluation-model) that macros
     are evaluated and targets generated during the loading phase, while rule
     implementation functions don't run until later, during the analysis phase.
 
@@ -236,7 +236,7 @@ def _inspect_actions_test_impl(ctx):
 ```
 
 Note that `analysistest.target_actions(env)` returns a list of
-[`Action`](lib/Action) objects which represent actions registered by the
+[`Action`](/versions/6.5.0/rules/lib/Action) objects which represent actions registered by the
 target under test.
 
 ### Verifying rule behavior under different flags {#verifying-rule-behavior}

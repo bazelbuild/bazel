@@ -62,7 +62,7 @@ examples
 ```
 
 There are three sets of files, each set representing a stage in this tutorial.
-In the first stage, you will build a single [target](https://bazel.build/reference/glossary#target) residing in a single [package](https://bazel.build/reference/glossary#package). In the second stage, you will
+In the first stage, you will build a single [target](https://bazel.build/versions/8.1.1/reference/glossary#target) residing in a single [package](https://bazel.build/versions/8.1.1/reference/glossary#package). In the second stage, you will
 build both a binary and a library from a single package. In the third and final
 stage, you will build a project with multiple packages and build it with
 multiple targets.
@@ -83,7 +83,7 @@ It also contains these significant files:
 *   The `MODULE.bazel` file, which identifies the directory and its contents as
     a Bazel workspace and lives at the root of the project's directory
     structure. It's also where you specify your external dependencies.
-*   One or more [`BUILD` files](https://bazel.build/reference/glossary#build-file), which tell Bazel
+*   One or more [`BUILD` files](https://bazel.build/versions/8.1.1/reference/glossary#build-file), which tell Bazel
     how to build different parts of the project. A directory within the
     workspace that contains a `BUILD` file is a
     [package](https://bazel.build/versions/8.1.1/reference/glossary#package). (More on packages
@@ -225,7 +225,7 @@ cc_binary(
 ```
 
 With this `BUILD` file, Bazel first builds the `hello-greet` library (using
-Bazel's built-in [`cc_library` rule](https://bazel.build/reference/be/c-cpp#cc_library)), then the
+Bazel's built-in [`cc_library` rule](https://bazel.build/versions/8.1.1/reference/be/c-cpp#cc_library)), then the
 `hello-world` binary. The `deps` attribute in the `hello-world` target tells
 Bazel that the `hello-greet` library is required to build the `hello-world`
 binary.
@@ -381,11 +381,11 @@ Bazel journey.
 You've now completed your first basic build with Bazel, but this is just the
 start. Here are some more resources to continue learning with Bazel:
 
-*   To keep focusing on C++, read about common [C++ build use cases](https://bazel.build/tutorials/cpp-use-cases).
+*   To keep focusing on C++, read about common [C++ build use cases](https://bazel.build/versions/8.1.1/tutorials/cpp-use-cases).
 *   To get started with building other applications with Bazel, see the
-    tutorials for [Java](https://bazel.build/versions/8.1.1/start/java), [Android application](https://bazel.build/start/android-app), or [iOS application](https://bazel.build/start/ios-app).
+    tutorials for [Java](https://bazel.build/versions/8.1.1/start/java), [Android application](https://bazel.build/versions/8.1.1/start/android-app), or [iOS application](https://bazel.build/versions/8.1.1/start/ios-app).
 *   To learn more about working with local and remote repositories, read about
     [external dependencies](https://bazel.build/versions/8.1.1/docs/external).
-*   To learn more about Bazel's other rules, see this [reference guide](https://bazel.build/rules).
+*   To learn more about Bazel's other rules, see this [reference guide](https://bazel.build/versions/8.1.1/rules).
 
 Happy building!

@@ -87,7 +87,7 @@ It also contains these significant files:
     a Bazel workspace and lives at the root of the project's directory
     structure. It's also where you specify your external dependencies.
 *   One or more [`BUILD`
-    files](https://bazel.build/reference/glossary#build-file), which tell Bazel
+    files](https://bazel.build/versions/9.1.0/reference/glossary#build-file), which tell Bazel
     how to build different parts of the project. A directory within the
     workspace that contains a `BUILD` file is a
     [package](https://bazel.build/versions/9.1.0/reference/glossary#package). (More on packages
@@ -183,7 +183,7 @@ This results in a printed "`Hello world`" message.
 Here's the dependency graph of Stage 1:
 
 ![Dependency graph for hello-world displays a single target with a single source
-file.](/docs/images/cpp-tutorial-stage1.png "Dependency graph for hello-world
+file.](/versions/9.1.0/docs/images/cpp-tutorial-stage1.png "Dependency graph for hello-world
 displays a single target with a single source file.")
 
 ### Summary: stage 1 {#summary-stage-1}
@@ -232,7 +232,7 @@ cc_binary(
 
 With this `BUILD` file, Bazel first builds the `hello-greet` library (using
 Bazel's built-in [`cc_library`
-rule](https://bazel.build/reference/be/c-cpp#cc_library)), then the
+rule](https://bazel.build/versions/9.1.0/reference/be/c-cpp#cc_library)), then the
 `hello-world` binary. The `deps` attribute in the `hello-world` target tells
 Bazel that the `hello-greet` library is required to build the `hello-world`
 binary.
@@ -273,7 +273,7 @@ Looking at the dependency graph, you can see that `hello-world` depends on an
 extra input named `hello-greet`:
 
 ![Dependency graph for `hello-world` displays dependency changes after
-modification to the file.](/docs/images/cpp-tutorial-stage2.png "Dependency
+modification to the file.](/versions/9.1.0/docs/images/cpp-tutorial-stage2.png "Dependency
 graph for `hello-world` displays dependency changes after modification to the
 file.")
 
@@ -345,7 +345,7 @@ graph:
 
 ![Dependency graph for `hello-world` displays how the target in the main package
 depends on the target in the `lib`
-package.](/docs/images/cpp-tutorial-stage3.png "Dependency graph for
+package.](/versions/9.1.0/docs/images/cpp-tutorial-stage3.png "Dependency graph for
 `hello-world` displays how the target in the main package depends on the target
 in the `lib` package.")
 
@@ -396,14 +396,14 @@ You've now completed your first basic build with Bazel, but this is just the
 start. Here are some more resources to continue learning with Bazel:
 
 *   To keep focusing on C++, read about common [C++ build use
-    cases](https://bazel.build/tutorials/cpp-use-cases).
+    cases](https://bazel.build/versions/9.1.0/tutorials/cpp-use-cases).
 *   To get started with building other applications with Bazel, see the
     tutorials for [Java](https://bazel.build/versions/9.1.0/start/java), [Android
-    application](https://bazel.build/start/android-app), or [iOS
-    application](https://bazel.build/start/ios-app).
+    application](https://bazel.build/versions/9.1.0/start/android-app), or [iOS
+    application](https://bazel.build/versions/9.1.0/start/ios-app).
 *   To learn more about working with local and remote repositories, read about
     [external dependencies](https://bazel.build/versions/9.1.0/docs/external).
 *   To learn more about Bazel's other rules, see this [reference
-    guide](https://bazel.build/rules).
+    guide](https://bazel.build/versions/9.1.0/rules).
 
 Happy building!

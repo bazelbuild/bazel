@@ -34,9 +34,9 @@ file, before any rule.
 | --- | --- |
 | `default_applicable_licenses` | Alias for [`default_package_metadata`](#package.default_package_metadata). |
 | `default_visibility` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]`  The default visibility of the rules in this package.  Every rule in this package has the visibility specified in this attribute, unless otherwise specified in the `visibility` attribute of the rule. For detailed information about the syntax of this attribute, see the documentation of [visibility](/versions/7.7.1/concepts/visibility). The package default visibility does not apply to [exports\_files](#exports_files), which is public by default. |
-| `default_deprecation` | String; default is `""`  Sets the default [`deprecation`](common-definitions#common.deprecation) message for all rules in this package. |
+| `default_deprecation` | String; default is `""`  Sets the default [`deprecation`](/versions/7.7.1/reference/be/common-definitions#common.deprecation) message for all rules in this package. |
 | `default_package_metadata` | List of [labels](/versions/7.7.1/concepts/labels); default is `[]`  Sets a default list of metadata targets which apply to all other targets in the package. These are typically targets related to OSS package and license declarations. See [rules\_license](https://github.com/bazelbuild/rules_license) for examples. |
-| `default_testonly` | Boolean; default is `False` except as noted  Sets the default [`testonly`](common-definitions#common.testonly) property for all rules in this package.  In packages under `javatests` the default value is `True`. |
+| `default_testonly` | Boolean; default is `False` except as noted  Sets the default [`testonly`](/versions/7.7.1/reference/be/common-definitions#common.testonly) property for all rules in this package.  In packages under `javatests` the default value is `True`. |
 | `features` | List strings; default is `[]`  Sets various flags that affect the semantics of this BUILD file.  This feature is mainly used by the people working on the build system to tag packages that need some kind of special handling. Do not use this unless explicitly requested by someone working on the build system. |
 
 ### Examples
@@ -66,7 +66,7 @@ visible target can only be referenced within its own package (not subpackages).
 In between these extremes, a target may allow access to its own package plus any
 of the packages described by one or more package groups. For a more detailed
 explanation of the visibility system, see the
-[visibility](common-definitions#common.visibility)
+[visibility](/versions/7.7.1/reference/be/common-definitions#common.visibility)
 attribute.
 
 A given package is considered to be in the group if it either matches the
@@ -159,7 +159,7 @@ visibility declaration can also be specified; in this case, the files will be
 visible to the targets specified. If no visibility is specified, the files
 will be visible to every package, even if a package default visibility was
 specified in the `package`
-function. The [licenses](common-definitions#common.licenses)
+function. The [licenses](/versions/7.7.1/reference/be/common-definitions#common.licenses)
 can also be specified.
 
 ### Example
@@ -396,7 +396,7 @@ select(
 ```
 
 `select()` is the helper function that makes a rule attribute
-[configurable](common-definitions#configurable-attributes).
+[configurable](/versions/7.7.1/reference/be/common-definitions#configurable-attributes).
 It can replace the right-hand side of
 *almost*
 any attribute assignment so its value depends on command-line Bazel flags.

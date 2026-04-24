@@ -34,19 +34,19 @@ Starlark's semantics can differ from Python, but behavioral differences are
 rare, except for cases where Starlark raises an error. The following Python
 types are supported:
 
-* [None](lib/globals#None)
-* [bool](lib/bool)
-* [dict](lib/dict)
-* [tuple](lib/tuple)
-* [function](lib/function)
-* [int](lib/int)
-* [list](lib/list)
-* [string](lib/string)
+* [None](/versions/8.2.1/rules/lib/globals#None)
+* [bool](/versions/8.2.1/rules/lib/core/bool)
+* [dict](/versions/8.2.1/rules/lib/core/dict)
+* [tuple](/versions/8.2.1/rules/lib/core/tuple)
+* [function](/versions/8.2.1/rules/lib/core/function)
+* [int](/versions/8.2.1/rules/lib/core/int)
+* [list](/versions/8.2.1/rules/lib/core/list)
+* [string](/versions/8.2.1/rules/lib/core/string)
 
 ## Mutability
 
 Starlark favors immutability. Two mutable data structures are available:
-[lists](lib/list) and [dicts](lib/dict). Changes to mutable
+[lists](/versions/8.2.1/rules/lib/core/list) and [dicts](/versions/8.2.1/rules/lib/core/dict). Changes to mutable
 data-structures, such as appending a value to a list or deleting an entry in a
 dictionary are valid only for objects created in the current context. After a
 context finishes, its values become immutable.
@@ -93,8 +93,8 @@ values returned by rules are immutable.
 `BUILD` files register targets via making calls to rules. `.bzl` files provide
 definitions for constants, rules, macros, and functions.
 
-[Native functions](/versions/8.2.1/reference/be/functions) and [native rules](/reference/be/overview#language-specific-native-rules) are global symbols in
-`BUILD` files. `bzl` files need to load them using the [`native` module](/rules/lib/toplevel/native).
+[Native functions](/versions/8.2.1/reference/be/functions) and [native rules](/versions/8.2.1/reference/be/overview#language-specific-native-rules) are global symbols in
+`BUILD` files. `bzl` files need to load them using the [`native` module](/versions/8.2.1/rules/lib/toplevel/native).
 
 There are two syntactic restrictions in `BUILD` files: 1) declaring functions is
 illegal, and 2) `*args` and `**kwargs` arguments are not allowed.
@@ -128,7 +128,7 @@ not defined across value types. In short: `5 < 'foo'` will throw an error and
   error: `{"a": 4, "b": 7, "a": 1}`.
 
 * Strings are represented with double-quotes (such as when you call
-  [repr](lib/globals#repr)).
+  [repr](/versions/8.2.1/rules/lib/globals#repr)).
 
 * Strings aren't iterable.
 
@@ -136,12 +136,12 @@ The following Python features are not supported:
 
 * implicit string concatenation (use explicit `+` operator).
 * Chained comparisons (such as `1 < x < 5`).
-* `class` (see [`struct`](lib/struct#struct) function).
+* `class` (see [`struct`](/versions/8.2.1/rules/lib/builtins/struct#struct) function).
 * `import` (see [`load`](/versions/8.2.1/extending/concepts#loading-an-extension) statement).
 * `while`, `yield`.
 * float and set types.
 * generators and generator expressions.
 * `is` (use `==` instead).
-* `try`, `raise`, `except`, `finally` (see [`fail`](lib/globals#fail) for fatal errors).
+* `try`, `raise`, `except`, `finally` (see [`fail`](/versions/8.2.1/rules/lib/globals#fail) for fatal errors).
 * `global`, `nonlocal`.
 * most builtin functions, most methods.

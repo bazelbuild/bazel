@@ -35,14 +35,14 @@ Bazel will first try to perform a shallow fetch of only the specified commit.
 If that fails (usually due to missing server support), it will fall back to a
 full fetch of the repository.
 
-Prefer [`http_archive`](/rules/lib/repo/http#http_archive) to `git_repository`.
+Prefer [`http_archive`](/versions/8.6.0/rules/lib/repo/http#http_archive) to `git_repository`.
 The reasons are:
 
 * Git repository rules depend on system `git(1)` whereas the HTTP downloader is built
   into Bazel and has no system dependencies.
 * `http_archive` supports a list of `urls` as mirrors, and `git_repository` supports only
   a single `remote`.
-* `http_archive` works with the [repository cache](/run/build#repository-cache), but not
+* `http_archive` works with the [repository cache](/versions/8.6.0/run/build#repository-cache), but not
   `git_repository`. See
    [#5116](https://github.com/bazelbuild/bazel/issues/5116) for more information.
 
@@ -58,7 +58,7 @@ The reasons are:
 <td><code>name</code></td>
 <td>
 
-<a href="https://bazel.build/concepts/labels#target-names">Name</a>; required
+<a href="https://bazel.build/versions/8.6.0/concepts/labels#target-names">Name</a>; required
 
 <p>
 
@@ -84,7 +84,7 @@ branch in the remote repository to checked out. Precisely one of branch, tag, or
 <td><code>build_file</code></td>
 <td>
 
-<a href="https://bazel.build/concepts/labels">Label</a>; optional
+<a href="https://bazel.build/versions/8.6.0/concepts/labels">Label</a>; optional
 
 <p>
 
@@ -201,7 +201,7 @@ The patch(1) utility to use. If this is specified, Bazel will use the specified 
 <td><code>patches</code></td>
 <td>
 
-<a href="https://bazel.build/concepts/labels">List of labels</a>; optional
+<a href="https://bazel.build/versions/8.6.0/concepts/labels">List of labels</a>; optional
 
 <p>
 
@@ -266,7 +266,7 @@ For internal use only.
 <td><code>repo_mapping</code></td>
 <td>
 
-<a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a>; optional
+<a href="https://bazel.build/versions/8.6.0/rules/lib/dict">Dictionary: String -> String</a>; optional
 
 <p>
 
@@ -296,7 +296,7 @@ an optional date, not after the specified commit; the argument is not allowed if
 <td><code>sparse_checkout_file</code></td>
 <td>
 
-<a href="https://bazel.build/concepts/labels">Label</a>; optional
+<a href="https://bazel.build/versions/8.6.0/concepts/labels">Label</a>; optional
 
 <p>
 
@@ -356,7 +356,7 @@ Boolean; optional
 <td><code>workspace_file</code></td>
 <td>
 
-<a href="https://bazel.build/concepts/labels">Label</a>; optional
+<a href="https://bazel.build/versions/8.6.0/concepts/labels">Label</a>; optional
 
 <p>
 
@@ -409,14 +409,14 @@ Bazel will first try to perform a shallow fetch of only the specified commit.
 If that fails (usually due to missing server support), it will fall back to a
 full fetch of the repository.
 
-Prefer [`http_archive`](/rules/lib/repo/http#http_archive) to `git_repository`.
+Prefer [`http_archive`](/versions/8.6.0/rules/lib/repo/http#http_archive) to `git_repository`.
 The reasons are:
 
 * Git repository rules depend on system `git(1)` whereas the HTTP downloader is built
   into Bazel and has no system dependencies.
 * `http_archive` supports a list of `urls` as mirrors, and `git_repository` supports only
   a single `remote`.
-* `http_archive` works with the [repository cache](/run/build#repository-cache), but not
+* `http_archive` works with the [repository cache](/versions/8.6.0/run/build#repository-cache), but not
   `git_repository`. See
    [#5116](https://github.com/bazelbuild/bazel/issues/5116) for more information.
 
@@ -432,7 +432,7 @@ The reasons are:
 <td><code>name</code></td>
 <td>
 
-<a href="https://bazel.build/concepts/labels#target-names">Name</a>; required
+<a href="https://bazel.build/versions/8.6.0/concepts/labels#target-names">Name</a>; required
 
 <p>
 
@@ -458,7 +458,7 @@ branch in the remote repository to checked out. Precisely one of branch, tag, or
 <td><code>build_file</code></td>
 <td>
 
-<a href="https://bazel.build/concepts/labels">Label</a>; optional
+<a href="https://bazel.build/versions/8.6.0/concepts/labels">Label</a>; optional
 
 <p>
 
@@ -575,7 +575,7 @@ The patch(1) utility to use. If this is specified, Bazel will use the specified 
 <td><code>patches</code></td>
 <td>
 
-<a href="https://bazel.build/concepts/labels">List of labels</a>; optional
+<a href="https://bazel.build/versions/8.6.0/concepts/labels">List of labels</a>; optional
 
 <p>
 
@@ -640,7 +640,7 @@ For internal use only.
 <td><code>repo_mapping</code></td>
 <td>
 
-<a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a>; optional
+<a href="https://bazel.build/versions/8.6.0/rules/lib/dict">Dictionary: String -> String</a>; optional
 
 <p>
 
@@ -670,7 +670,7 @@ an optional date, not after the specified commit; the argument is not allowed if
 <td><code>sparse_checkout_file</code></td>
 <td>
 
-<a href="https://bazel.build/concepts/labels">Label</a>; optional
+<a href="https://bazel.build/versions/8.6.0/concepts/labels">Label</a>; optional
 
 <p>
 
@@ -730,7 +730,7 @@ Boolean; optional
 <td><code>workspace_file</code></td>
 <td>
 
-<a href="https://bazel.build/concepts/labels">Label</a>; optional
+<a href="https://bazel.build/versions/8.6.0/concepts/labels">Label</a>; optional
 
 <p>
 

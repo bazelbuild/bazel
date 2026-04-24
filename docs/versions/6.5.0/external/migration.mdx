@@ -3,7 +3,7 @@
 title: 'Bzlmod Migration Guide'
 ---
 
-Due to the [shortcomings of WORKSPACE](/external/overview#workspace-shortcomings), Bzlmod is going to
+Due to the [shortcomings of WORKSPACE](/versions/6.5.0/external/overview#workspace-shortcomings), Bzlmod is going to
 replace the legacy WORKSPACE system in future Bazel releases. This guide helps
 you migrate your project to Bzlmod and drop WORKSPACE for fetching external
 dependencies.
@@ -103,7 +103,7 @@ Bazel module when it also adopts Bzlmod.
 
 *   **Bzlmod**
 
-    With Bzlmod, as long as the your dependency is available in [Bazel Central Registry](https://registry.bazel.build) or your custom [Bazel registry](/external/registry), you can simply depend on it with a
+    With Bzlmod, as long as the your dependency is available in [Bazel Central Registry](https://registry.bazel.build) or your custom [Bazel registry](/versions/6.5.0/external/registry), you can simply depend on it with a
     [`bazel_dep`](/versions/6.5.0/rules/lib/globals/module#bazel_dep) directive.
 
     ```python
@@ -628,7 +628,7 @@ your workspace root.
 #### Repository visibility {#repository-visibility}
 
 Bzlmod is able to control which other repositories are visible from a given
-repository, check [repository names and strict deps](/external/module#repository_names_and_strict_deps) for more details.
+repository, check [repository names and strict deps](/versions/6.5.0/external/module#repository_names_and_strict_deps) for more details.
 
 Here is a summary of repository visibilities from different types of
 repositories when also taking WORKSPACE into consideration.
@@ -641,7 +641,7 @@ repositories when also taking WORKSPACE into consideration.
 | WORKSPACE Repos | All visible | Not visible | Not visible | All visible |
 
 Note: For the root module, if a repository `@foo` is defined in WORKSPACE and
-`@foo` is also used as an [apparent repository name](/external/overview#apparent-repo-name) in MODULE.bazel, then `@foo`
+`@foo` is also used as an [apparent repository name](/versions/6.5.0/external/overview#apparent-repo-name) in MODULE.bazel, then `@foo`
 refers to the one introduced in MODULE.bazel.
 
 Note: For a module extension generated repository `@bar`, if `@foo` is used as

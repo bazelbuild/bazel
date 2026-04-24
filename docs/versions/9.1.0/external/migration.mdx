@@ -3,14 +3,14 @@ title: 'Bzlmod Migration Guide'
 ---
 
 Due to the [shortcomings of
-WORKSPACE](/external/overview#workspace-shortcomings), Bzlmod is replacing the
+WORKSPACE](/versions/9.1.0/external/overview#workspace-shortcomings), Bzlmod is replacing the
 legacy WORKSPACE system. The WORKSPACE file is already disabled in Bazel 8 (late
 2024) and will be removed in Bazel 9 (late 2025). This guide helps you migrate
 your project to Bzlmod and drop WORKSPACE for managing external dependencies.
 
 ## Why migrate to Bzlmod? {#why-migrate-to-bzlmod}
 
-*   There are many [advantages](overview#benefits) compared to the legacy
+*   There are many [advantages](/versions/9.1.0/external/overview#benefits) compared to the legacy
     WORKSPACE system, which helps to ensure a healthy growth of the Bazel
     ecosystem.
 
@@ -142,7 +142,7 @@ Bazel module when it also adopts Bzlmod.
 
     With Bzlmod, as long as your dependency is available in [Bazel Central
     Registry](https://registry.bazel.build) or your custom [Bazel
-    registry](/external/registry), you can simply depend on it with a
+    registry](/versions/9.1.0/external/registry), you can simply depend on it with a
     [`bazel_dep`](/versions/9.1.0/rules/lib/globals/module#bazel_dep) directive.
 
     ```python
@@ -174,7 +174,7 @@ repository.
 If your dependency is not a Bazel project or not yet available in any Bazel
 registry, you can introduce it using
 [`use_repo_rule`](/versions/9.1.0/external/module#use_repo_rule) or [module
-extensions](/external/extension).
+extensions](/versions/9.1.0/external/extension).
 
 *   **WORKSPACE**
 
@@ -724,7 +724,7 @@ Using the WORKSPACE.bzlmod file can make the migration easier because:
 
 Bzlmod is able to control which other repositories are visible from a given
 repository, check [repository names and strict
-deps](/external/module#repository_names_and_strict_deps) for more details.
+deps](/versions/9.1.0/external/module#repository_names_and_strict_deps) for more details.
 
 Here is a summary of repository visibilities from different types of
 repositories when also taking WORKSPACE into consideration.
@@ -738,7 +738,7 @@ repositories when also taking WORKSPACE into consideration.
 
 Note: For the root module, if a repository `@foo` is defined in WORKSPACE and
 `@foo` is also used as an [apparent repository
-name](/external/overview#apparent-repo-name) in MODULE.bazel, then `@foo`
+name](/versions/9.1.0/external/overview#apparent-repo-name) in MODULE.bazel, then `@foo`
 refers to the one introduced in MODULE.bazel.
 
 Note: For a module extension generated repository `@bar`, if `@foo` is used as

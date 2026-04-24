@@ -9,7 +9,7 @@ A command to run during the build, for example, a call to a compiler that takes
 Includes metadata like the command line arguments, action key, environment
 variables, and declared input/output artifacts.
 
-**See also:** [Rules documentation](/rules/rules#actions)
+**See also:** [Rules documentation](/versions/6.5.0/rules/rules#actions)
 
 ### Action cache {#action-cache}
 An on-disk cache that stores a mapping of executed [actions](#action) to the
@@ -60,7 +60,7 @@ cached and reused between targets requiring the same aspect. Created with the
 `aspect()` Starlark Build API function. Can be used, for example, to generate
 metadata for IDEs, and create actions for linting.
 
-**See also:** [Aspects documentation](/rules/aspects)
+**See also:** [Aspects documentation](/versions/6.5.0/rules/aspects)
 
 ### Aspect-on-aspect {#aspect-on-aspect}
 A composition mechanism whereby aspects can be applied to the results
@@ -69,8 +69,8 @@ IDEs can be applied on top of an aspect that generates `.java` files from a
 proto.
 
 For an aspect `A` to apply on top of aspect `B`, the [providers](#provider) that
-`B` advertises in its [`provides`](/rules/lib/globals#aspect.provides) attribute
-must match what `A` declares it wants in its [`required_aspect_providers`](/rules/lib/globals#aspect.required_aspect_providers)
+`B` advertises in its [`provides`](/versions/6.5.0/rules/lib/globals#aspect.provides) attribute
+must match what `A` declares it wants in its [`required_aspect_providers`](/versions/6.5.0/rules/lib/globals#aspect.required_aspect_providers)
 attribute.
 
 ### Attribute {#attribute}
@@ -157,7 +157,7 @@ Information outside of [rule](#rule) definitions that impacts how rules generate
 target platform, action environment variables, and command-line [build flags](#command-flags). [Transitions](#transition) may create additional
 configurations, such as for host tools or cross-compilation.
 
-**See also:** [Configurations](/rules/rules#configurations)
+**See also:** [Configurations](/versions/6.5.0/rules/rules#configurations)
 
 // TODO: ### Configuration fragment
 
@@ -173,7 +173,7 @@ A [query](#query-concept) tool that queries over [configured targets](#configure
 completes). This means `select()` and [build flags](#command-flags) (such as
 `--platforms`) are accurately reflected in the results.
 
-**See also:** [cquery documentation](/docs/cquery)
+**See also:** [cquery documentation](/versions/6.5.0/docs/cquery)
 
 ### Configured target {#configured-target}
 The result of evaluating a [target](#target) with a
@@ -205,7 +205,7 @@ the rule is at the top level of the build graph. Flattening large depsets incurs
 huge memory consumption. Also known as *nested sets* in Bazel's internal
 implementation.
 
-**See also:** [Depset documentation](/rules/depsets)
+**See also:** [Depset documentation](/versions/6.5.0/rules/depsets)
 
 ### Disk cache {#disk-cache}
 A local on-disk blob store for the remote caching feature. Can be used in
@@ -278,7 +278,7 @@ a single [Starlark](#starlark) function. Enables reusing common rule declaration
 patterns across `BUILD` files. Expanded to the underlying rule target declarations
 during the [loading phase](#loading-phase).
 
-**See also:** [Macro documentation](/rules/macros)
+**See also:** [Macro documentation](/versions/6.5.0/rules/macros)
 
 ### Mnemonic {#mnemonic}
 A short, human-readable string selected by a rule author to quickly understand
@@ -341,7 +341,7 @@ Note: The object holding specific data for a given rule target is
 referred to as a "provider instance", although sometimes this is conflated with
 "provider".
 
-**See also:** [Provider documentation](/rules/rules#providers)
+**See also:** [Provider documentation](/versions/6.5.0/rules/rules#providers)
 
 ### Query (concept) {#query-concept}
 The process of analyzing a [build graph](#build-graph) to understand
@@ -354,7 +354,7 @@ A [query](#query-concept) tool that operates over the build's post-[loading phas
 but can't analyze the effects of `select()`, [build flags](#command-flags),
 [artifacts](#artifact), or build [actions](#action).
 
-**See also:** [Query how-to](/docs/query-how-to), [Query reference](/reference/query)
+**See also:** [Query how-to](/versions/6.5.0/docs/query-how-to), [Query reference](/versions/6.5.0/reference/query)
 
 ### Repository cache {#repo-cache}
 A shared content-addressable cache of files downloaded by Bazel for builds,
@@ -391,7 +391,7 @@ Note: Historically the term "rule" has been used to refer to a rule target.
 This usage was inherited from tools like Make, but causes confusion and should
 be avoided for Bazel.
 
-**See also:** [Rules documentation](/rules/rules)
+**See also:** [Rules documentation](/versions/6.5.0/rules/rules)
 
 ### Rule target {#rule-target}
 A [target](#target) that is an instance of a rule. Contrasts with file targets
@@ -404,7 +404,7 @@ data dependencies of the test. Before the invocation of the executable (during
 bazel test), Bazel prepares the tree of runfiles alongside the test executable
 according to their source directory structure.
 
-**See also:** [Runfiles documentation](/rules/rules#runfiles)
+**See also:** [Runfiles documentation](/versions/6.5.0/rules/rules#runfiles)
 
 ### Sandboxing {#sandboxing}
 A technique to isolate a running [action](#action) inside a restricted and
@@ -415,7 +415,7 @@ support from the operating system. The performance cost depends on the platform.
 On Linux, it's not significant, but on macOS it can make sandboxing unusable.
 
 ### Skyframe {#skyframe}
-[Skyframe](/reference/skyframe) is the core parallel, functional, and incremental evaluation framework of Bazel.
+[Skyframe](/versions/6.5.0/reference/skyframe) is the core parallel, functional, and incremental evaluation framework of Bazel.
 
 // TODO: ### Spawn strategy
 
@@ -423,17 +423,17 @@ On Linux, it's not significant, but on macOS it can make sandboxing unusable.
 A feature to embed additional information into Bazel-built
 [artifacts](#artifact). For example, this can be used for source control, build
 time and other workspace or environment-related information for release builds.
-Enable through the `--workspace_status_command` flag and [rules](/rules/rules) that
+Enable through the `--workspace_status_command` flag and [rules](/versions/6.5.0/rules/rules) that
 support the stamp attribute.
 
 ### Starlark {#starlark}
-The extension language for writing [rules](/rules/rules) and [macros](#macro). A
+The extension language for writing [rules](/versions/6.5.0/rules/rules) and [macros](#macro). A
 restricted subset of Python (syntactically and grammatically) aimed for the
 purpose of configuration, and for better performance. Uses the [`.bzl` file](#bzl-file) extension. [`BUILD` files](#build-file) use an even more
 restricted version of Starlark (such as no `def` function definitions), formerly
 known as Skylark.
 
-**See also:** [Starlark language documentation](/rules/language)
+**See also:** [Starlark language documentation](/versions/6.5.0/rules/language)
 
 // TODO: ### Starlark rules
 
@@ -479,7 +479,7 @@ packages recursively from the root of the [workspace](#workspace).
 Rule [targets](#target) instantiated from test rules, and therefore contains a
 test executable. A return code of zero from the completion of the executable
 indicates test success. The exact contract between Bazel and tests (such as test
-environment variables, test result collection methods) is specified in the [Test Encyclopedia](/reference/test-encyclopedia).
+environment variables, test result collection methods) is specified in the [Test Encyclopedia](/versions/6.5.0/reference/test-encyclopedia).
 
 ### Toolchain {#toolchain}
 A set of tools to build outputs for a language. Typically, a toolchain includes
@@ -507,7 +507,7 @@ the [target graph](#target-graph) is forked with distinct configurations for
 each fork. For example, one can build an Android APK with native binaries
 compiled for ARM and x86 using split transitions in a single build.
 
-**See also:** [User-defined transitions](/rules/config#user-defined-transitions)
+**See also:** [User-defined transitions](/versions/6.5.0/rules/config#user-defined-transitions)
 
 ### Tree artifact {#tree-artifact}
 An [artifact](#artifact) that represents a collection of files. Since these
@@ -521,7 +521,7 @@ upon by other targets; and *load visibility* for controlling whether a `BUILD`
 or `.bzl` file may load a given `.bzl` file. Without context, usually
 "visibility" refers to target visibility.
 
-**See also:** [Visibility documentation](/concepts/visibility)
+**See also:** [Visibility documentation](/versions/6.5.0/concepts/visibility)
 
 ### Workspace {#workspace}
 A directory containing a `WORKSPACE` file and source code for the software you

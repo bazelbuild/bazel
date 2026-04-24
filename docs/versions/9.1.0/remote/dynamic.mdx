@@ -13,7 +13,7 @@ This page describes how to enable, tune, and debug dynamic execution. If you
 have both local and remote execution set up and are trying to adjust Bazel
 settings for better performance, this page is for you. If you don't already have
 remote execution set up, go to the Bazel [Remote Execution
-Overview](/remote/rbe) first.
+Overview](/versions/9.1.0/remote/rbe) first.
 
 ## Enabling dynamic execution? {:#enabling-dynamic-execution}
 
@@ -45,13 +45,13 @@ longer than cache hits usually take. The actual time depends both on the remote
 system and on how long a round-trip takes. Usually, the value will be the same
 for all users of a given remote system, unless some of them are far enough away
 to add roundtrip latency. You can use the [Bazel profiling
-features](/rules/performance#performance-profiling) to look at how long typical
+features](/versions/9.1.0/rules/performance#performance-profiling) to look at how long typical
 cache hits take.
 
 Dynamic execution can be used with local sandboxed strategy as well as with
 [persistent workers](/versions/9.1.0/remote/persistent). Persistent workers will automatically
 run with sandboxing when used with dynamic execution, and cannot use [multiplex
-workers](/remote/multiplex). On Darwin and Windows systems, the sandboxed
+workers](/versions/9.1.0/remote/multiplex). On Darwin and Windows systems, the sandboxed
 strategy can be slow; you can pass `--reuse_sandbox_directories` to reduce
 overhead of creating sandboxes on these systems.
 

@@ -300,7 +300,7 @@ rare cases. If you are tempted to use them, please [contact the Bazel devs](http
 
 Rule and [toolchain](/versions/7.7.1/docs/toolchains) writers can define
 completely custom variables by returning a
-[TemplateVariableInfo](/versions/7.7.1/rules/lib/TemplateVariableInfo)
+[TemplateVariableInfo](/versions/7.7.1/rules/lib/providers/TemplateVariableInfo)
 provider. Any rules depending on these through the
 `toolchains` attribute can then read their values:
 

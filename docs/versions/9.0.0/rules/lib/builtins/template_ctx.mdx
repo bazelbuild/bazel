@@ -32,8 +32,8 @@ Remember that in addition to declaring a file, you must separately create an act
 
 | Parameter | Description |
 | --- | --- |
-| `filename` | [string](../core/string); required  The relative path of the file within the directory. |
-| `directory` | [File](../builtins/File); required  The directory in which the file should be created. |
+| `filename` | [string](/versions/9.0.0/rules/lib/core/string); required  The relative path of the file within the directory. |
+| `directory` | [File](/versions/9.0.0/rules/lib/builtins/File); required  The directory in which the file should be created. |
 
 ## run
 
@@ -47,9 +47,9 @@ Creates an action that runs an executable.
 
 | Parameter | Description |
 | --- | --- |
-| `outputs` | [sequence](../core/list) of [File](../builtins/File)s; required  List of the output files of the action. |
-| `inputs` | [sequence](../core/list) of [File](../builtins/File)s; or [depset](../builtins/depset); default is `[]`  List or depset of the input files of the action. |
-| `executable` | [File](../builtins/File); or [string](../core/string); or [FilesToRunProvider](../providers/FilesToRunProvider); required  The executable file to be called by the action. |
-| `tools` | [sequence](../core/list); or [depset](../builtins/depset); or `None`; default is `None`  List or [`depset`](../builtins/depset) of any tools needed by the action. Tools are executable inputs that may have their own runfiles which are automatically made available to the action. When a list is provided, it can be a heterogenous collection of:  * `File`s * `FilesToRunProvider` instances * `depset`s of `File`s  `File`s from [`ctx.executable`](../builtins/ctx#executable) and `FilesToRunProvider`s which are directly in the list will have their runfiles automatically added. All tools are implicitly added as inputs. |
-| `arguments` | [sequence](../core/list); default is `[]`  Command line arguments of the action. Must be a list of strings or [`actions.args()`](#args) objects. |
-| `progress_message` | [string](../core/string); or `None`; default is `None`  Progress message to show to the user during the build. |
+| `outputs` | [sequence](/versions/9.0.0/rules/lib/core/list) of [File](/versions/9.0.0/rules/lib/builtins/File)s; required  List of the output files of the action. |
+| `inputs` | [sequence](/versions/9.0.0/rules/lib/core/list) of [File](/versions/9.0.0/rules/lib/builtins/File)s; or [depset](/versions/9.0.0/rules/lib/builtins/depset); default is `[]`  List or depset of the input files of the action. |
+| `executable` | [File](/versions/9.0.0/rules/lib/builtins/File); or [string](/versions/9.0.0/rules/lib/core/string); or [FilesToRunProvider](/versions/9.0.0/rules/lib/providers/FilesToRunProvider); required  The executable file to be called by the action. |
+| `tools` | [sequence](/versions/9.0.0/rules/lib/core/list); or [depset](/versions/9.0.0/rules/lib/builtins/depset); or `None`; default is `None`  List or [`depset`](/versions/9.0.0/rules/lib/builtins/depset) of any tools needed by the action. Tools are executable inputs that may have their own runfiles which are automatically made available to the action. When a list is provided, it can be a heterogenous collection of:  * `File`s * `FilesToRunProvider` instances * `depset`s of `File`s  `File`s from [`ctx.executable`](/versions/9.0.0/rules/lib/builtins/ctx#executable) and `FilesToRunProvider`s which are directly in the list will have their runfiles automatically added. All tools are implicitly added as inputs. |
+| `arguments` | [sequence](/versions/9.0.0/rules/lib/core/list); default is `[]`  Command line arguments of the action. Must be a list of strings or [`actions.args()`](#args) objects. |
+| `progress_message` | [string](/versions/9.0.0/rules/lib/core/string); or `None`; default is `None`  Progress message to show to the user during the build. |
