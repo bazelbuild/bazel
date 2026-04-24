@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
@@ -1290,9 +1291,6 @@ public final class SkyframeActionExecutor {
         ExtendedEventHandler eventHandler, ActionResult actionResult)
         throws ActionExecutionException, InterruptedException {
       boolean outputAlreadyDumped = false;
-      if (actionResult != ActionResult.EMPTY) {
-        eventHandler.post(new ActionResultReceivedEvent(action, actionResult));
-      }
 
       // Action terminated fine, now report the output.
       // The .showOutput() method is not necessarily a quick check: in its
@@ -1343,6 +1341,23 @@ public final class SkyframeActionExecutor {
                 Code.ACTION_FINALIZATION_FAILURE);
           }
         }
+
+        try {
+          actionExecutionContext.flushDeferredSpawnCacheStores();
+        } catch (ExecException e) {
+          throw ActionExecutionException.fromExecException(e, action);
+        } catch (IOException e) {
+          throw ActionExecutionException.fromExecException(
+              new EnvironmentalExecException(
+                  e,
+                  FailureDetail.newBuilder()
+                      .setMessage("Exec failed due to IOException")
+                      .setSpawn(
+                          FailureDetails.Spawn.newBuilder()
+                              .setCode(FailureDetails.Spawn.Code.EXEC_IO_EXCEPTION))
+                      .build()),
+              action);
+        }
       } catch (ActionExecutionException actionException) {
         // Success in execution but failure in completion.
         reportActionExecution(
@@ -1378,6 +1393,10 @@ public final class SkyframeActionExecutor {
         primaryOutputMetadata = outputMetadataStore.getOutputMetadata(primaryOutput);
       } catch (IOException e) {
         throw new IllegalStateException("Metadata already obtained for " + primaryOutput, e);
+      }
+
+      if (actionResult != ActionResult.EMPTY) {
+        eventHandler.post(new ActionResultReceivedEvent(action, actionResult));
       }
 
       reportActionExecution(

@@ -133,4 +133,17 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
   default boolean allowsStrategyRegexpMatching() {
     return true;
   }
+
+  /**
+   * Returns true if successful spawn results should only be stored in spawn caches after the owning
+   * action has completed successfully, including output validation.
+   *
+   * <p>This is for actions that validate spawn outputs after the spawn has completed and must not
+   * publish the spawn result if that validation rejects the action. Actions that run multiple
+   * cacheable spawns or overwrite spawn outputs before returning should leave this false unless the
+   * outputs for every deferred spawn remain available and unchanged until action completion.
+   */
+  default boolean shouldDeferSpawnCacheStore() {
+    return false;
+  }
 }

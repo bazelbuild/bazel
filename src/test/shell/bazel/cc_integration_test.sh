@@ -138,6 +138,94 @@ EOF
     || fail "Build failed but should have succeeded"
 }
 
+function test_dotd_validation_failure_not_stored_in_disk_cache() {
+  add_rules_cc "MODULE.bazel"
+
+  local pkg="dotd_cache_validation"
+  local cache="${TEST_TMPDIR}/disk_cache"
+  mkdir -p "${pkg}/dep1" "${pkg}/dep2"
+
+  cat > "${pkg}/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+cc_library(
+    name = "f",
+    srcs = ["f.cc"],
+    deps = ["//dotd_cache_validation/dep1:dep1_h"],
+)
+EOF
+  cat > "${pkg}/dep1/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+cc_library(
+    name = "dep1_h",
+    hdrs = [
+        "some_inc.h",
+        "other_inc.h",
+    ],
+    strip_include_prefix = ".",
+    visibility = ["//visibility:public"],
+)
+EOF
+  cat > "${pkg}/dep2/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+cc_library(
+    name = "dep2_h",
+    hdrs = ["some_inc.h"],
+    strip_include_prefix = ".",
+    visibility = ["//visibility:public"],
+)
+EOF
+  cat > "${pkg}/f.cc" <<'EOF'
+#include "some_inc.h"
+#include "other_inc.h"
+
+int f() {
+  return SOME_INC + OTHER_INC;
+}
+EOF
+  echo "#define SOME_INC 1" > "${pkg}/dep1/some_inc.h"
+  echo "#define OTHER_INC 10" > "${pkg}/dep1/other_inc.h"
+  echo "#define SOME_INC 2" > "${pkg}/dep2/some_inc.h"
+
+  bazel build --spawn_strategy=local --disk_cache="${cache}" "//${pkg}:f" &>"$TEST_log" \
+    || fail "initial build failed"
+  [[ -e "bazel-bin/${pkg}/dep1/_virtual_includes/dep1_h/some_inc.h" ]] \
+    || fail "expected initial virtual include for dep1"
+
+  cat > "${pkg}/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+cc_library(
+    name = "f",
+    srcs = ["f.cc"],
+    deps = [
+        "//dotd_cache_validation/dep1:dep1_h",
+        "//dotd_cache_validation/dep2:dep2_h",
+    ],
+)
+EOF
+  cat > "${pkg}/dep1/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+cc_library(
+    name = "dep1_h",
+    hdrs = ["other_inc.h"],
+    strip_include_prefix = ".",
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  bazel build --spawn_strategy=local --disk_cache="${cache}" "//${pkg}:f" &>"$TEST_log" \
+    && fail "incremental build should fail from stale virtual include" || true
+  expect_log "undeclared inclusion(s) in rule '//${pkg}:f'"
+
+  bazel clean &>"$TEST_log" || fail "clean failed"
+  bazel build --spawn_strategy=local --disk_cache="${cache}" "//${pkg}:f" &>"$TEST_log" \
+    || fail "clean rebuild should not replay the failed dotd validation from disk cache"
+}
+
 function test_tree_artifact_headers_are_invalidated() {
   add_rules_shell "MODULE.bazel"
   add_rules_cc "MODULE.bazel"
