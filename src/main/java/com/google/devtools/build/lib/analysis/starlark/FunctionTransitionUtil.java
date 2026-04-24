@@ -286,27 +286,7 @@ public final class FunctionTransitionUtil {
         ans.put(entry);
       } else if (scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
         Label anotherFlag = Label.parseCanonicalUnchecked(scopeType.substring(7));
-        if (starlarkOptions.containsKey(anotherFlag)) {
-          ans.put(entry.getKey(), starlarkOptions.get(anotherFlag));
-        } else {
-          boolean found = false;
-          for (FragmentOptions fragment : options.getNativeOptions()) {
-            Map<String, Object> nativeOptions = fragment.asMap();
-            if (nativeOptions.containsKey(anotherFlag.getUnambiguousCanonicalForm())) {
-              ans.put(entry.getKey(), nativeOptions.get(anotherFlag.getUnambiguousCanonicalForm()));
-              found = true;
-              break;
-            }
-          }
-          // if the flag is not found in both starlark and the native options, it's an error.
-          if (!found) {
-            throw new IllegalStateException(
-                "Flag "
-                    + anotherFlag
-                    + " is not found in the starlark options or native options. It should be one of"
-                    + " them.");
-          }
-        }
+        ans.put(entry.getKey(), Verify.verifyNotNull(starlarkOptions.get(anotherFlag)));
       }
     }
 

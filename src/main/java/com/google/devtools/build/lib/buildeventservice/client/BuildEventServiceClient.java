@@ -14,11 +14,9 @@
 
 package com.google.devtools.build.lib.buildeventservice.client;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import com.google.auto.value.AutoBuilder;
 import java.time.Instant;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Future;
 import javax.annotation.Nullable;
@@ -35,10 +33,12 @@ public interface BuildEventServiceClient {
       @Nullable String projectId,
       boolean checkPrecedingLifecycleEvents) {
     public CommandContext {
-      checkNotNull(buildId);
-      checkNotNull(invocationId);
-      checkArgument(attemptNumber >= 1);
-      checkNotNull(keywords);
+      Objects.requireNonNull(buildId, "buildId");
+      Objects.requireNonNull(invocationId, "invocationId");
+      Objects.requireNonNull(keywords, "keywords");
+      if (attemptNumber < 1) {
+        throw new IllegalArgumentException("attemptNumber must be >= 1");
+      }
     }
 
     public static Builder builder() {

@@ -48,6 +48,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages/metrics",
         "//src/main/java/com/google/devtools/build/lib/packages/metrics:package_load_metrics_java_proto",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/profiler:memory_profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:network_metrics_collector",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/runtime:spawn_stats",

@@ -28,7 +28,9 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
@@ -117,15 +119,29 @@ final class TransitionApplier
         transitionCache.getAllStarlarkBuildSettings(
             transition,
             fromConfiguration.getOptions().get(CoreOptions.class).getCommandLineFlagAliasesMap());
+    Set<Label> hostFlags = new HashSet<>();
+
+    // If the transition is the exec transition, we want to look up the host flag declared by
+    // users in the blazerc/MODULE.bazel files with alias pointing to the starlark definition. This
+    // is useful to determine exec propagation for flags with scope that starts with "exec:--".
     if (transition.getName().equals("exec")) {
-      // TODO: fill out this code for cl/859390339 (to support --foo=--exec_foo flag scoping).
+      for (Map.Entry<String, Label> alias :
+          fromConfiguration
+              .getOptions()
+              .get(CoreOptions.class)
+              .getCommandLineFlagAliasesMap()
+              .entrySet()) {
+        if (alias.getKey().startsWith("host_")) {
+          hostFlags.add(alias.getValue());
+        }
+      }
     } else if (starlarkBuildSettings.isEmpty()) {
       // Quick escape if transition doesn't use any Starlark build settings.
       buildSettingsDetailsValue = StarlarkBuildSettingsDetailsValue.EMPTY;
       return applyStarlarkTransition(tasks);
     }
     tasks.lookUp(
-        StarlarkBuildSettingsDetailsValue.key(starlarkBuildSettings),
+        StarlarkBuildSettingsDetailsValue.key(starlarkBuildSettings, hostFlags),
         TransitionException.class,
         (ValueOrExceptionSink<TransitionException>) this);
     return this::applyStarlarkTransition;

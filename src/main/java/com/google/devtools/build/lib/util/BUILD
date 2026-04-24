@@ -394,8 +394,16 @@ java_library(
     deps = [
         ":detailed_exit_code",
         ":exit_code",
+        ":serialized_abrupt_exit_exception",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:jsr305",
+        "@com_google_protobuf//:protobuf_java",
     ],
+)
+
+java_library(
+    name = "serialized_abrupt_exit_exception",
+    srcs = ["SerializedAbruptExitException.java"],
 )
 
 java_library(

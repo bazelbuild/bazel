@@ -18,17 +18,20 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
 
 /** This example options class should fail to compile. */
-public class IncorrectConverterTypeForAllowMultipleOption extends OptionsBase {
+@OptionsClass
+public abstract class IncorrectConverterTypeForAllowMultipleOption extends OptionsBase {
   @Option(
-    name = "bad_option",
-    defaultValue = "true",
-    converter = IntegerConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP},
-    allowMultiple = true
-  )
-  public List<String> badOption;
+      name = "bad_option",
+      defaultValue = "true",
+      converter = IntegerConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      allowMultiple = true)
+  public abstract List<String> getBadOption();
+
+  public abstract void setBadOption(List<String> value);
 }

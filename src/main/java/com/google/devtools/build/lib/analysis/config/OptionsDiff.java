@@ -94,8 +94,8 @@ public final class OptionsDiff {
         continue;
       }
       for (OptionDefinition definition : OptionDefinition.getOptionDefinitions(clazz)) {
-        Object firstValue = firstOptions.getValueFromDefinition(definition);
-        Object secondValue = secondOptions.getValueFromDefinition(definition);
+        Object firstValue = definition.getValue(firstOptions);
+        Object secondValue = definition.getValue(secondOptions);
         if (!Objects.equals(firstValue, secondValue)) {
           diff.addDiff(clazz, definition, firstValue, secondValue);
         }

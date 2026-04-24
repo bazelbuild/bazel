@@ -63,6 +63,7 @@ import com.google.errorprone.annotations.CheckReturnValue;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -175,7 +176,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   private final MessageOutputStream<ExecLogEntry> outputStream;
 
   public CompactSpawnLogContext(
-      Path outputPath,
+      BufferedOutputStream out,
+      String displayName,
       PathFragment execRoot,
       String workspaceName,
       boolean siblingRepositoryLayout,
@@ -195,16 +197,16 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     this.xattrProvider = xattrProvider;
     this.invocationId = invocationId;
     this.reporter = reporter;
-    this.outputStream = getOutputStream(outputPath);
+    this.outputStream = getOutputStream(out, displayName);
 
     logInvocation();
   }
 
-  private static MessageOutputStream<ExecLogEntry> getOutputStream(Path path) throws IOException {
+  private static MessageOutputStream<ExecLogEntry> getOutputStream(OutputStream out, String name)
+      throws IOException {
     // Use an AsynchronousMessageOutputStream so that compression and I/O occur in a separate
     // thread. This ensures concurrent writes don't tear and avoids blocking execution.
-    return new AsynchronousMessageOutputStream<>(
-        path.toString(), new ZstdOutputStream(new BufferedOutputStream(path.getOutputStream())));
+    return new AsynchronousMessageOutputStream<>(name, new ZstdOutputStream(out));
   }
 
   private void logInvocation() throws IOException, InterruptedException {

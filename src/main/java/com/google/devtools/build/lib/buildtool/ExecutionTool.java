@@ -75,6 +75,7 @@ import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
+import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -479,6 +480,7 @@ public class ExecutionTool {
         configureResourceManager(env.getLocalResourceManager(), request);
       }
 
+      MemoryProfiler.instance().markPhase(ProfilePhase.EXECUTE);
       Profiler.instance().markPhase(ProfilePhase.EXECUTE);
       var outputChecker =
           env.getOutputService() != null
@@ -641,6 +643,7 @@ public class ExecutionTool {
 
   private void prepare(PackageRoots packageRoots) throws AbruptExitException, InterruptedException {
     // Prepare for build.
+    MemoryProfiler.instance().markPhase(ProfilePhase.PREPARE);
     Profiler.instance().markPhase(ProfilePhase.PREPARE);
 
     // Plant the symlink forest.

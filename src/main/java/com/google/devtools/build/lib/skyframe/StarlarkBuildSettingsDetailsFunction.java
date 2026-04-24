@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue.CustomExecScopeValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
@@ -62,20 +64,121 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
 
     // Ideally, callers would bypass StarlarkBuildSettingsDetailsFunction entirely when the
     // key is empty but provide a fast escape here just in case.
-    if (key.buildSettings().isEmpty()) {
+    if (key.buildSettings().isEmpty() && key.hostFlags().isEmpty()) {
       return StarlarkBuildSettingsDetailsValue.EMPTY;
     }
 
+    // for each --flag_alias to --host_{flag} alias, we load the starlarkified host flag and get its
+    // default value.
+    // and scopeType. These information are only needed for flags that declare a scope of
+    // exec:--{some_other_flag}. This is necessary because Bazel doesn't know how to find Starlark
+    // host flags if they're not set at the command line, and we need to ensure the exec transition
+    // correctly sets --foo=--host_foo even for builds that don't reference either flag
+    ImmutableMap.Builder<Label, CustomExecScopeValue> customExecScopeValuesBuilder =
+        ImmutableMap.builder();
+    for (Label hostFlag : key.hostFlags()) {
+      Label flag =
+          Label.createUnvalidated(
+              hostFlag.getPackageIdentifier(), hostFlag.getName().replaceFirst("host_", ""));
+
+      try {
+        ImmutableMap<PackageIdentifier, PackageValue> buildSettingPackage =
+            getBuildSettingPackages(env, ImmutableSet.of(flag));
+        if (buildSettingPackage == null) {
+          return null;
+        }
+
+        // if --host_foo exists, then look up for --foo.
+        Target flagTarget;
+        try {
+          flagTarget = getTarget(buildSettingPackage, flag);
+        } catch (NoSuchTargetException e) {
+          // while we might not expect --host_foo to exist when --foo doesn't exist,
+          // if that happens the outcome is there's no scoped flag we have to account for.
+          // In that case rather than error, we simply break out of this logic since --host_foo
+          // doesn't matter here now.
+          continue;
+        }
+
+        if (flagTarget == null) {
+          return null;
+        }
+        var attrMap = RawAttributeMapper.of(flagTarget.getAssociatedRule());
+        Object flagDefaultValue =
+            flagTarget.getAssociatedRule().getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME);
+        if (attrMap.isAttributeValueExplicitlySpecified("scope")) {
+          String scopeType = attrMap.get("scope", Type.STRING);
+          if (scopeType.startsWith("exec:--")) {
+            // load the starlarkified host flag
+            Target starlarkifiedHostFlag;
+            try {
+              starlarkifiedHostFlag = getTarget(buildSettingPackage, hostFlag);
+            } catch (NoSuchTargetException e) {
+              throw new StarlarkBuildSettingsDetailsException(e);
+            }
+
+            if (starlarkifiedHostFlag == null) {
+              return null;
+            }
+            var hostAttrMap = RawAttributeMapper.of(starlarkifiedHostFlag.getAssociatedRule());
+            String hostScopeType =
+                attrMap.isAttributeValueExplicitlySpecified("scope")
+                    ? hostAttrMap.get("scope", Type.STRING)
+                    : "default";
+            Object hostFlagDefaultValue =
+                starlarkifiedHostFlag
+                    .getAssociatedRule()
+                    .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME);
+            if (starlarkifiedHostFlag
+                .getAssociatedRule()
+                .getRuleClassObject()
+                .getBuildSetting()
+                .allowsMultiple()) {
+              // allowed multiple
+              customExecScopeValuesBuilder.put(
+                  flagTarget.getLabel(),
+                  new CustomExecScopeValue(
+                      flagTarget.getLabel(),
+                      flagDefaultValue,
+                      hostFlag,
+                      ImmutableList.of(hostFlagDefaultValue),
+                      scopeType,
+                      hostScopeType));
+            } else {
+              // not allowed multiple
+              customExecScopeValuesBuilder.put(
+                  flagTarget.getLabel(),
+                  new CustomExecScopeValue(
+                      flagTarget.getLabel(),
+                      flagDefaultValue,
+                      hostFlag,
+                      hostFlagDefaultValue,
+                      scopeType,
+                      hostScopeType));
+            }
+          }
+        }
+      } catch (TransitionException e) {
+        throw new StarlarkBuildSettingsDetailsException(e);
+      }
+    }
+
+    ImmutableSet<Label> effectiveBuildSettings =
+        ImmutableSet.<Label>builder()
+            .addAll(key.buildSettings())
+            .addAll(customExecScopeValuesBuilder.buildOrThrow().keySet())
+            .build();
+
     try {
       ImmutableMap<PackageIdentifier, PackageValue> buildSettingPackages =
-          getBuildSettingPackages(env, key.buildSettings());
+          getBuildSettingPackages(env, effectiveBuildSettings);
       if (buildSettingPackages == null) {
         return null;
       }
 
       // Each setting is unique so don't need a merge function.
       ImmutableMap<Label, Rule> rawSettingToActualRule =
-          key.buildSettings().stream()
+          effectiveBuildSettings.stream()
               .collect(
                   toImmutableMap(
                       setting -> setting,
@@ -115,7 +218,11 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
               .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getLabel()));
 
       return StarlarkBuildSettingsDetailsValue.create(
-          buildSettingToDefault, buildSettingToType, buildSettingIsAllowsMultiple, aliasToActual);
+          buildSettingToDefault,
+          buildSettingToType,
+          buildSettingIsAllowsMultiple,
+          aliasToActual,
+          customExecScopeValuesBuilder.buildOrThrow());
 
     } catch (TransitionException e) {
       throw new StarlarkBuildSettingsDetailsException(e);
@@ -268,12 +375,22 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
    */
   private static Target getActual(
       Map<PackageIdentifier, PackageValue> buildSettingPackages, Label setting) {
-    Target target = getTarget(buildSettingPackages, setting);
+    Target target;
+    try {
+      target = getTarget(buildSettingPackages, setting);
+    } catch (NoSuchTargetException e) {
+      throw new IllegalStateException(e);
+    }
+
     while (target.getAssociatedRule().getRuleClass().equals(ALIAS_RULE_NAME)) {
-      target =
-          getTarget(
-              buildSettingPackages,
-              (Label) target.getAssociatedRule().getAttr(ALIAS_ACTUAL_ATTRIBUTE_NAME));
+      try {
+        target =
+            getTarget(
+                buildSettingPackages,
+                (Label) target.getAssociatedRule().getAttr(ALIAS_ACTUAL_ATTRIBUTE_NAME));
+      } catch (NoSuchTargetException e) {
+        throw new IllegalStateException(e);
+      }
     }
     return target;
   }
@@ -286,24 +403,24 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
    * @param buildSettingPackages packages that include {@code setting}'s package
    */
   private static Target getTarget(
-      Map<PackageIdentifier, PackageValue> buildSettingPackages, Label setting) {
+      Map<PackageIdentifier, PackageValue> buildSettingPackages, Label setting)
+      throws NoSuchTargetException {
     Package buildSettingPackage =
         buildSettingPackages.get(setting.getPackageIdentifier()).getPackage();
     Preconditions.checkNotNull(
         buildSettingPackage, "Reading build setting for which we don't have a package");
     Target target;
-    try {
-      target = buildSettingPackage.getTarget(setting.getName());
-    } catch (NoSuchTargetException e) {
-      // This should never happen, see javadoc.
-      throw new IllegalStateException(e);
-    }
+    target = buildSettingPackage.getTarget(setting.getName());
     return target;
   }
 
   private static final class StarlarkBuildSettingsDetailsException extends SkyFunctionException {
     StarlarkBuildSettingsDetailsException(Exception e) {
       super(e, Transience.PERSISTENT);
+    }
+
+    StarlarkBuildSettingsDetailsException(NoSuchTargetException message) {
+      super(message, Transience.PERSISTENT);
     }
   }
 }

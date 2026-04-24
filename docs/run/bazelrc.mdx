@@ -313,7 +313,7 @@ See [#24203](https://github.com/bazelbuild/bazel/pull/24203).
 Bazel reads optional bazelrc files in this order:
 
 1.  System rc-file located at `/etc/bazel.bazelrc`.
-2.  Workspace rc-file located at `$workspace/tools/bazel.rc`.
+2.  Workspace rc-file located at `$workspace/.bazelrc`.
 3.  Home rc-file located at `$HOME/.bazelrc`
 
 Each bazelrc file listed here has a corresponding flag which can be used to

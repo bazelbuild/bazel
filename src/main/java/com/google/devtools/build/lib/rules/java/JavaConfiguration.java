@@ -96,6 +96,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean addTestSupportToCompileTimeDeps;
   private final ImmutableList<Label> pluginList;
   private final boolean experimentalTurbineAnnotationProcessing;
+  private final int experimentalTurbineCpuReservation;
   private final boolean experimentalEnableJspecify;
   private final boolean multiReleaseDeployJars;
   private final boolean disallowJavaImportExports;
@@ -154,6 +155,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.pluginList = ImmutableList.copyOf(javaOptions.getPluginList());
     this.experimentalTurbineAnnotationProcessing =
         javaOptions.getExperimentalTurbineAnnotationProcessing();
+    this.experimentalTurbineCpuReservation = javaOptions.getTurbineCpuReservation();
     this.experimentalEnableJspecify = javaOptions.getExperimentalEnableJspecify();
   }
 
@@ -396,6 +398,10 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public boolean experimentalTurbineAnnotationProcessing() {
     return experimentalTurbineAnnotationProcessing;
+  }
+
+  public int experimentalTurbineCpuReservation() {
+    return experimentalTurbineCpuReservation;
   }
 
   public boolean experimentalEnableJspecify() {

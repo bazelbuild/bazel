@@ -31,8 +31,7 @@ public class MethodOptionDefinition extends OptionDefinition {
 
   /** Returns an {@code MethodOptionDefinition} for the given method. */
   @Nullable
-  static MethodOptionDefinition extractOptionDefinition(
-      Method method, Class<? extends OptionsBase> optionsClass) {
+  static MethodOptionDefinition from(Method method) {
     Option annotation = method.getAnnotation(Option.class);
     if (annotation == null) {
       return null;

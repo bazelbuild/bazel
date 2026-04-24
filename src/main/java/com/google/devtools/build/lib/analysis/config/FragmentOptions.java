@@ -78,6 +78,11 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
     return this;
   }
 
+  /** Converts the options to a string-keyed map. */
+  public Map<String, Object> asMap() {
+    return Options.toMap(this);
+  }
+
   /**
    * Helper method for subclasses to normalize set valued options. In addition to removing
    * duplicates, it picks a deterministic ordering. The fact that the deterministic ordering is

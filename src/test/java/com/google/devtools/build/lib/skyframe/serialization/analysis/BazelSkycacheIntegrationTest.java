@@ -44,17 +44,11 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestBase {
   private final LongVersionGetter versionGetter = mock(LongVersionGetter.class);
-  private static final FailingFingerprintValueStore failingStore =
-      new FailingFingerprintValueStore();
+  private final FailingFingerprintValueStore failingStore = new FailingFingerprintValueStore();
 
   @Before
   public void injectVersionGetter() {
     injectVersionGetterForTesting(versionGetter);
-  }
-
-  @Before
-  public void resetFailingStore() {
-    failingStore.reset();
   }
 
   private static class FailingFingerprintValueStore implements FingerprintValueStore {
@@ -75,12 +69,6 @@ public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestB
       return lastFailedKey.get();
     }
 
-    private void reset() {
-      shouldFail.set(false);
-      failCounter.set(0);
-      lastFailedKey.set(null);
-    }
-
     @Override
     public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
       if (shouldFail.getAndSet(false)) {
@@ -98,7 +86,7 @@ public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestB
     }
   }
 
-  private static class ModuleWithOverrides extends SerializationModule {
+  private class ModuleWithOverrides extends SerializationModule {
     @Override
     protected RemoteAnalysisCachingServicesSupplier getAnalysisCachingServicesSupplier() {
       return new TestServicesSupplier(failingStore);

@@ -291,12 +291,14 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   @Override
-  public ImmutableSortedMap<String, Object> getExplicitStarlarkOptions(
-      Predicate<? super ParsedOptionDescription> filter) {
+  public ImmutableSortedMap<String, Object> getExplicitCommandLineStarlarkOptions() {
     ImmutableSet<String> explicitOptions =
         impl.getSkippedOptions().stream()
-            .filter(ParsedOptionDescription::isExplicit)
-            .filter(filter)
+            .filter(
+                d ->
+                    d.isExplicit()
+                        && d.getPriority().getPriorityCategory()
+                            == OptionPriority.PriorityCategory.COMMAND_LINE)
             // Since this was passed from OptionsParserImpl unparsed, it still appears in its raw
             // form "--//foo=bar". Do some more string manipulation to reduce it to "//foo". By
             // contract, getStarlarkOptions(), which we compare against below, contains options that

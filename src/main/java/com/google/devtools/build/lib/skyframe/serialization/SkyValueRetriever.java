@@ -20,6 +20,7 @@ import com.google.common.base.Verify;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.StateEvictedException;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.LookupResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
 import com.google.devtools.build.lib.skyframe.serialization.proto.DataType;
@@ -244,7 +245,7 @@ public final class SkyValueRetriever {
                 serializationState = new WaitingForFutureValueBytes(futureValueBytes);
                 responseFuture = futureValueBytes;
               } else {
-                ListenableFuture<RemoteAnalysisCacheClient.LookupResult> futureResponse =
+                ListenableFuture<LookupResult> futureResponse =
                     analysisCacheClient.lookup(ByteString.copyFrom(cacheKey.toBytes()));
 
                 serializationState = new WaitingForCacheServiceResponse(futureResponse);
@@ -310,10 +311,9 @@ public final class SkyValueRetriever {
               serializationState = new ProcessValueCodedInput(codedIn);
               break;
             }
-          case WaitingForCacheServiceResponse(
-              ListenableFuture<RemoteAnalysisCacheClient.LookupResult> futureResult):
+          case WaitingForCacheServiceResponse(ListenableFuture<LookupResult> futureResult):
             {
-              RemoteAnalysisCacheClient.LookupResult result;
+              LookupResult result;
               try {
                 result = getDone(futureResult);
               } catch (ExecutionException e) {
@@ -420,8 +420,7 @@ public final class SkyValueRetriever {
       implements SerializationState {}
 
   @VisibleForTesting
-  record WaitingForCacheServiceResponse(
-      ListenableFuture<RemoteAnalysisCacheClient.LookupResult> lookupResult)
+  record WaitingForCacheServiceResponse(ListenableFuture<LookupResult> lookupResult)
       implements SerializationState {}
 
   private static sealed interface ProcessValueBytes extends SerializationState

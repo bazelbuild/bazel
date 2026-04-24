@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus;
 import com.google.devtools.build.lib.util.DecimalBucketer;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -30,8 +29,7 @@ public interface RemoteAnalysisCacheClient {
   /** Timeout when accessing the future in order to shutdown the client. */
   int SHUTDOWN_TIMEOUT_IN_SECONDS = 5;
 
-  /** The result of a top-level targets lookup. */
-  record LookupTopLevelTargetsResult(TopLevelTargetsMatchStatus status, String statusMessage) {}
+
 
   /** The key for memoizing top-level targets lookup results. */
   record TopLevelTargetsCacheKey(
@@ -60,12 +58,7 @@ public interface RemoteAnalysisCacheClient {
           ImmutableList.of(),
           TopLevelTargetsMatchStatus.MATCH_STATUS_UNSPECIFIED);
 
-  /** The result of a remote analysis cache lookup. */
-  record LookupResult(ByteString value, MissReason missReason) {
-    public LookupResult(ByteString value) {
-      this(value, MissReason.MISS_REASON_UNSPECIFIED);
-    }
-  }
+
 
   /** Looks up an entry in the remote analysis cache based on a serialized key. */
   ListenableFuture<LookupResult> lookup(ByteString key);

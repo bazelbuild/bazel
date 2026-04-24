@@ -79,4 +79,11 @@ public class BazelJavaSemantics implements JavaSemantics {
         ? MACOS_UTF8_ENVIRONMENT
         : DEFAULT_UTF8_ENVIRONMENT;
   }
+
+  @Override
+  public boolean turbineParallelism() {
+    // Disable parallelism
+    // See also https://github.com/bazelbuild/bazel/issues/29350
+    return false;
+  }
 }

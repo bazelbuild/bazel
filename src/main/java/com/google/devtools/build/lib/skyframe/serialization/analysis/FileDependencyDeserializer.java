@@ -26,6 +26,7 @@ import static com.google.protobuf.ExtensionRegistry.getEmptyRegistry;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.luben.zstd.RecyclingBufferPool;
 import com.github.luben.zstd.ZstdInputStream;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
@@ -566,7 +567,7 @@ final class FileDependencyDeserializer {
         if (usesZstdCompression) {
           ByteArrayInputStream byteArrayInputStream =
               new ByteArrayInputStream(bytes, 2, bytes.length - 2);
-          inputStream = new ZstdInputStream(byteArrayInputStream);
+          inputStream = new ZstdInputStream(byteArrayInputStream, RecyclingBufferPool.INSTANCE);
         } else {
           inputStream = new ByteArrayInputStream(bytes);
         }

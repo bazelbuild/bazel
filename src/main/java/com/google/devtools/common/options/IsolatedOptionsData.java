@@ -14,11 +14,11 @@
 
 package com.google.devtools.common.options;
 
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.HashMap;
@@ -85,27 +85,18 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
         optionsClass,
         optionsBaseClass -> {
           ImmutableList.Builder<OptionDefinition> builder = ImmutableList.builder();
-          if (optionsBaseClass.isAnnotationPresent(OptionsClass.class)) {
-            for (Method method : optionsBaseClass.getMethods()) {
-              try {
-                MethodOptionDefinition optionDefinition =
-                    MethodOptionDefinition.extractOptionDefinition(method, optionsBaseClass);
-                if (optionDefinition != null) {
-                  builder.add(optionDefinition);
-                }
-              } catch (OptionDefinition.NotAnOptionException e) {
-                // Ignore non-@Option annotated methods.
-              }
-            }
-          } else {
-            for (Field field : optionsBaseClass.getFields()) {
-              try {
-                builder.add(FieldOptionDefinition.extractOptionDefinition(field));
-              } catch (OptionDefinition.NotAnOptionException e) {
-                // Ignore non-@Option annotated fields.
-              }
+          Verify.verify(
+              optionsBaseClass.isAnnotationPresent(OptionsClass.class),
+              "Options class %s should be annotated with @OptionsClass",
+              optionsBaseClass.getName());
+
+          for (Method method : optionsBaseClass.getMethods()) {
+            MethodOptionDefinition optionDefinition = MethodOptionDefinition.from(method);
+            if (optionDefinition != null) {
+              builder.add(optionDefinition);
             }
           }
+
           return ImmutableList.sortedCopyOf(OptionDefinition.BY_OPTION_NAME, builder.build());
         });
   }

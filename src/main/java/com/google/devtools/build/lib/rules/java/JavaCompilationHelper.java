@@ -472,6 +472,7 @@ public final class JavaCompilationHelper {
     builder.setToolsJars(javaToolchain.getTools());
     builder.setExecGroup(execGroup);
     builder.setUtf8Environment(semantics.utf8Environment(ruleContext.getExecutionPlatform()));
+    builder.enableParallelism(semantics.turbineParallelism());
     return builder;
   }
 

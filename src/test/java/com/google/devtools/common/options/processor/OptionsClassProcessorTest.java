@@ -35,6 +35,316 @@ public class OptionsClassProcessorTest {
   }
 
   @Test
+  public void optionsInNonOptionBasesAreRejected() {
+    assertAbout(javaSource())
+        .that(getFile("OptionInNonOptionBase.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "@Option annotated fields can only be in classes that inherit from OptionsBase.");
+  }
+
+  @Test
+  public void privatelyDeclaredOptionsAreRejected() {
+    assertAbout(javaSource())
+        .that(getFile("PrivateOptionField.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining("@Option method must be public");
+  }
+
+  @Test
+  public void protectedOptionsAreRejected() {
+    assertAbout(javaSource())
+        .that(getFile("ProtectedOptionField.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining("@Option method must be public");
+  }
+
+  @Test
+  public void staticOptionsAreRejected() {
+    assertAbout(javaSource())
+        .that(getFile("StaticOptionField.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining("@Option method must be abstract");
+  }
+
+  @Test
+  public void finalOptionsAreRejected() {
+    assertAbout(javaSource())
+        .that(getFile("FinalOptionField.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining("@Option method must be abstract");
+  }
+
+  @Test
+  public void namelessOptionsAreRejected() {
+    assertAbout(javaSource())
+        .that(getFile("NamelessOption.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining("Option must have an actual name.");
+  }
+
+  @Test
+  public void badNamesAreRejected() {
+    assertAbout(javaSource())
+        .that(getFile("BadNameForDocumentedOption.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Options that are used on the command line as flags must have names made from word "
+                + "characters only.");
+    assertAbout(javaSource())
+        .that(getFile("BadNameWithEqualsSign.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Options that are used on the command line as flags must have names made from word "
+                + "characters only.");
+  }
+
+  @Test
+  public void badNamesForHiddenOptionsPass() {
+    assertAbout(javaSource())
+        .that(getFile("BadNameForInternalOption.java"))
+        .processedWith(new OptionsClassProcessor())
+        .compilesWithoutError();
+  }
+
+  @Test
+  public void deprecatedCategorySaysUndocumented() {
+    assertAbout(javaSource())
+        .that(getFile("DeprecatedUndocumentedCategory.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Documentation level is no longer read from the option category. Category "
+                + "\"undocumented\" is disallowed, see OptionMetadataTags for the relevant tags.");
+  }
+
+  @Test
+  public void deprecatedCategorySaysHidden() {
+    assertAbout(javaSource())
+        .that(getFile("DeprecatedHiddenCategory.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Documentation level is no longer read from the option category. Category "
+                + "\"hidden\" is disallowed, see OptionMetadataTags for the relevant tags.");
+  }
+
+  @Test
+  public void deprecatedCategorySaysInternal() {
+    assertAbout(javaSource())
+        .that(getFile("DeprecatedInternalCategory.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Documentation level is no longer read from the option category. Category "
+                + "\"internal\" is disallowed, see OptionMetadataTags for the relevant tags.");
+  }
+
+  @Test
+  public void optionMustHaveEffectExplicitlyStated() {
+    assertAbout(javaSource())
+        .that(getFile("EffectlessOption.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Option does not list at least one OptionEffectTag. "
+                + "If the option has no effect, please be explicit and add NO_OP. "
+                + "Otherwise, add a tag representing its effect.");
+  }
+
+  @Test
+  public void contradictingEffectTagsAreRejected() {
+    assertAbout(javaSource())
+        .that(getFile("OptionWithContradictingNoopEffects.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Option includes NO_OP with other effects. This doesn't make much sense. "
+                + "Please remove NO_OP or the actual effects from the list, whichever is correct.");
+    assertAbout(javaSource())
+        .that(getFile("OptionWithContradictingUnknownEffects.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Option includes UNKNOWN with other, known, effects. "
+                + "Please remove UNKNOWN from the list.");
+  }
+
+  @Test
+  public void contradictoryDocumentationCategoryIsRejected() {
+    assertAbout(javaSource())
+        .that(getFile("HiddenOptionWithCategory.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Option has metadata tag HIDDEN but does not have category UNDOCUMENTED. "
+                + "Please fix.");
+    assertAbout(javaSource())
+        .that(getFile("InternalOptionWithCategory.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Option has metadata tag INTERNAL but does not have category UNDOCUMENTED. "
+                + "Please fix.");
+  }
+
+  @Test
+  public void defaultConvertersAreFound() {
+    assertAbout(javaSource())
+        .that(getFile("AllDefaultConverters.java"))
+        .processedWith(new OptionsClassProcessor())
+        .compilesWithoutError();
+  }
+
+  @Test
+  public void converterReturnsListForAllowMultipleIsAllowed() {
+    assertAbout(javaSource())
+        .that(getFile("MultipleOptionWithListTypeConverter.java"))
+        .processedWith(new OptionsClassProcessor())
+        .compilesWithoutError();
+  }
+
+  @Test
+  public void correctCustomConverterForPrimitiveTypePasses() {
+    assertAbout(javaSource())
+        .that(getFile("CorrectCustomConverterForPrimitiveType.java"))
+        .processedWith(new OptionsClassProcessor())
+        .compilesWithoutError();
+  }
+
+  @Test
+  public void converterlessOptionIsRejected() {
+    assertAbout(javaSource())
+        .that(getFile("ConverterlessOption.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Cannot find valid converter for option of type "
+                + "java.util.Map<java.lang.String,java.lang.String>");
+  }
+
+  @Test
+  public void allowMultipleOptionWithCollectionTypeIsRejected() {
+    assertAbout(javaSource())
+        .that(getFile("CollectionTypeForAllowMultipleOption.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Option that allows multiple occurrences must be assignable to type java.util.List<E>,"
+                + " but is of type java.util.Collection<java.lang.String>");
+  }
+
+  @Test
+  public void allowMultipleOptionWithNonListTypeIsRejected() {
+    assertAbout(javaSource())
+        .that(getFile("NonListTypeForAllowMultipleOption.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Option that allows multiple occurrences must be assignable to type java.util.List<E>,"
+                + " but is of type java.lang.String");
+  }
+
+  @Test
+  public void allowMultipleOptionWithImmutableListTypeIsAllowed() {
+    assertAbout(javaSource())
+        .that(getFile("ImmutableListTypeForAllowMultipleOption.java"))
+        .processedWith(new OptionsClassProcessor())
+        .compilesWithoutError();
+  }
+
+  @Test
+  public void allowMultipleOptionsWithDefaultValuesAreRejected() {
+    assertAbout(javaSource())
+        .that(getFile("AllowMultipleOptionWithDefaultValue.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Default values for multiple options are not allowed - use \"null\" special value");
+  }
+
+  @Test
+  public void optionWithIncorrectConverterIsRejected() {
+    assertAbout(javaSource())
+        .that(getFile("IncorrectConverterType.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Type of field (java.lang.String) must be assignable from the converter's return type "
+                + "(java.lang.Integer)");
+  }
+
+  @Test
+  public void allowMultipleOptionWithIncorrectConverterIsRejected() {
+    assertAbout(javaSource())
+        .that(getFile("IncorrectConverterTypeForAllowMultipleOption.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Type of field (java.lang.String) must be assignable from the converter's return type "
+                + "(java.lang.Integer)");
+  }
+
+  @Test
+  public void expansionOptionThatAllowsMultipleIsRejected() {
+    assertAbout(javaSource())
+        .that(getFile("ExpansionOptionWithAllowMultiple.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Can't set an option to accumulate multiple values and let it expand to other flags.");
+  }
+
+  @Test
+  public void expansionOptionWithImplicitRequirementIsRejected() {
+    assertAbout(javaSource())
+        .that(getFile("ExpansionOptionWithImplicitRequirement.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Can't set an option to be both an expansion option and have implicit requirements.");
+  }
+
+  @Test
+  public void deprecatedAttributeWithoutMetadataTagIsRejected() {
+    assertAbout(javaSource())
+        .that(getFile("DeprecatedAttributeWithoutMetadataTag.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Options annotated with @Deprecated must have metadata tag DEPRECATED.");
+  }
+
+  @Test
+  public void deprecatedMetadataTagWithoutAttributeIsRejected() {
+    assertAbout(javaSource())
+        .that(getFile("DeprecatedMetadataTagWithoutAttribute.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Options with metadata tag DEPRECATED must be annotated with @Deprecated.");
+  }
+
+  @Test
+  public void noopWithoutReasonIsRejected() {
+    assertAbout(javaSource())
+        .that(getFile("NoopWithoutReason.java"))
+        .processedWith(new OptionsClassProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "No-op options must be annotated with @Deprecated, or have metadata tag HIDDEN or"
+                + " INTERNAL.");
+  }
+
+  @Test
   public void nonPublicOptionMethodIsRejected() {
     assertAbout(javaSource())
         .that(getFile("NonPublicOptionMethod.java"))
@@ -120,7 +430,7 @@ public class OptionsClassProcessorTest {
               @Option(
                   name = "base",
                   documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-                  effectTags = {OptionEffectTag.NO_OP},
+                  effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
                   defaultValue = "baseDefault")
               public abstract String getBase();
               public abstract void setBase(String base);
@@ -140,7 +450,7 @@ public class OptionsClassProcessorTest {
               @Option(
                   name = "derived",
                   documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-                  effectTags = {OptionEffectTag.NO_OP},
+                  effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
                   defaultValue = "derivedDefault")
               public abstract String getDerived();
               public abstract void setDerived(String derived);

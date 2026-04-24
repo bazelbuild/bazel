@@ -14,11 +14,6 @@
 
 package com.google.devtools.common.options;
 
-import com.google.common.collect.Maps;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-
 /**
  * Base class for all options classes. Extend this class, adding public instance fields annotated
  * with {@link Option}. Then you can create instances either programmatically:
@@ -60,56 +55,5 @@ public abstract class OptionsBase {
    */
   public Class<? extends OptionsBase> getOptionsClass() {
     return getClass();
-  }
-
-  /**
-   * Returns a mapping from option names to values, for each option on this object, including
-   * inherited ones. The mapping is a copy, so subsequent mutations to it or to this object are
-   * independent. Entries are sorted alphabetically.
-   */
-  public final Map<String, Object> asMap() {
-    List<? extends OptionDefinition> definitions =
-        OptionsData.getAllOptionDefinitionsForClass(getOptionsClass());
-    Map<String, Object> map = Maps.newLinkedHashMapWithExpectedSize(definitions.size());
-    for (OptionDefinition definition : definitions) {
-      map.put(definition.getOptionName(), getValueFromDefinition(definition));
-    }
-    return map;
-  }
-
-  /** Returns the value of the option described by {@code definition}. */
-  public final Object getValueFromDefinition(OptionDefinition definition) {
-    return definition.getValue(this);
-  }
-
-  @Override
-  public final String toString() {
-    return getOptionsClass().getName() + asMap();
-  }
-
-  @Override
-  @SuppressWarnings("EqualsGetClass") // Options can only be equal if they are of the same type.
-  public final boolean equals(Object that) {
-    if (this == that) {
-      return true;
-    }
-    if (!(that instanceof OptionsBase other)) {
-      return false;
-    }
-
-    if (!getOptionsClass().equals(other.getOptionsClass())) {
-      return false;
-    }
-    for (OptionDefinition def : OptionDefinition.getOptionDefinitions(getOptionsClass())) {
-      if (!Objects.equals(getValueFromDefinition(def), other.getValueFromDefinition(def))) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  @Override
-  public final int hashCode() {
-    return getOptionsClass().hashCode() + asMap().hashCode();
   }
 }

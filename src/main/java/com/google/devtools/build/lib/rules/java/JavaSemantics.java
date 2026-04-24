@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
@@ -66,4 +65,7 @@ public interface JavaSemantics {
 
   /** Environment variable that sets the UTF-8 charset for the given execution platform. */
   ImmutableMap<String, String> utf8Environment(PlatformInfo executionPlatform);
+
+  /** Whether to enable parallelism in Turbine. */
+  boolean turbineParallelism();
 }

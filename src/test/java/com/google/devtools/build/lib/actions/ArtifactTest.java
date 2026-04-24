@@ -342,18 +342,12 @@ public final class ArtifactTest {
           (SourceArtifact)
               objectCodecs.deserializeMemoizedAndBlocking(
                   service,
-                  objectCodecs
-                      .serializeMemoizedAndBlocking(
-                          service, sourceArtifact, /* profileCollector= */ null)
-                      .getObject());
+                  objectCodecs.serializeMemoizedAndBlocking(service, sourceArtifact).getObject());
       deserialized2 =
           (SourceArtifact)
               objectCodecs.deserializeMemoizedAndBlocking(
                   service,
-                  objectCodecs
-                      .serializeMemoizedAndBlocking(
-                          service, sourceArtifact, /* profileCollector= */ null)
-                      .getObject());
+                  objectCodecs.serializeMemoizedAndBlocking(service, sourceArtifact).getObject());
     } else {
       deserialized1 =
           (SourceArtifact) objectCodecs.deserialize(objectCodecs.serialize(sourceArtifact));
@@ -371,8 +365,7 @@ public final class ArtifactTest {
               objectCodecs.deserializeMemoizedAndBlocking(
                   service,
                   objectCodecs
-                      .serializeMemoizedAndBlocking(
-                          service, sourceArtifactFromFactory, /* profileCollector= */ null)
+                      .serializeMemoizedAndBlocking(service, sourceArtifactFromFactory)
                       .getObject());
     } else {
       deserialized =

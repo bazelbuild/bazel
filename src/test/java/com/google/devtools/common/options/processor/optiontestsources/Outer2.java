@@ -25,7 +25,7 @@ public class Outer2 {
     @Option(
         name = "bar",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.NO_OP},
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         defaultValue = "true")
     public abstract boolean getBar();
   }

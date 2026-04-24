@@ -193,25 +193,25 @@ class OptionsParserImpl {
    * field itself is not used for any purpose other than retrieving its {@link Option} annotation.
    */
   @Keep
-  @Option(
-      name = "skipped args",
-      allowMultiple = true,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      help = "Only used internally by OptionsParserImpl")
-  private final List<String> skippedArgs = new ArrayList<>();
+  @SuppressWarnings("unused") // Used for reflection.
+  @OptionsClass
+  public abstract static class SkippedArgs extends OptionsBase {
+    @Option(
+        name = "skipped args",
+        allowMultiple = true,
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        metadataTags = {OptionMetadataTag.INTERNAL},
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Only used internally by OptionsParserImpl")
+    public abstract List<String> getSkippedArgs();
+  }
 
   private static final OptionDefinition skippedArgsDefinition;
 
   static {
-    try {
-      skippedArgsDefinition =
-          FieldOptionDefinition.extractOptionDefinition(
-              OptionsParserImpl.class.getDeclaredField("skippedArgs"));
-    } catch (NoSuchFieldException e) {
-      throw new IllegalStateException(e);
-    }
+    skippedArgsDefinition =
+        MethodOptionDefinition.get(OptionsParserImpl.SkippedArgs.class, "getSkippedArgs");
   }
 
   OptionsParserImpl(

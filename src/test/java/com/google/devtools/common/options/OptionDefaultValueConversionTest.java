@@ -14,12 +14,12 @@
 
 package com.google.devtools.common.options;
 
+import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toList;
 
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.util.Classpath;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import org.junit.Rule;
@@ -68,9 +68,9 @@ public class OptionDefaultValueConversionTest {
               .filter(
                   c -> !c.getPackageName().equals("com.google.devtools.build.lib.profiler.memory"))
               .filter(c -> !isTestClass(c))
-              .flatMap(c -> Arrays.stream(c.getFields()))
+              .flatMap(c -> stream(c.getMethods()))
               .filter(f -> f.isAnnotationPresent(Option.class))
-              .map(FieldOptionDefinition::extractOptionDefinition)
+              .map(MethodOptionDefinition::from)
               .collect(toList());
       logger.atFine().log(
           "Found %d Option-annotated fields in Prod code", optionDefinitions.size());

@@ -446,6 +446,12 @@ class MetricsCollector {
             computeDistributionProto(raccStats.batchLatencyMicros()))
         .setMetadataLookupResult(raccStats.matchStatus());
 
+    RemoteAnalysisCacheStatistics.InvalidationLookupMetrics invalidationMetrics =
+        listener.getInvalidationLookupMetrics();
+    if (invalidationMetrics != null) {
+      result.setInvalidationLookupMetrics(invalidationMetrics);
+    }
+
     return result.build();
   }
 

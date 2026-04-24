@@ -43,13 +43,22 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 
 write_project_scl_definition
 
+function declare_common_provider() {
+  local -r pkg="$1"
+  mkdir -p "${pkg}"
+  cat > "${pkg}/provider.bzl" <<EOF
+BuildSettingInfo = provider(fields = ["value"])
+EOF
+}
+
 function set_up_flags() {
   local -r pkg="$1"
 
   # Define common starlark flags.
   #mkdir -p "${pkg}"
+  declare_common_provider "${pkg}"
   cat > "${pkg}"/flag.bzl <<EOF
-BuildSettingInfo = provider(fields = ["value"])
+load("//${pkg}:provider.bzl", "BuildSettingInfo")
 
 def _sample_flag_impl(ctx):
     print ("Flag value for %s: %s" % (ctx.label.name, ctx.build_setting_value))
@@ -282,6 +291,128 @@ sample_flag(
 EOF
 
   bazel build //${pkg}:main --experimental_enable_scl_dialect || fail "bazel failed"
+}
+
+function create_test_rule() {
+  local pkg="${1}"
+  cat > "${pkg}/defs.bzl" <<EOF
+load("//${pkg}:provider.bzl", "BuildSettingInfo")
+
+def _print_flag_value_impl(ctx):
+    flag_value = ctx.attr._my_flag[BuildSettingInfo].value
+    print("%s: flag value is: %s" % (ctx.label, flag_value))
+
+print_flag_value = rule(
+    implementation = _print_flag_value_impl,
+    attrs = {
+        "_my_flag": attr.label(
+            default = "//${pkg}:test",
+        ),
+        "deps": attr.label_list(
+            cfg = "exec",
+        ),
+        "scope": attr.string(
+            doc = "The scope indicates where a flag can propagate to",
+            default = "universal",
+        ),
+    },
+)
+
+EOF
+}
+
+function test_exec_propagation() {
+  local -r pkg="$FUNCNAME"
+  mkdir -p "${pkg}"
+
+  set_up_flags "${pkg}"
+  create_test_rule "${pkg}"
+  cat > "${pkg}/BUILD" <<EOF
+load("//${pkg}:defs.bzl", "print_flag_value")
+load("//${pkg}:flag.bzl", "sample_flag")
+
+print_flag_value(
+    name = "print_flag",
+    deps = ["dep"],
+)
+
+print_flag_value(
+    name = "dep",
+)
+
+sample_flag(
+    name = "test",
+    build_setting_default = "default target value",
+    scope = "exec:--//${pkg}:host_test",
+)
+
+sample_flag(
+    name = "host_test",
+    build_setting_default = "default_host_value",
+)
+EOF
+  # --flag_alias=host_test=//${pkg}:host_test is needed for this feature to work
+  # because that's how we find potential --foo candidates
+
+  # test for when both host and target flags are not specified on the command line
+  bazel build //${pkg}:print_flag --flag_alias=host_test=//${pkg}:host_test &> "$TEST_log" || fail "bazel failed"
+  expect_log "${pkg}:dep: flag value is: default_host_value"
+  expect_log "${pkg}:print_flag: flag value is: default target value"
+
+  # test for when both host and target flags are specified on the command line
+  bazel build //${pkg}:print_flag --//${pkg}:test=custom_target_value --//${pkg}:host_test=custom_host_value --flag_alias=host_test=//${pkg}:host_test &> "$TEST_log" || fail "bazel failed"
+  expect_log "${pkg}:dep: flag value is: custom_host_value"
+  expect_log "${pkg}:print_flag: flag value is: custom_target_value"
+
+  # test for when only target flag is specified on the command line
+  bazel build //${pkg}:print_flag --//${pkg}:test=custom_target_value --flag_alias=host_test=//${pkg}:host_test &> "$TEST_log" || fail "bazel failed"
+  expect_log "${pkg}:dep: flag value is: default_host_value"
+  expect_log "${pkg}:print_flag: flag value is: custom_target_value"
+
+  # test for when only host flag is specified on the command line
+  bazel build //${pkg}:print_flag --//${pkg}:host_test=custom_host_value --flag_alias=host_test=//${pkg}:host_test &> "$TEST_log" || fail "bazel failed"
+  expect_log "${pkg}:dep: flag value is: custom_host_value"
+  expect_log "${pkg}:print_flag: flag value is: default target value"
+}
+
+function test_exec_propagation_does_not_create_ST_hash() {
+  echo "testing test_exec_propagation_does_not_create_ST_hash"
+    local -r pkg="$FUNCNAME"
+  mkdir -p "${pkg}"
+
+  set_up_flags "${pkg}"
+  create_test_rule "${pkg}"
+  cat > "${pkg}/BUILD" <<EOF
+load("//${pkg}:defs.bzl", "print_flag_value")
+load("//${pkg}:flag.bzl", "sample_flag")
+
+print_flag_value(
+    name = "print_flag",
+    deps = ["dep"],
+)
+
+print_flag_value(
+    name = "dep",
+)
+
+sample_flag(
+    name = "test",
+    build_setting_default = "default target value",
+    scope = "exec:--//${pkg}:host_test",
+)
+
+sample_flag(
+    name = "host_test",
+    build_setting_default = "default_host_value",
+)
+EOF
+  # --flag_alias=host_test=//${pkg}:host_test is needed for this feature to work
+  # because that's how we find potential --foo candidates
+
+  bazel clean && bazel cquery --noimplicit_deps --flag_alias=host_test=//${pkg}:host_test "deps(//${pkg}:print_flag) intersect //${pkg}:*"
+  bazel config &> "$TEST_log" || fail "bazel failed"
+  expect_not_log "ST-"
+  expect_log "-opt-exec"
 }
 
 run_suite "Integration tests for flags scoping"

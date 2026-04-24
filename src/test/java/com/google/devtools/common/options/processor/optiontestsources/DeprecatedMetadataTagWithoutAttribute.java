@@ -18,14 +18,18 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /** This example options class should fail to compile. */
-public class DeprecatedMetadataTagWithoutAttribute extends OptionsBase {
+@OptionsClass
+public abstract class DeprecatedMetadataTagWithoutAttribute extends OptionsBase {
   @Option(
       name = "bad_option",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {OptionMetadataTag.INTERNAL, OptionMetadataTag.DEPRECATED})
-  public boolean badOption;
+  public abstract boolean getBadOption();
+
+  public abstract void setBadOption(boolean value);
 }

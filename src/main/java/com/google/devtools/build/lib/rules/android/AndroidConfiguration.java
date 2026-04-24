@@ -283,30 +283,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         help = "Whether to include supported Java 8 libraries in apps for legacy devices.")
     public abstract boolean getDesugarJava8Libs();
 
-    // This flag is intended to be flipped globally.
-    @Option(
-        name = "experimental_check_desugar_deps",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-        effectTags = {
-          OptionEffectTag.EAGERNESS_TO_EXIT,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-        },
-        metadataTags = OptionMetadataTag.EXPERIMENTAL,
-        help = "Whether to double-check correct desugaring at Android binary level.")
-    public abstract boolean getCheckDesugarDeps();
-
-    @Option(
-        name = "incremental_dexing",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-        effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        },
-        help = "Does most of the work for dexing separately for each Jar file.")
-    public abstract boolean getIncrementalDexing();
 
     @Option(
         name = "experimental_incremental_dexing_after_proguard",
@@ -747,7 +723,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
   private final ConfigurationDistinguisher configurationDistinguisher;
-  private final boolean incrementalDexing;
   private final int incrementalDexingShardsAfterProguard;
   private final ImmutableList<String> dexoptsSupportedInIncrementalDexing;
 
@@ -755,7 +730,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final ImmutableList<String> dexoptsSupportedInDexSharder;
   private final boolean desugarJava8;
   private final boolean desugarJava8Libs;
-  private final boolean checkDesugarDeps;
   private final boolean useAndroidResourceShrinking;
   private final boolean useAndroidResourceCycleShrinking;
   private final boolean useAndroidResourcePathShortening;
@@ -780,7 +754,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   public AndroidConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
     Options options = buildOptions.get(Options.class);
     this.configurationDistinguisher = options.getConfigurationDistinguisher();
-    this.incrementalDexing = options.getIncrementalDexing();
     this.incrementalDexingShardsAfterProguard = options.getIncrementalDexingShardsAfterProguard();
     this.dexoptsSupportedInIncrementalDexing =
         ImmutableList.copyOf(options.getDexoptsSupportedInIncrementalDexing());
@@ -790,7 +763,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         ImmutableList.copyOf(options.getDexoptsSupportedInDexSharder());
     this.desugarJava8 = options.getDesugarJava8();
     this.desugarJava8Libs = options.getDesugarJava8Libs();
-    this.checkDesugarDeps = options.getCheckDesugarDeps();
     this.useAndroidResourceShrinking =
         options.getUseAndroidResourceShrinking()
             || options.getUseExperimentalAndroidResourceShrinking();
@@ -831,12 +803,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     return !disableAndroidFragment;
   }
 
-  /** Returns whether to use incremental dexing. */
-  @Override
-  public boolean useIncrementalDexing() {
-    return incrementalDexing;
-  }
-
   /** Returns whether to process proguarded Android binaries with incremental dexing tools. */
   @Override
   public int incrementalDexingShardsAfterProguard() {
@@ -869,11 +835,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean desugarJava8Libs() {
     return desugarJava8Libs;
-  }
-
-  @Override
-  public boolean checkDesugarDeps() {
-    return checkDesugarDeps;
   }
 
   @Override

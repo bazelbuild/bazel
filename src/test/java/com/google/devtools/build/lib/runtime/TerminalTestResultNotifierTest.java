@@ -577,10 +577,10 @@ public final class TerminalTestResultNotifierTest {
 
   private void printFailedToBuildSummaries(TestSummaryFormat testSummaryFormat)
       throws LabelSyntaxException {
-    ExecutionOptions executionOptions = Options.createOptions(ExecutionOptions.class);
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
     executionOptions.setTestSummary(testSummaryFormat);
     when(optionsParsingResult.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
-    TestSummaryOptions testSummaryOptions = Options.createOptions(TestSummaryOptions.class);
+    TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
     testSummaryOptions.setVerboseSummary(true);
     when(optionsParsingResult.getOptions(TestSummaryOptions.class)).thenReturn(testSummaryOptions);
 
@@ -611,10 +611,10 @@ public final class TerminalTestResultNotifierTest {
   private void printTestCaseSummary(
       TestSummarySpec testSummarySpec, TestSummaryFormat testSummaryFormat)
       throws LabelSyntaxException {
-    ExecutionOptions executionOptions = Options.createOptions(ExecutionOptions.class);
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
     executionOptions.setTestSummary(testSummaryFormat);
     when(optionsParsingResult.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
-    TestSummaryOptions testSummaryOptions = Options.createOptions(TestSummaryOptions.class);
+    TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
     testSummaryOptions.setVerboseSummary(true);
     when(optionsParsingResult.getOptions(TestSummaryOptions.class)).thenReturn(testSummaryOptions);
 

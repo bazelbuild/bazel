@@ -65,7 +65,17 @@ public class WriteStatuses {
 
   /** Returns the stateless, immediately successful write status. */
   public static WriteStatus immediateWriteStatus() {
-    return ImmediateWriteStatus.INSTANCE;
+    return ImmediateWriteStatus.NOVEL;
+  }
+
+  /**
+   * Returns a stateless, immediately successful write status with the given novelty.
+   *
+   * @param wasNovel true if new bytes were actually written; false if they already existed in the
+   *     backend.
+   */
+  public static WriteStatus immediateWriteStatus(boolean wasNovel) {
+    return wasNovel ? ImmediateWriteStatus.NOVEL : ImmediateWriteStatus.NOT_NOVEL;
   }
 
   /** Creates an immediately failed write status. */
@@ -490,7 +500,14 @@ public class WriteStatuses {
   }
 
   private static final class ImmediateWriteStatus implements WriteStatus {
-    private static final ImmediateWriteStatus INSTANCE = new ImmediateWriteStatus();
+    private static final ImmediateWriteStatus NOVEL = new ImmediateWriteStatus(true);
+    private static final ImmediateWriteStatus NOT_NOVEL = new ImmediateWriteStatus(false);
+
+    private final boolean wasNovel;
+
+    private ImmediateWriteStatus(boolean wasNovel) {
+      this.wasNovel = wasNovel;
+    }
 
     @Override
     public void addListener(Runnable listener, Executor executor) {
@@ -504,12 +521,12 @@ public class WriteStatuses {
 
     @Override
     public Boolean get() {
-      return true;
+      return wasNovel;
     }
 
     @Override
     public Boolean get(long timeout, TimeUnit unit) {
-      return true;
+      return wasNovel;
     }
 
     @Override

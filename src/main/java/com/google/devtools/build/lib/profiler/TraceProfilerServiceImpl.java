@@ -685,7 +685,6 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
 
   @Override
   public void markPhase(ProfilePhase phase) throws InterruptedException {
-    MemoryProfiler.instance().markPhase(phase);
     if (isActive() && isProfiling(ProfilerTask.PHASE)) {
       logEvent(ProfilerTask.PHASE, phase.description);
     }

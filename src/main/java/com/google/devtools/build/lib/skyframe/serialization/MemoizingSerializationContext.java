@@ -330,6 +330,7 @@ abstract class MemoizingSerializationContext extends SerializationContext {
     }
     if (profileCollector != null) {
       context.getProfileRecorder().checkStackEmpty(subject);
+      context.getProfileRecorder().onSuccess(true);
     }
   }
 

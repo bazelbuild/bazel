@@ -42,13 +42,11 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
-import com.google.devtools.common.options.ParsedOptionDescription;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -224,7 +222,9 @@ public class BuildRequest implements OptionsProvider {
     this.id = id;
     this.startTimeMillis = startTimeMillis;
     this.userOptions =
-        options.getUserOptions() == null ? ImmutableMap.of() : options.getUserOptions();
+        options.getUserOptions() == null
+            ? ImmutableMap.of()
+            : ImmutableMap.copyOf(options.getUserOptions());
     this.optionsCache =
         Caffeine.newBuilder()
             .build(
@@ -285,8 +285,7 @@ public class BuildRequest implements OptionsProvider {
   }
 
   @Override
-  public Map<String, Object> getExplicitStarlarkOptions(
-      Predicate<? super ParsedOptionDescription> filter) {
+  public Map<String, Object> getExplicitCommandLineStarlarkOptions() {
     throw new UnsupportedOperationException("No known callers to this implementation");
   }
 

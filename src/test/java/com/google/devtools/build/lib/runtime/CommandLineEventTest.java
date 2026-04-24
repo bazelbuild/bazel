@@ -351,8 +351,7 @@ public class CommandLineEventTest {
                 fakeCommandOptions.getResidue(),
                 false,
                 fakeCommandOptions.asListOfExplicitOptions(),
-                fakeCommandOptions.getExplicitStarlarkOptions(
-                    OriginalCommandLineEvent::commandLinePriority),
+                fakeCommandOptions.getExplicitCommandLineStarlarkOptions(),
                 Optional.empty())
             .asStreamProto(null)
             .getStructuredCommandLine();

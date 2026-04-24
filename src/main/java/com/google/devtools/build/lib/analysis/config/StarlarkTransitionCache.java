@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransi
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue.CustomExecScopeValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.StarlarkTransitionVisitor;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
@@ -103,7 +104,7 @@ public final class StarlarkTransitionCache {
       ImmutableMap<String, Label> flagsAliases,
       ConfigurationTransition transition,
       StarlarkBuildSettingsDetailsValue details) {
-    if (details.buildSettingToDefault().isEmpty()) {
+    if (details.buildSettingToDefault().isEmpty() && details.customExecScopeValues().isEmpty()) {
       // No need to traverse the transition to find its Starlark flag inputs. There are none.
       return fromOptions;
     }
@@ -120,6 +121,37 @@ public final class StarlarkTransitionCache {
             maybeAliasSetting, details.buildSettingToDefault().get(setting));
       }
     }
+
+    return getDefaultStarlarkOptionsForCustomExec(optionsWithDefaults, details, fromOptions);
+  }
+
+  public static BuildOptions getDefaultStarlarkOptionsForCustomExec(
+      BuildOptions.Builder optionsWithDefaults,
+      StarlarkBuildSettingsDetailsValue details,
+      BuildOptions fromOptions) {
+    for (Label customExecSetting : details.customExecScopeValues().keySet()) {
+      if (optionsWithDefaults == null) {
+        optionsWithDefaults = fromOptions.toBuilder();
+      }
+
+      CustomExecScopeValue customExecScopeValue =
+          details.customExecScopeValues().get(customExecSetting);
+
+      if (!fromOptions.getStarlarkOptions().containsKey(customExecScopeValue.hostFlag())) {
+        optionsWithDefaults.addStarlarkOption(
+            customExecScopeValue.hostFlag(), customExecScopeValue.hostFlagDefault());
+        optionsWithDefaults.addScopeType(
+            customExecScopeValue.hostFlag(),
+            new Scope.ScopeType(customExecScopeValue.hostFlagScopeType()));
+      }
+      if (!fromOptions.getStarlarkOptions().containsKey(customExecScopeValue.flag())) {
+        optionsWithDefaults.addStarlarkOption(
+            customExecScopeValue.flag(), customExecScopeValue.flagDefault());
+        optionsWithDefaults.addScopeType(
+            customExecScopeValue.flag(), new Scope.ScopeType(customExecScopeValue.flagScopeType()));
+      }
+    }
+
     return optionsWithDefaults == null
         ? fromOptions
         : optionsWithDefaults.addScopeTypeMap(fromOptions.getScopeTypeMap()).build();

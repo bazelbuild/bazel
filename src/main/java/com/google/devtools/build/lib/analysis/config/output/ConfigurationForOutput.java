@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -257,6 +258,7 @@ public class ConfigurationForOutput {
    * Starlark options don't have configuration fragments. This is just to keep their output
    * consistent with native options, i.e. to include "user-defined" section in the output list.
    */
+  @OptionsClass
   static class UserDefinedFragment extends FragmentOptions {
     static final String DESCRIPTIVE_NAME = "user-defined";
     // Intentionally empty: we read the actual options directly from BuildOptions.

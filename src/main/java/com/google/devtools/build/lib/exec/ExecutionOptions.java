@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
+import com.google.devtools.common.options.BooleanStyleOption;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.AssignmentToListOfValuesConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedNonEmptyOptionListConverter;
@@ -41,6 +43,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import javax.annotation.Nullable;
 
 /**
  * Options affecting the execution phase of a build.
@@ -443,15 +446,18 @@ public abstract class ExecutionOptions extends OptionsBase {
       category = "verbosity",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
+      converter = ExecutionLogFileConverter.class,
       help =
           "Log the executed spawns into this file as length-delimited SpawnExec protos, according"
               + " to src/main/protobuf/spawn.proto. Prefer --execution_log_compact_file, which is"
-              + " significantly smaller and cheaper to produce. Related flags:"
-              + " --execution_log_compact_file (compact format; mutually exclusive),"
-              + " --execution_log_json_file (text JSON format; mutually exclusive),"
-              + " --execution_log_sort (whether to sort the execution log),"
-              + " --subcommands (for displaying subcommands in terminal output).")
+              + " significantly smaller and cheaper to produce. The flag accepts boolean and string"
+              + " values. If string, it represents a local path. If true, then"
+              + " --experimental_stream_log_file_uploads must be set, whereby it will stream the"
+              + " execution log to remote storage. If false, then logging to the execution log is"
+              + " disabled. Related flags: --execution_log_compact_file (compact format; mutually"
+              + " exclusive), --execution_log_json_file (text JSON format; mutually exclusive),"
+              + " --execution_log_sort (whether to sort the execution log), --subcommands (for"
+              + " displaying subcommands in terminal output).")
   public abstract PathFragment getExecutionLogBinaryFile();
 
   @Option(
@@ -460,12 +466,15 @@ public abstract class ExecutionOptions extends OptionsBase {
       category = "verbosity",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
+      converter = ExecutionLogFileConverter.class,
       help =
           "Log the executed spawns into this file as newline-delimited JSON representations of"
               + " SpawnExec protos, according to src/main/protobuf/spawn.proto. Prefer"
               + " --execution_log_compact_file, which is significantly smaller and cheaper to"
-              + " produce. Related flags:"
+              + " produce. The flag accepts boolean and string values. If string, it represents a"
+              + " local path. If true, then --experimental_stream_log_file_uploads must be set,"
+              + " whereby it will stream the execution log to remote storage. If false, then"
+              + " logging to the execution log is disabled. Related flags:"
               + " --execution_log_compact_file (compact format; mutually exclusive),"
               + " --execution_log_binary_file (binary protobuf format; mutually exclusive),"
               + " --execution_log_sort (whether to sort the execution log),"
@@ -479,14 +488,17 @@ public abstract class ExecutionOptions extends OptionsBase {
       category = "verbosity",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
+      converter = ExecutionLogFileConverter.class,
       help =
           "Log the executed spawns into this file as length-delimited ExecLogEntry protos,"
               + " according to src/main/protobuf/spawn.proto. The entire file is zstd compressed."
-              + " Related flags:"
-              + " --execution_log_binary_file (binary protobuf format; mutually exclusive),"
-              + " --execution_log_json_file (text JSON format; mutually exclusive),"
-              + " --subcommands (for displaying subcommands in terminal output).")
+              + " The flag accepts boolean and string values. If string, it represents a local"
+              + " path. If true, then --experimental_stream_log_file_uploads must be set, whereby"
+              + " it will stream the execution log to remote storage. If false, then logging to the"
+              + " execution log is disabled. Related flags: --execution_log_binary_file (binary"
+              + " protobuf format; mutually exclusive), --execution_log_json_file (text JSON"
+              + " format; mutually exclusive), --subcommands (for displaying subcommands in"
+              + " terminal output).")
   public abstract PathFragment getExecutionLogCompactFile();
 
   @Option(
@@ -537,6 +549,35 @@ public abstract class ExecutionOptions extends OptionsBase {
           "If set, allow at least one action to run even if the resource is not enough or"
               + " unavailable.")
   public abstract boolean getAllowOneActionOnResourceUnavailable();
+
+  /**
+   * Accepts a filesystem path, or boolean-like values selecting a default location or disabling the
+   * log.
+   */
+  public static final class ExecutionLogFileConverter extends Converter.Contextless<PathFragment>
+      implements BooleanStyleOption {
+
+    private static final Converters.BooleanConverter BOOLEAN_CONVERTER =
+        new Converters.BooleanConverter();
+
+    @Override
+    @Nullable
+    public PathFragment convert(String input) {
+      if (input.isEmpty()) {
+        return PathFragment.EMPTY_FRAGMENT;
+      }
+      try {
+        return BOOLEAN_CONVERTER.convert(input) ? PathFragment.EMPTY_FRAGMENT : null;
+      } catch (OptionsParsingException e) {
+        return new OptionsUtils.PathFragmentConverter().convert(input);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a path, or a boolean to use the default execution log location";
+    }
+  }
 
   /** An enum for specifying different formats of test output. */
   public enum TestOutputFormat {

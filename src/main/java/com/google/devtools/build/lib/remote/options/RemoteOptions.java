@@ -420,7 +420,7 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
     @Override
     @Nullable
     public PathFragment convert(String input) {
-      if (input.isEmpty() || input.equals("null")) {
+      if (input.isEmpty()) {
         return null;
       }
       try {

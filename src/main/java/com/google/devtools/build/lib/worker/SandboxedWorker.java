@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.worker;
 
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NETNS;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -95,10 +96,9 @@ final class SandboxedWorker extends SingleplexWorker {
     return true;
   }
 
-  private ImmutableSet<Path> getWritableDirs(Path sandboxExecRoot) throws IOException {
-    // We have to make the TEST_TMPDIR directory writable if it is specified.
-    ImmutableSet.Builder<Path> writableDirs =
-        ImmutableSet.<Path>builder().add(sandboxExecRoot).add(sandboxExecRoot.getRelative("/tmp"));
+  @VisibleForTesting
+  ImmutableSet<Path> getWritableDirs(Path sandboxExecRoot) throws IOException {
+    ImmutableSet.Builder<Path> writableDirs = ImmutableSet.<Path>builder().add(sandboxExecRoot);
 
     FileSystem fs = sandboxExecRoot.getFileSystem();
     for (String writablePath : hardenedSandboxOptions.writablePaths()) {
@@ -109,9 +109,11 @@ final class SandboxedWorker extends SingleplexWorker {
       }
     }
 
-    writableDirs.add(fs.getPath("/dev/shm").resolveSymbolicLinks());
+    Path devShm = fs.getPath("/dev/shm");
+    if (devShm.exists()) {
+      writableDirs.add(devShm.resolveSymbolicLinks());
+    }
     writableDirs.add(fs.getPath("/tmp"));
-
     return writableDirs.build();
   }
 
@@ -221,7 +223,7 @@ final class SandboxedWorker extends SingleplexWorker {
   }
 
   @Override
-  void destroy() {
+  synchronized void destroy() {
     super.destroy();
     try {
       if (inaccessibleHelperFile != null) {

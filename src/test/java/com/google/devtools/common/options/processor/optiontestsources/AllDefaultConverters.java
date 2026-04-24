@@ -17,6 +17,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.TriState;
 import java.time.Duration;
 
@@ -24,60 +25,77 @@ import java.time.Duration;
  * This class should contain all of the types with DEFAULT_CONVERTERS, and each converter should be
  * found without generating compilation errors.
  */
-public class AllDefaultConverters extends OptionsBase {
+@OptionsClass
+public abstract class AllDefaultConverters extends OptionsBase {
   @Option(
       name = "boolean_option",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS})
-  public boolean booleanOption;
+  public abstract boolean getBooleanOption();
+
+  public abstract void setBooleanOption(boolean value);
 
   @Option(
       name = "double_option",
       defaultValue = "42.73",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS})
-  public double doubleOption;
+  public abstract double getDoubleOption();
+
+  public abstract void setDoubleOption(double value);
 
   @Option(
       name = "int_option",
       defaultValue = "42",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS})
-  public int intOption;
+  public abstract int getIntOption();
+
+  public abstract void setIntOption(int value);
 
   @Option(
       name = "long_option",
       defaultValue = "-5000000000000",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS})
-  public long longOption;
+  public abstract long getLongOption();
+
+  public abstract void setLongOption(long value);
 
   @Option(
       name = "string_option",
       defaultValue = "strings are strings are strings are strings",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS})
-  public String stringOption;
+  public abstract String getStringOption();
+
+  public abstract void setStringOption(String value);
 
   @Option(
       name = "tri_state_option",
       defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS})
-  public TriState triStateOption;
+  public abstract TriState getTriStateOption();
+
+  public abstract void setTriStateOption(TriState value);
 
   @Option(
       name = "duration_option",
       defaultValue = "3600s",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS})
-  public Duration durationOption;
+  public abstract Duration getDurationOption();
+
+  public abstract void setDurationOption(Duration value);
 
   @Option(
       name = "void_option",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS})
-  public Void voidOption;
+  public abstract Void getVoidOption();
+
+  public abstract void setVoidOption(Void value);
 }

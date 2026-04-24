@@ -603,6 +603,7 @@ message ExecutionOptions {
     STRATEGY_NOT_FOUND = 9 [(metadata) = { exit_code: 2 }];
     DYNAMIC_STRATEGY_NOT_SANDBOXED = 10 [(metadata) = { exit_code: 2 }];
     MULTIPLE_EXECUTION_LOG_FORMATS = 11 [(metadata) = { exit_code: 2 }];
+    EXECUTION_LOG_STREAMING_DISABLED = 14 [(metadata) = { exit_code: 2 }];
 
     reserved 1, 2, 12, 13; // For internal use
   }

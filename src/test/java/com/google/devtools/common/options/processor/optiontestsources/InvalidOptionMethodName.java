@@ -24,7 +24,7 @@ public abstract class InvalidOptionMethodName extends OptionsBase {
   @Option(
       name = "foo",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       defaultValue = "42")
   public abstract int foo();
 }

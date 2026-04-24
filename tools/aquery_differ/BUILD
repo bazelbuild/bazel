@@ -56,5 +56,6 @@ py_test_alias(
         ":aquery_differ_main_lib",
         "//src/main/protobuf:analysis_v2_py_proto",
         "//third_party/py/mock",
+        "@com_google_protobuf//:protobuf_python",
     ],
 )

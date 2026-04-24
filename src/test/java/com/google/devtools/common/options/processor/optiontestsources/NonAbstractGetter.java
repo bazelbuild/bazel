@@ -24,7 +24,7 @@ public abstract class NonAbstractGetter extends OptionsBase {
   @Option(
       name = "foo",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       defaultValue = "42")
   public int getFoo() {
     return 42;

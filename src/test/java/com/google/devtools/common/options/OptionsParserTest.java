@@ -689,8 +689,8 @@ public final class OptionsParserTest {
             .put("foo", "defaultFoo")
             .buildOrThrow();
 
-    assertThat(foo1.asMap()).isEqualTo(expectedMap);
-    assertThat(foo2.asMap()).isEqualTo(expectedMap);
+    assertThat(Options.toMap(foo1)).isEqualTo(expectedMap);
+    assertThat(Options.toMap(foo2)).isEqualTo(expectedMap);
   }
 
   @OptionsClass

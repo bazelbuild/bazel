@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.InvalidationLookupMetrics;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
@@ -64,6 +65,8 @@ public class RemoteAnalysisCachingEventListener {
 
   private final ConcurrentHashMap<MissReason, AtomicLong> missesByReason =
       new ConcurrentHashMap<>();
+  private final AtomicReference<InvalidationLookupMetrics> invalidationLookupMetrics =
+      new AtomicReference<>();
 
   private final AtomicReference<FrontierNodeVersion> skyValueVersion = new AtomicReference<>();
 
@@ -149,7 +152,6 @@ public class RemoteAnalysisCachingEventListener {
     return ImmutableMap.copyOf(missesByReason);
   }
 
-
   /** Records a {@link SerializationException} encountered during SkyValue retrievals. */
   public void recordSerializationException(SerializationException e, SkyKey key) {
     serializationExceptions.add(e);
@@ -177,6 +179,14 @@ public class RemoteAnalysisCachingEventListener {
 
   public ClientId getClientId() {
     return clientId;
+  }
+
+  public void setInvalidationLookupMetrics(InvalidationLookupMetrics invalidationLookupMetrics) {
+    this.invalidationLookupMetrics.set(invalidationLookupMetrics);
+  }
+
+  public InvalidationLookupMetrics getInvalidationLookupMetrics() {
+    return invalidationLookupMetrics.get();
   }
 
   private void recordCacheMiss(SkyKey key, MissReason reason) {

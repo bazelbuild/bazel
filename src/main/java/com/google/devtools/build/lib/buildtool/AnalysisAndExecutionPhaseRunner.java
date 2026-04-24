@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -90,6 +91,7 @@ public final class AnalysisAndExecutionPhaseRunner {
 
     AnalysisAndExecutionResult analysisAndExecutionResult = null;
     if (request.getBuildOptions().getPerformAnalysisPhase()) {
+      MemoryProfiler.instance().markPhase(ProfilePhase.ANALYZE_AND_EXECUTE);
       Profiler.instance().markPhase(ProfilePhase.ANALYZE_AND_EXECUTE);
 
       try (SilentCloseable c = Profiler.instance().profile("runAnalysisAndExecutionPhase");

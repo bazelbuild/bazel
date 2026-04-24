@@ -53,8 +53,7 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
                 ImmutableList.of(),
                 false,
                 optionsParser.asListOfExplicitOptions(),
-                optionsParser.getExplicitStarlarkOptions(
-                    OriginalCommandLineEvent::commandLinePriority),
+                optionsParser.getExplicitCommandLineStarlarkOptions(),
                 Optional.empty())
             .asStreamProto(null)
             .getStructuredCommandLine();
@@ -119,8 +118,7 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
                 ImmutableList.of(),
                 false,
                 optionsParser.asListOfExplicitOptions(),
-                optionsParser.getExplicitStarlarkOptions(
-                    OriginalCommandLineEvent::commandLinePriority),
+                optionsParser.getExplicitCommandLineStarlarkOptions(),
                 Optional.empty())
             .asStreamProto(null)
             .getStructuredCommandLine();
@@ -148,8 +146,7 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
                 "someCommandName",
                 ImmutableList.of(),
                 false,
-                optionsParser.getExplicitStarlarkOptions(
-                    OriginalCommandLineEvent::commandLinePriority),
+                optionsParser.getExplicitCommandLineStarlarkOptions(),
                 optionsParser.getStarlarkOptions(),
                 optionsParser.asListOfCanonicalOptions(),
                 /* replaceable= */ false)
@@ -186,8 +183,7 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
                 "someCommandName",
                 ImmutableList.of(),
                 false,
-                optionsParser.getExplicitStarlarkOptions(
-                    OriginalCommandLineEvent::commandLinePriority),
+                optionsParser.getExplicitCommandLineStarlarkOptions(),
                 optionsParser.getStarlarkOptions(),
                 optionsParser.asListOfCanonicalOptions(),
                 /* replaceable= */ false)
@@ -249,8 +245,7 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
                 "someCommandName",
                 ImmutableList.of(),
                 false,
-                optionsParser.getExplicitStarlarkOptions(
-                    OriginalCommandLineEvent::commandLinePriority),
+                optionsParser.getExplicitCommandLineStarlarkOptions(),
                 optionsParser.getStarlarkOptions(),
                 optionsParser.asListOfCanonicalOptions(),
                 /* replaceable= */ false)

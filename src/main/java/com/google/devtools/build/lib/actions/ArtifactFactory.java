@@ -135,12 +135,13 @@ public class ArtifactFactory implements ArtifactResolver {
                         new Entry[] {entry, computeFunction.apply(execPath, null)});
             case CopyOnWriteArrayList<?> rawEntries -> {
               var entries = (CopyOnWriteArrayList<Entry>) rawEntries;
-              for (Entry entry : entries) {
+              for (int i = 0; i < entries.size(); i++) {
                 // Update the existing entry for this exact casing if it exists.
+                Entry entry = entries.get(i);
                 if (entry.artifact().getExecPath().equals(execPath)) {
                   Entry newEntry = computeFunction.apply(execPath, entry);
                   if (newEntry != entry) {
-                    entries.set(entries.indexOf(entry), newEntry);
+                    entries.set(i, newEntry);
                   }
                   yield entries;
                 }

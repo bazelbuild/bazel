@@ -25,7 +25,7 @@ public class Outer1 {
     @Option(
         name = "foo",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.NO_OP},
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         defaultValue = "42")
     public abstract int getFoo();
   }

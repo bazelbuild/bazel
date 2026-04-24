@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.Map;
 import net.starlark.java.eval.Sequence;
 import org.junit.Test;
@@ -398,7 +399,8 @@ public final class StarlarkAspectAttrAspectsFunctionTest extends AnalysisTestCas
   }
 
   /** A custom {@link FragmentOptions} for the latebound attribute test. */
-  public static class TestOptions extends FragmentOptions {}
+  @OptionsClass
+  public abstract static class TestOptions extends FragmentOptions {}
 
   /** The {@link Fragment} that contains the options. */
   @RequiresOptions(options = {TestOptions.class})

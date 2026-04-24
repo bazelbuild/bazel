@@ -97,8 +97,7 @@ public final class SharedValueDeserializationContextTest {
             });
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(
-            fingerprintValueService, subject, /* profileCollector= */ null);
+        codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject);
     ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
     if (writeStatus != null) {
       // If it is asynchronous, writing should complete without throwing any exceptions.
@@ -286,8 +285,7 @@ public final class SharedValueDeserializationContextTest {
     var subject = new NotNestedSet(new Object[] {createRandomLeafArray(rng, Random::nextInt)});
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(
-            fingerprintValueService, subject, /* profileCollector= */ null);
+        codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject);
     ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
     if (writeStatus != null) {
       // If it is asynchronous, writing should complete without throwing any exceptions.
@@ -317,8 +315,7 @@ public final class SharedValueDeserializationContextTest {
     var subject = new NotNestedSet(new Object[] {createRandomLeafArray(rng, Random::nextInt)});
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(
-            fingerprintValueService, subject, /* profileCollector= */ null);
+        codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject);
     ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
     if (writeStatus != null) {
       // If the write is asynchronous, writing should complete without throwing any exceptions.
@@ -359,8 +356,7 @@ public final class SharedValueDeserializationContextTest {
             });
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(
-            fingerprintValueService, subject, /* profileCollector= */ null);
+        codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject);
     ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
     if (writeStatus != null) {
       writeStatus.get();

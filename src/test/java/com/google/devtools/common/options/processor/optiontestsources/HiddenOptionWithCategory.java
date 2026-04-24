@@ -18,15 +18,18 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /** This example options class should fail to compile. */
-public class HiddenOptionWithCategory extends OptionsBase {
+@OptionsClass
+public abstract class HiddenOptionWithCategory extends OptionsBase {
   @Option(
-    name = "hidden_option_wants_to_be_documented",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    effectTags = OptionEffectTag.NO_OP,
-    metadataTags = OptionMetadataTag.HIDDEN
-  )
-  public boolean hiddenOptionWithDocumentation;
+      name = "hidden_option_wants_to_be_documented",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = OptionEffectTag.AFFECTS_OUTPUTS,
+      metadataTags = OptionMetadataTag.HIDDEN)
+  public abstract boolean getHiddenOptionWithDocumentation();
+
+  public abstract void setHiddenOptionWithDocumentation(boolean value);
 }

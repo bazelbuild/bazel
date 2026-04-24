@@ -72,7 +72,7 @@ genrule(
 )
 EOF
 
-  bazel build //:all --execution_log_json_file output.json 2>&1 >> $TEST_log || fail "could not build"
+  bazel build //:all --execution_log_json_file=output.json 2>&1 >> $TEST_log || fail "could not build"
 
   # dir and dir2 are Starlark functions that create a directory output
   # rule1 and rule2 are functions that consume the directory output
@@ -115,7 +115,7 @@ genrule(
       cmd = "echo hello > $(location out.txt)"
 )
 EOF
-  bazel build //:all --execution_log_binary_file output 2>&1 >> $TEST_log || fail "could not build"
+  bazel build //:all --execution_log_binary_file=output 2>&1 >> $TEST_log || fail "could not build"
   wc output || fail "no output produced"
 }
 
@@ -138,7 +138,7 @@ genrule(
     cmd = "echo hello > $(location out.txt)"
 )
 EOF
-  bazel build //:rule --execution_log_binary_file output 2>&1 >> $TEST_log || fail "could not build"
+  bazel build //:rule --execution_log_binary_file=output 2>&1 >> $TEST_log || fail "could not build"
   [[ -e output ]] || fail "no output produced"
 }
 
@@ -150,15 +150,53 @@ genrule(
       cmd = "echo hello > $(location out.txt)"
 )
 EOF
-  bazel build //:all --execution_log_json_file=output --execution_log_json_file= 2>&1 >> $TEST_log || fail "could not build"
+  bazel build //:all \
+    --execution_log_json_file=output \
+    --execution_log_json_file=false 2>&1 >> $TEST_log || fail "could not build"
   if [[ -e output ]]; then
     fail "file shouldn't exist"
   fi
 
-  bazel build //:all --execution_log_binary_file=output --execution_log_binary_file= 2>&1 >> $TEST_log || fail "could not build"
+  bazel build //:all \
+    --execution_log_binary_file=output \
+    --execution_log_binary_file=false 2>&1 >> $TEST_log || fail "could not build"
   if [[ -e output ]]; then
     fail "file shouldn't exist"
   fi
+
+  bazel build //:all \
+    --execution_log_compact_file=output \
+    --execution_log_compact_file=false 2>&1 >> $TEST_log || fail "could not build"
+  if [[ -e output ]]; then
+    fail "file shouldn't exist"
+  fi
+}
+
+function test_empty_path_fails_without_streaming() {
+  cat > BUILD <<'EOF'
+genrule(
+      name = "rule",
+      outs = ["out.txt"],
+      cmd = "echo hello > $(location out.txt)"
+)
+EOF
+  bazel build //:all \
+    --experimental_stream_log_file_uploads=false \
+    --execution_log_json_file=true >& $TEST_log && fail "build should have failed"
+  expect_log "--execution_log_{compact,binary,json}_file is empty"
+  expect_log "--experimental_stream_log_file_uploads is not enabled"
+
+  bazel build //:all \
+    --experimental_stream_log_file_uploads=false \
+    --execution_log_binary_file=true >& $TEST_log && fail "build should have failed"
+  expect_log "--execution_log_{compact,binary,json}_file is empty"
+  expect_log "--experimental_stream_log_file_uploads is not enabled"
+
+  bazel build //:all \
+    --experimental_stream_log_file_uploads=false \
+    --execution_log_compact_file=true >& $TEST_log && fail "build should have failed"
+  expect_log "--execution_log_{compact,binary,json}_file is empty"
+  expect_log "--experimental_stream_log_file_uploads is not enabled"
 }
 
 function test_no_output() {
@@ -182,7 +220,7 @@ my_test(
 )
 EOF
 
-  bazel test //:little_test --execution_log_json_file output.json 2>&1 >> $TEST_log || fail "could not test"
+  bazel test //:little_test --execution_log_json_file=output.json 2>&1 >> $TEST_log || fail "could not test"
   grep "listedOutputs" output.json || fail "log does not contain listed outputs"
 }
 

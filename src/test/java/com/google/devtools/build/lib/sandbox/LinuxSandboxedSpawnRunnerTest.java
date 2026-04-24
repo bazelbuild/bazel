@@ -18,6 +18,8 @@ import static com.google.common.truth.TruthJUnit.assume;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -36,9 +38,12 @@ import com.google.devtools.build.lib.sandbox.SpawnRunnerTestUtil.SpawnExecutionC
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -136,9 +141,9 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
     // Because of e.g. interference, wall time taken may be much larger than CPU time used.
     Duration maximumWallTimeToSpend = Duration.ofSeconds(40);
     Duration minimumUserTimeToSpend = minimumWallTimeToSpend;
-    Duration maximumUserTimeToSpend = minimumUserTimeToSpend.plus(Duration.ofSeconds(2));
+    Duration maximumUserTimeToSpend = minimumUserTimeToSpend.plusSeconds(2);
     Duration minimumSystemTimeToSpend = Duration.ZERO;
-    Duration maximumSystemTimeToSpend = minimumSystemTimeToSpend.plus(Duration.ofSeconds(2));
+    Duration maximumSystemTimeToSpend = minimumSystemTimeToSpend.plusSeconds(2);
     Spawn spawn =
         new SpawnBuilder(
                 cpuTimeSpenderPath.getPathString(),
@@ -200,6 +205,41 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
     assertThat(args).contains("-w /tmp");
     assertThat(args).contains("-e /tmp");
     assertThat(args).doesNotContain("-m /tmp");
+  }
+
+  @Test
+  public void testWritableDirs_withoutDevShm() throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path workDir = fs.getPath("/base/workDir");
+    workDir.createDirectoryAndParents();
+    fs.getPath("/tmp").createDirectoryAndParents();
+
+    CommandEnvironment commandEnvironment = createCommandEnvironment();
+    LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
+
+    ImmutableSet<Path> writableDirs =
+        runner.getWritableDirs(workDir, ImmutableMap.of("TMPDIR", "/tmp"));
+
+    assertThat(writableDirs).contains(fs.getPath("/tmp"));
+    assertThat(writableDirs).doesNotContain(fs.getPath("/dev/shm"));
+  }
+
+  @Test
+  public void testWritableDirs_withDevShm() throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path workDir = fs.getPath("/base/workDir");
+    workDir.createDirectoryAndParents();
+    fs.getPath("/tmp").createDirectoryAndParents();
+    fs.getPath("/dev/shm").createDirectoryAndParents();
+
+    CommandEnvironment commandEnvironment = createCommandEnvironment();
+    LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
+
+    ImmutableSet<Path> writableDirs =
+        runner.getWritableDirs(workDir, ImmutableMap.of("TMPDIR", "/tmp"));
+
+    assertThat(writableDirs).contains(fs.getPath("/tmp"));
+    assertThat(writableDirs).contains(fs.getPath("/dev/shm"));
   }
 
   private static LinuxSandboxedSpawnRunner setupSandboxAndCreateRunner(

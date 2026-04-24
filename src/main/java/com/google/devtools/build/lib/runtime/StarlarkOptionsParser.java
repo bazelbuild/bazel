@@ -289,7 +289,8 @@ public class StarlarkOptionsParser {
       nativeOptionsParser.setScopesAttributes(ImmutableMap.copyOf(scopeTypeMap));
 
       if (scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
-        customExecFlags.add(scopeType.substring(7));
+        customExecFlags.add(scopeType.substring(Scope.CUSTOM_EXEC_SCOPE_PREFIX.length()));
+        scopeTypeMap.put(scopeType.substring(Scope.CUSTOM_EXEC_SCOPE_PREFIX.length()), scopeType);
       }
 
       if (attrMap.isAttributeValueExplicitlySpecified("on_leave_scope")) {
@@ -315,6 +316,7 @@ public class StarlarkOptionsParser {
 
     nativeOptionsParser.setStarlarkOptions(ImmutableMap.copyOf(parsedOptions));
     nativeOptionsParser.setOnLeaveScopeValues(ImmutableMap.copyOf(onLeaveScopeMap));
+    nativeOptionsParser.setScopesAttributes(ImmutableMap.copyOf(scopeTypeMap));
     this.starlarkOptions.putAll(parsedOptions);
     this.scopes.putAll(scopeTypeMap);
     this.onLeaveScopeValues.putAll(onLeaveScopeMap);

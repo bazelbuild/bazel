@@ -48,6 +48,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -395,6 +396,7 @@ public class StarlarkBaseExternalContextTest {
               /* integrity= */ "",
               /* renameFiles= */ Dict.<String, String>builder().buildImmutable(),
               /* oldStripPrefix= */ "",
+              /* stripComponentsI= */ StarlarkInt.of(0),
               /* thread= */ starlarkThread);
       Printer p = new Printer();
       struct.repr(p, StarlarkSemantics.DEFAULT);
@@ -450,6 +452,7 @@ public class StarlarkBaseExternalContextTest {
               /* integrity= */ "",
               /* renameFiles= */ Dict.<String, String>builder().buildImmutable(),
               /* oldStripPrefix= */ "",
+              /* stripComponentsI= */ StarlarkInt.of(0),
               /* thread= */ starlarkThread);
       Printer p = new Printer();
       struct.repr(p, StarlarkSemantics.DEFAULT);

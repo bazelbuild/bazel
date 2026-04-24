@@ -148,7 +148,7 @@ public class StandaloneSpawnStrategyTest {
                 binTools,
                 /* processWrapper= */ null,
                 Mockito.mock(RunfilesTreeUpdater.class)),
-            Options.createOptions(ExecutionOptions.class));
+            Options.getDefaults(ExecutionOptions.class));
     this.executor =
         new TestExecutorBuilder(fileSystem, directories)
             .addStrategy(strategy, "standalone")

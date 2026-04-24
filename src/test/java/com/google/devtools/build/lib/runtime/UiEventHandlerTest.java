@@ -77,11 +77,17 @@ public class UiEventHandlerTest {
 
   @TestParameter private boolean skymeldMode;
 
-  final UiOptions uiOptions = Options.createOptions(UiOptions.class);
+  final UiOptions uiOptions = createUiOptions();
   final FlushCollectingOutputStream output = new FlushCollectingOutputStream();
   final ManualClock clock = new ManualClock();
 
   UiEventHandler uiEventHandler;
+
+  UiOptions createUiOptions() {
+    UiOptions options = Options.getDefaults(UiOptions.class);
+    options.setShowProgress(false);
+    return options;
+  }
 
   void createUiEventHandler(EventKind outputKind) {
     uiOptions.setEventKindFilters(ImmutableList.of());

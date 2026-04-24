@@ -115,8 +115,6 @@ bazel_fragments["AndroidConfiguration.Options"] = fragment(
     propagate = [
         "//command_line_option:desugar_for_android",
         "//command_line_option:desugar_java8_libs",
-        "//command_line_option:experimental_check_desugar_deps",
-        "//command_line_option:incremental_dexing",
         "//command_line_option:experimental_incremental_dexing_after_proguard",
         "//command_line_option:dexopts_supported_in_incremental_dexing",
         "//command_line_option:dexopts_supported_in_dexmerger",
@@ -349,6 +347,7 @@ bazel_fragments["JavaOptions"] = fragment(
         "//command_line_option:tool_java_runtime_version",
         "//command_line_option:tool_java_language_version",
         "//command_line_option:experimental_turbine_annotation_processing",
+        "//command_line_option:experimental_turbine_cpu_reservation",
         "//command_line_option:incompatible_multi_release_deploy_jars",
         "//command_line_option:incompatible_disallow_java_import_exports",
         "//command_line_option:experimental_enable_jspecify",

@@ -1419,7 +1419,28 @@ message BuildMetrics {
 
     // The result of the Skycache metadata lookup.
     devtools_blaze_proto.TopLevelTargetsMatchStatus metadata_lookup_result = 16;
+
+    message InvalidationLookupMetrics {
+      // Latency of the invalidation lookup process in microseconds.
+      int64 latency_micros = 1;
+
+      enum Status {
+        STATUS_UNSPECIFIED = 0;
+        OK = 1;
+        TIMED_OUT = 2;
+        ERROR = 3;
+      }
+      Status status = 2;
+
+      // Number of keys checked in this invalidation lookup.
+      int32 num_keys = 3;
+
+      // Number of keys invalidated in this invalidation lookup.
+      int32 num_invalidated_keys = 4;
+    }
+    InvalidationLookupMetrics invalidation_lookup_metrics = 27;
   }
+
   RemoteAnalysisCacheStatistics remote_analysis_cache_statistics = 13;
 }
 

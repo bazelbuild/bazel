@@ -17,8 +17,6 @@ import static java.util.Comparator.comparing;
 
 import com.google.common.collect.ImmutableList;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.Member;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Arrays;
@@ -35,17 +33,6 @@ public abstract class OptionDefinition implements Comparable<OptionDefinition> {
    * @see Option#defaultValue
    */
   public static final String SPECIAL_NULL_DEFAULT_VALUE = "null";
-
-  /** Exception used when trying to create an {@link OptionDefinition} for an invalid member. */
-  // TODO(b/65049598) make ConstructionException checked, which will make this checked as well.
-  public static class NotAnOptionException extends ConstructionException {
-    public NotAnOptionException(Member member) {
-      super(
-          String.format(
-              "The %s %s does not have the right annotation to be considered an option.",
-              member instanceof Field ? "field" : "method", member.getName()));
-    }
-  }
 
   /** An ordering relation for options that orders by the option name. */
   public static final Comparator<OptionDefinition> BY_OPTION_NAME =

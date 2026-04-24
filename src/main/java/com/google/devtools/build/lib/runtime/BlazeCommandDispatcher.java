@@ -717,8 +717,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               options.getResidue(),
               includeResidueInRunBepEvent,
               options.asListOfExplicitOptions(),
-              options.getExplicitStarlarkOptions(
-                  CommandLineEvent.OriginalCommandLineEvent::commandLinePriority),
+              options.getExplicitCommandLineStarlarkOptions(),
               startupOptionsTaggedWithBazelRc);
       CommandLineEvent canonicalCommandLineEvent =
           new CommandLineEvent.CanonicalCommandLineEvent(
@@ -727,8 +726,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               commandName,
               options.getResidue(),
               includeResidueInRunBepEvent,
-              options.getExplicitStarlarkOptions(
-                  CommandLineEvent.OriginalCommandLineEvent::commandLinePriority),
+              options.getExplicitCommandLineStarlarkOptions(),
               options.getStarlarkOptions(),
               options.asListOfCanonicalOptions(),
               // If this is a command that analyzes with BuildTool, PROJECT.scl might set extra

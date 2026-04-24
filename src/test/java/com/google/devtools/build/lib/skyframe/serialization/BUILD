@@ -377,7 +377,23 @@ java_test(
     srcs = ["ProfileCollectorTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
         "//third_party:error_prone_annotations",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "//third_party/pprof:profile_java_proto",
+        "@com_google_protobuf//:protobuf_java",
+    ],
+)
+
+java_test(
+    name = "ProfileRecorderTest",
+    size = "small",
+    srcs = ["ProfileRecorderTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -436,6 +452,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:client_id",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:lookup_result",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_client",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_miss_reason_java_proto",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
@@ -457,6 +474,7 @@ java_library(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
+        "//third_party/pprof:profile_java_proto",
         "@com_google_protobuf//:protobuf_java",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
         "@maven//:org_apache_commons_commons_lang3",

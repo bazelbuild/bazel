@@ -33,6 +33,7 @@ import static com.google.devtools.build.lib.vfs.RootedPath.toRootedPath;
 import static java.lang.Math.max;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.github.luben.zstd.RecyclingBufferPool;
 import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
@@ -53,9 +54,12 @@ import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFi
 import com.google.devtools.build.lib.skyframe.DirectoryListingKey;
 import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNode;
+import com.google.devtools.build.lib.skyframe.serialization.EntryPart;
 import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
+import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
+import com.google.devtools.build.lib.skyframe.serialization.ProfileRecorder;
 import com.google.devtools.build.lib.skyframe.serialization.StringKey;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SparseAggregateWriteStatusBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
@@ -160,6 +164,7 @@ final class FileDependencySerializer {
   private final KeyValueWriter writer;
   private final Executor executor;
   private final Counters counters;
+  @Nullable private final ProfileCollector profileCollector;
 
   private final ValueOrFutureMap<FileKey, FileDataInfoOrFuture, FileDataInfo, FutureFileDataInfo>
       fileDataInfo =
@@ -182,12 +187,14 @@ final class FileDependencySerializer {
       LongVersionGetter versionGetter,
       InMemoryGraph graph,
       KeyValueWriter writer,
-      Executor executor) {
+      Executor executor,
+      @Nullable ProfileCollector profileCollector) {
     this.versionGetter = versionGetter;
     this.graph = graph;
     this.writer = writer;
     this.executor = executor;
     this.counters = new Counters();
+    this.profileCollector = profileCollector;
   }
 
   Counters getCounters() {
@@ -392,6 +399,14 @@ final class FileDependencySerializer {
             counters.valueBytesUploaded.addAndGet(valueByteCount);
           },
           directExecutor());
+      if (profileCollector != null) {
+        recordInvalidationProfile(
+            profileCollector,
+            InvalidationEntryType.FILE,
+            keyByteCount,
+            valueByteCount,
+            writeStatus);
+      }
       writeStatuses.add(writeStatus);
       return new FileInvalidationDataInfo(
           cacheKey, sparselyAggregateWriteStatuses(writeStatuses), exists, mtsv, realRootedPath);
@@ -735,6 +750,14 @@ final class FileDependencySerializer {
                   counters.valueBytesUploaded.addAndGet(valueByteCount);
                 },
                 directExecutor());
+            if (profileCollector != null) {
+              recordInvalidationProfile(
+                  profileCollector,
+                  InvalidationEntryType.LISTING,
+                  keyByteCount,
+                  valueByteCount,
+                  writeStatus);
+            }
             writeStatuses.add(writeStatus);
             return new ListingInvalidationDataInfo(
                 cacheKey, sparselyAggregateWriteStatuses(writeStatuses));
@@ -794,7 +817,7 @@ final class FileDependencySerializer {
     // not using a threshold to compress, the default level provided a 2x better compression. Since
     // we do use a threshold and there is no wall time regression, we favor the better compression
     // ratio.
-    return new ZstdOutputStream(outputStream);
+    return new ZstdOutputStream(outputStream, RecyclingBufferPool.INSTANCE);
   }
 
   /**
@@ -853,12 +876,20 @@ final class FileDependencySerializer {
       var sortedListingKeys = listingKeys.stream().sorted().toList();
       var sortedNodeDependencies =
           nodeDependencies.stream().map(NodeInvalidationDataInfo::cacheKey).sorted().toList();
+
+      ProfileRecorder recorder =
+          profileCollector == null ? null : new ProfileRecorder(profileCollector);
+      if (recorder != null) {
+        recorder.pushLocation(InvalidationEntryType.NODE);
+        // We'll record the full entry size (including key) later once we have the key.
+      }
+
       byte[] nodeBytes =
           computeNodeBytes(
-              sortedNodeDependencies, sortedFileKeys, sortedListingKeys, sourceFileKey);
+              sortedNodeDependencies, sortedFileKeys, sortedListingKeys, sourceFileKey, recorder);
       byte[] maybeCompressedBytes = nodeBytes;
-      if (nodeBytes.length >= COMPRESSION_NUM_BYTES_THRESHOLD) {
-        maybeCompressedBytes = compressBytes(nodeBytes);
+      if (maybeCompressedBytes.length >= COMPRESSION_NUM_BYTES_THRESHOLD) {
+        maybeCompressedBytes = compressBytes(maybeCompressedBytes);
       }
       PackedFingerprint key = writer.fingerprint(maybeCompressedBytes);
 
@@ -882,6 +913,13 @@ final class FileDependencySerializer {
             counters.valueBytesUploaded.addAndGet(valueByteCount);
           },
           directExecutor());
+
+      if (recorder != null) {
+        if (maybeCompressedBytes.length != nodeBytes.length) {
+          recorder.setByteScale((double) maybeCompressedBytes.length / (double) nodeBytes.length);
+        }
+        recordKeyAndRegisterStatus(recorder, keyByteCount, valueByteCount, writeStatus);
+      }
 
       writeStatusBuilder.add(writeStatus);
       return new NodeInvalidationDataInfo(key, writeStatusBuilder.build());
@@ -1030,28 +1068,65 @@ final class FileDependencySerializer {
       Collection<PackedFingerprint> nodeDependencyFingerprints,
       Collection<String> fileKeys,
       Collection<String> listingKeys,
-      @Nullable String sourceFileKey) {
+      @Nullable String sourceFileKey,
+      @Nullable ProfileRecorder recorder) {
     try {
       var bytesOut = new ByteArrayOutputStream();
       var codedOut = CodedOutputStream.newInstance(bytesOut);
+
+      if (recorder != null) {
+        recorder.pushLocation(EntryPart.VALUE);
+      }
+      int startValueBytes = codedOut.getTotalBytesWritten();
+
       codedOut.writeInt32NoTag(nodeDependencyFingerprints.size());
       codedOut.writeInt32NoTag(fileKeys.size());
       codedOut.writeInt32NoTag(listingKeys.size());
       codedOut.writeBoolNoTag(sourceFileKey != null);
+
+      int startNodeDependencyBytes = codedOut.getTotalBytesWritten();
       for (PackedFingerprint fp : nodeDependencyFingerprints) {
         fp.writeTo(codedOut);
       }
+      if (recorder != null) {
+        recorder.pushLocation(NodeValuePart.NODE_DEPENDENCIES);
+        recorder.recordBytesAndPopLocation(startNodeDependencyBytes, codedOut);
+      }
+
+      int startFileKeyBytes = codedOut.getTotalBytesWritten();
       for (String key : fileKeys) {
         codedOut.writeStringNoTag(key);
       }
+      if (recorder != null) {
+        recorder.pushLocation(NodeValuePart.FILE_KEYS);
+        recorder.recordBytesAndPopLocation(startFileKeyBytes, codedOut);
+      }
+
+      int startListingKeyBytes = codedOut.getTotalBytesWritten();
       for (String key : listingKeys) {
         codedOut.writeStringNoTag(key);
       }
-      if (sourceFileKey != null) {
-        codedOut.writeStringNoTag(sourceFileKey);
+      if (recorder != null) {
+        recorder.pushLocation(NodeValuePart.LISTING_KEYS);
+        recorder.recordBytesAndPopLocation(startListingKeyBytes, codedOut);
       }
+
+      if (sourceFileKey != null) {
+        int startSourceFileBytes = codedOut.getTotalBytesWritten();
+        codedOut.writeStringNoTag(sourceFileKey);
+        if (recorder != null) {
+          recorder.pushLocation(NodeValuePart.SOURCE_FILE);
+          recorder.recordBytesAndPopLocation(startSourceFileBytes, codedOut);
+        }
+      }
+
       codedOut.flush();
       bytesOut.flush();
+      if (recorder != null) {
+        // Records bytes and pops the EntryPart.VALUE.
+        recorder.recordBytesAndPopLocation(startValueBytes, codedOut);
+      }
+
       return bytesOut.toByteArray();
     } catch (IOException e) {
       throw new AssertionError("Unexpected IOException from ByteArrayOutputStream", e);
@@ -1074,5 +1149,30 @@ final class FileDependencySerializer {
       return writer.fingerprint(cacheKey.getBytes(UTF_8));
     }
     return new StringKey(cacheKey);
+  }
+
+  private static void recordInvalidationProfile(
+      ProfileCollector profileCollector,
+      InvalidationEntryType type,
+      long keyByteCount,
+      long valueByteCount,
+      WriteStatus writeStatus) {
+    var recorder = new ProfileRecorder(profileCollector);
+    recorder.pushLocation(type);
+    recorder.pushLocation(EntryPart.VALUE);
+    recorder.recordBytes((int) valueByteCount);
+    recorder.popLocation();
+    recordKeyAndRegisterStatus(recorder, keyByteCount, valueByteCount, writeStatus);
+  }
+
+  private static void recordKeyAndRegisterStatus(
+      ProfileRecorder recorder, long keyByteCount, long valueByteCount, WriteStatus writeStatus) {
+    recorder.recordBytes((int) (keyByteCount + valueByteCount));
+    recorder.pushLocation(EntryPart.KEY);
+    recorder.recordBytes((int) keyByteCount);
+    recorder.popLocation(); // Pop EntryPart.KEY.
+    // EntryPart.VALUE is recorded already (e.g. by computeNodeBytes).
+    recorder.popLocation(); // Pop InvalidationType (FILE/LISTING/NODE)
+    recorder.registerWriteStatus(writeStatus);
   }
 }

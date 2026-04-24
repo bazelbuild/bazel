@@ -70,7 +70,7 @@ public class AbstractSpawnStrategyTest {
 
   private static class TestedSpawnStrategy extends AbstractSpawnStrategy {
     TestedSpawnStrategy(SpawnRunner spawnRunner) {
-      super(spawnRunner, Options.createOptions(ExecutionOptions.class));
+      super(spawnRunner, Options.getDefaults(ExecutionOptions.class));
     }
   }
 

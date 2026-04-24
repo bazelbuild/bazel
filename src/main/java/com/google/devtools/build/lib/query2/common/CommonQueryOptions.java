@@ -161,6 +161,17 @@ public abstract class CommonQueryOptions extends OptionsBase {
   public abstract void setIncompatiblePackageGroupIncludesDoubleSlash(boolean value);
 
   @Option(
+      name = "incompatible_package_group_build_output",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "If enabled, `blaze query --output=build` will output `package_group` targets.")
+  public abstract boolean getIncompatiblePackageGroupBuildOutput();
+
+  public abstract void setIncompatiblePackageGroupBuildOutput(boolean value);
+
+  @Option(
       name = "experimental_explicit_aspects",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.QUERY,

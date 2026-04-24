@@ -202,7 +202,8 @@ public final class RemoteAnalysisCacheFactory {
             frontierNodeVersion,
             objectCodecs,
             servicesSupplier.getFingerprintValueService(),
-            servicesSupplier.getAnalysisCacheClient());
+            servicesSupplier.getAnalysisCacheClient(),
+            env.getRemoteAnalysisCachingEventListener());
 
     var manager =
         new RemoteAnalysisCacheManager(
@@ -336,7 +337,8 @@ public final class RemoteAnalysisCacheFactory {
       FrontierNodeVersion frontierNodeVersion,
       ListenableFuture<? extends ObjectCodecs> objectCodecs,
       ListenableFuture<? extends FingerprintValueService> fingerprintValueService,
-      ListenableFuture<? extends RemoteAnalysisCacheClient> analysisCacheClient) {
+      ListenableFuture<? extends RemoteAnalysisCacheClient> analysisCacheClient,
+      RemoteAnalysisCachingEventListener eventListener) {
     if (analysisCacheClient == null) {
       return immediateFuture(null);
     }
@@ -349,7 +351,8 @@ public final class RemoteAnalysisCacheFactory {
                     fingerprintValueService.get(),
                     frontierNodeVersion,
                     clientId,
-                    eventHandler),
+                    eventHandler,
+                    eventListener),
             commonPool());
   }
 

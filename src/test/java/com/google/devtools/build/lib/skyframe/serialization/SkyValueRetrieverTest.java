@@ -45,8 +45,8 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Wa
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.WaitingForFutureValueBytes;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.WaitingForLookupContinuation;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.SnapshotClientId;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.LookupResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient.LookupResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.GetRecordingStore;
@@ -111,8 +111,7 @@ public final class SkyValueRetrieverTest {
 
     var key = new TrivialKey("a");
     SerializationResult<ByteString> keyBytes =
-        codecs.serializeMemoizedAndBlocking(
-            fingerprintValueService, key, /* profileCollector= */ null);
+        codecs.serializeMemoizedAndBlocking(fingerprintValueService, key);
     assertThat(keyBytes.getFutureToBlockWritesOn()).isNull();
 
     if (testCase.equals(InitialQueryCases.IMMEDIATE_EMPTY_VALUE)) {
@@ -161,8 +160,7 @@ public final class SkyValueRetrieverTest {
 
     var key = new TrivialKey("a");
     SerializationResult<ByteString> keyBytes =
-        codecs.serializeMemoizedAndBlocking(
-            fingerprintValueService, key, /* profileCollector= */ null);
+        codecs.serializeMemoizedAndBlocking(fingerprintValueService, key);
     assertThat(keyBytes.getFutureToBlockWritesOn()).isNull();
 
     if (testCase.equals(InitialQueryCases.IMMEDIATE_EMPTY_VALUE)) {
@@ -263,9 +261,7 @@ public final class SkyValueRetrieverTest {
       RetrievalResult previousResult)
       throws SerializationException, ExecutionException, InterruptedException {
     if (state.getState()
-        instanceof
-        WaitingForCacheServiceResponse(
-            ListenableFuture<RemoteAnalysisCacheClient.LookupResult> futureResult)) {
+        instanceof WaitingForCacheServiceResponse(ListenableFuture<LookupResult> futureResult)) {
       // There's a race condition here due to the RequestBatcher's response handling executor.
       // Most of the time, the test thread will outrace the executor and require a restart, but
       // RequestBatcher could occasionally outrace this thread.
@@ -1185,16 +1181,14 @@ public final class SkyValueRetrieverTest {
       @Nullable Map<ByteString, ByteString> analysisCacheServiceData)
       throws SerializationException, InterruptedException, ExecutionException {
     SerializationResult<ByteString> keyBytes =
-        codecs.serializeMemoizedAndBlocking(
-            fingerprintValueService, key, /* profileCollector= */ null);
+        codecs.serializeMemoizedAndBlocking(fingerprintValueService, key);
     ListenableFuture<?> writeStatus = keyBytes.getFutureToBlockWritesOn();
     if (writeStatus != null) {
       var unused = writeStatus.get();
     }
 
     SerializationResult<ByteString> valueBytes =
-        codecs.serializeMemoizedAndBlocking(
-            fingerprintValueService, value, /* profileCollector= */ null);
+        codecs.serializeMemoizedAndBlocking(fingerprintValueService, value);
     writeStatus = keyBytes.getFutureToBlockWritesOn();
     if (writeStatus != null) {
       var unused = writeStatus.get();

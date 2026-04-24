@@ -22,15 +22,16 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.SortedMap;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for RemoteOptions. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class RemoteOptionsTest {
 
   @Test
@@ -102,27 +103,19 @@ public class RemoteOptionsTest {
   }
 
   @Test
-  public void diskCache_flagWithoutValue_usesDefaultLocationMarker() throws Exception {
+  public void diskCache_defaultValue_disables() throws Exception {
     OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
-    parser.parse("--disk_cache");
-    RemoteOptions options = parser.getOptions(RemoteOptions.class);
-    assertThat(options.getDiskCache()).isEqualTo(PathFragment.EMPTY_FRAGMENT);
-  }
-
-  @Test
-  public void diskCache_noDiskCache_disables() throws Exception {
-    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
-    parser.parse("--disk_cache", "--nodisk_cache");
+    parser.parse();
     RemoteOptions options = parser.getOptions(RemoteOptions.class);
     assertThat(options.getDiskCache()).isNull();
   }
 
   @Test
-  public void diskCache_explicitPath() throws Exception {
+  public void diskCache_noValue_usesDefaultLocation() throws Exception {
     OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
-    parser.parse("--disk_cache=custom/cache/dir");
+    parser.parse("--disk_cache");
     RemoteOptions options = parser.getOptions(RemoteOptions.class);
-    assertThat(options.getDiskCache()).isEqualTo(PathFragment.create("custom/cache/dir"));
+    assertThat(options.getDiskCache()).isEqualTo(PathFragment.EMPTY_FRAGMENT);
   }
 
   @Test
@@ -131,5 +124,39 @@ public class RemoteOptionsTest {
     parser.parse("--disk_cache=");
     RemoteOptions options = parser.getOptions(RemoteOptions.class);
     assertThat(options.getDiskCache()).isNull();
+  }
+
+  @Test
+  public void diskCache_trueValue_usesDefaultLocation(
+      @TestParameter({"true", "1", "yes", "t", "y"}) String arg) throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse("--disk_cache=%s".formatted(arg));
+    RemoteOptions options = parser.getOptions(RemoteOptions.class);
+    assertThat(options.getDiskCache()).isEqualTo(PathFragment.EMPTY_FRAGMENT);
+  }
+
+  @Test
+  public void diskCache_falseValue_disables(
+      @TestParameter({"false", "0", "no", "f", "n"}) String arg) throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse("--disk_cache=%s".formatted(arg));
+    RemoteOptions options = parser.getOptions(RemoteOptions.class);
+    assertThat(options.getDiskCache()).isNull();
+  }
+
+  @Test
+  public void diskCache_negatedForm_disables() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse("--disk_cache", "--nodisk_cache");
+    RemoteOptions options = parser.getOptions(RemoteOptions.class);
+    assertThat(options.getDiskCache()).isNull();
+  }
+
+  @Test
+  public void diskCache_explicitPath_usesExplicitPath() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse("--disk_cache=custom/cache/dir");
+    RemoteOptions options = parser.getOptions(RemoteOptions.class);
+    assertThat(options.getDiskCache()).isEqualTo(PathFragment.create("custom/cache/dir"));
   }
 }

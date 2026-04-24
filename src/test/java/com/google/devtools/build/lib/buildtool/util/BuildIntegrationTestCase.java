@@ -130,8 +130,10 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.CommandUtils;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.SerializedAbruptExitException;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
@@ -157,6 +159,8 @@ import com.google.errorprone.annotations.ForOverride;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.ExtensionRegistryLite;
+import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.IOException;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.nio.file.Files;
@@ -357,7 +361,30 @@ public abstract class BuildIntegrationTestCase {
     var startupOptions = builder.getStartupOptionsProvider();
     var blazeServices = builder.getBlazeServices();
     for (BlazeService blazeService : blazeServices) {
-      blazeService.globalInit(startupOptions, blazeServices);
+      try {
+        blazeService.globalInit(startupOptions, blazeServices);
+      } catch (SerializedAbruptExitException e) {
+        try {
+          FailureDetail failureDetail =
+              FailureDetail.parseFrom(
+                  e.getSerializedFailureDetail(), ExtensionRegistryLite.getEmptyRegistry());
+          throw new AbruptExitException(DetailedExitCode.of(failureDetail), e);
+        } catch (InvalidProtocolBufferException ipbe) {
+          throw new AbruptExitException(
+              DetailedExitCode.of(
+                  FailureDetail.newBuilder()
+                      .setMessage(
+                          "Failed to parse FailureDetail from SerializedAbruptExitException: "
+                              + ipbe.getMessage())
+                      .setCommand(
+                          com.google.devtools.build.lib.server.FailureDetails.Command.newBuilder()
+                              .setCode(
+                                  com.google.devtools.build.lib.server.FailureDetails.Command.Code
+                                      .COMMAND_FAILURE_UNKNOWN))
+                      .build()),
+              ipbe);
+        }
+      }
     }
     for (BlazeModule blazeModule : builder.getBlazeModules()) {
       blazeModule.globalInit(startupOptions, blazeServices);

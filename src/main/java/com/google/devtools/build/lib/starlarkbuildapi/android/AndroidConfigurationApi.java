@@ -31,9 +31,6 @@ import net.starlark.java.eval.StarlarkValue;
     category = DocCategory.CONFIGURATION_FRAGMENT)
 public interface AndroidConfigurationApi extends StarlarkValue {
 
-  @StarlarkMethod(name = "use_incremental_dexing", structField = true, doc = "", documented = false)
-  boolean useIncrementalDexing();
-
   @StarlarkMethod(
       name = "incremental_dexing_shards_after_proguard",
       structField = true,
@@ -82,9 +79,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(name = "desugar_java8_libs", structField = true, doc = "", documented = false)
   boolean desugarJava8Libs();
-
-  @StarlarkMethod(name = "check_desugar_deps", structField = true, doc = "", documented = false)
-  boolean checkDesugarDeps();
 
   @StarlarkMethod(
       name = "use_android_resource_shrinking",

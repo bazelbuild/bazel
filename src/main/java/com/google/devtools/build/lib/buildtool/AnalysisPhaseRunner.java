@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
+import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -113,6 +114,7 @@ public final class AnalysisPhaseRunner {
 
     AnalysisResult analysisResult = null;
     if (request.getBuildOptions().getPerformAnalysisPhase()) {
+      MemoryProfiler.instance().markPhase(ProfilePhase.ANALYZE);
       Profiler.instance().markPhase(ProfilePhase.ANALYZE);
 
       try (SilentCloseable c = Profiler.instance().profile("runAnalysisPhase")) {

@@ -17,16 +17,19 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /** This example options class should fail to compile. */
-public class ExpansionOptionWithAllowMultiple extends OptionsBase {
+@OptionsClass
+public abstract class ExpansionOptionWithAllowMultiple extends OptionsBase {
   @Option(
-    name = "bad_option",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = OptionEffectTag.NO_OP,
-    expansion = "--foo=bar",
-    allowMultiple = true
-  )
-  public Void badOption;
+      name = "bad_option",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = OptionEffectTag.AFFECTS_OUTPUTS,
+      expansion = "--foo=bar",
+      allowMultiple = true)
+  public abstract Void getBadOption();
+
+  public abstract void setBadOption(Void value);
 }

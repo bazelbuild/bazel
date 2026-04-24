@@ -17,7 +17,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.eventbus.Subscribe;
 import com.google.common.primitives.Booleans;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.UploadContext;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.events.Event;
@@ -40,74 +45,147 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /** Module providing on-demand spawn logging. */
 public final class SpawnLogModule extends BlazeModule {
-  private static final String EXEC_LOG_FILENAME = "execution_log.binpb.zst";
+  private static final int OUTPUT_BUFFER_SIZE = 100 * 1024;
+  private static final String EXEC_LOG_COMPACT_FILENAME = "execution_log.binpb.zst";
+  private static final String EXEC_LOG_BINARY_FILENAME = "execution_log.binpb";
+  private static final String EXEC_LOG_JSON_FILENAME = "execution_log.json";
 
   @Nullable private SpawnLogContext spawnLogContext;
   @Nullable private Path outputPath;
+  @Nullable private ListenableFuture<String> uriFuture;
+  @Nullable private String logName;
 
   @Nullable private AbruptExitException abruptExit = null;
 
   private void clear() {
     spawnLogContext = null;
     outputPath = null;
+    uriFuture = null;
+    logName = null;
     abruptExit = null;
   }
 
   private void initOutputs(CommandEnvironment env) throws IOException {
     clear();
+    try {
+      ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
+      if (executionOptions == null) {
+        return;
+      }
 
-    ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
-    if (executionOptions == null) {
-      return;
-    }
+      BuildEventProtocolOptions bepOptions =
+          checkNotNull(env.getOptions().getOptions(BuildEventProtocolOptions.class));
 
-    int numFormats =
-        Booleans.countTrue(
-            executionOptions.getExecutionLogCompactFile() != null,
-            executionOptions.getExecutionLogBinaryFile() != null,
-            executionOptions.getExecutionLogJsonFile() != null);
+      int numFormats =
+          Booleans.countTrue(
+              executionOptions.getExecutionLogCompactFile() != null,
+              executionOptions.getExecutionLogBinaryFile() != null,
+              executionOptions.getExecutionLogJsonFile() != null);
 
-    if (numFormats == 0) {
-      // No logging requested.
-      return;
-    }
+      if (numFormats == 0) {
+        // No logging requested.
+        return;
+      }
 
-    if (numFormats > 1) {
-      String message =
-          "Must specify at most one of --execution_log_binary_file, --execution_log_json_file and"
-              + " --execution_log_compact_file";
-      env.getBlazeModuleEnvironment()
-          .exit(
-              new AbruptExitException(
-                  DetailedExitCode.of(
-                      FailureDetail.newBuilder()
-                          .setMessage(message)
-                          .setExecutionOptions(
-                              FailureDetails.ExecutionOptions.newBuilder()
-                                  .setCode(
-                                      FailureDetails.ExecutionOptions.Code
-                                          .MULTIPLE_EXECUTION_LOG_FORMATS))
-                          .build())));
-      return;
-    }
+      if (numFormats > 1) {
+        String message =
+            "Must specify at most one of --execution_log_binary_file, --execution_log_json_file and"
+                + " --execution_log_compact_file";
+        env.getBlazeModuleEnvironment()
+            .exit(
+                new AbruptExitException(
+                    DetailedExitCode.of(
+                        FailureDetail.newBuilder()
+                            .setMessage(message)
+                            .setExecutionOptions(
+                                FailureDetails.ExecutionOptions.newBuilder()
+                                    .setCode(
+                                        FailureDetails.ExecutionOptions.Code
+                                            .MULTIPLE_EXECUTION_LOG_FORMATS))
+                            .build())));
+        return;
+      }
 
-    Path outputBase = env.getOutputBase();
-    Predicate<Spawn> logSpawnPredicate =
-        spawn -> executionOptions.getExecutionLogMnemonicFilter().test(spawn.getMnemonic());
+      Path outputBase = env.getOutputBase();
+      Predicate<Spawn> logSpawnPredicate =
+          spawn -> executionOptions.getExecutionLogMnemonicFilter().test(spawn.getMnemonic());
 
-    if (executionOptions.getExecutionLogCompactFile() != null) {
-      outputPath = getAbsolutePath(executionOptions.getExecutionLogCompactFile(), env);
+      BufferedOutputStream outputStream = null;
+      String displayName = null;
+      PathFragment logPath = null;
+      if (executionOptions.getExecutionLogCompactFile() != null) {
+        logName = EXEC_LOG_COMPACT_FILENAME;
+        logPath = executionOptions.getExecutionLogCompactFile();
+      } else if (executionOptions.getExecutionLogBinaryFile() != null) {
+        logName = EXEC_LOG_BINARY_FILENAME;
+        logPath = executionOptions.getExecutionLogBinaryFile();
+      } else {
+        logName = EXEC_LOG_JSON_FILENAME;
+        logPath = executionOptions.getExecutionLogJsonFile();
+      }
+      checkNotNull(logPath);
 
-      try {
+      if (!logPath.isEmpty()) {
+        // Log path is specified, write to local file.
+        outputPath = getAbsolutePath(logPath, env);
+        outputStream = new BufferedOutputStream(outputPath.getOutputStream(), OUTPUT_BUFFER_SIZE);
+        displayName = outputPath.toString();
+      } else if (bepOptions.getStreamingLogFileUploads()) {
+        // Path is empty but streaming is enabled.
+        BuildEventArtifactUploader uploader =
+            env.getRuntime()
+                .getBuildEventArtifactUploaderFactoryMap()
+                .select(bepOptions.getBuildEventUploadStrategy())
+                .create(env);
+        UploadContext uploadContext = uploader.startUpload(LocalFileType.LOG, null);
+        outputStream =
+            new BufferedOutputStream(uploadContext.getOutputStream(), OUTPUT_BUFFER_SIZE);
+        uriFuture = uploadContext.uriFuture();
+        displayName = logName + "-stream";
+      } else {
+        // Path is empty but streaming is not enabled. Disable logging.
+        env.getBlazeModuleEnvironment()
+            .exit(
+                new AbruptExitException(
+                    DetailedExitCode.of(
+                        FailureDetail.newBuilder()
+                            .setMessage(
+                                "--execution_log_{compact,binary,json}_file is empty, but"
+                                    + " --experimental_stream_log_file_uploads is not enabled."
+                                    + " Execution log will not be uploaded to the BEP.")
+                            .setExecutionOptions(
+                                FailureDetails.ExecutionOptions.newBuilder()
+                                    .setCode(
+                                        FailureDetails.ExecutionOptions.Code
+                                            .EXECUTION_LOG_STREAMING_DISABLED))
+                            .build())));
+        return;
+      }
+
+      if (outputStream == null) {
+        // Null output stream from UploadContext - disable logging.
+        env.getReporter()
+            .handle(
+                Event.warn(
+                    "Execution log streaming is not enabled. Execution log will not be"
+                        + " generated."));
+        return;
+      }
+
+      checkNotNull(displayName);
+
+      if (executionOptions.getExecutionLogCompactFile() != null) {
         spawnLogContext =
             new CompactSpawnLogContext(
-                outputPath,
+                outputStream,
+                displayName,
                 env.getExecRoot().asFragment(),
                 env.getWorkspaceName(),
                 env.getOptions()
@@ -119,36 +197,30 @@ public final class SpawnLogModule extends BlazeModule {
                 env.getCommandId(),
                 env.getReporter(),
                 logSpawnPredicate);
-      } catch (InterruptedException e) {
-        env.getReporter()
-            .handle(Event.error("Error while setting up the execution log: " + e.getMessage()));
+      } else {
+        boolean binaryElseJson = executionOptions.getExecutionLogBinaryFile() != null;
+        // Use a well-known temporary path to avoid accumulation of potentially large files in /tmp
+        // due to abnormally terminated invocations (e.g., when running out of memory).
+        Path tempPath = outputBase.getRelative(logName);
+
+        spawnLogContext =
+            new ExpandedSpawnLogContext(
+                outputStream,
+                displayName,
+                outputPath,
+                tempPath,
+                binaryElseJson ? Encoding.BINARY : Encoding.JSON,
+                /* sorted= */ executionOptions.getExecutionLogSort(),
+                env.getExecRoot().asFragment(),
+                env.getOptions().getOptions(RemoteOptions.class),
+                env.getRuntime().getFileSystem().getDigestFunction(),
+                env.getXattrProvider(),
+                uriFuture != null,
+                logSpawnPredicate);
       }
-    } else {
-      Encoding encoding = null;
-
-      if (executionOptions.getExecutionLogBinaryFile() != null) {
-        encoding = Encoding.BINARY;
-        outputPath = getAbsolutePath(executionOptions.getExecutionLogBinaryFile(), env);
-      } else if (executionOptions.getExecutionLogJsonFile() != null) {
-        encoding = Encoding.JSON;
-        outputPath = getAbsolutePath(executionOptions.getExecutionLogJsonFile(), env);
-      }
-
-      // Use a well-known temporary path to avoid accumulation of potentially large files in /tmp
-      // due to abnormally terminated invocations (e.g., when running out of memory).
-      Path tempPath = outputBase.getRelative(EXEC_LOG_FILENAME);
-
-      spawnLogContext =
-          new ExpandedSpawnLogContext(
-              checkNotNull(outputPath),
-              tempPath,
-              checkNotNull(encoding),
-              /* sorted= */ executionOptions.getExecutionLogSort(),
-              env.getExecRoot().asFragment(),
-              env.getOptions().getOptions(RemoteOptions.class),
-              env.getRuntime().getFileSystem().getDigestFunction(),
-              env.getXattrProvider(),
-              logSpawnPredicate);
+    } catch (InterruptedException e) {
+      env.getReporter()
+          .handle(Event.error("Error while setting up the execution log: " + e.getMessage()));
     }
   }
 
@@ -212,7 +284,12 @@ public final class SpawnLogModule extends BlazeModule {
     try {
       spawnLogContext.close();
       if (spawnLogContext.shouldPublish()) {
-        event.getResult().getBuildToolLogCollection().addLocalFile(EXEC_LOG_FILENAME, outputPath);
+        checkNotNull(logName);
+        if (uriFuture != null) {
+          event.getResult().getBuildToolLogCollection().addUriFuture(logName, uriFuture);
+        } else {
+          event.getResult().getBuildToolLogCollection().addLocalFile(logName, outputPath);
+        }
       }
     } catch (IOException e) {
       abruptExit =

@@ -21,7 +21,7 @@ import java.lang.annotation.Target;
 /**
  * An interface for annotating fields in classes (derived from OptionsBase) that are options.
  *
- * <p>The fields of this annotation have matching getters in {@link FieldOptionDefinition}. Please
+ * <p>The fields of this annotation have matching getters in {@link MethodOptionDefinition}. Please
  * do not access these fields directly, but instead go through that class.
  *
  * <p>A number of checks are run on an Option's fields' values at compile time. See {@link
@@ -71,7 +71,7 @@ public @interface Option {
    *
    * <p>Multiple options (e.g. with {@code allowMultiple = true}) are not allowed to have default
    * values (with only a small number of exceptions - see {@link OptionsProcessor}), thus should
-   * always use {@link FieldOptionDefinition#SPECIAL_NULL_DEFAULT_VALUE}.
+   * always use {@link OptionDefinition#SPECIAL_NULL_DEFAULT_VALUE}.
    */
   String defaultValue();
 

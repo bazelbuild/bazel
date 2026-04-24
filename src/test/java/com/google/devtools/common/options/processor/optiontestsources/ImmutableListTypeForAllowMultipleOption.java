@@ -18,14 +18,18 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /** This example options class should compile. */
-public class ImmutableListTypeForAllowMultipleOption extends OptionsBase {
+@OptionsClass
+public abstract class ImmutableListTypeForAllowMultipleOption extends OptionsBase {
   @Option(
       name = "option",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       allowMultiple = true)
-  public ImmutableList<String> badOption;
+  public abstract ImmutableList<String> getBadOption();
+
+  public abstract void setBadOption(ImmutableList<String> value);
 }

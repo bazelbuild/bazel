@@ -213,6 +213,8 @@ public final class JavaHeaderCompileAction extends SpawnAction {
 
     private ImmutableMap<String, String> utf8Environment = null;
 
+    private boolean parallelism = true;
+
     private Builder(RuleContext ruleContext) {
       this.ruleContext = ruleContext;
     }
@@ -400,6 +402,12 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder enableParallelism(boolean parallelism) {
+      this.parallelism = parallelism;
+      return this;
+    }
+
     /** Builds and registers the action for a header compilation. */
     public void build(JavaToolchainProvider javaToolchain)
         throws RuleErrorException, InterruptedException {
@@ -501,6 +509,9 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       }
       // See b/31371210, b/142059842, and b/464431616.
       commandLine.add("-Aexperimental_turbine_hjar");
+      if (!parallelism) {
+        commandLine.add("-XDnoParallel");
+      }
       // terminate --javacopts with `--` to support javac flags that start with `--`
       commandLine.add("--");
 
@@ -526,6 +537,10 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       executionInfo.putAll(
           TargetUtils.getExecutionInfo(
               ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
+      int cpuReservation = javaConfiguration.experimentalTurbineCpuReservation();
+      if (cpuReservation > 1) {
+        executionInfo.put("cpu:" + cpuReservation, "");
+      }
 
       ActionOwner actionOwner =
           ruleContext.useAutoExecGroups()

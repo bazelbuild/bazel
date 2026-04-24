@@ -297,7 +297,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
   // There is no unregister(). We don't have that many futures in each repository and it just
   // introduces the failure mode of erroneously unregistering async work that's not done.
-  protected final void registerAsyncTask(AsyncTask task) {
+  private final void registerAsyncTask(AsyncTask task) {
     asyncTasks.add(task);
   }
 
@@ -977,7 +977,8 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
                 be used to strip it from extracted files.
 
                 <p>For compatibility, this parameter may also be used under the deprecated name
-                <code>stripPrefix</code>.
+                <code>stripPrefix</code>. Only one of <code>strip_prefix</code> or
+                <code>strip_components</code> can be used.
                 """),
         @Param(
             name = "allow_fail",
@@ -1043,6 +1044,16 @@ the same path on case-insensitive filesystems.
             positional = false,
             named = true,
             defaultValue = "''"),
+        @Param(
+            name = "strip_components",
+            positional = false,
+            named = true,
+            defaultValue = "0",
+            doc =
+"""
+Strip the given number of leading components from file paths on extraction. Only one of
+<code>strip_components</code> or <code>strip_prefix</code> can be used.
+"""),
       })
   public StructImpl downloadAndExtract(
       Object url,
@@ -1057,9 +1068,12 @@ the same path on case-insensitive filesystems.
       String integrity,
       Dict<?, ?> renameFiles, // <String, String> expected
       String oldStripPrefix,
+      StarlarkInt stripComponentsI,
       StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     stripPrefix = renamedStripPrefix("download_and_extract", stripPrefix, oldStripPrefix);
+    int stripComponents = Starlark.toInt(stripComponentsI, "strip_components");
+    validateStripping("download_and_extract", stripPrefix, stripComponents);
     ImmutableMap<URI, Map<String, List<String>>> authHeaders =
         getAuthHeaders(getAuthContents(authUnchecked, "auth"));
 
@@ -1162,6 +1176,7 @@ the same path on case-insensitive filesystems.
               .setArchivePath(downloadedPath)
               .setDestinationPath(outputPath.getPath())
               .setPrefix(stripPrefix)
+              .setStripComponents(stripComponents)
               .setRenameFiles(renameFilesMap)
               .build(),
           // Type does NOT need to be passed here, as the existing code renames the archive path to
@@ -1260,7 +1275,8 @@ the same path on case-insensitive filesystems.
                 used to strip it from extracted files.
 
                 <p>For compatibility, this parameter may also be used under the deprecated name
-                <code>stripPrefix</code>.
+                <code>stripPrefix</code>. Only one of <code>strip_prefix</code> or
+                <code>strip_components</code> can be set.
                 """),
         @Param(
             name = "rename_files",
@@ -1292,6 +1308,16 @@ the same path on case-insensitive filesystems.
             named = true,
             defaultValue = "''"),
         @Param(
+            name = "strip_components",
+            positional = false,
+            named = true,
+            defaultValue = "0",
+            doc =
+"""
+Strip the given number of leading components from file paths on extraction. Only one of
+<code>strip_components</code> or <code>strip_prefix</code> can be set.
+"""),
+        @Param(
             name = "type",
             defaultValue = "''",
             named = true,
@@ -1314,10 +1340,13 @@ the same path on case-insensitive filesystems.
       Dict<?, ?> renameFiles, // <String, String> expected
       String watchArchive,
       String oldStripPrefix,
+      StarlarkInt stripComponentsI,
       String type,
       StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     stripPrefix = renamedStripPrefix("extract", stripPrefix, oldStripPrefix);
+    int stripComponents = Starlark.toInt(stripComponentsI, "strip_components");
+    validateStripping("extract", stripPrefix, stripComponents);
     StarlarkPath archivePath = getPath(archive);
 
     if (!archivePath.exists()) {
@@ -1355,6 +1384,7 @@ the same path on case-insensitive filesystems.
             .setArchivePath(archivePath.getPath())
             .setDestinationPath(outputPath.getPath())
             .setPrefix(stripPrefix)
+            .setStripComponents(stripComponents)
             .setRenameFiles(renameFilesMap)
             .build(),
         Optional.ofNullable(type).filter(s -> !s.isBlank()));
@@ -1407,6 +1437,22 @@ the same path on case-insensitive filesystems.
         "%s() got multiple values for parameter 'strip_prefix' (via compatibility alias"
             + " 'stripPrefix')",
         method);
+  }
+
+  private static void validateStripping(String method, String stripPrefix, int stripComponents)
+      throws EvalException {
+    if (stripComponents < 0) {
+      throw Starlark.errorf(
+          "%s() has an invalid argument for 'strip_components': %d. Must be non-negative.",
+          method, stripComponents);
+    }
+
+    if (!stripPrefix.isEmpty() && stripComponents > 0) {
+      throw Starlark.errorf(
+          "%s() got multiple strip values. Only one of 'strip_prefix' or 'strip_components' can be"
+              + " set",
+          method);
+    }
   }
 
   @StarlarkMethod(

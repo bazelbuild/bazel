@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
+import com.google.devtools.build.lib.actions.ActionWithDiscoveredInputsState;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
@@ -118,7 +119,8 @@ import net.starlark.java.eval.StarlarkList;
 /** Action that represents some kind of C++ compilation step. */
 @AutoCodec
 @ThreadCompatible
-public class CppCompileAction extends AbstractAction implements IncludeScannable, CommandAction {
+public class CppCompileAction extends AbstractAction
+    implements IncludeScannable, CommandAction, ActionWithDiscoveredInputsState {
 
   private static final UUID GUID = UUID.fromString("97493805-894f-493a-be66-9a698f45c31d");
 
@@ -502,6 +504,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    */
   public NestedSet<Artifact> getAdditionalInputs() {
     return Preconditions.checkNotNull(additionalInputs);
+  }
+
+  @Override
+  public void setAdditionalInputs(NestedSet<Artifact> inputs) {
+    this.additionalInputs = Preconditions.checkNotNull(inputs);
   }
 
   /** Clears the discovered {@link #additionalInputs}. */

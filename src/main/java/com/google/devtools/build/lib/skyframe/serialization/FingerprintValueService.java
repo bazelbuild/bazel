@@ -127,12 +127,13 @@ public final class FingerprintValueService implements KeyValueWriter {
       SkyKey key,
       FrontierNodeVersion nodeVersion)
       throws InterruptedException, SerializationException {
-    ListenableFuture<SerializationResult<ByteString>> serializedKey =
-        codecs.serializeMemoizedAsync(fingerprintValueService, key, null);
+    AsyncSerializationTask serializeKeyTask =
+        codecs.serializeMemoizedAsync(fingerprintValueService, key, /* profileCollector= */ null);
+    serializeKeyTask.run();
 
     ListenableFuture<PackedFingerprint> fingerprintFuture =
         Futures.transform(
-            serializedKey,
+            serializeKeyTask,
             k ->
                 fingerprintValueService.fingerprint(
                     nodeVersion.concat(k.getObject().toByteArray())),

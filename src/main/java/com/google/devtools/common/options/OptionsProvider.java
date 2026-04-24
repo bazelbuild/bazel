@@ -13,9 +13,8 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
-import com.google.common.collect.ImmutableMap;
+import java.util.Collections;
 import java.util.Map;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -32,29 +31,28 @@ public interface OptionsProvider {
         }
 
         @Override
-        public ImmutableMap<String, Object> getStarlarkOptions() {
-          return ImmutableMap.of();
+        public Map<String, Object> getStarlarkOptions() {
+          return Collections.emptyMap();
         }
 
         @Override
-        public ImmutableMap<String, String> getScopesAttributes() {
-          return ImmutableMap.of();
+        public Map<String, String> getScopesAttributes() {
+          return Collections.emptyMap();
         }
 
         @Override
-        public ImmutableMap<String, Object> getOnLeaveScopeValues() {
-          return ImmutableMap.of();
+        public Map<String, Object> getOnLeaveScopeValues() {
+          return Collections.emptyMap();
         }
 
         @Override
-        public ImmutableMap<String, Object> getExplicitStarlarkOptions(
-            Predicate<? super ParsedOptionDescription> filter) {
-          return ImmutableMap.of();
+        public Map<String, Object> getExplicitCommandLineStarlarkOptions() {
+          return Collections.emptyMap();
         }
 
         @Override
-        public ImmutableMap<String, String> getUserOptions() {
-          return ImmutableMap.of();
+        public Map<String, String> getUserOptions() {
+          return Collections.emptyMap();
         }
       };
 
@@ -80,16 +78,16 @@ public interface OptionsProvider {
   Map<String, Object> getStarlarkOptions();
 
   /**
-   * Variant of {@link #getStarlarkOptions()} that only returns explicitly set Starlark options with
-   * the given filter criteria.
+   * Variant of {@link #getStarlarkOptions()} that only returns Starlark that were explicitly set in
+   * the command line.
    */
-  Map<String, Object> getExplicitStarlarkOptions(Predicate<? super ParsedOptionDescription> filter);
+  Map<String, Object> getExplicitCommandLineStarlarkOptions();
 
   /**
    * Returns the options that were parsed from either a user blazerc file or the command line as a
    * map of option name to the option's {@code expandedFrom}, or "" if the option was not expanded.
    */
-  ImmutableMap<String, String> getUserOptions();
+  Map<String, String> getUserOptions();
 
   Map<String, String> getScopesAttributes();
 

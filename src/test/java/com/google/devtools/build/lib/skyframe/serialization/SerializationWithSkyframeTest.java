@@ -66,8 +66,7 @@ public final class SerializationWithSkyframeTest {
     var value = new ExampleValue(key, 10);
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(
-            fingerprintValueService, value, /* profileCollector= */ null);
+        codecs.serializeMemoizedAndBlocking(fingerprintValueService, value);
     assertThat(serialized.getFutureToBlockWritesOn()).isNull();
 
     // Deserialization always returns a future because there is a Skyframe lookup. The future is
@@ -111,8 +110,7 @@ public final class SerializationWithSkyframeTest {
     var value = ImmutableList.<ExampleValue>of(value1, value2);
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(
-            fingerprintValueService, value, /* profileCollector= */ null);
+        codecs.serializeMemoizedAndBlocking(fingerprintValueService, value);
     assertThat(serialized.getFutureToBlockWritesOn()).isNull();
 
     // Deserialization always returns a future because there is a Skyframe lookup. The future is
@@ -141,8 +139,7 @@ public final class SerializationWithSkyframeTest {
     var sharedValue = new SharedExampleValue(value);
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(
-            fingerprintValueService, sharedValue, /* profileCollector= */ null);
+        codecs.serializeMemoizedAndBlocking(fingerprintValueService, sharedValue);
     ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
     writeStatus.get(); // ensures that the future succeeds
 
@@ -201,8 +198,7 @@ public final class SerializationWithSkyframeTest {
     var serializedBytes = new ArrayList<ByteString>();
     for (Object sharedValue : ImmutableList.of(subject0, subject1)) {
       SerializationResult<ByteString> serialized =
-          codecs.serializeMemoizedAndBlocking(
-              fingerprintValueService, sharedValue, /* profileCollector= */ null);
+          codecs.serializeMemoizedAndBlocking(fingerprintValueService, sharedValue);
       ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
       writeStatus.get(); // ensures that the future succeeds
       serializedBytes.add(serialized.getObject());
@@ -309,8 +305,7 @@ public final class SerializationWithSkyframeTest {
             });
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(
-            fingerprintValueService, subject, /* profileCollector= */ null);
+        codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject);
     ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
     writeStatus.get(); // ensures that the future succeeds
 

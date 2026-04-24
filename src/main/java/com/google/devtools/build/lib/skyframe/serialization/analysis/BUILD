@@ -17,6 +17,7 @@ java_library(
     deps = [
         ":client_id",
         ":remote_analysis_cache_client",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:frontier_node_version",
@@ -124,6 +125,7 @@ java_library(
     deps = [
         ":file_dependency_key_support",
         ":invalidation_data_reference_or_future",
+        ":invalidation_type",
         ":magic_bytes",
         ":missing_skyframe_entry_exception",
         ":value_or_future_map",
@@ -269,12 +271,26 @@ java_library(
 )
 
 java_library(
-    name = "remote_analysis_cache_client",
-    srcs = ["RemoteAnalysisCacheClient.java"],
+    name = "lookup_result",
+    srcs = [
+        "LookupResult.java",
+        "LookupTopLevelTargetsResult.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_metadata_status_java_proto",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_miss_reason_java_proto",
+        "@com_google_protobuf//:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "remote_analysis_cache_client",
+    srcs = ["RemoteAnalysisCacheClient.java"],
+    deps = [
+        ":lookup_result",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_metadata_status_java_proto",
         "//src/main/java/com/google/devtools/build/lib/util:decimal_bucketer",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "@com_google_protobuf//:protobuf_java",
     ],
@@ -311,8 +327,11 @@ java_library(
     srcs = ["AnalysisCacheInvalidator.java"],
     deps = [
         ":client_id",
+        ":event_listener",
+        ":lookup_result",
         ":remote_analysis_cache_client",
         ":remote_analysis_caching_server_state",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
@@ -366,6 +385,7 @@ java_library(
         ":analysis_cache_invalidator",
         ":dependencies_provider",
         ":frontier_serializer",
+        ":lookup_result",
         ":options",
         ":remote_analysis_cache_client",
         ":remote_analysis_cache_deps",
@@ -385,6 +405,7 @@ java_library(
     deps = [
         ":analysis_cache_invalidator",
         ":client_id",
+        ":event_listener",
         ":options",
         ":remote_analysis_cache_client",
         ":remote_analysis_cache_deps",
@@ -445,4 +466,13 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
+)
+
+java_library(
+    name = "invalidation_type",
+    srcs = [
+        "InvalidationEntryType.java",
+        "NodeValuePart.java",
+    ],
+    deps = ["//src/main/java/com/google/devtools/build/lib/skyframe/serialization"],
 )

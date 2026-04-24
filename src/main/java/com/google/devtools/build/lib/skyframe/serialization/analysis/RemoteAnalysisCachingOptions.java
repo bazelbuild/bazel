@@ -34,6 +34,7 @@ public abstract class RemoteAnalysisCachingOptions extends OptionsBase {
 
   /** A converter for MD5 checksums. */
   public static final class Md5Converter implements Converter<HashCode> {
+    @Nullable
     @Override
     public HashCode convert(String input, @Nullable Object conversionContext)
         throws OptionsParsingException {
@@ -136,8 +137,8 @@ public abstract class RemoteAnalysisCachingOptions extends OptionsBase {
   /** Enum converter for {@link RemoteAnalysisCacheMode}. */
   private static class RemoteAnalysisCacheModeConverter
       extends EnumConverter<RemoteAnalysisCacheMode> {
-    public RemoteAnalysisCacheModeConverter() {
-      super(RemoteAnalysisCacheMode.class, "Frontier serialization mode");
+    RemoteAnalysisCacheModeConverter() {
+      super(RemoteAnalysisCacheMode.class, "Remote analysis cache mode");
     }
   }
 

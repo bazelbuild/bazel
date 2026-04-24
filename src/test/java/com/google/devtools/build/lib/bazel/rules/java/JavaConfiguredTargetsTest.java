@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.bazel.rules.java;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.TestConstants.TOOLS_REPOSITORY;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -100,34 +99,6 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
     assertThat(resourceJarArgs).contains("--resources a/path/to/strip/bar.props:bar.props");
   }
 
-  @Test
-  public void javaTestSetsSecurityManagerPropertyOnVersion17() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "load('@rules_java//java:defs.bzl', 'java_test', 'java_runtime')",
-        "java_runtime(",
-        "    name = 'jvm',",
-        "    java = 'java_home/bin/java',",
-        "    version = 17,",
-        ")",
-        "toolchain(",
-        "    name = 'java_runtime_toolchain',",
-        "    toolchain = ':jvm',",
-        "    toolchain_type = '" + TOOLS_REPOSITORY + "//tools/jdk:runtime_toolchain_type',",
-        ")",
-        "java_test(",
-        "    name = 'test',",
-        "    srcs = ['FooTest.java'],",
-        "    test_class = 'FooTest',",
-        ")");
-    useConfiguration("--extra_toolchains=//a:java_runtime_toolchain");
-    var ct = getConfiguredTarget("//a:test");
-    String jvmFlags =
-        JavaTestUtil.getJvmFlagsForJavaBinaryExecutable(
-            getRuleContext(ct), getGeneratingAction(getExecutable(ct)));
-    assertThat(jvmFlags).contains("-Djava.security.manager=allow");
-  }
-
   // regression test for https://github.com/bazelbuild/bazel/issues/20378
   @Test
   public void javaTestInvalidTestClassAtRootPackage() throws Exception {
@@ -143,45 +114,5 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//:some_test"));
 
     assertThat(error).hasMessageThat().contains("cannot determine test class");
-  }
-
-  @Test
-  public void nativeJavaRuleReportsMissingLoad() throws Exception {
-    scratch.file(
-        "foo/BUILD",
-        """
-        java_library(name = 'foo')
-        """);
-
-    AssertionError error = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo"));
-
-    assertThat(error)
-        .hasMessageThat()
-        .contains(
-            """
-            The java_library rule has been removed, add the following to your BUILD/bzl file:
-
-            load("@rules_java//java:java_library.bzl", "java_library")
-            """);
-  }
-
-  @Test
-  public void nativeJavaToolchainRuleReportsMissingLoad() throws Exception {
-    scratch.file(
-        "foo/BUILD",
-        """
-        java_toolchain(name = 'foo')
-        """);
-
-    AssertionError error = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo"));
-
-    assertThat(error)
-        .hasMessageThat()
-        .contains(
-            """
-            The java_toolchain rule has been removed, add the following to your BUILD/bzl file:
-
-            load("@rules_java//java/toolchains:java_toolchain.bzl", "java_toolchain")
-            """);
   }
 }

@@ -15,8 +15,10 @@
 
 import io
 import os
+import tempfile
 import unittest
 
+from google.protobuf import proto
 from third_party.py import mock
 
 from src.main.protobuf import analysis_v2_pb2
@@ -464,6 +466,36 @@ class CmdLineDifferTest(unittest.TestCase):
     with mock.patch("sys.stdout", mock_stdout):
       aquery_differ._aquery_diff(first, second, attrs, "before", "after")
       self.assertIn(expected_error_one, mock_stdout.getvalue())
+
+
+class ReadProtoTest(unittest.TestCase):
+
+  def test_read_streamed_proto(self):
+    ag1 = analysis_v2_pb2.ActionGraphContainer()
+    a1 = ag1.artifacts.add()
+    a1.id = 1
+    a1.path_fragment_id = 1
+
+    ag2 = analysis_v2_pb2.ActionGraphContainer()
+    a2 = ag2.artifacts.add()
+    a2.id = 2
+    a2.path_fragment_id = 2
+
+    def write_delimited(f, msg):
+      proto.serialize_length_prefixed(msg, f)
+
+    with tempfile.NamedTemporaryFile(delete=False) as f:
+      write_delimited(f, ag1)
+      write_delimited(f, ag2)
+      temp_file_path = f.name
+
+    try:
+      result_proto = aquery_differ._read_proto(temp_file_path, "streamed_proto")
+      self.assertEqual(len(result_proto.artifacts), 2)
+      self.assertEqual(result_proto.artifacts[0].id, 1)
+      self.assertEqual(result_proto.artifacts[1].id, 2)
+    finally:
+      os.remove(temp_file_path)
 
 
 if __name__ == "__main__":

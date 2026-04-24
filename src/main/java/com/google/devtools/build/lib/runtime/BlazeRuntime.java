@@ -58,7 +58,6 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
-import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.LocalResourceUsageCollectors;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
@@ -102,6 +101,7 @@ import com.google.devtools.build.lib.util.FileSystemLock.LockMode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.SerializedAbruptExitException;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.ThreadUtils;
@@ -1381,7 +1381,11 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     CustomFailureDetailPublisher.setFailureDetailFilePath(failureDetailOut.getPathString());
 
     for (BlazeService service : blazeServices) {
-      service.globalInit(options, blazeServices);
+      try {
+        service.globalInit(options, blazeServices);
+      } catch (SerializedAbruptExitException e) {
+        throw AbruptExitException.fromSerialized(e);
+      }
     }
 
     for (BlazeModule module : blazeModules) {
@@ -1822,7 +1826,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               serverBuilder.getRepositoryHelpersFactory(),
               serverBuilder.createInstrumentationOutputFactory(),
               installBaseLock);
-      AutoProfiler.setClock(runtime.getClock());
       BugReport.setRuntime(runtime);
       return runtime;
     }

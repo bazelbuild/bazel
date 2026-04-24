@@ -374,6 +374,9 @@ public class CriticalPathComputer {
   private void addArtifactDependency(
       CriticalPathComponent actionStats, Artifact input, long componentFinishNanos) {
     CriticalPathComponent depComponent = outputArtifactToComponent.get(input);
+    if (depComponent == null && input.isChildOfDeclaredDirectory()) {
+      depComponent = outputArtifactToComponent.get(input.getParent());
+    }
 
     // Typically, the dep component should already be finished since its output was used as an input
     // for a just-completed action. However, we tolerate it still running for (a) action rewinding

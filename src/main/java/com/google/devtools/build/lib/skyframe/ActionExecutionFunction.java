@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionWithDiscoveredInputsState;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -725,6 +726,14 @@ public final class ActionExecutionFunction implements SkyFunction {
       // In either case, we must use this ActionExecutionState to continue. Note that in the first
       // case, we don't have any input metadata available, so we couldn't re-execute the action even
       // if we wanted to.
+      if (state.discoveredInputs != null
+          && action instanceof ActionWithDiscoveredInputsState actionWithDiscoveredInputsState) {
+        // Re-inject discovered inputs from the SkyKeyComputeState if missing
+        // dependencies of this action were rewinded, causing this action's
+        // restart. We want to avoid recomputing them. See b/505164988 for more
+        // details.
+        actionWithDiscoveredInputsState.setAdditionalInputs(state.discoveredInputs);
+      }
       return previousAction.getResultOrDependOnFuture(
           env,
           actionLookupData,

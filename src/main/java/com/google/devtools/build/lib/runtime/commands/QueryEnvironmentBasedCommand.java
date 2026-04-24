@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
@@ -88,6 +89,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
                 /* id= */ null));
     BlazeCommandResult result = execInternal(env, options);
     try {
+      MemoryProfiler.instance().markPhase(ProfilePhase.FINISH);
       Profiler.instance().markPhase(ProfilePhase.FINISH);
     } catch (InterruptedException e) {
       return reportAndCreateInterruptResult(env, "Profile finish operation interrupted");

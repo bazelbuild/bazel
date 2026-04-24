@@ -34,10 +34,12 @@ import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.AggregatedSpawnMetrics;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -52,11 +54,13 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochConverter;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewoundEvent;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestFileOutErr;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -1273,6 +1277,58 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     spawnResult.setWallTimeInMs(processTimeInMs);
     spawnResult.setRunnerName("test");
     return spawnResult;
+  }
+
+  @Test
+  public void testTreeFileDependency() throws Exception {
+    SpecialArtifact tree =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(derivedArtifactRoot, "tree");
+
+    // Action A produces the TreeArtifact
+    MockAction actionA = new MockAction(ImmutableList.of(), ImmutableSet.of(tree));
+
+    // Action B depends on a file INSIDE the TreeArtifact
+    Artifact.TreeFileArtifact child = Artifact.TreeFileArtifact.createTreeOutput(tree, "file.txt");
+    MockAction actionB =
+        new MockAction(
+            ImmutableList.of(child),
+            ImmutableSet.of(ActionsTestUtil.createArtifact(derivedArtifactRoot, "b.out")));
+
+    // Set up metadata
+    child.getPath().getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(child.getPath(), "content");
+    FileArtifactValue childMetadata = FileArtifactValue.createForTesting(child);
+    TreeArtifactValue treeMetadata =
+        TreeArtifactValue.newBuilder(tree).putChild(child, childMetadata).build();
+    FakeActionInputFileCache cache = new FakeActionInputFileCache();
+    cache.putTreeArtifact(tree, treeMetadata);
+
+    // Simulate execution
+    long startTimeA = clock.nanoTime();
+    computer.actionStarted(new ActionStartedEvent(actionA, startTimeA));
+    clock.advanceMillis(1000);
+    computer.actionComplete(
+        new ActionCompletionEvent(
+            startTimeA,
+            clock.nanoTime(),
+            actionA,
+            cache,
+            null,
+            ActionsTestUtil.NULL_ACTION_LOOKUP_DATA));
+
+    long startTimeB = clock.nanoTime();
+    computer.actionStarted(new ActionStartedEvent(actionB, startTimeB));
+    clock.advanceMillis(1000);
+    computer.actionComplete(
+        new ActionCompletionEvent(
+            startTimeB,
+            clock.nanoTime(),
+            actionB,
+            cache,
+            null,
+            ActionsTestUtil.NULL_ACTION_LOOKUP_DATA));
+
+    checkCriticalPath(2000, "2.00");
   }
 
   private static SpawnResult.Builder createSpawnResult() {

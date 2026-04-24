@@ -129,8 +129,8 @@ public interface FingerprintValueStore {
 
     @Override
     public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
-      fingerprintToContents.put(fingerprint, serializedBytes);
-      return immediateWriteStatus();
+      boolean wasNovel = (fingerprintToContents.put(fingerprint, serializedBytes) == null);
+      return immediateWriteStatus(wasNovel);
     }
 
     @Override

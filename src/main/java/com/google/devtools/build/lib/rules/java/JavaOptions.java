@@ -377,6 +377,14 @@ public abstract class JavaOptions extends FragmentOptions {
   public abstract boolean getExperimentalTurbineAnnotationProcessing();
 
   @Option(
+      name = "experimental_turbine_cpu_reservation",
+      defaultValue = "1",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The number of CPUs to reserve for Turbine.")
+  public abstract int getTurbineCpuReservation();
+
+  @Option(
       name = "java_runtime_version",
       defaultValue = "local_jdk",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,

@@ -14,17 +14,23 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getDirectJars;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getJavacArguments;
 
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency.Kind;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -203,5 +209,76 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
                 action.getReducedClasspath(new ActionExecutionContextBuilder().build(), context)))
         .containsExactly(
             "bin java/com/google/test/libb-hjar.jar", "bin java/com/google/test/libc-hjar.jar");
+  }
+
+  @Test
+  public void testTurbineCpuReservation() throws Exception {
+    useConfiguration("--java_header_compilation=true", "--experimental_turbine_cpu_reservation=2");
+    scratch.file(
+        "java/com/google/test/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "a",
+            srcs = ["A.java"],
+            deps = [":b"],
+        )
+        java_library(
+            name = "b",
+            srcs = ["b.java"],
+        )
+        """);
+    JavaCompileAction compileAction =
+        (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
+    Action action = getTurbineAction(compileAction);
+
+    if (TestConstants.PRODUCT_NAME.equals("bazel")) {
+      assertThat(paramFileArgsForAction(action)).contains("-XDnoParallel");
+    } else {
+      assertThat(paramFileArgsForAction(action)).doesNotContain("-XDnoParallel");
+    }
+    assertThat(action.getExecutionInfo().keySet().stream().filter(k -> k.startsWith("cpu:")))
+        .containsExactly("cpu:2");
+  }
+
+  @Test
+  public void testNoTurbineCpuReservation() throws Exception {
+    useConfiguration("--java_header_compilation=true");
+    scratch.file(
+        "java/com/google/test/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "a",
+            srcs = ["A.java"],
+            deps = [":b"],
+        )
+        java_library(
+            name = "b",
+            srcs = ["b.java"],
+        )
+        """);
+    JavaCompileAction compileAction =
+        (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
+    Action action = getTurbineAction(compileAction);
+
+    if (TestConstants.PRODUCT_NAME.equals("bazel")) {
+      assertThat(paramFileArgsForAction(action)).contains("-XDnoParallel");
+    } else {
+      assertThat(paramFileArgsForAction(action)).doesNotContain("-XDnoParallel");
+    }
+    assertThat(action.getExecutionInfo().keySet().stream().filter(k -> k.startsWith("cpu:")))
+        .isEmpty();
+  }
+
+  private CommandAction getTurbineAction(JavaCompileAction compileAction) throws Exception {
+    return (CommandAction)
+        getGeneratingAction(getBinArtifacts(compileAction).collect(onlyElement()));
+  }
+
+  private static Stream<Artifact> getBinArtifacts(JavaCompileAction compileAction)
+      throws Exception {
+    return getInputs(compileAction, getDirectJars(compileAction)).stream()
+        .filter(a -> a.getFilename().endsWith("-hjar.jar"));
   }
 }
