@@ -1,5 +1,3 @@
-keywords: Bzlmod
-
 ---
 title: '`mod` Command'
 ---
@@ -10,7 +8,7 @@ why a certain module or a version of a module is present in the graph, view the
 repo definitions backing modules, inspect usages of module extensions and repos
 they generate, among other functions.
 
-## Syntax {:#syntax}
+## Syntax {#syntax}
 
 ```sh
 bazel mod <subcommand> [<options>] [<arg> [<arg>...]]
@@ -183,7 +181,7 @@ Other options include:
 *   `--extension_usages <arg>[,<arg>[,...]]`: Filters `show_extension` to only
     display extension usages from the specified modules.
 
-## Examples {:#examples}
+## Examples {#examples}
 
 Some possible usages of the `mod` command on a real Bazel project are showcased
 below to give you a general idea on how you can use it to inspect your project's
@@ -212,7 +210,7 @@ use_repo(toolchains, my_jdk="remotejdk17_linux")
   <tr style="display: flex; flex-direction: row">
     <td style="flex: 5; display: flex; flex-direction: column">
       <figure style="height: 100%; display: flex; flex-direction: column;">
-        <img src="images/mod_exampleBefore.svg" alt="Graph Before Resolution" style="object-fit: cover; max-width: 100%;">
+        <img src="images/mod_exampleBefore.svg" alt="Graph Before Resolution" style="object-fit: cover; max-width: 100%;" />
         <figcaption style="margin-top: auto; margin-left: auto; margin-right: auto ">Graph Before Resolution</figcaption>
       </figure>
 <!-- digraph mygraph {
@@ -242,7 +240,7 @@ use_repo(toolchains, my_jdk="remotejdk17_linux")
     </td>
     <td style="flex: 3; display: flex; flex-direction: column">
       <figure style="height: 100%; display: flex; flex-direction: column;">
-        <img src="images/mod_exampleResolved.svg" alt="Graph After Resolution" style="object-fit: cover; max-width: 100%;">
+        <img src="images/mod_exampleResolved.svg" alt="Graph After Resolution" style="object-fit: cover; max-width: 100%;" />
        <figcaption style="margin-top: auto; margin-left: auto; margin-right: auto ">Graph After Resolution</figcaption>
       </figure>
 <!-- digraph mygraph {
