@@ -3720,6 +3720,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           }
 
           @Override
+          public ImmutableSet<String> getStarlarkOptionsAllowingMultiple() {
+            return ImmutableSet.of();
+          }
+
+          @Override
           public ImmutableMap<String, String> getUserOptions() {
             return ImmutableMap.of();
           }

@@ -349,6 +349,7 @@ public class BuildTool {
                         .getIncludeResidueInRunBepEvent(),
                     optionsParser.getExplicitCommandLineStarlarkOptions(),
                     optionsParser.getStarlarkOptions(),
+                    optionsParser.getStarlarkOptionsAllowingMultiple(),
                     optionsParser.asListOfCanonicalOptions(),
                     // This replaces the tentative CanonicalCommandLineEvent posted earlier in the
                     // build in BlazeCommandDispatcher.

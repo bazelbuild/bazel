@@ -310,11 +310,13 @@ def _http_file_impl(ctx):
             target_name = repr(downloaded_file_name),
         )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
-    ctx.file("BUILD.bazel", _HTTP_FILE_ROOT_BUILD.format(
+    build_content = _HTTP_FILE_ROOT_BUILD.format(
         repo_name_alias = repo_name_alias,
         downloaded_file_alias = downloaded_file_alias,
-    ))
+    )
     ctx.file("file/BUILD", _HTTP_FILE_BUILD.format(path = repr(downloaded_file_path)))
+
+    ctx.file("BUILD.bazel", build_content)
 
     return _update_integrity_attr(ctx, _http_file_attrs, download_info)
 

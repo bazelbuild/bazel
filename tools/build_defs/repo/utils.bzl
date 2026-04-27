@@ -55,10 +55,14 @@ def workspace_and_buildfile(ctx):
     if ctx.attr.build_file and ctx.attr.build_file_content:
         ctx.fail("Only one of build_file and build_file_content can be provided.")
 
+    full_content = ""
     if ctx.attr.build_file:
-        ctx.file("BUILD.bazel", ctx.read(ctx.attr.build_file))
+        full_content = ctx.read(ctx.attr.build_file)
     elif ctx.attr.build_file_content:
-        ctx.file("BUILD.bazel", ctx.attr.build_file_content)
+        full_content = ctx.attr.build_file_content
+
+    ctx.file("BUILD.bazel", full_content)
+
 
 def _is_windows(ctx):
     return ctx.os.name.lower().find("windows") != -1

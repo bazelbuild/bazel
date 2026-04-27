@@ -718,6 +718,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               includeResidueInRunBepEvent,
               options.asListOfExplicitOptions(),
               options.getExplicitCommandLineStarlarkOptions(),
+              options.getStarlarkOptionsAllowingMultiple(),
               startupOptionsTaggedWithBazelRc);
       CommandLineEvent canonicalCommandLineEvent =
           new CommandLineEvent.CanonicalCommandLineEvent(
@@ -728,6 +729,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               includeResidueInRunBepEvent,
               options.getExplicitCommandLineStarlarkOptions(),
               options.getStarlarkOptions(),
+              options.getStarlarkOptionsAllowingMultiple(),
               options.asListOfCanonicalOptions(),
               // If this is a command that analyzes with BuildTool, PROJECT.scl might set extra
               // canonical flags. In that case give BuildTool a chance to post a final updated

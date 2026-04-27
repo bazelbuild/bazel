@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.CoreOptionConverters.BUILD_SETTING_CONVERTERS;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
@@ -24,6 +25,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Multimap;
@@ -314,7 +316,8 @@ public class StarlarkOptionsParser {
       scopeTypeMap.put(customExecFlag, ScopeType.TARGET);
     }
 
-    nativeOptionsParser.setStarlarkOptions(ImmutableMap.copyOf(parsedOptions));
+    nativeOptionsParser.setStarlarkOptions(
+        ImmutableMap.copyOf(parsedOptions), getStarlarkOptionsAllowingMultiple());
     nativeOptionsParser.setOnLeaveScopeValues(ImmutableMap.copyOf(onLeaveScopeMap));
     nativeOptionsParser.setScopesAttributes(ImmutableMap.copyOf(scopeTypeMap));
     this.starlarkOptions.putAll(parsedOptions);
@@ -478,6 +481,13 @@ public class StarlarkOptionsParser {
 
   public ImmutableMap<String, Object> getStarlarkOptions() {
     return ImmutableMap.copyOf(this.starlarkOptions);
+  }
+
+  public ImmutableSet<String> getStarlarkOptionsAllowingMultiple() {
+    return parsedBuildSettings.entrySet().stream()
+        .filter(entry -> entry.getValue().allowsMultiple() || entry.getValue().isRepeatableFlag())
+        .map(Map.Entry::getKey)
+        .collect(toImmutableSet());
   }
 
   public ImmutableMap<String, String> getScopesAttributes() {

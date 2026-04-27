@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
@@ -20,6 +21,7 @@ import com.google.devtools.build.lib.bazel.BazelStartupOptionsModule.Options;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.CanonicalCommandLineEvent;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.OriginalCommandLineEvent;
 import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.CommandLine;
+import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.Option;
 import com.google.devtools.build.lib.starlark.util.StarlarkOptionsTestCase;
 import com.google.devtools.common.options.OptionsParser;
 import java.util.Optional;
@@ -54,6 +56,7 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
                 false,
                 optionsParser.asListOfExplicitOptions(),
                 optionsParser.getExplicitCommandLineStarlarkOptions(),
+                optionsParser.getStarlarkOptionsAllowingMultiple(),
                 Optional.empty())
             .asStreamProto(null)
             .getStructuredCommandLine();
@@ -119,6 +122,7 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
                 false,
                 optionsParser.asListOfExplicitOptions(),
                 optionsParser.getExplicitCommandLineStarlarkOptions(),
+                optionsParser.getStarlarkOptionsAllowingMultiple(),
                 Optional.empty())
             .asStreamProto(null)
             .getStructuredCommandLine();
@@ -148,6 +152,7 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
                 false,
                 optionsParser.getExplicitCommandLineStarlarkOptions(),
                 optionsParser.getStarlarkOptions(),
+                optionsParser.getStarlarkOptionsAllowingMultiple(),
                 optionsParser.asListOfCanonicalOptions(),
                 /* replaceable= */ false)
             .asStreamProto(null)
@@ -185,6 +190,7 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
                 false,
                 optionsParser.getExplicitCommandLineStarlarkOptions(),
                 optionsParser.getStarlarkOptions(),
+                optionsParser.getStarlarkOptionsAllowingMultiple(),
                 optionsParser.asListOfCanonicalOptions(),
                 /* replaceable= */ false)
             .asStreamProto(null)
@@ -247,6 +253,7 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
                 false,
                 optionsParser.getExplicitCommandLineStarlarkOptions(),
                 optionsParser.getStarlarkOptions(),
+                optionsParser.getStarlarkOptionsAllowingMultiple(),
                 optionsParser.asListOfCanonicalOptions(),
                 /* replaceable= */ false)
             .asStreamProto(null)
@@ -256,5 +263,72 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
             line.getSections(3).getOptionList().getOptionList().stream()
                 .map(o -> o.getCombinedForm()))
         .containsExactly("--//test:cmdflag=666", "--//test:bazelrcflag=777");
+  }
+
+  @Test
+  public void testStarlarkOptions_multipleAndRepeatable() throws Exception {
+    OptionsParser fakeStartupOptions =
+        OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
+    scratch.file(
+        "flags/build_settings.bzl",
+        """
+        def _impl(ctx):
+            return []
+
+        allow_multiple_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True, allow_multiple = True),
+        )
+
+        repeatable_flag = rule(
+            implementation = _impl,
+            build_setting = config.string_list(flag = True, repeatable = True),
+        )
+
+        singular_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True),
+        )
+        """);
+
+    scratch.file(
+        "flags/BUILD",
+        """
+        load(":build_settings.bzl", "allow_multiple_flag", "repeatable_flag", "singular_flag")
+        allow_multiple_flag(name = "allow_multiple", build_setting_default = "")
+        repeatable_flag(name = "repeatable", build_setting_default = [])
+        singular_flag(name = "singular", build_setting_default = "")
+        """);
+
+    var unused =
+        parseStarlarkOptions(
+            "--//flags:singular=abc --//flags:allow_multiple=foo --//flags:allow_multiple=bar"
+                + " --//flags:repeatable=good --//flags:repeatable=bye");
+
+    CommandLine line =
+        new OriginalCommandLineEvent(
+                "testblaze",
+                fakeStartupOptions,
+                "someCommandName",
+                ImmutableList.of(),
+                false,
+                optionsParser.asListOfExplicitOptions(),
+                optionsParser.getStarlarkOptions(),
+                optionsParser.getStarlarkOptionsAllowingMultiple(),
+                Optional.empty())
+            .asStreamProto(null)
+            .getStructuredCommandLine();
+    assertThat(
+            line.getSections(3).getOptionList().getOptionList().stream()
+                .map(Option::getCombinedForm)
+                .collect(toImmutableList()))
+        .containsExactly(
+            // Flags names are sorted; order of multiple values is preserved.
+            "--//flags:allow_multiple=foo",
+            "--//flags:allow_multiple=bar",
+            "--//flags:repeatable=good",
+            "--//flags:repeatable=bye",
+            "--//flags:singular=abc")
+        .inOrder();
   }
 }

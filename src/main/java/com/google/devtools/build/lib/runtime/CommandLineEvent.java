@@ -46,7 +46,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /** A build event reporting the command line by which Bazel was invoked. */
@@ -69,18 +71,21 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
     protected final String commandName;
     protected final List<String> residue;
     protected final boolean includeResidueInRunBepEvent;
+    protected final Set<String> starlarkOptionAllowingMultiple;
 
     BazelCommandLineEvent(
         String productName,
         OptionsParsingResult activeStartupOptions,
         String commandName,
         List<String> residue,
-        boolean includeResidueInRunBepEvent) {
+        boolean includeResidueInRunBepEvent,
+        Set<String> starlarkOptionAllowingMultiple) {
       this.productName = productName;
       this.activeStartupOptions = activeStartupOptions;
       this.commandName = commandName;
       this.residue = residue;
       this.includeResidueInRunBepEvent = includeResidueInRunBepEvent;
+      this.starlarkOptionAllowingMultiple = starlarkOptionAllowingMultiple;
     }
 
     CommandLineSection getExecutableSection() {
@@ -159,8 +164,25 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
       return option.build();
     }
 
-    Option createStarlarkOption(String starlarkFlag, @Nullable Object value) {
-      String combinedForm = String.format("--%s=%s", starlarkFlag, value);
+    /**
+     * Reverses a parsed Starlark flag / option value pair into a stream of {@link Option} objects.
+     *
+     * <p>Emits multiple option objects if the value is a collection and the Starlark option allows
+     * multiple instances.
+     */
+    Stream<Option> streamStarlarkOption(String starlarkFlag, @Nullable Object value) {
+      if (starlarkOptionAllowingMultiple.contains(starlarkFlag)
+          && value instanceof Collection<?> values) {
+        return values.stream().map(element -> createSingleStarlarkOption(starlarkFlag, element));
+      } else {
+        return Stream.of(createSingleStarlarkOption(starlarkFlag, value));
+      }
+    }
+
+    Option createSingleStarlarkOption(String starlarkFlag, @Nullable Object value) {
+      // TODO(bazel-team): fix stringification of `value` if non-scalar.
+      String combinedForm =
+          value != null ? String.format("--%s=%s", starlarkFlag, value) : "--" + starlarkFlag;
       Option.Builder option = Option.newBuilder();
       option.setCombinedForm(combinedForm);
       option.setOptionName(starlarkFlag);
@@ -228,8 +250,15 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
         boolean includeResidueInRunBepEvent,
         List<ParsedOptionDescription> explicitOptions,
         Map<String, Object> explicitStarlarkOptions,
+        Set<String> starlarkOptionAllowingMultiple,
         Optional<List<Pair<String, String>>> originalStartupOptions) {
-      super(productName, startupOptionsProvider, commandName, residue, includeResidueInRunBepEvent);
+      super(
+          productName,
+          startupOptionsProvider,
+          commandName,
+          residue,
+          includeResidueInRunBepEvent,
+          starlarkOptionAllowingMultiple);
       this.explicitOptions = explicitOptions;
       this.explicitStarlarkOptions = explicitStarlarkOptions;
       this.originalStartupOptions = originalStartupOptions;
@@ -280,7 +309,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
               .collect(Collectors.toList());
       List<Option> starlarkOptions =
           explicitStarlarkOptions.entrySet().stream()
-              .map(e -> createStarlarkOption(e.getKey(), e.getValue()))
+              .flatMap(e -> streamStarlarkOption(e.getKey(), e.getValue()))
               .collect(Collectors.toList());
       return CommandLineSection.newBuilder()
           .setSectionLabel("command options")
@@ -325,9 +354,16 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
         boolean includeResidueInRunBepEvent,
         Map<String, Object> explicitStarlarkOptions,
         Map<String, Object> starlarkOptions,
+        Set<String> starlarkOptionAllowingMultiple,
         List<ParsedOptionDescription> canonicalOptions,
         boolean replaceable) {
-      super(productName, startupOptionsProvider, commandName, residue, includeResidueInRunBepEvent);
+      super(
+          productName,
+          startupOptionsProvider,
+          commandName,
+          residue,
+          includeResidueInRunBepEvent,
+          starlarkOptionAllowingMultiple);
       this.explicitStarlarkOptions = explicitStarlarkOptions;
       this.starlarkOptions = starlarkOptions;
       this.canonicalOptions = canonicalOptions;
@@ -396,7 +432,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
     private CommandLineSection getCanonicalCommandOptions() {
       List<Option> starlarkOptionsAsList =
           starlarkOptions.entrySet().stream()
-              .map(e -> createStarlarkOption(e.getKey(), e.getValue()))
+              .flatMap(e -> streamStarlarkOption(e.getKey(), e.getValue()))
               .collect(Collectors.toList());
       return CommandLineSection.newBuilder()
           .setSectionLabel("command options")

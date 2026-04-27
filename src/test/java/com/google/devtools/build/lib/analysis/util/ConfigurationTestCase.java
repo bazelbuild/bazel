@@ -208,7 +208,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
                     .add(TestOptions.class)
                     .build())
             .build();
-    parser.setStarlarkOptions(starlarkOptions);
+    parser.setStarlarkOptions(starlarkOptions, ImmutableSet.of());
     parser.parse(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     parser.parse(args);
 
