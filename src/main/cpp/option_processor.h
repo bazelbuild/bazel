@@ -122,11 +122,7 @@ class OptionProcessor {
     build_label_ = build_label;
   }
 
-  // Parse the files in `blazercs` and return all options that need to be passed
-  // to the server. The options are returned in the order they should be appear
-  // on the command line (later options have precedence over earlier ones).
-  static std::vector<BlazercOption> GetBlazercOptions(
-      const std::string& cwd, const std::vector<RcFile*>& blazercs);
+
   // Constructs all synthetic command args that should be passed to the
   // server to configure blazerc options and client environment.
   static std::vector<std::string> GetBlazercAndEnvCommandArgs(
