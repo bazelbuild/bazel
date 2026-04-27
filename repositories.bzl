@@ -41,6 +41,7 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "grpc-java",
     "io_bazel_skydoc",
     "platforms",
+    "re2",
     "rules_cc",
     "rules_go",
     "rules_graalvm",
