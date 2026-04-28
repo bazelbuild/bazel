@@ -397,8 +397,14 @@ public class FilesystemValueChecker {
               ActionOutputMetadataStore.fileArtifactValueFromArtifact(
                   artifact, stat, xattrProviderOverrider.getXattrProvider(syscallCache), tsgm);
           if (newData.couldBeModifiedSince(lastKnownData)) {
-            modifiedOutputsReceiver.reportModifiedOutputFile(
-                stat != null ? stat.getLastChangeTime() : -1, artifact);
+            long maybeModifiedTime = -1;
+            if (stat != null) {
+              try {
+                maybeModifiedTime = stat.getLastChangeTime();
+              } catch (UnsupportedOperationException e) {
+              }
+            }
+            modifiedOutputsReceiver.reportModifiedOutputFile(maybeModifiedTime, artifact);
             dirtyKeys.add(key);
           }
         } catch (IOException e) {
