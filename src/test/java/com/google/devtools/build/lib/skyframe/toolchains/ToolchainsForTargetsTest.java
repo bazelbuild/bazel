@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.analysis.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
@@ -342,6 +343,11 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
     assertThat(toolchainCollection)
         .defaultToolchainContext()
         .hasResolvedToolchain("//toolchains:toolchain_1_impl");
+    Label toolchainType = Label.parseCanonicalUnchecked("//toolchain:test_toolchain");
+    assertThat(toolchainCollection)
+        .defaultToolchainContext()
+        .toolchainTypes()
+        .containsExactly(toolchainType, ToolchainTypeRequirement.create(toolchainType));
   }
 
   @Test

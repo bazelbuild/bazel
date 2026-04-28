@@ -45,6 +45,8 @@ import net.starlark.java.eval.StarlarkThread;
  */
 public sealed interface AspectPropagationEdgesSupplier<T> {
 
+  Label ALL_TOOLCHAINS = Label.parseCanonicalUnchecked("//__toolchains_aspects__:all");
+
   public static final AspectPropagationEdgesSupplier<String> DEFAULT_ATTR_ASPECTS_SUPPLIER =
       new FixedListSupplier<>(ImmutableSet.of());
 
@@ -220,6 +222,15 @@ public sealed interface AspectPropagationEdgesSupplier<T> {
       Object rawToolchainsAspects, LabelConverter labelConverter) throws EvalException {
     Sequence<String> toolchainsAspects =
         Sequence.cast(rawToolchainsAspects, String.class, "toolchains_aspects");
+
+    if (toolchainsAspects.size() == 1 && "*".equals(toolchainsAspects.get(0))) {
+      return ImmutableSet.of(ALL_TOOLCHAINS);
+    }
+    for (String input : toolchainsAspects) {
+      if ("*".equals(input)) {
+        throw new EvalException("'*' must be the only item in 'toolchains_aspects' list");
+      }
+    }
 
     ImmutableSet.Builder<Label> parsedLabels = new ImmutableSet.Builder<>();
     for (String input : toolchainsAspects) {
