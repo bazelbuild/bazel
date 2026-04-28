@@ -975,15 +975,19 @@ static void StartServerAndConnect(
   BAZEL_LOG(USER) << "Starting local " << startup_options.product_name
                   << " server (" << build_label << ")"
                   << " and connecting to it...";
+  BAZEL_LOG(INFO) << "DEBUG: About to call ExecuteDaemon";
   BlazeServerStartup *server_startup;
   const int server_pid = ExecuteDaemon(
       server_exe, server_exe_args, PrepareEnvironmentForJvm(),
       server->ProcessInfo().jvm_log_file_,
       server->ProcessInfo().jvm_log_file_append_, startup_options.install_base,
       server_dir, startup_options, &server_startup);
+  BAZEL_LOG(INFO) << "DEBUG: ExecuteDaemon returned pid=" << server_pid;
 
+  BAZEL_LOG(INFO) << "DEBUG: About to call ConnectOrDie";
   ConnectOrDie(option_processor, startup_options, server_pid, server_startup,
                server);
+  BAZEL_LOG(INFO) << "DEBUG: ConnectOrDie returned";
 
   delete server_startup;
 }
