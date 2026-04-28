@@ -102,7 +102,7 @@ in addition to troubleshooting natively.
     your build. For example:
 
     ```posix-terminal
-    bazel --bazelrc=.bazelrc build --config=docker-sandbox {{ '<var>' }}target{{ '</var>' }}
+    bazel --bazelrc=.bazelrc build --config=docker-sandbox <var>target</var>
     ```
 
 2.  Run the build and wait for it to complete. The build will run up to four
@@ -201,7 +201,7 @@ substitute the path to the source code on your host that you want to build.
 docker run -it \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v /tmp:/tmp \
-  -v {{ '<var>' }}your source code directory{{ '</var>' }}:/src \
+  -v <var>your source code directory</var>:/src \
   -w /src \
   bazel_container \
   /bin/bash
@@ -236,7 +236,7 @@ sandbox feature in which Bazel's build actions are running, and from the local
 machine on which the host and action containers run.
 
 ```posix-terminal
-bazel --output_user_root=/tmp/bazel_docker_root --bazelrc=.bazelrc \ build --config=docker-sandbox {{ '<var>' }}target{{ '</var>' }}
+bazel --output_user_root=/tmp/bazel_docker_root --bazelrc=.bazelrc \ build --config=docker-sandbox <var>target</var>
 ```
 
 ### Step 5: Resolve detected issues {#resolve-build-failures}
