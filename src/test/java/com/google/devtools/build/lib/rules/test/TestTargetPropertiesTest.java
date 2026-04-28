@@ -16,13 +16,19 @@ package com.google.devtools.build.lib.rules.test;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestTargetProperties;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -30,6 +36,23 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link TestTargetProperties}. */
 @RunWith(JUnit4.class)
 public class TestTargetPropertiesTest extends BuildViewTestCase {
+
+  /** Creates a spawn from a test action, mirroring what StandaloneTestStrategy does. */
+  private static SimpleSpawn createTestSpawn(TestRunnerAction action) {
+    ImmutableList<ActionInput> outputs = ImmutableList.copyOf(action.getSpawnOutputs());
+    return new SimpleSpawn(
+        action,
+        /* arguments= */ ImmutableList.of(),
+        /* environment= */ ImmutableMap.of(),
+        /* executionInfo= */ action.getExecutionInfo(),
+        /* inputs= */ action.getInputs(),
+        /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        outputs,
+        /* mandatoryOutputs= */ null,
+        () ->
+            action.getTestProperties().getLocalResourceUsage(action.getOwner().getLabel(), false));
+  }
+
   @Test
   public void testTestWithCpusTagHasCorrectLocalResourcesEstimate() throws Exception {
     scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
@@ -48,10 +71,7 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
     TestRunnerAction testAction =
         (TestRunnerAction)
             getGeneratingAction(TestProvider.getTestStatusArtifacts(testTarget).get(0));
-    ResourceSet localResourceUsage =
-        testAction
-            .getTestProperties()
-            .getLocalResourceUsage(testAction.getOwner().getLabel(), false);
+    ResourceSet localResourceUsage = createTestSpawn(testAction).getLocalResources();
     assertThat(localResourceUsage.getCpuUsage()).isEqualTo(4.0);
   }
 
@@ -78,10 +98,7 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
     TestRunnerAction testAction =
         (TestRunnerAction)
             getGeneratingAction(TestProvider.getTestStatusArtifacts(testTarget).get(0));
-    ResourceSet localResourceUsage =
-        testAction
-            .getTestProperties()
-            .getLocalResourceUsage(testAction.getOwner().getLabel(), false);
+    ResourceSet localResourceUsage = createTestSpawn(testAction).getLocalResources();
     // Tags-specified resources overrides --default_test_resources=gpu.
     assertThat(localResourceUsage.getResources()).containsEntry("gpu", 4.0);
     // The last-specified value of --default_test_resources=cpu is used.

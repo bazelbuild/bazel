@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.ExecutionRequirements.ParseableRequirement.ValidationException;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -29,10 +28,6 @@ import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.TestAction;
-import com.google.devtools.build.lib.server.FailureDetails.TestAction.Code;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -156,47 +151,6 @@ public class TestTargetProperties {
     return isExternal;
   }
 
-  private static Map<String, Double> parseTags(Label label, Map<String, String> tags)
-      throws UserExecException {
-    Map<String, Double> resources = new HashMap<>();
-    ExecutionRequirements.ParseableRequirement requirement;
-    for (String tag : tags.keySet()) {
-      String resource;
-      String amount;
-      requirement = ExecutionRequirements.RESOURCES;
-      try {
-        String value = requirement.parseIfMatches(tag);
-        if (value != null) {
-          int splitIndex = value.indexOf(":");
-          resource = value.substring(0, splitIndex);
-          amount = value.substring(splitIndex + 1);
-        } else {
-          requirement = ExecutionRequirements.CPU;
-          value = requirement.parseIfMatches(tag);
-          resource = ResourceSet.CPU;
-          amount = value;
-        }
-        if (value != null) {
-          if (resources.get(resource) != null) {
-            String message =
-                String.format(
-                    "%s has more than one tag for resource '%s', but duplicate tags aren't allowed",
-                    label, resource);
-            throw new UserExecException(createFailureDetail(message, Code.DUPLICATE_CPU_TAGS));
-          }
-          resources.put(resource, Double.parseDouble(amount));
-        }
-      } catch (ValidationException e) {
-        String message =
-            String.format(
-                "%s has a '%s' tag, but its value '%s' didn't pass validation: %s",
-                label, requirement.userFriendlyName(), e.getTagValue(), e.getMessage());
-        throw new UserExecException(createFailureDetail(message, Code.INVALID_CPU_TAG));
-      }
-    }
-    return resources;
-  }
-
   public ResourceSet getLocalResourceUsage(Label label, boolean usingLocalTestJobs)
       throws UserExecException {
     if (usingLocalTestJobs) {
@@ -204,27 +158,9 @@ public class TestTargetProperties {
     }
 
     ResourceSet defaultResources = getResourceSetFromSize(size);
-    Map<String, Double> resourcesFromTags = parseTags(label, executionInfo);
-    Map<String, Double> configResources =
+    ImmutableMap<String, Double> configResources =
         testConfiguration == null ? ImmutableMap.of() : testConfiguration.getTestResources(size);
-    if (resourcesFromTags.isEmpty() && configResources.isEmpty()) {
-      return defaultResources;
-    }
-
-    return ResourceSet.create(
-        ImmutableMap.<String, Double>builder()
-            .putAll(defaultResources.getResources())
-            .putAll(configResources)
-            .putAll(resourcesFromTags)
-            .buildKeepingLast(),
-        defaultResources.getLocalTestCount());
-  }
-
-  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
-    return FailureDetail.newBuilder()
-        .setMessage(message)
-        .setTestAction(TestAction.newBuilder().setCode(detailedCode))
-        .build();
+    return defaultResources.withResourceOverrides(configResources);
   }
 
   /**
