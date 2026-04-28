@@ -869,9 +869,12 @@ static void ConnectOrDie(const OptionProcessor &option_processor,
     const auto next_attempt_time =
         attempt_time + std::chrono::milliseconds(100);
 
+    BAZEL_LOG(INFO) << "DEBUG: About to call server->Connect()";
     if (server->Connect()) {
+      BAZEL_LOG(INFO) << "DEBUG: server->Connect() returned true";
       return;
     }
+    BAZEL_LOG(INFO) << "DEBUG: server->Connect() returned false";
 
     if (attempt_time >= (last_message_time + min_message_interval)) {
       auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(
@@ -884,7 +887,9 @@ static void ConnectOrDie(const OptionProcessor &option_processor,
     }
 
     std::this_thread::sleep_until(next_attempt_time);
+    BAZEL_LOG(INFO) << "DEBUG: About to call server_startup->IsStillAlive()";
     if (!server_startup->IsStillAlive()) {
+      BAZEL_LOG(INFO) << "DEBUG: server_startup->IsStillAlive() returned false";
       option_processor.PrintStartupOptionsProvenanceMessage();
       if (server->ProcessInfo().jvm_log_file_append_) {
         // Don't dump the log if we were appending - the user should know where
