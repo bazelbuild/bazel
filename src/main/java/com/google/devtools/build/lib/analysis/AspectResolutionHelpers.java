@@ -129,6 +129,7 @@ public final class AspectResolutionHelpers {
   private static <T> boolean propagatesTo(
       T edge, Aspect aspect, ImmutableMultimap<Aspect, T> computedEdges) {
     return computedEdges.containsEntry(aspect, edge)
+        || (edge instanceof String && computedEdges.containsEntry(aspect, (T) "*"))
         || computedEdges.containsEntry(aspect, AspectPropagationEdgesSupplier.ALL_TOOLCHAINS);
   }
 
