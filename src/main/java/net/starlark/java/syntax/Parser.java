@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -691,7 +692,7 @@ final class Parser {
       case INT:
         {
           IntLiteral literal =
-              new IntLiteral(locs, token.getRaw(), token.start, (Number) token.value);
+              new IntLiteral(locs, token.start, token.end, (Number) token.value);
           nextToken();
           return literal;
         }
@@ -699,7 +700,7 @@ final class Parser {
       case FLOAT:
         {
           FloatLiteral literal =
-              new FloatLiteral(locs, token.getRaw(), token.start, (double) token.value);
+              new FloatLiteral(locs, token.start, token.end, (double) token.value);
           nextToken();
           return literal;
         }
@@ -756,13 +757,40 @@ final class Parser {
           return makeErrorExpression(lparenOffset, end);
         }
 
-      case MINUS:
+      case MINUS: {
+        int offset = nextToken();
+        Expression x = parsePrimaryWithSuffix();
+
+        // Optimize int and float literals to contain the negative value directly
+        // instead of being wrapped in a UnaryOperatorExpression
+        if (x instanceof IntLiteral intLiteral) {
+          Number negatedValue = switch (intLiteral.getValue()) {
+            case Integer intValue -> -intValue;
+            case Long longValue when longValue == Integer.MAX_VALUE + 1L -> (int) -longValue;
+            case Long longValue -> -longValue;
+            case BigInteger bigIntegerValue when bigIntegerValue.equals(
+                BigInteger.valueOf(Long.MIN_VALUE).negate()) ->
+                bigIntegerValue.negate().longValueExact();
+            case BigInteger bigIntegerValue -> bigIntegerValue.negate();
+            default -> throw new IllegalStateException(
+                "int literal does not contain an Integer, Long or BigInteger");
+          };
+          return new IntLiteral(intLiteral.locs, offset, intLiteral.getEndOffset(), negatedValue);
+        } else if (x instanceof FloatLiteral floatLiteral) {
+          return new FloatLiteral(floatLiteral.locs, offset, floatLiteral.getEndOffset(),
+              -floatLiteral.getValue());
+        }
+
+        return new UnaryOperatorExpression(locs, TokenKind.MINUS, offset, x);
+      }
+
       case PLUS:
       case TILDE:
         {
           TokenKind op = token.kind;
           int offset = nextToken();
           Expression x = parsePrimaryWithSuffix();
+
           return new UnaryOperatorExpression(locs, op, offset, x);
         }
 

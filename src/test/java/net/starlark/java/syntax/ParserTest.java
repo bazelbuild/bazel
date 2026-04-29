@@ -23,6 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -216,16 +217,85 @@ public final class ParserTest {
   }
 
   @Test
-  public void testUnaryMinusExpr() throws Exception {
-    UnaryOperatorExpression e = (UnaryOperatorExpression) parseExpression("-5");
-    UnaryOperatorExpression e2 = (UnaryOperatorExpression) parseExpression("- 5");
+  public void testUnaryMinusForNonLiteral() throws Exception {
+    Expression expression = parseExpression("-(5 + 3)");
+    assertThat(expression).isInstanceOf(UnaryOperatorExpression.class);
+    UnaryOperatorExpression unaryExpression = (UnaryOperatorExpression) expression;
+    assertThat(unaryExpression.getOperator()).isEqualTo(TokenKind.MINUS);
+    assertThat(unaryExpression.getX()).isInstanceOf(BinaryOperatorExpression.class);
+    BinaryOperatorExpression binaryExpression = (BinaryOperatorExpression) unaryExpression.getX();
+    assertThat(binaryExpression.getX()).isInstanceOf(IntLiteral.class);
+    IntLiteral x = (IntLiteral) binaryExpression.getX();
+    assertThat(x.getValue()).isEqualTo(5);
+    assertThat(binaryExpression.getY()).isInstanceOf(IntLiteral.class);
+    IntLiteral y = (IntLiteral) binaryExpression.getY();
+    assertThat(y.getValue()).isEqualTo(3);
 
-    IntLiteral i = (IntLiteral) e.getX();
-    assertThat(i.getValue()).isEqualTo(5);
-    IntLiteral i2 = (IntLiteral) e2.getX();
-    assertThat(i2.getValue()).isEqualTo(5);
-    assertLocation(0, 2, e);
-    assertLocation(0, 3, e2);
+    assertLocation(0, 7, expression);
+  }
+
+  @Test
+  public void testUnaryMinusWithIntLiteralContainingInt() throws Exception {
+    Expression expression = parseExpression("-5");
+    assertThat(expression).isInstanceOf(IntLiteral.class);
+    IntLiteral intLiteral = (IntLiteral) expression;
+    assertThat(intLiteral.getValue()).isInstanceOf(Integer.class);
+    Integer integer = (Integer) intLiteral.getValue();
+    assertThat(integer).isEqualTo(-5);
+  }
+
+  @Test
+  public void testUnaryMinusWithIntLiteralLocation() throws Exception {
+    Expression expression = parseExpression("- 5");
+    assertLocation(0, 3, expression);
+  }
+
+  @Test
+  public void testUnaryMinusWithIntLiteralContainingLong() throws Exception {
+    Expression expression = parseExpression("-3000000000");
+    assertThat(expression).isInstanceOf(IntLiteral.class);
+    IntLiteral intLiteral = (IntLiteral) expression;
+    assertThat(intLiteral.getValue()).isInstanceOf(Long.class);
+    Long longValue = (Long) intLiteral.getValue();
+    assertThat(longValue).isEqualTo(-3_000_000_000L);
+  }
+
+  @Test
+  public void testUnaryMinusWithIntLiteralContainingBigInteger() throws Exception {
+    Expression expression = parseExpression("-10000000000000000000");
+    assertThat(expression).isInstanceOf(IntLiteral.class);
+    IntLiteral intLiteral = (IntLiteral) expression;
+    assertThat(intLiteral.getValue()).isInstanceOf(BigInteger.class);
+    BigInteger integer = (BigInteger) intLiteral.getValue();
+    assertThat(integer).isEqualTo(new BigInteger("-10000000000000000000"));
+  }
+
+  @Test
+  public void testUnaryMinusWithIntLiteralAndMinIntValue() throws Exception {
+    Expression expression = parseExpression(String.valueOf(Integer.MIN_VALUE));
+    assertThat(expression).isInstanceOf(IntLiteral.class);
+    IntLiteral intLiteral = (IntLiteral) expression;
+    assertThat(intLiteral.getValue()).isInstanceOf(Integer.class);
+    Integer integer = (Integer) intLiteral.getValue();
+    assertThat(integer).isEqualTo(Integer.MIN_VALUE);
+  }
+
+  @Test
+  public void testUnaryMinusWithIntLiteralAndMinLongValue() throws Exception {
+    Expression expression = parseExpression(String.valueOf(Long.MIN_VALUE));
+    assertThat(expression).isInstanceOf(IntLiteral.class);
+    IntLiteral intLiteral = (IntLiteral) expression;
+    assertThat(intLiteral.getValue()).isInstanceOf(Long.class);
+    Long longValue = (Long) intLiteral.getValue();
+    assertThat(longValue).isEqualTo(Long.MIN_VALUE);
+  }
+
+  @Test
+  public void testUnaryMinusWithFloatLiteral() throws Exception {
+    Expression expression = parseExpression("-5.0");
+    assertThat(expression).isInstanceOf(FloatLiteral.class);
+    FloatLiteral literal = (FloatLiteral) expression;
+    assertThat(literal.getValue()).isEqualTo(-5.0);
   }
 
   @Test

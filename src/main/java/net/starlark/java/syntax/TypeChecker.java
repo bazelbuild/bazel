@@ -258,24 +258,14 @@ public final class TypeChecker extends NodeVisitor {
   }
 
   /**
-   * Returns the integer value of an expression if it's an integer value (or a unary expression
-   * negating an integer value) which can be exactly represented as a Java integer, or null
-   * otherwise (in particular, if the expression itself is null).
+   * Returns the integer value of an expression if it's an integer value which can be exactly
+   * represented as a Java integer, or null otherwise (in particular, if the expression itself is
+   * null).
    */
-  // TODO: #28037 - Consider allowing more complicated static expressions, e.g. binary operators on
-  // integers.
   @Nullable
   private static Integer getIntValueExact(@Nullable Expression expr) {
     if (expr instanceof IntLiteral intLiteral) {
       return intLiteral.getIntValueExact();
-    } else if (expr instanceof UnaryOperatorExpression unop
-        && unop.getOperator() == TokenKind.MINUS
-        && unop.getX() instanceof IntLiteral negatedIntLiteral) {
-      // We may want to simplify negative integer literals to be IntLiteral; see #28385.
-      Integer x = negatedIntLiteral.getIntValueExact();
-      if (x != null) {
-        return -x; // safe since x >= 0
-      }
     }
     return null;
   }
