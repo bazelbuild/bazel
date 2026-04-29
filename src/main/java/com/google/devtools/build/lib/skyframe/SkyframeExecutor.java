@@ -161,6 +161,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.pkgcache.DeletedPackages;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -386,8 +387,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   // AtomicReferences are used here as mutable boxes shared with value builders.
   private final AtomicBoolean showLoadingProgress = new AtomicBoolean();
   private final AtomicReference<PathPackageLocator> pkgLocator = new AtomicReference<>();
-  final AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
-      new AtomicReference<>(ImmutableSet.of());
+  final AtomicReference<DeletedPackages> deletedPackages =
+      new AtomicReference<>(DeletedPackages.EMPTY);
   private final AtomicReference<EventBus> eventBus = new AtomicReference<>();
   final AtomicReference<TimestampGranularityMonitor> tsgm = new AtomicReference<>();
   private final AtomicReference<Map<String, String>> clientEnv = new AtomicReference<>();
@@ -1778,7 +1779,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   /** Sets the packages that should be treated as deleted and ignored. */
   @VisibleForTesting // productionVisibility = Visibility.PRIVATE
-  public abstract void setDeletedPackages(Iterable<PackageIdentifier> pkgs);
+  public abstract void setDeletedPackages(DeletedPackages pkgs);
 
   /**
    * Prepares the evaluator for loading.
@@ -3053,7 +3054,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     @Override
     public boolean isPackageDeleted(PackageIdentifier packageName) {
-      return deletedPackages.get().contains(packageName);
+      return deletedPackages.get().matches(packageName);
     }
 
     @Override
@@ -3182,7 +3183,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           tsgm);
     }
     try (SilentCloseable c = Profiler.instance().profile("setDeletedPackages")) {
-      setDeletedPackages(packageOptions.getDeletedPackagesOrEmptySet());
+      setDeletedPackages(packageOptions.getDeletedPackages());
     }
 
     incrementalBuildMonitor = new SkyframeIncrementalBuildMonitor();
