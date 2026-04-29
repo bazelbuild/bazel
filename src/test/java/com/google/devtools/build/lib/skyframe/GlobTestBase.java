@@ -19,7 +19,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.testing.EqualsTester;
@@ -39,6 +38,7 @@ import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.Globber;
 import com.google.devtools.build.lib.packages.Globber.Operation;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.pkgcache.DeletedPackages;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
@@ -129,8 +129,8 @@ public abstract class GlobTestBase {
   }
 
   private Map<SkyFunctionName, SkyFunction> createFunctionMap() {
-    AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
-        new AtomicReference<>(ImmutableSet.of());
+    AtomicReference<DeletedPackages> deletedPackages =
+        new AtomicReference<>(DeletedPackages.EMPTY);
     BlazeDirectories directories =
         new BlazeDirectories(
             new ServerDirectories(root, root, root), root, TestConstants.PRODUCT_NAME);

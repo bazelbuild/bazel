@@ -25,7 +25,6 @@ import static org.junit.Assert.assertEquals;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -44,10 +43,10 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
+import com.google.devtools.build.lib.pkgcache.DeletedPackages;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
@@ -140,8 +139,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
                 outputBase,
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
-    AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
-        new AtomicReference<>(ImmutableSet.of());
+    AtomicReference<DeletedPackages> deletedPackages =
+        new AtomicReference<>(DeletedPackages.EMPTY);
     BlazeDirectories directories =
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, rootDirectory),

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.packages.util;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -269,8 +268,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
-    skyframeExecutor.setDeletedPackages(
-        ImmutableSet.copyOf(packageOptions.getDeletedPackagesOrEmptySet()));
+    skyframeExecutor.setDeletedPackages(packageOptions.getDeletedPackages());
   }
 
   private static PackageOptions parsePackageOptions(String... options) throws Exception {
