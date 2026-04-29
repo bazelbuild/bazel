@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Range;
-import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -59,6 +58,7 @@ import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassId;
+import com.google.devtools.build.lib.pkgcache.DeletedPackages;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -107,7 +107,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Callable;
@@ -378,18 +377,16 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   /** Sets the packages that should be treated as deleted and ignored. */
   @Override
   @VisibleForTesting // productionVisibility = Visibility.PRIVATE
-  public void setDeletedPackages(Iterable<PackageIdentifier> pkgs) {
-    ImmutableSet<PackageIdentifier> newDeletedPackagesSet = ImmutableSet.copyOf(pkgs);
-
-    Set<PackageIdentifier> newlyDeletedOrNotDeletedPackages =
-        Sets.symmetricDifference(deletedPackages.get(), newDeletedPackagesSet);
-    if (!newlyDeletedOrNotDeletedPackages.isEmpty()) {
+  public void setDeletedPackages(DeletedPackages pkgs) {
+    DeletedPackages previous = deletedPackages.get();
+    if (!previous.equals(pkgs)) {
       // PackageLookupValue is a HERMETIC node type, so we can't invalidate it.
       memoizingEvaluator.delete(
-          k -> PackageLookupValue.appliesToKey(k, newlyDeletedOrNotDeletedPackages::contains));
+          k ->
+              PackageLookupValue.appliesToKey(k, id -> previous.matches(id) != pkgs.matches(id)));
     }
 
-    deletedPackages.set(newDeletedPackagesSet);
+    deletedPackages.set(pkgs);
   }
 
   /**

@@ -514,7 +514,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         QuiescingExecutorsImpl.forTesting(),
         tsgm);
     skyframeExecutor.setActionEnv(ImmutableMap.of());
-    skyframeExecutor.setDeletedPackages(packageOptions.getDeletedPackagesOrEmptySet());
+    skyframeExecutor.setDeletedPackages(packageOptions.getDeletedPackages());
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
