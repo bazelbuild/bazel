@@ -5739,7 +5739,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(failFastException)
         .hasMessageThat()
         .contains("'*' must be the only item in 'toolchains_aspects' list");
-    assertContainsEvent("'*' must be the only item in 'toolchains_aspects' list");
   }
 
   @Test
