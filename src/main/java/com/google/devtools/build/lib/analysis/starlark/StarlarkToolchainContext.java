@@ -57,7 +57,7 @@ public abstract class StarlarkToolchainContext implements ToolchainContextApi {
 
         @Override
         public StarlarkList<Label> toolchainTypes() {
-          return StarlarkList.immutableCopyOf(ImmutableList.<Label>of());
+          return StarlarkList.empty();
         }
       };
 

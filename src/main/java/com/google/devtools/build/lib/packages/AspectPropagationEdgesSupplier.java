@@ -226,14 +226,13 @@ public sealed interface AspectPropagationEdgesSupplier<T> {
     if (toolchainsAspects.size() == 1 && "*".equals(toolchainsAspects.get(0))) {
       return ImmutableSet.of(ALL_TOOLCHAINS);
     }
-    for (String input : toolchainsAspects) {
-      if ("*".equals(input)) {
-        throw new EvalException("'*' must be the only item in 'toolchains_aspects' list");
-      }
-    }
 
     ImmutableSet.Builder<Label> parsedLabels = new ImmutableSet.Builder<>();
     for (String input : toolchainsAspects) {
+      if ("*".equals(input)) {
+        // This is already handled if the list has a single '*' item in it
+        throw new EvalException("'*' must be the only item in 'toolchains_aspects' list");
+      }
       try {
         Label label = labelConverter.convert(input);
         parsedLabels.add(label);
