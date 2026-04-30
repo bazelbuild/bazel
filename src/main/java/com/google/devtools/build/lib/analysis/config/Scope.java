@@ -35,7 +35,15 @@ public class Scope {
     /** The flag's value resets on exec transitions. */
     public static final String TARGET = "target";
 
-    /** The flag resets on targets outside the flag's project. See PROJECT.scl. */
+    /**
+     * The flag resets on targets outside the flag's project. See PROJECT.scl.
+     *
+     * <p>Unlike {@code target} scope, this flag's value is preserved across exec transitions:
+     * the value propagates from the target configuration into exec configurations. The
+     * project-boundary enforcement (resetting out-of-scope targets to the baseline) is still
+     * applied independently for each target configuration via
+     * {@code BuildConfigurationKeyProducer}.
+     */
     public static final String PROJECT = "project";
 
     /** Placeholder for flags that don't explicitly specify scope. Shouldn't be set directly. */

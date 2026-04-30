@@ -326,9 +326,9 @@ public final class BuildConfigurationKeyProducer<C>
   private static BuildOptions resetFlags(
       BuildOptionsScopeValue buildOptionsScopeValue,
       BuildOptions baselineConfiguration,
-      Label label) {
+      @Nullable Label label) {
     Preconditions.checkNotNull(buildOptionsScopeValue);
-    Preconditions.checkNotNull(label);
+
 
     BuildOptions transitionedOptionsWithScopeType =
         buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes();
@@ -347,12 +347,10 @@ public final class BuildConfigurationKeyProducer<C>
       Label flagLabel = flagEntry.getKey();
       Scope scope = buildOptionsScopeValue.getFullyResolvedScopes().get(flagLabel);
       if (scope == null) {
+        Scope.ScopeType flagScopeType =
+            transitionedOptionsWithScopeType.getScopeTypeMap().get(flagLabel);
         Verify.verify(
-            !transitionedOptionsWithScopeType
-                .getScopeTypeMap()
-                .get(flagLabel)
-                .scopeType()
-                .equals(Scope.ScopeType.PROJECT));
+            !flagScopeType.scopeType().equals(Scope.ScopeType.PROJECT));
       } else if (scope.getScopeType().scopeType().equals(Scope.ScopeType.PROJECT)) {
         Object flagValue = flagEntry.getValue();
         Object baselineValue = baselineConfiguration.getStarlarkOptions().get(flagLabel);
@@ -380,8 +378,14 @@ public final class BuildConfigurationKeyProducer<C>
     return scopedBuildOptions;
   }
 
-  private static boolean isInScope(Label label, Scope.ScopeDefinition scopeDefinition) {
-    Preconditions.checkNotNull(scopeDefinition);
+  private static boolean isInScope(@Nullable Label label, @Nullable Scope.ScopeDefinition scopeDefinition) {
+    // A null scopeDefinition means the flag's package has no PROJECT.scl file. Treat the target
+    // as not in scope so the flag resets to its baseline value.
+    // Also, if the label is null, we are evaluating a configuration without a target, so we also treat it
+    // as out of scope.
+    if (scopeDefinition == null || label == null) {
+      return false;
+    }
     for (String path : scopeDefinition.getOwnedCodePaths()) {
       if (label.getCanonicalForm().startsWith(path)) {
         return true;

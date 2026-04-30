@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
+import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -499,6 +500,11 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             on_leave_scope = "another_value"
         )
         string_flag(
+            name = "project_scope",
+            build_setting_default = "default",
+            scope = "project",
+        )
+        string_flag(
             name = "another_flag",
             build_setting_default = "default",
         )
@@ -509,14 +515,16 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
         )
         """);
 
-    BuildConfigurationValue execConfig =
-        createExec(
+    BuildOptions targetOptions =
+        parseBuildOptions(
             ImmutableMap.of(
                 "//test:default_scope",
                 "custom",
                 "//test:target_scope",
                 "custom",
                 "//test:universal_scope",
+                "custom",
+                "//test:project_scope",
                 "custom",
                 "//test:flag_in_exec_config_set_to_another_value",
                 "target_value",
@@ -527,26 +535,31 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             "--experimental_exclude_starlark_flags_from_exec_config="
                 + (propagateByDefault ? "false" : "true"));
 
+    BuildOptions execOptions =
+        AnalysisTestUtil.execOptions(targetOptions, skyframeExecutor, reporter);
+
     if (propagateByDefault) {
-      assertThat(execConfig.getOptions().getStarlarkOptions())
+      assertThat(execOptions.getStarlarkOptions())
           .containsExactly(
               Label.parseCanonicalUnchecked("//test:universal_scope"),
+              "custom",
+              Label.parseCanonicalUnchecked("//test:project_scope"),
               "custom",
               Label.parseCanonicalUnchecked("//test:default_scope"),
               "custom",
               Label.parseCanonicalUnchecked("//test:another_flag"),
               "default");
     } else {
-      assertThat(execConfig.getOptions().getStarlarkOptions())
+      assertThat(execOptions.getStarlarkOptions())
           .containsExactly(
               Label.parseCanonicalUnchecked("//test:universal_scope"),
+              "custom",
+              Label.parseCanonicalUnchecked("//test:project_scope"),
               "custom",
               Label.parseCanonicalUnchecked("//test:flag_in_exec_config_set_to_another_value"),
               "another_value",
               Label.parseCanonicalUnchecked(
                   "//test:flag_in_exec_config_reference_another_flag_value"),
-              "default",
-              Label.parseCanonicalUnchecked("//test:another_flag"),
               "default");
     }
   }
