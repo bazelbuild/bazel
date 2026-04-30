@@ -1,3 +1,41 @@
+## Release 10.0.0-pre.20260421.2 (2026-04-30)
+
+```
+Baseline: 2d4650fe518304730dbda56c27cc3245784aea10
+
+Cherry picks:
+
+   + 84421290d1715dccc28b30aa662305d9964993f2:
+     Ensure Blaze profiler provides a valid clock fallback for
+     logging.
+   + 4090746091f5c6cad2d483bb64157c8beb8559b5:
+     Fix :bazel_bootstrap_distfile_test and
+     :bazel_bootstrap_distfile_tar_test.
+```
+
+Important changes:
+
+  - Added the `module_ctx.tag_sort_key(tag)` method, which returns an
+    opaque object for the given tag that can be compared to derive
+    the order in which tags from different classes appear in the
+    MODULE.bazel file.
+
+This release contains contributions from many people at Google, as well as Douglas Thor, Hoyt Summers Pittman, Jacob Nowjack, Keith Smiley, Xudong Yang.
+
+## Release 10.0.0-pre.20260416.1 (2026-04-23)
+
+```
+Baseline: ee72e6ddbcf19db6e4ddf127bde56ca5676de780
+```
+
+Important changes:
+
+  - Large numbers with 5+ digits in CLI output are now formatted with
+    comma separators for improved readability (e.g., "12,345 targets
+    configured" instead of "12345 targets configured")
+
+This release contains contributions from many people at Google, as well as Anthony Pratti, giria660, Jacob Nowjack, John Cater, Keith Smiley, Sarad Pant, Sarad, Tyler Breisacher, Tyler French.
+
 ## Release 9.1.0 (2026-04-20)
 
 ```
