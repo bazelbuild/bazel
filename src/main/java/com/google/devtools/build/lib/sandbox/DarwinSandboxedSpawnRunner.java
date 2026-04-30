@@ -20,6 +20,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.escape.CharEscaperBuilder;
+import com.google.common.escape.Escaper;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -55,6 +57,9 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   /** Path to the {@code sandbox-exec} system tool to use. */
   @VisibleForTesting
   static String sandboxExecBinary = "/usr/bin/sandbox-exec";
+
+  private static final Escaper SANDBOX_PROFILE_STRING_ESCAPER =
+      new CharEscaperBuilder().addEscape('\\', "\\\\").addEscape('"', "\\\"").toEscaper();
 
   // Since checking if sandbox is supported is expensive, we remember what we've checked.
   private static Boolean isSupported = null;
@@ -284,10 +289,10 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
       out.println("(allow file-write*");
       for (Path path : writableDirs) {
-        out.println("    (subpath \"" + path.getPathString() + "\")");
+        out.println("    (subpath \"" + sandboxProfileString(path) + "\")");
       }
       if (statisticsPath != null) {
-        out.println("    (literal \"" + statisticsPath.getPathString() + "\")");
+        out.println("    (literal \"" + sandboxProfileString(statisticsPath) + "\")");
       }
       out.println(")");
 
@@ -296,11 +301,15 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         // The sandbox configuration file is not part of a cache key and sandbox-exec doesn't care
         // about ordering of paths in expressions, so it's fine if the iteration order is random.
         for (Path inaccessiblePath : inaccessiblePaths) {
-          out.println("    (subpath \"" + inaccessiblePath + "\")");
+          out.println("    (subpath \"" + sandboxProfileString(inaccessiblePath) + "\")");
         }
         out.println(")");
       }
     }
+  }
+
+  private static String sandboxProfileString(Path path) {
+    return SANDBOX_PROFILE_STRING_ESCAPER.escape(path.getPathString());
   }
 
   @Override
