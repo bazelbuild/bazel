@@ -415,4 +415,196 @@ EOF
   expect_log "-opt-exec"
 }
 
+function test_foobar_exec_transition_foo_baz_keeps_flag() {
+  echo "testing test_foobar_exec_transition_foo_baz_keeps_flag"
+  local -r pkg="foo"
+  
+  mkdir -p "${pkg}"
+  
+  # define a project-scoped flag
+  cat > "${pkg}/flag.bzl" <<EOF
+BuildSettingInfo = provider(fields = ["value"])
+
+def _sample_flag_impl(ctx):
+    return BuildSettingInfo(value = ctx.build_setting_value)
+
+sample_flag = rule(
+    implementation = _sample_flag_impl,
+    build_setting = config.string(flag = True),
+    attrs = {
+      "scope": attr.string(default = "universal"),
+    }
+)
+EOF
+
+  cat > "${pkg}/BUILD" <<EOF
+load("//${pkg}:flag.bzl", "sample_flag")
+
+sample_flag(
+    name = "project_flag",
+    scope = "project",
+    build_setting_default = "default",
+)
+EOF
+
+  # create PROJECT.scl
+  cat > "${pkg}/PROJECT.scl" <<EOF
+load("//third_party/bazel/src/main/protobuf/project:project_proto.scl", "project_pb2")
+project = project_pb2.Project.create(project_directories = [ "//${pkg}"])
+EOF
+
+  # create rules that use the flag
+  cat > "${pkg}/rules.bzl" <<EOF
+load("//${pkg}:flag.bzl", "BuildSettingInfo")
+
+def _exec_dep_impl(ctx):
+    print("Exec dep flag value: " + ctx.attr._flag[BuildSettingInfo].value)
+
+exec_dep_rule = rule(
+    implementation = _exec_dep_impl,
+    attrs = {
+        "_flag": attr.label(default = "//${pkg}:project_flag"),
+    }
+)
+
+def _main_rule_impl(ctx):
+    pass
+
+def _set_flag_transition_impl(settings, attr):
+    return {"//${pkg}:project_flag": "custom_value"}
+
+set_flag_transition = transition(
+    implementation = _set_flag_transition_impl,
+    inputs = [],
+    outputs = ["//${pkg}:project_flag"]
+)
+
+main_rule = rule(
+    implementation = _main_rule_impl,
+    cfg = set_flag_transition,
+    attrs = {
+        "exec_dep": attr.label(cfg = "exec"),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist"
+        ),
+    }
+)
+EOF
+
+  cat >> "${pkg}/BUILD" <<EOF
+load("//${pkg}:rules.bzl", "main_rule", "exec_dep_rule")
+
+exec_dep_rule(
+    name = "exec_target",
+)
+
+main_rule(
+    name = "main_target",
+    exec_dep = ":exec_target",
+)
+EOF
+
+  bazel build //${pkg}:main_target --experimental_enable_scl_dialect >& $TEST_log || fail "bazel failed"
+  
+  expect_log "Exec dep flag value: custom_value"
+}
+
+function test_foobar_exec_transition_otherpackage_baz_drops_flag() {
+  echo "testing test_foobar_exec_transition_otherpackage_baz_drops_flag"
+  local -r pkg="foo"
+  local -r other_pkg="otherpackage"
+  
+  mkdir -p "${pkg}"
+  mkdir -p "${other_pkg}"
+  
+  # define a project-scoped flag
+  cat > "${pkg}/flag.bzl" <<EOF
+BuildSettingInfo = provider(fields = ["value"])
+
+def _sample_flag_impl(ctx):
+    return BuildSettingInfo(value = ctx.build_setting_value)
+
+sample_flag = rule(
+    implementation = _sample_flag_impl,
+    build_setting = config.string(flag = True),
+    attrs = {
+      "scope": attr.string(default = "universal"),
+    }
+)
+EOF
+
+  cat > "${pkg}/BUILD" <<EOF
+load("//${pkg}:flag.bzl", "sample_flag")
+
+package(default_visibility = ["//visibility:public"])
+
+sample_flag(
+    name = "project_flag",
+    scope = "project",
+    build_setting_default = "default",
+)
+EOF
+
+  # create PROJECT.scl
+  cat > "${pkg}/PROJECT.scl" <<EOF
+load("//third_party/bazel/src/main/protobuf/project:project_proto.scl", "project_pb2")
+project = project_pb2.Project.create(project_directories = [ "//${pkg}"])
+EOF
+
+  # create rules that use the flag
+  cat > "${other_pkg}/rules.bzl" <<EOF
+load("//${pkg}:flag.bzl", "BuildSettingInfo")
+
+def _exec_dep_impl(ctx):
+    print("Exec dep flag value: " + ctx.attr._flag[BuildSettingInfo].value)
+
+exec_dep_rule = rule(
+    implementation = _exec_dep_impl,
+    attrs = {
+        "_flag": attr.label(default = "//${pkg}:project_flag"),
+    }
+)
+
+def _main_rule_impl(ctx):
+    pass
+
+def _set_flag_transition_impl(settings, attr):
+    return {"//${pkg}:project_flag": "custom_value"}
+
+set_flag_transition = transition(
+    implementation = _set_flag_transition_impl,
+    inputs = [],
+    outputs = ["//${pkg}:project_flag"]
+)
+
+main_rule = rule(
+    implementation = _main_rule_impl,
+    cfg = set_flag_transition,
+    attrs = {
+        "exec_dep": attr.label(cfg = "exec"),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist"
+        ),
+    }
+)
+EOF
+
+  cat > "${other_pkg}/BUILD" <<EOF
+load("//${other_pkg}:rules.bzl", "main_rule", "exec_dep_rule")
+
+exec_dep_rule(
+    name = "exec_target",
+)
+
+main_rule(
+    name = "main_target",
+    exec_dep = ":exec_target",
+)
+EOF
+
+  bazel build //${other_pkg}:main_target --experimental_enable_scl_dialect >& $TEST_log || fail "bazel failed"
+  
+  expect_log "Exec dep flag value: default"
+}
+
 run_suite "Integration tests for flags scoping"

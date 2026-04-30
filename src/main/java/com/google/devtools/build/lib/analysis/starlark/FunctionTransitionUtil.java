@@ -237,12 +237,15 @@ public final class FunctionTransitionUtil {
     }
     if (!options.get(CoreOptions.class).getExcludeStarlarkFlagsFromExecConfig()) {
       // Starlark flags propagate to exec by default. This can only be changed by a flag explicitly
-      // setting "scope = 'target'".
+      // setting "scope = 'target'". Project-scoped flags also propagate through exec transitions:
+      // their value is maintained across exec boundaries, with project-boundary enforcement still
+      // applied at target-configuration time by BuildConfigurationKeyProducer.
       return starlarkOptions.entrySet().stream()
           .filter(
               entry -> {
                 String scopeType = options.getScopeTypeMap().get(entry.getKey()).scopeType();
                 return scopeType.equals(Scope.ScopeType.UNIVERSAL)
+                    || scopeType.equals(Scope.ScopeType.PROJECT)
                     || scopeType.equals(Scope.ScopeType.DEFAULT);
               })
           .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -263,7 +266,10 @@ public final class FunctionTransitionUtil {
     ImmutableMap.Builder<Label, Object> ans = ImmutableMap.builder();
     for (Map.Entry<Label, Object> entry : starlarkOptions.entrySet()) {
       String scopeType = options.getScopeTypeMap().get(entry.getKey()).scopeType();
-      if (scopeType.equals(Scope.ScopeType.UNIVERSAL)) {
+      if (scopeType.equals(Scope.ScopeType.UNIVERSAL) || scopeType.equals(Scope.ScopeType.PROJECT)) {
+        // Universal flags always propagate. Project-scoped flags also propagate through exec
+        // transitions; their value is maintained across exec boundaries, with project-boundary
+        // enforcement applied later at target-configuration time.
         ans.put(entry);
       } else if (scopeType.equals(Scope.ScopeType.TARGET)) {
         Object onLeaveScopeValue = options.getOnLeaveScopeValues().get(entry.getKey());
