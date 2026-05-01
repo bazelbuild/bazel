@@ -39,4 +39,19 @@ function test_bzl_srcs() {
   done
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/29222
+# The filegroup @bazel_tools//tools:tools_for_bazel_subcommands must exist so
+# that users who run Bazel offline (e.g. with --vendor_dir and --nofetch) can
+# add it to `bazel vendor` to pick up implicit tool dependencies of Bazel
+# subcommands like `bazel mod tidy` (which needs buildozer).
+function test_tools_for_bazel_subcommands() {
+  local deps
+  deps=$(bazel query 'deps(@bazel_tools//tools:tools_for_bazel_subcommands)') \
+    || fail "expected target @bazel_tools//tools:tools_for_bazel_subcommands to exist"
+  # buildozer is required by `bazel mod tidy` (see BazelModTidyFunction).
+  if ! [[ "$deps" == *"buildozer"* ]]; then
+    fail "expected buildozer in deps of @bazel_tools//tools:tools_for_bazel_subcommands; got: $deps"
+  fi
+}
+
 run_suite "bazel_tools test suite"
