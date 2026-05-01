@@ -7,7 +7,10 @@ py_binary(
     srcs = ["instrumentation_test_check.py"],
     python_version = "PY3",
     srcs_version = "PY3",
-    deps = ["//third_party/py/abseil"],
+    deps = [
+        "@abseil-py//absl:app",
+        "@abseil-py//absl/flags",
+    ],
 )
 
 py_test(

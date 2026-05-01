@@ -20,7 +20,8 @@ py_binary(
         ":base",
         ":bazel_api",
         ":lib",
-        "//third_party/py/abseil",
+        "@abseil-py//absl:app",
+        "@abseil-py//absl/flags",
     ],
 )
 

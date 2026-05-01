@@ -45,7 +45,8 @@ py_library(
     deps = [
         ":aquery_differ_resolvers",
         "//src/main/protobuf:analysis_v2_py_proto",
-        "//third_party/py/abseil",
+        "@abseil-py//absl:app",
+        "@abseil-py//absl/flags",
     ],
 )
 

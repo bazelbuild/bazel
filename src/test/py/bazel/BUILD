@@ -38,7 +38,7 @@ py_library(
         "//tools/python:__pkg__",
     ],
     deps = [
-        "//third_party/py/abseil",
+        "@abseil-py//absl/testing:absltest",
         requirement("bazel-runfiles"),
     ],
 )

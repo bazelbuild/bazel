@@ -91,7 +91,10 @@ filegroup(
 py_binary(
     name = "generate_fish_completion",
     srcs = ["generate_fish_completion.py"],
-    deps = ["//third_party/py/abseil"],
+    deps = [
+        "@abseil-py//absl:app",
+        "@abseil-py//absl/flags",
+    ],
 )
 
 genrule(

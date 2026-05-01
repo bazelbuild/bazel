@@ -78,7 +78,8 @@ py_binary(
     srcs = ["create_release_docs.py"],
     deps = [
         ":rewriter",
-        "//third_party/py/abseil",
+        "@abseil-py//absl:app",
+        "@abseil-py//absl/flags",
     ],
 )
 
@@ -93,7 +94,7 @@ py_test(
     data = [":testdata"],
     deps = [
         ":rewriter",
-        "//third_party/py/abseil",
+        "@abseil-py//absl/testing:parameterized",
     ],
 )
 
@@ -104,7 +105,8 @@ py_binary(
         "//src/main/java/com/google/devtools/build/lib:__pkg__",
     ],
     deps = [
-        "//third_party/py/abseil",
+        "@abseil-py//absl:app",
+        "@abseil-py//absl/flags",
         requirement("markdownify"),
     ],
 )

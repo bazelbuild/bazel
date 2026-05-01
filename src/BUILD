@@ -109,7 +109,6 @@ JAVA_TOOLS = [
                "//third_party/def_parser:srcs",
                "//third_party/ijar:embedded_zipper_sources",
                "//third_party/ijar:zipper",
-               "//third_party/py/abseil:srcs",
                "//tools:embedded_tools_srcs",
            ] + select({
                "//src/conditions:darwin": [
