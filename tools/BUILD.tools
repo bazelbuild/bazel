@@ -41,7 +41,9 @@ filegroup(
 filegroup(
     name = "tools_for_bazel_subcommands",
     srcs = [
-        # Required by `bazel mod tidy` (see BazelModTidyFunction).
+        # Required by `bazel mod tidy`. Keep in sync with the label resolved
+        # in src/main/java/com/google/devtools/build/lib/bazel/bzlmod/
+        # BazelModTidyFunction.java (search for "buildozer.exe").
         "@buildozer_binary//:buildozer.exe",
     ],
 )
