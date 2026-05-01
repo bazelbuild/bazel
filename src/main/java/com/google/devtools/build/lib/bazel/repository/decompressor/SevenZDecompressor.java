@@ -22,6 +22,7 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException;
 import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathContainmentPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InputStream;
@@ -121,7 +122,7 @@ public class SevenZDecompressor implements Decompressor {
               "Failed to extract %s, 7-zipped paths cannot be absolute", strippedRelativePath));
     }
     Path outputPath = destinationDirectory.getRelative(strippedRelativePath);
-    if (!outputPath.startsWith(destinationDirectory)) {
+    if (!PathContainmentPolicy.HOST_POLICY.isContained(outputPath, destinationDirectory)) {
       throw new IOException(
           String.format(
               "Failed to extract %s, path is escaping the destination directory",

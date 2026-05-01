@@ -23,6 +23,7 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathContainmentPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.zip.ZipFileEntry;
 import com.google.devtools.build.zip.ZipReader;
@@ -137,7 +138,7 @@ public class ZipDecompressor implements Decompressor {
               "Failed to extract %s, zipped paths cannot be absolute", strippedRelativePath));
     }
     Path outputPath = destinationDirectory.getRelative(strippedRelativePath);
-    if (!outputPath.startsWith(destinationDirectory)) {
+    if (!PathContainmentPolicy.HOST_POLICY.isContained(outputPath, destinationDirectory)) {
       throw new IOException(
           String.format(
               "Failed to extract %s, path is escaping the destination directory",
@@ -158,7 +159,8 @@ public class ZipDecompressor implements Decompressor {
 
       PathFragment target = StripPrefixedPath.createPathFragment(buffer);
       Path targetPath = outputPath.getParentDirectory().getRelative(target);
-      if (!target.isAbsolute() && !targetPath.startsWith(destinationDirectory)) {
+      if (!target.isAbsolute()
+          && !PathContainmentPolicy.HOST_POLICY.isContained(targetPath, destinationDirectory)) {
         throw new IOException(
             "Zip entries cannot refer to files outside of their directory: "
                 + reader.getFilename()

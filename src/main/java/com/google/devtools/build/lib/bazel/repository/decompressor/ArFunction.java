@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.repository.decompressor;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathContainmentPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -59,7 +60,8 @@ public class ArFunction implements Decompressor {
               String.format("Failed to extract %s, ar paths cannot be absolute", entryName));
         }
         Path filePath = descriptor.destinationPath().getRelative(entryPathRelative);
-        if (!filePath.startsWith(descriptor.destinationPath())) {
+        if (!PathContainmentPolicy.HOST_POLICY
+            .isContained(filePath, descriptor.destinationPath())) {
           throw new IOException(
               String.format(
                   "Failed to extract %s, path is escaping the destination directory", entryName));
