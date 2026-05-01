@@ -28,8 +28,13 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Pattern;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
 
@@ -39,7 +44,23 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, DirectoryTreeDigestFunctionException {
-    RootedPath rootedPath = (RootedPath) skyKey.argument();
+    Map<String, Pattern> patternCache = new HashMap<>();
+    FilteredRootedPath filteredRootedPath = (FilteredRootedPath) skyKey.argument();
+    RootedPath rootedPath = filteredRootedPath.path();
+    if (filteredRootedPath.excludes(rootedPath, patternCache)) {
+      // The path we are trying to compute a digest for is excluded.
+      // This should only happen at the very beginning/root of a tree digest as the subsequent
+      // computation of digests for child nodes should be excluded before they are asked to be
+      // computed. Eg. user asks to watch /some/path and excludes everything under it ('**').  This
+      // would be a nonsensical action, so throw an error.
+      throw new DirectoryTreeDigestFunctionException(
+          new FileNotFoundException(
+              String.format(
+                  "Tried to compute the digest of path '%s' but this path was filtered out by glob exclude base '%s' and excludes: %s",
+                  rootedPath.toString(),
+                  filteredRootedPath.globBase(),
+                  filteredRootedPath.excludes())));
+    }
     DirectoryListingValue dirListingValue =
         (DirectoryListingValue) env.getValue(DirectoryListingValue.key(rootedPath));
     if (dirListingValue == null) {
@@ -51,6 +72,15 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
     ImmutableSet<String> sortedDirents =
         StreamSupport.stream(dirListingValue.getDirents().spliterator(), /* parallel= */ false)
             .map(Dirent::getName)
+            .filter(
+                entry -> {
+                  List<String> excludes = filteredRootedPath.excludes();
+                  if (excludes == null || excludes.isEmpty()) {
+                    return true;
+                  }
+                  String path = rootedPath.getRootRelativePath().getRelative(entry).toString();
+                  return !filteredRootedPath.excludes(path, patternCache);
+                })
             .sorted()
             .collect(toImmutableSet());
 
@@ -63,7 +93,8 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
 
     // For each entry that is a directory (or a symlink to a directory), find its own
     // DirectoryTreeDigestValue.
-    ImmutableList<String> subDirTreeDigests = getSubDirTreeDigests(env, fileValues);
+    ImmutableList<String> subDirTreeDigests =
+        getSubDirTreeDigests(env, fileValues, filteredRootedPath);
     if (subDirTreeDigests == null) {
       return null;
     }
@@ -122,12 +153,20 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
 
   @Nullable
   private static ImmutableList<String> getSubDirTreeDigests(
-      Environment env, ImmutableList<Pair<RootedPath, FileValue>> fileValues)
+      Environment env,
+      ImmutableList<Pair<RootedPath, FileValue>> fileValues,
+      FilteredRootedPath filteredRootedPath)
       throws InterruptedException {
     ImmutableSet<SkyKey> dirTreeDigestValueKeys =
         fileValues.stream()
             .filter(p -> p.getSecond().isDirectory())
-            .map(p -> DirectoryTreeDigestValue.key(p.getSecond().realRootedPath(p.getFirst())))
+            .map(
+                p ->
+                    DirectoryTreeDigestValue.key(
+                        new FilteredRootedPath(
+                            /* path= */ p.getSecond().realRootedPath(p.getFirst()),
+                            /* globBase= */ filteredRootedPath.globBase(),
+                            /* excludes= */filteredRootedPath.excludes())))
             .collect(toImmutableSet());
     SkyframeLookupResult result = env.getValuesAndExceptions(dirTreeDigestValueKeys);
     if (env.valuesMissing()

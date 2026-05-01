@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
@@ -45,6 +46,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.InvalidPathException;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -53,6 +55,7 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -562,20 +565,36 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
               @ParamType(type = StarlarkPath.class)
             },
             doc = "Path of the directory tree to watch."),
+        @Param(
+            name = "exclude",
+            positional = false,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "[]",
+            named = true,
+            doc =
+                """
+                Glob patterns to exclude from watching. The patterns provided here will be joined \
+                with <code>path</code> to create the full glob pattern that will be matched \
+                against.  Eg. if <code>path</code> was <code>/example/path</code> and \
+                <code>exclude</code> was <code>[".ignore/**", "scratchFile"]</code>, then the glob \
+                pattern that would be excluded would be: <code>/example/path/.ignore/**</code> and \
+                <code>/example/patch/scratchFile</code>.
+                """),
       })
-  public void watchTree(Object path)
+  public void watchTree(Object path, Sequence<?> exclude)
       throws EvalException, InterruptedException, RepositoryFunctionException {
     StarlarkPath p = getPath(path);
     if (!p.isDir()) {
       throw Starlark.errorf("can't call watch_tree() on non-directory %s", p);
     }
+    List<String> excludes = Types.STRING_LIST.convert(exclude, "'watch_tree' argument");
     RepoCacheFriendlyPath repoCacheFriendlyPath =
         toRepoCacheFriendlyPath(p.getPath(), ShouldWatch.YES);
     if (repoCacheFriendlyPath == null) {
       return;
     }
     try {
-      getValueAndRecordInput(new RepoRecordedInput.DirTree(repoCacheFriendlyPath));
+      getValueAndRecordInput(new RepoRecordedInput.DirTree(repoCacheFriendlyPath, excludes));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
