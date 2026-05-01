@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.DirectoryTreeDigestValue;
 import com.google.devtools.build.lib.skyframe.EnvironmentVariableValue;
+import com.google.devtools.build.lib.skyframe.FilteredRootedPath;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepoEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
@@ -48,12 +49,17 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -613,8 +619,23 @@ public abstract sealed class RepoRecordedInput {
    * Represents an entire directory tree accessed during the fetch. Anything under the tree changing
    * (including adding/removing/renaming files or directories and changing file contents) will cause
    * it to go out of date.
+   *
+   * Files can be excluded from the out-of-date check with the given {@code excludes} glob patterns.
    */
   public static final class DirTree extends RepoRecordedInput {
+
+    /**
+     * A string sequence to delimit extra metadata on a directory path. This borrows web's query
+     * string to represent the extra options. An extra tab character is used after the question mark
+     * to further avoid collisions with real file paths.
+     *
+     * <p>Since there is currently only one parameter (excludes), it is hardcoded with the
+     * delimiter.
+     *
+     * <p>Eg. <code>/example/path?&lt;TAB&gt;excludes=glob/pattern/to/**&#47exclude</code>
+     */
+    public static final String METADATA_DELIMITER = "?\texcludes=";
+
     public static final Parser PARSER =
         new Parser() {
           @Override
@@ -625,7 +646,21 @@ public abstract sealed class RepoRecordedInput {
           @Override
           public RepoRecordedInput parse(String s) {
             try {
-              return new DirTree(RepoCacheFriendlyPath.parse(s));
+              int metadataIndex = s.indexOf(METADATA_DELIMITER);
+              if (metadataIndex != -1) {
+                // Parse out the query string.
+                String excludesQueryString =
+                    s.substring(metadataIndex + METADATA_DELIMITER.length());
+                String[] excludesArray = excludesQueryString.split(",");
+                List<String> excludesList =
+                    Arrays.stream(excludesArray)
+                        .map(exclude -> URLDecoder.decode(exclude, StandardCharsets.UTF_8))
+                        .collect(Collectors.toList());
+                return new DirTree(
+                    RepoCacheFriendlyPath.parse(s.substring(0, metadataIndex)), excludesList);
+              } else {
+                return new DirTree(RepoCacheFriendlyPath.parse(s), null);
+              }
             } catch (LabelSyntaxException e) {
               // malformed inputs cause refetch
               return NeverUpToDateRepoRecordedInput.PARSE_FAILURE;
@@ -634,9 +669,12 @@ public abstract sealed class RepoRecordedInput {
         };
 
     private final RepoCacheFriendlyPath path;
+    /** The glob patterns to exclude from watch/change detection. */
+    private final List<String> excludes;
 
-    public DirTree(RepoCacheFriendlyPath path) {
+    public DirTree(RepoCacheFriendlyPath path, List<String> excludes) {
       this.path = path;
+      this.excludes = excludes;
     }
 
     @Override
@@ -647,17 +685,32 @@ public abstract sealed class RepoRecordedInput {
       if (!(o instanceof DirTree that)) {
         return false;
       }
-      return Objects.equals(path, that.path);
+      return Objects.equals(path, that.path) && Objects.equals(excludes, that.excludes);
     }
 
     @Override
     public int hashCode() {
-      return path.hashCode();
+      int hash = path.hashCode();
+      if (excludes != null && !excludes.isEmpty()) {
+        return hash + excludes.hashCode();
+      }
+      return hash;
     }
 
     @Override
     public String toStringInternal() {
-      return path.toString();
+      if (this.excludes == null || this.excludes.isEmpty()) {
+        return path.toString();
+      } else {
+        // Excludes parameters represented as a query string.
+        StringBuilder sb = new StringBuilder(path.toString());
+        sb.append(METADATA_DELIMITER);
+        sb.append(
+            this.excludes.stream()
+                .map(s -> URLEncoder.encode(s, StandardCharsets.UTF_8))
+                .collect(Collectors.joining(",")));
+        return sb.toString();
+      }
     }
 
     @Override
@@ -667,7 +720,8 @@ public abstract sealed class RepoRecordedInput {
 
     @Override
     public SkyKey getSkyKey(BlazeDirectories directories) {
-      return DirectoryTreeDigestValue.key(path.getRootedPath(directories));
+      RootedPath rootedPath = path.getRootedPath(directories);
+      return DirectoryTreeDigestValue.key(new FilteredRootedPath(rootedPath, rootedPath, excludes));
     }
 
     @Override

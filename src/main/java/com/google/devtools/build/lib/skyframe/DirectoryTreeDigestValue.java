@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static java.util.Objects.requireNonNull;
 
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -34,15 +33,15 @@ public record DirectoryTreeDigestValue(String hexDigest) implements SkyValue {
     return new DirectoryTreeDigestValue(hexDigest);
   }
 
-  public static Key key(RootedPath path) {
+  public static Key key(FilteredRootedPath path) {
     return new Key(path);
   }
 
   /** Key type for {@link DirectoryTreeDigestValue}. */
-  public static class Key extends AbstractSkyKey<RootedPath> {
+  public static class Key extends AbstractSkyKey<FilteredRootedPath> {
 
-    private Key(RootedPath rootedPath) {
-      super(rootedPath);
+    private Key(FilteredRootedPath filteredRootedPath) {
+      super(filteredRootedPath);
     }
 
     @Override
