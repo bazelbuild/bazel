@@ -121,30 +121,21 @@ def embedded_jdk_repositories():
         downloaded_file_path = "zulu-macos-aarch64-vanilla.tar.gz",
         url = "https://cdn.azul.com/zulu/bin/zulu26.30.11-ca-jdk26.0.1-macosx_aarch64.tar.gz",
     )
+    # Both Windows JDKs use BellSoft Liberica so that cross-jlinking the Windows
+    # ARM64 JDK from a Windows x86_64 host succeeds: jlink in JDK 26 strictly
+    # requires that its own build identifier matches the build identifier of
+    # the target java.base module.
     http_file(
         name = "openjdk_win_vanilla",
-        integrity = "sha256-j3b0CLDiKJdLDJV4qSdZGJu13Pp/elIVgnd+QEoyRKA=",
-        downloaded_file_path = "zulu-win-vanilla.zip",
-        url = "https://cdn.azul.com/zulu/bin/zulu26.30.11-ca-jdk26.0.1-win_x64.zip",
+        integrity = "sha256-En7H6N+8rEOUfa+NziEm1slGG92cG10N9V9aoW1v48s=",
+        downloaded_file_path = "liberica-win-vanilla.zip",
+        url = "https://github.com/bell-sw/Liberica/releases/download/26.0.1%2B10/bellsoft-jdk26.0.1+10-windows-amd64.zip",
     )
     http_file(
         name = "openjdk_win_arm64_vanilla",
-        integrity = "sha256-SJLNlxTiIpR94adBWmlvQ632kVYFItxYWMCorwcJEsA=",
-        downloaded_file_path = "adoptopenjdk-win-arm64-vanilla.zip",
-        # Use an EA release of 26 here since Adoptium does not yet ship a GA
-        # Windows ARM64 build for JDK 26.
-        # https://github.com/bazelbuild/bazel/issues/28520
-        url = "https://github.com/adoptium/temurin26-binaries/releases/download/jdk-26%2B35-ea-beta/OpenJDK26U-jdk_aarch64_windows_hotspot_26_35-ea.zip",
-    )
-
-    # The Adoptium Temurin JDK above has JEP 493 enabled, which means it does not ship with jmods.
-    # These are needed for cross-jlinking (minimizing the JDK on a different platform).
-    # https://adoptium.net/news/2025/08/eclipse-temurin-jdk24-JEP493-enabled
-    http_file(
-        name = "openjdk_win_arm64_jmods",
-        integrity = "sha256-YLUU5f4mRQg3YXvVdStcAFgbq4rF7Ki6XuTaSfl+h/g=",
-        downloaded_file_path = "temurin-win-arm64-jmods.zip",
-        url = "https://github.com/adoptium/temurin26-binaries/releases/download/jdk-26%2B35-ea-beta/OpenJDK26U-jmods_aarch64_windows_hotspot_26_35-ea.zip",
+        integrity = "sha256-JMBoQdovyQStuciKVAawKJZmXkxqKpGYFyO0jiVUzPM=",
+        downloaded_file_path = "liberica-win-arm64-vanilla.zip",
+        url = "https://github.com/bell-sw/Liberica/releases/download/26.0.1%2B10/bellsoft-jdk26.0.1+10-windows-aarch64.zip",
     )
 
 def _async_profiler_repos(ctx):
