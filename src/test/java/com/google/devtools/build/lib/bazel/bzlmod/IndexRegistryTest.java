@@ -337,7 +337,8 @@ public class IndexRegistryTest extends FoundationTestCase {
             "patches": {
                 "foo.patch": "sha256-totallyarealhash"
             },
-            "patch_strip": 1
+            "patch_strip": 1,
+            "add_prefix": "addedSubfolder"
         }
         """);
     server.serve("/modules/foo/1.0/MODULE.bazel", "module(name = \"foo\", version = \"1.0\")");
@@ -374,6 +375,7 @@ public class IndexRegistryTest extends FoundationTestCase {
                         server.getUrl() + "/modules/foo/1.0/patches/foo.patch",
                         "sha256-totallyarealhash"))
                 .setRemotePatchStrip(1)
+                .setAddPrefix("addedSubfolder")
                 .build());
   }
 
