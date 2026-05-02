@@ -153,8 +153,42 @@ function release_to_github() {
     local github_token="$(gsutil cat gs://bazel-trusted-encrypted-secrets/github-trusted-token.enc | \
         gcloud kms decrypt --project bazel-public --location global --keyring buildkite --key github-trusted-token --ciphertext-file - --plaintext-file -)"
     if [ -z "${rc}" ]; then
-      GITHUB_TOKEN="${github_token}" github-release "bazelbuild/bazel" "${release_name}" "" "$(get_release_page)" "${artifact_dir}/*"
+      # --- FIX: Determine if this version is actually the highest semver ---
+      echo "+++ Checking if ${release_name} should be marked as Latest"
+      local true_latest_tag=$(curl -s https://api.github.com/repos/bazelbuild/bazel/releases | \
+        grep '"tag_name":' | \
+        sed -E 's/.*"([^"]+)".*/\1/' | \
+        sort -V | tail -n 1)
+
+      local make_latest="true"
+      if [[ -n "${true_latest_tag}" ]]; then
+        highest=$(printf '%s\n%s' "${true_latest_tag}" "${release_name}" | sort -V | tail -n 1)
+        if [[ "${release_name}" != "${highest}" ]]; then
+          echo "+++ Version ${release_name} is older than ${true_latest_tag}. Will NOT mark as latest."
+          make_latest="false"
+        fi
+      fi
+
+      GITHUB_TOKEN="${github_token}" github-release "bazelbuild/bazel" "${release_name}" "${release_branch}" "$(get_release_page)" "${artifact_dir}/*"
+
+      # --- FIX: If not the highest version, force GitHub API to set make_latest to false ---
+      if [[ "${make_latest}" == "false" ]]; then
+        echo "+++ Correcting GitHub release metadata via API (make_latest: false)"
+        sleep 2
+        # Fetch the ID of the release we just created
+        release_id=$(curl -s -H "Authorization: token ${github_token}" \
+          "https://api.github.com/repos/bazelbuild/bazel/releases/tags/${release_name}" | \
+          grep -m 1 '"id":' | sed -E 's/.*: ([0-9]+),.*/\1/')
+
+        if [[ -n "${release_id}" ]]; then
+          curl -s -X PATCH -H "Authorization: token ${github_token}" \
+          -H "Content-Type: application/json" \
+          -d '{"make_latest": "false"}' \
+          "https://api.github.com/repos/bazelbuild/bazel/releases/${release_id}"
+        fi
+      fi
     else
+      # Pre-releases (RCs) are already handled correctly by the tool and won't be marked "Latest"
       GITHUB_TOKEN="${github_token}" github-release -prerelease "bazelbuild/bazel" "${full_release_name}" "${release_branch}" "$(get_release_page)" "${artifact_dir}/*"
     fi
   fi
