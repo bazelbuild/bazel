@@ -35,11 +35,12 @@ public class AnnotationProcessingModule {
   public static class Builder {
     private Path sourceGenDir;
     private Path manifestProto;
+    private Path workDir;
 
     private Builder() {}
 
     public AnnotationProcessingModule build() {
-      return new AnnotationProcessingModule(sourceGenDir, manifestProto);
+      return new AnnotationProcessingModule(sourceGenDir, manifestProto, workDir);
     }
 
     public void setSourceGenDir(Path sourceGenDir) {
@@ -49,23 +50,42 @@ public class AnnotationProcessingModule {
     public void setManifestProtoPath(Path manifestProto) {
       this.manifestProto = manifestProto.toAbsolutePath();
     }
+
+    public void setWorkDir(Path workDir) {
+      this.workDir = workDir;
+    }
   }
 
   private final boolean enabled;
   private final Path sourceGenDir;
   private final Path manifestProto;
+  private final Path workDir;
 
   public boolean isGenerated(Path path) {
     return path.startsWith(sourceGenDir);
   }
 
   public Path stripSourceRoot(Path path) {
-    return path.startsWith(sourceGenDir) ? sourceGenDir.relativize(path) : path;
+    if (isGenerated(path)) {
+      return sourceGenDir.relativize(path);
+    }
+    // Strip the sandbox working directory prefix to produce deterministic exec-root-relative paths.
+    // Without this, multiplex worker sandboxing embeds a non-deterministic slot number
+    // (e.g. __sandbox/751/_main/...) in the manifest proto output.
+    return stripPrefix(path, workDir);
   }
 
-  private AnnotationProcessingModule(Path sourceGenDir, Path manifestProto) {
+  /** Returns {@code path} relativized against {@code prefix} if it is under it, else unchanged. */
+  private static Path stripPrefix(Path path, Path prefix) {
+    return !prefix.toString().isEmpty() && path.startsWith(prefix)
+        ? prefix.relativize(path)
+        : path;
+  }
+
+  private AnnotationProcessingModule(Path sourceGenDir, Path manifestProto, Path workDir) {
     this.sourceGenDir = sourceGenDir;
     this.manifestProto = manifestProto;
+    this.workDir = workDir != null ? workDir : Path.of("");
     this.enabled = sourceGenDir != null && manifestProto != null;
   }
 

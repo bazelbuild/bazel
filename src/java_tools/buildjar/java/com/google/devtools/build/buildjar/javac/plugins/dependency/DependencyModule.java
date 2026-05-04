@@ -31,6 +31,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.sun.tools.javac.code.Symbol.PackageSymbol;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -88,6 +89,7 @@ public final class DependencyModule {
   private final FixMessage fixMessage;
   private final Set<String> exemptGenerators;
   private final Set<PackageSymbol> packages;
+  private final Path workDir;
 
   DependencyModule(
       StrictJavaDeps strictJavaDeps,
@@ -99,7 +101,8 @@ public final class DependencyModule {
       String targetLabel,
       Path outputDepsProtoFile,
       FixMessage fixMessage,
-      Set<String> exemptGenerators) {
+      Set<String> exemptGenerators,
+      Path workDir) {
     this.strictJavaDeps = strictJavaDeps;
     this.fixDepsTool = fixDepsTool;
     this.directJars = directJars;
@@ -113,6 +116,29 @@ public final class DependencyModule {
     this.fixMessage = fixMessage;
     this.exemptGenerators = exemptGenerators;
     this.packages = new HashSet<>();
+    this.workDir = workDir != null ? workDir : Path.of("");
+  }
+
+  /** Returns the sandbox working directory that output paths are relativized against. */
+  public Path getWorkDir() {
+    return workDir;
+  }
+
+  /**
+   * Strips the sandbox working directory prefix from {@code path} and returns a deterministic,
+   * exec-root-relative path string for use in the deps proto.
+   *
+   * <p>Without stripping, multiplex worker sandboxing embeds a non-deterministic slot number (e.g.
+   * {@code __sandbox/1088/_main/...}) in the output. {@code path} is left unchanged if it is not
+   * under {@code workDir} (including when {@code workDir} is empty). {@link Path#toString} uses the
+   * platform separator (`\` on Windows), but the proto must always use `/`.
+   */
+  public static String stripWorkDir(Path workDir, Path path) {
+    Path relative =
+        !workDir.toString().isEmpty() && path.startsWith(workDir)
+            ? workDir.relativize(path)
+            : path;
+    return relative.toString().replace(File.separatorChar, '/');
   }
 
   /** Returns a plugin to be enabled in the compiler. */
@@ -340,6 +366,7 @@ public final class DependencyModule {
     private boolean strictClasspathMode = false;
     private FixMessage fixMessage = new DefaultFixMessage();
     private final Set<String> exemptGenerators = new LinkedHashSet<>(SJD_EXEMPT_PROCESSORS);
+    private Path workDir = Path.of("");
 
     private static class DefaultFixMessage implements FixMessage {
       @Override
@@ -376,7 +403,14 @@ public final class DependencyModule {
           targetLabel,
           outputDepsProtoFile,
           fixMessage,
-          exemptGenerators);
+          exemptGenerators,
+          workDir);
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setWorkDir(Path workDir) {
+      this.workDir = workDir;
+      return this;
     }
 
     /**
