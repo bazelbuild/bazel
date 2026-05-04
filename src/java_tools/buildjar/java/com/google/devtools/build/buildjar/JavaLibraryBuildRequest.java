@@ -177,12 +177,14 @@ public final class JavaLibraryBuildRequest {
     if (optionsParser.getTargetLabel() != null) {
       depsBuilder.setTargetLabel(optionsParser.getTargetLabel());
     }
+    depsBuilder.setWorkDir(workDir);
     this.dependencyModule = depsBuilder.build();
     this.sourceGenDir =
         deriveDirectory(optionsParser.getTargetLabel(), optionsParser.getOutputJar(), "_sources");
 
     AnnotationProcessingModule.Builder processingBuilder = AnnotationProcessingModule.builder();
     processingBuilder.setSourceGenDir(sourceGenDir);
+    processingBuilder.setWorkDir(workDir);
     if (optionsParser.getManifestProtoPath() != null) {
       processingBuilder.setManifestProtoPath(asPath(optionsParser.getManifestProtoPath()));
     }
