@@ -15,12 +15,15 @@ package com.google.devtools.build.lib.vfs.bazel;
 
 import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.GitSha1HashFunction;
+import com.google.devtools.build.lib.vfs.GitSha1Provider;
 import java.security.Security;
 import javax.annotation.Nullable;
 
 /** Bazel specific {@link DigestHashFunction}s. */
 public final class BazelHashFunctions {
   @Nullable public static final DigestHashFunction BLAKE3;
+  @Nullable public static final DigestHashFunction GITSHA1;
 
   static {
     DigestHashFunction hashFunction = null;
@@ -37,6 +40,9 @@ public final class BazelHashFunctions {
     }
 
     BLAKE3 = hashFunction;
+
+    Security.addProvider(new GitSha1Provider());
+    GITSHA1 = DigestHashFunction.register(GitSha1HashFunction.INSTANCE, "GITSHA1");
   }
 
   public static void ensureRegistered() {}
