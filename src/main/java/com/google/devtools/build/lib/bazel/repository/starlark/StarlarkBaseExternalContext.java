@@ -542,8 +542,10 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   private StructImpl calculateDownloadResult(Optional<Checksum> checksum, Path downloadedPath)
       throws InterruptedException, RepositoryFunctionException {
     Checksum finalChecksum;
+    long size;
     try {
       finalChecksum = calculateChecksum(checksum, downloadedPath);
+      size = downloadedPath.getFileSize();
     } catch (IOException e) {
       throw new RepositoryFunctionException(
           new IOException(
@@ -559,6 +561,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     if (finalChecksum.getKeyType() == KeyType.SHA256) {
       out.put("sha256", finalChecksum.toString());
     }
+    out.put("size_bytes", StarlarkInt.of(size));
     return StarlarkInfo.create(StructProvider.STRUCT, out.buildOrThrow(), Location.BUILTIN);
   }
 
@@ -679,7 +682,8 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 Downloads a file to the output path for the provided url and returns a struct \
 containing <code>success</code>, a flag which is <code>true</code> if the \
 download completed successfully, and if successful, a hash of the file \
-with the fields <code>sha256</code> and <code>integrity</code>. If the value \
+with the fields <code>sha256</code> and <code>integrity</code>, as well as \
+<code>size_bytes</code>, which contains the size of the downloaded file in bytes as an integer. If the value \
 of the <code>success</code> field is false, the <code>error</code> field will be set \
 with a message indicating why the download failed. The message in the <code>error</code> \
 field is for debugging purposes only and should not be relied upon as a stable API (the \
@@ -901,7 +905,8 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
 Downloads a file to the output path for the provided url, extracts it, and returns a \
 struct containing <code>success</code>, a flag which is <code>true</code> if the \
 download completed successfully, and if successful, a hash of the file with the \
-fields <code>sha256</code> and <code>integrity</code>. If the value \
+fields <code>sha256</code> and <code>integrity</code>, as well as the <code>size_bytes</code> \
+of the downloaded file in bytes as an integer. If the value \
 of the <code>success</code> field is false, the <code>error</code> field will be set \
 with a message indicating why the download failed. The message in the <code>error</code> \
 field is for debugging purposes only and should not be relied upon as a stable API (the \
