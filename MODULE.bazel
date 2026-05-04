@@ -23,12 +23,6 @@ bazel_dep(name = "googleapis", version = "0.0.0-20250604-de157ca3")
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2", repo_name = "com_google_googletest")
 bazel_dep(name = "grpc-java", version = "1.71.0")
 bazel_dep(name = "grpc", version = "1.76.0.bcr.1", repo_name = "com_github_grpc_grpc")
-single_version_override(
-    module_name = "grpc",
-    patch_strip = 1,
-    patches = ["//third_party:no_destruct.patch"],
-    version = "1.76.0.bcr.1",
-)
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "protobuf", version = "34.1", repo_name = "com_google_protobuf")
 bazel_dep(name = "re2", version = "2025-11-05.bcr.1")
@@ -73,7 +67,10 @@ bazel_dep(name = "protoc-gen-validate", version = "1.3.0", repo_name = None)
 single_version_override(
     module_name = "grpc",
     patch_strip = 1,
-    patches = ["//third_party:grpc-load-fixes.patch"],
+    patches = [
+        "//third_party:grpc-load-fixes.patch",
+        "//third_party:no_destruct.patch",
+    ],
 )
 
 # bazel_dep overrides
