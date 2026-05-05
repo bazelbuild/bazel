@@ -1396,9 +1396,8 @@ public final class SkyframeBuildView {
                     analysisEnvironment
                         .getSkyframeEnv()
                         .getValueOrThrow(bzlKey, BzlLoadFailedException.class),
-            (buildSettings) -> {
-              var detailsKey =
-                  StarlarkBuildSettingsDetailsValue.key(buildSettings);
+            (buildSettings, hostFlags) -> {
+              var detailsKey = StarlarkBuildSettingsDetailsValue.key(buildSettings, hostFlags);
               return (StarlarkBuildSettingsDetailsValue)
                   analysisEnvironment.getSkyframeEnv().getValue(detailsKey);
             });

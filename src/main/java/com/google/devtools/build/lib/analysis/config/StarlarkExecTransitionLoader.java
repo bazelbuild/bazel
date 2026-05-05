@@ -18,6 +18,7 @@ import static java.util.Objects.requireNonNull;
 
 import com.google.common.base.Splitter;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
@@ -75,7 +76,7 @@ public final class StarlarkExecTransitionLoader {
      * ready.
      */
     @Nullable
-    StarlarkBuildSettingsDetailsValue getValue(Set<Label> buildSettings)
+    StarlarkBuildSettingsDetailsValue getValue(Set<Label> buildSettings, Set<Label> hostFlags)
         throws InterruptedException, StarlarkExecTransitionLoadingException;
   }
 
@@ -141,8 +142,17 @@ public final class StarlarkExecTransitionLoader {
             .filter(e -> !(e.getValue() instanceof FeatureFlagValue))
             .map(Map.Entry::getKey)
             .collect(toImmutableSet());
+
     if (!starlarkFlags.isEmpty()) {
-      scopeDetails = detailsLoader.getValue(starlarkFlags);
+      // Look up the host flags declared by users in the blazerc/MODULE.bazel files with alias
+      // pointing to the starlark definition. This is useful to determine exec propagation for flags
+      // with scope that starts with "exec:--".
+      ImmutableSet<Label> hostFlags =
+          options.get(CoreOptions.class).getCommandLineFlagAliasesMap().entrySet().stream()
+              .filter(alias -> alias.getKey().startsWith("host_"))
+              .map(Map.Entry::getValue)
+              .collect(toImmutableSet());
+      scopeDetails = detailsLoader.getValue(starlarkFlags, hostFlags);
       if (scopeDetails == null) {
         return null;
       }

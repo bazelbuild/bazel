@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -63,6 +62,7 @@ import com.google.devtools.build.lib.analysis.producers.MissingEdgeError;
 import com.google.devtools.build.lib.analysis.producers.PrerequisiteParameters;
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsInputs;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
@@ -112,14 +112,14 @@ import net.starlark.java.syntax.Location;
  *   <li>getting this target's {@code select()} keys ({@link ConfigConditions}), which are used to
  *       evaluate all rule attributes with {@code select()} and determine exact dependencies
  *   <li>figuring out which toolchains this target needs
- *   <li>getting the {@link ConfiguredTargetValue}s of this target's prerequisites (through
- *       recursive calls to {@link ConfiguredTargetFunction}
+ *   <li>getting the {@link com.google.devtools.build.lib.analysis.ConfiguredTargetValue}s of this
+ *       target's prerequisites (through recursive calls to {@link ConfiguredTargetFunction}
  * </ul>
  *
  * <p>Figuring out which toolchains are needed and computing the {@link ConfigConditions} is
  * performed by the {@link DependencyContextProducerWithCompatibilityCheck}, which additionally
  * checks for directly incompatible targets using the {@link
- * IncompatibleTargetChecker.IncompatibleTargetProducer}.
+ * com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetProducer}.
  *
  * <p>Cumulatively, this is enough information to run the target's rule logic.
  *
@@ -183,9 +183,10 @@ public final class DependencyResolver {
     /**
      * Stores events emitted by memoized computations.
      *
-     * <p>Both the {@link #computeDependencies} and the {@link TargetAndConfigurationProducer} may
-     * perform Starlark transitions that emit events. Skyframe uses only the events emitted to
-     * {@code env.getListener()} on a call to {@link #evaluate} that had no missing deps. Since the
+     * <p>Both the {@link #computeDependencies} and the {@link
+     * com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationProducer} may perform
+     * Starlark transitions that emit events. Skyframe uses only the events emitted to {@code
+     * env.getListener()} on a call to {@link #evaluate} that had no missing deps. Since the
      * computations are memoized, they do not re-emit events when Skyframe restarts. Therefore
      * events are stored and replayed when subsequent Skyframe restarts occur.
      */
@@ -407,9 +408,8 @@ public final class DependencyResolver {
                   ? null
                   : targetAndConfiguration.getConfiguration().getOptions(),
               (bzlKey) -> (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class),
-              (buildSettings) -> {
-                var key =
-                    StarlarkBuildSettingsDetailsValue.key(buildSettings);
+              (buildSettings, hostFlags) -> {
+                var key = StarlarkBuildSettingsDetailsValue.key(buildSettings, hostFlags);
                 return (StarlarkBuildSettingsDetailsValue) env.getValue(key);
               });
       if (starlarkExecTransition == null) {
@@ -664,8 +664,9 @@ public final class DependencyResolver {
    *     logic, if specified. Null if Bazel uses native logic.
    * @param env the Skyframe environment
    * @param baseTargetPrerequisitesSupplier not null only in case of aspect evaluation. It provides
-   *     a way to get the {@link ConfiguredTargetValue}s and {@link BuildConfigurationValue}s of the
-   *     underlying target dependencies without creating a dependency edge from the aspect to them.
+   *     a way to get the {@link com.google.devtools.build.lib.analysis.ConfiguredTargetValue}s and
+   *     {@link BuildConfigurationValue}s of the underlying target dependencies without creating a
+   *     dependency edge from the aspect to them.
    * @param baseTargetUnloadedToolchainContexts not null only in case of aspect evaluation. It's the
    *     {@link UnloadedToolchainContext}s of the underlying target to support aspects toolchains
    *     propagation.

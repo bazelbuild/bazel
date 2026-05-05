@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.MergingException;
@@ -59,6 +58,7 @@ import com.google.devtools.build.lib.analysis.producers.DependencyContextProduce
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsInputs;
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsProducer;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
@@ -404,9 +404,8 @@ final class AspectFunction implements SkyFunction {
                     : targetAndConfiguration.getConfiguration().getOptions(),
                 (bzlKey) ->
                     (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class),
-                (buildSettings) -> {
-                  var detailsKey =
-                      StarlarkBuildSettingsDetailsValue.key(buildSettings);
+                (buildSettings, hostFlags) -> {
+                  var detailsKey = StarlarkBuildSettingsDetailsValue.key(buildSettings, hostFlags);
                   return (StarlarkBuildSettingsDetailsValue) env.getValue(detailsKey);
                 });
         if (starlarkExecTransition == null) {
