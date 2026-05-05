@@ -648,7 +648,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       if (helperScript == null) {
         builder.setShellCommand(shExecutable, command, pad);
       } else {
-        builder.setShellCommand(shExecutable, helperScript.getExecPathString(), pad);
+        // Invoke the script directly (e.g. `bash script.sh`) rather than via
+        // `bash -c script.sh`, so that any user-provided arguments become the
+        // script's positional parameters instead of those of the wrapping
+        // shell. No padding is needed since `$0` is now naturally the script.
+        builder.setShellCommand(constructor.asExecArgv(helperScript), /* pad= */ false);
         builder.addInput(helperScript);
       }
     } else if (commandUnchecked instanceof Sequence<?> commandList) {
