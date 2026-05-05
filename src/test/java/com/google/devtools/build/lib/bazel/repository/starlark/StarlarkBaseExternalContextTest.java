@@ -345,6 +345,8 @@ public class StarlarkBaseExternalContextTest {
               "sha256-"
                   + Base64.getEncoder()
                       .encodeToString(HexFormat.of().parseHex(SHA256_EMPTY_GZ_FILE)));
+      assertThat(struct.getValue("size_bytes", StarlarkInt.class))
+          .isEqualTo(StarlarkInt.of(emptyTarGzBytes.length));
     }
   }
 
@@ -405,6 +407,8 @@ public class StarlarkBaseExternalContextTest {
               "sha256-"
                   + Base64.getEncoder()
                       .encodeToString(HexFormat.of().parseHex(SHA256_EMPTY_GZ_FILE)));
+      assertThat(struct.getValue("size_bytes", StarlarkInt.class))
+          .isEqualTo(StarlarkInt.of(emptyTarGzBytes.length));
     }
   }
 
