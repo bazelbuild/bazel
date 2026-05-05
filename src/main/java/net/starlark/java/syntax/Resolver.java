@@ -868,11 +868,11 @@ public final class Resolver extends NodeVisitor {
 
   @Override
   public void visit(IsInstanceExpression node) {
-    // TODO: #27848 - Restrict the types that can be used on the RHS of isinstance(); e.g. `list` or
-    // `list | tuple` (or aliases resolving to those!) are allowed, but `list[int]` isn't,  since a
-    // list can subsequently be mutated to add a non-int element. Probably needs to be done in
-    // TypeTagger.
-    errorf(node, "isinstance() is not yet supported");
+    if (!options.resolveTypeSyntax()) {
+      errorf(node, "Using isinstance() requires enabling resolveTypeSyntax");
+    }
+    visit(node.getValue());
+    visit(node.getType());
   }
 
   @Override

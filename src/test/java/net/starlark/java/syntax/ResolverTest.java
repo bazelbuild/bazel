@@ -807,13 +807,18 @@ public class ResolverTest {
     assertContainsError(badFile.errors(), "name 'b' is not defined");
   }
 
-  // TODO: #27848 - Resolve types in isinstance().
   @Test
-  public void testIsInstanceExpression_notYetSupported() throws Exception {
+  public void testIsInstanceExpression_valueAndType_areResolved() throws Exception {
     options.allowTypeSyntax(true);
-    StarlarkFile badFile = resolveFile("isinstance(x, list)");
+    options.resolveTypeSyntax(true);
+
+    StarlarkFile goodFile = resolveFile("isinstance(pre, pre)");
+    assertThat(goodFile.ok()).isTrue();
+
+    StarlarkFile badFile = resolveFile("isinstance(a, b)");
     assertThat(badFile.ok()).isFalse();
-    assertContainsError(badFile.errors(), "isinstance() is not yet supported");
+    assertContainsError(badFile.errors(), "name 'a' is not defined");
+    assertContainsError(badFile.errors(), "name 'b' is not defined");
   }
 
   // checkBindings verifies the binding (scope and index) of each identifier.

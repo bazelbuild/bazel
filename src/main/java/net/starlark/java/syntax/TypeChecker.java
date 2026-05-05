@@ -23,13 +23,17 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.spelling.SpellChecker;
+import net.starlark.java.syntax.Resolver.Binding;
 
 /**
  * A visitor for validating that expressions and statements respect the types of the symbols
@@ -249,8 +253,10 @@ public final class TypeChecker extends NodeVisitor {
       case COMPREHENSION -> {
         return inferComprehension((Comprehension) expr);
       }
+      case ISINSTANCE -> {
+        return Types.BOOL;
+      }
       default -> {
-        // TODO: #28037 - support isinstance expressions.
         errorf(expr, "UNSUPPORTED: cannot typecheck %s expression", expr.kind());
         return Types.ANY;
       }
@@ -1293,11 +1299,129 @@ public final class TypeChecker extends NodeVisitor {
     if (usesTypeSyntax()) {
       // Check type constraints in the condition.
       infer(node.getCondition());
+
+      var condition = node.getCondition();
+      if (condition instanceof IsInstanceExpression isInstanceExpression
+          && isInstanceExpression.getValue() instanceof Identifier identifier && identifier.getBinding() != null) {
+        // Narrow type in then block for `if isinstance(...)`
+        visitBlockWithNarrowedType(node.getThenBlock(), identifier.getBinding(),
+            isInstanceExpression.getStarlarkType());
+        if (node.getElseBlock() != null) {
+          var type = Objects.requireNonNull(typeTable.getType(identifier.getBinding()));
+          var narrowedType = Types.subtract(type, isInstanceExpression.getStarlarkType());
+          visitBlockWithNarrowedType(node.getElseBlock(), identifier.getBinding(), narrowedType);
+        }
+        return;
+      } else if (node.getElseBlock() != null
+          && condition instanceof UnaryOperatorExpression unaryOperatorExpression
+          && unaryOperatorExpression.getOperator() == TokenKind.NOT
+          && unaryOperatorExpression.getX() instanceof IsInstanceExpression isInstanceExpression
+          && isInstanceExpression.getValue() instanceof Identifier identifier && identifier.getBinding() != null) {
+        // Narrow type in else block for `if not isinstance(...)`
+        var type = Objects.requireNonNull(typeTable.getType(identifier.getBinding()));
+        var narrowedType = Types.subtract(type, isInstanceExpression.getStarlarkType());
+        visitBlockWithNarrowedType(node.getThenBlock(), identifier.getBinding(), narrowedType);
+        visitBlockWithNarrowedType(node.getElseBlock(), identifier.getBinding(),
+            isInstanceExpression.getStarlarkType());
+        return;
+      } else if (condition instanceof BinaryOperatorExpression binaryOperatorExpression
+          && binaryOperatorExpression.getOperator() == TokenKind.OR
+          && binaryOperatorExpression.getX() instanceof IsInstanceExpression isInstanceExpression
+          && isInstanceExpression.getValue() instanceof Identifier identifier
+          && identifier.getBinding() != null) {
+        // Narrow type in then block for `if isinstance(x, ...) or isinstance(x, ...) or ...
+        // where each `isinstance` checks the same identifier
+        var types = ImmutableSet.<StarlarkType>builder();
+        types.add(Objects.requireNonNull(isInstanceExpression.getStarlarkType()));
+        var binding = identifier.getBinding();
+
+        var current = binaryOperatorExpression.getY();
+        while (true) {
+          if (current instanceof IsInstanceExpression currentIsInstance
+              && currentIsInstance.getValue() instanceof Identifier currentIdentifier
+              && binding.equals(currentIdentifier.getBinding())) {
+            types.add(Objects.requireNonNull(currentIsInstance.getStarlarkType()));
+            var narrowedType = Types.union(types.build());
+            visitBlockWithNarrowedType(node.getThenBlock(), binding, narrowedType);
+            break;
+          } else if (current instanceof BinaryOperatorExpression currentBinaryExpression
+              && currentBinaryExpression.getOperator() == TokenKind.OR
+              && currentBinaryExpression.getX() instanceof IsInstanceExpression currentIsInstance
+              && currentIsInstance.getValue() instanceof Identifier currentIdentifier
+              && binding.equals(currentIdentifier.getBinding())) {
+            types.add(Objects.requireNonNull(currentIsInstance.getStarlarkType()));
+            current = currentBinaryExpression.getY();
+          } else {
+            visitBlock(node.getThenBlock());
+            break;
+          }
+        }
+      } else if (condition instanceof BinaryOperatorExpression binaryOperatorExpression
+          && binaryOperatorExpression.getOperator() == TokenKind.AND
+          && binaryOperatorExpression.getX() instanceof IsInstanceExpression isInstanceExpression
+          && isInstanceExpression.getValue() instanceof Identifier identifier
+          && identifier.getBinding() != null) {
+        // Narrow types in then block for `if isinstance(x, ...) and isinstance(y, ...) and ...`
+        // where each `isinstance` checks a different identifier
+        var types = new HashMap<Binding, StarlarkType>();
+        types.put(identifier.getBinding(), Objects.requireNonNull(isInstanceExpression.getStarlarkType()));
+
+        var current = binaryOperatorExpression.getY();
+        while (true) {
+          if (current instanceof IsInstanceExpression currentIsInstance
+              && currentIsInstance.getValue() instanceof Identifier currentIdentifier
+              && !types.containsKey(currentIdentifier.getBinding())) {
+            types.put(currentIdentifier.getBinding(), Objects.requireNonNull(currentIsInstance.getStarlarkType()));
+            visitBlockWithNarrowedTypes(node.getThenBlock(), ImmutableMap.copyOf(types));
+            break;
+          } else if (current instanceof BinaryOperatorExpression currentBinaryExpression
+              && currentBinaryExpression.getOperator() == TokenKind.AND
+              && currentBinaryExpression.getX() instanceof IsInstanceExpression currentIsInstance
+              && currentIsInstance.getValue() instanceof Identifier currentIdentifier
+              && !types.containsKey(currentIdentifier.getBinding())) {
+            types.put(identifier.getBinding(), Objects.requireNonNull(currentIsInstance.getStarlarkType()));
+            current = currentBinaryExpression.getY();
+          } else {
+            visitBlock(node.getThenBlock());
+            break;
+          }
+        }
+      } else {
+        visitBlock(node.getThenBlock());
+      }
+
+      if (node.getElseBlock() != null) {
+        visitBlock(node.getElseBlock());
+      }
+      return;
     }
     // Visit then/else blocks even in untyped code; they may contain nested typed def statements.
     visitBlock(node.getThenBlock());
     if (node.getElseBlock() != null) {
       visitBlock(node.getElseBlock());
+    }
+  }
+
+  private void visitBlockWithNarrowedType(ImmutableList<Statement> block, Binding binding, StarlarkType narrowedType) {
+    visitBlockWithNarrowedTypes(block, ImmutableMap.of(binding, narrowedType));
+  }
+
+  private void visitBlockWithNarrowedTypes(ImmutableList<Statement> block, ImmutableMap<Binding, StarlarkType> narrowedType) {
+    var nonNarrowedTypes = new HashMap<Binding, StarlarkType>();
+    for (var entry : narrowedType.entrySet()) {
+      var binding = entry.getKey();
+      StarlarkType nonNarrowedType = typeTable.getType(binding);
+      // We intersect the types here to avoid accidently widening the type, this could happen in code like this:
+      // a: int = 5
+      // if isinstance(a, int | str):
+      typeTable.setInferredType(binding, Types.intersect(nonNarrowedType, entry.getValue()));
+      nonNarrowedTypes.put(binding, nonNarrowedType);
+    }
+
+    visitBlock(block);
+
+    for (var entry : nonNarrowedTypes.entrySet()) {
+      typeTable.setInferredType(entry.getKey(), entry.getValue());
     }
   }
 

@@ -338,4 +338,10 @@ public class TypesTest {
         .isEqualTo(
             "(bool, /, a: int, b: [float], *args: int, c: None, d: [Any], **kwargs: int) -> bool");
   }
+
+  @Test
+  public void intersect() {
+    assertThat(Types.intersect(Types.union(Types.INT, Types.STR), Types.union(Types.INT, Types.FLOAT))).isEqualTo(Types.INT);
+    assertThat(Types.intersect(Types.INT, Types.STR)).isEqualTo(Types.NEVER);
+  }
 }
