@@ -116,9 +116,9 @@ function do_git_repository_test() {
   local shallow_since=""
   local add_prefix=""
   local add_prefix_path=""
-  [ $# -ge 2 ] && [ -n ${2:-} ] && strip_prefix="strip_prefix=\"$2\","
-  [ $# -ge 3 ] && [ -n ${3:-} ] && shallow_since="shallow_since=\"$3\","
-  [ $# -ge 4 ] && [ -n ${4:-} ] && add_prefix="add_prefix=\"$4\"," && add_prefix_path=$4
+  [ $# -ge 2 ] && [ -n "${2:-}" ] && strip_prefix="strip_prefix=\"$2\","
+  [ $# -ge 3 ] && [ -n "${3:-}" ] && shallow_since="shallow_since=\"$3\","
+  [ $# -ge 4 ] && [ -n "${4:-}" ] && add_prefix="add_prefix=\"$4\"," && add_prefix_path="${4}"
   # Create a workspace that clones the repository at the first commit.
   cat >> MODULE.bazel <<EOF
 git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
@@ -256,8 +256,8 @@ function do_git_repository_test_with_build() {
   local add_prefix=""
   local add_prefix_path=""
   local tag=""
-  [ $# -ge 3 ] && [ -n ${3:-} ] && strip_prefix="strip_prefix=\"$3\","
-  [ $# -ge 4 ] && [ -n ${4:-} ] && add_prefix="add_prefix=\"$4\"," && add_prefix_path="$4/"
+  [ $# -ge 3 ] && [ -n "${3:-}" ] && strip_prefix="strip_prefix=\"$3\","
+  [ $# -ge 4 ] && [ -n "${4:-}" ] && add_prefix="add_prefix=\"$4\"," && add_prefix_path="$4/"
   [ "$1" != "" ] && tag="tag = \"$1\","
 
   # Create a workspace that clones the repository at the first commit.
