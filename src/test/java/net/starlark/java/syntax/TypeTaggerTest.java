@@ -721,4 +721,24 @@ public class TypeTaggerTest {
     loader = importName -> TestUtils.LoadableModule.of();
     assertInvalid("module '//x:x.bzl' does not contain symbol 'x'", "load('//x:x.bzl', 'x')");
   }
+
+  @Test
+  public void isinstance_parameterizedTypesMustUseAny() throws Exception {
+    assertInvalid("Parameterized types are not allowed in isinstance()",
+        """
+            def f(x: int | list[int]) -> int:
+              if isinstance(x, list[int]):
+                return 0
+              return 0
+            """);
+
+    tagFile(
+        """
+            def f(x: int | list[int]) -> int:
+              if isinstance(x, list[Any]):
+                return 0
+              return 0
+            """
+    );
+  }
 }

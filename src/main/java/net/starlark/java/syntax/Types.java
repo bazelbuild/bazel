@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -665,6 +666,31 @@ public final class Types {
     public boolean hasSetField() {
       return getTypes().stream().allMatch(StarlarkType::hasSetField);
     }
+  }
+
+  public static StarlarkType intersect(StarlarkType... types) {
+    Preconditions.checkArgument(types.length > 0, "Cannot create intersection of zero types");
+
+    if (types.length == 1) {
+      return types[0];
+    }
+
+    var unfoldedTypes = new HashSet<>(unfoldUnion(types[0]));
+    for (var type : types) {
+      unfoldedTypes.retainAll(unfoldUnion(type));
+    }
+
+    if (unfoldedTypes.isEmpty()) {
+      return Types.NEVER;
+    }
+
+    return Types.union(ImmutableSet.copyOf(unfoldedTypes));
+  }
+
+  public static StarlarkType subtract(StarlarkType typeToSubtractFrom, StarlarkType typeToSubtract) {
+    var toSubtractFrom = new HashSet<>(unfoldUnion(typeToSubtractFrom));
+    toSubtractFrom.removeAll(unfoldUnion(typeToSubtract));
+    return Types.union(ImmutableSet.copyOf(toSubtractFrom));
   }
 
   public static ListType list(StarlarkType elementType) {

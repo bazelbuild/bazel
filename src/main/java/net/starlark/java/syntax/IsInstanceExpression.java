@@ -14,12 +14,16 @@
 
 package net.starlark.java.syntax;
 
+import javax.annotation.Nullable;
+
 /** Syntax node for isinstance() expressions. */
 public final class IsInstanceExpression extends Expression {
   private final int startOffset;
   private final Expression value;
   private final Expression type;
   private final int rparenOffset;
+  // Set by type tagging.
+  @Nullable private StarlarkType starlarkType;
 
   IsInstanceExpression(
       FileLocations locs, int startOffset, Expression value, Expression type, int rparenOffset) {
@@ -46,6 +50,15 @@ public final class IsInstanceExpression extends Expression {
 
   public Expression getType() {
     return type;
+  }
+
+  @Nullable
+  public StarlarkType getStarlarkType() {
+    return starlarkType;
+  }
+
+  public void setStarlarkType(@Nullable StarlarkType starlarkType) {
+    this.starlarkType = starlarkType;
   }
 
   @Override

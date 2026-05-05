@@ -442,4 +442,24 @@ public final class StaticTypeCheckTest {
         "_: str = my_type_value.bar()");
     assertInvalid("'my_type_value' is not callable; got type 'MyType'", "_: str = my_type_value()");
   }
+
+  @Test
+  public void isinstance_narrows_types() {
+    assertValid(
+        """
+        def f(x: int | str) -> int:
+            if isinstance(x, int):
+                return x + 1
+            return 0
+        """);
+
+    assertInvalid(
+        "operator '+' cannot be applied to types 'int|str' and 'int'",
+        """
+        def f(x: int | str) -> int:
+            if isinstance(x, int):
+                return x + 1
+            return x + 1
+        """);
+  }
 }
