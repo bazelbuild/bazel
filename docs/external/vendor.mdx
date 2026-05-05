@@ -6,8 +6,8 @@ keywords: product:Bazel,Bzlmod,vendor
 {# disableFinding("repo") #}
 
 ---
-title: 'Vendor Mode'
----
+
+## title: 'Vendor Mode'
 
 Vendor mode is a feature that lets you create a local copy of
 external dependencies. This is useful for offline builds, or when you want to
@@ -96,9 +96,9 @@ bazel vendor --vendor_dir=vendor_src
 
 Note that vendoring all dependencies has a few **disadvantages**:
 
--   Fetching all repos, including those introduced transitively, can be time-consuming.
--   The vendor directory can become very large.
--   Some repos may fail to fetch if they are not compatible with the current platform or environment.
+- Fetching all repos, including those introduced transitively, can be time-consuming.
+- The vendor directory can become very large.
+- Some repos may fail to fetch if they are not compatible with the current platform or environment.
 
 Therefore, consider vendoring for specific targets first.
 
@@ -125,12 +125,12 @@ pin("@@bazel_skylib+")
 
 With this configuration
 
--   Both repos will be excluded from subsequent vendor commands.
--   Repo `bazel_skylib` will be overridden to the source located under the
-    vendor directory.
--   The user can safely modify the vendored source of `bazel_skylib`.
--   To re-vendor `bazel_skylib`, the user has to disable the pin statement
-    first.
+- Both repos will be excluded from subsequent vendor commands.
+- Repo `bazel_skylib` will be overridden to the source located under the
+  vendor directory.
+- The user can safely modify the vendored source of `bazel_skylib`.
+- To re-vendor `bazel_skylib`, the user has to disable the pin statement
+  first.
 
 Note: Repository rules with
 [`local`](/rules/lib/globals/bzl#repository_rule.local) or
@@ -146,8 +146,8 @@ vendored source for later builds.
 
 The content being vendored includes:
 
--   The repo directory
--   The repo marker file
+- The repo directory
+- The repo marker file
 
 During a build, if the vendored marker file is up-to-date or the repo is
 pinned in the VENDOR.bazel file, then Bazel uses the vendored source by creating
@@ -174,12 +174,12 @@ External repositories may contain symlinks pointing to other files or
 directories. To make sure symlinks work correctly, Bazel uses the following
 strategy to rewrite symlinks in the vendored source:
 
--   Create a symlink `<vendor_dir>/bazel-external` that points to `$(bazel info
-    output_base)/external`. It is refreshed by every Bazel command
-    automatically.
--   For the vendored source, rewrite all symlinks that originally point to a
-    path under `$(bazel info output_base)/external` to a relative path under
-    `<vendor_dir>/bazel-external`.
+- Create a symlink `<vendor_dir>/bazel-external` that points to `$(bazel info
+output_base)/external`. It is refreshed by every Bazel command
+  automatically.
+- For the vendored source, rewrite all symlinks that originally point to a
+  path under `$(bazel info output_base)/external` to a relative path under
+  `<vendor_dir>/bazel-external`.
 
 For example, if the original symlink is
 
