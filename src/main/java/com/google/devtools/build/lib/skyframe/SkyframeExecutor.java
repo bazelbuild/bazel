@@ -109,7 +109,6 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -2263,8 +2262,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               }
               return (BzlLoadValue) result.get(bzlKey);
             },
-            (buildSettings) -> {
-              SkyKey detailsKey = StarlarkBuildSettingsDetailsValue.key(buildSettings);
+            (buildSettings, hostFlags) -> {
+              SkyKey detailsKey = StarlarkBuildSettingsDetailsValue.key(buildSettings, hostFlags);
               EvaluationResult<SkyValue> result =
                   evaluate(
                       ImmutableList.of(detailsKey),
