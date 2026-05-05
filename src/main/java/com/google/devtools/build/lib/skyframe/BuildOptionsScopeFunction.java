@@ -66,43 +66,6 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
       }
       Scope.ScopeType scopeType = getScopeType(target);
       scopes.put(scopedFlag, new Scope(scopeType, null));
-
-      // this is needed because the final BuildOptions used to create the BuildConfigurationKey
-      // needs to have the scopeType set for all starlark flags.
-      fullyResolvedBuildOptionsBuilder =
-          onLeaveScopeValue != null
-              ? fullyResolvedBuildOptionsBuilder
-                  .addScopeType(scopedFlag, scopeType)
-                  .addOnLeaveScopeValue(scopedFlag, onLeaveScopeValue)
-              : fullyResolvedBuildOptionsBuilder.addScopeType(scopedFlag, scopeType);
-
-      if (scopeType.scopeType().startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
-        // handling custom exec case with scope "exec:--<another_flag_name>".
-        // For example: --python_launcher=--host_python_launcher
-        // have the --<another_flag_name> flag default value in the target config but also make sure
-        // that it won't propagate to the exec config by setting the scope to "target".
-        Label anotherFlag = Label.parseCanonicalUnchecked(scopeType.scopeType().substring(7));
-        Target anotherFlagTarget = getTarget(env, anotherFlag, scopedFlag.getPackageIdentifier());
-        if (anotherFlagTarget == null) {
-          return null;
-        }
-
-        if (!key.getBuildOptions().getStarlarkOptions().containsKey(anotherFlag)) {
-          var anotherFlagAttrs = RawAttributeMapper.of(anotherFlagTarget.getAssociatedRule());
-          String anotherFlagScopeType = Scope.ScopeType.DEFAULT;
-          if (anotherFlagAttrs.isAttributeValueExplicitlySpecified("scope")) {
-            anotherFlagScopeType = anotherFlagAttrs.get("scope", Type.STRING);
-          }
-          fullyResolvedBuildOptionsBuilder =
-              fullyResolvedBuildOptionsBuilder
-                  .addStarlarkOption(
-                      anotherFlag,
-                      anotherFlagTarget
-                          .getAssociatedRule()
-                          .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))
-                  .addScopeType(anotherFlag, new Scope.ScopeType(anotherFlagScopeType));
-        }
-      }
     }
 
     // get PROJECT.scl files for each scoped flag that is not universal

@@ -279,7 +279,6 @@ public class StarlarkOptionsParser {
         }
         if (scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
           customExecFlags.add(scopeType.substring(Scope.CUSTOM_EXEC_SCOPE_PREFIX.length()));
-        scopeTypeMap.put(scopeType.substring(Scope.CUSTOM_EXEC_SCOPE_PREFIX.length()), scopeType);
         }
       }
     }

@@ -53,8 +53,8 @@ import java.util.Set;
  *     scope_type_foo, scope_type_host_foo]
  * @param buildSettingToScopeType Map from each build option to its scope type. Does not include
  *     aliases.
- * @param buildSettingToOnLeaveScopeValue Map from each build option to its on_leave_scope value,
- *     if explicitly set. Does not include aliases.
+ * @param buildSettingToOnLeaveScopeValue Map from each build option to its on_leave_scope value, if
+ *     explicitly set. Does not include aliases.
  */
 @CheckReturnValue
 @Immutable
@@ -90,6 +90,7 @@ public record StarlarkBuildSettingsDetailsValue(
           ImmutableSet.of(),
           ImmutableMap.of(),
           ImmutableMap.of(),
+          ImmutableMap.of(),
           ImmutableMap.of());
 
   public static StarlarkBuildSettingsDetailsValue create(
@@ -105,9 +106,9 @@ public record StarlarkBuildSettingsDetailsValue(
         ImmutableMap.copyOf(buildSettingToType),
         ImmutableSet.copyOf(buildSettingIsAllowsMultiple),
         ImmutableMap.copyOf(aliasToActual),
-        ImmutableSet.copyOf(customExecScopeValues),
-        ImmutableSet.copyOf(buildSettingToScopeType),
-        ImmutableSet.copyOf(buildSettingToOnLeaveScopeValue));
+        ImmutableMap.copyOf(customExecScopeValues),
+        ImmutableMap.copyOf(buildSettingToScopeType),
+        ImmutableMap.copyOf(buildSettingToOnLeaveScopeValue));
   }
 
   public static Key key(Set<Label> buildSettings, Set<Label> hostFlags) {
