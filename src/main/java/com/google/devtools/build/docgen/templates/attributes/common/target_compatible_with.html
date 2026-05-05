@@ -5,12 +5,15 @@ List of <a href="${link build-ref#labels}">labels</a>; default is <code>[]</code
 <p>
 A list of
 <code><a href="platforms-and-toolchains.html#constraint_value">constraint_value</a></code>s
-that must be present in the target platform for this target to be considered
+that must be present in the target platform and
+<code><a href="general.html#config_setting">config_setting</a></code>s that
+must match the target configuration for this target to be considered
 <em>compatible</em>. This is in addition to any constraints already set by the
-rule type. If the target platform does not satisfy all listed constraints then
-the target is considered <em>incompatible</em>. Incompatible targets are
-skipped for building and testing when the target pattern is expanded
-(e.g. <code>//...</code>, <code>:all</code>). When explicitly specified on the
+rule type. If the target platform does not satisfy all listed constraints, or
+the target configuration does not match all listed config_settings, then the
+target is considered <em>incompatible</em>. Incompatible targets are skipped
+for building and testing when the target pattern is expanded (e.g.
+<code>//...</code>, <code>:all</code>). When explicitly specified on the
 command line, incompatible targets cause Bazel to print an error and cause a
 build or test failure.
 </p>
