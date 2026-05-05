@@ -302,19 +302,27 @@ public class TopLevelConstraintSemantics {
       }
     }
 
-    message +=
-        String.format(
-            "   <-- target platform (%s) didn't satisfy constraint", provider.targetPlatform());
-    if (provider.constraintsResponsibleForIncompatibility().size() == 1) {
-      message += " " + provider.constraintsResponsibleForIncompatibility().get(0).label();
+    ImmutableList<ConstraintValueInfo> constraints =
+        provider.constraintsResponsibleForIncompatibility();
+    if (constraints == null || constraints.isEmpty()) {
+      message += "   <-- target was marked incompatible";
+      return message;
+    }
+
+    String targetPlatform =
+        provider.targetPlatform() == null
+            ? "target platform"
+            : String.format("target platform (%s)", provider.targetPlatform());
+    message += String.format("   <-- %s didn't satisfy constraint", targetPlatform);
+    if (constraints.size() == 1) {
+      message += " " + constraints.get(0).label();
       return message;
     }
 
     message += "s [";
 
     boolean first = true;
-    for (ConstraintValueInfo constraintValueInfo :
-        provider.constraintsResponsibleForIncompatibility()) {
+    for (ConstraintValueInfo constraintValueInfo : constraints) {
       if (first) {
         first = false;
       } else {
