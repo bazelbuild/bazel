@@ -332,14 +332,12 @@ if [[ -n "$TEST_UNDECLARED_OUTPUTS_DIR" && -n "$TEST_UNDECLARED_OUTPUTS_MANIFEST
       stat_size_fmt='-c%s'
     fi
 
-    # Path length + "/" + 1 because 'cut' is 1 indexed
-    cut_prefix_len=$(( ${#TEST_UNDECLARED_OUTPUTS_DIR} + 2 ))
-
     paste \
-      <(printf '%s\n' "$undeclared_outputs" | cut -c"${cut_prefix_len}"-) \
-      <(printf '%s\n' "$undeclared_outputs" | tr '\n' '\0' | xargs -0 stat "$stat_size_fmt" 2>/dev/null) \
-      <(printf '%s\n' "$undeclared_outputs" | tr '\n' '\0' \
-          | xargs -0 file -L -b --mime-type || awk '{print "Could not establish file type for " $0}' <<< "$undeclared_outputs") \
+      <(printf '%s\n' "$undeclared_outputs" | sed "s|^$TEST_UNDECLARED_OUTPUTS_DIR/||") \
+      <(printf '%s\n' "$undeclared_outputs" | tr '\n' '\0' | xargs -0 stat $stat_size_fmt \
+          || awk '{print "Could not establish file size"}' <<< "$undeclared_outputs") \
+      <(printf '%s\n' "$undeclared_outputs" | tr '\n' '\0' | xargs -0 file -L -b --mime-type \
+          || awk '{print "Could not establish file type"}' <<< "$undeclared_outputs") \
       > "$TEST_UNDECLARED_OUTPUTS_MANIFEST"
     if [[ ! -s "$TEST_UNDECLARED_OUTPUTS_MANIFEST" ]]; then
       rm "$TEST_UNDECLARED_OUTPUTS_MANIFEST"
