@@ -1,6 +1,6 @@
 parameters:
   - key: version
-    value: "7.5.0"
+    value: "8.4.0"
     description: bazel version
 
 functions:
@@ -129,7 +129,7 @@ buildvariants:
   run_on:
   - rhel8.8-large
   expansions:
-    bazel_url: https://github.com/bazelbuild/bazel/releases/download/7.5.0/bazel-7.5.0-linux-x86_64
+    bazel_url: https://github.com/bazelbuild/bazel/releases/download/8.4.0/bazel-8.4.0-linux-x86_64
   tasks:
   - name: build
   - name: push
@@ -139,42 +139,11 @@ buildvariants:
   run_on:
   - rhel8.8-arm64-large
   expansions:
-    bazel_url: https://github.com/bazelbuild/bazel/releases/download/7.5.0/bazel-7.5.0-linux-arm64
+    bazel_url: https://github.com/bazelbuild/bazel/releases/download/8.4.0/bazel-8.4.0-linux-arm64
   tasks:
   - name: build
   - name: push
 
-- name: linux_s390x
-  display_name: Linux s390x
-  run_on:
-  - rhel83-zseries-large
-  expansions:
-    bazel_url: https://mdb-build-public.s3.amazonaws.com/bazel-binaries/7.5.0/bazel-7.5.0-linux-s390x
-  tasks:
-  - name: build
-  - name: push
-
-- name: linux_ppc
-  display_name: Linux PPC
-  run_on:
-  - rhel81-power8-large
-  expansions:
-    bazel_url: https://mdb-build-public.s3.amazonaws.com/bazel-binaries/7.5.0/bazel-7.5.0-linux-ppc64le
-  tasks:
-  - name: build
-  - name: push
-
-- name: windows_x86_64
-  display_name: Windows x86_64
-  run_on:
-  - windows-2022-large
-  expansions:
-    bazel_url: https://mdb-build-public.s3.amazonaws.com/bazelisk-binaries/v1.19.0/bazelisk-windows-amd64.exe
-    ext: ".exe"
-  tasks:
-  - name: build
-  - name: push
-    
 - name: macos_x86_64
   display_name: Macos x86_64
   run_on:
