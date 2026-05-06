@@ -69,7 +69,7 @@ single_version_override(
     patch_strip = 1,
     patches = [
         "//third_party:grpc-load-fixes.patch",
-        "//third_party:no_destruct.patch",
+        "//third_party:grpc-global-static-init.patch",
     ],
 )
 
