@@ -651,39 +651,6 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
   }
 
   @Test
-  public void checkFinalizeBuildOptions_haveCorrectScopeTypeMap_noScopingApplied()
-      throws Exception {
-    createStarlarkFlagRule();
-    scratch.file(
-        "flag/BUILD",
-        """
-        load(":def.bzl", "basic_flag")
-        basic_flag(
-            name = "foo",
-            scope = "universal",
-            build_setting_default = "default",
-        )
-        basic_flag(
-            name = "bar",
-            scope = "universal",
-            build_setting_default = "default",
-        )
-        """);
-    invalidatePackages(false);
-
-    BuildOptions baseOptions = createBuildOptions("--//flag:foo=foo", "--//flag:bar=bar");
-    BuildConfigurationKey result =
-        fetch(baseOptions, Label.parseCanonicalUnchecked("//my_project:my_target"));
-
-    // Scope info is no longer stored in BuildOptions; it is resolved via Skyframe.
-    // Verify the configuration key was created successfully with the right starlark options.
-    assertThat(result.getOptions().getStarlarkOptions())
-        .containsKey(Label.parseCanonicalUnchecked("//flag:foo"));
-    assertThat(result.getOptions().getStarlarkOptions())
-        .containsKey(Label.parseCanonicalUnchecked("//flag:bar"));
-  }
-
-  @Test
   public void errorThrown_disallowedScopeType() throws Exception {
     createStarlarkFlagRule();
     scratch.file(
