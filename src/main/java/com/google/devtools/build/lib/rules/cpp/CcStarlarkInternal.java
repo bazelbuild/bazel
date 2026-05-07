@@ -1141,6 +1141,12 @@ public class CcStarlarkInternal implements StarlarkValue {
             allowedTypes = {@ParamType(type = Artifact.class), @ParamType(type = NoneType.class)}),
         @Param(name = "outputs", positional = false, named = true),
         @Param(name = "env", positional = false, named = true),
+        @Param(
+            name = "toolchain_type",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None"),
       })
   public void createLtoBackendAction(
       StarlarkActionFactory actions,
@@ -1151,8 +1157,14 @@ public class CcStarlarkInternal implements StarlarkValue {
       Object allBitcodeFiles,
       Object imports,
       Sequence<?> outputs,
-      Dict<?, ?> env)
+      Dict<?, ?> env,
+      Object toolchainType)
       throws EvalException {
+    RuleContext ruleContext = actions.getRuleContext();
+    ActionOwner actionOwner =
+        toolchainType instanceof String s
+            ? CppCompileActionBuilder.getActionOwner(ruleContext, s)
+            : ruleContext.getActionOwner();
     FeatureConfiguration featureConfiguration =
         featureConfigurationForStarlark.getFeatureConfiguration();
     BitcodeFiles bitcodeFiles =
@@ -1161,8 +1173,8 @@ public class CcStarlarkInternal implements StarlarkValue {
             : new BitcodeFiles(Depset.cast(allBitcodeFiles, Artifact.class, "bitcode_files"));
     LtoBackendAction action =
         LtoBackendArtifacts.createLtoBackendActionForStarlark(
-            actions.getRuleContext().getActionOwner(),
-            actions.getRuleContext().getConfiguration(),
+            actionOwner,
+            ruleContext.getConfiguration(),
             featureConfiguration,
             buildVariables,
             usePic,
@@ -1172,7 +1184,7 @@ public class CcStarlarkInternal implements StarlarkValue {
             ImmutableSet.copyOf(Sequence.cast(outputs, Artifact.class, "outputs")),
             ActionEnvironment.create(
                 ImmutableMap.copyOf(Dict.cast(env, String.class, String.class, "env"))));
-    actions.getRuleContext().registerAction(action);
+    ruleContext.registerAction(action);
   }
 
   @StarlarkMethod(
@@ -1222,6 +1234,12 @@ public class CcStarlarkInternal implements StarlarkValue {
               @ParamType(type = NoneType.class)
             }),
         @Param(name = "env", positional = false, named = true),
+        @Param(
+            name = "toolchain_type",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None"),
       })
   public void createLtoBackendActionTemplate(
       StarlarkActionFactory actions,
@@ -1234,8 +1252,14 @@ public class CcStarlarkInternal implements StarlarkValue {
       Object bitcodeFileObj,
       Object objectFileObj,
       Object dwoFileObj,
-      Dict<?, ?> env)
+      Dict<?, ?> env,
+      Object toolchainType)
       throws EvalException {
+    RuleContext ruleContext = actions.getRuleContext();
+    ActionOwner actionOwner =
+        toolchainType instanceof String s
+            ? CppCompileActionBuilder.getActionOwner(ruleContext, s)
+            : ruleContext.getActionOwner();
     FeatureConfiguration featureConfiguration =
         featureConfigurationForStarlark.getFeatureConfiguration();
     BitcodeFiles bitcodeFiles =
@@ -1255,8 +1279,8 @@ public class CcStarlarkInternal implements StarlarkValue {
             buildVariables,
             usePic,
             bitcodeFiles,
-            actions.getRuleContext().getActionOwner());
-    actions.getRuleContext().registerAction(actionTemplate);
+            actionOwner);
+    ruleContext.registerAction(actionTemplate);
   }
 
   @StarlarkMethod(

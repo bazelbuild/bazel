@@ -2089,6 +2089,81 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void ccCommonLink_ltoBackendCompileActionExecutesOnCorrectPlatform() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "load('@rules_cc//cc/common:cc_info.bzl', 'CcInfo')",
+        "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
+        "def _use_cpp_toolchain():",
+        "   return [",
+        "      config_common.toolchain_type('"
+            + TestConstants.CPP_TOOLCHAIN_TYPE
+            + "', mandatory = False),",
+        "   ]",
+        "def _impl(ctx):",
+        "  cc_toolchain = ctx.toolchains['" + TestConstants.CPP_TOOLCHAIN_TYPE + "'].cc",
+        "  feature_configuration = cc_common.configure_features(",
+        "      ctx = ctx,",
+        "      cc_toolchain = cc_toolchain,",
+        "      requested_features = ctx.features,",
+        "      unsupported_features = ctx.disabled_features,",
+        "  )",
+        "  linking_outputs = cc_common.link(",
+        "    name = ctx.label.name,",
+        "    actions = ctx.actions,",
+        "    feature_configuration = feature_configuration,",
+        "    cc_toolchain = cc_toolchain,",
+        "    linking_contexts = [dep[CcInfo].linking_context for dep in ctx.attr.deps if"
+            + " CcInfo in dep]",
+        "  )",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "    'srcs': attr.label_list(allow_files = ['.cc']),",
+        "  },",
+        "  toolchains = ['//rule:toolchain_type_2'] + _use_cpp_toolchain(),",
+        "  fragments = ['cpp']",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("//test:defs.bzl", "custom_rule")
+
+        cc_library(
+            name = "dep",
+            srcs = ["dep.cc"],
+        )
+
+        custom_rule(
+            name = "custom_rule_name",
+            srcs = ["custom.cc"],
+            deps = ["dep"],
+        )
+        """);
+    useConfiguration("--incompatible_auto_exec_groups", "--features=thin_lto");
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(CppRuleClasses.THIN_LTO, CppRuleClasses.SUPPORTS_START_END_LIB)
+                .withToolchainTargetConstraints("@@//platforms:constraint_1")
+                .withToolchainExecConstraints("@@//platforms:constraint_1"));
+
+    ImmutableList<Action> ltoBackendActions =
+        getActions("//test:custom_rule_name", "CcLtoBackendCompile");
+
+    assertThat(ltoBackendActions).isNotEmpty();
+    for (Action action : ltoBackendActions) {
+      assertThat(action.getOwner().getExecutionPlatform().label())
+          .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
+    }
+  }
+
+  @Test
   public void ccCommonLink_linkstampCompileActionExecutesOnFirstPlatform() throws Exception {
     scratch.file(
         "bazel_internal/test_rules/cc/defs.bzl",
