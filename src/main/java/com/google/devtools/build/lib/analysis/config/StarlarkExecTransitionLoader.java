@@ -194,6 +194,17 @@ public final class StarlarkExecTransitionLoader {
     public int hashCode() {
       return Objects.hash(super.hashCode(), scopeDetails);
     }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof StarlarkExecTransitionProvider that)) {
+        return false;
+      }
+      return super.equals(o) && Objects.equals(scopeDetails, that.scopeDetails);
+    }
   }
 
   /**
