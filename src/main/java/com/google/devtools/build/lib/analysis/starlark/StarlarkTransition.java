@@ -40,6 +40,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /** A marker class for configuration transitions that are defined in Starlark. */
 public abstract class StarlarkTransition implements ConfigurationTransition {
+  private static final Label PLATFORMS_OPTION =
+      Label.createUnvalidated(LabelConstants.COMMAND_LINE_OPTION_PACKAGE_IDENTIFIER, "platforms");
+
   private final StarlarkDefinedConfigTransition starlarkDefinedConfigTransition;
 
   protected StarlarkTransition(StarlarkDefinedConfigTransition starlarkDefinedConfigTransition) {
@@ -62,6 +65,10 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   // Get the outputs of the starlark transition as a set of canonicalized Labels.
   private ImmutableSet<Label> getOutputs() {
     return starlarkDefinedConfigTransition.getOutputsCanonicalizedToGiven().keySet();
+  }
+
+  public boolean outputsPlatformOption() {
+    return getOutputs().contains(PLATFORMS_OPTION);
   }
 
   @Override
@@ -134,6 +141,16 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
       ImmutableMap<String, Label> flagsAliases,
       Map<String, BuildOptions> toOptions)
       throws TransitionException {
+    return validate(root, details, flagsAliases, toOptions, ImmutableSet.of());
+  }
+
+  public static Map<String, BuildOptions> validate(
+      ConfigurationTransition root,
+      StarlarkBuildSettingsDetailsValue details,
+      ImmutableMap<String, Label> flagsAliases,
+      Map<String, BuildOptions> toOptions,
+      ImmutableSet<Label> platformOutputSettings)
+      throws TransitionException {
     // Collect settings that are inputs or outputs of the transition together with their types.
     // Output setting values will be validated and removed if set to their default.
     // Raw means these have not been unaliased.
@@ -147,10 +164,13 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
             transition -> {
               ImmutableSet<Label> inputAndOutputSettings =
                   getRelevantStarlarkSettingsFromTransition(
-                      transition, flagsAliases, Settings.INPUTS_AND_OUTPUTS);
+                      transition,
+                      flagsAliases,
+                      Settings.INPUTS_AND_OUTPUTS,
+                      platformOutputSettings);
               ImmutableSet<Label> outputSettings =
                   getRelevantStarlarkSettingsFromTransition(
-                      transition, flagsAliases, Settings.OUTPUTS);
+                      transition, flagsAliases, Settings.OUTPUTS, platformOutputSettings);
               for (Label setting : inputAndOutputSettings) {
                 rawInputAndOutputSettingsBuilder.add(setting);
                 if (!outputSettings.contains(setting)) {
@@ -203,6 +223,21 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
       }
       // Keep the same instance if we didn't do anything to maintain reference equality later on.
       options = cleanedOptions != null ? cleanedOptions.build() : options;
+      if (!platformOutputSettings.isEmpty()) {
+        System.err.println(
+            "DEBUG_PLATFORM_CLEANUP_VALIDATE transition="
+                + root
+                + " splitKey="
+                + entry.getKey()
+                + " allowlisted="
+                + platformOutputSettings
+                + " inputOnly="
+                + inputOnlySettings
+                + " before="
+                + entry.getValue().getStarlarkOptions()
+                + " after="
+                + options.getStarlarkOptions());
+      }
       cleanedOptionMap.put(entry.getKey(), options);
     }
     return cleanedOptionMap.buildOrThrow();
@@ -316,6 +351,15 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
 
   public static ImmutableSet<Label> getRelevantStarlarkSettingsFromTransition(
       StarlarkTransition transition, ImmutableMap<String, Label> flagsAliases, Settings settings) {
+    return getRelevantStarlarkSettingsFromTransition(
+        transition, flagsAliases, settings, ImmutableSet.of());
+  }
+
+  public static ImmutableSet<Label> getRelevantStarlarkSettingsFromTransition(
+      StarlarkTransition transition,
+      ImmutableMap<String, Label> flagsAliases,
+      Settings settings,
+      ImmutableSet<Label> platformOutputSettings) {
     if (transition.isExecTransition()) {
       // Ignore flag aliases for exec transitions. Starlark flags will provide their exec
       // transition semantics in the flag definition.
@@ -329,6 +373,11 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
         addLabelIfRelevant(result, flagsAliases, transition.getInputs());
         addLabelIfRelevant(result, flagsAliases, transition.getOutputs());
       }
+    }
+    if (!platformOutputSettings.isEmpty()
+        && transition.outputsPlatformOption()
+        && (settings == Settings.OUTPUTS || settings == Settings.INPUTS_AND_OUTPUTS)) {
+      result.addAll(platformOutputSettings);
     }
     return result.build();
   }

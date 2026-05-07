@@ -116,6 +116,19 @@ public class PlatformOptions extends FragmentOptions {
   public List<String> extraToolchains;
 
   @Option(
+      name = "platform_in_output_dir_starlark_flags",
+      converter = CommaSeparatedOptionListConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "An allowlist of Starlark flags (as labels) that platforms may set via "
+              + "their flags attribute. When a transition changes the platform, "
+              + "these flags will be included in the transition outputs so that "
+              + "stale values from a previous platform are properly cleaned up.")
+  public List<String> platformInOutputDirStarlarkFlags;
+
+  @Option(
       name = "toolchain_resolution_debug",
       defaultValue = "-.*", // By default, exclude everything.
       converter = RegexFilter.RegexFilterConverter.class,

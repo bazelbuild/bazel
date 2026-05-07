@@ -18,6 +18,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.Settings;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
@@ -26,10 +27,14 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.StarlarkTransitionVisitor;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
 /**
@@ -47,6 +52,9 @@ import javax.annotation.Nullable;
  * cache saves most of that work, reducing analysis phase CPU time by 17%.
  */
 public final class StarlarkTransitionCache {
+
+  private static final Label PLATFORMS_OPTION =
+      Label.createUnvalidated(LabelConstants.COMMAND_LINE_OPTION_PACKAGE_IDENTIFIER, "platforms");
 
   private Cache<Key, Value> cache = Caffeine.newBuilder().softValues().build();
 
@@ -74,27 +82,95 @@ public final class StarlarkTransitionCache {
    * flag mapped to this alias.
    */
   public ImmutableSet<Label> getAllStarlarkBuildSettings(
-      ConfigurationTransition root, ImmutableMap<String, Label> flagsAliases) {
+      ConfigurationTransition root,
+      BuildOptions fromOptions,
+      ImmutableMap<String, Label> flagsAliases)
+      throws TransitionException {
     var cachedValue = starlarkBuildSettingsCache.getIfPresent(root);
-    if (cachedValue != null) {
-      return cachedValue;
+    if (cachedValue == null) {
+      ImmutableSet.Builder<Label> keyBuilder = new ImmutableSet.Builder<>();
+      try {
+        root.visit(
+            (StarlarkTransitionVisitor)
+                transition ->
+                    keyBuilder.addAll(
+                        StarlarkTransition.getRelevantStarlarkSettingsFromTransition(
+                            transition, flagsAliases, Settings.INPUTS_AND_OUTPUTS)));
+      } catch (TransitionException e) {
+        // Not actually thrown in the visitor, but declared.
+      }
+
+      cachedValue = keyBuilder.build();
+      starlarkBuildSettingsCache.put(root, cachedValue);
     }
 
-    ImmutableSet.Builder<Label> keyBuilder = new ImmutableSet.Builder<>();
+    ImmutableSet<Label> platformOutputSettings = getPlatformOutputSettings(root, fromOptions);
+    if (platformOutputSettings.isEmpty()) {
+      return cachedValue;
+    }
+    return ImmutableSet.<Label>builder()
+        .addAll(cachedValue)
+        .addAll(platformOutputSettings)
+        .build();
+  }
+
+  private static ImmutableSet<Label> getPlatformOutputSettings(
+      ConfigurationTransition root, BuildOptions fromOptions) throws TransitionException {
+    PlatformOptions platformOptions = fromOptions.get(PlatformOptions.class);
+    if (platformOptions == null || platformOptions.platformInOutputDirStarlarkFlags.isEmpty()) {
+      return ImmutableSet.of();
+    }
+
+    AtomicBoolean transitionOutputsPlatforms = new AtomicBoolean(false);
     try {
       root.visit(
           (StarlarkTransitionVisitor)
-              transition ->
-                  keyBuilder.addAll(
-                      StarlarkTransition.getRelevantStarlarkSettingsFromTransition(
-                          transition, flagsAliases, Settings.INPUTS_AND_OUTPUTS)));
+              transition -> {
+                if (transition.outputsPlatformOption()) {
+                  transitionOutputsPlatforms.set(true);
+                }
+              });
     } catch (TransitionException e) {
       // Not actually thrown in the visitor, but declared.
     }
 
-    ImmutableSet<Label> result = keyBuilder.build();
-    starlarkBuildSettingsCache.put(root, result);
-    return result;
+    CoreOptions coreOptions = fromOptions.get(CoreOptions.class);
+    boolean affectedByPlatformTransition =
+        coreOptions != null
+        && (coreOptions
+            .affectedByStarlarkTransition
+            .contains("//command_line_option:platforms")
+          || platformOptions.platformInOutputDirStarlarkFlags.stream()
+            .anyMatch(coreOptions.affectedByStarlarkTransition::contains));
+
+    if (!transitionOutputsPlatforms.get() && !affectedByPlatformTransition) {
+      return ImmutableSet.of();
+    }
+
+    ImmutableSet.Builder<Label> result = ImmutableSet.builder();
+    for (String rawFlag : platformOptions.platformInOutputDirStarlarkFlags) {
+      try {
+        result.add(Label.parseCanonical(rawFlag));
+      } catch (LabelSyntaxException e) {
+        throw new TransitionException(
+            String.format(
+                "Invalid label in --platform_in_output_dir_starlark_flags: %s", rawFlag),
+            e);
+      }
+    }
+      ImmutableSet<Label> platformOutputSettings = result.build();
+      System.err.println(
+        "DEBUG_PLATFORM_CLEANUP_SETTINGS transition="
+          + root
+          + " outputsPlatforms="
+          + transitionOutputsPlatforms.get()
+          + " affectedByPlatforms="
+          + affectedByPlatformTransition
+          + " allowlisted="
+          + platformOutputSettings
+          + " fromStarlark="
+          + fromOptions.getStarlarkOptions());
+      return platformOutputSettings;
   }
 
   /** Adds the default values for a transition's input build settings to its input build options. */
@@ -102,14 +178,17 @@ public final class StarlarkTransitionCache {
       BuildOptions fromOptions,
       ImmutableMap<String, Label> flagsAliases,
       ConfigurationTransition transition,
-      StarlarkBuildSettingsDetailsValue details) {
+      StarlarkBuildSettingsDetailsValue details,
+      ImmutableSet<Label> platformOutputSettings)
+      throws TransitionException {
     if (details.buildSettingToDefault().isEmpty()) {
       // No need to traverse the transition to find its Starlark flag inputs. There are none.
       return fromOptions;
     }
 
     BuildOptions.Builder optionsWithDefaults = null;
-    for (Label maybeAliasSetting : getAllStarlarkBuildSettings(transition, flagsAliases)) {
+    for (Label maybeAliasSetting :
+        getAllStarlarkBuildSettings(transition, fromOptions, flagsAliases)) {
       // details will only have the defaults of the actual setting so must unalias
       Label setting = details.aliasToActual().getOrDefault(maybeAliasSetting, maybeAliasSetting);
       if (!fromOptions.getStarlarkOptions().containsKey(maybeAliasSetting)) {
@@ -151,12 +230,25 @@ public final class StarlarkTransitionCache {
 
     ImmutableMap<String, Label> flagsAliases =
         fromOptions.get(CoreOptions.class).getCommandLineFlagAliases();
+    ImmutableSet<Label> platformOutputSettings = getPlatformOutputSettings(transition, fromOptions);
 
     // All code below here only executes on a cache miss and thus should rely only on values that
     // are part of the above cache key or constants that exist throughout the lifetime of the
     // Blaze server instance.
     BuildOptions adjustedOptions =
-        addDefaultStarlarkOptions(fromOptions, flagsAliases, transition, details);
+      addDefaultStarlarkOptions(
+        fromOptions, flagsAliases, transition, details, platformOutputSettings);
+    if (!platformOutputSettings.isEmpty()) {
+      System.err.println(
+          "DEBUG_PLATFORM_CLEANUP_TRANSITION transition="
+              + transition
+              + " allowlisted="
+              + platformOutputSettings
+              + " before="
+              + fromOptions.getStarlarkOptions()
+              + " adjusted="
+              + adjustedOptions.getStarlarkOptions());
+    }
     // TODO(bazel-team): Add safety-check that this never mutates fromOptions.
     StoredEventHandler handlerWithErrorStatus = new StoredEventHandler();
     Map<String, BuildOptions> result =
@@ -174,7 +266,10 @@ public final class StarlarkTransitionCache {
     if (handlerWithErrorStatus.hasErrors()) {
       throw new TransitionException("Errors encountered while applying Starlark transition");
     }
-    result = StarlarkTransition.validate(transition, details, flagsAliases, result);
+    result =
+      StarlarkTransition.validate(
+        transition, details, flagsAliases, result, platformOutputSettings);
+    result = markPlatformCleanupAffectedFlags(result, platformOutputSettings);
     // If the transition errored (like bad Starlark code), this method already exited with an
     // exception so the results won't go into the cache. We still want to collect non-error events
     // like print() output.
@@ -182,6 +277,56 @@ public final class StarlarkTransitionCache {
         !handlerWithErrorStatus.isEmpty() ? handlerWithErrorStatus : null;
     cache.put(cacheKey, new Value(result, nonErrorEvents));
     return result;
+  }
+
+  private static Map<String, BuildOptions> markPlatformCleanupAffectedFlags(
+      Map<String, BuildOptions> transitionResult, ImmutableSet<Label> platformOutputSettings) {
+    if (platformOutputSettings.isEmpty()) {
+      return transitionResult;
+    }
+
+    ImmutableMap.Builder<String, BuildOptions> updatedResult = ImmutableMap.builder();
+    for (Map.Entry<String, BuildOptions> entry : transitionResult.entrySet()) {
+      BuildOptions options = entry.getValue();
+      CoreOptions coreOptions = options.get(CoreOptions.class);
+      if (coreOptions == null) {
+        updatedResult.put(entry);
+        continue;
+      }
+
+      ArrayList<String> affectedOptions = new ArrayList<>(coreOptions.affectedByStarlarkTransition);
+      boolean changed = false;
+      if (!affectedOptions.contains("//command_line_option:platforms")) {
+        affectedOptions.add("//command_line_option:platforms");
+        changed = true;
+      }
+      for (Label setting : platformOutputSettings) {
+        String settingName = setting.toString();
+        if (!affectedOptions.contains(settingName)) {
+          affectedOptions.add(settingName);
+          changed = true;
+        }
+      }
+
+      if (!changed) {
+        updatedResult.put(entry);
+        continue;
+      }
+
+      BuildOptions updatedOptions = options.clone();
+      updatedOptions.get(CoreOptions.class).affectedByStarlarkTransition = affectedOptions;
+      System.err.println(
+          "DEBUG_PLATFORM_CLEANUP_MARK transition="
+              + entry.getKey()
+              + " allowlisted="
+              + platformOutputSettings
+              + " affectedBy="
+              + affectedOptions
+              + " starlark="
+              + updatedOptions.getStarlarkOptions());
+      updatedResult.put(entry.getKey(), updatedOptions);
+    }
+    return updatedResult.buildOrThrow();
   }
 
   public void clear() {

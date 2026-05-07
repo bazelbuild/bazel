@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
 import com.google.devtools.build.lib.skyframe.BuildOptionsScopeValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -155,11 +156,80 @@ public final class BuildConfigurationKeyProducer<C>
     }
     Optional<ParsedFlagsValue> parsedFlags = targetPlatformValue.parsedFlags();
     if (parsedFlags.isPresent()) {
-      this.postPlatformProcessedOptions = parsedFlags.get().mergeWith(options).getOptions();
+      try {
+        BuildOptions mergedOptions = parsedFlags.get().mergeWith(options).getOptions();
+        this.postPlatformProcessedOptions =
+            cleanupAllowlistedPlatformFlags(options, mergedOptions, parsedFlags.get());
+      } catch (OptionsParsingException e) {
+        sink.acceptOptionsParsingError(e);
+        return runAfter;
+      }
       return this::findBuildOptionsScopes;
     } else {
       return this::mergeFromPlatformMapping;
     }
+  }
+
+  private static BuildOptions cleanupAllowlistedPlatformFlags(
+      BuildOptions prePlatformOptions,
+      BuildOptions postPlatformOptions,
+      ParsedFlagsValue parsedFlags)
+      throws OptionsParsingException {
+    PlatformOptions platformOptions = prePlatformOptions.get(PlatformOptions.class);
+    if (platformOptions == null || platformOptions.platformInOutputDirStarlarkFlags.isEmpty()) {
+      return postPlatformOptions;
+    }
+
+    CoreOptions coreOptions = prePlatformOptions.get(CoreOptions.class);
+    if (coreOptions == null
+        || !coreOptions
+            .affectedByStarlarkTransition
+            .contains("//command_line_option:platforms")) {
+      return postPlatformOptions;
+    }
+
+    var platformSetFlags = parsedFlags.parsingResult().getStarlarkOptions().keySet();
+    BuildOptions.Builder cleanedOptions = null;
+    ArrayList<Label> removedFlags = new ArrayList<>();
+    for (String rawFlag : platformOptions.platformInOutputDirStarlarkFlags) {
+      Label flag;
+      try {
+        flag = Label.parseCanonical(rawFlag);
+      } catch (LabelSyntaxException e) {
+        throw new OptionsParsingException(
+            String.format(
+                "Invalid label in --platform_in_output_dir_starlark_flags: %s", rawFlag),
+            e);
+      }
+
+      if (platformSetFlags.contains(flag.toString())
+          || !postPlatformOptions.getStarlarkOptions().containsKey(flag)) {
+        continue;
+      }
+
+      if (cleanedOptions == null) {
+        cleanedOptions = postPlatformOptions.toBuilder();
+      }
+      cleanedOptions.removeStarlarkOption(flag);
+      removedFlags.add(flag);
+    }
+
+    BuildOptions cleanedBuildOptions =
+        cleanedOptions == null ? postPlatformOptions : cleanedOptions.build();
+    System.err.println(
+        "DEBUG_PLATFORM_CLEANUP_POST_PLATFORM pre="
+            + prePlatformOptions.getStarlarkOptions()
+            + " merged="
+            + postPlatformOptions.getStarlarkOptions()
+            + " platformSet="
+            + platformSetFlags
+            + " removed="
+            + removedFlags
+            + " result="
+            + cleanedBuildOptions.getStarlarkOptions()
+            + " affectedBy="
+            + coreOptions.affectedByStarlarkTransition);
+    return cleanedBuildOptions;
   }
 
   /**

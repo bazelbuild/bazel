@@ -91,6 +91,8 @@ public final class BaselineOptionsFunction implements SkyFunction {
       }
     }
 
+    // DEBUG: log baseline starlark options
+    System.err.println("DEBUG_BASELINE platform=" + (key.newPlatform() != null ? key.newPlatform() : "null") + " starlarkOptions=" + remappedAdjustedBaselineOptions.getStarlarkOptions() + " checksum=" + remappedAdjustedBaselineOptions.checksum().substring(0,12));
     return BaselineOptionsValue.create(remappedAdjustedBaselineOptions);
   }
 

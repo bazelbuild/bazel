@@ -316,7 +316,21 @@ public final class OutputPathMnemonicComputer {
     //   notion of trimming a Starlark option: 'null' or non-existent justs means set to default.
     ImmutableSet<String> chosenStarlarkOptions =
         diff.getChangedStarlarkOptions().stream().map(Label::toString).collect(toImmutableSet());
-    return hashChosenOptions(toOptions, chosenNativeOptions, chosenStarlarkOptions);
+    String fragment = hashChosenOptions(toOptions, chosenNativeOptions, chosenStarlarkOptions);
+    System.err.println(
+      "DEBUG_OUTPUT_PATH_DIFF toChecksum="
+        + toOptions.checksum().substring(0, 12)
+        + " baselineChecksum="
+        + baselineOptions.checksum().substring(0, 12)
+        + " native="
+        + chosenNativeOptions
+        + " starlark="
+        + chosenStarlarkOptions
+        + " starlarkValues="
+        + toOptions.getStarlarkOptions()
+        + " fragment="
+        + fragment);
+    return fragment;
   }
 
   /**

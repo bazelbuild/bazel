@@ -93,10 +93,17 @@ final class TransitionApplier
           this.label);
     }
 
-    ImmutableSet<Label> starlarkBuildSettings =
-        transitionCache.getAllStarlarkBuildSettings(
-            transition,
-            fromConfiguration.getOptions().get(CoreOptions.class).getCommandLineFlagAliases());
+    ImmutableSet<Label> starlarkBuildSettings;
+    try {
+      starlarkBuildSettings =
+          transitionCache.getAllStarlarkBuildSettings(
+              transition,
+              fromConfiguration.getOptions(),
+              fromConfiguration.getOptions().get(CoreOptions.class).getCommandLineFlagAliases());
+    } catch (TransitionException e) {
+      sink.acceptTransitionError(e);
+      return runAfter;
+    }
     if (starlarkBuildSettings.isEmpty()) {
       // Quick escape if transition doesn't use any Starlark build settings.
       buildSettingsDetailsValue = StarlarkBuildSettingsDetailsValue.EMPTY;
