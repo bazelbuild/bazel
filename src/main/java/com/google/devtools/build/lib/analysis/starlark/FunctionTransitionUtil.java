@@ -779,6 +779,8 @@ public final class FunctionTransitionUtil {
     if (toOptions == null && changedStarlarkOptions.isEmpty()) {
       return fromOptions;
     }
+    // DEBUG INSTRUMENTATION
+    System.err.println("DEBUG_TRANSITION [" + starlarkTransition + "] changedStarlark=" + changedStarlarkOptions + " fromStarlark=" + fromOptions.getStarlarkOptions() + " fromChecksum=" + fromOptions.checksum().substring(0,12));
     // Note that rebuilding also calls FragmentOptions.getNormalized() to guarantee --define,
     // --features, and similar flags are consistently ordered.
     toOptions =

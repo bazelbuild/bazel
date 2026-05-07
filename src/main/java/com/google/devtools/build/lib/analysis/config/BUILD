@@ -480,6 +480,7 @@ java_library(
     name = "starlark_transition_cache",
     srcs = ["StarlarkTransitionCache.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
         ":build_options",
         ":core_options",
         ":scope",

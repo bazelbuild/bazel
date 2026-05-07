@@ -115,10 +115,17 @@ final class TransitionApplier
   }
 
   private StateMachine handleStarlarkTransition(Tasks tasks) throws InterruptedException {
-    ImmutableSet<Label> starlarkBuildSettings =
-        transitionCache.getAllStarlarkBuildSettings(
-            transition,
-            fromConfiguration.getOptions().get(CoreOptions.class).getCommandLineFlagAliasesMap());
+    ImmutableSet<Label> starlarkBuildSettings;
+    try {
+      starlarkBuildSettings =
+          transitionCache.getAllStarlarkBuildSettings(
+              transition,
+              fromConfiguration.getOptions(),
+              fromConfiguration.getOptions().get(CoreOptions.class).getCommandLineFlagAliasesMap());
+    } catch (TransitionException e) {
+      sink.acceptTransitionError(e);
+      return runAfter;
+    }
     Set<Label> hostFlags = new HashSet<>();
 
     // If the transition is the exec transition, we want to look up the host flag declared by
