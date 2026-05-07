@@ -162,7 +162,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
             destination,
             eventHandler,
             clientEnv,
-            type);
+            type,
+            context);
         return;
       } catch (IOException e) {
         eventHandler.handle(
