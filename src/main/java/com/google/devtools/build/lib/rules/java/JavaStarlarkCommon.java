@@ -201,7 +201,9 @@ public class JavaStarlarkCommon
       boolean enableJSpecify,
       boolean enableDirectClasspath,
       Sequence<?> additionalInputs,
-      Sequence<?> additionalOutputs)
+      Sequence<?> additionalOutputs,
+      Sequence<?> coverageIncludes,
+      Sequence<?> coverageExcludes)
       throws EvalException,
           TypeException,
           RuleErrorException,
@@ -261,6 +263,10 @@ public class JavaStarlarkCommon
         Depset.cast(javaBuilderJvmFlags, String.class, "javabuilder_jvm_flags"));
     compilationHelper.enableJspecify(enableJSpecify);
     compilationHelper.enableDirectClasspath(enableDirectClasspath);
+    compilationHelper.setCoverageIncludes(
+        Sequence.cast(coverageIncludes, String.class, "coverage_includes").getImmutableList());
+    compilationHelper.setCoverageExcludes(
+        Sequence.cast(coverageExcludes, String.class, "coverage_excludes").getImmutableList());
     compilationHelper.createCompileAction(outputs);
   }
 
