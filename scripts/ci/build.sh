@@ -149,11 +149,11 @@ function release_to_github() {
   local release_branch=$(get_release_branch)
 
   if [ -n "${release_name}" ]; then
-    local github_token="$(gsutil cat gs://bazel-trusted-encrypted-secrets/github-trusted-token.enc | \
+    local github_token
+    github_token="$(gsutil cat gs://bazel-trusted-encrypted-secrets/github-trusted-token.enc | \
         gcloud kms decrypt --project bazel-public --location global --keyring buildkite --key github-trusted-token --ciphertext-file - --plaintext-file -)"
-    export GH_TOKEN="${github_token}"
-      
-    local latest_flag="true"  
+
+    local latest_flag="true"
     local prerelease_flag=""
     local tag_to_deploy="${release_name}"
 
@@ -163,34 +163,41 @@ function release_to_github() {
       latest_flag="false"
     else
       echo "+++ Checking if ${release_name} should be marked as Latest"
-      # Safety check: ensures jq is available for the next line
-      local current_latest_tag=$(gh release view --repo "bazelbuild/bazel" --json tagName --jq .tagName 2>/dev/null || echo "")
-
-      if [[ -n "${current_latest_tag}" ]]; then
-        highest=$(printf '%s\n%s' "${current_latest_tag}" "${release_name}" | sort -V | tail -n 1)
-        if [[ "${release_name}" != "${highest}" ]]; then
-          echo "+++ Version ${release_name} is older than ${current_latest_tag}. Will NOT mark as latest."
-          latest_flag="false"
+      # Query the current GitHub "latest" release to compare versions.
+      local current_latest_tag
+      if current_latest_tag=$(GH_TOKEN="${github_token}" gh release view --repo "bazelbuild/bazel" --json tagName --jq .tagName 2>/dev/null); then
+        if [[ -n "${current_latest_tag}" ]]; then
+          local highest
+          highest=$(printf '%s\n%s' "${current_latest_tag}" "${release_name}" | sort -V | tail -n 1)
+          if [[ "${release_name}" != "${highest}" ]]; then
+            echo "+++ Version ${release_name} is older than ${current_latest_tag}. Will NOT mark as latest."
+            latest_flag="false"
+          fi
         fi
+      else
+        echo "+++ Warning: Could not determine current latest release tag. Will NOT mark as latest to be safe."
+        latest_flag="false"
       fi
     fi
 
-    # Fix: Use a physical temporary file for notes
-    local notes_file=$(mktemp)
-    get_release_page > "$notes_file"
+    # Use a subshell so that the EXIT trap for temp file cleanup does not
+    # affect the outer script's traps.
+    (
+      notes_file="$(mktemp)"
+      trap 'rm -f "$notes_file"' EXIT
+      get_release_page > "$notes_file"
 
-    echo "+++ Deploying to GitHub (Tag: ${tag_to_deploy}, Latest: ${latest_flag})"
-  
-    gh release create "${tag_to_deploy}" \
-       "${artifact_dir}"/* \
-       --repo "bazelbuild/bazel" \
-       --target "${release_branch}" \
-       --title "${tag_to_deploy}" \
-       --notes-file "$notes_file" \
-       ${prerelease_flag} \
-       --latest="${latest_flag}"
+      echo "+++ Deploying to GitHub (Tag: ${tag_to_deploy}, Latest: ${latest_flag})"
 
-    rm -f "$notes_file"
+      GH_TOKEN="${github_token}" gh release create "${tag_to_deploy}" \
+         "${artifact_dir}"/* \
+         --repo "bazelbuild/bazel" \
+         --target "${release_branch}" \
+         --title "${tag_to_deploy}" \
+         --notes-file "$notes_file" \
+         ${prerelease_flag} \
+         --latest="${latest_flag}"
+    )
   fi
 }
      
@@ -492,4 +499,3 @@ function deploy_release() {
   cp "${artifact_dir}"/* "${gcs_working_dir}"
   release_to_gcs "${gcs_working_dir}"
 }
-
