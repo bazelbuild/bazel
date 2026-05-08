@@ -354,6 +354,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
 
   @Override
   public boolean delete(PathFragment path) throws IOException {
+    PathFragment originalPath = path;
     try {
       path = resolveSymbolicLinksForParent(path);
     } catch (FileNotFoundException ignored) {
@@ -361,9 +362,13 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
       return false;
     }
 
-    // No action implementations call renameTo concurrently with other filesystem operations, so
-    // there's no risk of a race condition below.
-    pathCanonicalizer.clearPrefix(path);
+    // Invalidate any cached symlink resolution for the unresolved path. If a parent of `path` is
+    // a symlink that has been (or will be) replaced -- for example, by a concurrent action that
+    // turns a stale executable symlink into a directory for a same-named subpackage -- our trie
+    // would otherwise keep returning the stale target. The resolution above may have populated
+    // such a stale entry, so this must happen *after* the resolution and on the *unresolved*
+    // path: clearing the resolved path would only invalidate a different subtree of the trie.
+    pathCanonicalizer.clearPrefix(originalPath);
 
     boolean deleted = localFs.getPath(path).delete();
     if (isOutput(path)) {

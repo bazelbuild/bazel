@@ -175,6 +175,8 @@ final class PathCanonicalizer {
   /** Removes cached information for a path prefix. */
   void clearPrefix(PathFragment pathPrefix) {
     Node node = getRootNode(pathPrefix);
+    NonSymlinkNode parent = null;
+    String parentSegment = null;
     Iterator<String> segments = pathPrefix.segments().iterator();
     boolean hasNext = segments.hasNext();
 
@@ -184,7 +186,13 @@ final class PathCanonicalizer {
 
       switch (node) {
         case SymlinkNode symlinkNode -> {
-          // Path prefix not in trie.
+          // The path prefix passes through a cached symlink. Since the caller is invalidating
+          // entries inside this symlink, the cached resolution itself may be stale (e.g. the
+          // symlink has since been replaced by a directory) and must be dropped so that the next
+          // canonicalization re-reads the on-disk state.
+          if (parent != null) {
+            parent.remove(parentSegment);
+          }
           return;
         }
         case NonSymlinkNode nonSymlinkNode -> {
@@ -192,6 +200,8 @@ final class PathCanonicalizer {
             // Found the path prefix.
             nonSymlinkNode.remove(segment);
           } else {
+            parent = nonSymlinkNode;
+            parentSegment = segment;
             node = nonSymlinkNode.get(segment);
           }
         }
