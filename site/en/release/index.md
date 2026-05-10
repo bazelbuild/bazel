@@ -25,7 +25,7 @@ information about Bazel's release model.
 | Bazel 4 | Deprecated | [4.2.4](https://github.com/bazelbuild/bazel/releases/tag/4.2.4) | Jan 2024 |
 
 All Bazel LTS releases can be found on the [release
-page](https://github.com/bazelbuild/bazel/releases){: .external} on GitHub.
+page](https://github.com/bazelbuild/bazel/releases){: .external} on GitHub. The "Latest" badge on GitHub always points to the highest semantic version, even if a maintenance patch for an older version is released more recently.
 
 ## Release versioning {:#bazel-versioning}
 
