@@ -627,10 +627,6 @@ public class IndexRegistry implements Registry {
   @Override
   public Optional<YankedVersionsValue> tryGetYankedVersionsFromLockfile(
       ModuleKey selectedModuleKey) {
-    if (knownFileHashesMode == KnownFileHashesMode.USE_IMMUTABLE_AND_UPDATE) {
-      // Yanked version information is inherently mutable, so always refresh it when requested.
-      return Optional.empty();
-    }
     String yankedInfo = previouslySelectedYankedVersions.get(selectedModuleKey);
     if (yankedInfo != null) {
       // The module version was selected when the lockfile was created, but known to be yanked
@@ -645,13 +641,22 @@ public class IndexRegistry implements Registry {
     if (knownFileHashes.containsKey(getSourceJsonUrl(selectedModuleKey))) {
       // If the source.json hash is recorded in the lockfile, we know that the module was selected
       // when the lockfile was created. Since it does not appear in the list of selected yanked
-      // versions recorded in the lockfile, it must not have been yanked at that time. We do not
-      // refresh yanked versions information.
-      // Rationale: This ensures that builds with --lockfile_mode=update or error are reproducible
-      // and do not fail due to changes in the set of yanked versions. Furthermore, it avoids
+      // versions recorded in the lockfile, it must not have been yanked at that time.
+      //
+      // Rationale (reproducibility): builds with --lockfile_mode=update or error are reproducible
+      // and do not fail due to changes in the set of yanked versions. Furthermore, this avoids
       // refetching yanked versions for all modules every time the user modifies or adds a
       // dependency. If the selected version for a module changes, yanked version information is
       // always refreshed.
+      //
+      // Rationale (security): metadata.json is fetched without integrity verification (the file is
+      // by design mutable). A registry that becomes hostile after the lockfile has pinned a
+      // legitimate selection must not be able to silently force re-selection of that module by
+      // marking the previously-selected version as yanked. The lockfile's source.json hash anchor
+      // is therefore treated as ground truth for the yanked status of the previously-selected
+      // version regardless of --lockfile_mode. Users who want to refresh yanked-version status for
+      // an already-anchored version must do so explicitly (for example, by removing the entry from
+      // the lockfile and re-running module resolution).
       return Optional.of(YankedVersionsValue.NONE_YANKED);
     }
     // The lockfile does not contain sufficient information to determine the "yanked" status of the
