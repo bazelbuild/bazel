@@ -35,6 +35,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.DeferredSpawnCacheStore;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
@@ -481,6 +482,21 @@ public class RemoteSpawnRunner implements SpawnRunner {
     try (SilentCloseable c = Profiler.instance().profile(REMOTE_DOWNLOAD, "download outputs")) {
       inMemoryOutput = remoteExecutionService.downloadOutputs(action, result);
     }
+    if (spawn.getResourceOwner().shouldDeferSpawnCacheStore()
+        && remoteExecutionService.shouldUploadActionResultToDiskCache(result)) {
+      action
+          .getSpawnExecutionContext()
+          .deferSpawnCacheStore(
+              new DeferredSpawnCacheStore() {
+                @Override
+                public void store() throws IOException, InterruptedException {
+                  remoteExecutionService.uploadActionResultToDiskCache(action, result);
+                }
+
+                @Override
+                public void close() {}
+              });
+    }
 
     fetchTime.stop();
     totalTime.stop();
@@ -681,8 +697,22 @@ public class RemoteSpawnRunner implements SpawnRunner {
       throws ExecException, IOException, InterruptedException {
     SpawnResult result = execLocally(spawn, context);
     if (uploadLocalResults && Status.SUCCESS.equals(result.status()) && result.exitCode() == 0) {
-      remoteExecutionService.uploadOutputs(
-          action, result, () -> {}, remoteOptions.getGuardAgainstConcurrentChanges());
+      if (spawn.getResourceOwner().shouldDeferSpawnCacheStore()) {
+        context.deferSpawnCacheStore(
+            new DeferredSpawnCacheStore() {
+              @Override
+              public void store() throws ExecException, InterruptedException {
+                remoteExecutionService.uploadOutputs(
+                    action, result, () -> {}, remoteOptions.getGuardAgainstConcurrentChanges());
+              }
+
+              @Override
+              public void close() {}
+            });
+      } else {
+        remoteExecutionService.uploadOutputs(
+            action, result, () -> {}, remoteOptions.getGuardAgainstConcurrentChanges());
+      }
     }
     return result;
   }
