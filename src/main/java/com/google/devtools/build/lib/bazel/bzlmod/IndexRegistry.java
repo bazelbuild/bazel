@@ -80,7 +80,11 @@ public class IndexRegistry implements Registry {
     USE_AND_UPDATE,
     /**
      * Use file hashes from the lockfile if available and add hashes for new files to the lockfile.
-     * Always revalidate mutable registry information.
+     * Always revalidate mutable registry information, with one exception for security: if the
+     * lockfile already records a {@code source.json} hash for a previously-selected module version,
+     * that anchor is treated as ground truth that the version was not yanked at lockfile-creation
+     * time and the freshly-fetched (unauthenticated) {@code metadata.json} is not allowed to flip
+     * the version's yanked status. See {@link #tryGetYankedVersionsFromLockfile} for details.
      */
     USE_IMMUTABLE_AND_UPDATE,
     /**

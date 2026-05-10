@@ -522,6 +522,78 @@ public class IndexRegistryTest extends FoundationTestCase {
                 "red-pill 1.0 is yanked due to CVE-2000-101, please upgrade to 2.0"));
   }
 
+  /**
+   * Under {@code --lockfile_mode=refresh} (i.e. {@code KnownFileHashesMode.USE_IMMUTABLE_AND_UPDATE}),
+   * a module version whose source.json hash is already anchored in the lockfile must be treated as
+   * not-yanked without consulting the registry's mutable, integrity-unverified metadata.json. This
+   * prevents a hostile registry from flipping a previously-pinned version's yanked bit and forcing
+   * a re-resolution to a fallback version that has no lockfile anchor.
+   */
+  @Test
+  public void testTryGetYankedVersionsFromLockfile_refreshMode_anchoredSourceJson_returnsNoneYanked()
+      throws Exception {
+    server.start();
+    String registryUrl = server.getUrl();
+    Registry registry =
+        registryFactory.createRegistry(
+            registryUrl,
+            LockfileMode.REFRESH,
+            ImmutableMap.of(
+                registryUrl + "/modules/red-pill/1.0/source.json",
+                Optional.of(sha256("source.json content placeholder"))),
+            ImmutableMap.of(),
+            Optional.empty(),
+            ImmutableSet.of());
+    assertThat(registry.tryGetYankedVersionsFromLockfile(createModuleKey("red-pill", "1.0")))
+        .hasValue(YankedVersionsValue.NONE_YANKED);
+  }
+
+  /**
+   * Under refresh mode, a module that has no source.json hash anchor in the lockfile must fall
+   * through to a fresh (unauthenticated) registry fetch. Newly-introduced dependencies preserve
+   * their existing behavior.
+   */
+  @Test
+  public void testTryGetYankedVersionsFromLockfile_refreshMode_unanchored_returnsEmpty()
+      throws Exception {
+    server.start();
+    Registry registry =
+        registryFactory.createRegistry(
+            server.getUrl(),
+            LockfileMode.REFRESH,
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.empty(),
+            ImmutableSet.of());
+    assertThat(registry.tryGetYankedVersionsFromLockfile(createModuleKey("red-pill", "1.0")))
+        .isEmpty();
+  }
+
+  /**
+   * Under refresh mode, the {@code previouslySelectedYankedVersions} short-circuit must continue
+   * to surface the lockfile-recorded yanked info (so that a version known to be yanked at
+   * lockfile-creation time stays yanked even if the user explicitly allowed it via
+   * {@code --allow_yanked_versions}).
+   */
+  @Test
+  public void testTryGetYankedVersionsFromLockfile_refreshMode_previouslyYanked_returnsYankedInfo()
+      throws Exception {
+    server.start();
+    Registry registry =
+        registryFactory.createRegistry(
+            server.getUrl(),
+            LockfileMode.REFRESH,
+            ImmutableMap.of(),
+            ImmutableMap.of(createModuleKey("red-pill", "1.0"), "yanked-at-lockfile-time"),
+            Optional.empty(),
+            ImmutableSet.of());
+    assertThat(registry.tryGetYankedVersionsFromLockfile(createModuleKey("red-pill", "1.0")))
+        .hasValue(
+            YankedVersionsValue.create(
+                Optional.of(
+                    ImmutableMap.of(Version.parse("1.0"), "yanked-at-lockfile-time"))));
+  }
+
   @Test
   public void testArchiveWithExplicitType() throws Exception {
     server.serve(
