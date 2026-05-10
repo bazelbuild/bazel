@@ -58,6 +58,9 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public final class AspectDefinition {
+  public static final Label ALL_TOOLCHAINS =
+      Label.parseCanonicalUnchecked("//__toolchains_aspects__:all");
+
   private final AspectClass aspectClass;
   private final AdvertisedProviderSet advertisedProviders;
   private final RequiredProviders requiredProviders;
@@ -189,7 +192,8 @@ public final class AspectDefinition {
 
   /** Returns whether the aspect propagates to toolchains of the given {@code toolchainType}. */
   public boolean canPropagateToToolchainType(Label toolchainType) {
-    return propagateToToolchainsTypes.contains(toolchainType);
+    return propagateToToolchainsTypes.contains(toolchainType)
+        || propagateToToolchainsTypes.contains(ALL_TOOLCHAINS);
   }
 
   /** Returns whether the aspect propagates to toolchains. */

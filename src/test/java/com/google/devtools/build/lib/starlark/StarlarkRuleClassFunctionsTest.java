@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectClass;
+import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -5310,6 +5311,38 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         .containsExactly(
             Label.parseCanonicalUnchecked("//toolchains:type1"),
             Label.parseCanonicalUnchecked("//toolchains:type2"));
+  }
+
+  @Test
+  public void testAspectWithWildcardToolchainsAspects_parsesCorrectly() throws Exception {
+    evalAndExport(
+        ev,
+        """
+        def _aspect_impl(target, ctx):
+            return []
+        my_aspect = aspect(
+            implementation = _aspect_impl,
+            toolchains_aspects = ["*"]
+        )
+        """);
+
+    StarlarkDefinedAspect aspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
+
+    assertThat(aspect.getToolchainsAspects()).containsExactly(AspectDefinition.ALL_TOOLCHAINS);
+  }
+
+  @Test
+  public void testAspectWithWildcardToolchainsAspects_mixedWithLabels_fails() throws Exception {
+    ev.checkEvalErrorContains(
+        "'*' must be the only item in 'toolchains_aspects' list",
+        """
+        def _aspect_impl(target, ctx):
+            return []
+        my_aspect = aspect(
+            implementation = _aspect_impl,
+            toolchains_aspects = ["*", "//toolchains:type1"]
+        )
+        """);
   }
 
   @Test
