@@ -79,12 +79,12 @@ public final class Converters {
   }
 
   /**
-   * Converter for nullable strings. Treats an empty string as {@code null}, and passes any other
-   * value through unchanged. Useful for optional flags that have {@code defaultValue = "null"} so
-   * that an empty value on the command line resets the flag to its unset state instead of being
-   * interpreted as a literal empty string.
+   * Converter that treats an empty string as {@code null}, and passes any other value through
+   * unchanged. Useful for optional flags that have {@code defaultValue = "null"} so that an empty
+   * value on the command line resets the flag to its unset state instead of being interpreted as a
+   * literal empty string.
    */
-  public static class NullableStringConverter extends Converter.Contextless<String> {
+  public static class EmptyToNullStringConverter extends Converter.Contextless<String> {
     @Override
     @Nullable
     public String convert(String input) {
@@ -96,7 +96,7 @@ public final class Converters {
 
     @Override
     public String getTypeDescription() {
-      return "a nullable string";
+      return "a string; empty to unset";
     }
   }
 

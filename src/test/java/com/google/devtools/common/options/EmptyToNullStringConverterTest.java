@@ -15,16 +15,15 @@ package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.common.options.Converters.NullableStringConverter;
+import com.google.devtools.common.options.Converters.EmptyToNullStringConverter;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link NullableStringConverter}. */
 @RunWith(JUnit4.class)
-public class NullableStringConverterTest {
+public class EmptyToNullStringConverterTest {
 
-  private final NullableStringConverter converter = new NullableStringConverter();
+  private final EmptyToNullStringConverter converter = new EmptyToNullStringConverter();
 
   @Test
   public void emptyStringReturnsNull() throws OptionsParsingException {
@@ -33,8 +32,6 @@ public class NullableStringConverterTest {
 
   @Test
   public void literalNullStringPassesThrough() throws OptionsParsingException {
-    // The framework handles defaultValue = "null" specially without invoking the converter.
-    // This test checks that if "null" makes it to the converter, then it is treated literally.
     assertThat(converter.convert("null")).isEqualTo("null");
   }
 

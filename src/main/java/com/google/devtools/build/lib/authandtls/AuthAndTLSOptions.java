@@ -20,7 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Converters.DurationConverter;
-import com.google.devtools.common.options.Converters.NullableStringConverter;
+import com.google.devtools.common.options.Converters.EmptyToNullStringConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -82,7 +82,7 @@ public abstract class AuthAndTLSOptions extends OptionsBase {
   @Option(
       name = "tls_certificate",
       defaultValue = "null",
-      converter = NullableStringConverter.class,
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -93,7 +93,7 @@ public abstract class AuthAndTLSOptions extends OptionsBase {
   @Option(
       name = "tls_client_certificate",
       defaultValue = "null",
-      converter = NullableStringConverter.class,
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -104,7 +104,7 @@ public abstract class AuthAndTLSOptions extends OptionsBase {
   @Option(
       name = "tls_client_key",
       defaultValue = "null",
-      converter = NullableStringConverter.class,
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
