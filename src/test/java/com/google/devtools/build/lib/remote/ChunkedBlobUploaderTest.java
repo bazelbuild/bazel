@@ -25,12 +25,15 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.chunking.FastCdcChunker;
 import com.google.devtools.build.lib.remote.chunking.FastCdcChunkingConfig;
+import com.google.devtools.build.lib.remote.chunking.RepMaxCdcChunkingConfig;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -99,6 +102,50 @@ public class ChunkedBlobUploaderTest {
         new ChunkedBlobUploader(grpcCacheClient, combinedCache, config, DIGEST_UTIL);
 
     assertThat(uploader.getChunkingThreshold()).isEqualTo(512 * 4);
+  }
+
+  @Test
+  public void uploadChunked_repMaxCdc_marksChunkUploadsWithChunkingFunction() throws Exception {
+    ChunkedBlobUploader repMaxUploader =
+        new ChunkedBlobUploader(
+            grpcCacheClient,
+            combinedCache,
+            new RepMaxCdcChunkingConfig(/* minChunkSize= */ 1024, /* horizonSize= */ 0),
+            DIGEST_UTIL);
+    RemoteActionExecutionContext context =
+        RemoteActionExecutionContext.create(RequestMetadata.getDefaultInstance());
+    Path file = execRoot.getRelative("rep-max.txt");
+    byte[] data = new byte[4096];
+    new Random(42).nextBytes(data);
+    writeFile(file, data);
+    Digest blobDigest = DIGEST_UTIL.compute(data);
+
+    when(grpcCacheClient.findMissingDigests(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              List<Digest> digests = invocation.getArgument(1);
+              return immediateFuture(ImmutableSet.copyOf(digests));
+            });
+    List<RemoteActionExecutionContext> uploadContexts = new ArrayList<>();
+    when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class)))
+        .thenAnswer(
+            invocation -> {
+              uploadContexts.add(invocation.getArgument(0));
+              return immediateVoidFuture();
+            });
+    when(grpcCacheClient.spliceBlob(any(), any(), any(), any())).thenReturn(immediateVoidFuture());
+
+    repMaxUploader.uploadChunked(context, blobDigest, file);
+
+    assertThat(uploadContexts).isNotEmpty();
+    for (RemoteActionExecutionContext uploadContext : uploadContexts) {
+      assertThat(uploadContext.getChunkingFunction())
+          .isEqualTo(ChunkingFunction.Value.REP_MAX_CDC);
+    }
+    verify(grpcCacheClient).findMissingDigests(eq(context), any());
+    verify(grpcCacheClient)
+        .spliceBlob(
+            eq(context), eq(blobDigest), any(), eq(ChunkingFunction.Value.REP_MAX_CDC));
   }
 
   @Test
