@@ -319,11 +319,16 @@ final class ByteStreamUploader {
     }
 
     private ByteStreamStub bsAsyncStub(Channel channel) {
-      return ByteStreamGrpc.newStub(channel)
-          .withInterceptors(
-              TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
-          .withCallCredentials(callCredentialsProvider.getCallCredentials())
-          .withDeadlineAfter(callTimeoutSecs, SECONDS);
+      ByteStreamStub stub =
+          ByteStreamGrpc.newStub(channel)
+              .withInterceptors(
+                  TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
+              .withCallCredentials(callCredentialsProvider.getCallCredentials())
+              .withDeadlineAfter(callTimeoutSecs, SECONDS);
+      if (context.isChunked()) {
+        stub = stub.withInterceptors(TracingMetadataUtils.attachChunkedHeaderInterceptor());
+      }
+      return stub;
     }
 
     private ListenableFuture<Long> query() {
