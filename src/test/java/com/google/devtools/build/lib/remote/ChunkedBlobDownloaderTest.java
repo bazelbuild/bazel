@@ -22,7 +22,9 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.SplitBlobResponse;
 import com.google.common.primitives.Bytes;
 import com.google.common.util.concurrent.Futures;
@@ -223,6 +225,48 @@ public class ChunkedBlobDownloaderTest {
 
     assertThat(secondOut.toByteArray()).isEqualTo(blobs.secondContent());
     verify(combinedCache, times(1)).downloadBlob(any(), eq(blobs.sharedChunk()));
+  }
+
+  @Test
+  public void downloadChunked_marksChunkDownloadsWithChunkingFunction() throws Exception {
+    RemoteActionExecutionContext context =
+        RemoteActionExecutionContext.create(RequestMetadata.getDefaultInstance());
+    byte[] chunk1Data = new byte[] {1, 2, 3};
+    byte[] chunk2Data = new byte[] {4, 5, 6};
+    Digest chunk1Digest = DIGEST_UTIL.compute(chunk1Data);
+    Digest chunk2Digest = DIGEST_UTIL.compute(chunk2Data);
+    Digest blobDigest = DIGEST_UTIL.compute(new byte[] {1, 2, 3, 4, 5, 6});
+
+    SplitBlobResponse splitResponse =
+        SplitBlobResponse.newBuilder()
+            .addChunkDigests(chunk1Digest)
+            .addChunkDigests(chunk2Digest)
+            .build();
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
+        .thenReturn(Futures.immediateFuture(splitResponse));
+    List<RemoteActionExecutionContext> downloadContexts = new ArrayList<>();
+    when(combinedCache.downloadBlob(any(), eq(chunk1Digest)))
+        .thenAnswer(
+            invocation -> {
+              downloadContexts.add(invocation.getArgument(0));
+              return Futures.immediateFuture(chunk1Data);
+            });
+    when(combinedCache.downloadBlob(any(), eq(chunk2Digest)))
+        .thenAnswer(
+            invocation -> {
+              downloadContexts.add(invocation.getArgument(0));
+              return Futures.immediateFuture(chunk2Data);
+            });
+
+    downloader.downloadChunked(context, blobDigest, new ByteArrayOutputStream());
+
+    assertThat(downloadContexts).hasSize(2);
+    for (RemoteActionExecutionContext downloadContext : downloadContexts) {
+      assertThat(downloadContext.getChunkingFunction())
+          .isEqualTo(ChunkingFunction.Value.FAST_CDC_2020);
+    }
+    verify(grpcCacheClient)
+        .splitBlob(eq(context), eq(blobDigest), eq(ChunkingFunction.Value.FAST_CDC_2020));
   }
 
   @Test

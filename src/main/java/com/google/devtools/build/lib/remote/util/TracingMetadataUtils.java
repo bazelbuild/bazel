@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.util;
 
+import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ToolDetails;
 import com.google.common.annotations.VisibleForTesting;
@@ -43,6 +44,15 @@ public class TracingMetadataUtils {
   @VisibleForTesting
   public static final Metadata.Key<RequestMetadata> METADATA_KEY =
       ProtoUtils.keyForProto(RequestMetadata.getDefaultInstance());
+
+  /**
+   * gRPC header attached to CAS and ByteStream calls whose digests refer to content-defined chunks
+   * rather than whole blobs. The value is the name of the {@link ChunkingFunction.Value} that
+   * produced the chunks. Servers that do not understand the header can safely ignore it.
+   */
+  public static final Metadata.Key<String> CHUNKING_FUNCTION_HEADER_KEY =
+      Metadata.Key.of(
+          "build.bazel.remote.execution.v2.chunking-function", Metadata.ASCII_STRING_MARSHALLER);
 
   public static RequestMetadata buildMetadata(
       String buildRequestId, String commandId, String actionId) {
@@ -116,7 +126,20 @@ public class TracingMetadataUtils {
   }
 
   public static ClientInterceptor attachMetadataInterceptor(RequestMetadata requestMetadata) {
-    return MetadataUtils.newAttachHeadersInterceptor(headersFromRequestMetadata(requestMetadata));
+    return attachMetadataInterceptor(requestMetadata, /* chunkingFunction= */ null);
+  }
+
+  /**
+   * Returns an interceptor that attaches the {@link RequestMetadata} and, if {@code
+   * chunkingFunction} is set, the {@link #CHUNKING_FUNCTION_HEADER_KEY} header to outgoing calls.
+   */
+  public static ClientInterceptor attachMetadataInterceptor(
+      RequestMetadata requestMetadata, @Nullable ChunkingFunction.Value chunkingFunction) {
+    Metadata headers = headersFromRequestMetadata(requestMetadata);
+    if (chunkingFunction != null) {
+      headers.put(CHUNKING_FUNCTION_HEADER_KEY, chunkingFunction.name());
+    }
+    return MetadataUtils.newAttachHeadersInterceptor(headers);
   }
 
   private static Metadata newMetadataForHeaders(List<Entry<String, String>> headers) {

@@ -132,6 +132,7 @@ import java.io.OutputStream;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
@@ -589,6 +590,62 @@ public class GrpcCacheClientTest {
           }
         });
     assertThat(new String(downloadBlob(context, client, digest), UTF_8)).isEqualTo("abcdefg");
+  }
+
+  @Test
+  public void chunkingFunctionHeaderIsAttachedOnlyForChunkedContext() throws Exception {
+    GrpcCacheClient client = newClient();
+    Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+    List<String> chunkingFunctionHeaders = Collections.synchronizedList(new ArrayList<>());
+    ServerInterceptor interceptor =
+        new ServerInterceptor() {
+          @Override
+          public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
+              ServerCall<ReqT, RespT> call,
+              Metadata metadata,
+              ServerCallHandler<ReqT, RespT> next) {
+            chunkingFunctionHeaders.add(
+                metadata.get(TracingMetadataUtils.CHUNKING_FUNCTION_HEADER_KEY));
+            return next.startCall(call, metadata);
+          }
+        };
+    serviceRegistry.addService(
+        ServerInterceptors.intercept(
+            new ContentAddressableStorageImplBase() {
+              @Override
+              public void findMissingBlobs(
+                  FindMissingBlobsRequest request,
+                  StreamObserver<FindMissingBlobsResponse> responseObserver) {
+                responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
+                responseObserver.onCompleted();
+              }
+            },
+            interceptor));
+    serviceRegistry.addService(
+        ServerInterceptors.intercept(
+            new ByteStreamImplBase() {
+              @Override
+              public void read(
+                  ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+                responseObserver.onNext(
+                    ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("abcdefg")).build());
+                responseObserver.onCompleted();
+              }
+            },
+            interceptor));
+    RemoteActionExecutionContext chunkContext =
+        context.chunked(ChunkingFunction.Value.FAST_CDC_2020);
+
+    assertThat(getFromFuture(client.findMissingDigests(context, ImmutableList.of(digest))))
+        .isEmpty();
+    assertThat(getFromFuture(client.findMissingDigests(chunkContext, ImmutableList.of(digest))))
+        .isEmpty();
+    assertThat(downloadBlob(context, client, digest)).isEqualTo("abcdefg".getBytes(UTF_8));
+    assertThat(downloadBlob(chunkContext, client, digest)).isEqualTo("abcdefg".getBytes(UTF_8));
+
+    assertThat(chunkingFunctionHeaders)
+        .containsExactly(null, "FAST_CDC_2020", null, "FAST_CDC_2020")
+        .inOrder();
   }
 
   @Test
