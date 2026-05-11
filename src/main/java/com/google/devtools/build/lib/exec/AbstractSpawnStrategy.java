@@ -82,16 +82,15 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
   /**
    * Expands param file references in a spawn's arguments with the actual param file contents.
    *
-   * <p>For each argument that matches a param file reference (e.g. {@code @path/to/param_file}),
-   * the argument is replaced with the contents of the corresponding param file found in the spawn's
-   * input files.
+   * <p>For each argument that matches a param file reference, the argument is replaced with the
+   * contents of the corresponding param file found in the spawn's input files.
    */
   public static ImmutableList<String> expandParamFiles(Spawn spawn) {
     ImmutableMap.Builder<String, CommandLines.ParamFileActionInput> paramFileMapBuilder =
         ImmutableMap.builder();
     for (ActionInput input : spawn.getInputFiles().toList()) {
       if (input instanceof CommandLines.ParamFileActionInput paramFileActionInput) {
-        paramFileMapBuilder.put(paramFileActionInput.getExecPathString(), paramFileActionInput);
+        paramFileMapBuilder.put(paramFileActionInput.getParamFileArg(), paramFileActionInput);
       }
     }
     ImmutableMap<String, CommandLines.ParamFileActionInput> paramFileMap =
@@ -103,15 +102,12 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
 
     ArrayList<String> expandedArgs = new ArrayList<>();
     for (String arg : spawn.getArguments()) {
-      if (arg.startsWith("@") && arg.length() > 1) {
-        String path = arg.substring(1);
-        CommandLines.ParamFileActionInput paramFile = paramFileMap.get(path);
-        if (paramFile != null) {
-          for (String paramArg : paramFile.getArguments()) {
-            expandedArgs.add(paramArg);
-          }
-          continue;
+      CommandLines.ParamFileActionInput paramFile = paramFileMap.get(arg);
+      if (paramFile != null) {
+        for (String paramArg : paramFile.getArguments()) {
+          expandedArgs.add(paramArg);
         }
+        continue;
       }
       expandedArgs.add(arg);
     }

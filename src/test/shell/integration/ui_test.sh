@@ -465,7 +465,7 @@ def _impl(ctx):
   args = ctx.actions.args()
   args.add("--flag_from_param_file")
   args.add("--another_flag_from_param_file")
-  args.use_param_file("@%s", use_always = True)
+  args.use_param_file("--flagfile=%s", use_always = True)
   ctx.actions.run_shell(
     outputs = [out],
     arguments = [out.path, args],
@@ -487,13 +487,14 @@ EOF
 
   bazel build -s "//$pkg:param_test1" 2>$TEST_log \
     || fail "bazel build failed"
-  expect_log "@.*\.params"
+  expect_log "--flagfile=.*\.params"
   expect_not_log "flag_from_param_file"
 
   bazel build -s --expand_param_files "//$pkg:param_test2" 2>$TEST_log \
     || fail "bazel build failed"
   expect_log "flag_from_param_file"
   expect_log "another_flag_from_param_file"
+  expect_not_log "--flagfile=.*\.params"
 }
 
 function test_expand_param_files_with_verbose_failures {
@@ -504,11 +505,11 @@ def _impl(ctx):
   args = ctx.actions.args()
   args.add("--flag_from_param_file")
   args.add("--another_flag_from_param_file")
-  args.use_param_file("@%s", use_always = True)
-  ctx.actions.run(
+  args.use_param_file("--flagfile=%s", use_always = True)
+  ctx.actions.run_shell(
     outputs = [ctx.outputs.out],
-    executable = "/bin/false",
     arguments = [args],
+    command = "exit 1",
   )
 
 param_rule = rule(
@@ -525,13 +526,14 @@ EOF
 
   bazel build --verbose_failures "//$pkg:param_test" \
     2>$TEST_log && fail "expected build failure" || true
-  expect_log "@.*\.params"
+  expect_log "--flagfile=.*\.params"
   expect_not_log "flag_from_param_file"
 
   bazel build --verbose_failures --expand_param_files "//$pkg:param_test" \
     2>$TEST_log && fail "expected build failure" || true
   expect_log "flag_from_param_file"
   expect_log "another_flag_from_param_file"
+  expect_not_log "--flagfile=.*\.params"
 }
 
 function test_loading_progress {

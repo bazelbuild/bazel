@@ -26,6 +26,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -330,6 +331,24 @@ public class AbstractSpawnStrategyTest {
             ParameterFileType.UNQUOTED);
     Spawn spawn =
         new SpawnBuilder("/bin/gcc", "@output/foo-0.params", "-o", "foo.o")
+            .withInput(paramFile)
+            .build();
+    ImmutableList<String> result = AbstractSpawnStrategy.expandParamFiles(spawn);
+    assertThat(result)
+        .containsExactly("/bin/gcc", "-lfoo", "-lbar", "-lbaz", "-o", "foo.o")
+        .inOrder();
+  }
+
+  @Test
+  public void testExpandParamFiles_expandsCustomParamFileReference() throws Exception {
+    CommandLines.ParamFileActionInput paramFile =
+        new CommandLines.ParamFileActionInput(
+            PathFragment.create("output/foo-0.params"),
+            "--param=output/foo-0.params",
+            ImmutableList.of("-lfoo", "-lbar", "-lbaz"),
+            ParameterFileType.UNQUOTED);
+    Spawn spawn =
+        new SpawnBuilder("/bin/gcc", "--param=output/foo-0.params", "-o", "foo.o")
             .withInput(paramFile)
             .build();
     ImmutableList<String> result = AbstractSpawnStrategy.expandParamFiles(spawn);
