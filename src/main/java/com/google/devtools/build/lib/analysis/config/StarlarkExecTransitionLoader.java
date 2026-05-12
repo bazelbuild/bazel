@@ -143,15 +143,16 @@ public final class StarlarkExecTransitionLoader {
             .map(Map.Entry::getKey)
             .collect(toImmutableSet());
 
-    if (!starlarkFlags.isEmpty()) {
-      // Look up the host flags declared by users in the blazerc/MODULE.bazel files with alias
-      // pointing to the starlark definition. This is useful to determine exec propagation for flags
-      // with scope that starts with "exec:--".
-      ImmutableSet<Label> hostFlags =
-          options.get(CoreOptions.class).getCommandLineFlagAliasesMap().entrySet().stream()
-              .filter(alias -> alias.getKey().startsWith("host_"))
-              .map(Map.Entry::getValue)
-              .collect(toImmutableSet());
+    // Look up the host flags declared by users in the blazerc/MODULE.bazel files with alias
+    // pointing to the starlark definition. This is useful to determine exec propagation for flags
+    // with scope that starts with "exec:--".
+    ImmutableSet<Label> hostFlags =
+        options.get(CoreOptions.class).getCommandLineFlagAliasesMap().entrySet().stream()
+            .filter(alias -> alias.getKey().startsWith("host_"))
+            .map(Map.Entry::getValue)
+            .collect(toImmutableSet());
+
+    if (!starlarkFlags.isEmpty() || !hostFlags.isEmpty()) {
       scopeDetails = detailsLoader.getValue(starlarkFlags, hostFlags);
       if (scopeDetails == null) {
         return null;
