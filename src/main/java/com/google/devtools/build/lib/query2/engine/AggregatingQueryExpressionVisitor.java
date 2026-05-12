@@ -114,4 +114,36 @@ public abstract class AggregatingQueryExpressionVisitor<T, C>
       return Booleans.contains(Booleans.toArray(resultMap.values()), true);
     }
   }
+
+  /** Returns true when the query expression contains at least one function that requires edges. */
+  public static class RequiresEdgesQueryExpressionVisitor
+      extends AggregatingQueryExpressionVisitor<Boolean, Void>
+      implements QueryExpressionVisitor<Boolean, Void> {
+
+    public RequiresEdgesQueryExpressionVisitor() {}
+
+    @Override
+    public Boolean visit(TargetLiteral targetLiteral, Void context) {
+      return false;
+    }
+
+    @Override
+    public Boolean visit(SetExpression setExpression, Void context) {
+      return false;
+    }
+
+    @Override
+    public Boolean visit(FunctionExpression functionExpression, Void context) {
+      if (functionExpression.getFunction().requiresEdges()) {
+        return true;
+      } else {
+        return super.visit(functionExpression, context);
+      }
+    }
+
+    @Override
+    protected Boolean aggregate(ImmutableMap<QueryExpression, Boolean> resultMap) {
+      return Booleans.contains(Booleans.toArray(resultMap.values()), true);
+    }
+  }
 }

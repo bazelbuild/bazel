@@ -237,6 +237,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
         orderedResults,
         universeScope,
         /* loadingPhaseThreads= */ 1,
+        /* trackIncrementalState= */ true,
         /* labelFilter= */ ALL_LABELS,
         getReporter(),
         this.settings,
