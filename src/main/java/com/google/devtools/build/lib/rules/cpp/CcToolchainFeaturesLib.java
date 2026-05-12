@@ -454,6 +454,16 @@ public class CcToolchainFeaturesLib {
   @VisibleForTesting
   static void artifactNamePatternFromStarlark(
       StarlarkInfo artifactNamePatternStruct, ArtifactNamePatternAdder adder) throws EvalException {
+    artifactNamePatternFromStarlark(
+        artifactNamePatternStruct, adder, /* permissiveArtifactExtensions= */ false);
+  }
+
+  @VisibleForTesting
+  static void artifactNamePatternFromStarlark(
+      StarlarkInfo artifactNamePatternStruct,
+      ArtifactNamePatternAdder adder,
+      boolean permissiveArtifactExtensions)
+      throws EvalException {
     checkRightProviderType(artifactNamePatternStruct, "artifact_name_pattern");
     String categoryName =
         getMandatoryFieldFromStarlarkProvider(
@@ -479,7 +489,8 @@ public class CcToolchainFeaturesLib {
         Strings.nullToEmpty(
             getMandatoryFieldFromStarlarkProvider(
                 artifactNamePatternStruct, "extension", String.class));
-    if (!foundCategory.getAllowedExtensions().contains(extension)) {
+    if (!permissiveArtifactExtensions
+        && !foundCategory.getAllowedExtensions().contains(extension)) {
       throw infoError(
           artifactNamePatternStruct,
           "Unrecognized file extension '%s', allowed extensions are %s,"

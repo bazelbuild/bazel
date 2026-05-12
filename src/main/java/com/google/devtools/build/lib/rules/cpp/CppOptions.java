@@ -1027,6 +1027,20 @@ public abstract class CppOptions extends FragmentOptions {
   public abstract boolean getExperimentalCcImplementationDeps();
 
   @Option(
+      name = "experimental_cc_permissive_artifact_extensions",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If enabled, artifact_name_pattern declarations in cc_toolchain configuration may use"
+              + " any file extension for any artifact category, bypassing the hardcoded allow-list;"
+              + " experimental, behaviour may change.")
+  public abstract boolean getExperimentalCcPermissiveArtifactExtensions();
+
+  @Option(
       name = "experimental_cpp_modules",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

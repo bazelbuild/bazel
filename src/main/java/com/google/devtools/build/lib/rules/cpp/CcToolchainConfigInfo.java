@@ -76,7 +76,8 @@ public class CcToolchainConfigInfo {
     return featureBuilder.build();
   }
 
-  public ArtifactNamePatternMapper getArtifactNamePatterns() throws EvalException {
+  public ArtifactNamePatternMapper getArtifactNamePatterns(boolean permissiveArtifactExtensions)
+      throws EvalException {
     CcToolchainFeatures.ArtifactNamePatternMapper.Builder artifactNamePatternBuilder =
         new CcToolchainFeatures.ArtifactNamePatternMapper.Builder();
     for (StarlarkInfo artifactNamePattern :
@@ -85,7 +86,9 @@ public class CcToolchainConfigInfo {
             StarlarkInfo.class,
             "_artifact_name_patterns")) {
       CcToolchainFeaturesLib.artifactNamePatternFromStarlark(
-          artifactNamePattern, artifactNamePatternBuilder::addOverride);
+          artifactNamePattern,
+          artifactNamePatternBuilder::addOverride,
+          permissiveArtifactExtensions);
     }
     return artifactNamePatternBuilder.build();
   }
