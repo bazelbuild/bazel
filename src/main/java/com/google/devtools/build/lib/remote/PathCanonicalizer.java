@@ -186,10 +186,7 @@ final class PathCanonicalizer {
 
       switch (node) {
         case SymlinkNode symlinkNode -> {
-          // The path prefix passes through a cached symlink. Since the caller is invalidating
-          // entries inside this symlink, the cached resolution itself may be stale (e.g. the
-          // symlink has since been replaced by a directory) and must be dropped so that the next
-          // canonicalization re-reads the on-disk state.
+          // Invalidate all intermediate symlinks.
           if (parent != null) {
             parent.remove(parentSegment);
           }

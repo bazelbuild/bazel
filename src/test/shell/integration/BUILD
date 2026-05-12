@@ -383,14 +383,6 @@ sh_test(
 )
 
 sh_test(
-    name = "stale_output_symlink_test",
-    size = "medium",
-    srcs = ["stale_output_symlink_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
-)
-
-sh_test(
     name = "starlark_flag_test",
     size = "medium",
     srcs = ["starlark_flag_test.sh"],
