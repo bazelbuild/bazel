@@ -29,7 +29,7 @@ LIBRARY_JARS=$(find $ADDITIONAL_JARS -name '*.jar' | sort | grep -Fv JavaBuilder
 MAVEN_JARS=$(find "derived/maven" -name '*.jar' | sort | grep -Fv netty-tcnative | tr "\n" " ")
 LIBRARY_JARS="${LIBRARY_JARS} ${MAVEN_JARS}"
 
-ANNOTATION_PROCESSOR_FILES=$(echo src/main/java/com/google/devtools/common/options/processor/OptionsClassProcessor.java src/main/java/com/google/devtools/common/options/{Option.java,OptionMetadataTag.java,OptionEffectTag.java,OptionDocumentationCategory.java,OptionsClass.java,Converter.java,OptionsParsingException.java,processor/OptionProcessorException.java,processor/ProcessorUtils.java})
+ANNOTATION_PROCESSOR_FILES=$(echo src/main/java/com/google/devtools/common/options/processor/OptionsClassProcessor.java src/main/java/com/google/devtools/build/lib/skybridge/SkybridgeInterface.java src/main/java/com/google/devtools/common/options/{Option.java,OptionMetadataTag.java,OptionEffectTag.java,OptionDocumentationCategory.java,OptionsClass.java,Converter.java,OptionsParsingException.java,processor/OptionProcessorException.java,processor/ProcessorUtils.java})
 ANNOTATION_PROCESSORS="com.google.devtools.common.options.processor.OptionsClassProcessor,com.google.auto.value.processor.AutoValueProcessor,com.google.auto.value.processor.AutoBuilderProcessor,com.google.auto.value.processor.AutoOneOfProcessor,com.google.auto.service.processor.AutoServiceProcessor"
 DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java,tools/starlark/java} tools/java/runfiles ${OUTPUT_DIR}/src)
 # Exclude source files that are not needed for Bazel itself, which avoids dependencies like truth.
