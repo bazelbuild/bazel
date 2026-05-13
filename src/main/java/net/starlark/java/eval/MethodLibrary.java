@@ -693,7 +693,7 @@ set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
       },
       useStarlarkThread = true,
       isTypeConstructor = true)
-  public StarlarkSet<Object> set(StarlarkIterable<?> elements, StarlarkThread thread)
+  public StarlarkSet<?> set(StarlarkIterable<?> elements, StarlarkThread thread)
       throws EvalException {
     // Ordinarily we would use StarlarkMethod#enableOnlyWithFlag, but this doesn't work for
     // top-level symbols, so enforce it here instead.

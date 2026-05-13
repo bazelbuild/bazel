@@ -285,8 +285,17 @@ final class MethodDescriptor {
       return Types.INT;
     } else if (cls == double.class || cls == Double.class || cls == StarlarkFloat.class) {
       return Types.FLOAT;
+    } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == Dict.class) {
+      return Types.dict(
+          starlarkTypeFromJava(ptype.getActualTypeArguments()[0]),
+          starlarkTypeFromJava(ptype.getActualTypeArguments()[1]));
     } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == StarlarkList.class) {
       return Types.list(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
+    } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == StarlarkSet.class) {
+      return Types.set(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
+    } else if (cls instanceof Class<?> c && Tuple.class.isAssignableFrom(c)) {
+      // TODO: #27370 - Should we ever return a narrower tuple type?
+      return Types.homogeneousTuple(Types.ANY);
     } else if (cls instanceof ParameterizedType ptype
         && ptype.getRawType() == StarlarkIterable.class) {
       return Types.collection(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));

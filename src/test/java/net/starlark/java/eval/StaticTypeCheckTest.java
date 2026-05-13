@@ -274,4 +274,44 @@ public final class StaticTypeCheckTest {
         s.startswith()
         """);
   }
+
+  @Test
+  public void universalSymbolTypes() throws Exception {
+    assertValid(
+        """
+        b: bool = True
+        b = False
+        n: None = None
+        s: str = str(123)
+        i: int = int(123)
+        f: float = float(123)
+        l: list = list()
+        d: dict = dict()
+        se: set = set()
+        """);
+    assertInvalid("cannot assign type 'bool' to 'x' of type 'str'", "x: str = True");
+    assertInvalid("cannot assign type 'bool' to 'x' of type 'str'", "x: str = False");
+    assertInvalid("cannot assign type 'None' to 'x' of type 'str'", "x: str = None");
+    assertInvalid("cannot assign type 'str' to 'x' of type 'int'", "x: int = str(123)");
+    assertInvalid("cannot assign type 'int' to 'x' of type 'str'", "x: str = int(123)");
+    assertInvalid("cannot assign type 'float' to 'x' of type 'str'", "x: str = float(123)");
+    assertInvalid("cannot assign type 'list[Any]' to 'x' of type 'str'", "x: str = list()");
+    assertInvalid("cannot assign type 'dict[Any, Any]' to 'x' of type 'str'", "x: str = dict()");
+    assertInvalid("cannot assign type 'set[Any]' to 'x' of type 'str'", "x: str = set()");
+  }
+
+  @Test
+  public void predeclaredSymbolTypes() throws Exception {
+    module =
+        Module.withPredeclared(
+            StarlarkSemantics.DEFAULT,
+            ImmutableMap.of("PREDECLARED_INT", StarlarkInt.of(123), "PREDECLARED_STR", "abc"));
+    assertValid(
+        """
+        x: int = PREDECLARED_INT
+        y: str = PREDECLARED_STR
+        """);
+    assertInvalid("cannot assign type 'int' to 'x' of type 'str'", "x: str = PREDECLARED_INT");
+    assertInvalid("cannot assign type 'str' to 'x' of type 'int'", "x: int = PREDECLARED_STR");
+  }
 }

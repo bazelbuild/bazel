@@ -169,5 +169,17 @@ public final class TestUtils {
     public StarlarkType getSetFieldType(String name) {
       return null;
     }
+
+    @Override
+    @Nullable
+    public StarlarkType getPredeclaredSymbolType(String name) {
+      return predeclared.contains(name) ? Types.ANY : null;
+    }
+
+    @Override
+    @Nullable
+    public StarlarkType getUniversalSymbolType(String name) {
+      throw new UnsupportedOperationException("universal types not supported");
+    }
   }
 }

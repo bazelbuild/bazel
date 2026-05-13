@@ -112,7 +112,12 @@ public final class TypeChecker extends NodeVisitor {
   private StarlarkType getType(Identifier id) {
     Resolver.Binding binding = id.getBinding();
     checkNotNull(binding);
-    StarlarkType type = typeTable.getType(binding);
+    StarlarkType type =
+        switch (binding.getScope()) {
+          case UNIVERSAL -> checkNotNull(typeContext.getUniversalSymbolType(binding.getName()));
+          case PREDECLARED -> checkNotNull(typeContext.getPredeclaredSymbolType(binding.getName()));
+          default -> typeTable.getType(binding);
+        };
     return type != null ? type : Types.ANY;
   }
 

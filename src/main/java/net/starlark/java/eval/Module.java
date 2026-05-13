@@ -200,6 +200,23 @@ public final class Module implements Resolver.Module {
     return filterGuardedValue(value);
   }
 
+  @Override
+  @Nullable
+  public StarlarkType getPredeclaredSymbolType(String name) {
+    @Nullable Object value = getPredeclared(name);
+    if (value == null || value instanceof GuardedValue) {
+      return null;
+    }
+    // TODO: #27370 - Precompute and cache predeclared types.
+    return Starlark.getStarlarkType(value);
+  }
+
+  @Override
+  @Nullable
+  public StarlarkType getUniversalSymbolType(String name) {
+    return Starlark.UNIVERSAL_SYMBOL_TYPES.get(name);
+  }
+
   /**
    * Returns this module's additional predeclared bindings. (Excludes {@link Starlark#UNIVERSE}.)
    *

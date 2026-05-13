@@ -16,6 +16,7 @@ package net.starlark.java.eval;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.Math.min;
 
 import com.google.common.collect.ImmutableList;
@@ -96,6 +97,13 @@ public final class Starlark {
    * The universal bindings predeclared in every Starlark file, such as None, True, len, and range.
    */
   public static final ImmutableMap<String, Object> UNIVERSE = makeUniverse();
+
+  /** The Starlark types of the entries in {@link #UNIVERSE}. */
+  static final ImmutableMap<String, StarlarkType> UNIVERSAL_SYMBOL_TYPES =
+      UNIVERSE.entrySet().stream()
+          .collect(
+              toImmutableMap(
+                  Map.Entry::getKey, entry -> Starlark.getStarlarkType(entry.getValue())));
 
   /**
    * An {@code IllegalArgumentException} subclass for when a non-Starlark object is encountered in a
