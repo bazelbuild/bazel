@@ -70,6 +70,8 @@ public final class Types {
   public static final FixedLengthTupleType EMPTY_TUPLE = tuple(ImmutableList.of());
   // A frequently-used arbitrary collection.
   public static final CollectionType COLLECTION_OF_ANY = collection(ANY);
+  // A frequently-used arbitrary struct
+  public static final StructType STRUCT_OF_ANY = partialStruct(ImmutableMap.of());
 
   // A frequently used function without parameters, that returns Any.
   public static final CallableType NO_PARAMS_CALLABLE =
@@ -1383,13 +1385,18 @@ public final class Types {
     }
   }
 
-  /** Struct type */
+  /** Immutable partial struct type */
+  public static StructType partialStruct(ImmutableMap<String, StarlarkType> fields) {
+    return new AutoValue_Types_StructType(fields, /* partial= */ true);
+  }
+
+  /** Immutable total struct type */
   public static StructType struct(ImmutableMap<String, StarlarkType> fields) {
-    return new AutoValue_Types_StructType(fields);
+    return new AutoValue_Types_StructType(fields, /* partial= */ false);
   }
 
   /**
-   * Struct type.
+   * Immutable struct type.
    *
    * <p>This is intended to be either the type or a supertype for values implementing {@link
    * net.starlark.java.eval.Structure} - for example, Bazel's structs and providers.
@@ -1397,18 +1404,50 @@ public final class Types {
    * <p>Morally non-struct types shouldn't add a {@link StructType} to their supertypes just because
    * they happen to have fields. For example, a {@code list} has {@code append} and {@code extend}
    * methods, but it is *not* a subtype of {@code struct[{"append": ..., "extend": ...}]}.
+   *
+   * <p>Since struct types don't support mutation, their assignability follows structural subtyping:
+   *
+   * <ul>
+   *   <li>The set of LHS field names must be a subset of RHS field names. (This implies, in
+   *       particular, that a RHS total struct cannot be assigned to a LHS partial struct, since the
+   *       LHS partial struct admits any possible field name.)
+   *   <li>The type of each LHS field must be assignable from the type of the corresponding RHS
+   *       field. (This implies, in particular, that {@link #STRUCT_OF_ANY} is assignable to all
+   *       struct types.)
+   * </ul>
+   *
+   * In particular, these rules imply that:
+   *
+   * <ul>
+   *   <li>A RHS total struct cannot be assigned to a LHS partial struct, since the LHS partial
+   *       struct admits any possible field name.
+   *   <li>A LHS total struct with a particular set of fields {@code F} is assignable from any RHS
+   *       partial struct whose set of explicit fields is a subset of {@code F}.
+   *   <li>{@link #STRUCT_OF_ANY} is assignable to all LHS struct types.
+   * </ul>
    */
   @AutoValue
   public abstract static class StructType extends StarlarkType {
     /** Returns the names and types of the mandatory fields of this struct type. */
     // TODO: #27370 - should we add optional fields? (Maybe useful for Bazel's providers.)
-    // TODO: #27370 - should we add mutable fields / hasSetField()?
+    // TODO: #27370 - should we add mutable fields / hasSetField()? If we do, such fields would need
+    // to be treated as invariant for assignability.
     public abstract ImmutableMap<String, StarlarkType> getFields();
+
+    /**
+     * If true, then any field not specified in {@link #getFields} is assumed to potentially exist
+     * and be of type {@link #ANY}.
+     */
+    public abstract boolean isPartial();
 
     @Override
     public boolean assignableFromHook(StarlarkType t) {
       if (t instanceof StructType that) {
-        // Covariant in LHS fields; LHS field names must be a subset of RHS field names.
+        if (this.isPartial() && !that.isPartial()) {
+          return false;
+        }
+        // The set of LHS field names must be a subset of RHS field names, and LHS field types must
+        // be assignable from the corresponding RHS field types.
         return this.getFields().entrySet().stream()
             .allMatch(
                 entry1 -> {
@@ -1436,14 +1475,27 @@ public final class Types {
      */
     @Nullable
     public StarlarkType getField(String name) {
-      return getFields().get(name);
+      @Nullable StarlarkType fieldType = getFields().get(name);
+      if (fieldType != null) {
+        return fieldType;
+      }
+      return isPartial() ? ANY : null;
     }
 
     @Override
     public final String toString() {
+      if (this.equals(STRUCT_OF_ANY)) {
+        return "struct";
+      }
       StringBuilder buf = new StringBuilder();
       buf.append("struct[");
       TypeConstructor.Arg.TypeDict.print(buf, getFields());
+      if (isPartial()) {
+        if (!getFields().isEmpty()) {
+          buf.append(", ");
+        }
+        buf.append("...");
+      }
       buf.append("]");
       return buf.toString();
     }
@@ -1454,7 +1506,7 @@ public final class Types {
       for (Map.Entry<String, StarlarkType> entry : getFields().entrySet()) {
         builder.put(entry.getKey(), entry.getValue().toLvalue());
       }
-      return struct(builder.buildOrThrow());
+      return isPartial() ? partialStruct(builder.buildOrThrow()) : struct(builder.buildOrThrow());
     }
   }
 
@@ -1560,17 +1612,32 @@ public final class Types {
 
   private static final TypeConstructor wrapStructConstructor() {
     return args -> {
-      if (args.size() == 1) {
+      if (args.isEmpty()) {
+        // `struct` is equivalent to `struct[{}, ...]`
+        return STRUCT_OF_ANY;
+      } else if (args.size() <= 2) {
         TypeConstructor.Arg arg = args.getFirst();
+        ImmutableMap<String, StarlarkType> fields;
         if (arg instanceof TypeConstructor.Arg.TypeDict dict) {
-          return struct(dict.getTypes());
+          fields = dict.getTypes();
         } else {
           throw new TypeConstructor.Failure(
               String.format("in application to struct, got '%s', expected a dict", arg));
         }
+        if (args.size() == 1) {
+          return struct(fields);
+        } else {
+          if (!(args.get(1) instanceof TypeConstructor.Arg.Ellipsis)) {
+            throw new TypeConstructor.Failure(
+                String.format(
+                    "in application to struct, got '%s' for optional argument #2, expected '...'",
+                    args.get(1)));
+          }
+          return partialStruct(fields);
+        }
       } else {
         throw new TypeConstructor.Failure(
-            String.format("struct[] accepts exactly 1 argument but got %d", args.size()));
+            String.format("struct[] accepts at most 2 arguments but got %d", args.size()));
       }
     };
   }

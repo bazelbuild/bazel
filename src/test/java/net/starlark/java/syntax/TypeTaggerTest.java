@@ -245,10 +245,16 @@ public class TypeTaggerTest {
     assertThat(extractType("struct[{'foo': int, 'bar': list[str]}]"))
         .isEqualTo(Types.struct(ImmutableMap.of("foo", Types.INT, "bar", Types.list(Types.STR))));
 
-    assertExtractTypeFails("struct", "struct[] accepts exactly 1 argument but got 0");
+    assertThat(extractType("struct")).isEqualTo(Types.STRUCT_OF_ANY);
+    assertThat(extractType("struct[{'foo': int}, ...]"))
+        .isEqualTo(Types.partialStruct(ImmutableMap.of("foo", Types.INT)));
+
+    assertExtractTypeFails("struct[...]", "in application to struct, got '...', expected a dict");
     assertExtractTypeFails(
-        "struct[{'a': int}, {'b': str}]", "struct[] accepts exactly 1 argument but got 2");
-    assertExtractTypeFails("struct[int]", "in application to struct, got 'int', expected a dict");
+        "struct[{'a': int}, int]",
+        "in application to struct, got 'int' for optional argument #2, expected '...'");
+    assertExtractTypeFails(
+        "struct[{'a': int}, ..., ...]", "struct[] accepts at most 2 arguments but got 3");
     // Just like for eval-time dict literals, keys must be unique.
     assertExtractTypeFails(
         "struct[{'foo': int, 'foo': bool}]", "dictionary expression has duplicate key: \"foo\"");

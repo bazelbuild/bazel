@@ -505,6 +505,8 @@ public final class TypeCheckerTest {
     assertTypeGivenDecls(
         "o.f", Types.union(Types.STR, Types.INT, Types.BOOL), "o: Foo[str] | MutableFoo[int|bool]");
     assertTypeGivenDecls("o.f", Types.ANY, "o: Any");
+    assertTypeGivenDecls("o.f", Types.INT, "o: struct[{'f': int}]");
+    assertTypeGivenDecls("o.g", Types.ANY, "o: struct[{'f': int}, ...]");
     assertTypeGivenDecls("o.f + o.g", Types.FLOAT, "o: struct[{'f': int, 'g': float}]");
 
     assertInvalid(
@@ -512,6 +514,12 @@ public final class TypeCheckerTest {
         """
         n: int
         n.f
+        """);
+    assertInvalid(
+        ":2:2: 's' of type 'struct[{\"f\": int}]' does not have field 'g'",
+        """
+        s: struct[{'f': int}]
+        s.g
         """);
     assertInvalid(
         ":2:2: 'o' of type 'Foo[int]' does not have field 'g'",
@@ -575,19 +583,32 @@ public final class TypeCheckerTest {
 
     assertValid(
         """
-        lhs: struct[{"f": int | str}]
         rhs: Foo[int]
-
-        lhs = rhs
+        compatible_total_struct: struct[{"f": int | str}] = rhs
+        struct_of_no_fields: struct[{}] = rhs
         """);
 
     assertInvalid(
-        ":4:1: cannot assign type 'Foo[int]' to 'lhs' of type 'struct[{f: int, g: str}]'",
+        ":2:1: cannot assign type 'Foo[int]' to 'incompatible_total_struct' of type 'struct[{\"f\":"
+            + " int, \"g\": str}]'",
         """
-        lhs: struct[{"f": int, "g": str}]
         rhs: Foo[int]
+        incompatible_total_struct: struct[{"f": int, "g": str}] = rhs
+        """);
 
-        lhs = rhs
+    // Cannot assign a subtype of a total struct to any partial struct
+    assertInvalid(
+        ":2:1: cannot assign type 'Foo[int]' to 'partial_struct' of type 'struct[{\"f\": int|str},"
+            + " ...]'",
+        """
+        rhs: Foo[int]
+        partial_struct: struct[{"f": int | str}, ...] = rhs
+        """);
+    assertInvalid(
+        ":2:1: cannot assign type 'Foo[int]' to 'struct_of_all_fields' of type 'struct'",
+        """
+        rhs: Foo[int]
+        struct_of_all_fields: struct = rhs
         """);
   }
 
