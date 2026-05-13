@@ -150,6 +150,15 @@ public interface CcModuleApi<
             defaultValue = "unbound",
             allowedTypes = {@ParamType(type = Sequence.class), @ParamType(type = NoneType.class)}),
         @Param(
+            name = "local_includes",
+            doc =
+                "Search paths for header files referenced by angle brackets and quotes. "
+                    + "Usually passed with -I. Not propagated to dependents transitively.",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            allowedTypes = {@ParamType(type = Sequence.class), @ParamType(type = Depset.class)}),
+        @Param(
             name = "quote_includes",
             doc =
                 "Search paths for header files referenced by quotes, "
@@ -382,6 +391,7 @@ public interface CcModuleApi<
       Object additionalExportedHeadersObject,
       Object starlarkIncludes,
       Object starlarkLooseIncludes,
+      Object starlarkLocalIncludes,
       Sequence<?> quoteIncludes, // <String> expected
       Sequence<?> systemIncludes, // <String> expected
       Sequence<?> frameworkIncludes, // <String> expected
