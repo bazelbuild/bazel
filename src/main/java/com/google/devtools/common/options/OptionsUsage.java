@@ -43,7 +43,7 @@ class OptionsUsage {
         new ArrayList<>(OptionsData.getAllOptionDefinitionsForClass(optionsClass));
     optionDefinitions.sort(OptionDefinition.BY_OPTION_NAME);
     for (OptionDefinition optionDefinition : optionDefinitions) {
-      getUsage(optionDefinition, usage, OptionsParser.HelpVerbosity.LONG, data, false);
+      getUsage(optionDefinition, usage, HelpVerbosity.LONG, data, false);
     }
   }
 
@@ -51,13 +51,13 @@ class OptionsUsage {
   static void getUsage(
       OptionDefinition optionDefinition,
       StringBuilder usage,
-      OptionsParser.HelpVerbosity helpVerbosity,
+      HelpVerbosity helpVerbosity,
       OptionsData optionsData,
       boolean includeTags) {
     String flagName = getFlagName(optionDefinition);
     String typeDescription = getTypeDescription(optionDefinition);
     usage.append("  --").append(flagName);
-    if (helpVerbosity == OptionsParser.HelpVerbosity.SHORT) {
+    if (helpVerbosity == HelpVerbosity.SHORT) {
       usage.append('\n');
       return;
     }
@@ -82,7 +82,7 @@ class OptionsUsage {
       usage.append(")");
     }
     usage.append("\n");
-    if (helpVerbosity == OptionsParser.HelpVerbosity.MEDIUM) {
+    if (helpVerbosity == HelpVerbosity.MEDIUM) {
       return;
     }
 
@@ -131,8 +131,8 @@ class OptionsUsage {
   }
 
   /**
-   * Paragraph-fill the specified input text, indenting lines to 'indent' and
-   * wrapping lines at 'width'.  Returns the formatted result.
+   * Paragraph-fill the specified input text, indenting lines to 'indent' and wrapping lines at
+   * 'w.idth'. Returns the formatted result.
    */
   static String paragraphFill(String in, int indent, int width) {
     String indentString = " ".repeat(indent);

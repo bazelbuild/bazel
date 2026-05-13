@@ -14,10 +14,12 @@
 package com.google.devtools.build.lib.profiler;
 
 import com.google.devtools.build.lib.runtime.BlazeService;
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.io.IOException;
 import java.util.Map;
 
 /** Service for querying system network stats. */
+@SkybridgeInterface
 public interface SystemNetworkStatsService extends BlazeService {
 
   /** Returns a map from network interface name to the respective I/O counters. */

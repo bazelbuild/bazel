@@ -24,11 +24,13 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 
 /** Options for remote worker. */
-public class RemoteWorkerOptions extends OptionsBase {
+@OptionsClass
+public abstract class RemoteWorkerOptions extends OptionsBase {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final class PathFragmentConverter extends Converter.Contextless<PathFragment> {
@@ -50,7 +52,7 @@ public class RemoteWorkerOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Listening port for the netty server.")
-  public int listenPort;
+  public abstract int getListenPort();
 
   @Option(
       name = "work_path",
@@ -60,7 +62,7 @@ public class RemoteWorkerOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "A directory for the build worker to do work.")
-  public PathFragment workPath;
+  public abstract PathFragment getWorkPath();
 
   @Option(
       name = "cas_path",
@@ -72,7 +74,7 @@ public class RemoteWorkerOptions extends OptionsBase {
       help =
           "A directory for the build worker to store it's files in. If left unset, and if no "
               + "other store is set, the worker falls back to an in-memory store.")
-  public PathFragment casPath;
+  public abstract PathFragment getCasPath();
 
   @Option(
       name = "debug",
@@ -83,7 +85,7 @@ public class RemoteWorkerOptions extends OptionsBase {
       help =
           "Turn this on for debugging remote job failures. There will be extra messages and the "
               + "work directory will be preserved in the case of failure.")
-  public boolean debug;
+  public abstract boolean getDebug();
 
   @Option(
       name = "legacy_api",
@@ -92,7 +94,7 @@ public class RemoteWorkerOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Restrict worker to RemoteApi version 2.0 capabilities")
-  public boolean legacyApi;
+  public abstract boolean getLegacyApi();
 
   @Option(
       name = "pid_file",
@@ -102,7 +104,7 @@ public class RemoteWorkerOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "File for writing the process id for this worker when it is fully started.")
-  public PathFragment pidFile;
+  public abstract PathFragment getPidFile();
 
   @Option(
       name = "sandboxing",
@@ -111,7 +113,7 @@ public class RemoteWorkerOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "If supported on this platform, use sandboxing for increased hermeticity.")
-  public boolean sandboxing;
+  public abstract boolean getSandboxing();
 
   @Option(
       name = "sandboxing_writable_path",
@@ -122,7 +124,7 @@ public class RemoteWorkerOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       allowMultiple = true,
       help = "When using sandboxing, allow running actions to write to this path.")
-  public List<PathFragment> sandboxingWritablePaths;
+  public abstract List<PathFragment> getSandboxingWritablePaths();
 
   @Option(
       name = "sandboxing_tmpfs_dir",
@@ -133,7 +135,7 @@ public class RemoteWorkerOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       allowMultiple = true,
       help = "When using sandboxing, mount an empty tmpfs onto this path for each running action.")
-  public List<PathFragment> sandboxingTmpfsDirs;
+  public abstract List<PathFragment> getSandboxingTmpfsDirs();
 
   @Option(
       name = "sandboxing_block_network",
@@ -142,7 +144,7 @@ public class RemoteWorkerOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "When using sandboxing, block network access for running actions.")
-  public boolean sandboxingBlockNetwork;
+  public abstract boolean getSandboxingBlockNetwork();
 
   @Option(
       name = "jobs",
@@ -159,7 +161,7 @@ public class RemoteWorkerOptions extends OptionsBase {
               + " Values less than 1 or above "
               + MAX_JOBS
               + " are not allowed.")
-  public int jobs;
+  public abstract int getJobs();
 
   @Option(
       name = "http_listen_port",
@@ -171,7 +173,7 @@ public class RemoteWorkerOptions extends OptionsBase {
           "Starts an embedded HTTP REST server on the given port. The server will simply store PUT "
               + "requests in memory and return them again on GET requests. This is useful for "
               + "testing only.")
-  public int httpListenPort;
+  public abstract int getHttpListenPort();
 
   @Option(
       name = "tls_certificate",
@@ -180,7 +182,7 @@ public class RemoteWorkerOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Specify the TLS server certificate to use.")
-  public PathFragment tlsCertificate;
+  public abstract PathFragment getTlsCertificate();
 
   @Option(
       name = "tls_private_key",
@@ -189,7 +191,7 @@ public class RemoteWorkerOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Specify the TLS private key to be used.")
-  public PathFragment tlsPrivateKey;
+  public abstract PathFragment getTlsPrivateKey();
 
   @Option(
       name = "tls_ca_certificate",
@@ -200,7 +202,7 @@ public class RemoteWorkerOptions extends OptionsBase {
       help =
           "Specify a CA certificate to use for authenticating clients; setting this implicitly "
               + "requires client authentication (aka mTLS).")
-  public PathFragment tlsCaCertificate;
+  public abstract PathFragment getTlsCaCertificate();
 
   @Option(
       name = "expected_authorization_token",
@@ -210,7 +212,7 @@ public class RemoteWorkerOptions extends OptionsBase {
       help =
           "The authorization token expected to be present in every request. This is useful for"
               + " testing only.")
-  public String expectedAuthorizationToken;
+  public abstract String getExpectedAuthorizationToken();
 
   @Option(
       name = "unavailable",
@@ -220,7 +222,7 @@ public class RemoteWorkerOptions extends OptionsBase {
       help =
           "If true, all gRPC services, except Capabilities, return UNAVAILABLE. This is useful for"
               + " testing only.")
-  public boolean unavailable;
+  public abstract boolean getUnavailable();
 
   @Option(
       name = "error_on_duplicate_downloads",
@@ -230,7 +232,7 @@ public class RemoteWorkerOptions extends OptionsBase {
       help =
           "If true, each individual digest is allowed to be downloaded at most once per tool"
               + " invocation id. This is useful for testing only.")
-  public boolean errorOnDuplicateDownloads;
+  public abstract boolean getErrorOnDuplicateDownloads();
 
   private static final int MAX_JOBS = 16384;
 

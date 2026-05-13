@@ -41,6 +41,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.HashMap;
 import java.util.List;
@@ -84,7 +85,8 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
   }
 
   /** Extra options for this test. */
-  public static class DummyTestOptions extends FragmentOptions {
+  @OptionsClass
+  public abstract static class DummyTestOptions extends FragmentOptions {
     public DummyTestOptions() {}
 
     @Option(
@@ -92,7 +94,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "from_default")
-    public String option;
+    public abstract String getOption();
 
     @Option(
         name = "internal_option",
@@ -100,7 +102,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "from_default",
         metadataTags = {OptionMetadataTag.INTERNAL})
-    public String internalOption;
+    public abstract String getInternalOption();
 
     @Option(
         name = "accumulating",
@@ -108,7 +110,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null")
-    public List<String> accumulating;
+    public abstract List<String> getAccumulating();
   }
 
   /** Test fragment. */
@@ -185,7 +187,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions, null);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().get(DummyTestOptions.class).internalOption)
+    assertThat(result.getOptions().get(DummyTestOptions.class).getInternalOption())
         .isEqualTo("from_cmd");
   }
 
@@ -214,7 +216,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions, null);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().get(DummyTestOptions.class).internalOption)
+    assertThat(result.getOptions().get(DummyTestOptions.class).getInternalOption())
         .isEqualTo("from_mapping_changed");
   }
 
@@ -267,7 +269,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions, null);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().get(DummyTestOptions.class).internalOption)
+    assertThat(result.getOptions().get(DummyTestOptions.class).getInternalOption())
         .isEqualTo("from_platform");
   }
 
@@ -313,7 +315,8 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions, null);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().get(DummyTestOptions.class).option).isEqualTo("from_platform");
+    assertThat(result.getOptions().get(DummyTestOptions.class).getOption())
+        .isEqualTo("from_platform");
   }
 
   @Test
@@ -359,7 +362,8 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions, null);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().get(DummyTestOptions.class).option).isEqualTo("from_default");
+    assertThat(result.getOptions().get(DummyTestOptions.class).getOption())
+        .isEqualTo("from_default");
   }
 
   // Regression test for https://github.com/bazelbuild/bazel/issues/23147
@@ -410,7 +414,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions, null);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().get(DummyTestOptions.class).accumulating)
+    assertThat(result.getOptions().get(DummyTestOptions.class).getAccumulating())
         .containsExactly("from_cli", "from_platform")
         .inOrder();
   }
@@ -471,7 +475,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions, null);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().get(DummyTestOptions.class).internalOption)
+    assertThat(result.getOptions().get(DummyTestOptions.class).getInternalOption())
         .isEqualTo("from_platform");
   }
 

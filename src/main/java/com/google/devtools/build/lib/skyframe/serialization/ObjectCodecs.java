@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.Maps;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -176,12 +176,10 @@ public class ObjectCodecs {
 
   /** Serializes {@code subject} using a {@link SharedValueSerializationContext}. */
   public SerializationResult<ByteString> serializeMemoizedAndBlocking(
-      FingerprintValueService fingerprintValueService,
-      Object subject,
-      @Nullable ProfileCollector profileCollector)
+      FingerprintValueService fingerprintValueService, Object subject)
       throws SerializationException {
     return SharedValueSerializationContext.serializeToResult(
-        getCodecRegistry(), getDependencies(), fingerprintValueService, subject, profileCollector);
+        getCodecRegistry(), getDependencies(), fingerprintValueService, subject);
   }
 
   /**
@@ -198,11 +196,10 @@ public class ObjectCodecs {
         getCodecRegistry(),
         overrideDependencies(getDependencies(), dependencyOverrides),
         fingerprintValueService,
-        subject,
-        /* profileCollector= */ null);
+        subject);
   }
 
-  public ListenableFuture<SerializationResult<ByteString>> serializeMemoizedAsync(
+  public AsyncSerializationTask serializeMemoizedAsync(
       FingerprintValueService fingerprintValueService,
       Object subject,
       @Nullable ProfileCollector profileCollector) {

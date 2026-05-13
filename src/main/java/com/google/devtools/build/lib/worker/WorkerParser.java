@@ -132,9 +132,10 @@ public class WorkerParser {
       WorkerProtocolFormat protocolFormat) {
     String workerKeyMnemonic = Spawns.getWorkerKeyMnemonic(spawn);
     boolean mustSandbox = dynamic || Spawns.usesPathMapping(spawn);
-    boolean shouldMultiplex = options.workerMultiplex && Spawns.supportsMultiplexWorkers(spawn);
+    boolean shouldMultiplex =
+        options.getWorkerMultiplex() && Spawns.supportsMultiplexWorkers(spawn);
     boolean canSandboxMultiplex =
-        options.multiplexSandboxing && Spawns.supportsMultiplexSandboxing(spawn);
+        options.getMultiplexSandboxing() && Spawns.supportsMultiplexSandboxing(spawn);
     boolean sandboxed;
     boolean multiplex;
     if (mustSandbox) {
@@ -144,12 +145,12 @@ public class WorkerParser {
       sandboxed = canSandboxMultiplex;
       multiplex = true;
     } else {
-      sandboxed = options.workerSandboxing;
+      sandboxed = options.getWorkerSandboxing();
       multiplex = false;
     }
     boolean useInMemoryTracking = false;
     if (sandboxed) {
-      List<String> mnemonics = options.workerSandboxInMemoryTracking;
+      List<String> mnemonics = options.getWorkerSandboxInMemoryTracking();
       useInMemoryTracking = mnemonics != null && mnemonics.contains(workerKeyMnemonic);
     }
     return new WorkerKey(
@@ -187,7 +188,7 @@ public class WorkerParser {
     if (args.isEmpty()) {
       throwFlagFileFailure(REASON_NO_FLAGFILE, spawn);
     }
-    if (workerOptions.strictFlagfiles) {
+    if (workerOptions.getStrictFlagfiles()) {
       if (!isFlagFileArg(Iterables.getLast(args))) {
         throwFlagFileFailure(REASON_NO_FINAL_FLAGFILE, spawn);
       }
@@ -214,7 +215,7 @@ public class WorkerParser {
 
     ImmutableList.Builder<String> mnemonicFlags = ImmutableList.builder();
 
-    workerOptions.workerExtraFlags.stream()
+    workerOptions.getWorkerExtraFlags().stream()
         .filter(entry -> entry.getKey().equals(Spawns.getWorkerKeyMnemonic(spawn)))
         .forEach(entry -> mnemonicFlags.add(entry.getValue()));
 

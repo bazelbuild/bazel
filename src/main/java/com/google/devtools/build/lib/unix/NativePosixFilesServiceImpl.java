@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.unix;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.jni.JniLoader;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /** Implementation of {@link NativePosixFilesService}. */
 public final class NativePosixFilesServiceImpl implements NativePosixFilesService {
@@ -28,6 +29,7 @@ public final class NativePosixFilesServiceImpl implements NativePosixFilesServic
   }
 
   @Override
+  @Nullable
   public native String readlink(String path) throws IOException;
 
   @Override

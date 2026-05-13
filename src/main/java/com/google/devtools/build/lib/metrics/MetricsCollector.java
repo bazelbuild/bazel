@@ -76,7 +76,7 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTarge
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
-import com.google.devtools.build.lib.util.DecimalBucketer;
+import com.google.devtools.build.lib.util.Bucket;
 import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus;
@@ -89,11 +89,13 @@ import java.time.Duration;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAccumulator;
+import java.util.function.LongConsumer;
 import java.util.stream.Stream;
 
 class MetricsCollector {
@@ -129,8 +131,9 @@ class MetricsCollector {
       CommandEnvironment env, AtomicInteger numAnalyses, AtomicInteger numBuilds) {
     this.env = env;
     Options options = env.getOptions().getOptions(Options.class);
-    this.recordMetricsForAllMnemonics = options != null && options.recordMetricsForAllMnemonics;
-    this.recordSkyframeMetrics = options != null && options.recordSkyframeMetrics;
+    this.recordMetricsForAllMnemonics =
+        options != null && options.getRecordMetricsForAllMnemonics();
+    this.recordSkyframeMetrics = options != null && options.getRecordSkyframeMetrics();
     this.numAnalyses = numAnalyses;
     this.numBuilds = numBuilds;
     env.getEventBus().register(this);
@@ -370,7 +373,7 @@ class MetricsCollector {
     return buildMetrics.build();
   }
 
-  private Distribution computeDistributionProto(ImmutableList<DecimalBucketer.Bucket> buckets) {
+  private Distribution computeDistributionProto(ImmutableList<Bucket> buckets) {
     Distribution.Builder result = Distribution.newBuilder();
 
     for (var b : buckets) {
@@ -444,6 +447,12 @@ class MetricsCollector {
         .setAnalysisCacheReadBatchLatencyMicros(
             computeDistributionProto(raccStats.batchLatencyMicros()))
         .setMetadataLookupResult(raccStats.matchStatus());
+
+    RemoteAnalysisCacheStatistics.InvalidationLookupMetrics invalidationMetrics =
+        listener.getInvalidationLookupMetrics();
+    if (invalidationMetrics != null) {
+      result.setInvalidationLookupMetrics(invalidationMetrics);
+    }
 
     return result.build();
   }
@@ -557,10 +566,8 @@ class MetricsCollector {
     if (MemoryProfiler.instance().getHeapUsedMemoryAtFinish() > 0) {
       memoryMetrics.setUsedHeapSizePostBuild(MemoryProfiler.instance().getHeapUsedMemoryAtFinish());
     }
-    PostGCMemoryUseRecorder.get()
-        .getPeakPostGcHeap()
-        .map(PeakHeap::bytes)
-        .ifPresent(memoryMetrics::setPeakPostGcHeapSize);
+    setPeakHeapSize(
+        PostGCMemoryUseRecorder.get().getPeakPostGcHeap(), memoryMetrics::setPeakPostGcHeapSize);
 
     if (memoryMetrics.getPeakPostGcHeapSize() < memoryMetrics.getUsedHeapSizePostBuild()) {
       // If we just did a GC and computed the heap size, update the one we got from the GC
@@ -568,10 +575,17 @@ class MetricsCollector {
       memoryMetrics.setPeakPostGcHeapSize(memoryMetrics.getUsedHeapSizePostBuild());
     }
 
-    PostGCMemoryUseRecorder.get()
-        .getPeakPostGcHeapTenuredSpace()
-        .map(PeakHeap::bytes)
-        .ifPresent(memoryMetrics::setPeakPostGcTenuredSpaceHeapSize);
+    setPeakHeapSize(
+        PostGCMemoryUseRecorder.get().getPeakPostGcHeapTenuredSpace(),
+        memoryMetrics::setPeakPostGcTenuredSpaceHeapSize);
+
+    setPeakHeapSize(
+        PostGCMemoryUseRecorder.get().getPeakPostGcHeapDuringExecution(),
+        memoryMetrics::setPeakPostGcHeapSizeDuringExecution);
+
+    setPeakHeapSize(
+        PostGCMemoryUseRecorder.get().getPeakPostGcHeapTenuredSpaceDuringExecution(),
+        memoryMetrics::setPeakPostGcTenuredSpaceHeapSizeDuringExecution);
 
     Map<String, Long> garbageStats = PostGCMemoryUseRecorder.get().getGarbageStats();
     for (Map.Entry<String, Long> garbageEntry : garbageStats.entrySet()) {
@@ -581,6 +595,10 @@ class MetricsCollector {
     }
 
     return memoryMetrics.build();
+  }
+
+  private static void setPeakHeapSize(Optional<PeakHeap> peakHeap, LongConsumer setter) {
+    peakHeap.ifPresent(peak -> setter.accept(peak.bytes()));
   }
 
   private CumulativeMetrics createCumulativeMetrics() {

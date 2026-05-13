@@ -4,6 +4,7 @@ Book: /_book.yaml
 # Documentation Versions
 
 {% dynamic setvar source_file "site/en/versions/index.md" %}
+{% dynamic setvar original_path "/" %}
 {% include "_buttons.html" %}
 
 The default documentation on this website represents the latest version at HEAD.

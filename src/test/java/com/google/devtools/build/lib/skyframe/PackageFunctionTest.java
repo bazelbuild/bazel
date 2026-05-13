@@ -163,13 +163,13 @@ public class PackageFunctionTest extends BuildViewTestCase {
     ImmutableList<String> packagePath =
         stream(roots).map(Path::getPathString).collect(toImmutableList());
     if (!packagePath.isEmpty()) {
-      packageOptions.packagePath = packagePath;
+      packageOptions.setPackagePath(packagePath);
     }
-    packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 7;
+    packageOptions.setDefaultVisibility(RuleVisibility.PUBLIC);
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(7);
     if (computationMode.equals(ComputationMode.PACKAGE_FROM_PACKAGE_PIECES)) {
-      packageOptions.lazyMacroExpansionPackages = PackageOptions.LazyMacroExpansionPackages.ALL;
+      packageOptions.setLazyMacroExpansionPackages(PackageOptions.LazyMacroExpansionPackages.ALL);
     }
     setPackageAndBuildLanguageOptions(packageOptions, buildLanguageOptions);
   }
@@ -693,11 +693,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertSrcs(validPackageoidWithoutErrors("foo"), "foo", "//foo:a.config", "//foo:b.txt");
     getSkyframeExecutor().resetEvaluator();
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 7;
+    packageOptions.setDefaultVisibility(RuleVisibility.PUBLIC);
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(7);
     if (computationMode.equals(ComputationMode.PACKAGE_FROM_PACKAGE_PIECES)) {
-      packageOptions.lazyMacroExpansionPackages = PackageOptions.LazyMacroExpansionPackages.ALL;
+      packageOptions.setLazyMacroExpansionPackages(PackageOptions.LazyMacroExpansionPackages.ALL);
     }
     getSkyframeExecutor()
         .preparePackageLoading(

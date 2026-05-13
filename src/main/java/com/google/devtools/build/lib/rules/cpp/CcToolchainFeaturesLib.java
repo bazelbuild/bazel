@@ -107,7 +107,7 @@ public class CcToolchainFeaturesLib {
         getStarlarkProviderListFromStarlarkField(featureStruct, "flag_sets");
     for (StarlarkInfo flagSetObject : flagSets) {
       FlagSet flagSet = flagSetFromStarlark(flagSetObject, /* actionName= */ null);
-      if (flagSet.getActions().isEmpty()) {
+      if (flagSet.actions().isEmpty()) {
         throw infoError(
             flagSetObject,
             "A flag_set that belongs to a feature must have nonempty 'actions' parameter.");

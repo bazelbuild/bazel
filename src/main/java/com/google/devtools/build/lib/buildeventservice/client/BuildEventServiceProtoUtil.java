@@ -124,7 +124,7 @@ public final class BuildEventServiceProtoUtil {
   public static PublishBuildToolEventStreamRequest publishBuildToolEventStreamRequest(
       CommandContext commandContext, StreamEvent streamEvent) {
     return switch (streamEvent) {
-      case StreamEvent.BazelEvent(Instant eventTime, long sequenceNumber, ByteString payload) ->
+      case StreamEvent.BazelEvent(Instant eventTime, long sequenceNumber, byte[] payload) ->
           bazelEvent(commandContext, eventTime, sequenceNumber, payload);
       case StreamEvent.StreamFinished(Instant eventTime, long sequenceNumber) ->
           streamFinished(commandContext, eventTime, sequenceNumber);
@@ -132,10 +132,11 @@ public final class BuildEventServiceProtoUtil {
   }
 
   public static PublishBuildToolEventStreamRequest bazelEvent(
-      CommandContext commandContext, Instant eventTime, long sequenceNumber, ByteString payload) {
+      CommandContext commandContext, Instant eventTime, long sequenceNumber, byte[] payload) {
     // Any.pack() would require us to parse the payload into a Message, which is wasteful.
     // Implement it manually instead.
-    Any packed = Any.newBuilder().setTypeUrl(TYPE_URL).setValue(payload).build();
+    Any packed =
+        Any.newBuilder().setTypeUrl(TYPE_URL).setValue(ByteString.copyFrom(payload)).build();
     return streamRequest(
         commandContext,
         sequenceNumber,

@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.common.options.OptionDefinition;
-import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Map;
@@ -76,8 +75,8 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
 
       // Add all build options from each native configuration fragment.
       for (FragmentOptions fragmentOptions : buildOptions.getNativeOptions()) {
-        Class<? extends FragmentOptions> optionClass = fragmentOptions.getClass();
-        for (OptionDefinition def : OptionsParser.getOptionDefinitions(optionClass)) {
+        Class<? extends FragmentOptions> optionClass = fragmentOptions.getOptionsClass();
+        for (OptionDefinition def : OptionDefinition.getOptionDefinitions(optionClass)) {
           String optionName = def.getOptionName();
           String optionKey = COMMAND_LINE_OPTION_PREFIX + optionName;
 
@@ -138,15 +137,15 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
 
     ParserInput input = null;
     String exceptionMessagePrefix;
-    if (!options.file.isEmpty()) {
-      if (!options.expr.isEmpty()) {
+    if (!options.getFile().isEmpty()) {
+      if (!options.getExpr().isEmpty()) {
         throw new QueryException(
             "You must not specify both --starlark:expr and --starlark:file",
             Query.Code.ILLEGAL_FLAG_COMBINATION);
       }
       exceptionMessagePrefix = "invalid --starlark:file: ";
       try {
-        input = ParserInput.readFile(options.file);
+        input = ParserInput.readFile(options.getFile());
       } catch (IOException ex) {
         throw new QueryException(
             exceptionMessagePrefix + "failed to read " + ex.getMessage(),
@@ -154,7 +153,7 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
       }
     } else {
       exceptionMessagePrefix = "invalid --starlark:expr: ";
-      String expr = options.expr.isEmpty() ? "str(target.label)" : options.expr;
+      String expr = options.getExpr().isEmpty() ? "str(target.label)" : options.getExpr();
       // Validate that options.expr is a pure expression (for example, that it does not attempt
       // to escape its scope via unbalanced parens).
       ParserInput exprParserInput = ParserInput.fromString(expr, "--starlark:expr");

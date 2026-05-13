@@ -15,14 +15,11 @@ package com.google.devtools.build.lib.events;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.eventbus.EventBus;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * A test for {@link Reporter}.
- */
+/** A test for {@link Reporter}. */
 @RunWith(JUnit4.class)
 public class SimpleReportersTest extends EventTestTemplate {
 
@@ -30,14 +27,15 @@ public class SimpleReportersTest extends EventTestTemplate {
 
   @Test
   public void addsHandlers() {
-    EventHandler handler = new EventHandler() {
-      @Override
-      public void handle(Event event) {
-        handlerCount++;
-      }
-    };
+    EventHandler handler =
+        new EventHandler() {
+          @Override
+          public void handle(Event event) {
+            handlerCount++;
+          }
+        };
 
-    Reporter reporter = new Reporter(new EventBus(), handler);
+    Reporter reporter = new Reporter(EventBusEventHandler.createWithNewEventBus(), handler);
     reporter.handle(Event.info(location, "Add to handlerCount."));
     reporter.handle(Event.info(location, "Add to handlerCount."));
     reporter.handle(Event.info(location, "Add to handlerCount."));

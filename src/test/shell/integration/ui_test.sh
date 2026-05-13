@@ -551,7 +551,9 @@ function test_experimental_ui_attempt_to_print_relative_paths_pkg_error() {
 function test_fancy_symbol_encoding() {
     bazel build //fancyOutput:withFancyOutput > "${TEST_log}" 2>&1 \
         || fail "expected success"
-    expect_log $'\xF0\x9F\x8D\x83'
+    # expect_log doesn't work on Windows
+    # See https://github.com/bazelbuild/bazel/issues/28924
+    [[ "$(< "${TEST_log}")" == *$'\xF0\x9F\x8D\x83'* ]] || fail "Emoji output not found in log"
 }
 
 function test_ui_events_filters() {

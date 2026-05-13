@@ -87,23 +87,20 @@ final class WorkspaceLogParser {
       System.exit(1);
     }
 
-    if (options.logPath == null || options.logPath.isEmpty()) {
+    if (options.getLogPath() == null || options.getLogPath().isEmpty()) {
       System.err.println("--log_path needs to be specified.");
       System.exit(1);
     }
 
-    try (InputStream input = new FileInputStream(options.logPath)) {
-      ExcludingLogParser parser;
-      if (options.excludeRule == null) {
-        parser = new ExcludingLogParser(input, null);
-      } else {
-        parser = new ExcludingLogParser(input, new HashSet<String>(options.excludeRule));
-      }
+    try (InputStream input = new FileInputStream(options.getLogPath())) {
+      Set<String> excludeRule =
+          options.getExcludeRule() == null ? null : new HashSet<>(options.getExcludeRule());
+      ExcludingLogParser parser = new ExcludingLogParser(input, excludeRule);
 
-      if (options.outputPath == null) {
+      if (options.getOutputPath() == null) {
         output(parser, System.out);
       } else {
-        try (OutputStream output = new FileOutputStream(options.outputPath)) {
+        try (OutputStream output = new FileOutputStream(options.getOutputPath())) {
           output(parser, output);
         }
       }

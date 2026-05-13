@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
@@ -61,9 +62,9 @@ public class DynamicExecutionModuleTest {
   @Before
   public void setUp() throws IOException, AbruptExitException {
     module = new DynamicExecutionModule(Executors.newCachedThreadPool());
-    options = new DynamicExecutionOptions();
-    options.dynamicLocalStrategy = Collections.emptyList(); // default
-    options.dynamicRemoteStrategy = Collections.emptyList(); // default
+    options = Options.getDefaults(DynamicExecutionOptions.class);
+    options.setDynamicLocalStrategy(Collections.emptyList()); // default
+    options.setDynamicRemoteStrategy(Collections.emptyList()); // default
   }
 
   @Test
@@ -78,7 +79,7 @@ public class DynamicExecutionModuleTest {
   @Test
   public void testGetLocalStrategies_genericOptionOverridesFallbacks()
       throws AbruptExitException, OptionsParsingException {
-    options.dynamicLocalStrategy = parseStrategiesToOptions("local,worker");
+    options.setDynamicLocalStrategy(parseStrategiesToOptions("local,worker"));
     assertThat(module.getLocalStrategies(options, /* sandboxingSupported= */ true))
         .isEqualTo(parseStrategies("local,worker"));
   }
@@ -86,7 +87,7 @@ public class DynamicExecutionModuleTest {
   @Test
   public void testGetLocalStrategies_specificOptionKeepsFallbacks()
       throws AbruptExitException, OptionsParsingException {
-    options.dynamicLocalStrategy = parseStrategiesToOptions("Foo=local,worker");
+    options.setDynamicLocalStrategy(parseStrategiesToOptions("Foo=local,worker"));
     assertThat(module.getLocalStrategies(options, /* sandboxingSupported= */ true))
         .isEqualTo(parseStrategies("Foo=local,worker", "worker,sandboxed"));
   }
@@ -94,7 +95,7 @@ public class DynamicExecutionModuleTest {
   @Test
   public void testGetLocalStrategies_canMixSpecificsAndGenericOptions()
       throws AbruptExitException, OptionsParsingException {
-    options.dynamicLocalStrategy = parseStrategiesToOptions("Foo=local,worker", "worker");
+    options.setDynamicLocalStrategy(parseStrategiesToOptions("Foo=local,worker", "worker"));
     assertThat(module.getLocalStrategies(options, /* sandboxingSupported= */ true))
         .isEqualTo(parseStrategies("Foo=local,worker", "worker"));
   }
@@ -109,19 +110,19 @@ public class DynamicExecutionModuleTest {
     EventBus mockEventBus = mock(EventBus.class);
     when(mockCommandEnvironment.getEventBus()).thenReturn(mockEventBus);
     when(mockCommandEnvironment.getBlazeWorkspace()).thenReturn(blazeRuntime.getWorkspace());
-    DynamicExecutionOptions options = new DynamicExecutionOptions();
+    DynamicExecutionOptions options = Options.getDefaults(DynamicExecutionOptions.class);
     when(mockOptions.getOptions(DynamicExecutionOptions.class)).thenReturn(options);
     ActionExecutionContext context = mock(ActionExecutionContext.class);
 
-    options.ignoreLocalSignals = ImmutableSet.of();
+    options.setIgnoreLocalSignals(ImmutableSet.of());
     module.beforeCommand(mockCommandEnvironment);
     assertThat(module.canIgnoreFailure(spawn, context, 130, "Failed", null, true)).isFalse();
 
-    options.ignoreLocalSignals = ImmutableSet.of(9);
+    options.setIgnoreLocalSignals(ImmutableSet.of(9));
     module.beforeCommand(mockCommandEnvironment);
     assertThat(module.canIgnoreFailure(spawn, context, 130, "Failed", null, true)).isFalse();
 
-    options.ignoreLocalSignals = ImmutableSet.of(2, 9);
+    options.setIgnoreLocalSignals(ImmutableSet.of(2, 9));
     module.beforeCommand(mockCommandEnvironment);
     assertThat(module.canIgnoreFailure(spawn, context, 130, "Failed", null, false)).isFalse();
     assertThat(module.canIgnoreFailure(spawn, context, 0, "Failed", null, true)).isFalse();

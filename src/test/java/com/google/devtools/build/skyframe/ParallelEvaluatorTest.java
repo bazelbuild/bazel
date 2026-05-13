@@ -42,7 +42,6 @@ import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.EventBus;
 import com.google.common.testing.GcFinalization;
 import com.google.common.util.concurrent.AtomicLongMap;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -55,6 +54,7 @@ import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Reportable;
@@ -2620,7 +2620,7 @@ public class ParallelEvaluatorTest {
 
     ExtendedEventHandler reporter =
         new Reporter(
-            new EventBus(),
+            EventBusEventHandler.createWithNewEventBus(),
             e -> {
               throw new IllegalStateException();
             });

@@ -60,7 +60,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -79,6 +78,7 @@ import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
@@ -151,7 +151,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
   private static final DigestUtil DIGEST_UTIL =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
 
-  private final Reporter reporter = new Reporter(new EventBus());
+  private final Reporter reporter = new Reporter(EventBusEventHandler.createWithNewEventBus());
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
   private FileSystem fs;
   private Path execRoot;
@@ -281,18 +281,18 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
     outErr = new FileOutErr(stdout, stderr);
     remoteOptions = Options.getDefaults(RemoteOptions.class);
 
-    remoteOptions.remoteHeaders =
+    remoteOptions.setRemoteHeaders(
         ImmutableList.of(
             Maps.immutableEntry("CommonKey1", "CommonValue1"),
-            Maps.immutableEntry("CommonKey2", "CommonValue2"));
-    remoteOptions.remoteExecHeaders =
+            Maps.immutableEntry("CommonKey2", "CommonValue2")));
+    remoteOptions.setRemoteExecHeaders(
         ImmutableList.of(
             Maps.immutableEntry("ExecKey1", "ExecValue1"),
-            Maps.immutableEntry("ExecKey2", "ExecValue2"));
-    remoteOptions.remoteCacheHeaders =
+            Maps.immutableEntry("ExecKey2", "ExecValue2")));
+    remoteOptions.setRemoteCacheHeaders(
         ImmutableList.of(
             Maps.immutableEntry("CacheKey1", "CacheValue1"),
-            Maps.immutableEntry("CacheKey2", "CacheValue2"));
+            Maps.immutableEntry("CacheKey2", "CacheValue2")));
 
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
     RemoteRetrier retrier =
@@ -336,7 +336,11 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             channel.retain(), callCredentialsProvider, remoteOptions, retrier, DIGEST_UTIL);
     remoteCache =
         new RemoteExecutionCache(
-            cacheProtocol, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, DIGEST_UTIL);
+            cacheProtocol,
+            /* diskCacheClient= */ null,
+            /* symlinkTemplate= */ null,
+            DIGEST_UTIL,
+            /* chunkingEnabled= */ false);
     RemoteExecutionService remoteExecutionService =
         new RemoteExecutionService(
             reporter,
@@ -1114,7 +1118,10 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
         });
     String stdOutResourceName =
         getResourceName(
-            remoteOptions.remoteInstanceName, stdOutDigest, false, DigestFunction.Value.SHA256);
+            remoteOptions.getRemoteInstanceName(),
+            stdOutDigest,
+            false,
+            DigestFunction.Value.SHA256);
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           @Override
@@ -1176,7 +1183,10 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
         });
     String stdOutResourceName =
         getResourceName(
-            remoteOptions.remoteInstanceName, stdOutDigest, false, DigestFunction.Value.SHA256);
+            remoteOptions.getRemoteInstanceName(),
+            stdOutDigest,
+            false,
+            DigestFunction.Value.SHA256);
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           @Override
@@ -1304,7 +1314,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
         });
     String dummyTreeResourceName =
         getResourceName(
-            remoteOptions.remoteInstanceName,
+            remoteOptions.getRemoteInstanceName(),
             DUMMY_OUTPUT_DIRECTORY.getTreeDigest(),
             false,
             DigestFunction.Value.SHA256);
@@ -1566,7 +1576,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
   private FakeSpawnExecutionContext getSpawnContext(Spawn spawn) {
     var actionInputFetcher =
         new RemoteActionInputFetcher(
-            new Reporter(new EventBus()),
+            new Reporter(EventBusEventHandler.createWithNewEventBus()),
             "none",
             "none",
             remoteCache,

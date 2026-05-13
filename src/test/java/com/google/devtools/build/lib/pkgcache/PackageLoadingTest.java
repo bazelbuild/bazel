@@ -129,13 +129,13 @@ public class PackageLoadingTest extends FoundationTestCase {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             /* outputBase= */ null,
-            packageOptions.packagePath,
+            packageOptions.getPackagePath(),
             reporter,
             rootDirectory.asFragment(),
             rootDirectory,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 7;
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(7);
     skyframeExecutor.injectExtraPrecomputedValues(AnalysisMock.get().getPrecomputedValues());
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
@@ -146,7 +146,8 @@ public class PackageLoadingTest extends FoundationTestCase {
         QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
-    skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageOptions.getDeletedPackages()));
+    skyframeExecutor.setDeletedPackages(
+        ImmutableSet.copyOf(packageOptions.getDeletedPackagesOrEmptySet()));
   }
 
   private static OptionsParser parse(String... options) throws Exception {

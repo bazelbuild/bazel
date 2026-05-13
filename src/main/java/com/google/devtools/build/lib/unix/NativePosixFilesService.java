@@ -15,17 +15,22 @@
 package com.google.devtools.build.lib.unix;
 
 import com.google.devtools.build.lib.runtime.BlazeService;
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /** A {@link BlazeService} providing access to POSIX filesystem calls. */
+@SkybridgeInterface
 public interface NativePosixFilesService extends BlazeService {
   /**
    * Native wrapper around Linux readlink(2) call.
    *
    * @param path the file of interest
-   * @return the pathname to which the symbolic link 'path' links
-   * @throws IOException iff the readlink() call failed
+   * @return the pathname to which the symbolic link 'path' links, or {@code null} if 'path' is not
+   *     a symbolic link.
+   * @throws IOException iff the readlink() call failed for any other reason
    */
+  @Nullable
   String readlink(String path) throws IOException;
 
   /**
@@ -56,7 +61,7 @@ public interface NativePosixFilesService extends BlazeService {
   void link(String oldpath, String newpath) throws IOException;
 
   /** How stat() and lstat() should handle errors. */
-  enum StatErrorHandling {
+  public enum StatErrorHandling {
     /** Always throw an exception. */
     ALWAYS_THROW('a'),
     /** Throw an exception unless the error is ENOENT/ENOTDIR, in which case return null. */
@@ -70,13 +75,13 @@ public interface NativePosixFilesService extends BlazeService {
       this.code = code;
     }
 
-    char getCode() {
+    public char getCode() {
       return code;
     }
   }
 
   /** File metadata, as returned by stat() or lstat(). */
-  record Stat(int mode, long mtime, long ctime, long size, long ino) {}
+  public record Stat(int mode, long mtime, long ctime, long size, long ino) {}
 
   /**
    * Native wrapper around POSIX stat(2) syscall.
@@ -136,9 +141,9 @@ public interface NativePosixFilesService extends BlazeService {
   Dirent[] readdir(String path) throws IOException;
 
   /** A directory entry and its corresponding type, as returned by readdir(). */
-  record Dirent(String name, Type type) {
+  public record Dirent(String name, Type type) {
     /** The type of the directory entry. */
-    enum Type {
+    public enum Type {
       /** Regular file. */
       FILE,
       /** Directory. */

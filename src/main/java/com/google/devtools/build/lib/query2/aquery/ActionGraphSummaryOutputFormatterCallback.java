@@ -59,7 +59,8 @@ class ActionGraphSummaryOutputFormatterCallback extends AqueryThreadsafeCallback
   public void processOutput(Iterable<ConfiguredTargetValue> partialResult)
       throws IOException, InterruptedException {
     // Enabling includeParamFiles should enable includeCommandline by default.
-    options.includeCommandline |= options.includeParamFiles;
+    options.setIncludeCommandline(
+        options.getIncludeCommandline() || options.getIncludeParamFiles());
 
     for (ConfiguredTargetValue configuredTargetValue : partialResult) {
       if (!(configuredTargetValue instanceof RuleConfiguredTargetValue)) {
@@ -71,7 +72,7 @@ class ActionGraphSummaryOutputFormatterCallback extends AqueryThreadsafeCallback
           ((RuleConfiguredTargetValue) configuredTargetValue).getActions()) {
         processAction(action);
       }
-      if (options.useAspects) {
+      if (options.getUseAspects()) {
         for (AspectValue aspectValue : accessor.getAspectValues(configuredTargetValue)) {
           for (ActionAnalysisMetadata action : aspectValue.getActions()) {
             processAction(action);
@@ -82,7 +83,8 @@ class ActionGraphSummaryOutputFormatterCallback extends AqueryThreadsafeCallback
   }
 
   private void processAction(ActionAnalysisMetadata action) throws InterruptedException {
-    if (!AqueryUtils.matchesAqueryFilters(action, actionFilters, options.includePrunedInputs)) {
+    if (!AqueryUtils.matchesAqueryFilters(
+        action, actionFilters, options.getIncludePrunedInputs())) {
       return;
     }
 

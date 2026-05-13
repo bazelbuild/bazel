@@ -28,7 +28,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:auth",
         "//third_party:guava",
-        "//third_party:jsr305",
         "//third_party/grpc-java:grpc-jar",
         "@com_google_protobuf//:protobuf_java_util",
         "@googleapis//google/rpc:rpc_java_proto",

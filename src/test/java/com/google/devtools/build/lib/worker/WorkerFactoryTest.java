@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
+import com.google.devtools.common.options.Options;
 import java.io.IOException;
 import org.junit.After;
 import org.junit.Test;
@@ -50,7 +51,8 @@ public class WorkerFactoryTest {
   @Test
   public void sandboxedWorkerPathEndsWithWorkspaceName() throws Exception {
     Path workerBaseDir = fs.getPath("/outputbase/bazel-workers");
-    WorkerFactory workerFactory = new WorkerFactory(workerBaseDir, new WorkerOptions());
+    WorkerFactory workerFactory =
+        new WorkerFactory(workerBaseDir, Options.getDefaults(WorkerOptions.class));
     WorkerKey workerKey = createWorkerKey(/* mustBeSandboxed= */ true, /* multiplex= */ false);
     Path sandboxedWorkerPath = workerFactory.getSandboxedWorkerPath(workerKey, 1);
 
@@ -61,7 +63,8 @@ public class WorkerFactoryTest {
   @Test
   public void workerCreationTypeCheck() throws Exception {
     Path workerBaseDir = fs.getPath("/outputbase/bazel-workers");
-    WorkerFactory workerFactory = new WorkerFactory(workerBaseDir, new WorkerOptions());
+    WorkerFactory workerFactory =
+        new WorkerFactory(workerBaseDir, Options.getDefaults(WorkerOptions.class));
     WorkerKey sandboxedWorkerKey =
         createWorkerKey(/* mustBeSandboxed= */ true, /* multiplex= */ false);
     Worker sandboxedWorker = workerFactory.create(sandboxedWorkerKey);
@@ -85,7 +88,8 @@ public class WorkerFactoryTest {
   @Test
   public void testMultiplexWorkersShareLogfiles() throws Exception {
     Path workerBaseDir = fs.getPath("/outputbase/bazel-workers");
-    WorkerFactory workerFactory = new WorkerFactory(workerBaseDir, new WorkerOptions());
+    WorkerFactory workerFactory =
+        new WorkerFactory(workerBaseDir, Options.getDefaults(WorkerOptions.class));
 
     WorkerKey workerKey1 =
         createWorkerKey(/* mustBeSandboxed= */ false, /* multiplex= */ true, "arg1");
@@ -102,7 +106,8 @@ public class WorkerFactoryTest {
   @Test
   public void testCreate_createsWorkerDirectory() throws Exception {
     Path workerBaseDir = fs.getPath("/outputbase/bazel-workers");
-    WorkerFactory workerFactory = new WorkerFactory(workerBaseDir, new WorkerOptions());
+    WorkerFactory workerFactory =
+        new WorkerFactory(workerBaseDir, Options.getDefaults(WorkerOptions.class));
     WorkerKey sandboxedWorkerKey = createWorkerKey(/* mustBeSandboxed */ true, /* proxied */ false);
     assertThat(workerBaseDir.isDirectory()).isFalse();
     workerFactory.create(sandboxedWorkerKey);
@@ -117,7 +122,8 @@ public class WorkerFactoryTest {
   @Test
   public void testDoomedWorkerValidation() throws Exception {
     Path workerBaseDir = fs.getPath("/outputbase/bazel-workers");
-    WorkerFactory workerFactory = new WorkerFactory(workerBaseDir, new WorkerOptions());
+    WorkerFactory workerFactory =
+        new WorkerFactory(workerBaseDir, Options.getDefaults(WorkerOptions.class));
 
     WorkerKey workerKey =
         createWorkerKey(/* mustBeSandboxed= */ false, /* multiplex= */ false, "arg1");

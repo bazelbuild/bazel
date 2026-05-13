@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote.circuitbreaker;
 
 import com.google.devtools.build.lib.remote.Retrier;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import java.util.concurrent.Executors;
 
 /** Factory for {@link Retrier.CircuitBreaker} */
 public class CircuitBreakerFactory {
@@ -32,10 +33,12 @@ public class CircuitBreakerFactory {
    * @return an instance of CircuitBreaker.
    */
   public static Retrier.CircuitBreaker createCircuitBreaker(final RemoteOptions remoteOptions) {
-    if (remoteOptions.circuitBreakerStrategy == RemoteOptions.CircuitBreakerStrategy.FAILURE) {
+    if (remoteOptions.getCircuitBreakerStrategy() == RemoteOptions.CircuitBreakerStrategy.FAILURE) {
+      int slidingWindowMillis = (int) remoteOptions.getRemoteFailureWindowInterval().toMillis();
       return new FailureCircuitBreaker(
-          remoteOptions.remoteFailureRateThreshold,
-          (int) remoteOptions.remoteFailureWindowInterval.toMillis());
+          remoteOptions.getRemoteFailureRateThreshold(),
+          slidingWindowMillis,
+          slidingWindowMillis > 0 ? Executors.newSingleThreadScheduledExecutor() : null);
     }
     return Retrier.ALLOW_ALL_CALLS;
   }

@@ -44,13 +44,13 @@ class LabelOutputFormatter extends AbstractUnorderedFormatter {
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
       OutputStream out, final QueryOptions options, LabelPrinter labelPrinter) {
-    return new TextOutputFormatterCallback<Target>(out) {
+    return new TextOutputFormatterCallback<>(out) {
       @Override
       public void processOutput(Iterable<Target> partialResult) throws IOException {
         String lineTerm = options.getLineTerminator();
         for (Target target : partialResult) {
           if (showKind) {
-            writer.append(target.getTargetKind());
+            writer.append(getKind(options, target));
             writer.append(' ');
           }
           Label label = target.getLabel();

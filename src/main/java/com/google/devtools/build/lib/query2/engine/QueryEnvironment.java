@@ -146,6 +146,11 @@ public interface QueryEnvironment<T> {
     default FilteringQueryFunction asFilteringFunction() {
       return null;
     }
+
+    /** Returns true if this function requires traversing edges in the graph. */
+    default boolean requiresEdges() {
+      return false;
+    }
   }
 
   /** A {@link QueryFunction} whose output is a subset of some input argument expression. */

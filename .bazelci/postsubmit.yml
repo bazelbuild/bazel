@@ -1,5 +1,5 @@
 ---
-
+check_docs: 1
 tasks:
   ubuntu2404:
     shell_commands:

@@ -3739,4 +3739,44 @@ function test_local_module_file_patch_with_copy() {
   do_test_local_module_file_patch "--noexperimental_repository_cache_hardlinks"
 }
 
+function test_http_file_root_build_alias() {
+  create_new_workspace
+  local file="${TEST_TMPDIR}/AvailablePortFinder.java"
+  printf "final class AvailablePortFinder {}\n" > "$file"
+  if is_windows; then
+    file_url="file:///$(cygpath -m "$file")"
+  else
+    file_url="file://${file}"
+  fi
+
+  cat > "$(setup_module_dot_bazel)" <<MODULE
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+http_file(
+    name = "data_repo",
+    url = "${file_url}",
+    downloaded_file_path = "AvailablePortFinder.java",
+    sha256 = "59959c069902364aa88ced5552ac70009435bca7f689419f0e5f2375c541cb01",
+)
+MODULE
+
+  cat > BUILD <<BUILD_FILE
+filegroup(
+    name = "by_root_alias",
+    srcs = ["@data_repo//:file"],
+)
+
+filegroup(
+    name = "by_downloaded_name",
+    srcs = ["@data_repo//:AvailablePortFinder.java"],
+)
+
+filegroup(
+    name = "by_repo_name",
+    srcs = ["@data_repo"],
+)
+BUILD_FILE
+
+  bazel build //:by_root_alias //:by_downloaded_name //:by_repo_name >& $TEST_log || fail "Expected build to succeed"
+}
+
 run_suite "local repository tests"

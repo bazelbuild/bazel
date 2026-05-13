@@ -52,11 +52,11 @@ public sealed class BuiltinFunction implements StarlarkCallable
    * <p>The method must be a proper Starlark method, not a field; i.e., {@link
    * StarlarkMethod#structField} must be false.
    */
-  static BuiltinFunction of(Object obj, MethodDescriptor desc, StarlarkSemantics semantics) {
+  static BuiltinFunction of(Object obj, MethodDescriptor desc) {
     if (desc.getTypeConstructorProxy() == null) {
       return new BuiltinFunction(obj, desc);
     } else {
-      return new BuiltinTypeFunction(obj, desc, semantics);
+      return new BuiltinTypeFunction(obj, desc);
     }
   }
 
@@ -534,12 +534,8 @@ public sealed class BuiltinFunction implements StarlarkCallable
   // TODO(bazel-team): check if we can make this class private once Bazel starts using JDK 25 or
   // newer to bootstrap
   static final class BuiltinTypeFunction extends BuiltinFunction implements TypeConstructor {
-
-    private final StarlarkSemantics semantics;
-
-    private BuiltinTypeFunction(Object obj, MethodDescriptor desc, StarlarkSemantics semantics) {
+    private BuiltinTypeFunction(Object obj, MethodDescriptor desc) {
       super(obj, desc);
-      this.semantics = semantics;
     }
 
     @Override
@@ -551,7 +547,7 @@ public sealed class BuiltinFunction implements StarlarkCallable
       // and because it complicates unit tests where these preconditions fail.
       Class<?> tcProxy = desc.getTypeConstructorProxy();
       Preconditions.checkNotNull(tcProxy);
-      TypeConstructor tc = CallUtils.getBuiltinManager(semantics).getTypeConstructor(tcProxy);
+      TypeConstructor tc = desc.getManager().getTypeConstructor(tcProxy);
       Preconditions.checkArgument(tc != null, "invalid type constructor proxy: %s", tcProxy);
       return tc.createStarlarkType(argsTuple);
     }

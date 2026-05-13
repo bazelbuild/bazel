@@ -18,12 +18,12 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
 import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -209,13 +209,13 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     // Skyframe-invalidated between create() calls.
     BuildConfigurationValue config1 = create("--javacopt=foo");
     BuildConfigurationValue config2 = create("--javacopt=bar");
-    BuildConfigurationValue config3 = create("--j2objc_translation_flags=baz");
-    // Shared because all j2objc options are the same:
-    assertThat(config1.getFragment(J2ObjcConfiguration.class))
-        .isSameInstanceAs(config2.getFragment(J2ObjcConfiguration.class));
-    // Distinct because the j2objc options differ:
-    assertThat(config1.getFragment(J2ObjcConfiguration.class))
-        .isNotSameInstanceAs(config3.getFragment(J2ObjcConfiguration.class));
+    BuildConfigurationValue config3 = create("--toolchain_resolution_debug=.*");
+    // Shared because all platform options are the same:
+    assertThat(config1.getFragment(PlatformConfiguration.class))
+        .isSameInstanceAs(config2.getFragment(PlatformConfiguration.class));
+    // Distinct because the platform options differ:
+    assertThat(config1.getFragment(PlatformConfiguration.class))
+        .isNotSameInstanceAs(config3.getFragment(PlatformConfiguration.class));
   }
 
   @Test
@@ -239,7 +239,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   public void testNormalization_definesWithDifferentNames() throws Exception {
     BuildConfigurationValue config = create("--define", "a=1", "--define", "b=2");
     CoreOptions options = config.getOptions().get(CoreOptions.class);
-    assertThat(ImmutableMap.copyOf(options.commandLineBuildVariables))
+    assertThat(options.getNormalizedCommandLineBuildVariables())
         .containsExactly("a", "1", "b", "2");
   }
 
@@ -247,7 +247,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   public void testNormalization_definesWithSameName() throws Exception {
     BuildConfigurationValue config = create("--define", "a=1", "--define", "a=2");
     CoreOptions options = config.getOptions().get(CoreOptions.class);
-    assertThat(ImmutableMap.copyOf(options.commandLineBuildVariables)).containsExactly("a", "2");
+    assertThat(options.getNormalizedCommandLineBuildVariables()).containsExactly("a", "2");
     assertThat(config).isEqualTo(create("--define", "a=2"));
   }
 

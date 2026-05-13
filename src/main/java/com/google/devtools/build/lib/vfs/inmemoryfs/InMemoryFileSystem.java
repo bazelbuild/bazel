@@ -127,14 +127,10 @@ public class InMemoryFileSystem extends FileSystem {
     public IOException exception(PathFragment path) throws IOException {
       String m = path + " (" + message + ")";
       switch (this) {
-        case EACCES:
-          throw new FileAccessException(m);
-        case ENOENT:
-          throw new FileNotFoundException(m);
-        case ELOOP:
-          throw new FileSymlinkLoopException(path);
-        default:
-          throw new IOException(m);
+        case EACCES -> throw new FileAccessException(m);
+        case ENOENT -> throw new FileNotFoundException(m);
+        case ELOOP -> throw new FileSymlinkLoopException(m);
+        default -> throw new IOException(m);
       }
     }
   }

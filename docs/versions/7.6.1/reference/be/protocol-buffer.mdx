@@ -15,7 +15,7 @@ title: 'Protocol Buffer Rules'
 proto_lang_toolchain(name, blacklisted_protos, command_line, compatible_with, deprecation, distribs, exec_compatible_with, exec_properties, features, licenses, mnemonic, output_files, plugin, plugin_format_flag, progress_message, proto_compiler, restricted_to, runtime, tags, target_compatible_with, testonly, visibility)
 ```
 
-If using Bazel, please load the rule from <https://github.com/bazelbuild/rules_proto>.
+If using Bazel, please load the rule from https://github.com/bazelbuild/rules_proto.
 
 Specifies how a LANG\_proto\_library rule (e.g., `java_proto_library`) should invoke the
 proto-compiler.
@@ -67,7 +67,7 @@ proto_lang_toolchain(
 proto_library(name, deps, srcs, data, allow_exports, compatible_with, deprecation, distribs, exec_compatible_with, exec_properties, exports, features, import_prefix, licenses, restricted_to, strip_import_prefix, tags, target_compatible_with, testonly, visibility)
 ```
 
-Deprecated. Please use <https://github.com/bazelbuild/rules_proto> instead.
+Deprecated. Please use https://github.com/bazelbuild/rules_proto instead.
 
 Use `proto_library` to define libraries of protocol buffers
 which may be used from multiple languages. A `proto_library` may be listed
@@ -77,7 +77,7 @@ When compiled on the command-line, a `proto_library` creates a file named
 `foo-descriptor-set.proto.bin`, which is the descriptor set for the
 messages the rule srcs. The file is a serialized `FileDescriptorSet`, which is
 described in
-<https://developers.google.com/protocol-buffers/docs/techniques#self-description>.
+https://developers.google.com/protocol-buffers/docs/techniques#self-description.
 
 It only contains information about the `.proto` files directly mentioned by a
 `proto_library` rule; the collection of transitive descriptor sets is available through

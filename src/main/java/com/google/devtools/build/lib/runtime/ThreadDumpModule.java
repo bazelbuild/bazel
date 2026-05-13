@@ -63,12 +63,12 @@ public final class ThreadDumpModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
     var commandOptions = env.getOptions().getOptions(CommonCommandOptions.class);
-    if (commandOptions == null || !commandOptions.enableThreadDump) {
+    if (commandOptions == null || !commandOptions.getEnableThreadDump()) {
       return;
     }
 
-    if (commandOptions.threadDumpInterval.isZero()
-        && commandOptions.threadDumpActionExecutionInactivityDuration.isZero()) {
+    if (commandOptions.getThreadDumpInterval().isZero()
+        && commandOptions.getThreadDumpActionExecutionInactivityDuration().isZero()) {
       env.getReporter()
           .handle(
               Event.warn(
@@ -81,7 +81,7 @@ public final class ThreadDumpModule extends BlazeModule {
 
     var bepOptions = env.getOptions().getOptions(BuildEventProtocolOptions.class);
     BuildEventArtifactUploader uploader = null;
-    if (bepOptions != null && bepOptions.streamingLogFileUploads) {
+    if (bepOptions != null && bepOptions.getStreamingLogFileUploads()) {
       try {
         uploader = newUploader(env, bepOptions);
       } catch (InvalidPackagePathSymlinkException e) {
@@ -96,8 +96,8 @@ public final class ThreadDumpModule extends BlazeModule {
             ProcessHandle.current().pid(),
             env.getRuntime().getClock(),
             outputBaseRelativeDumpDirectory,
-            commandOptions.threadDumpActionExecutionInactivityDuration,
-            commandOptions.threadDumpInterval,
+            commandOptions.getThreadDumpActionExecutionInactivityDuration(),
+            commandOptions.getThreadDumpInterval(),
             uploader);
     var oldThreadDumpTask = threadDumpTaskRef.getAndSet(threadDumpTask);
     checkState(oldThreadDumpTask == null);
@@ -110,7 +110,7 @@ public final class ThreadDumpModule extends BlazeModule {
       throws InvalidPackagePathSymlinkException {
     return env.getRuntime()
         .getBuildEventArtifactUploaderFactoryMap()
-        .select(bepOptions.buildEventUploadStrategy)
+        .select(bepOptions.getBuildEventUploadStrategy())
         .create(env);
   }
 

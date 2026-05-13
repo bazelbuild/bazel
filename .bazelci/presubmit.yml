@@ -1,5 +1,5 @@
 ---
-
+check_docs: 1
 tasks:
   rockylinux8:
     shell_commands:
@@ -184,7 +184,7 @@ tasks:
       - build
       - test
   windows:
-    shards: 8
+    shards: 10
     setup:
       - mkdir C:\b
       - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external
@@ -241,8 +241,8 @@ tasks:
       - "//src:bazel_nojdk.exe"
     include_json_profile:
       - build
-  rbe_ubuntu2004:
-    platform: ubuntu2004
+  rbe_ubuntu2404:
+    platform: ubuntu2404
     name: "RBE"
     build_flags:
       - "--config=remote"

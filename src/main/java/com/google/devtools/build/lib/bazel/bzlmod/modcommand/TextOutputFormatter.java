@@ -50,7 +50,7 @@ public class TextOutputFormatter extends OutputFormatter {
 
   @Override
   public void output() {
-    if (options.charset == Charset.ASCII) {
+    if (options.getCharset() == Charset.ASCII) {
       drawCharset = DrawCharset.ASCII;
     } else {
       drawCharset = DrawCharset.UTF8;
@@ -100,17 +100,17 @@ public class TextOutputFormatter extends OutputFormatter {
     str.append('$');
     str.append(extensionId);
     str.append(' ');
-    if (unexpanded && options.extensionInfo == ExtensionShow.ALL) {
+    if (unexpanded && options.getExtensionInfo() == ExtensionShow.ALL) {
       str.append("... ");
     }
     str.append("\n");
-    if (options.extensionInfo == ExtensionShow.USAGES) {
+    if (options.getExtensionInfo() == ExtensionShow.USAGES) {
       return;
     }
     ImmutableSortedSet<String> repoImports =
         ImmutableSortedSet.copyOf(extensionRepoImports.get(extensionId).inverse().get(key));
     ImmutableSortedSet<String> unusedRepos = ImmutableSortedSet.of();
-    if (!unexpanded && options.extensionInfo == ExtensionShow.ALL) {
+    if (!unexpanded && options.getExtensionInfo() == ExtensionShow.ALL) {
       unusedRepos =
           ImmutableSortedSet.copyOf(
               Sets.difference(
@@ -123,7 +123,7 @@ public class TextOutputFormatter extends OutputFormatter {
       printExtensionRepo(usedRepo, IsIndirect.FALSE, depth + 1);
       isLastChildStack.pop();
     }
-    if (unexpanded || options.extensionInfo == ExtensionShow.REPOS) {
+    if (unexpanded || options.getExtensionInfo() == ExtensionShow.REPOS) {
       return;
     }
     for (String unusedPackage : unusedRepos) {
@@ -170,7 +170,7 @@ public class TextOutputFormatter extends OutputFormatter {
           extensionRepoImports.keySet().stream()
               .filter(e -> extensionRepoImports.get(e).inverse().containsKey(key))
               .collect(toImmutableSortedSet(ModuleExtensionId.LEXICOGRAPHIC_COMPARATOR));
-      if (options.extensionInfo != ExtensionShow.HIDDEN) {
+      if (options.getExtensionInfo() != ExtensionShow.HIDDEN) {
         totalChildrenNum += extensionsUsed.size();
       }
 
@@ -188,12 +188,12 @@ public class TextOutputFormatter extends OutputFormatter {
         }
       }
       AugmentedModule module = Objects.requireNonNull(depGraph.get(key));
-      if (!options.verbose && !module.isUsed()) {
+      if (!options.getVerbose() && !module.isUsed()) {
         str.append("(unused) ");
       }
       // If the edge is indirect, the parent is not only unknown, but the node could have come
       // from multiple paths merged in the process, so we skip the resolution explanation.
-      if (indirect == IsIndirect.FALSE && options.verbose && parent != null) {
+      if (indirect == IsIndirect.FALSE && options.getVerbose() && parent != null) {
         Explanation explanation = getExtraResolutionExplanation(key, parent);
         if (explanation != null) {
           str.append(explanation.toExplanationString(!module.isUsed()));
@@ -207,7 +207,7 @@ public class TextOutputFormatter extends OutputFormatter {
       }
 
       int currChild = 1;
-      if (options.extensionInfo != ExtensionShow.HIDDEN) {
+      if (options.getExtensionInfo() != ExtensionShow.HIDDEN) {
         for (ModuleExtensionId extensionId : extensionsUsed) {
           boolean unexpandedExtension = !seenExtensions.add(extensionId);
           isLastChildStack.push(currChild++ == totalChildrenNum);

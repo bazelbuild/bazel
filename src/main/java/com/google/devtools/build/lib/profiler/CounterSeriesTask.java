@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import javax.annotation.Nullable;
 
 /**
@@ -24,6 +25,7 @@ import javax.annotation.Nullable;
  * @param color The color for the counter series. If {@code null}, the profile viewer will pick a
  *     color automatically.
  */
+@SkybridgeInterface
 public record CounterSeriesTask(String laneName, String seriesName, @Nullable Color color) {
   /** The revered color for rendering the bar chart. */
   public enum Color {

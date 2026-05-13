@@ -21,7 +21,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.concurrent.PaddedAddresses.createPaddedBaseAddress;
 import static com.google.devtools.build.lib.concurrent.PaddedAddresses.getAlignedAddress;
 import static java.lang.Math.min;
-import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -173,7 +173,13 @@ public class RequestBatcher<RequestT, ResponseT> {
    *
    * <p>Used with {@link CallbackMultiplexer}.
    */
-  public interface ResponseSink<ResponseT> {
+  public interface ResponseSink<RequestT, ResponseT> {
+    /** Returns the original request associated with this sink. */
+    RequestT request();
+
+    /** Returns true if the sink has been completed (success or failure). */
+    boolean isDone();
+
     /**
      * Fulfills the corresponding request with a successful response.
      *
@@ -217,7 +223,7 @@ public class RequestBatcher<RequestT, ResponseT> {
      *     batch could possibly use them. The callback should be lightweight.
      */
     Runnable execute(
-        List<RequestT> requests, ImmutableList<? extends ResponseSink<ResponseT>> sinks);
+        List<RequestT> requests, ImmutableList<? extends ResponseSink<RequestT, ResponseT>> sinks);
   }
 
   /**
@@ -254,7 +260,7 @@ public class RequestBatcher<RequestT, ResponseT> {
     return new PerResponseMultiplexerAdapter<>(multiplexer);
   }
 
-  private interface BatchExecutionStrategy<RequestT, ResponseT> {
+  interface BatchExecutionStrategy<RequestT, ResponseT> {
     ListenableFuture<?> executeBatch(
         List<RequestT> requests, ImmutableList<Operation<RequestT, ResponseT>> operations);
   }
@@ -275,10 +281,7 @@ public class RequestBatcher<RequestT, ResponseT> {
 
     var batcher =
         new RequestBatcher<RequestT, ResponseT>(
-            // `maxConcurrentRequests` is the maximum level of invocation concurrency possible for
-            // the `queueDrainingExecutor`. It is possible for this to overrun, but the work is
-            // relatively lightweight and the batch round trip latency is expected to dominate.
-            /* queueDrainingExecutor= */ newFixedThreadPool(maxConcurrentRequests),
+            /* queueDrainingExecutor= */ newVirtualThreadPerTaskExecutor(),
             batchExecutionStrategy,
             maxBatchSize,
             maxConcurrentRequests,
@@ -386,6 +389,10 @@ public class RequestBatcher<RequestT, ResponseT> {
     }
   }
 
+  public int maxConcurrentRequests() {
+    return maxConcurrentRequests;
+  }
+
   // TODO: b/386384684 - remove Unsafe usage
   @Override
   public String toString() {
@@ -466,7 +473,7 @@ public class RequestBatcher<RequestT, ResponseT> {
 
   @VisibleForTesting
   static final class Operation<RequestT, ResponseT> extends AbstractFuture<ResponseT>
-      implements ResponseSink<ResponseT>, FutureResponseSink<ResponseT> {
+      implements ResponseSink<RequestT, ResponseT>, FutureResponseSink<ResponseT> {
     private final RequestT request;
     private boolean isFutureSet = false;
 
@@ -474,7 +481,8 @@ public class RequestBatcher<RequestT, ResponseT> {
       this.request = request;
     }
 
-    private RequestT request() {
+    @Override
+    public RequestT request() {
       return request;
     }
 
@@ -621,7 +629,7 @@ public class RequestBatcher<RequestT, ResponseT> {
     }
   }
 
-  private static final int REQUEST_COUNT_MASK = 0x000F_FFFF;
+  private static final int REQUEST_COUNT_MASK = 0x0000_FFFF;
   private static final int ONE_REQUEST = 1;
 
   private static final int ACTIVE_WORKERS_COUNT_BIT_OFFSET = 20;

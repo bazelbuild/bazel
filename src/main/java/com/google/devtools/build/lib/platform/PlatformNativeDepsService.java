@@ -15,10 +15,12 @@
 package com.google.devtools.build.lib.platform;
 
 import com.google.devtools.build.lib.runtime.BlazeService;
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.function.IntConsumer;
 
 /** Service interface for platform-specific native dependencies. */
+@SkybridgeInterface
 public interface PlatformNativeDepsService extends BlazeService {
   /**
    * Push a request to disable automatic sleep for hardware. Useful for making sure computers don't

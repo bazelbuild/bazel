@@ -26,6 +26,7 @@ import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.Resolver;
 import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeTable;
 import net.starlark.java.syntax.Types;
 
 /** A StarlarkFunction is a function value created by a Starlark {@code def} statement. */
@@ -36,6 +37,9 @@ import net.starlark.java.syntax.Types;
 public final class StarlarkFunction implements StarlarkCallable {
 
   final Resolver.Function rfn;
+  // TODO: #27370 - at eval time, we need only types of functions and globals; we could save some
+  // memory by skipping the other types.
+  @Nullable private final TypeTable typeTable;
   private final Module module; // a function closes over its defining module
 
   // Index in Module.globals of ith Program global (Resolver.Binding(GLOBAL).index).
@@ -59,12 +63,14 @@ public final class StarlarkFunction implements StarlarkCallable {
 
   StarlarkFunction(
       Resolver.Function rfn,
+      @Nullable TypeTable typeTable,
       Module module,
       int[] globalIndex,
       Tuple defaultValues,
       Tuple freevars,
       SymbolGenerator.Symbol<?> token) {
     this.rfn = rfn;
+    this.typeTable = typeTable;
     this.module = module;
     this.globalIndex = globalIndex;
     this.defaultValues = defaultValues;
@@ -75,6 +81,10 @@ public final class StarlarkFunction implements StarlarkCallable {
   // Sets a global variable, given its index in this function's compiled Program.
   void setGlobal(int progIndex, Object value) {
     module.setGlobalByIndex(globalIndex[progIndex], value);
+  }
+
+  void setGlobalDeclaredType(int progIndex, StarlarkType type) {
+    module.setGlobalTypeByIndex(globalIndex[progIndex], type);
   }
 
   // Gets the value of a global variable, given its index in this function's compiled Program.
@@ -94,8 +104,16 @@ public final class StarlarkFunction implements StarlarkCallable {
 
   @Override
   public StarlarkType getStarlarkType() {
-    Types.CallableType type = rfn.getFunctionType();
-    return type != null ? type : Types.ANY;
+    if (typeTable == null) {
+      return Types.ANY;
+    }
+    @Nullable StarlarkType functionType = typeTable.getType(rfn);
+    return functionType != null ? functionType : Types.ANY;
+  }
+
+  @Nullable
+  TypeTable getTypeTable() {
+    return typeTable;
   }
 
   // TODO(adonovan): many functions would be simpler if

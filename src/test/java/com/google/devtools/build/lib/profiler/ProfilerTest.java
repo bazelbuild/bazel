@@ -1070,7 +1070,6 @@ public final class ProfilerTest {
     assertThat(second.args()).containsExactly("local action", 0.5);
   }
 
-  @SuppressWarnings("AllowVirtualThreads")
   @Test
   public void testVirtualThread() throws Exception {
     ByteArrayOutputStream buffer = start(getAllProfilerTasks(), JSON_TRACE_FILE_FORMAT);
@@ -1144,7 +1143,6 @@ public final class ProfilerTest {
     assertThat(first.threadId()).isNotEqualTo(second.threadId());
   }
 
-  @SuppressWarnings("AllowVirtualThreads")
   @Test
   public void testVirtualThreadTaskStartedAfterStop() throws Exception {
     ByteArrayOutputStream buffer = start(getAllProfilerTasks(), JSON_TRACE_FILE_FORMAT);
@@ -1171,7 +1169,6 @@ public final class ProfilerTest {
     assertThat(events).isEmpty();
   }
 
-  @SuppressWarnings("AllowVirtualThreads")
   @Test
   public void testVirtualThreadTaskEndedAfterStop() throws Exception {
     ByteArrayOutputStream buffer = start(getAllProfilerTasks(), JSON_TRACE_FILE_FORMAT);

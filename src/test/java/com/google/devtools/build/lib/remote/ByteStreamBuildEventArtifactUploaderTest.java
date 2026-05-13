@@ -29,7 +29,6 @@ import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.eventbus.EventBus;
 import com.google.common.hash.HashCode;
 import com.google.common.io.BaseEncoding;
 import com.google.common.util.concurrent.Futures;
@@ -47,6 +46,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.FixedBackoff;
@@ -96,7 +96,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
   @Rule public final RxNoGlobalErrorsRule rxNoGlobalErrorsRule = new RxNoGlobalErrorsRule();
 
-  private final Reporter reporter = new Reporter(new EventBus());
+  private final Reporter reporter = new Reporter(EventBusEventHandler.createWithNewEventBus());
   private final StoredEventHandler eventHandler = new StoredEventHandler();
 
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
@@ -523,7 +523,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       RemoteRetrier retrier,
       MissingDigestsFinder missingDigestsFinder) {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteInstanceName = "instance";
+    remoteOptions.setRemoteInstanceName("instance");
     GrpcCacheClient cacheClient =
         spy(
             new GrpcCacheClient(
@@ -540,7 +540,11 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         .findMissingDigests(any(), any());
 
     return new CombinedCache(
-        cacheClient, /* diskCacheClient= */ null, /* symlinkTemplate= */ null, DIGEST_UTIL);
+        cacheClient,
+        /* diskCacheClient= */ null,
+        /* symlinkTemplate= */ null,
+        DIGEST_UTIL,
+        /* chunkingEnabled= */ false);
   }
 
   private ByteStreamBuildEventArtifactUploader newArtifactUploader(CombinedCache combinedCache) {

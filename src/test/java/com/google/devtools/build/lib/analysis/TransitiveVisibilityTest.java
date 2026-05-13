@@ -134,7 +134,7 @@ public class TransitiveVisibilityTest extends BuildViewTestCase {
 
     // genrule depends on genrule
     reporter.removeHandler(failFastHandler);
-    reporter.clearEventBus();
+    reporter.cleanup();
     getConfiguredTarget("//pkg:depends_on_genrule");
     assertContainsEvent(
         "Transitive visibility error: //tv_pkg:dep is not transitively visible from"
@@ -181,7 +181,7 @@ public class TransitiveVisibilityTest extends BuildViewTestCase {
         "c/BUILD", "genrule(name = 'c', srcs = ['//b'], outs = ['c.out'], cmd = 'touch $@')");
 
     reporter.removeHandler(failFastHandler);
-    reporter.clearEventBus();
+    reporter.cleanup();
     getConfiguredTarget("//c:c");
     assertContainsEvent(
         "Transitive visibility error: //b:b is not transitively visible from //c:c. //b:b"
@@ -277,7 +277,7 @@ public class TransitiveVisibilityTest extends BuildViewTestCase {
         "genrule(name = 'a', srcs = ['//b', '//c'], outs = ['a.out'], cmd = 'touch $@')");
 
     reporter.removeHandler(failFastHandler);
-    reporter.clearEventBus();
+    reporter.cleanup();
     getConfiguredTarget("//a:a");
     assertContainsEvent(
         "Transitive visibility error: //b:b is not transitively visible from //a:a. //b:b"

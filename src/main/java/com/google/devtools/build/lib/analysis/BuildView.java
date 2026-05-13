@@ -92,9 +92,10 @@ import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheDeps;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheManager;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -251,7 +252,6 @@ public class BuildView {
     pollInterruptedStatus();
 
     skyframeBuildView.resetProgressReceiver();
-    skyframeExecutor.setBaselineConfiguration(targetOptions, eventHandler);
 
     ImmutableMap<Label, Target> labelToTargetMap = constructLabelToTargetMap(loadingResult);
     eventBus.post(new AnalysisPhaseStartedEvent(labelToTargetMap.values()));
@@ -278,9 +278,10 @@ public class BuildView {
           skyframeBuildView.shouldDiscardAnalysisCache(
               eventHandler,
               targetOptions,
-              viewOptions.maxConfigChangesToShow,
-              viewOptions.allowAnalysisCacheDiscards,
+              viewOptions.getMaxConfigChangesToShow(),
+              viewOptions.getAllowAnalysisCacheDiscards(),
               additionalConfigurationChangeEvent);
+      skyframeExecutor.setBaselineConfiguration(targetOptions, eventHandler);
       topLevelConfig = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
     }
 
@@ -288,9 +289,10 @@ public class BuildView {
       try (SilentCloseable c = Profiler.instance().profile("skycache.metadataQuery")) {
         remoteAnalysisCachingDependenciesProvider.queryMetadataAndMaybeBailout();
       }
-      if (remoteAnalysisCachingDependenciesProvider.bailedOut()) {
-        remoteAnalysisCachingDependenciesProvider = DisabledDependenciesProvider.INSTANCE;
-        remoteAnalysisCacheReaderDeps = DisabledDependenciesProvider.INSTANCE;
+      if (remoteAnalysisCachingDependenciesProvider.mode() != RemoteAnalysisCacheMode.OFF
+          && remoteAnalysisCachingDependenciesProvider.bailedOut()) {
+        remoteAnalysisCachingDependenciesProvider = RemoteAnalysisCacheManager.createDisabled();
+        remoteAnalysisCacheReaderDeps = RemoteAnalysisCacheDeps.createDisabled();
       } else {
         eventBus.post(new RemoteAnalysisCachingEnabledEvent());
       }
@@ -302,7 +304,7 @@ public class BuildView {
           skyfocusState.buildConfiguration() != null
               && !skyfocusState.buildConfiguration().equals(topLevelConfig);
       if (buildConfigChanged) {
-        switch (skyfocusState.options().frontierViolationCheck) {
+        switch (skyfocusState.options().getFrontierViolationCheck()) {
           case WARN -> {
             eventHandler.handle(
                 Event.warn(
@@ -383,7 +385,7 @@ public class BuildView {
     SkyframeAnalysisResult skyframeAnalysisResult;
     try {
       if (includeExecutionPhase) {
-        skyframeExecutor.setExtraActionFilter(viewOptions.extraActionFilter);
+        skyframeExecutor.setExtraActionFilter(viewOptions.getExtraActionFilter());
         skyframeExecutor.setRuleContextConstraintSemantics(
             (RuleContextConstraintSemantics) ruleClassProvider.getConstraintSemantics());
         // We wait until now to setup for execution, in case the artifact factory was reset
@@ -392,7 +394,8 @@ public class BuildView {
           checkNotNull(executionSetupCallback).prepareForExecution();
         }
         boolean discardAnalysisCacheAfterAnalysis =
-            viewOptions.discardAnalysisCache || !skyframeExecutor.tracksStateForIncrementality();
+            viewOptions.getDiscardAnalysisCache()
+                || !skyframeExecutor.tracksStateForIncrementality();
         if (discardAnalysisCacheAfterAnalysis
             && remoteAnalysisCachingDependenciesProvider.mode().isRetrievalEnabled()) {
           // When remote analysis value retrieval is enabled, it is possible for analysis
@@ -423,7 +426,7 @@ public class BuildView {
                 keepGoing,
                 skipIncompatibleExplicitTargets,
                 checkForActionConflicts,
-                viewOptions.extraActionTopLevelOnly,
+                viewOptions.getExtraActionTopLevelOnly(),
                 executors,
                 /* shouldDiscardAnalysisCache= */ discardAnalysisCacheAfterAnalysis,
                 // Analysis uploads happen after the build and use the syscall cache, so it should
@@ -446,6 +449,10 @@ public class BuildView {
                 executors,
                 checkForActionConflicts);
         setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
+        if (skyframeExecutor.getRemoteAnalysisCachingDependenciesProvider().mode()
+            == RemoteAnalysisCacheMode.UPLOAD) {
+          skyframeExecutor.clearPackageValues();
+        }
       }
     } finally {
       skyframeBuildView.clearInvalidatedActionLookupKeys();
@@ -815,12 +822,12 @@ public class BuildView {
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
       ImmutableSet.Builder<Artifact> artifactsToBuild,
       ExtendedEventHandler eventHandler) {
-    RegexFilter filter = viewOptions.extraActionFilter;
+    RegexFilter filter = viewOptions.getExtraActionFilter();
     for (ConfiguredTarget target : configuredTargets) {
       ExtraActionArtifactsProvider provider =
           target.getProvider(ExtraActionArtifactsProvider.class);
       if (provider != null) {
-        if (viewOptions.extraActionTopLevelOnly) {
+        if (viewOptions.getExtraActionTopLevelOnly()) {
           // Collect all aspect-classes that topLevel might inject.
           Set<AspectClass> aspectClasses = new HashSet<>();
           Target actualTarget = null;
@@ -849,7 +856,7 @@ public class BuildView {
       ExtraActionArtifactsProvider provider =
           aspectEntry.getValue().getProvider(ExtraActionArtifactsProvider.class);
       if (provider != null) {
-        if (viewOptions.extraActionTopLevelOnly) {
+        if (viewOptions.getExtraActionTopLevelOnly()) {
           addArtifactsToBuilder(
               provider.getExtraActionArtifacts().toList(), artifactsToBuild, filter);
         } else {

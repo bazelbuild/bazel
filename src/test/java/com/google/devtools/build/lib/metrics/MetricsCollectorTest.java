@@ -712,6 +712,9 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     assertThat(buildMetrics.getMemoryMetrics().getUsedHeapSizePostBuild()).isEqualTo(0);
     assertThat(buildMetrics.getMemoryMetrics().getPeakPostGcHeapSize()).isEqualTo(0);
     assertThat(buildMetrics.getMemoryMetrics().getPeakPostGcTenuredSpaceHeapSize()).isEqualTo(0);
+    assertThat(buildMetrics.getMemoryMetrics().getPeakPostGcHeapSizeDuringExecution()).isEqualTo(0);
+    assertThat(buildMetrics.getMemoryMetrics().getPeakPostGcTenuredSpaceHeapSizeDuringExecution())
+        .isEqualTo(0);
   }
 
   @Test

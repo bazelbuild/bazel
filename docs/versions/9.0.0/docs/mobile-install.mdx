@@ -8,7 +8,7 @@ This page describes how `bazel mobile-install` makes iterative development
 for Android much faster. It describes the benefits of this approach versus the
 drawbacks of separate build and install steps.
 
-## Summary
+## Summary {#summary}
 
 To install small changes to an Android app very quickly, do the following:
 
@@ -33,7 +33,7 @@ When in doubt, look at the
 contact us on [Google Groups](https://groups.google.com/forum/#!forum/bazel-discuss),
 or [file a GitHub issue](https://github.com/bazelbuild/rules_android/issues)
 
-## Introduction
+## Introduction {#introduction}
 
 One of the most important attributes of a developer's toolchain is speed: there
 is a world of difference between changing the code and seeing it run within a
@@ -49,7 +49,7 @@ change was not unusual on larger projects like Google Maps.
 using a combination of change pruning, work sharding, and clever manipulation of
 Android internals, all without changing any of your app's code.
 
-## Problems with traditional app installation
+## Problems with traditional app installation {#problems-app-install}
 
 Building an Android app has some issues, including:
 
@@ -70,7 +70,7 @@ time. This is a good tradeoff for users because they typically install an app
 once and use it many times, but results in slower development where an app is
 installed many times and each version is run at most a handful of times.
 
-## The approach of `bazel mobile-install`
+## The approach of `bazel mobile-install` {#approach-mobile-install}
 
 `bazel mobile-install `makes the following improvements:
 
@@ -91,7 +91,7 @@ installed many times and each version is run at most a handful of times.
    tool to combine sharded APKs on the connected device and provide a cohesive
    experience.
 
-### Sharded Dexing
+### Sharded Dexing {#sharded-dexing}
 
 Sharded dexing is reasonably straightforward: once the .jar files are built, a
 [tool](https://github.com/bazelbuild/rules_android/blob/main/src/tools/java/com/google/devtools/build/android/ziputils/DexMapper.java)
@@ -119,7 +119,7 @@ app. Generally speaking, the more shards, the faster the build and the
 installation will be, but the slower app startup becomes, because the dynamic
 linker has to do more work. The sweet spot is usually between 10 and 50 shards.
 
-### Incremental deployment
+### Incremental deployment {#incremental-deployment}
 
 Incremental APK shard transfer and installation is now handled by the
 `apkdeployer` utility described in ["The approach of mobile-install"](#approach-mobile-install).
@@ -142,9 +142,9 @@ See the [`ApkPreInstaller`](https://cs.android.com/android-studio/platform/tools
 and [`ApkInstaller`](https://cs.android.com/android-studio/platform/tools/base/+/mirror-goog-studio-main:deploy/deployer/src/main/java/com/android/tools/deployer/ApkInstaller.java)
 classes for implementation details.
 
-## Results
+## Results {#results}
 
-### Performance
+### Performance {#performance}
 
 In general, `bazel mobile-install` results in a 4x to 10x speedup of building
 and installing large apps after a small change.
@@ -156,7 +156,7 @@ The following numbers were computed for a few Google products:
 This, of course, depends on the nature of the change: recompilation after
 changing a base library takes more time.
 
-### Limitations
+### Limitations {#limitations}
 
 The tricks the stub application plays don't work in every case.
 The following cases highlight where it does not work as expected:
@@ -177,7 +177,7 @@ The following cases highlight where it does not work as expected:
    flags inform Bazel where the Starlark mobile-install aspect is and which
    rules are supported.
 
-### A brief history of mobile-install
+### A brief history of mobile-install {#mobile-install-history}
 Earlier Bazel versions _natively_ included built-in build and test rules for
 popular languages and ecosystems such as C++, Java, and Android. These rules
 were therefore referred to as _native_ rules. Bazel 8 (released in 2024) removed

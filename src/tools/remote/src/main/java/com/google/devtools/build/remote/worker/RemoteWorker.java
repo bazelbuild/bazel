@@ -181,8 +181,8 @@ public final class RemoteWorker {
     this.workerOptions = workerOptions;
     this.actionCacheServer = new ActionCacheServer(cache, digestUtil);
     Path workPath;
-    if (workerOptions.workPath != null) {
-      workPath = fs.getPath(workerOptions.workPath);
+    if (workerOptions.getWorkPath() != null) {
+      workPath = fs.getPath(workerOptions.getWorkPath());
     } else {
       // TODO(ulfjack): The plan is to make the on-disk storage the default, so we always need to
       // provide a path to the remote worker, and we can then also use that as the work path. E.g.:
@@ -199,7 +199,7 @@ public final class RemoteWorker {
     this.bsServer = new ByteStreamServer(cache, workPath, digestUtil);
     this.casServer = new CasServer(cache);
 
-    if (workerOptions.workPath != null) {
+    if (workerOptions.getWorkPath() != null) {
       ConcurrentHashMap<String, ListenableFuture<ActionResult>> operationsCache =
           new ConcurrentHashMap<>();
       workPath.createDirectoryAndParents();
@@ -215,23 +215,24 @@ public final class RemoteWorker {
 
   public Server startServer() throws IOException {
     List<ServerInterceptor> interceptors = new ArrayList<>();
-    if (workerOptions.unavailable) {
+    if (workerOptions.getUnavailable()) {
       interceptors.add(new UnavailableInterceptor());
     }
     interceptors.add(new TracingMetadataUtils.ServerHeadersInterceptor());
-    if (workerOptions.expectedAuthorizationToken != null) {
-      interceptors.add(new AuthorizationTokenInterceptor(workerOptions.expectedAuthorizationToken));
+    if (workerOptions.getExpectedAuthorizationToken() != null) {
+      interceptors.add(
+          new AuthorizationTokenInterceptor(workerOptions.getExpectedAuthorizationToken()));
     }
 
     NettyServerBuilder b =
-        NettyServerBuilder.forPort(workerOptions.listenPort)
+        NettyServerBuilder.forPort(workerOptions.getListenPort())
             .addService(ServerInterceptors.intercept(actionCacheServer, interceptors))
             .addService(ServerInterceptors.intercept(bsServer, interceptors))
             .addService(ServerInterceptors.intercept(casServer, interceptors))
             .addService(ServerInterceptors.intercept(capabilitiesServer, interceptors))
             .addService(ServerInterceptors.intercept(fetchServer, interceptors));
 
-    if (workerOptions.tlsCertificate != null) {
+    if (workerOptions.getTlsCertificate() != null) {
       b.sslContext(getSslContextBuilder(workerOptions).build());
     }
 
@@ -242,7 +243,7 @@ public final class RemoteWorker {
     }
 
     Server server = b.build();
-    logger.atInfo().log("Starting gRPC server on port %d", workerOptions.listenPort);
+    logger.atInfo().log("Starting gRPC server on port %d", workerOptions.getListenPort());
     server.start();
 
     return server;
@@ -251,22 +252,22 @@ public final class RemoteWorker {
   private SslContextBuilder getSslContextBuilder(RemoteWorkerOptions workerOptions) {
     SslContextBuilder sslContextBuilder =
         SslContextBuilder.forServer(
-            new File(internalToPlatform(workerOptions.tlsCertificate.getPathString())),
-            new File(internalToPlatform(workerOptions.tlsPrivateKey.getPathString())));
-    if (workerOptions.tlsCaCertificate != null) {
+            new File(internalToPlatform(workerOptions.getTlsCertificate().getPathString())),
+            new File(internalToPlatform(workerOptions.getTlsPrivateKey().getPathString())));
+    if (workerOptions.getTlsCaCertificate() != null) {
       sslContextBuilder.clientAuth(ClientAuth.REQUIRE);
       sslContextBuilder.trustManager(
-          new File(internalToPlatform(workerOptions.tlsCaCertificate.getPathString())));
+          new File(internalToPlatform(workerOptions.getTlsCaCertificate().getPathString())));
     }
     return GrpcSslContexts.configure(sslContextBuilder, SslProvider.OPENSSL);
   }
 
   private void createPidFile() throws IOException {
-    if (workerOptions.pidFile == null) {
+    if (workerOptions.getPidFile() == null) {
       return;
     }
 
-    Path pidFile = getFileSystem().getPath(workerOptions.pidFile);
+    Path pidFile = getFileSystem().getPath(workerOptions.getPidFile());
     try (Writer writer =
         new OutputStreamWriter(pidFile.getOutputStream(), StandardCharsets.UTF_8)) {
       writer.write(Long.toString(ProcessHandle.current().pid()));
@@ -295,7 +296,7 @@ public final class RemoteWorker {
     RemoteWorkerOptions remoteWorkerOptions = parser.getOptions(RemoteWorkerOptions.class);
 
     rootLogger.getHandlers()[0].setFormatter(new SingleLineFormatter());
-    if (remoteWorkerOptions.debug) {
+    if (remoteWorkerOptions.getDebug()) {
       rootLogger.getHandlers()[0].setLevel(FINE);
     }
 
@@ -319,17 +320,18 @@ public final class RemoteWorker {
 
     FileSystem fs = getFileSystem();
     Path sandboxPath = null;
-    if (remoteWorkerOptions.sandboxing) {
+    if (remoteWorkerOptions.getSandboxing()) {
       sandboxPath = prepareSandboxRunner(fs, remoteWorkerOptions);
     }
 
-    if (remoteWorkerOptions.casPath == null || !remoteWorkerOptions.casPath.isAbsolute()) {
+    if (remoteWorkerOptions.getCasPath() == null
+        || !remoteWorkerOptions.getCasPath().isAbsolute()) {
       logger.atSevere().log("--cas_path must be set to an absolute path");
       System.exit(1);
       return;
     }
 
-    Path casPath = fs.getPath(remoteWorkerOptions.casPath);
+    Path casPath = fs.getPath(remoteWorkerOptions.getCasPath());
     casPath.createDirectoryAndParents();
 
     DigestUtil digestUtil = new DigestUtil(SyscallCache.NO_CACHE, fs.getDigestFunction());
@@ -343,7 +345,7 @@ public final class RemoteWorker {
     EventLoopGroup bossGroup = null;
     EventLoopGroup workerGroup = null;
     Channel ch = null;
-    if (remoteWorkerOptions.httpListenPort != 0) {
+    if (remoteWorkerOptions.getHttpListenPort() != 0) {
       // Configure the server.
       bossGroup = new NioEventLoopGroup(1);
       workerGroup = new NioEventLoopGroup();
@@ -352,9 +354,9 @@ public final class RemoteWorker {
           .channel(NioServerSocketChannel.class)
           .handler(new LoggingHandler(LogLevel.INFO))
           .childHandler(new HttpCacheServerInitializer(new OnDiskHttpCacheServerHandler(cache)));
-      ch = b.bind(remoteWorkerOptions.httpListenPort).sync().channel();
+      ch = b.bind(remoteWorkerOptions.getHttpListenPort()).sync().channel();
       logger.atInfo().log(
-          "Started HTTP cache server on port %d", remoteWorkerOptions.httpListenPort);
+          "Started HTTP cache server on port %d", remoteWorkerOptions.getHttpListenPort());
     } else {
       logger.atInfo().log("Not starting HTTP cache server");
     }
@@ -382,7 +384,8 @@ public final class RemoteWorker {
       System.exit(1);
     }
 
-    if (remoteWorkerOptions.workPath == null || !remoteWorkerOptions.workPath.isAbsolute()) {
+    if (remoteWorkerOptions.getWorkPath() == null
+        || !remoteWorkerOptions.getWorkPath().isAbsolute()) {
       logger.atSevere().log(
           "Sandboxing requested, but --work_path was not set to an absolute path");
       System.exit(1);
@@ -398,7 +401,7 @@ public final class RemoteWorker {
 
     Path sandboxPath = null;
     try {
-      sandboxPath = fs.getPath(remoteWorkerOptions.workPath).getChild("linux-sandbox");
+      sandboxPath = fs.getPath(remoteWorkerOptions.getWorkPath()).getChild("linux-sandbox");
       try (FileOutputStream fos = new FileOutputStream(sandboxPath.getPathString())) {
         ByteStreams.copy(sandbox, fos);
       }

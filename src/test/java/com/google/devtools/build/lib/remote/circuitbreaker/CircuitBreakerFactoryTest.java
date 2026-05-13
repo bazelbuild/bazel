@@ -29,7 +29,7 @@ public class CircuitBreakerFactoryTest {
   @Test
   public void testCreateCircuitBreaker_failureStrategy() {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.circuitBreakerStrategy = CircuitBreakerStrategy.FAILURE;
+    remoteOptions.setCircuitBreakerStrategy(CircuitBreakerStrategy.FAILURE);
 
     assertThat(CircuitBreakerFactory.createCircuitBreaker(remoteOptions))
         .isInstanceOf(FailureCircuitBreaker.class);

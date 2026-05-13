@@ -404,8 +404,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             .write();
     RunfilesProvider provider = target.getProvider(RunfilesProvider.class);
     assertThat(baseArtifactNames(provider.getDefaultRunfiles().getArtifacts())).isEmpty();
-    assertThat(Artifact.toRootRelativePaths(provider.getDataRunfiles().getArtifacts()))
-        .containsExactly("objc/libOne.a");
+    if (!analysisMock
+        .isThisBazel()) { // TODO(b/507033784): Re-enable in bazel after rules_cc release.
+      assertThat(baseArtifactNames(provider.getDataRunfiles().getArtifacts())).isEmpty();
+    }
   }
 
   @Test

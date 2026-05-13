@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
+import com.google.devtools.build.lib.actions.ActionWithDiscoveredInputsState;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
@@ -118,7 +119,8 @@ import net.starlark.java.eval.StarlarkList;
 /** Action that represents some kind of C++ compilation step. */
 @AutoCodec
 @ThreadCompatible
-public class CppCompileAction extends AbstractAction implements IncludeScannable, CommandAction {
+public class CppCompileAction extends AbstractAction
+    implements IncludeScannable, CommandAction, ActionWithDiscoveredInputsState {
 
   private static final UUID GUID = UUID.fromString("97493805-894f-493a-be66-9a698f45c31d");
 
@@ -504,6 +506,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return Preconditions.checkNotNull(additionalInputs);
   }
 
+  @Override
+  public void setAdditionalInputs(NestedSet<Artifact> inputs) {
+    this.additionalInputs = Preconditions.checkNotNull(inputs);
+  }
+
   /** Clears the discovered {@link #additionalInputs}. */
   private void clearAdditionalInputs() {
     additionalInputs = null;
@@ -658,7 +665,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           actionExecutionContext
               .getOptions()
               .getOptions(BuildLanguageOptions.class)
-              .experimentalSiblingRepositoryLayout;
+              .getExperimentalSiblingRepositoryLayout();
       if (!shouldScanIncludes) {
         usedCpp20Modules = computeUsedCpp20Modules(actionExecutionContext);
         // When not actually doing include scanning, add all prunable headers to additionalInputs.
@@ -1000,20 +1007,20 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   public List<String> getArguments() throws CommandLineExpansionException {
-    return getArguments(PathMapper.NOOP);
+    return compileCommandLine.getArguments(
+        /* parameterFilePath= */ null, getOverwrittenVariables(), PathMapper.NOOP);
   }
 
-  private List<String> getArguments(PathMapper pathMapper) throws CommandLineExpansionException {
+  @VisibleForTesting
+  List<String> getArguments(PathFragment paramFilePath, PathMapper pathMapper)
+      throws CommandLineExpansionException {
     return compileCommandLine.getArguments(paramFilePath, getOverwrittenVariables(), pathMapper);
   }
 
   @Override
   public Sequence<String> getStarlarkArgv() throws EvalException {
     try {
-      return StarlarkList.immutableCopyOf(
-          compileCommandLine.getArguments(
-              /* parameterFilePath= */ null, getOverwrittenVariables(), PathMapper.NOOP));
-
+      return StarlarkList.immutableCopyOf(getArguments());
     } catch (CommandLineExpansionException ex) {
       throw new EvalException(ex);
     }
@@ -1541,7 +1548,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         actionExecutionContext
             .getOptions()
             .getOptions(BuildLanguageOptions.class)
-            .experimentalSiblingRepositoryLayout;
+            .getExperimentalSiblingRepositoryLayout();
 
     if (shouldParseShowIncludes()) {
       NestedSet<Artifact> discoveredInputs =
@@ -1733,7 +1740,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     try {
       return new SimpleSpawn(
           this,
-          ImmutableList.copyOf(getArguments(pathMapper)),
+          ImmutableList.copyOf(getArguments(paramFilePath, pathMapper)),
           getEffectiveEnvironment(clientEnv, pathMapper),
           executionInfo.buildOrThrow(),
           inputs,
@@ -1997,7 +2004,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     // The first element in getArguments() is actually the command to execute.
     String legend = "  Command: ";
     try {
-      for (String argument : ShellEscaper.escapeAll(getArguments(PathMapper.NOOP))) {
+      for (String argument : ShellEscaper.escapeAll(getArguments())) {
         message.append(legend);
         message.append(argument);
         message.append('\n');

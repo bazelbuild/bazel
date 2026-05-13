@@ -67,7 +67,7 @@ class BuildResultPrinter {
     // here is already complex.
     boolean ok =
         outputTargets(request, result, configuredTargets, configuredTargetsToSkip, aspects);
-    if (!ok && !request.getOptions(ExecutionOptions.class).verboseFailures) {
+    if (!ok && !request.getOptions(ExecutionOptions.class).getVerboseFailures()) {
       request
           .getOutErr()
           .printErr("Use --verbose_failures to see the command lines of failed build steps.\n");
@@ -100,7 +100,7 @@ class BuildResultPrinter {
 
     // Filter and split aspects to display.
     ImmutableSet<String> aspectsToIgnore =
-        ImmutableSet.copyOf(request.getBuildOptions().hideAspectResults);
+        ImmutableSet.copyOf(request.getBuildOptions().getHideAspectResults());
     PartitionedAspectKeys partitionedAspectKeys =
         partitionAspectKeys(
             request.useValidationAspect(),
@@ -112,7 +112,7 @@ class BuildResultPrinter {
     TopLevelArtifactContext context = request.getTopLevelArtifactContext();
 
     // `essentialBudget` tracks the number of non-empty results that can be printed.
-    int essentialBudget = request.getBuildOptions().maxResultTargets;
+    int essentialBudget = request.getBuildOptions().getMaxResultTargets();
 
     // Splits the targets we care about into three buckets. Targets are only considered successful
     // if they and their validation aspects succeeded.
@@ -157,7 +157,7 @@ class BuildResultPrinter {
     // Omits "nothing to build" values if it enables staying under --show_result.
     boolean omitNothingToBuild =
         (targetsToPrint.size() + partitionedAspectKeys.aspectsToPrint.size())
-            > request.getBuildOptions().maxResultTargets;
+            > request.getBuildOptions().getMaxResultTargets();
 
     outputConfiguredTargets(
         outErr,

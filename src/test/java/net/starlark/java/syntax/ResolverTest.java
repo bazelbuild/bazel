@@ -848,4 +848,111 @@ public class ResolverTest {
     }.visit(file);
     assertThat(out[0]).isEqualTo(src);
   }
+
+  @Test
+  public void mutationFreeAtTopLevelHeuristic() throws Exception {
+    // Standard mutation-free file
+    assertThat(
+            resolveFile(
+                    """
+                    my_list = [1, 2, 3]
+                    other_list = [4, 5]
+                    combined = my_list + other_list
+                    """)
+                .getResolvedFunction()
+                .isMutationFreeAtTopLevel())
+        .isTrue();
+
+    // Mutating call expression at top level
+    assertThat(
+            resolveFile(
+                    """
+                    x = []
+                    x.append(1)
+                    """)
+                .getResolvedFunction()
+                .isMutationFreeAtTopLevel())
+        .isFalse();
+
+    // Mutating index assignment at top level
+    assertThat(
+            resolveFile(
+                    """
+                    x = [1]
+                    x[0] = 2
+                    """)
+                .getResolvedFunction()
+                .isMutationFreeAtTopLevel())
+        .isFalse();
+
+    // Read-only index expression at top level (should be mutation-free!)
+    assertThat(
+            resolveFile(
+                    """
+                    x = [1]
+                    y = x[0]
+                    """)
+                .getResolvedFunction()
+                .isMutationFreeAtTopLevel())
+        .isTrue();
+
+    // Mutations nested within functions (should remain mutation-free at top level!)
+    assertThat(
+            resolveFile(
+                    """
+                    def my_func():
+                      local_list = [1, 2, 3]
+                      local_list += [4]
+                      local_list.append(5)
+                      local_list[0] = 6
+                    """)
+                .getResolvedFunction()
+                .isMutationFreeAtTopLevel())
+        .isTrue();
+
+    // Top-level augmented assignment (when allowToplevelRebinding is true)
+    options.allowToplevelRebinding(true);
+    assertThat(
+            resolveFile(
+                    """
+                    my_list = [1, 2, 3]
+                    my_list += [4]
+                    """)
+                .getResolvedFunction()
+                .isMutationFreeAtTopLevel())
+        .isFalse();
+    options.allowToplevelRebinding(false);
+
+    // Pure list/tuple unpacking at top level (should be mutation-free!)
+    assertThat(
+            resolveFile(
+                    """
+                    a, b = [1, 2]
+                    """)
+                .getResolvedFunction()
+                .isMutationFreeAtTopLevel())
+        .isTrue();
+
+    // Impure list unpacking with index assignment at top level
+    assertThat(
+            resolveFile(
+                    """
+                    a = [1]
+                    b, a[0] = [2, 3]
+                    """)
+                .getResolvedFunction()
+                .isMutationFreeAtTopLevel())
+        .isFalse();
+
+    // Mutate a struct field (rejected at runtime, but technically legal syntactically)
+    assertThat(
+            resolveFile(
+                    """
+                    s = struct(a = 1)
+                    s.a = 2
+                    """)
+                .getResolvedFunction()
+                .isMutationFreeAtTopLevel())
+        .isFalse();
+  }
 }

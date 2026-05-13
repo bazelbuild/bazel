@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -191,7 +192,7 @@ public class ConfigurationForOutput {
             fragmentOptionsInstance ->
                 fragmentOptions.add(
                     new FragmentOptionsForOutput(
-                        fragmentOptionsInstance.getClass().getName(),
+                        fragmentOptionsInstance.getOptionsClass().getName(),
                         getOrderedNativeOptions(fragmentOptionsInstance))));
     fragmentOptions.add(
         new FragmentOptionsForOutput(
@@ -219,7 +220,8 @@ public class ConfigurationForOutput {
         // we include it in the user-defined fragment for clarity. See getOrderedUserDefinedOptions.
         .filter(
             entry ->
-                !(options.getClass().equals(CoreOptions.class) && entry.getKey().equals("define")))
+                !(options.getOptionsClass().equals(CoreOptions.class)
+                    && entry.getKey().equals("define")))
         .collect(
             toImmutableSortedMap(
                 Ordering.natural(), Map.Entry::getKey, e -> String.valueOf(e.getValue())));
@@ -256,6 +258,7 @@ public class ConfigurationForOutput {
    * Starlark options don't have configuration fragments. This is just to keep their output
    * consistent with native options, i.e. to include "user-defined" section in the output list.
    */
+  @OptionsClass
   static class UserDefinedFragment extends FragmentOptions {
     static final String DESCRIPTIVE_NAME = "user-defined";
     // Intentionally empty: we read the actual options directly from BuildOptions.

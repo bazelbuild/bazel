@@ -61,7 +61,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -94,6 +93,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -171,7 +171,6 @@ import org.openjdk.jol.info.GraphLayout;
 
 /** Tests for {@link RemoteExecutionService}. */
 @RunWith(TestParameterInjector.class)
-@SuppressWarnings("AllowVirtualThreads")
 public class RemoteExecutionServiceTest {
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
   @Rule public final RxNoGlobalErrorsRule rxNoGlobalErrorsRule = new RxNoGlobalErrorsRule();
@@ -182,7 +181,7 @@ public class RemoteExecutionServiceTest {
 
   private final DigestUtil digestUtil =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
-  private final Reporter reporter = new Reporter(new EventBus());
+  private final Reporter reporter = new Reporter(EventBusEventHandler.createWithNewEventBus());
   private final StoredEventHandler eventHandler = new StoredEventHandler();
 
   private final CacheCapabilities cacheCapabilities =
@@ -574,7 +573,7 @@ public class RemoteExecutionServiceTest {
     Collections.shuffle(inputs, RandomGeneratorFactory.getDefault().create(seed));
     var spawn = new SpawnBuilder("my", "args").withInputs(inputs).withOutput(outputDir).build();
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    remoteOptions.remoteDiscardMerkleTrees = false;
+    remoteOptions.setRemoteDiscardMerkleTrees(false);
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
 
     var emptyDirectory = dir(ImmutableList.of(), ImmutableMap.of());
@@ -2738,8 +2737,8 @@ public class RemoteExecutionServiceTest {
                 enablePathMapping ? path -> PathFragment.create("mapped_" + path) : PathMapper.NOOP)
             .build();
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    remoteOptions.markToolInputs = true;
-    remoteOptions.remoteDiscardMerkleTrees = false;
+    remoteOptions.setMarkToolInputs(true);
+    remoteOptions.setRemoteDiscardMerkleTrees(false);
     remotePathResolver =
         siblingRepositoryLayout
             ? new SiblingRepositoryLayoutResolver(execRoot)
@@ -2862,7 +2861,7 @@ public class RemoteExecutionServiceTest {
             .build();
 
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    remoteOptions.scrubber =
+    remoteOptions.setScrubber(
         new Scrubber(
             Config.newBuilder()
                 .addRules(
@@ -2875,8 +2874,8 @@ public class RemoteExecutionServiceTest {
                                     Config.Replacement.newBuilder()
                                         .setSource("some/path")
                                         .setTarget("another/dir"))))
-                .build());
-    remoteOptions.remoteDiscardMerkleTrees = false;
+                .build()));
+    remoteOptions.setRemoteDiscardMerkleTrees(false);
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
 
     RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
@@ -2935,7 +2934,7 @@ public class RemoteExecutionServiceTest {
             .setPathMapper(pathMapper)
             .build();
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    remoteOptions.remoteDiscardMerkleTrees = false;
+    remoteOptions.setRemoteDiscardMerkleTrees(false);
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
 
     // Check that inputs and outputs of the remote action are mapped correctly.
@@ -3114,7 +3113,7 @@ public class RemoteExecutionServiceTest {
   private FakeSpawnExecutionContext newSpawnExecutionContext(Spawn spawn, FileOutErr outErr) {
     var actionInputFetcher =
         new RemoteActionInputFetcher(
-            new Reporter(new EventBus()),
+            new Reporter(EventBusEventHandler.createWithNewEventBus()),
             "none",
             "none",
             cache,

@@ -26,8 +26,11 @@ import static org.mockito.Mockito.withSettings;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PeakHeap;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.sun.management.GarbageCollectionNotificationInfo;
 import com.sun.management.GcInfo;
@@ -273,6 +276,95 @@ public final class PostGCMemoryUseRecorderTest {
                                 + " collection.")));
   }
 
+  @Test
+  public void peakHeapsDuringExecutionStartAbsent() {
+    PostGCMemoryUseRecorder rec =
+        new PostGCMemoryUseRecorder(new ArrayList<>(), BugReporter.defaultInstance());
+    assertThat(rec.getPeakPostGcHeapDuringExecution()).isEmpty();
+    assertThat(rec.getPeakPostGcHeapTenuredSpaceDuringExecution()).isEmpty();
+  }
+
+  @Test
+  public void peakHeapsDuringExecutionAbsentAfterReset() {
+    PostGCMemoryUseRecorder rec =
+        new PostGCMemoryUseRecorder(new ArrayList<>(), BugReporter.defaultInstance());
+
+    EventBus eventBus = new EventBus();
+    eventBus.register(rec);
+    eventBus.post(mock(AnalysisPhaseCompleteEvent.class));
+    eventBus.post(SomeExecutionStartedEvent.create());
+
+    rec.handleNotification(
+        createOneTenuredSpaceOneNonTenuredSpaceMajorGCNotifications(1000L), null);
+    rec.reset();
+    assertThat(rec.getPeakPostGcHeapDuringExecution()).isEmpty();
+    assertThat(rec.getPeakPostGcHeapTenuredSpaceDuringExecution()).isEmpty();
+  }
+
+  @Test
+  public void peakHeapsDuringExecutionNotUpdatedBeforeEvents() {
+    PostGCMemoryUseRecorder rec =
+        new PostGCMemoryUseRecorder(new ArrayList<>(), BugReporter.defaultInstance());
+
+    rec.handleNotification(
+        createOneTenuredSpaceOneNonTenuredSpaceMajorGCNotifications(1000L), null);
+
+    assertThat(rec.getPeakPostGcHeapDuringExecution()).isEmpty();
+    assertThat(rec.getPeakPostGcHeapTenuredSpaceDuringExecution()).isEmpty();
+  }
+
+  @Test
+  public void peakHeapsDuringExecutionNotUpdatedWithOnlyAnalysisComplete() {
+    PostGCMemoryUseRecorder rec =
+        new PostGCMemoryUseRecorder(new ArrayList<>(), BugReporter.defaultInstance());
+
+    EventBus eventBus = new EventBus();
+    eventBus.register(rec);
+    eventBus.post(mock(AnalysisPhaseCompleteEvent.class));
+
+    rec.handleNotification(
+        createOneTenuredSpaceOneNonTenuredSpaceMajorGCNotifications(1000L), null);
+
+    assertThat(rec.getPeakPostGcHeapDuringExecution()).isEmpty();
+    assertThat(rec.getPeakPostGcHeapTenuredSpaceDuringExecution()).isEmpty();
+  }
+
+  @Test
+  public void peakHeapsDuringExecutionNotUpdatedWithOnlyExecutionStarted() {
+    PostGCMemoryUseRecorder rec =
+        new PostGCMemoryUseRecorder(new ArrayList<>(), BugReporter.defaultInstance());
+
+    EventBus eventBus = new EventBus();
+    eventBus.register(rec);
+    eventBus.post(SomeExecutionStartedEvent.create());
+
+    rec.handleNotification(
+        createOneTenuredSpaceOneNonTenuredSpaceMajorGCNotifications(1000L), null);
+
+    assertThat(rec.getPeakPostGcHeapDuringExecution()).isEmpty();
+    assertThat(rec.getPeakPostGcHeapTenuredSpaceDuringExecution()).isEmpty();
+  }
+
+  @Test
+  public void peakHeapsDuringExecutionUpdatedAfterBothEvents() {
+    PostGCMemoryUseRecorder rec =
+        new PostGCMemoryUseRecorder(new ArrayList<>(), BugReporter.defaultInstance());
+
+    EventBus eventBus = new EventBus();
+    eventBus.register(rec);
+    eventBus.post(mock(AnalysisPhaseCompleteEvent.class));
+    eventBus.post(SomeExecutionStartedEvent.create());
+
+    clock.advanceMillis(1);
+    rec.handleNotification(
+        createOneTenuredSpaceOneNonTenuredSpaceMajorGCNotifications(1000L), null);
+
+    assertThat(rec.getPeakPostGcHeapDuringExecution())
+        .hasValue(PeakHeap.create(2000, clock.currentTimeMillis()));
+    assertThat(rec.getPeakPostGcHeapTenuredSpaceDuringExecution())
+        .hasValue(PeakHeap.create(1000, clock.currentTimeMillis()));
+  }
+
   private static GarbageCollectorMXBean createMXBeanWithName(String name) {
     GarbageCollectorMXBean b =
         mock(
@@ -301,7 +393,7 @@ public final class PostGCMemoryUseRecorderTest {
     for (Map.Entry<String, Long> e : memUsed.entrySet()) {
       memUsageMap.put(e.getKey(), createMockMemoryUsage(e.getValue()));
     }
-    return memUsageMap.build();
+    return memUsageMap.buildOrThrow();
   }
 
   private Notification createMockNotification(

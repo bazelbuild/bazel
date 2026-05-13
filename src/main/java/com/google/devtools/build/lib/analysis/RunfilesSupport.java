@@ -712,7 +712,7 @@ public final class RunfilesSupport {
                     .getConfiguration()
                     .getOptions()
                     .get(CoreOptions.class)
-                    .compactRepoMapping));
+                    .getCompactRepoMapping()));
     return repoMappingManifest;
   }
 

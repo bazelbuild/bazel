@@ -15,9 +15,16 @@ filegroup(
 )
 
 java_library(
+    name = "bucket",
+    srcs = ["Bucket.java"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface"],
+)
+
+java_library(
     name = "decimal_bucketer",
     srcs = ["DecimalBucketer.java"],
     deps = [
+        ":bucket",
         "//third_party:guava",
     ],
 )
@@ -47,6 +54,15 @@ java_library(
     name = "classpath",
     srcs = ["Classpath.java"],
     deps = ["//third_party:guava"],
+)
+
+java_library(
+    name = "env_var",
+    srcs = ["EnvVar.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/common/options",
+    ],
 )
 
 java_library(
@@ -94,7 +110,24 @@ java_library(
 java_library(
     name = "debug-logger-configurator",
     srcs = ["DebugLoggerConfigurator.java"],
-    deps = [":util"],
+)
+
+java_library(
+    name = "server_log_path_service",
+    srcs = ["ServerLogPathService.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+    ],
+)
+
+java_library(
+    name = "server_log_path_service_impl",
+    srcs = ["ServerLogPathServiceImpl.java"],
+    deps = [
+        ":server_log_path_service",
+        ":util",
+    ],
 )
 
 java_library(
@@ -353,7 +386,6 @@ java_library(
         "WindowsParamFileEscaper.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -385,8 +417,17 @@ java_library(
     deps = [
         ":detailed_exit_code",
         ":exit_code",
+        ":serialized_abrupt_exit_exception",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:jsr305",
+        "@com_google_protobuf//:protobuf_java",
     ],
+)
+
+java_library(
+    name = "serialized_abrupt_exit_exception",
+    srcs = ["SerializedAbruptExitException.java"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface"],
 )
 
 java_library(

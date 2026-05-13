@@ -260,11 +260,25 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
     }
     builder.setTestAttemptDurationMillis(durationMillis);
     builder.addAllWarning(testWarnings);
+    ImmutableList<String> pathPrefix = ImmutableList.of();
+    if (testAction.getOwner() != null) {
+      pathPrefix =
+          ImmutableList.copyOf(
+              testAction
+                  .getConfiguration()
+                  .getTestLogsDirectory(testAction.getOwner().getLabel().getRepository())
+                  .getExecPath()
+                  .segments());
+    }
     for (Map.Entry<String, Path> file : files.entries()) {
       String uri = pathConverter.apply(file.getValue());
       if (uri != null) {
         builder.addTestActionOutput(
-            BuildEventStreamProtos.File.newBuilder().setName(file.getKey()).setUri(uri).build());
+            BuildEventStreamProtos.File.newBuilder()
+                .setName(file.getKey())
+                .setUri(uri)
+                .addAllPathPrefix(pathPrefix)
+                .build());
       }
     }
     return builder.build();

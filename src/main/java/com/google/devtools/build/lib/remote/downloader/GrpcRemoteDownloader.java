@@ -174,8 +174,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
 
     final FetchBlobRequest request =
         newFetchBlobRequest(
-            options.remoteInstanceName,
-            options.remoteDownloaderPropagateCredentials,
+            options.getRemoteInstanceName(),
+            options.getRemoteDownloaderPropagateCredentials(),
             urls,
             checksum,
             canonicalId,
@@ -312,7 +312,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
             TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
         .withInterceptors(TracingMetadataUtils.newDownloaderHeadersInterceptor(options))
         .withCallCredentials(credentials.orElse(null))
-        .withDeadlineAfter(options.remoteTimeout.toSeconds(), TimeUnit.SECONDS);
+        .withDeadlineAfter(options.getRemoteTimeout().toSeconds(), TimeUnit.SECONDS);
   }
 
   private OutputStream newOutputStream(Path destination, Optional<Checksum> checksum)

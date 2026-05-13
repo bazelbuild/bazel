@@ -193,25 +193,25 @@ class OptionsParserImpl {
    * field itself is not used for any purpose other than retrieving its {@link Option} annotation.
    */
   @Keep
-  @Option(
-      name = "skipped args",
-      allowMultiple = true,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      help = "Only used internally by OptionsParserImpl")
-  private final List<String> skippedArgs = new ArrayList<>();
+  @SuppressWarnings("unused") // Used for reflection.
+  @OptionsClass
+  public abstract static class SkippedArgs extends OptionsBase {
+    @Option(
+        name = "skipped args",
+        allowMultiple = true,
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        metadataTags = {OptionMetadataTag.INTERNAL},
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Only used internally by OptionsParserImpl")
+    public abstract List<String> getSkippedArgs();
+  }
 
   private static final OptionDefinition skippedArgsDefinition;
 
   static {
-    try {
-      skippedArgsDefinition =
-          FieldOptionDefinition.extractOptionDefinition(
-              OptionsParserImpl.class.getDeclaredField("skippedArgs"));
-    } catch (NoSuchFieldException e) {
-      throw new IllegalStateException(e);
-    }
+    skippedArgsDefinition =
+        MethodOptionDefinition.get(OptionsParserImpl.SkippedArgs.class, "getSkippedArgs");
   }
 
   OptionsParserImpl(
@@ -864,42 +864,6 @@ class OptionsParserImpl {
             .iterator();
   }
 
-  /**
-   * Two option definitions are considered equivalent for parsing if they result in the same control
-   * flow through {@link #identifyOptionAndPossibleArgument}. This is crucial to ensure that the
-   * beginning of the next option can be determined unambiguously when parsing with fallback data.
-   *
-   * <p>Examples:
-   *
-   * <ul>
-   *   <li>Both {@code query} and {@code cquery} have a {@code --output} option, but the options
-   *       accept different sets of values (e.g. {@code cquery} has {@code --output=files}, but
-   *       {@code query} doesn't. However, since both options accept a string value, they parse
-   *       equivalently as far as {@link #identifyOptionAndPossibleArgument} is concerned -
-   *       potential failures due to unsupported values occur after parsing, during value
-   *       conversion. There is no ambiguity in how many command-line arguments are consumed
-   *       depending on which option definition is used.
-   *   <li>If the hypothetical {@code foo} command also had a {@code --output} option, but it were
-   *       boolean-valued, then the two option definitions would <b>not</b> be equivalent for
-   *       parsing: The command line {@code --output --copt=foo} would parse as {@code {"output":
-   *       "--copt=foo"}} for the {@code cquery} command, but as {@code {"output": true, "copt":
-   *       "foo"}} for the {@code foo} command, thus resulting in parsing ambiguities between the
-   *       two commands.
-   * </ul>
-   */
-  public static boolean equivalentForParsing(
-      OptionDefinition definition, OptionDefinition otherDefinition) {
-    if (definition.equals(otherDefinition)) {
-      return true;
-    }
-    return (definition.usesBooleanValueSyntax() == otherDefinition.usesBooleanValueSyntax())
-        && (definition.getType().equals(Void.class) == otherDefinition.getType().equals(Void.class))
-        && (ImmutableList.copyOf(definition.getOptionMetadataTags())
-                .contains(OptionMetadataTag.INTERNAL)
-            == ImmutableList.copyOf(otherDefinition.getOptionMetadataTags())
-                .contains(OptionMetadataTag.INTERNAL));
-  }
-
   // TODO: Replace with a sealed interface unwrapped via pattern matching when available.
   private static final class ParsedOptionDescriptionOrIgnoredArgs {
 
@@ -1005,18 +969,35 @@ class OptionsParserImpl {
     // Extracts the <arg> from '--<arg>=<value>' and '--<arg> <value>' formats on the command line
     String actualArg = (equalSign != -1) ? arg.substring(2, equalSign) : arg.substring(2);
 
-    if (!flagAliasMappings.containsKey(actualArg)) {
+    if (flagAliasMappings.containsKey(actualArg)) {
+      String alias = flagAliasMappings.get(actualArg);
+      return (equalSign != -1) ? "--" + alias + arg.substring(equalSign) : "--" + alias;
+    }
+
+    // If a valid alias is not found, check for unsupported --no<alias> flag semantics.
+    // If a native option is aliased and being used in this case, a deprecation
+    // warning will be added to notify the user that this usage is unsupported.
+    if (!actualArg.startsWith("no")) {
+      // If the arg does not start with "no", then the deprecation warning does not apply.
+      return arg;
+    }
+    String nameWithoutNo = actualArg.substring(2);
+    OptionDefinition def = optionsData.getOptionDefinitionFromName(nameWithoutNo);
+    // Only consider adding the deprecation warning if a native option is being aliased.
+    if (!flagAliasMappings.containsKey(nameWithoutNo) || def == null) {
       return arg;
     }
 
-    String alias = flagAliasMappings.get(actualArg);
-    actualArg = alias;
+    maybeAddDeprecationWarning(def, PriorityCategory.COMMAND_LINE);
+    // Only add the general deprecation warning if one wasn't already added for the specific flag.
+    // E.g. a specific deprecationWarning on the option definition.
+    if (def.getDeprecationWarning().isEmpty()) {
+      warnings.add(
+          String.format(
+              "Flag --no%s is deprecated. Use --%s=false instead.", nameWithoutNo, nameWithoutNo));
+    }
 
-    // Converts the arg back into a command line option, accounting for both '--<arg>=<value>' and
-    // '--<arg> <value>' formats
-    actualArg = (equalSign != -1) ? "--" + actualArg + arg.substring(equalSign) : "--" + actualArg;
-
-    return actualArg;
+    return arg;
   }
 
   private boolean containsSkippedPrefix(String arg) {

@@ -22,23 +22,24 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /**
  * Options that affect the <i>mechanism</i> of analysis. These are distinct from {@link
  * com.google.devtools.build.lib.analysis.config.BuildOptions}, which affect the <i>value</i> of a
  * BuildConfigurationValue.
  */
-public class AnalysisOptions extends OptionsBase {
+@OptionsClass
+public abstract class AnalysisOptions extends OptionsBase {
   @Option(
-    name = "discard_analysis_cache",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Discard the analysis cache immediately after the analysis phase completes."
-            + " Reduces memory usage by ~10%, but makes further incremental builds slower."
-  )
-  public boolean discardAnalysisCache;
+      name = "discard_analysis_cache",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Discard the analysis cache immediately after the analysis phase completes."
+              + " Reduces memory usage by ~10%, but makes further incremental builds slower.")
+  public abstract boolean getDiscardAnalysisCache();
 
   @Option(
       name = "allow_analysis_cache_discard",
@@ -51,19 +52,18 @@ public class AnalysisOptions extends OptionsBase {
           option to false will cause bazel to exit, rather than continuing with the build.
           This option has no effect when `--discard_analysis_cache` is also set.
           """)
-  public boolean allowAnalysisCacheDiscards;
+  public abstract boolean getAllowAnalysisCacheDiscards();
 
   @Option(
-    name = "max_config_changes_to_show",
-    defaultValue = "3",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-    help =
-        "When discarding the analysis cache due to a change in the build options, "
-        + "displays up to the given number of changed option names. "
-        + "If the number given is -1, all changed options will be displayed."
-  )
-  public int maxConfigChangesToShow;
+      name = "max_config_changes_to_show",
+      defaultValue = "3",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "When discarding the analysis cache due to a change in the build options, "
+              + "displays up to the given number of changed option names. "
+              + "If the number given is -1, all changed options will be displayed.")
+  public abstract int getMaxConfigChangesToShow();
 
   @Option(
       name = "skip_incompatible_explicit_targets",
@@ -78,7 +78,7 @@ public class AnalysisOptions extends OptionsBase {
 
           [Skipping incompatible targets]: https://bazel.build/extending/platforms#skipping-incompatible-targets
           """)
-  public boolean skipIncompatibleExplicitTargets;
+  public abstract boolean getSkipIncompatibleExplicitTargets();
 
   @Option(
       name = "experimental_extra_action_filter",
@@ -88,7 +88,7 @@ public class AnalysisOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Deprecated in favor of aspects. Filters set of targets to schedule extra_actions for.")
-  public RegexFilter extraActionFilter;
+  public abstract RegexFilter getExtraActionFilter();
 
   @Option(
       name = "experimental_extra_action_top_level_only",
@@ -96,19 +96,18 @@ public class AnalysisOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Deprecated in favor of aspects. Only schedules extra_actions for top level targets.")
-  public boolean extraActionTopLevelOnly;
+  public abstract boolean getExtraActionTopLevelOnly();
 
   @Option(
-    name = "version_window_for_dirty_node_gc",
-    defaultValue = "0",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Nodes that have been dirty for more than this many versions will be deleted"
-            + " from the graph upon the next update. Values must be non-negative long integers,"
-            + " or -1 indicating the maximum possible window."
-  )
-  public long versionWindowForDirtyNodeGc;
+      name = "version_window_for_dirty_node_gc",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Nodes that have been dirty for more than this many versions will be deleted"
+              + " from the graph upon the next update. Values must be non-negative long integers,"
+              + " or -1 indicating the maximum possible window.")
+  public abstract long getVersionWindowForDirtyNodeGc();
 
   @Option(
       name = "experimental_skyframe_cpu_heavy_skykeys_thread_pool_size",
@@ -129,7 +128,7 @@ public class AnalysisOptions extends OptionsBase {
               + "`) reserved for CPU-heavy SkyKeys, and 1 \"standard\" thread pool (whose size is"
               + " controlled by `--loading_phase_threads`) for the rest.",
       converter = CpuResourceConverter.class)
-  public int cpuHeavySkyKeysThreadPoolSize;
+  public abstract int getCpuHeavySkyKeysThreadPoolSize();
 
   @Option(
       name = "experimental_oom_sensitive_skyfunctions_semaphore_size",
@@ -147,5 +146,5 @@ public class AnalysisOptions extends OptionsBase {
               + ResourceConverter.HOST_CPUS_KEYWORD
               + "*0.5`.",
       converter = CpuResourceConverter.class)
-  public int oomSensitiveSkyFunctionsSemaphoreSize;
+  public abstract int getOomSensitiveSkyFunctionsSemaphoreSize();
 }

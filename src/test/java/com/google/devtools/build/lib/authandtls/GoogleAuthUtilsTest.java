@@ -21,9 +21,9 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperProvider;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.runtime.CommandLinePathFactory;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -122,7 +122,7 @@ public class GoogleAuthUtilsTest {
 
     CredentialHelperEnvironment credentialHelperEnvironment =
         CredentialHelperEnvironment.newBuilder()
-            .setEventReporter(new Reporter(new EventBus()))
+            .setEventReporter(new Reporter(EventBusEventHandler.createWithNewEventBus()))
             .setWorkspacePath(workspace)
             .setClientEnvironment(ImmutableMap.of("PATH", pathValue.getPathString()))
             .setHelperExecutionTimeout(Duration.ZERO)

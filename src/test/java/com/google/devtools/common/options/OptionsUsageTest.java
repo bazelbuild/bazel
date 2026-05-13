@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.escape.Escaper;
 import com.google.common.html.HtmlEscapers;
-import com.google.devtools.common.options.OptionsParser.HelpVerbosity;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;

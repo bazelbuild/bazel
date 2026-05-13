@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.PositionAwareAnsiTerminalWriter;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
@@ -233,7 +234,7 @@ class UiStateTracker {
      * <p>When multiple strategies are applied, this is the phase of the strategy that has made the
      * most progress.
      */
-    ActionPhase currentPhase = ActionPhase.PREPARING;
+    private ActionPhase currentPhase = ActionPhase.PREPARING;
 
     /** The set of strategies that have been applied to this action. */
     int strategyBitmap = 0;
@@ -257,7 +258,7 @@ class UiStateTracker {
     }
 
     /** Returns the phase this action is currently in. */
-    synchronized ActionPhase getPhase() {
+    private synchronized ActionPhase getPhase() {
       return currentPhase;
     }
 
@@ -347,7 +348,7 @@ class UiStateTracker {
       state.latestEvent = event;
     }
 
-    synchronized Optional<ProgressState> firstProgress() {
+    private synchronized Optional<ProgressState> firstProgress() {
       if (runningProgresses.isEmpty()) {
         return Optional.empty();
       }
@@ -439,7 +440,7 @@ class UiStateTracker {
     if (count == 1) {
       additionalMessage = "target " + Iterables.getOnlyElement(event.getLabels());
     } else {
-      additionalMessage = count + " targets";
+      additionalMessage = StringUtil.formatCount(count) + " targets";
     }
     mainRepositoryMapping = event.getMainRepositoryMapping();
   }

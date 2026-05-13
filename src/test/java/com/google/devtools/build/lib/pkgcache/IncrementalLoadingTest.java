@@ -20,7 +20,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -32,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -406,11 +406,11 @@ public class IncrementalLoadingTest {
     tester.sync();
     tester.getTarget("//a:BUILD");
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    packageOptions.checkExternalOtherFiles = false;
+    packageOptions.setCheckExternalOtherFiles(false);
     tester.modifyFile("/b.bzl", "ERROR ERROR");
     tester.syncWithOptions(packageOptions);
     tester.getTarget("//a:BUILD");
-    packageOptions.checkExternalOtherFiles = true;
+    packageOptions.setCheckExternalOtherFiles(true);
     tester.syncWithOptions(packageOptions);
 
     assertThrows(NoSuchThingException.class, () -> tester.getTarget("//a:BUILD"));
@@ -459,7 +459,7 @@ public class IncrementalLoadingTest {
     private final ManualClock clock;
     private final Path workspace;
     private final Path outputBase;
-    private final Reporter reporter = new Reporter(new EventBus());
+    private final Reporter reporter = new Reporter(EventBusEventHandler.createWithNewEventBus());
     private final SkyframeExecutor skyframeExecutor;
     private final List<Path> changes = new ArrayList<>();
     private boolean everythingModified = false;
@@ -518,9 +518,9 @@ public class IncrementalLoadingTest {
               .build();
       SkyframeExecutorTestHelper.process(skyframeExecutor);
       PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-      packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
-      packageOptions.showLoadingProgress = true;
-      packageOptions.globbingThreads = 7;
+      packageOptions.setDefaultVisibility(RuleVisibility.PUBLIC);
+      packageOptions.setShowLoadingProgress(true);
+      packageOptions.setGlobbingThreads(7);
       skyframeExecutor.injectExtraPrecomputedValues(
           ImmutableList.of(
               PrecomputedValue.injected(
@@ -620,9 +620,9 @@ public class IncrementalLoadingTest {
       clock.advanceMillis(1);
 
       modifiedFileSet = getModifiedFileSet();
-      packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
-      packageOptions.showLoadingProgress = true;
-      packageOptions.globbingThreads = 7;
+      packageOptions.setDefaultVisibility(RuleVisibility.PUBLIC);
+      packageOptions.setShowLoadingProgress(true);
+      packageOptions.setGlobbingThreads(7);
       BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(
@@ -637,9 +637,12 @@ public class IncrementalLoadingTest {
           new TimestampGranularityMonitor(BlazeClock.instance()));
       skyframeExecutor.setActionEnv(ImmutableMap.of());
       skyframeExecutor.invalidateFilesUnderPathForTesting(
-          new Reporter(new EventBus()), modifiedFileSet, Root.fromPath(workspace));
+          new Reporter(EventBusEventHandler.createWithNewEventBus()),
+          modifiedFileSet,
+          Root.fromPath(workspace));
       ((SequencedSkyframeExecutor) skyframeExecutor)
-          .handleDiffsForTesting(new Reporter(new EventBus()), packageOptions);
+          .handleDiffsForTesting(
+              new Reporter(EventBusEventHandler.createWithNewEventBus()), packageOptions);
 
       changes.clear();
     }

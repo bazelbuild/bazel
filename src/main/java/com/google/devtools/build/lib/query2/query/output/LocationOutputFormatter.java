@@ -51,7 +51,7 @@ class LocationOutputFormatter extends AbstractUnorderedFormatter {
   public void setOptions(
       CommonQueryOptions options, AspectResolver aspectResolver, HashFunction hashFunction) {
     super.setOptions(options, aspectResolver, hashFunction);
-    this.relativeLocations = options.relativeLocations;
+    this.relativeLocations = options.getRelativeLocations();
   }
 
   @Override
@@ -75,7 +75,7 @@ class LocationOutputFormatter extends AbstractUnorderedFormatter {
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
       OutputStream out, final QueryOptions options, LabelPrinter labelPrinter) {
-    return new TextOutputFormatterCallback<Target>(out) {
+    return new TextOutputFormatterCallback<>(out) {
 
       @Override
       public void processOutput(Iterable<Target> partialResult) throws IOException {
@@ -84,7 +84,7 @@ class LocationOutputFormatter extends AbstractUnorderedFormatter {
           writer
               .append(FormatUtils.getLocation(target, relativeLocations))
               .append(": ")
-              .append(target.getTargetKind())
+              .append(getKind(options, target))
               .append(" ")
               .append(labelPrinter.toString(target.getLabel()))
               .append(lineTerm);

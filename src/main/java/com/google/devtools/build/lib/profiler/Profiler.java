@@ -13,21 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
-import static com.google.common.base.Preconditions.checkState;
-
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.util.TestType;
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -52,6 +51,7 @@ import javax.annotation.Nullable;
  * profiler API should mirror the existing methods: a delegating implementation falling back to a
  * no-op, with the actual implementation in {@link TraceProfilerServiceImpl}.
  */
+@SkybridgeInterface
 @SuppressWarnings("GoodTime") // This code is very performance sensitive.
 public final class Profiler implements TraceProfilerService {
   private static final Profiler instance = new Profiler();
@@ -90,12 +90,6 @@ public final class Profiler implements TraceProfilerService {
    * forwarded to this {@link TraceProfilerService}.
    */
   public static void setTraceProfilerService(TraceProfilerService traceProfilerService) {
-    // We want to apply this check for the shell integration tests to catch if the profiler is
-    // accidentally set twice in presubmit.
-    checkState(
-        Profiler.traceProfilerService == null
-            || (TestType.isInTest() && TestType.getTestType() != TestType.SHELL_INTEGRATION),
-        "setTraceProfilerService must not be called multiple times");
     Profiler.traceProfilerService = traceProfilerService;
   }
 
@@ -177,6 +171,14 @@ public final class Profiler implements TraceProfilerService {
   }
 
   @Override
+  public void setVfsTypeHeuristics(
+      Map<String, ? extends Predicate<? super String>> vfsTypeHeuristics) {
+    if (traceProfilerService != null) {
+      traceProfilerService.setVfsTypeHeuristics(vfsTypeHeuristics);
+    }
+  }
+
+  @Override
   public void start(
       Set<ProfilerTask> profiledTasks,
       OutputStream stream,
@@ -230,7 +232,7 @@ public final class Profiler implements TraceProfilerService {
     if (traceProfilerService != null) {
       return traceProfilerService.getTasksHistograms();
     }
-    return ImmutableList.of();
+    return Collections.emptyList();
   }
 
   @Override
@@ -238,7 +240,7 @@ public final class Profiler implements TraceProfilerService {
     if (traceProfilerService != null) {
       return traceProfilerService.getSlowestTasks();
     }
-    return ImmutableList.of();
+    return Collections.emptyList();
   }
 
   @Override

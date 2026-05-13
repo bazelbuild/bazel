@@ -75,11 +75,11 @@ public class WorkerModule extends BlazeModule {
   public void cleanStarting(CleanStartingEvent event) {
     if (workerPool != null) {
       WorkerOptions options = event.getOptionsProvider().getOptions(WorkerOptions.class);
-      workerFactory.setReporter(options.workerVerbose ? env.getReporter() : null);
+      workerFactory.setReporter(options.getWorkerVerbose() ? env.getReporter() : null);
       shutdownPool(
           "Clean command is running, shutting down worker pool...",
           /* alwaysLog= */ false,
-          options.workerVerbose);
+          options.getWorkerVerbose());
     }
   }
 
@@ -92,26 +92,26 @@ public class WorkerModule extends BlazeModule {
   public void buildStarting(BuildStartingEvent event) {
     WorkerOptions options = checkNotNull(event.request().getOptions(WorkerOptions.class));
     if (workerFactory != null) {
-      workerFactory.setReporter(options.workerVerbose ? env.getReporter() : null);
+      workerFactory.setReporter(options.getWorkerVerbose() ? env.getReporter() : null);
     }
     Path workerDir =
         env.getOutputBase().getRelative(env.getRuntime().getProductName() + "-workers");
     BlazeWorkspace workspace = env.getBlazeWorkspace();
     WorkerSandboxOptions workerSandboxOptions;
     SandboxOptions sandboxOptions = event.request().getOptions(SandboxOptions.class);
-    if (options.sandboxHardening) {
+    if (options.getSandboxHardening()) {
       workerSandboxOptions =
           new WorkerSandboxOptions(
               LinuxSandboxUtil.getLinuxSandbox(workspace),
-              sandboxOptions.sandboxFakeHostname,
-              sandboxOptions.sandboxFakeUsername,
-              sandboxOptions.sandboxDebug,
-              ImmutableSet.copyOf(sandboxOptions.sandboxTmpfsPath),
-              ImmutableSet.copyOf(sandboxOptions.sandboxWritablePath),
-              sandboxOptions.memoryLimitMb,
+              sandboxOptions.getSandboxFakeHostname(),
+              sandboxOptions.getSandboxFakeUsername(),
+              sandboxOptions.getSandboxDebug(),
+              ImmutableSet.copyOf(sandboxOptions.getSandboxTmpfsPath()),
+              ImmutableSet.copyOf(sandboxOptions.getSandboxWritablePath()),
+              sandboxOptions.getMemoryLimitMb(),
               sandboxOptions.getInaccessiblePaths(env.getRuntime().getFileSystem()),
               ImmutableMap.<String, String>builder()
-                  .putAll(sandboxOptions.sandboxAdditionalMounts)
+                  .putAll(sandboxOptions.getSandboxAdditionalMounts())
                   .buildKeepingLast());
     } else {
       workerSandboxOptions = null;
@@ -126,13 +126,13 @@ public class WorkerModule extends BlazeModule {
     VirtualCgroupFactory cgroupFactory =
         OS.getCurrent() != OS.LINUX
                 || sandboxOptions == null
-                || !sandboxOptions.useNewCgroupImplementation
+                || !sandboxOptions.getUseNewCgroupImplementation()
             ? null
             : new VirtualCgroupFactory(
                 "worker_",
                 VirtualCgroup.getInstance(),
-                options.sandboxHardening ? sandboxOptions.getLimits() : ImmutableMap.of(),
-                options.useCgroupsOnLinux);
+                options.getSandboxHardening() ? sandboxOptions.getLimitsMap() : ImmutableMap.of(),
+                options.getUseCgroupsOnLinux());
 
     WorkerFactory newWorkerFactory =
         new WorkerFactory(workerDir, options, workerSandboxOptions, treeDeleter, cgroupFactory);
@@ -167,20 +167,21 @@ public class WorkerModule extends BlazeModule {
       shutdownPool(
           "Worker factory configuration has changed, restarting worker pool...",
           /* alwaysLog= */ true,
-          options.workerVerbose);
+          options.getWorkerVerbose());
       workerFactory = newWorkerFactory;
-      workerFactory.setReporter(options.workerVerbose ? env.getReporter() : null);
+      workerFactory.setReporter(options.getWorkerVerbose() ? env.getReporter() : null);
     }
 
     WorkerPoolConfig newConfig =
-        new WorkerPoolConfig(options.workerMaxInstances, options.workerMaxMultiplexInstances);
+        new WorkerPoolConfig(
+            options.getWorkerMaxInstances(), options.getWorkerMaxMultiplexInstances());
 
     // If the config changed compared to the last run, we have to create a new pool.
     if (!newConfig.equals(config)) {
       shutdownPool(
           "Worker pool configuration has changed, restarting worker pool...",
           /* alwaysLog= */ true,
-          options.workerVerbose);
+          options.getWorkerVerbose());
     }
 
     if (workerPool == null) {
@@ -193,8 +194,8 @@ public class WorkerModule extends BlazeModule {
     // Override the flag value if we can't actually use cgroups so that we at least fallback to ps.
     boolean useCgroupsOnLinux =
         OS.getCurrent() == OS.LINUX
-            && options.useCgroupsOnLinux
-            && ((sandboxOptions == null || !sandboxOptions.useNewCgroupImplementation)
+            && options.getUseCgroupsOnLinux()
+            && ((sandboxOptions == null || !sandboxOptions.getUseNewCgroupImplementation())
                 ? CgroupsInfo.isSupported()
                 : VirtualCgroup.getInstance().memory() != null);
     WorkerProcessMetricsCollector.instance().setUseCgroupsOnLinux(useCgroupsOnLinux);
@@ -256,11 +257,11 @@ public class WorkerModule extends BlazeModule {
   @Subscribe
   public void buildComplete(BuildCompleteEvent event) throws InterruptedException {
     WorkerOptions options = env.getOptions().getOptions(WorkerOptions.class);
-    if (options != null && options.workerQuitAfterBuild) {
+    if (options != null && options.getWorkerQuitAfterBuild()) {
       shutdownPool(
           "Build completed, shutting down worker pool...",
           /* alwaysLog= */ false,
-          options.workerVerbose);
+          options.getWorkerVerbose());
     }
     if (workerLifecycleManager != null) {
       workerLifecycleManager.stopProcessing();

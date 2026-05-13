@@ -62,6 +62,7 @@ PRIVATE_STARLARKIFICATION_ALLOWLIST = [
     # Python rules
     ("", "third_party/bazel_rules/rules_python"),
     # Various
+    ("", "gdm/devtools/build_defs/contrib"),
     ("", "research/colab"),
     ("", "javatests/com/google/devtools/grok/kythe"),
 ] + CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES

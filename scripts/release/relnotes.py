@@ -49,13 +49,13 @@ def extract_relnotes(commit_message_lines):
         or re.match(r"^\s*(Fixes|Closes)\s+#\d+\.?\s*$", line)
     ):
       in_relnote = False
-    m = re.match(r"^RELNOTES(?:\[(INC|NEW)\])?:", line)
+    m = re.match(r"^RELNOTES(?:\[(INC|NEW|inc|new)\])?:", line)
     if m is not None:
       in_relnote = True
       line = line[len(m[0]) :]
       if line.strip().lower().rstrip(".") in ["n/a", "na", "none"]:
         return None
-      if m[1] == "INC":
+      if m[1] == "INC" or m[1] == "inc":
         line = "**[Incompatible]** " + line.strip()
     line = line.strip()
     if in_relnote and line:

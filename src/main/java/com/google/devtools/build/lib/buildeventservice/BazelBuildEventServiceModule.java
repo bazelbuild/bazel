@@ -66,10 +66,10 @@ public class BazelBuildEventServiceModule
     static BackendConfig create(
         BuildEventServiceOptions besOptions, AuthAndTLSOptions authAndTLSOptions) {
       return new BackendConfig(
-          besOptions.besBackend,
-          besOptions.besProxy,
+          besOptions.getBesBackend(),
+          besOptions.getBesProxy(),
           ImmutableMap.<String, String>builder()
-              .putAll(besOptions.besHeaders)
+              .putAll(besOptions.getBesHeaders())
               .buildKeepingLast()
               .entrySet()
               .asList(),
@@ -99,8 +99,8 @@ public class BazelBuildEventServiceModule
       String commandName,
       BuildEventServiceOptions besOptions,
       @Nullable OptionsParsingResult startupOptionsProvider) {
-    List<String> userKeywords = besOptions.besKeywords;
-    List<String> systemKeywords = besOptions.besSystemKeywords;
+    List<String> userKeywords = besOptions.getBesKeywords();
+    List<String> systemKeywords = besOptions.getBesSystemKeywords();
     ImmutableSet.Builder<String> builder =
         ImmutableSet.<String>builder()
             .add("protocol_name=BEP")
@@ -130,7 +130,7 @@ public class BazelBuildEventServiceModule
                   .setEventReporter(env.getReporter())
                   .setWorkspacePath(env.getWorkspace())
                   .setClientEnvironment(env.getClientEnv())
-                  .setHelperExecutionTimeout(authAndTLSOptions.credentialHelperTimeout)
+                  .setHelperExecutionTimeout(authAndTLSOptions.getCredentialHelperTimeout())
                   .build(),
               credentialModule.getCredentialCache(),
               env.getCommandLinePathFactory(),
@@ -204,12 +204,12 @@ public class BazelBuildEventServiceModule
 
   @Override
   protected String getInvocationIdPrefix() {
-    if (Strings.isNullOrEmpty(besOptions.besResultsUrl)) {
+    if (Strings.isNullOrEmpty(besOptions.getBesResultsUrl())) {
       return "";
     }
-    return besOptions.besResultsUrl.endsWith("/")
-        ? besOptions.besResultsUrl
-        : besOptions.besResultsUrl + "/";
+    return besOptions.getBesResultsUrl().endsWith("/")
+        ? besOptions.getBesResultsUrl()
+        : besOptions.getBesResultsUrl() + "/";
   }
 
   @Override

@@ -31,6 +31,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
@@ -45,7 +46,8 @@ import net.starlark.java.eval.StarlarkThread;
 public class ProtoConfiguration extends Fragment implements ProtoConfigurationApi {
 
   /** Command line options. */
-  public static class Options extends FragmentOptions {
+  @OptionsClass
+  public abstract static class Options extends FragmentOptions {
     @Option(
         name = "protocopt",
         allowMultiple = true,
@@ -53,7 +55,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         help = "Additional options to pass to the protobuf compiler.")
-    public List<String> protocOpts;
+    public abstract List<String> getProtocOpts();
 
     @Option(
         name = "experimental_proto_descriptor_sets_include_source_info",
@@ -62,7 +64,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help = "Run extra actions for alternative Java api versions in a proto_library.")
-    public boolean experimentalProtoDescriptorSetsIncludeSourceInfo;
+    public abstract boolean getExperimentalProtoDescriptorSetsIncludeSourceInfo();
 
     @Option(
         name = "proto_compiler",
@@ -71,7 +73,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
         help = "The label of the proto-compiler.")
-    public Label protoCompiler;
+    public abstract Label getProtoCompiler();
 
     @Option(
         name = "proto_toolchain_for_javalite",
@@ -80,7 +82,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
         help = "Label of proto_lang_toolchain() which describes how to compile JavaLite protos")
-    public Label protoToolchainForJavaLite;
+    public abstract Label getProtoToolchainForJavaLite();
 
     @Option(
         name = "proto_toolchain_for_java",
@@ -89,7 +91,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
         help = "Label of proto_lang_toolchain() which describes how to compile Java protos")
-    public Label protoToolchainForJava;
+    public abstract Label getProtoToolchainForJava();
 
     @Option(
         name = "proto_toolchain_for_cc",
@@ -98,7 +100,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
         help = "Label of proto_lang_toolchain() which describes how to compile C++ protos")
-    public Label protoToolchainForCc;
+    public abstract Label getProtoToolchainForCc();
 
     @Option(
         name = "strict_proto_deps",
@@ -110,7 +112,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
         help =
             "Unless OFF, checks that a proto_library target explicitly declares all directly "
                 + "used targets as dependencies.")
-    public StrictDepsMode strictProtoDeps;
+    public abstract StrictDepsMode getStrictProtoDeps();
 
     @Option(
         name = "strict_public_imports",
@@ -122,7 +124,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
         help =
             "Unless OFF, checks that a proto_library target explicitly declares all targets used "
                 + "in 'import public' as exported.")
-    public StrictDepsMode strictPublicImports;
+    public abstract StrictDepsMode getStrictPublicImports();
 
     @Option(
         name = "cc_proto_library_header_suffixes",
@@ -131,7 +133,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
         help = "Sets the suffixes of header files that a cc_proto_library creates.",
         converter = Converters.CommaSeparatedOptionSetConverter.class)
-    public List<String> ccProtoLibraryHeaderSuffixes;
+    public abstract List<String> getCcProtoLibraryHeaderSuffixes();
 
     @Option(
         name = "cc_proto_library_source_suffixes",
@@ -140,7 +142,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
         help = "Sets the suffixes of source files that a cc_proto_library creates.",
         converter = Converters.CommaSeparatedOptionSetConverter.class)
-    public List<String> ccProtoLibrarySourceSuffixes;
+    public abstract List<String> getCcProtoLibrarySourceSuffixes();
   }
 
   private final ImmutableList<String> protocOpts;
@@ -150,9 +152,11 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
   public ProtoConfiguration(BuildOptions buildOptions) {
     Options options = buildOptions.get(Options.class);
-    this.protocOpts = ImmutableList.copyOf(options.protocOpts);
-    this.ccProtoLibraryHeaderSuffixes = ImmutableList.copyOf(options.ccProtoLibraryHeaderSuffixes);
-    this.ccProtoLibrarySourceSuffixes = ImmutableList.copyOf(options.ccProtoLibrarySourceSuffixes);
+    this.protocOpts = ImmutableList.copyOf(options.getProtocOpts());
+    this.ccProtoLibraryHeaderSuffixes =
+        ImmutableList.copyOf(options.getCcProtoLibraryHeaderSuffixes());
+    this.ccProtoLibrarySourceSuffixes =
+        ImmutableList.copyOf(options.getCcProtoLibrarySourceSuffixes());
     this.options = options;
   }
 
@@ -172,7 +176,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
   }
 
   public boolean experimentalProtoDescriptorSetsIncludeSourceInfo() {
-    return options.experimentalProtoDescriptorSetsIncludeSourceInfo;
+    return options.getExperimentalProtoDescriptorSetsIncludeSourceInfo();
   }
 
   @StarlarkConfigurationField(
@@ -181,7 +185,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       defaultLabel = ProtoConstants.DEFAULT_PROTOC_LABEL)
   @Nullable
   public Label protoCompiler() {
-    return options.protoCompiler;
+    return options.getProtoCompiler();
   }
 
   @StarlarkConfigurationField(
@@ -190,7 +194,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       defaultLabel = ProtoConstants.DEFAULT_JAVA_PROTO_LABEL)
   @Nullable
   public Label protoToolchainForJava() {
-    return options.protoToolchainForJava;
+    return options.getProtoToolchainForJava();
   }
 
   @StarlarkConfigurationField(
@@ -199,7 +203,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       defaultLabel = ProtoConstants.DEFAULT_JAVA_LITE_PROTO_LABEL)
   @Nullable
   public Label protoToolchainForJavaLite() {
-    return options.protoToolchainForJavaLite;
+    return options.getProtoToolchainForJavaLite();
   }
 
   @StarlarkConfigurationField(
@@ -208,19 +212,19 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       defaultLabel = ProtoConstants.DEFAULT_CC_PROTO_LABEL)
   @Nullable
   public Label protoToolchainForCc() {
-    return options.protoToolchainForCc;
+    return options.getProtoToolchainForCc();
   }
 
   @StarlarkMethod(name = "strict_proto_deps", useStarlarkThread = true, documented = false)
   public String strictProtoDepsForStarlark(StarlarkThread thread) throws EvalException {
     BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
-    return options.strictProtoDeps.toString();
+    return options.getStrictProtoDeps().toString();
   }
 
   @StarlarkMethod(name = "strict_public_imports", useStarlarkThread = true, documented = false)
   public String strictPublicImportsForStarlark(StarlarkThread thread) throws EvalException {
     BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
-    return options.strictPublicImports.toString();
+    return options.getStrictPublicImports().toString();
   }
 
   @StarlarkMethod(name = "cc_proto_library_header_suffixes", structField = true, documented = false)

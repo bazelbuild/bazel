@@ -63,6 +63,7 @@ import com.google.errorprone.annotations.CheckReturnValue;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -72,6 +73,7 @@ import java.util.SortedMap;
 import java.util.UUID;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -174,7 +176,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   private final MessageOutputStream<ExecLogEntry> outputStream;
 
   public CompactSpawnLogContext(
-      Path outputPath,
+      BufferedOutputStream out,
+      String displayName,
       PathFragment execRoot,
       String workspaceName,
       boolean siblingRepositoryLayout,
@@ -182,8 +185,10 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       DigestHashFunction digestHashFunction,
       XattrProvider xattrProvider,
       UUID invocationId,
-      ExtendedEventHandler reporter)
+      ExtendedEventHandler reporter,
+      Predicate<Spawn> logSpawnPredicate)
       throws IOException, InterruptedException {
+    super(logSpawnPredicate);
     this.execRoot = execRoot;
     this.workspaceName = workspaceName;
     this.siblingRepositoryLayout = siblingRepositoryLayout;
@@ -192,16 +197,16 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     this.xattrProvider = xattrProvider;
     this.invocationId = invocationId;
     this.reporter = reporter;
-    this.outputStream = getOutputStream(outputPath);
+    this.outputStream = getOutputStream(out, displayName);
 
     logInvocation();
   }
 
-  private static MessageOutputStream<ExecLogEntry> getOutputStream(Path path) throws IOException {
+  private static MessageOutputStream<ExecLogEntry> getOutputStream(OutputStream out, String name)
+      throws IOException {
     // Use an AsynchronousMessageOutputStream so that compression and I/O occur in a separate
     // thread. This ensures concurrent writes don't tear and avoids blocking execution.
-    return new AsynchronousMessageOutputStream<>(
-        path.toString(), new ZstdOutputStream(new BufferedOutputStream(path.getOutputStream())));
+    return new AsynchronousMessageOutputStream<>(name, new ZstdOutputStream(out));
   }
 
   private void logInvocation() throws IOException, InterruptedException {
@@ -231,6 +236,9 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       Duration timeout,
       SpawnResult result)
       throws IOException, InterruptedException, ExecException {
+    if (!shouldLog(spawn)) {
+      return;
+    }
     try (SilentCloseable c = Profiler.instance().profile(SPAWN_LOG, "logSpawn")) {
       ExecLogEntry.Spawn.Builder builder = ExecLogEntry.Spawn.newBuilder();
 

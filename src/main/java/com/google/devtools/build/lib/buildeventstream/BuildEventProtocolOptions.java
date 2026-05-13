@@ -24,6 +24,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.time.Duration;
 import java.util.List;
@@ -31,7 +32,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 /** Options used to configure the build event protocol. */
-public class BuildEventProtocolOptions extends OptionsBase {
+@OptionsClass
+public abstract class BuildEventProtocolOptions extends OptionsBase {
 
   @Option(
       name = "legacy_important_outputs",
@@ -44,7 +46,7 @@ public class BuildEventProtocolOptions extends OptionsBase {
           `TargetComplete` event. `important_outputs` are required for Bazel to ResultStore/BTX
           integration.
           """)
-  public boolean legacyImportantOutputs;
+  public abstract boolean getLegacyImportantOutputs();
 
   @Option(
       name = "experimental_build_event_upload_strategy",
@@ -56,7 +58,7 @@ public class BuildEventProtocolOptions extends OptionsBase {
           Selects how to upload artifacts referenced in the build event protocol. In Bazel
           the valid options include `local` and `remote`. The default value is `local`.
           """)
-  public String buildEventUploadStrategy;
+  public abstract String getBuildEventUploadStrategy();
 
   @Option(
       name = "build_event_upload_max_retries",
@@ -65,7 +67,7 @@ public class BuildEventProtocolOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "The maximum number of times Bazel should retry uploading a build event.")
-  public int besUploadMaxRetries;
+  public abstract int getBesUploadMaxRetries();
 
   @Option(
       name = "experimental_build_event_upload_retry_minimum_delay",
@@ -75,7 +77,7 @@ public class BuildEventProtocolOptions extends OptionsBase {
       help =
           "Initial, minimum delay for exponential backoff retries when BEP upload fails. (exponent:"
               + " 1.6)")
-  public Duration besUploadRetryInitialDelay;
+  public abstract Duration getBesUploadRetryInitialDelay();
 
   @Option(
       name = "experimental_stream_log_file_uploads",
@@ -85,7 +87,7 @@ public class BuildEventProtocolOptions extends OptionsBase {
       help =
           "Stream log file uploads directly to the remote storage rather than writing them to"
               + " disk.")
-  public boolean streamingLogFileUploads;
+  public abstract boolean getStreamingLogFileUploads();
 
   @Option(
       name = "experimental_build_event_expand_filesets",
@@ -93,7 +95,7 @@ public class BuildEventProtocolOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help = "If true, expand Filesets in the BEP when presenting output files.")
-  public boolean expandFilesets;
+  public abstract boolean getExpandFilesets();
 
   @Option(
       name = "experimental_bep_target_summary",
@@ -101,7 +103,7 @@ public class BuildEventProtocolOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Whether to publish `TargetSummary` events.")
-  public boolean publishTargetSummary;
+  public abstract boolean getPublishTargetSummary();
 
   @Option(
       name = "experimental_run_bep_event_include_residue",
@@ -112,7 +114,7 @@ public class BuildEventProtocolOptions extends OptionsBase {
           "Whether to include the command-line residue in run build events which could contain the"
               + " residue. By default, the residue is not included in run command build events that"
               + " could contain the residue.")
-  public boolean includeResidueInRunBepEvent;
+  public abstract boolean getIncludeResidueInRunBepEvent();
 
   /** Simple String to {@link OutputGroupFileMode} Converter. */
   static final class OutputGroupFileModeConverter extends EnumConverter<OutputGroupFileMode> {
@@ -168,7 +170,7 @@ public class BuildEventProtocolOptions extends OptionsBase {
   public OutputGroupFileModes getOutputGroupFileModesMapping() {
     var modeMap =
         ImmutableMap.<String, OutputGroupFileMode>builder()
-            .putAll(outputGroupFileModes)
+            .putAll(getOutputGroupFileModes())
             .buildKeepingLast();
     return (outputGroup) ->
         modeMap.getOrDefault(outputGroup, OutputGroupFileMode.NAMED_SET_OF_FILES_ONLY);
@@ -190,5 +192,5 @@ public class BuildEventProtocolOptions extends OptionsBase {
           appear is used. The default value sets the mode for coverage artifacts to BOTH:
           `--experimental_build_event_output_group_mode=baseline.lcov=both`
           """)
-  public List<Map.Entry<String, OutputGroupFileMode>> outputGroupFileModes;
+  public abstract List<Map.Entry<String, OutputGroupFileMode>> getOutputGroupFileModes();
 }

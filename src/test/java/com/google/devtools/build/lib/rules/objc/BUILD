@@ -57,9 +57,6 @@ java_library(
 
 java_test(
     name = "ObjcRulesTests",
-    jvm_flags = [
-        "-Djava.lang.Thread.allowVirtualThreads=true",
-    ],
     shard_count = 20,
     tags = [
         "no_windows",

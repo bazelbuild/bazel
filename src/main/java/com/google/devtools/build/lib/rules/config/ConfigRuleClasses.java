@@ -177,7 +177,7 @@ public final class ConfigRuleClasses {
               }
               ImmutableList.Builder<Label> userDefinedFlags = ImmutableList.builder();
               ImmutableMap<String, Label> commandLineFlagAliases =
-                  configuration.getOptions().get(CoreOptions.class).getCommandLineFlagAliases();
+                  configuration.getOptions().get(CoreOptions.class).getCommandLineFlagAliasesMap();
               for (String flagName : attributes.get(SETTINGS_ATTRIBUTE, STRING_DICT).keySet()) {
                 Label userDefinedFlag = commandLineFlagAliases.get(flagName);
                 if (userDefinedFlag != null) {

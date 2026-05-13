@@ -148,14 +148,14 @@ public class LocalSpawnRunner implements SpawnRunner {
                   : ResourcePriority.LOCAL)) {
         spawnMetrics.setQueueTime(queueStopwatch.elapsed());
         context.report(SpawnExecutingEvent.create(getName()));
-        if (!localExecutionOptions.localLockfreeOutput) {
+        if (!localExecutionOptions.getLocalLockfreeOutput()) {
           // Without local-lockfree, we grab the lock before running the action, so we can't
           // check for failures while taking the lock.
           context.lockOutputFiles(0, "", context.getFileOutErr());
         }
         var result = new SubprocessHandler(spawn, context, spawnMetrics, totalTimeStopwatch).run();
         if (result.exitCode() != 0
-            && localExecutionOptions.localLockfreeOutput
+            && localExecutionOptions.getLocalLockfreeOutput()
             && context.speculating()) {
           // We aren't going to write any output, but we should either abort the remote branch early
           // or let it finish if this error can be ignored. If the latter, this call will throw
@@ -215,7 +215,7 @@ public class LocalSpawnRunner implements SpawnRunner {
     }
 
     SpawnResult run() throws InterruptedException, ExecException, IOException {
-      if (localExecutionOptions.localRetriesOnCrash == 0) {
+      if (localExecutionOptions.getLocalRetriesOnCrash() == 0) {
         return runOnce();
       } else {
         int attempts = 0;
@@ -226,7 +226,7 @@ public class LocalSpawnRunner implements SpawnRunner {
           // quickly.
           Stopwatch rertyStopwatch = Stopwatch.createStarted();
           SpawnResult result = runOnce();
-          if (attempts == localExecutionOptions.localRetriesOnCrash
+          if (attempts == localExecutionOptions.getLocalRetriesOnCrash()
               || !TerminationStatus.crashed(result.exitCode())) {
             return result;
           }
@@ -314,8 +314,8 @@ public class LocalSpawnRunner implements SpawnRunner {
 
       FileOutErr outErr = context.getFileOutErr();
       String actionType = spawn.getResourceOwner().getMnemonic();
-      if (localExecutionOptions.allowedLocalAction != null
-          && !localExecutionOptions.allowedLocalAction.matcher().test(actionType)) {
+      if (localExecutionOptions.getAllowedLocalAction() != null
+          && !localExecutionOptions.getAllowedLocalAction().matcher().test(actionType)) {
         setState(State.PERMANENT_ERROR);
         outErr
             .getErrorStream()
@@ -324,7 +324,7 @@ public class LocalSpawnRunner implements SpawnRunner {
                         + actionType
                         + " is not allowed to run locally due to regex filter: "
                         + StringEncoding.unicodeToInternal(
-                            localExecutionOptions.allowedLocalAction.regexPattern().toString())
+                            localExecutionOptions.getAllowedLocalAction().regexPattern().toString())
                         + "\n")
                     .getBytes(UTF_8));
         spawnMetrics.setTotalTime(totalTimeStopwatch.elapsed());
@@ -496,7 +496,7 @@ public class LocalSpawnRunner implements SpawnRunner {
      * for tree artifacts has to be kept behind (and empty).
      */
     private void maybeCleanupOnInterrupt() {
-      if (!localExecutionOptions.localLockfreeOutput) {
+      if (!localExecutionOptions.getLocalLockfreeOutput()) {
         // If we don't allow lockfree executions of local subprocesses, there is no need to clean up
         // anything: we would have already locked the output tree upfront, so we "own" it.
         return;

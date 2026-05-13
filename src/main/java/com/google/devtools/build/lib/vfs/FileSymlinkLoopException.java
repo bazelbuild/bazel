@@ -15,15 +15,13 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.devtools.build.lib.io.FileSymlinkException;
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 
 /** A {@link FileSymlinkException} that indicates a symlink loop. */
+@SkybridgeInterface // TODO(tjgq): Replace with a type owned by NativePosixFilesService.
 public final class FileSymlinkLoopException extends FileSymlinkException {
-  FileSymlinkLoopException(String message) {
+  public FileSymlinkLoopException(String message) {
     super(message);
-  }
-
-  public FileSymlinkLoopException(PathFragment pathFragment) {
-    this(pathFragment.getPathString() + " (Too many levels of symbolic links)");
   }
 
   @Override

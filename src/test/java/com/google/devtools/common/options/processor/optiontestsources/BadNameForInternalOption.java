@@ -18,19 +18,22 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /**
  * This example options class has an internal option with a name that isn't accepted on the command
  * line. Since internal options aren't accepted on the command line anyway, this is accepted and
  * should not generate a compile-time error.
  */
-public class BadNameForInternalOption extends OptionsBase {
+@OptionsClass
+public abstract class BadNameForInternalOption extends OptionsBase {
   @Option(
       name = "bad option name.... but it's internal so I don't care",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = {OptionMetadataTag.INTERNAL},
-      effectTags = {OptionEffectTag.NO_OP}
-  )
-  public boolean badOption;
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS})
+  public abstract boolean getBadOption();
+
+  public abstract void setBadOption(boolean value);
 }

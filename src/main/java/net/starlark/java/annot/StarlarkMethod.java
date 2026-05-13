@@ -203,13 +203,11 @@ public @interface StarlarkMethod {
    * <p>The return type's class must define a static method with the signature:
    *
    * <pre>
-   *     public static TypeConstructor getBaseTypeConstructor() {...}
+   *     public static TypeConstructor getAssociatedTypeConstructor() {...}
    * </pre>
    *
-   * which is reflectively invoked to obtain an appropriate base type constructor (e.g. {@link
-   * Types#LIST_CONSTRUCTOR}). The builtin processing machinery will wrap this base type constructor
-   * with generated type information for the class's various {@code @StarlarkMethod}s (such as
-   * {@code list.append}).
+   * which is reflectively invoked to identify the appropriate type constructor (e.g. {@link
+   * Types#LIST_CONSTRUCTOR}) that will be called when this method appears in a type application.
    */
   boolean isTypeConstructor() default false;
 

@@ -1132,6 +1132,8 @@ public abstract class PackageFunction implements SkyFunction {
         } catch (LabelSyntaxException e) {
           throw new IllegalStateException("Failed to construct label representing BUILD file", e);
         }
+        boolean isUnderExperimental =
+            packageFactory.getRuleClassProvider().isPackageUnderExperimental(packageId);
         try {
           loadedModules =
               loadBzlModules(
@@ -1142,7 +1144,7 @@ public abstract class PackageFunction implements SkyFunction {
                   keys.build(),
                   starlarkBuiltinsValue.starlarkSemantics,
                   bzlLoadFunctionForInlining,
-                  /* checkVisibility= */ true,
+                  !isUnderExperimental,
                   actionOnFilesystemErrorCodeLoadingBzlFile);
         } catch (NoSuchPackageException e) {
           throw new PackageFunctionException(e, Transience.PERSISTENT);

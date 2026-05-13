@@ -66,7 +66,7 @@ A list of ids for all aspects applied to the target. Only available in aspect im
 struct ctx.attr
 ```
 
-A struct to access the values of the [attributes](https://bazel.build/versions/8.4.2/extending/rules#attributes). The values are provided by the user (if not, a default value is used). The attributes of the struct and the types of their values correspond to the keys and values of the [`attrs` dict](../globals/bzl#rule.attrs) provided to the [`rule` function](../globals/bzl#rule). [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/attributes/printer.bzl).
+A struct to access the values of the [attributes](https://bazel.build/versions/8.4.2/extending/rules#attributes). The values are provided by the user (if not, a default value is used). The attributes of the struct and the types of their values correspond to the keys and values of the [`attrs` dict](/versions/8.4.2/rules/lib/globals/bzl#rule.attrs) provided to the [`rule` function](/versions/8.4.2/rules/lib/globals/bzl#rule). [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/attributes/printer.bzl).
 
 ## bin\_dir
 
@@ -98,7 +98,7 @@ Value of the build setting represented by the current target. If this isn't the 
 configuration ctx.configuration
 ```
 
-The default configuration. See the [configuration](../builtins/configuration) type for more details.
+The default configuration. See the [configuration](/versions/8.4.2/rules/lib/builtins/configuration) type for more details.
 
 ## coverage\_instrumented
 
@@ -106,13 +106,13 @@ The default configuration. See the [configuration](../builtins/configuration) ty
 bool ctx.coverage_instrumented(target=None)
 ```
 
-Returns whether code coverage instrumentation should be generated when performing compilation actions for this rule or, if `target` is provided, the rule specified by that Target. (If a non-rule or a Starlark rule Target is provided, this returns False.) Checks if the sources of the current rule (if no Target is provided) or the sources of Target should be instrumented based on the --instrumentation\_filter and --instrument\_test\_targets config settings. This differs from `coverage_enabled` in the [configuration](../builtins/configuration), which notes whether coverage data collection is enabled for the entire run, but not whether a specific target should be instrumented.
+Returns whether code coverage instrumentation should be generated when performing compilation actions for this rule or, if `target` is provided, the rule specified by that Target. (If a non-rule or a Starlark rule Target is provided, this returns False.) Checks if the sources of the current rule (if no Target is provided) or the sources of Target should be instrumented based on the --instrumentation\_filter and --instrument\_test\_targets config settings. This differs from `coverage_enabled` in the [configuration](/versions/8.4.2/rules/lib/builtins/configuration), which notes whether coverage data collection is enabled for the entire run, but not whether a specific target should be instrumented.
 
 ### Parameters
 
 | Parameter | Description |
 | --- | --- |
-| `target` | [Target](../builtins/Target); or `None`; default is `None`  A Target specifying a rule. If not provided, defaults to the current rule. |
+| `target` | [Target](/versions/8.4.2/rules/lib/builtins/Target); or `None`; default is `None`  A Target specifying a rule. If not provided, defaults to the current rule. |
 
 ## created\_actions
 
@@ -120,7 +120,7 @@ Returns whether code coverage instrumentation should be generated when performin
 StarlarkValue ctx.created_actions()
 ```
 
-For rules with [\_skylark\_testable](../globals/bzl#rule._skylark_testable) set to `True`, this returns an `Actions` provider representing all actions created so far for the current rule. For all other rules, returns `None`. Note that the provider is not updated when subsequent actions are created, so you will have to call this function again if you wish to inspect them.
+For rules with [\_skylark\_testable](/versions/8.4.2/rules/lib/globals/bzl#rule._skylark_testable) set to `True`, this returns an `Actions` provider representing all actions created so far for the current rule. For all other rules, returns `None`. Note that the provider is not updated when subsequent actions are created, so you will have to call this function again if you wish to inspect them.
 
 This is intended to help write tests for rule-implementation helper functions, which may take in a `ctx` object and create actions on it.
 
@@ -146,7 +146,7 @@ A collection of the execution groups available for this rule, indexed by their n
 struct ctx.executable
 ```
 
-A `struct` containing executable files defined in [label type attributes](../toplevel/attr#label) marked as [`executable=True`](../toplevel/attr#label.executable). The struct fields correspond to the attribute names. Each value in the struct is either a [`File`](../builtins/File) or `None`. If an optional attribute is not specified in the rule then the corresponding struct value is `None`. If a label type is not marked as `executable=True`, no corresponding struct field is generated. [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/actions_run/execute.bzl).
+A `struct` containing executable files defined in [label type attributes](/versions/8.4.2/rules/lib/toplevel/attr#label) marked as [`executable=True`](/versions/8.4.2/rules/lib/toplevel/attr#label.executable). The struct fields correspond to the attribute names. Each value in the struct is either a [`File`](/versions/8.4.2/rules/lib/builtins/File) or `None`. If an optional attribute is not specified in the rule then the corresponding struct value is `None`. If a label type is not marked as `executable=True`, no corresponding struct field is generated. [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/actions_run/execute.bzl).
 
 ## expand\_location
 
@@ -164,8 +164,8 @@ This function is useful to let the user specify a command in a BUILD file (like 
 
 | Parameter | Description |
 | --- | --- |
-| `input` | [string](../core/string); required  String to be expanded. |
-| `targets` | [sequence](../core/list) of [Target](../builtins/Target)s; default is `[]`  List of targets for additional lookup information. These are expanded as follows: A target with a single file in `DefaultInfo.files` expands to that file. Other targets expand to their `DefaultInfo.executable` file if set and if `--incompatible_locations_prefers_executable` is enabled, otherwise they expand to `DefaultInfo.files`. |
+| `input` | [string](/versions/8.4.2/rules/lib/core/string); required  String to be expanded. |
+| `targets` | [sequence](/versions/8.4.2/rules/lib/core/list) of [Target](/versions/8.4.2/rules/lib/builtins/Target)s; default is `[]`  List of targets for additional lookup information. These are expanded as follows: A target with a single file in `DefaultInfo.files` expands to that file. Other targets expand to their `DefaultInfo.executable` file if set and if `--incompatible_locations_prefers_executable` is enabled, otherwise they expand to `DefaultInfo.files`. |
 
 May return `None`.
 
@@ -175,7 +175,7 @@ May return `None`.
 string ctx.expand_make_variables(attribute_name, command, additional_substitutions)
 ```
 
-**Deprecated.** Use [ctx.var](../builtins/ctx#var) to access the variables instead.
+**Deprecated.** Use [ctx.var](/versions/8.4.2/rules/lib/builtins/ctx#var) to access the variables instead.
 Returns a string after expanding all references to "Make variables". The variables must have the following format: `$(VAR_NAME)`. Also, `$$VAR_NAME` expands to `$VAR_NAME`. Examples:
 
 ```
@@ -189,9 +189,9 @@ Additional variables may come from other places, such as configurations. Note th
 
 | Parameter | Description |
 | --- | --- |
-| `attribute_name` | [string](../core/string); required |
-| `command` | [string](../core/string); required  The expression to expand. It can contain references to "Make variables". |
-| `additional_substitutions` | [dict](../core/dict); required  Additional substitutions to make beyond the default make variables. |
+| `attribute_name` | [string](/versions/8.4.2/rules/lib/core/string); required |
+| `command` | [string](/versions/8.4.2/rules/lib/core/string); required  The expression to expand. It can contain references to "Make variables". |
+| `additional_substitutions` | [dict](/versions/8.4.2/rules/lib/core/dict); required  Additional substitutions to make beyond the default make variables. |
 
 ## features
 
@@ -207,7 +207,7 @@ The set of features that are explicitly enabled by the user for this rule. [See 
 struct ctx.file
 ```
 
-A `struct` containing files defined in [label type attributes](../toplevel/attr#label) marked as [`allow_single_file`](../toplevel/attr#label.allow_single_file). The struct fields correspond to the attribute names. The struct value is always a [`File`](../builtins/File) or `None`. If an optional attribute is not specified in the rule then the corresponding struct value is `None`. If a label type is not marked as `allow_single_file`, no corresponding struct field is generated. It is a shortcut for:
+A `struct` containing files defined in [label type attributes](/versions/8.4.2/rules/lib/toplevel/attr#label) marked as [`allow_single_file`](/versions/8.4.2/rules/lib/toplevel/attr#label.allow_single_file). The struct fields correspond to the attribute names. The struct value is always a [`File`](/versions/8.4.2/rules/lib/builtins/File) or `None`. If an optional attribute is not specified in the rule then the corresponding struct value is `None`. If a label type is not marked as `allow_single_file`, no corresponding struct field is generated. It is a shortcut for:
 
 ```
 list(ctx.attr.<ATTR>.files)[0]
@@ -221,7 +221,7 @@ In other words, use `file` to access the (singular) [default output](https://baz
 struct ctx.files
 ```
 
-A `struct` containing files defined in [label](../toplevel/attr#label) or [label list](../toplevel/attr#label_list) type attributes. The struct fields correspond to the attribute names. The struct values are `list` of [`File`](../builtins/File)s. It is a shortcut for:
+A `struct` containing files defined in [label](/versions/8.4.2/rules/lib/toplevel/attr#label) or [label list](/versions/8.4.2/rules/lib/toplevel/attr#label_list) type attributes. The struct fields correspond to the attribute names. The struct values are `list` of [`File`](/versions/8.4.2/rules/lib/builtins/File)s. It is a shortcut for:
 
 ```
 [f for t in ctx.attr.<ATTR> for f in t.files]
@@ -267,13 +267,13 @@ The label of the target currently being analyzed.
 structure ctx.outputs
 ```
 
-A pseudo-struct containing all the predeclared output files, represented by [`File`](../builtins/File) objects. See the [Rules page](https://bazel.build/versions/8.4.2/extending/rules#files) for more information and examples.
+A pseudo-struct containing all the predeclared output files, represented by [`File`](/versions/8.4.2/rules/lib/builtins/File) objects. See the [Rules page](https://bazel.build/versions/8.4.2/extending/rules#files) for more information and examples.
 
 This field does not exist on aspect contexts, since aspects do not have predeclared outputs.
 
 The fields of this object are defined as follows. It is an error if two outputs produce the same field name or have the same label.
 
-* If the rule declares an [`outputs`](../globals/bzl#rule.outputs) dict, then for every entry in the dict, there is a field whose name is the key and whose value is the corresponding `File`.* For every attribute of type [`attr.output`](../toplevel/attr#output) that the rule declares, there is a field whose name is the attribute's name. If the target specified a label for that attribute, then the field value is the corresponding `File`; otherwise the field value is `None`.* For every attribute of type [`attr.output_list`](../toplevel/attr#output_list) that the rule declares, there is a field whose name is the attribute's name. The field value is a list of `File` objects corresponding to the labels given for that attribute in the target, or an empty list if the attribute was not specified in the target.* **(Deprecated)** If the rule is marked [`executable`](../globals/bzl#rule.executable) or [`test`](../globals/bzl#rule.test), there is a field named `"executable"`, which is the default executable. It is recommended that instead of using this, you pass another file (either predeclared or not) to the `executable` arg of [`DefaultInfo`](../providers/DefaultInfo).
+* If the rule declares an [`outputs`](/versions/8.4.2/rules/lib/globals/bzl#rule.outputs) dict, then for every entry in the dict, there is a field whose name is the key and whose value is the corresponding `File`.* For every attribute of type [`attr.output`](/versions/8.4.2/rules/lib/toplevel/attr#output) that the rule declares, there is a field whose name is the attribute's name. If the target specified a label for that attribute, then the field value is the corresponding `File`; otherwise the field value is `None`.* For every attribute of type [`attr.output_list`](/versions/8.4.2/rules/lib/toplevel/attr#output_list) that the rule declares, there is a field whose name is the attribute's name. The field value is a list of `File` objects corresponding to the labels given for that attribute in the target, or an empty list if the attribute was not specified in the target.* **(Deprecated)** If the rule is marked [`executable`](/versions/8.4.2/rules/lib/globals/bzl#rule.executable) or [`test`](/versions/8.4.2/rules/lib/globals/bzl#rule.test), there is a field named `"executable"`, which is the default executable. It is recommended that instead of using this, you pass another file (either predeclared or not) to the `executable` arg of [`DefaultInfo`](/versions/8.4.2/rules/lib/providers/DefaultInfo).
 
 ## resolve\_command
 
@@ -288,13 +288,13 @@ tuple ctx.resolve_command(command='', attribute=None, expand_locations=False, ma
 
 | Parameter | Description |
 | --- | --- |
-| `command` | [string](../core/string); default is `''`  Command to resolve. |
-| `attribute` | [string](../core/string); or `None`; default is `None`  Name of the associated attribute for which to issue an error, or None. |
-| `expand_locations` | [bool](../core/bool); default is `False`  Shall we expand $(location) variables? See [ctx.expand\_location()](#expand_location) for more details. |
-| `make_variables` | [dict](../core/dict); or `None`; default is `None`  Make variables to expand, or None. |
-| `tools` | [sequence](../core/list) of [Target](../builtins/Target)s; default is `[]`  List of tools (list of targets). |
-| `label_dict` | [dict](../core/dict); default is `{}`  Dictionary of resolved labels and the corresponding list of Files (a dict of Label : list of Files). |
-| `execution_requirements` | [dict](../core/dict); default is `{}`  Information for scheduling the action to resolve this command. See [tags](/versions/8.4.2/reference/be/common-definitions#common.tags) for useful keys. |
+| `command` | [string](/versions/8.4.2/rules/lib/core/string); default is `''`  Command to resolve. |
+| `attribute` | [string](/versions/8.4.2/rules/lib/core/string); or `None`; default is `None`  Name of the associated attribute for which to issue an error, or None. |
+| `expand_locations` | [bool](/versions/8.4.2/rules/lib/core/bool); default is `False`  Shall we expand $(location) variables? See [ctx.expand\_location()](#expand_location) for more details. |
+| `make_variables` | [dict](/versions/8.4.2/rules/lib/core/dict); or `None`; default is `None`  Make variables to expand, or None. |
+| `tools` | [sequence](/versions/8.4.2/rules/lib/core/list) of [Target](/versions/8.4.2/rules/lib/builtins/Target)s; default is `[]`  List of tools (list of targets). |
+| `label_dict` | [dict](/versions/8.4.2/rules/lib/core/dict); default is `{}`  Dictionary of resolved labels and the corresponding list of Files (a dict of Label : list of Files). |
+| `execution_requirements` | [dict](/versions/8.4.2/rules/lib/core/dict); default is `{}`  Information for scheduling the action to resolve this command. See [tags](/versions/8.4.2/reference/be/common-definitions#common.tags) for useful keys. |
 
 ## resolve\_tools
 
@@ -310,7 +310,7 @@ In contrast to `ctx.resolve_command`, this method does not require that Bash be 
 
 | Parameter | Description |
 | --- | --- |
-| `tools` | [sequence](../core/list) of [Target](../builtins/Target)s; default is `[]`  List of tools (list of targets). |
+| `tools` | [sequence](/versions/8.4.2/rules/lib/core/list) of [Target](/versions/8.4.2/rules/lib/builtins/Target)s; default is `[]`  List of tools (list of targets). |
 
 ## rule
 
@@ -332,12 +332,12 @@ Creates a runfiles object.
 
 | Parameter | Description |
 | --- | --- |
-| `files` | [sequence](../core/list) of [File](../builtins/File)s; default is `[]`  The list of files to be added to the runfiles. |
-| `transitive_files` | [depset](../builtins/depset) of [File](../builtins/File)s; or `None`; default is `None`  The (transitive) set of files to be added to the runfiles. The depset should use the `default` order (which, as the name implies, is the default). |
-| `collect_data` | [bool](../core/bool); default is `False`  **Use of this parameter is not recommended. See [runfiles guide](https://bazel.build/versions/8.4.2/extending/rules#runfiles)**. Whether to collect the data runfiles from the dependencies in srcs, data and deps attributes. |
-| `collect_default` | [bool](../core/bool); default is `False`  **Use of this parameter is not recommended. See [runfiles guide](https://bazel.build/versions/8.4.2/extending/rules#runfiles)**. Whether to collect the default runfiles from the dependencies in srcs, data and deps attributes. |
-| `symlinks` | [dict](../core/dict); or [depset](../builtins/depset) of [SymlinkEntry](../builtins/SymlinkEntry)s; default is `{}`  Either a SymlinkEntry depset or the map of symlinks to be added to the runfiles. Symlinks are always added under the main workspace's runfiles directory (e.g. `<runfiles_root>/_main/<symlink_path>`, **not** the directory corresponding to the current target's repository. See [Runfiles symlinks](https://bazel.build/versions/8.4.2/extending/rules#runfiles_symlinks) in the rules guide. |
-| `root_symlinks` | [dict](../core/dict); or [depset](../builtins/depset) of [SymlinkEntry](../builtins/SymlinkEntry)s; default is `{}`  Either a SymlinkEntry depset or a map of symlinks to be added to the runfiles. See [Runfiles symlinks](https://bazel.build/versions/8.4.2/extending/rules#runfiles_symlinks) in the rules guide. |
+| `files` | [sequence](/versions/8.4.2/rules/lib/core/list) of [File](/versions/8.4.2/rules/lib/builtins/File)s; default is `[]`  The list of files to be added to the runfiles. |
+| `transitive_files` | [depset](/versions/8.4.2/rules/lib/builtins/depset) of [File](/versions/8.4.2/rules/lib/builtins/File)s; or `None`; default is `None`  The (transitive) set of files to be added to the runfiles. The depset should use the `default` order (which, as the name implies, is the default). |
+| `collect_data` | [bool](/versions/8.4.2/rules/lib/core/bool); default is `False`  **Use of this parameter is not recommended. See [runfiles guide](https://bazel.build/versions/8.4.2/extending/rules#runfiles)**. Whether to collect the data runfiles from the dependencies in srcs, data and deps attributes. |
+| `collect_default` | [bool](/versions/8.4.2/rules/lib/core/bool); default is `False`  **Use of this parameter is not recommended. See [runfiles guide](https://bazel.build/versions/8.4.2/extending/rules#runfiles)**. Whether to collect the default runfiles from the dependencies in srcs, data and deps attributes. |
+| `symlinks` | [dict](/versions/8.4.2/rules/lib/core/dict); or [depset](/versions/8.4.2/rules/lib/builtins/depset) of [SymlinkEntry](/versions/8.4.2/rules/lib/builtins/SymlinkEntry)s; default is `{}`  Either a SymlinkEntry depset or the map of symlinks to be added to the runfiles. Symlinks are always added under the main workspace's runfiles directory (e.g. `<runfiles_root>/_main/<symlink_path>`, **not** the directory corresponding to the current target's repository. See [Runfiles symlinks](https://bazel.build/versions/8.4.2/extending/rules#runfiles_symlinks) in the rules guide. |
+| `root_symlinks` | [dict](/versions/8.4.2/rules/lib/core/dict); or [depset](/versions/8.4.2/rules/lib/builtins/depset) of [SymlinkEntry](/versions/8.4.2/rules/lib/builtins/SymlinkEntry)s; default is `{}`  Either a SymlinkEntry depset or a map of symlinks to be added to the runfiles. See [Runfiles symlinks](https://bazel.build/versions/8.4.2/extending/rules#runfiles_symlinks) in the rules guide. |
 
 ## split\_attr
 
@@ -367,7 +367,7 @@ Returns true if the given constraint value is part of the current target platfor
 
 | Parameter | Description |
 | --- | --- |
-| `constraintValue` | [ConstraintValueInfo](../providers/ConstraintValueInfo); required  The constraint value to check the target platform against. |
+| `constraintValue` | [ConstraintValueInfo](/versions/8.4.2/rules/lib/providers/ConstraintValueInfo); required  The constraint value to check the target platform against. |
 
 ## toolchains
 

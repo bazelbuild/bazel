@@ -14,7 +14,7 @@
 
 #if defined(__FreeBSD__)
 # define HAVE_PROCSTAT
-# define STANDARD_JAVABASE "/usr/local/openjdk8"
+#define STANDARD_JAVABASE "/usr/local/openjdk21"
 #elif defined(__OpenBSD__)
 #define STANDARD_JAVABASE "/usr/local/jdk-21"
 #else

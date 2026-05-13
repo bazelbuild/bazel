@@ -623,8 +623,8 @@ public final class SimpleLogHandler extends Handler {
           if (!val.isEmpty()) {
             try {
               return (Formatter)
-                  ClassLoader.getSystemClassLoader()
-                      .loadClass(val)
+                  Class.forName(val, true, SimpleLogHandler.class.getClassLoader())
+                      .asSubclass(Formatter.class)
                       .getDeclaredConstructor()
                       .newInstance();
             } catch (ReflectiveOperationException e) {

@@ -23,8 +23,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 /** Tracks per-invocation extreme package loading events. */
 public class PackageMetricsPackageLoadingListener implements PackageLoadingListener {
 
-  @GuardedBy("this")
-  private PackageMetricsRecorder recorder;
+  private volatile PackageMetricsRecorder recorder;
 
   private boolean publishPackageMetricsInBep = false;
 
@@ -43,12 +42,13 @@ public class PackageMetricsPackageLoadingListener implements PackageLoadingListe
   }
 
   @Override
-  public synchronized void onLoadingCompleteAndSuccessful(
+  public void onLoadingCompleteAndSuccessful(
       Package pkg,
       StarlarkSemantics starlarkSemantics,
       LazyMacroExpansionPackages lazyMacroExpansionPackages,
       Metrics metrics) {
-    if (recorder == null) {
+    PackageMetricsRecorder currentRecorder = recorder;
+    if (currentRecorder == null) {
       // Micro-optimization - no need to track.
       return;
     }
@@ -65,11 +65,11 @@ public class PackageMetricsPackageLoadingListener implements PackageLoadingListe
       builder.setPackageOverhead(pkg.getPackageOverhead().getAsLong());
     }
 
-    recorder.recordMetrics(pkg.getPackageIdentifier(), builder.build());
+    currentRecorder.recordMetrics(pkg.getPackageIdentifier(), builder.build());
   }
 
   /** Set the PackageMetricsRecorder for this listener. */
-  public synchronized void setPackageMetricsRecorder(PackageMetricsRecorder recorder) {
+  public void setPackageMetricsRecorder(PackageMetricsRecorder recorder) {
     this.recorder = recorder;
   }
 
@@ -82,7 +82,7 @@ public class PackageMetricsPackageLoadingListener implements PackageLoadingListe
   }
 
   /** Returns the PackageMetricsRecorder, if any, for the PackageLoadingListener. */
-  public synchronized PackageMetricsRecorder getPackageMetricsRecorder() {
+  public PackageMetricsRecorder getPackageMetricsRecorder() {
     return recorder;
   }
 }

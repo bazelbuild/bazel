@@ -148,6 +148,12 @@ public class RuleContext extends TargetContext
      * not depend on packages that are experimental.
      */
     public abstract boolean packageUnderExperimental(PackageIdentifier packageIdentifier);
+
+    /**
+     * Returns whether a package is considered to be in the prototypes directory. Packages outside
+     * of prototypes may not depend on packages that are in prototypes.
+     */
+    public abstract boolean packageUnderPrototypes(PackageIdentifier packageIdentifier);
   }
 
   public static final String TOOLCHAIN_ATTR_NAME = "$toolchain";

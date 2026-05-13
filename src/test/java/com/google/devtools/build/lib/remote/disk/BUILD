@@ -16,9 +16,6 @@ filegroup(
 java_test(
     name = "disk",
     srcs = glob(["*.java"]),
-    jvm_flags = [
-        "-Djava.lang.Thread.allowVirtualThreads=true",
-    ],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         "//src/main/java/com/google/devtools/build/lib/remote:store",

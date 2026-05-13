@@ -76,8 +76,8 @@ java_test(
     ],
 )
 
-java_test(
-    name = "BuildEventServiceTransportGrpcTest",
+java_library(
+    name = "BuildEventServiceTransportGrpcTestLib",
     srcs = ["BuildEventServiceTransportGrpcTest.java"],
     deps = [
         ":AbstractBuildEventServiceTransportTest",
@@ -92,6 +92,14 @@ java_test(
         "@com_google_protobuf//:protobuf_java",
         "@googleapis//google/devtools/build/v1:build_java_grpc",
         "@googleapis//google/devtools/build/v1:build_java_proto",
+    ],
+)
+
+java_test(
+    name = "BuildEventServiceTransportGrpcTest",
+    test_class = "com.google.devtools.build.lib.buildeventservice.BuildEventServiceTransportGrpcTest",
+    runtime_deps = [
+        ":BuildEventServiceTransportGrpcTestLib",
     ],
 )
 
@@ -121,6 +129,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/runtime:no_spawn_cache_module",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
+        "//src/main/java/com/google/devtools/common/options:options_internal",
         "//src/main/protobuf:command_line_java_proto",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",

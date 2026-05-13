@@ -32,6 +32,6 @@ public class BlazeServerStartupOptionsTest {
         OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
     parser.parse();
     BlazeServerStartupOptions result = parser.getOptions(BlazeServerStartupOptions.class);
-    assertThat(result.outputBase).isNull();
+    assertThat(result.getOutputBase()).isNull();
   }
 }

@@ -87,7 +87,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       BuildConfigurationValue configuration) {
     boolean alwaysSucceed =
-        configuration.getOptions().get(CoreOptions.class).debugSelectsAlwaysSucceed;
+        configuration.getOptions().get(CoreOptions.class).getDebugSelectsAlwaysSucceed();
     return of(rule, configConditions, configuration.shortId(), alwaysSucceed);
   }
 

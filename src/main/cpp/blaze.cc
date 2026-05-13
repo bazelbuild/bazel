@@ -40,6 +40,7 @@
 #include <string.h>
 
 #include <chrono>  // NOLINT (gRPC requires this)
+#include <climits>
 #include <map>
 #include <memory>
 #include <mutex>  // NOLINT
@@ -194,6 +195,13 @@ static const char *ReasonString(RestartReason reason) {
       << "unknown RestartReason (" << reason << ").";
   // Cannot actually reach this, but it makes the compiler happy.
   return "unknown";
+}
+
+// Determines the maximum import depth for rc files based on the environment.
+static int SelectMaxImportDepth() {
+  return ExistsEnv("BAZEL_UNLIMITED_IMPORT_DEPTH")
+             ? INT_MAX
+             : OptionProcessor::MaxImportDepth;
 }
 
 class BlazeServer final {
@@ -379,7 +387,9 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   // 11, so this option is known to be supported.
   result.push_back("--add-opens=java.base/java.lang=ALL-UNNAMED");
 
-  result.push_back("-Xverify:none");
+  result.push_back("-XX:+UnlockDiagnosticVMOptions");
+  result.push_back("-XX:-BytecodeVerificationLocal");
+  result.push_back("-XX:-BytecodeVerificationRemote");
 
   vector<string> user_options = startup_options.host_jvm_args;
 
@@ -437,6 +447,9 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   // protobuf.
   // TODO: Drop this when protobuf uses VarHandle.
   result.push_back("-Dsun.misc.unsafe.memory.access=allow");
+
+  // Let the system decide whether to prefer IPv6
+  result.push_back("-Djava.net.preferIPv6Addresses=system");
 
 #if defined(_WIN32)
   // See and use more than 64 CPUs on Windows.
@@ -1242,13 +1255,14 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
 }
 
 // Parse the options.
-static void ParseOptionsOrDie(const string &cwd, const string &workspace,
-                              OptionProcessor &option_processor, int argc,
-                              const char *const *argv) {
+static void ParseOptionsOrDie(const string& cwd, const string& workspace,
+                              OptionProcessor& option_processor, int argc,
+                              const char* const* argv, int max_import_depth) {
   std::string error;
   std::vector<std::string> args(argv, argv + argc);
   const blaze_exit_code::ExitCode parse_exit_code =
-      option_processor.ParseOptions(args, workspace, cwd, &error);
+      option_processor.ParseOptions(args, workspace, cwd, &error,
+                                    max_import_depth);
 
   if (parse_exit_code != blaze_exit_code::SUCCESS) {
     option_processor.PrintStartupOptionsProvenanceMessage();
@@ -1639,9 +1653,10 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   if (blaze::IsRunningWithinTest()) {
     BAZEL_LOG(USER) << "$TEST_TMPDIR defined, some defaults will be overridden";
   }
-
+  int max_import_depth = blaze::SelectMaxImportDepth();
   const string workspace = workspace_layout->GetWorkspace(cwd);
-  ParseOptionsOrDie(cwd, workspace, *option_processor, argc, argv);
+  ParseOptionsOrDie(cwd, workspace, *option_processor, argc, argv,
+                    max_import_depth);
   StartupOptions *startup_options = option_processor->GetParsedStartupOptions();
   startup_options->MaybeLogStartupOptionWarnings();
 

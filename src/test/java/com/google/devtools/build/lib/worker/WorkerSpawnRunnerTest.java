@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
+import com.google.devtools.common.options.Options;
 import java.io.IOException;
 import java.util.Optional;
 import java.util.concurrent.Semaphore;
@@ -111,7 +112,7 @@ public class WorkerSpawnRunnerTest {
 
   @Test
   public void testExecInWorker_happyPath() throws Exception {
-    WorkerSpawnRunner runner = createWorkerSpawnRunner(new WorkerOptions());
+    WorkerSpawnRunner runner = createWorkerSpawnRunner(Options.getDefaults(WorkerOptions.class));
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
     when(worker.getResponse(0))
@@ -152,7 +153,7 @@ public class WorkerSpawnRunnerTest {
             /* binTools= */ null,
             resourceManager,
             /* runfilesTreeUpdater= */ null,
-            new WorkerOptions(),
+            Options.getDefaults(WorkerOptions.class),
             metricsCollector,
             new JavaClock());
     WorkerKey key = createWorkerKey(fs, "mnem", false);
@@ -196,7 +197,7 @@ public class WorkerSpawnRunnerTest {
 
   @Test
   public void testExecInWorker_finishesAsyncOnInterrupt() throws Exception {
-    WorkerSpawnRunner runner = createWorkerSpawnRunner(new WorkerOptions());
+    WorkerSpawnRunner runner = createWorkerSpawnRunner(Options.getDefaults(WorkerOptions.class));
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
     InterruptedException interruptedException = new InterruptedException();
@@ -224,9 +225,9 @@ public class WorkerSpawnRunnerTest {
 
   @Test
   public void testExecInWorker_sendsCancelMessageOnInterrupt() throws Exception {
-    WorkerOptions workerOptions = new WorkerOptions();
-    workerOptions.workerCancellation = true;
-    workerOptions.workerSandboxing = true;
+    WorkerOptions workerOptions = Options.getDefaults(WorkerOptions.class);
+    workerOptions.setWorkerCancellation(true);
+    workerOptions.setWorkerSandboxing(true);
     when(spawn.getExecutionInfo())
         .thenReturn(ImmutableMap.of(ExecutionRequirements.SUPPORTS_WORKER_CANCELLATION, "1"));
     when(worker.isSandboxed()).thenReturn(true);
@@ -275,9 +276,9 @@ public class WorkerSpawnRunnerTest {
 
   @Test
   public void testExecInWorker_unsandboxedDiesOnInterrupt() throws Exception {
-    WorkerOptions workerOptions = new WorkerOptions();
-    workerOptions.workerCancellation = true;
-    workerOptions.workerSandboxing = false;
+    WorkerOptions workerOptions = Options.getDefaults(WorkerOptions.class);
+    workerOptions.setWorkerCancellation(true);
+    workerOptions.setWorkerSandboxing(false);
     when(spawn.getExecutionInfo())
         .thenReturn(ImmutableMap.of(ExecutionRequirements.SUPPORTS_WORKER_CANCELLATION, "1"));
     WorkerSpawnRunner runner = createWorkerSpawnRunner(workerOptions);
@@ -311,8 +312,8 @@ public class WorkerSpawnRunnerTest {
 
   @Test
   public void testExecInWorker_noMultiplexWithDynamic() throws Exception {
-    WorkerOptions workerOptions = new WorkerOptions();
-    workerOptions.workerMultiplex = true;
+    WorkerOptions workerOptions = Options.getDefaults(WorkerOptions.class);
+    workerOptions.setWorkerMultiplex(true);
     WorkerSpawnRunner runner = createWorkerSpawnRunner(workerOptions);
     // This worker key just so happens to be multiplex and require sandboxing.
     WorkerKey key = createWorkerKey(WorkerProtocolFormat.JSON, fs, true);
@@ -344,7 +345,7 @@ public class WorkerSpawnRunnerTest {
 
   private void assertRecordedResponsethrowsException(String recordedResponse, String exceptionText)
       throws Exception {
-    WorkerOptions workerOptions = new WorkerOptions();
+    WorkerOptions workerOptions = Options.getDefaults(WorkerOptions.class);
     WorkerSpawnRunner runner = createWorkerSpawnRunner(workerOptions);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
@@ -449,7 +450,7 @@ public class WorkerSpawnRunnerTest {
 
   @Test
   public void testCanExec_checksRequirements() throws Exception {
-    WorkerOptions workerOptions = new WorkerOptions();
+    WorkerOptions workerOptions = Options.getDefaults(WorkerOptions.class);
     WorkerSpawnRunner runner = createWorkerSpawnRunner(workerOptions);
     when(spawn.getMnemonic()).thenReturn("Mnemonic");
 
@@ -479,7 +480,7 @@ public class WorkerSpawnRunnerTest {
 
   @Test
   public void testCanExec_obeysAllowlist() throws Exception {
-    WorkerOptions workerOptions = new WorkerOptions();
+    WorkerOptions workerOptions = Options.getDefaults(WorkerOptions.class);
     WorkerSpawnRunner runner = createWorkerSpawnRunner(workerOptions);
     when(spawn.getMnemonic()).thenReturn("Mnemonic");
     NestedSet<ActionInput> toolFiles =
@@ -500,7 +501,7 @@ public class WorkerSpawnRunnerTest {
                 "WKM2"));
     assertThat(runner.canExec(spawn)).isTrue();
 
-    workerOptions.allowlist = ImmutableList.of("WKM1", "Mnemonic");
+    workerOptions.setAllowlist(ImmutableList.of("WKM1", "Mnemonic"));
 
     // Blocked by allowlist
     when(spawn.getExecutionInfo())

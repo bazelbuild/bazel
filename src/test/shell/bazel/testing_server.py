@@ -45,6 +45,15 @@ class TCPServerV6(TCPServer):
   address_family = socket.AF_INET6
 
 
+class TCPServerDualStack(TCPServer):
+  address_family = socket.AF_INET6
+
+  def server_bind(self):
+    # Disable IPV6_V6ONLY to allow IPv4 connections
+    self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+    super().server_bind()
+
+
 class Handler(BaseHTTPRequestHandler):
   """Handlers for testing HTTP server."""
   auth = False
@@ -156,8 +165,10 @@ def main(argv):
     while port is None:
       try:
         port = random.randrange(32760, 59760)
-        if sys.platform == 'darwin':
-          httpd = TCPServerV6(('', port), Handler)
+        if socket.has_dualstack_ipv6():
+          httpd = TCPServerDualStack(('::', port), Handler)
+        elif socket.has_ipv6:
+          httpd = TCPServerV6(('::', port), Handler)
         else:
           httpd = TCPServer(('', port), Handler)
       except socket.error:

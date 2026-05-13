@@ -27,7 +27,7 @@ Requirements for an output directory layout:
 The solution that's currently implemented:
 
 * Bazel must be invoked from a directory containing a repository boundary file,
-or a subdirectory thereof. In other words, Bazel must be invoked from inside a
+  or a subdirectory thereof. In other words, Bazel must be invoked from inside a
   [repository](../external/overview#repository). Otherwise, an error is
   reported.
 * The _outputRoot_ directory defaults to ~/.cache/bazel on Linux,
@@ -38,8 +38,8 @@ or a subdirectory thereof. In other words, Bazel must be invoked from inside a
   is set on either Linux or macOS, the value `${XDG_CACHE_HOME}/bazel` will
   override the default. If the environment variable `$TEST_TMPDIR` is set,
   as in a test of Bazel itself, then that value overrides any defaults.
-  * Note that Bazel 8.x and earlier on macOS used `/private/var/tmp` as _outputR
-  oot_,and ignored `$XDG_CACHE_HOME`.
+  * Note that Bazel 8.x and earlier on macOS used `/private/var/tmp
+  ` as _outputRoot_,and ignored `$XDG_CACHE_HOME`.
 * The Bazel user's build state is located beneath `outputRoot/_bazel_$USER`.
   This is called the _outputUserRoot_ directory.
 * Beneath the `outputUserRoot` directory there is an `install` directory, and in
@@ -81,9 +81,12 @@ The directories are laid out as follows:
                                               outputUserRoot
     install/
       fba9a2c87ee9589d72889caf082f1029/   <== Hash of the Bazel install manifest: installBase
-        _embedded_binaries/               <== Contains binaries and scripts unpacked from the data section of
-                                              the bazel executable on first run (such as helper scripts and the
-                                              main Java file BazelServer_deploy.jar)
+        A-server.jar                      <== The main Bazel server Java application, unpacked
+                                              from the data section of the bazel executable on first run.
+        linux-sandbox                     <== Sandboxing helper binary (platform-specific).
+        process-wrapper                   <== Process wrapper binary for action execution.
+        embedded_tools/                   <== Contains the bundled JDK, build tool sources,
+                                              and other resources needed by the server.
     7ffd56a6e4cb724ea575aba15733d113/     <== Hash of the client's workspace root (such as
                                               /home/user/src/my-project): outputBase
       action_cache/                       <== Action cache directory hierarchy
@@ -94,8 +97,9 @@ The directories are laid out as follows:
                                               recent bazel command.
       external/                           <== The directory that remote repositories are
                                               downloaded/symlinked into.
-      server/                             <== The Bazel server puts all server-related files (such
-                                              as socket file, logs, etc) here.
+      server/                             <== The Bazel server puts all server-related files here
+                                              (such as the server PID, the TCP command port,
+                                              request/response cookies, and JVM logs).
         jvm.out                           <== The debugging output for the server.
       execroot/                           <== The working directory for all actions. For special
                                               cases such as sandboxing and remote execution, the
@@ -111,8 +115,11 @@ The directories are laid out as follows:
             _tmp/actions/                 <== Action output directory. This contains a file with the
                                               stdout/stderr for every action from the most recent
                                               bazel run that produced output.
-            local_linux-fastbuild/        <== one subdirectory per unique target BuildConfiguration instance;
-                                              this is currently encoded
+            k8-fastbuild/                 <== One subdirectory per unique target BuildConfiguration instance;
+                                              named by a mnemonic encoding the CPU and compilation mode
+                                              (such as k8-fastbuild, k8-opt, or k8-dbg). Configurations
+                                              with Starlark transitions append an ST-hash suffix
+                                              (such as k8-fastbuild-ST-abc123).
               bin/                        <== Bazel outputs binaries for target configuration here: $(BINDIR)
                 foo/bar/_objs/baz/        <== Object files for a cc_* rule named //foo/bar:baz
                   foo/bar/baz1.o          <== Object files from source //foo/bar:baz1.cc
@@ -123,16 +130,13 @@ The directories are laid out as follows:
                   MANIFEST
                   _main/
                     ...
-              genfiles/                   <== Bazel puts generated source for the target configuration here:
-                                              $(GENDIR)
-                foo/bar.h                     such as foo/bar.h might be a headerfile generated by //foo:bargen
               testlogs/                   <== Bazel internal test runner puts test log files here
                 foo/bartest.log               such as foo/bar.log might be an output of the //foo:bartest test with
                 foo/bartest.status            foo/bartest.status containing exit status of the test (such as
                                               PASSED or FAILED (Exit 1), etc)
-            host/                         <== BuildConfiguration for build host (user's workstation), for
-                                              building prerequisite tools, that will be used in later stages
-                                              of the build (ex: Protocol Compiler)
+            k8-opt-exec/                  <== BuildConfiguration for the exec platform, used for
+                                              building prerequisite tools (such as the Protocol Compiler)
+                                              that will be used in later stages of the build.
         &lt;packages&gt;/                       <== Packages referenced in the build appear as if under a regular workspace
 </pre>
 
@@ -140,6 +144,7 @@ The layout of the \*.runfiles directories is documented in more detail in the pl
 
 ## `bazel clean`
 
-`bazel clean` does an `rm -rf` on the `outputPath` and the `action_cache`
-directory. It also removes the workspace symlinks. The `--expunge` option
-will clean the entire outputBase.
+`bazel clean` clears the on-disk action cache and then removes the entire
+`execroot` directory (which contains the symlink forest and all build
+outputs). It also removes the convenience symlinks from the workspace
+directory. The `--expunge` option will clean the entire outputBase.

@@ -14,7 +14,6 @@ filegroup(
 java_library(
     name = "unix_file_system",
     srcs = [
-        "InvalidArgumentIOException.java",
         "UnixFileStatus.java",
         "UnixFileSystem.java",
     ],
@@ -43,11 +42,12 @@ java_library(
 
 java_library(
     name = "native_posix_files_service",
-    srcs = [
-        "InvalidArgumentIOException.java",
-        "NativePosixFilesService.java",
+    srcs = ["NativePosixFilesService.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+        "//third_party:jsr305",
     ],
-    deps = ["//src/main/java/com/google/devtools/build/lib/runtime:blaze_service"],
 )
 
 java_library(
@@ -57,6 +57,7 @@ java_library(
         ":native_posix_files_service",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/jni",
+        "//third_party:jsr305",
     ],
 )
 
@@ -71,6 +72,7 @@ java_library(
     srcs = ["ProcessUtilsService.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
     ],
 )
 
@@ -80,6 +82,7 @@ java_library(
     deps = [
         ":process_utils_service",
         "//src/main/java/com/google/devtools/build/lib/jni",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/common/options",
     ],

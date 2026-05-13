@@ -296,6 +296,54 @@ public class UiStateTrackerTest extends FoundationTestCase {
   }
 
   @Test
+  public void testLargeTargetCountFormattedWithCommas() throws IOException {
+    // Verify that large target counts in "Analyzing: X targets" are formatted with comma
+    // separators.
+    ManualClock clock = new ManualClock();
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+
+    ImmutableSet.Builder<Label> labelsBuilder = ImmutableSet.builder();
+    for (int i = 0; i < 12345; i++) {
+      labelsBuilder.add(Label.parseCanonicalUnchecked("//pkg:target" + i));
+    }
+    ImmutableSet<Label> labels = labelsBuilder.build();
+
+    stateTracker.loadingComplete(
+        new LoadingPhaseCompleteEvent(labels, ImmutableSet.of(), RepositoryMapping.EMPTY));
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    String output = terminalWriter.getTranscript();
+
+    assertThat(output).contains("Analyzing:");
+    assertThat(output).contains("12,345 targets");
+  }
+
+  @Test
+  public void testSmallTargetCountNotFormattedWithCommas() throws IOException {
+    // Verify that target counts below 10,000 (IEEE style threshold) are NOT formatted with commas.
+    ManualClock clock = new ManualClock();
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+
+    ImmutableSet.Builder<Label> labelsBuilder = ImmutableSet.builder();
+    for (int i = 0; i < 1234; i++) {
+      labelsBuilder.add(Label.parseCanonicalUnchecked("//pkg:target" + i));
+    }
+    ImmutableSet<Label> labels = labelsBuilder.build();
+
+    stateTracker.loadingComplete(
+        new LoadingPhaseCompleteEvent(labels, ImmutableSet.of(), RepositoryMapping.EMPTY));
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    String output = terminalWriter.getTranscript();
+
+    assertThat(output).contains("Analyzing:");
+    assertThat(output).contains("1234 targets");
+    assertThat(output).doesNotContain("1,234 targets");
+  }
+
+  @Test
   public void testActionVisible() throws IOException {
     // If there is only one action running, it should be visible
     // somewhere in the progress bar, and also the short version thereof.

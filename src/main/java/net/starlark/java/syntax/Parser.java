@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -690,8 +691,7 @@ final class Parser {
     switch (token.kind) {
       case INT:
         {
-          IntLiteral literal =
-              new IntLiteral(locs, token.getRaw(), token.start, (Number) token.value);
+          IntLiteral literal = new IntLiteral(locs, token.start, token.end, (Number) token.value);
           nextToken();
           return literal;
         }
@@ -699,7 +699,7 @@ final class Parser {
       case FLOAT:
         {
           FloatLiteral literal =
-              new FloatLiteral(locs, token.getRaw(), token.start, (double) token.value);
+              new FloatLiteral(locs, token.start, token.end, (double) token.value);
           nextToken();
           return literal;
         }
@@ -757,12 +757,38 @@ final class Parser {
         }
 
       case MINUS:
+        {
+          int offset = nextToken();
+          Expression x = parsePrimaryWithSuffix();
+
+          // Optimize int and float literals to contain the negative value directly
+          // instead of being wrapped in a UnaryOperatorExpression
+          if (x instanceof IntLiteral intLiteral) {
+            Number negatedValue =
+                switch (intLiteral.getValue()) {
+                  case Integer intValue -> narrowNumberType(-(long) intValue);
+                  case Long longValue -> narrowNumberType(BigInteger.valueOf(longValue).negate());
+                  case BigInteger bigIntegerValue -> narrowNumberType(bigIntegerValue.negate());
+                  default ->
+                      throw new IllegalStateException(
+                          "int literal does not contain an Integer, Long or BigInteger");
+                };
+            return new IntLiteral(locs, offset, intLiteral.getEndOffset(), negatedValue);
+          } else if (x instanceof FloatLiteral floatLiteral) {
+            return new FloatLiteral(
+                locs, offset, floatLiteral.getEndOffset(), -floatLiteral.getValue());
+          }
+
+          return new UnaryOperatorExpression(locs, TokenKind.MINUS, offset, x);
+        }
+
       case PLUS:
       case TILDE:
         {
           TokenKind op = token.kind;
           int offset = nextToken();
           Expression x = parsePrimaryWithSuffix();
+
           return new UnaryOperatorExpression(locs, op, offset, x);
         }
 
@@ -787,6 +813,26 @@ final class Parser {
           int end = syncTo(EXPR_TERMINATOR_SET);
           return makeErrorExpression(start, end);
         }
+    }
+  }
+
+  /** Narrows a long to an int if possible. */
+  private static Number narrowNumberType(long value) {
+    if (value == (int) value) {
+      return (int) value;
+    } else {
+      return value;
+    }
+  }
+
+  /** Narrows a BigInteger to an int or long if possible. */
+  private static Number narrowNumberType(BigInteger value) {
+    if (value.bitLength() >= 64) {
+      return value;
+    } else if (value.bitLength() >= 32) {
+      return value.longValueExact();
+    } else {
+      return value.intValueExact();
     }
   }
 
@@ -1175,7 +1221,15 @@ final class Parser {
 
   // TypeEntry = string ':' TypeArgument .
   private DictExpression.Entry parseTypeDictEntry() {
-    Expression key = parseStringLiteral();
+    Expression key;
+    if (token.kind == TokenKind.STRING) {
+      key = parseStringLiteral();
+    } else {
+      int start = token.start;
+      syntaxError(String.format("expected %s", TokenKind.STRING));
+      int end = syncTo(EXPR_TERMINATOR_SET);
+      key = makeErrorExpression(start, end);
+    }
     int colonOffset = expect(TokenKind.COLON);
     Expression value = parseTypeArgument();
     return new DictExpression.Entry(locs, key, colonOffset, value);

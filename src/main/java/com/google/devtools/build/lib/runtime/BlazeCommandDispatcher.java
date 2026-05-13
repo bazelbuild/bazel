@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.util.io.DelegatingOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.ConstructionException;
 import com.google.devtools.common.options.OpaqueOptionsData;
 import com.google.devtools.common.options.OptionAndRawValue;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
@@ -389,12 +390,12 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
     boolean tracerEnabled = false;
-    if (commonOptions.enableTracer == TriState.YES) {
+    if (commonOptions.getEnableTracer() == TriState.YES) {
       tracerEnabled = true;
-    } else if (commonOptions.enableTracer == TriState.AUTO) {
+    } else if (commonOptions.getEnableTracer() == TriState.AUTO) {
       boolean commandSupportsProfile =
           commandName.equals("query") || commandAnnotation.buildPhase().analyzes();
-      tracerEnabled = commandSupportsProfile || commonOptions.profilePath != null;
+      tracerEnabled = commandSupportsProfile || commonOptions.getProfilePath() != null;
     }
 
     // TODO(ulfjack): Move the profiler initialization as early in the startup sequence as possible.
@@ -413,7 +414,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
     // Enable Starlark CPU profiling (--starlark_cpu_profile=/tmp/foo.pprof.gz)
     boolean success = false;
-    if (!commonOptions.starlarkCpuProfile.isEmpty()) {
+    if (!commonOptions.getStarlarkCpuProfile().isEmpty()) {
       OutputStream out;
       try {
         InstrumentationOutput starlarkCpuProfile =
@@ -421,7 +422,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                 .getInstrumentationOutputFactory()
                 .createInstrumentationOutput(
                     /* name= */ "starlarkCpuProfile",
-                    PathFragment.create(commonOptions.starlarkCpuProfile),
+                    PathFragment.create(commonOptions.getStarlarkCpuProfile()),
                     DestinationRelativeTo.WORKING_DIRECTORY_OR_HOME,
                     env,
                     storedEventHandler,
@@ -513,11 +514,11 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           outErr = bufferErr(outErr);
         }
 
-        DebugLoggerConfigurator.setupLogging(commonOptions.verbosity);
+        DebugLoggerConfigurator.setupLogging(commonOptions.getVerbosity());
 
         boolean newStatsSummary =
             options.getOptions(ExecutionOptions.class) != null
-                && options.getOptions(ExecutionOptions.class).statsSummary;
+                && options.getOptions(ExecutionOptions.class).getStatsSummary();
         UiEventHandler handler =
             createEventHandler(outErr, eventHandlerOptions, quiet, env, newStatsSummary);
         env.setUiEventHandler(handler);
@@ -545,7 +546,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       }
 
       try (SilentCloseable closeable = Profiler.instance().profile("announce rc options")) {
-        if (commonOptions.announceRcOptions) {
+        if (commonOptions.getAnnounceRcOptions()) {
           if (startupOptionsTaggedWithBazelRc.isPresent()) {
             String lastBlazerc = "";
             List<String> accumulatedStartupOptions = new ArrayList<>();
@@ -638,7 +639,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           // Collect MODULE.bazel flag_alias(name = "foo", starlark_flag = "//bar") entries, so when
           // builds set "--foo=1", that maps to "--//bar=1". Inject this as an implicit
           // "--flag_alias=foo=//bar" flag. This is because select()s and configuration transitions
-          // really on that flag (CoreOptions.commandLineFlagAliases) to properly handle aliases.
+          // really on that flag (CoreOptions.getCommandLineFlagAliases()) to properly handle
+          // aliases.
           optionsParser.parse(
               PriorityCategory.RC_FILE,
               "module resolution",
@@ -704,7 +706,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           env.getOptions().getOptions(BuildEventProtocolOptions.class) != null
               && env.getOptions()
                   .getOptions(BuildEventProtocolOptions.class)
-                  .includeResidueInRunBepEvent;
+                  .getIncludeResidueInRunBepEvent();
       // Log the command line now that the modules have all had a change to register their listeners
       // to the event bus, and the flags have been re-parsed.
       CommandLineEvent originalCommandLineEvent =
@@ -715,8 +717,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               options.getResidue(),
               includeResidueInRunBepEvent,
               options.asListOfExplicitOptions(),
-              options.getExplicitStarlarkOptions(
-                  CommandLineEvent.OriginalCommandLineEvent::commandLinePriority),
+              options.getExplicitCommandLineStarlarkOptions(),
+              options.getStarlarkOptionsAllowingMultiple(),
               startupOptionsTaggedWithBazelRc);
       CommandLineEvent canonicalCommandLineEvent =
           new CommandLineEvent.CanonicalCommandLineEvent(
@@ -725,9 +727,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               commandName,
               options.getResidue(),
               includeResidueInRunBepEvent,
-              options.getExplicitStarlarkOptions(
-                  CommandLineEvent.OriginalCommandLineEvent::commandLinePriority),
+              options.getExplicitCommandLineStarlarkOptions(),
               options.getStarlarkOptions(),
+              options.getStarlarkOptionsAllowingMultiple(),
               options.asListOfCanonicalOptions(),
               // If this is a command that analyzes with BuildTool, PROJECT.scl might set extra
               // canonical flags. In that case give BuildTool a chance to post a final updated
@@ -746,7 +748,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       env.getEventBus().post(unstructuredServerCommandLineEvent);
       env.getEventBus().post(originalCommandLineEvent);
       env.getEventBus().post(canonicalCommandLineEvent);
-      env.getEventBus().post(commonOptions.toolCommandLine);
+      env.getEventBus().post(commonOptions.getToolCommandLine());
 
       // Run the command.
       result = command.exec(env, options);
@@ -758,7 +760,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       }
 
       // Finalize the Starlark CPU profile.
-      if (!commonOptions.starlarkCpuProfile.isEmpty() && success) {
+      if (!commonOptions.getStarlarkCpuProfile().isEmpty() && success) {
         try {
           Starlark.stopCpuProfile();
         } catch (IOException ex) {
@@ -777,7 +779,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       if (newResult.getExitCode().equals(ExitCode.REMOTE_CACHE_EVICTED)) {
         var executionOptions =
             Preconditions.checkNotNull(options.getOptions(ExecutionOptions.class));
-        if (attemptedCommandIds.size() < executionOptions.remoteRetryOnTransientCacheError) {
+        if (attemptedCommandIds.size() < executionOptions.getRemoteRetryOnTransientCacheError()) {
           throw new RemoteCacheTransientErrorException(env.getBuildRequestId(), env.getCommandId());
         }
       }
@@ -931,8 +933,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
    * <p>An overriding method should first call this method and can then override default values
    * directly or by calling {@link BlazeOptionHandler#parseOptions} for command-specific options.
    */
-  private OptionsParser createOptionsParser(BlazeCommand command)
-      throws OptionsParser.ConstructionException {
+  private OptionsParser createOptionsParser(BlazeCommand command) throws ConstructionException {
     OpaqueOptionsData optionsData;
     optionsData = optionsDataCache.get(command);
     Command annotation = command.getClass().getAnnotation(Command.class);

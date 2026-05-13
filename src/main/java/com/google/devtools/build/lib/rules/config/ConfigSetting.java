@@ -68,8 +68,8 @@ import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.config.ConfigRuleClasses.ConfigSettingRule;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.common.options.FieldOptionDefinition;
 import com.google.devtools.common.options.IsolatedOptionsData;
+import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
@@ -195,10 +195,10 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
             .getConfiguration()
             .getOptions()
             .get(CoreOptions.class)
-            .getCommandLineFlagAliases();
+            .getCommandLineFlagAliasesMap();
 
     // Partition expected "--foo" settings (native flag style) by whether they're flag aliases.
-    var nativeValuesParitionedByAlias =
+    var nativeValuesPartitionedByAlias =
         nativeValueAttributes.entries().stream()
             .collect(
                 Collectors.partitioningBy(
@@ -208,7 +208,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
     var nativeFlagSettings =
         ImmutableMultimap.copyOf(
             (ListMultimap<String, String>)
-                nativeValuesParitionedByAlias.get(false).stream()
+                nativeValuesPartitionedByAlias.get(false).stream()
                     .collect(
                         toMultimap(
                             Map.Entry::getKey,
@@ -220,7 +220,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
     userDefinedFlagSettings.putAll(
         attributes.get(
             ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE, BuildType.LABEL_KEYED_STRING_DICT));
-    for (var flagAlias : nativeValuesParitionedByAlias.get(true)) {
+    for (var flagAlias : nativeValuesPartitionedByAlias.get(true)) {
       Label userDefinedFlag = commandLineFlagAliases.get(flagAlias.getKey());
       String aliasValue = flagAlias.getValue();
       String flagSettingsAttributeValue = userDefinedFlagSettings.get(userDefinedFlag);
@@ -429,7 +429,11 @@ Either remove one of these settings or ensure they match the same value.
       String expectedRawValue) {
 
     ImmutableList<String> disabledSelectOptions =
-        ruleContext.getConfiguration().getOptions().get(CoreOptions.class).disabledSelectOptions;
+        ruleContext
+            .getConfiguration()
+            .getOptions()
+            .get(CoreOptions.class)
+            .getDisabledSelectOptions();
     if (disabledSelectOptions.contains(optionName) || options.isNonConfigurable(optionName)) {
       String message = PARSE_ERROR_MESSAGE + "select() on '%s' is not allowed.";
       if (DEPRECATED_PRE_PLATFORMS_FLAGS.contains(optionName)) {
@@ -490,7 +494,7 @@ Either remove one of these settings or ensure they match the same value.
   // configuration has been trimmed.
   private static boolean isTestOption(String optionName) {
     return IsolatedOptionsData.getAllOptionDefinitionsForClass(TestOptions.class).stream()
-        .map(FieldOptionDefinition::getOptionName)
+        .map(OptionDefinition::getOptionName)
         .anyMatch(name -> name.equals(optionName));
   }
 

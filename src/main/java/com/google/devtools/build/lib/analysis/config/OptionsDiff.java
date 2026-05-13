@@ -27,7 +27,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.common.options.OptionDefinition;
-import com.google.devtools.common.options.OptionsParser;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -74,11 +73,11 @@ public final class OptionsDiff {
     // other.
     ImmutableSet<Class<? extends FragmentOptions>> firstOptionClasses =
         first.getNativeOptions().stream()
-            .map(FragmentOptions::getClass)
+            .map(FragmentOptions::getOptionsClass)
             .collect(ImmutableSet.toImmutableSet());
     ImmutableSet<Class<? extends FragmentOptions>> secondOptionClasses =
         second.getNativeOptions().stream()
-            .map(FragmentOptions::getClass)
+            .map(FragmentOptions::getOptionsClass)
             .collect(ImmutableSet.toImmutableSet());
     Sets.difference(firstOptionClasses, secondOptionClasses).forEach(diff::addExtraFirstFragment);
     Sets.difference(secondOptionClasses, firstOptionClasses).stream()
@@ -94,9 +93,9 @@ public final class OptionsDiff {
       if (firstOptions == secondOptions) {
         continue;
       }
-      for (OptionDefinition definition : OptionsParser.getOptionDefinitions(clazz)) {
-        Object firstValue = firstOptions.getValueFromDefinition(definition);
-        Object secondValue = secondOptions.getValueFromDefinition(definition);
+      for (OptionDefinition definition : OptionDefinition.getOptionDefinitions(clazz)) {
+        Object firstValue = definition.getValue(firstOptions);
+        Object secondValue = definition.getValue(secondOptions);
         if (!Objects.equals(firstValue, secondValue)) {
           diff.addDiff(clazz, definition, firstValue, secondValue);
         }

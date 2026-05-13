@@ -18,26 +18,36 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.CommandProtos.PathToReplace;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
+import javax.annotation.Nullable;
 
 /** Helpers for constructing {@link ExecRequest}s. */
 public class PathToReplaceUtils {
 
   /** Returns the common required {@link PathToReplace} list. */
   public static ImmutableList<PathToReplace> getPathsToReplace(CommandEnvironment env) {
-    return ImmutableList.of(
-        PathToReplace.newBuilder()
-            .setType(PathToReplace.Type.OUTPUT_BASE)
-            .setValue(bytes(env.getOutputBase().getPathString()))
-            .build(),
-        PathToReplace.newBuilder()
-            .setType(PathToReplace.Type.BUILD_WORKING_DIRECTORY)
-            .setValue(bytes(env.getWorkingDirectory().getPathString()))
-            .build(),
-        PathToReplace.newBuilder()
-            .setType(PathToReplace.Type.BUILD_WORKSPACE_DIRECTORY)
-            .setValue(bytes(env.getWorkspace().getPathString()))
-            .build());
+    ImmutableList.Builder<PathToReplace> pathsToReplace = ImmutableList.builder();
+    pathsToReplace
+        .add(
+            PathToReplace.newBuilder()
+                .setType(PathToReplace.Type.OUTPUT_BASE)
+                .setValue(bytes(env.getOutputBase().getPathString()))
+                .build())
+        .add(
+            PathToReplace.newBuilder()
+                .setType(PathToReplace.Type.BUILD_WORKING_DIRECTORY)
+                .setValue(bytes(env.getWorkingDirectory().getPathString()))
+                .build());
+    @Nullable Path workspacePath = env.getWorkspace();
+    if (workspacePath != null) {
+      pathsToReplace.add(
+          PathToReplace.newBuilder()
+              .setType(PathToReplace.Type.BUILD_WORKSPACE_DIRECTORY)
+              .setValue(bytes(workspacePath.getPathString()))
+              .build());
+    }
+    return pathsToReplace.build();
   }
 
   /** Converts a string to bytes for use in {@link ExecRequest} bytes fields. */

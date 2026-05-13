@@ -57,6 +57,9 @@ import javax.annotation.Nullable;
  */
 public class ParallelEvaluator extends AbstractParallelEvaluator {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  private static final int MAX_CYCLE_ROOTS_TO_LOG = 100;
+
   private final UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver;
 
   public ParallelEvaluator(
@@ -540,7 +543,16 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       }
     }
     if (!cycleRoots.isEmpty()) {
-      logger.atInfo().log("Detecting cycles with roots: %s", cycleRoots);
+      int cycleRootsSize = cycleRoots.size();
+      if (cycleRootsSize <= MAX_CYCLE_ROOTS_TO_LOG) {
+        logger.atInfo().log("Detecting cycles with roots: %s", cycleRoots);
+      } else {
+        logger.atInfo().log(
+            "Detecting cycles with roots (%d total, showing first %d): %s",
+            cycleRootsSize,
+            MAX_CYCLE_ROOTS_TO_LOG,
+            Iterables.limit(cycleRoots, MAX_CYCLE_ROOTS_TO_LOG));
+      }
       try (AutoProfiler p =
           GoogleAutoProfilerUtils.logged("Checking for Skyframe cycles", Duration.ofMillis(10))) {
         cycleDetector.checkForCycles(cycleRoots, result, evaluatorContext);

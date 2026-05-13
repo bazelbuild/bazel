@@ -22,6 +22,7 @@ import com.github.benmanes.caffeine.cache.Policy.CacheEntry;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.testutil.ManualClock;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.net.URI;
 import java.time.Duration;
@@ -137,8 +138,8 @@ public final class CredentialModuleTest {
 
   private static CommandEnvironment createCommandEnvironment(
       String commandName, Duration cacheTimeout) {
-    AuthAndTLSOptions authAndTlsOptions = new AuthAndTLSOptions();
-    authAndTlsOptions.credentialHelperCacheTimeout = cacheTimeout;
+    AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
+    authAndTlsOptions.setCredentialHelperCacheTimeout(cacheTimeout);
 
     OptionsParsingResult optionsParsingResult = mock(OptionsParsingResult.class);
     when(optionsParsingResult.getOptions(AuthAndTLSOptions.class)).thenReturn(authAndTlsOptions);

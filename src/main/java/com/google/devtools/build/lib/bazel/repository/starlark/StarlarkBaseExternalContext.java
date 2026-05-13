@@ -20,6 +20,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Ascii;
+import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -172,7 +173,6 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
   private boolean wasSuccessful = false;
 
-  @SuppressWarnings("AllowVirtualThreads")
   protected StarlarkBaseExternalContext(
       Path workingDirectory,
       BlazeDirectories directories,
@@ -296,7 +296,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
   // There is no unregister(). We don't have that many futures in each repository and it just
   // introduces the failure mode of erroneously unregistering async work that's not done.
-  protected final void registerAsyncTask(AsyncTask task) {
+  private final void registerAsyncTask(AsyncTask task) {
     asyncTasks.add(task);
   }
 
@@ -330,14 +330,14 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
    * measures might be necessary.
    */
   private static ImmutableMap<URI, Map<String, List<String>>> getAuthHeaders(
-      Map<String, Dict<?, ?>> auth) throws RepositoryFunctionException, EvalException {
+      Map<String, Dict<?, ?>> auth) throws EvalException {
     ImmutableMap.Builder<URI, Map<String, List<String>>> headers = new ImmutableMap.Builder<>();
     for (Map.Entry<String, Dict<?, ?>> entry : auth.entrySet()) {
       try {
         URI url = new URI(entry.getKey());
         Dict<?, ?> authMap = entry.getValue();
         if (authMap.containsKey("type")) {
-          if ("basic".equals(authMap.get("type"))) {
+          if (Objects.equals(authMap.get("type"), "basic")) {
             if (!authMap.containsKey("login") || !authMap.containsKey("password")) {
               throw Starlark.errorf(
                   "Found request to do basic auth for %s without 'login' and 'password' being"
@@ -352,7 +352,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
                     ImmutableList.of(
                         "Basic "
                             + Base64.getEncoder().encodeToString(credentials.getBytes(UTF_8)))));
-          } else if ("pattern".equals(authMap.get("type"))) {
+          } else if (Objects.equals(authMap.get("type"), "pattern")) {
             if (!authMap.containsKey("pattern")) {
               throw Starlark.errorf(
                   "Found request to do pattern auth for %s without a pattern being provided",
@@ -426,13 +426,14 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     ImmutableList.Builder<String> result = ImmutableList.builder();
 
     for (Object o : urlList) {
-      if (!(o instanceof String)) {
+      if (o instanceof String s) {
+        result.add(s);
+      } else {
         throw Starlark.errorf(
             "Expected a string or sequence of strings for 'url' argument, but got '%s' item in the"
                 + " sequence",
             Starlark.type(o));
       }
-      result.add((String) o);
     }
 
     return result.build();
@@ -541,8 +542,10 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   private StructImpl calculateDownloadResult(Optional<Checksum> checksum, Path downloadedPath)
       throws InterruptedException, RepositoryFunctionException {
     Checksum finalChecksum;
+    long size;
     try {
       finalChecksum = calculateChecksum(checksum, downloadedPath);
+      size = downloadedPath.getFileSize();
     } catch (IOException e) {
       throw new RepositoryFunctionException(
           new IOException(
@@ -558,6 +561,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     if (finalChecksum.getKeyType() == KeyType.SHA256) {
       out.put("sha256", finalChecksum.toString());
     }
+    out.put("size_bytes", StarlarkInt.of(size));
     return StarlarkInfo.create(StructProvider.STRUCT, out.buildOrThrow(), Location.BUILTIN);
   }
 
@@ -602,7 +606,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
     @Override
     public boolean cancel() {
-      return !future.cancel(true);
+      return !future.cancel(false);
     }
 
     @Override
@@ -632,6 +636,12 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     public void repr(Printer printer, StarlarkSemantics semantics) {
       printer.append(String.format("<pending download to '%s'>", outputPath));
     }
+
+    @Override
+    public void debugPrint(Printer printer, StarlarkThread thread) {
+      printer.append(
+          String.format("<pending download (state: %s) to '%s'>", future.state(), outputPath));
+    }
   }
 
   private StructImpl completeDownload(PendingDownload pendingDownload)
@@ -644,8 +654,9 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       }
     } catch (IOException e) {
       if (pendingDownload.allowFail) {
-        return StarlarkInfo.create(
-            StructProvider.STRUCT, ImmutableMap.of("success", false), Location.BUILTIN);
+        ImmutableMap<String, Object> struct =
+            ImmutableMap.of("success", false, "error", e.toString());
+        return StarlarkInfo.create(StructProvider.STRUCT, struct, Location.BUILTIN);
       } else {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
@@ -671,7 +682,12 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 Downloads a file to the output path for the provided url and returns a struct \
 containing <code>success</code>, a flag which is <code>true</code> if the \
 download completed successfully, and if successful, a hash of the file \
-with the fields <code>sha256</code> and <code>integrity</code>. \
+with the fields <code>sha256</code> and <code>integrity</code>, as well as \
+<code>size_bytes</code>, which contains the size of the downloaded file in bytes as an integer. If the value \
+of the <code>success</code> field is false, the <code>error</code> field will be set \
+with a message indicating why the download failed. The message in the <code>error</code> \
+field is for debugging purposes only and should not be relied upon as a stable API (the \
+format of the string can change between patch versions of Bazel). \
 When <code>sha256</code> or <code>integrity</code> is user specified, setting an explicit \
 <code>canonical_id</code> is highly recommended. e.g. \
 <a href='/rules/lib/repo/cache#get_default_canonical_id'><code>get_default_canonical_id</code></a>
@@ -879,7 +895,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
 """
 "zip", "jar", "war", "aar", "nupkg", "whl", "tar", "tar.gz", "tgz", "gz", \
 "tar.xz", "txz", "xz", "tar.zst", "tzst", "zst", "tar.bz2", "tbz", "bz2", "ar", \
-"deb" or "7z\"\
+"deb", "7z", "tar.br" or "br"\
 """;
 
   @StarlarkMethod(
@@ -889,7 +905,12 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
 Downloads a file to the output path for the provided url, extracts it, and returns a \
 struct containing <code>success</code>, a flag which is <code>true</code> if the \
 download completed successfully, and if successful, a hash of the file with the \
-fields <code>sha256</code> and <code>integrity</code>. \
+fields <code>sha256</code> and <code>integrity</code>, as well as the <code>size_bytes</code> \
+of the downloaded file in bytes as an integer. If the value \
+of the <code>success</code> field is false, the <code>error</code> field will be set \
+with a message indicating why the download failed. The message in the <code>error</code> \
+field is for debugging purposes only and should not be relied upon as a stable API (the \
+format of the string can change between patch versions of Bazel). \
 When <code>sha256</code> or <code>integrity</code> is user specified, setting an explicit \
 <code>canonical_id</code> is highly recommended. e.g. \
 <a href='/rules/lib/repo/cache#get_default_canonical_id'><code>get_default_canonical_id</code></a>
@@ -960,7 +981,8 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
                 be used to strip it from extracted files.
 
                 <p>For compatibility, this parameter may also be used under the deprecated name
-                <code>stripPrefix</code>.
+                <code>stripPrefix</code>. Only one of <code>strip_prefix</code> or
+                <code>strip_components</code> can be used.
                 """),
         @Param(
             name = "allow_fail",
@@ -1026,6 +1048,16 @@ the same path on case-insensitive filesystems.
             positional = false,
             named = true,
             defaultValue = "''"),
+        @Param(
+            name = "strip_components",
+            positional = false,
+            named = true,
+            defaultValue = "0",
+            doc =
+"""
+Strip the given number of leading components from file paths on extraction. Only one of
+<code>strip_components</code> or <code>strip_prefix</code> can be used.
+"""),
       })
   public StructImpl downloadAndExtract(
       Object url,
@@ -1040,9 +1072,12 @@ the same path on case-insensitive filesystems.
       String integrity,
       Dict<?, ?> renameFiles, // <String, String> expected
       String oldStripPrefix,
+      StarlarkInt stripComponentsI,
       StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     stripPrefix = renamedStripPrefix("download_and_extract", stripPrefix, oldStripPrefix);
+    int stripComponents = Starlark.toInt(stripComponentsI, "strip_components");
+    validateStripping("download_and_extract", stripPrefix, stripComponents);
     ImmutableMap<URI, Map<String, List<String>>> authHeaders =
         getAuthHeaders(getAuthContents(authUnchecked, "auth"));
 
@@ -1122,8 +1157,9 @@ the same path on case-insensitive filesystems.
     } catch (IOException e) {
       env.getListener().post(w);
       if (allowFail) {
-        return StarlarkInfo.create(
-            StructProvider.STRUCT, ImmutableMap.of("success", false), Location.BUILTIN);
+        ImmutableMap<String, Object> struct =
+            ImmutableMap.of("success", false, "error", e.toString());
+        return StarlarkInfo.create(StructProvider.STRUCT, struct, Location.BUILTIN);
       } else {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
@@ -1144,6 +1180,7 @@ the same path on case-insensitive filesystems.
               .setArchivePath(downloadedPath)
               .setDestinationPath(outputPath.getPath())
               .setPrefix(stripPrefix)
+              .setStripComponents(stripComponents)
               .setRenameFiles(renameFilesMap)
               .build(),
           // Type does NOT need to be passed here, as the existing code renames the archive path to
@@ -1167,9 +1204,6 @@ the same path on case-insensitive filesystems.
    * because the parent directory being removed was "not empty" (yet). Please see
    * https://github.com/bazelbuild/bazel/issues/23687 and
    * https://github.com/bazelbuild/bazel/issues/20013 for further details.
-   *
-   * @param downloadDirectory
-   * @throws RepositoryFunctionException
    */
   private static void deleteTreeWithRetries(Path downloadDirectory)
       throws RepositoryFunctionException {
@@ -1245,7 +1279,8 @@ the same path on case-insensitive filesystems.
                 used to strip it from extracted files.
 
                 <p>For compatibility, this parameter may also be used under the deprecated name
-                <code>stripPrefix</code>.
+                <code>stripPrefix</code>. Only one of <code>strip_prefix</code> or
+                <code>strip_components</code> can be set.
                 """),
         @Param(
             name = "rename_files",
@@ -1277,6 +1312,16 @@ the same path on case-insensitive filesystems.
             named = true,
             defaultValue = "''"),
         @Param(
+            name = "strip_components",
+            positional = false,
+            named = true,
+            defaultValue = "0",
+            doc =
+"""
+Strip the given number of leading components from file paths on extraction. Only one of
+<code>strip_components</code> or <code>strip_prefix</code> can be set.
+"""),
+        @Param(
             name = "type",
             defaultValue = "''",
             named = true,
@@ -1299,10 +1344,13 @@ the same path on case-insensitive filesystems.
       Dict<?, ?> renameFiles, // <String, String> expected
       String watchArchive,
       String oldStripPrefix,
+      StarlarkInt stripComponentsI,
       String type,
       StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     stripPrefix = renamedStripPrefix("extract", stripPrefix, oldStripPrefix);
+    int stripComponents = Starlark.toInt(stripComponentsI, "strip_components");
+    validateStripping("extract", stripPrefix, stripComponents);
     StarlarkPath archivePath = getPath(archive);
 
     if (!archivePath.exists()) {
@@ -1340,6 +1388,7 @@ the same path on case-insensitive filesystems.
             .setArchivePath(archivePath.getPath())
             .setDestinationPath(outputPath.getPath())
             .setPrefix(stripPrefix)
+            .setStripComponents(stripComponents)
             .setRenameFiles(renameFilesMap)
             .build(),
         Optional.ofNullable(type).filter(s -> !s.isBlank()));
@@ -1392,6 +1441,22 @@ the same path on case-insensitive filesystems.
         "%s() got multiple values for parameter 'strip_prefix' (via compatibility alias"
             + " 'stripPrefix')",
         method);
+  }
+
+  private static void validateStripping(String method, String stripPrefix, int stripComponents)
+      throws EvalException {
+    if (stripComponents < 0) {
+      throw Starlark.errorf(
+          "%s() has an invalid argument for 'strip_components': %d. Must be non-negative.",
+          method, stripComponents);
+    }
+
+    if (!stripPrefix.isEmpty() && stripComponents > 0) {
+      throw Starlark.errorf(
+          "%s() got multiple strip values. Only one of 'strip_prefix' or 'strip_components' can be"
+              + " set",
+          method);
+    }
   }
 
   @StarlarkMethod(
@@ -1751,7 +1816,7 @@ the same path on case-insensitive filesystems.
       name = "os",
       structField = true,
       doc = "A struct to access information from the system.")
-  public StarlarkOS getOS() {
+  public StarlarkOS getOs() {
     // Historically this event reported the location of the ctx.os expression, but that's no longer
     // available in the interpreter API. Now we just use a dummy location, and the user must
     // manually inspect the code where this context object is used if they wish to find the
@@ -2202,13 +2267,11 @@ func(
     StarlarkPath path = null;
     StarlarkWasmModule wasmModule = null;
     switch (pathOrModule) {
-      case StarlarkWasmModule m:
+      case StarlarkWasmModule m -> {
         wasmModule = m;
-        path = wasmModule.getPath();
-        break;
-      default:
-        path = getPath(pathOrModule);
-        break;
+        path = m.getPath();
+      }
+      default -> path = getPath(pathOrModule);
     }
     ;
 
@@ -2290,7 +2353,7 @@ func(
     if (pathEnvVariable == null) {
       return null;
     }
-    for (String p : pathEnvVariable.split(File.pathSeparator)) {
+    for (String p : Splitter.on(File.pathSeparator).split(pathEnvVariable)) {
       PathFragment fragment = PathFragment.create(p);
       if (fragment.isAbsolute()) {
         // We ignore relative path as they don't mean much here (relative to where? the workspace

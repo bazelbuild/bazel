@@ -17,12 +17,14 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.hash.HashCode;
+import com.google.common.hash.Hashing;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Longs;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.SnapshotClientId;
 import com.google.devtools.build.skyframe.IntVersion;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.Optional;
 
 /** A tuple representing the version of a cached SkyValue in the frontier. */
@@ -31,6 +33,7 @@ public final class FrontierNodeVersion {
       new FrontierNodeVersion(
           "123",
           HashCode.fromInt(42),
+          new byte[] {1, 2, 3},
           IntVersion.of(9000),
           "distinguisher",
           /* useFakeStampData= */ true,
@@ -64,6 +67,14 @@ public final class FrontierNodeVersion {
   private final HashCode blazeInstallMD5;
 
   private final byte[] blazeInstallMD5Fingerprint;
+
+  /**
+   * The fingerprint of the {@link net.starlark.java.eval.StarlarkSemantics}.
+   *
+   * <p>Starlark semantics affect the behavior of Starlark code, which in turn affects the analysis
+   * graph.
+   */
+  private final byte[] starlarkSemanticsFingerprint;
 
   /**
    * The version of the source code (workspace) being evaluated.
@@ -107,6 +118,7 @@ public final class FrontierNodeVersion {
   public FrontierNodeVersion(
       String topLevelConfigChecksum,
       HashCode blazeInstallMD5,
+      byte[] starlarkSemanticsFingerprint,
       IntVersion evaluatingVersion,
       String distinguisherBytesForTesting,
       boolean useFakeStampData,
@@ -115,20 +127,29 @@ public final class FrontierNodeVersion {
     this.topLevelConfigFingerprint = topLevelConfigChecksum.getBytes(UTF_8);
     this.blazeInstallMD5 = blazeInstallMD5;
     this.blazeInstallMD5Fingerprint = blazeInstallMD5.asBytes();
+    this.starlarkSemanticsFingerprint = Objects.requireNonNull(starlarkSemanticsFingerprint);
     this.evaluatingVersion = evaluatingVersion.getVal();
     this.evaluatingVersionFingerprint = Longs.toByteArray(evaluatingVersion.getVal());
     this.distinguisherBytesForTesting = distinguisherBytesForTesting.getBytes(UTF_8);
     this.useFakeStampData = useFakeStampData;
     this.precomputedFingerprint =
-        Bytes.concat(
-            this.topLevelConfigFingerprint,
-            this.blazeInstallMD5Fingerprint,
-            this.evaluatingVersionFingerprint,
-            this.distinguisherBytesForTesting,
-            this.useFakeStampData ? new byte[] {1} : new byte[] {0});
+        Hashing.sha256()
+            .newHasher()
+            .putInt(topLevelConfigFingerprint.length)
+            .putBytes(topLevelConfigFingerprint)
+            .putInt(blazeInstallMD5Fingerprint.length)
+            .putBytes(blazeInstallMD5Fingerprint)
+            .putInt(this.starlarkSemanticsFingerprint.length)
+            .putBytes(this.starlarkSemanticsFingerprint)
+            .putLong(this.evaluatingVersion)
+            .putInt(this.distinguisherBytesForTesting.length)
+            .putBytes(this.distinguisherBytesForTesting)
+            .putBoolean(useFakeStampData)
+            .hash()
+            .asBytes();
 
     // This is undigested.
-    this.clientId = clientId;
+    this.clientId = Objects.requireNonNull(clientId);
   }
 
   /**
@@ -158,6 +179,7 @@ public final class FrontierNodeVersion {
     return MoreObjects.toStringHelper(this)
         .add("topLevelConfig", Arrays.hashCode(topLevelConfigFingerprint))
         .add("blazeInstall", Arrays.hashCode(blazeInstallMD5Fingerprint))
+        .add("starlarkSemantics", Arrays.hashCode(starlarkSemanticsFingerprint))
         .add("evaluatingVersion", Arrays.hashCode(evaluatingVersionFingerprint))
         .add("distinguisherBytesForTesting", Arrays.hashCode(distinguisherBytesForTesting))
         .add("useFakeStampData", useFakeStampData)

@@ -213,8 +213,19 @@ public final class JavaHeaderCompileAction extends SpawnAction {
 
     private ImmutableMap<String, String> utf8Environment = null;
 
+    private boolean parallelism = true;
+
+    private String fixDepsTool = null;
+
     private Builder(RuleContext ruleContext) {
       this.ruleContext = ruleContext;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setFixDepsTool(String fixDepsTool) {
+      checkNotNull(fixDepsTool, "fixDepsTool must not be null");
+      this.fixDepsTool = fixDepsTool;
+      return this;
     }
 
     /** Sets the output jdeps file. */
@@ -400,6 +411,12 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder enableParallelism(boolean parallelism) {
+      this.parallelism = parallelism;
+      return this;
+    }
+
     /** Builds and registers the action for a header compilation. */
     public void build(JavaToolchainProvider javaToolchain)
         throws RuleErrorException, InterruptedException {
@@ -481,7 +498,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
               : javaToolchain.getHeaderCompiler();
       // The header compiler is either a jar file that needs to be executed using
       // `java -jar <path>`, or an executable that can be run directly.
-      headerCompiler.addInputs(javaToolchain, mandatoryInputsBuilder);
+      headerCompiler.addInputs(mandatoryInputsBuilder);
       CustomCommandLine.Builder commandLine =
           CustomCommandLine.builder()
               .addExecPath("--output", outputJar)
@@ -501,6 +518,9 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       }
       // See b/31371210, b/142059842, and b/464431616.
       commandLine.add("-Aexperimental_turbine_hjar");
+      if (!parallelism) {
+        commandLine.add("-XDnoParallel");
+      }
       // terminate --javacopts with `--` to support javac flags that start with `--`
       commandLine.add("--");
 
@@ -516,6 +536,8 @@ public final class JavaHeaderCompileAction extends SpawnAction {
         }
       }
 
+      commandLine.add("--experimental_fix_deps_tool", fixDepsTool);
+
       ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
       executionInfo.putAll(
           ruleContext
@@ -526,6 +548,10 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       executionInfo.putAll(
           TargetUtils.getExecutionInfo(
               ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
+      int cpuReservation = javaConfiguration.experimentalTurbineCpuReservation();
+      if (cpuReservation > 1) {
+        executionInfo.put("cpu:" + cpuReservation, "");
+      }
 
       ActionOwner actionOwner =
           ruleContext.useAutoExecGroups()
@@ -555,7 +581,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
         commandLine.add("--reduce_classpath_mode", "NONE");
 
         NestedSet<Artifact> allInputs = mandatoryInputsBuilder.build();
-        CustomCommandLine executableLine = headerCompiler.getCommandLine(javaToolchain);
+        CustomCommandLine executableLine = headerCompiler.getCommandLine();
 
         ruleContext.registerAction(
             new JavaHeaderCompileAction(
@@ -611,7 +637,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
 
       NestedSet<Artifact> mandatoryInputs = mandatoryInputsBuilder.build();
 
-      CustomCommandLine executableLine = headerCompiler.getCommandLine(javaToolchain);
+      CustomCommandLine executableLine = headerCompiler.getCommandLine();
 
       ruleContext.registerAction(
           new JavaCompileAction(

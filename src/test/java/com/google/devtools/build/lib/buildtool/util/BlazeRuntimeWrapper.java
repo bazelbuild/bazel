@@ -124,6 +124,7 @@ public class BlazeRuntimeWrapper {
   private OptionsParser optionsParser;
   private final List<String> optionsToParse = new ArrayList<>();
   private final Map<String, Object> starlarkOptions = new HashMap<>();
+  private final Set<String> starlarkOptionAllowingMultiple = new HashSet<>();
   private final List<Class<? extends OptionsBase>> additionalOptionsClasses = new ArrayList<>();
   private final List<String> crashMessages = new ArrayList<>();
 
@@ -224,7 +225,7 @@ public class BlazeRuntimeWrapper {
     checkNotNull(
         optionsParser,
         "The options parser must be initialized before creating a new command environment");
-    optionsParser.setStarlarkOptions(starlarkOptions);
+    optionsParser.setStarlarkOptions(starlarkOptions, starlarkOptionAllowingMultiple);
 
     env =
         runtime
@@ -301,8 +302,8 @@ public class BlazeRuntimeWrapper {
     this.configuration = configuration;
   }
 
-  public void addStarlarkOption(String label, Object value) {
-    starlarkOptions.put(Label.parseCanonicalUnchecked(label).getCanonicalForm(), value);
+  public void addStarlarkOption(String label, Object optionValue) {
+    starlarkOptions.put(Label.parseCanonicalUnchecked(label).getCanonicalForm(), optionValue);
   }
 
   public void addStarlarkOptions(Map<String, Object> starlarkOptions) {
@@ -319,6 +320,10 @@ public class BlazeRuntimeWrapper {
 
   public ImmutableMap<String, Object> getStarlarkOptions() {
     return ImmutableMap.copyOf(starlarkOptions);
+  }
+
+  public ImmutableSet<String> getStarlarkOptionAllowingMultiple() {
+    return ImmutableSet.copyOf(starlarkOptionAllowingMultiple);
   }
 
   public void addOptionsClass(Class<? extends OptionsBase> optionsClass) {

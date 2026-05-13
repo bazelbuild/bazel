@@ -261,10 +261,7 @@ java_library(
 java_library(
     name = "rule_class_id",
     srcs = ["RuleClassId.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//third_party:auto_value",
-    ],
+    deps = ["//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec"],
 )
 
 java_library(

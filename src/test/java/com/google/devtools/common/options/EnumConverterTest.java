@@ -84,7 +84,7 @@ public class EnumConverterTest {
     }
   }
 
-  private static enum AlphabetEnum {
+  public enum AlphabetEnum {
     ALPHA,
     BRAVO,
     CHARLY,
@@ -92,7 +92,8 @@ public class EnumConverterTest {
     ECHO
   }
 
-  public static class EnumListTestOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class EnumListTestOptions extends OptionsBase {
     @Option(
         name = "goo",
         allowMultiple = true,
@@ -100,7 +101,7 @@ public class EnumConverterTest {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null")
-    public List<AlphabetEnum> goo;
+    public abstract List<AlphabetEnum> getGoo();
   }
 
   @Test
@@ -109,10 +110,10 @@ public class EnumConverterTest {
         OptionsParser.builder().optionsClasses(EnumListTestOptions.class).build();
     parser.parse("--goo=ALPHA", "--goo=BRAVO");
     EnumListTestOptions options = parser.getOptions(EnumListTestOptions.class);
-    assertThat(options.goo).isNotNull();
-    assertThat(options.goo).hasSize(2);
-    assertThat(options.goo.get(0)).isEqualTo(AlphabetEnum.ALPHA);
-    assertThat(options.goo.get(1)).isEqualTo(AlphabetEnum.BRAVO);
+    assertThat(options.getGoo()).isNotNull();
+    assertThat(options.getGoo()).hasSize(2);
+    assertThat(options.getGoo().get(0)).isEqualTo(AlphabetEnum.ALPHA);
+    assertThat(options.getGoo().get(1)).isEqualTo(AlphabetEnum.BRAVO);
   }
 
   private enum NonUniqueStringRepresentationEnum {

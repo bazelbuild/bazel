@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
+import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -112,7 +113,8 @@ public final class AnalysisPhaseRunner {
     env.throwPendingException();
 
     AnalysisResult analysisResult = null;
-    if (request.getBuildOptions().performAnalysisPhase) {
+    if (request.getBuildOptions().getPerformAnalysisPhase()) {
+      MemoryProfiler.instance().markPhase(ProfilePhase.ANALYZE);
       Profiler.instance().markPhase(ProfilePhase.ANALYZE);
 
       try (SilentCloseable c = Profiler.instance().profile("runAnalysisPhase")) {
@@ -218,7 +220,7 @@ public final class AnalysisPhaseRunner {
     if (env.getCommand().buildPhase().executes()) {
       // RemoteAnalysisCachingOptions is never null because it's a build command flag, and this
       // method only runs for build commands.
-      switch (env.getOptions().getOptions(RemoteAnalysisCachingOptions.class).mode) {
+      switch (env.getOptions().getOptions(RemoteAnalysisCachingOptions.class).getMode()) {
         case DUMP_UPLOAD_MANIFEST_ONLY -> featureFlags.add(ANALYSIS_CACHING_UPLOAD);
         case UPLOAD -> featureFlags.add(ANALYSIS_CACHING_UPLOAD);
         case DOWNLOAD -> featureFlags.add(ANALYSIS_CACHING_DOWNLOAD);
@@ -226,8 +228,8 @@ public final class AnalysisPhaseRunner {
       }
     }
 
-    if (!Strings.isNullOrEmpty(buildOptions.get(CoreOptions.class).sclConfig)
-        || request.getBuildOptions().enforceProjectConfigs) {
+    if (!Strings.isNullOrEmpty(buildOptions.get(CoreOptions.class).getSclConfig())
+        || request.getBuildOptions().getEnforceProjectConfigs()) {
       featureFlags.add(SCL_CONFIG);
     }
 
@@ -299,11 +301,11 @@ public final class AnalysisPhaseRunner {
           Project.applySclConfig(
               buildOptions,
               activeProjects,
-              buildOptions.get(CoreOptions.class).sclConfig,
+              buildOptions.get(CoreOptions.class).getSclConfig(),
               allOptionNames,
               userOptions,
               env.getConfigFlagDefinitions(),
-              request.getBuildOptions().enforceProjectConfigs,
+              request.getBuildOptions().getEnforceProjectConfigs(),
               env.getReporter(),
               env.getSkyframeExecutor());
       resultBuilder.buildOptions(options);
@@ -383,7 +385,7 @@ public final class AnalysisPhaseRunner {
               request.getAspectsParameters(),
               request.getViewOptions(),
               request.getKeepGoing(),
-              request.getViewOptions().skipIncompatibleExplicitTargets,
+              request.getViewOptions().getSkipIncompatibleExplicitTargets(),
               request.getCheckForActionConflicts(),
               env.getQuiescingExecutors(),
               request.getTopLevelArtifactContext(),

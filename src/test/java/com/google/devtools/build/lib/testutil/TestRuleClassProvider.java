@@ -132,9 +132,19 @@ public class TestRuleClassProvider {
     }
 
     @Override
+    public boolean packageUnderPrototypes(PackageIdentifier packageIdentifier) {
+      return false;
+    }
+
+    @Override
     protected boolean checkVisibilityForExperimental(RuleContext.Builder context) {
       // It does not matter whether we return true or false here if packageUnderExperimental always
       // returns false.
+      return true;
+    }
+
+    @Override
+    protected boolean checkVisibilityForPrototypes(RuleContext.Builder context) {
       return true;
     }
 

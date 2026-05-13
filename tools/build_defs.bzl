@@ -27,7 +27,17 @@ def _single_binary_toolchain_rule_impl(ctx):
         binary = ctx.file.binary,
     )
 
-_single_binary_toolchain_rule = rule(
+_single_target_binary_toolchain_rule = rule(
+    implementation = _single_binary_toolchain_rule_impl,
+    attrs = {
+        "binary": attr.label(
+            allow_single_file = True,
+            mandatory = True,
+        ),
+    },
+)
+
+_single_exec_binary_toolchain_rule = rule(
     implementation = _single_binary_toolchain_rule_impl,
     attrs = {
         "binary": attr.label(
@@ -42,11 +52,23 @@ def single_binary_toolchain(
         *,
         name,
         toolchain_type,
-        binary = None,
+        target_binary = None,
+        exec_binary = None,
         target_compatible_with = [],
         exec_compatible_with = []):
     """Declares a toolchain together with its implementation for an optional single binary."""
     impl_name = name + "_impl"
+
+    if exec_binary and target_binary:
+        fail("Cannot specify both exec_binary and target_binary for a single_binary_toolchain.")
+    elif target_binary:
+        binary = target_binary
+        _single_binary_toolchain_rule = _single_target_binary_toolchain_rule
+    elif exec_binary:
+        binary = exec_binary
+        _single_binary_toolchain_rule = _single_exec_binary_toolchain_rule
+    else:
+        fail("Must specify either exec_binary or target_binary for a single_binary_toolchain.")
 
     _single_binary_toolchain_rule(
         name = impl_name,

@@ -78,7 +78,7 @@ public class RemoteRetrier extends Retrier {
       ListeningScheduledExecutorService retryScheduler,
       CircuitBreaker circuitBreaker) {
     this(
-        options.remoteMaxRetryAttempts > 0
+        options.getRemoteMaxRetryAttempts() > 0
             ? () -> new ExponentialBackoff(options)
             : () -> RETRIES_DISABLED,
         resultClassifier,
@@ -147,10 +147,10 @@ public class RemoteRetrier extends Retrier {
     public ExponentialBackoff(RemoteOptions options) {
       this(
           /* initial= */ Duration.ofMillis(100),
-          /* max= */ options.remoteRetryMaxDelay,
+          /* max= */ options.getRemoteRetryMaxDelay(),
           /* multiplier= */ 2,
           /* jitter= */ 0.1,
-          options.remoteMaxRetryAttempts);
+          options.getRemoteMaxRetryAttempts());
     }
 
     @Override

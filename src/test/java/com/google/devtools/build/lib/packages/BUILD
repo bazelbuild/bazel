@@ -155,6 +155,7 @@ java_library(
         "@rules_cc//cc:srcs",
         "@rules_cc//cc/common:srcs",
         "@rules_cc//cc/private:srcs",
+        "@rules_cc//cc/private/rules_impl:srcs",
         "@rules_cc//cc/toolchains:srcs",
     ],
     deps = [

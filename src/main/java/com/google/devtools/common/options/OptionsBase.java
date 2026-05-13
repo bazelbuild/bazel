@@ -14,10 +14,7 @@
 
 package com.google.devtools.common.options;
 
-import com.google.common.collect.Maps;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 
 /**
  * Base class for all options classes. Extend this class, adding public instance fields annotated
@@ -44,6 +41,7 @@ import java.util.Objects;
  * empty instance, not containing default values. This leads to surprising behavior and often {@code
  * NullPointerExceptions}, etc.)
  */
+@SkybridgeInterface
 public abstract class OptionsBase {
 
   /** Subclasses must provide a default (no argument) constructor. */
@@ -54,50 +52,11 @@ public abstract class OptionsBase {
   }
 
   /**
-   * Returns a mapping from option names to values, for each option on this object, including
-   * inherited ones. The mapping is a copy, so subsequent mutations to it or to this object are
-   * independent. Entries are sorted alphabetically.
+   * Returns the "options class" that this object belongs to. By default it is the object's class.
+   * However, for classes annotated with {@code @OptionsClass}, this returns the base class and not
+   * the generated implementation class.
    */
-  public final Map<String, Object> asMap() {
-    List<? extends OptionDefinition> definitions =
-        OptionsData.getAllOptionDefinitionsForClass(getClass());
-    Map<String, Object> map = Maps.newLinkedHashMapWithExpectedSize(definitions.size());
-    for (OptionDefinition definition : definitions) {
-      map.put(definition.getOptionName(), getValueFromDefinition(definition));
-    }
-    return map;
-  }
-
-  /** Returns the value of the option described by {@code definition}. */
-  public final Object getValueFromDefinition(OptionDefinition definition) {
-    return definition.getValue(this);
-  }
-
-  @Override
-  public final String toString() {
-    return getClass().getName() + asMap();
-  }
-
-  @Override
-  @SuppressWarnings("EqualsGetClass") // Options can only be equal if they are of the same type.
-  public final boolean equals(Object that) {
-    if (this == that) {
-      return true;
-    }
-    if (that == null || !getClass().equals(that.getClass())) {
-      return false;
-    }
-    OptionsBase other = (OptionsBase) that;
-    for (OptionDefinition def : OptionsParser.getOptionDefinitions(getClass())) {
-      if (!Objects.equals(getValueFromDefinition(def), other.getValueFromDefinition(def))) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  @Override
-  public final int hashCode() {
-    return this.getClass().hashCode() + asMap().hashCode();
+  public Class<? extends OptionsBase> getOptionsClass() {
+    return getClass();
   }
 }

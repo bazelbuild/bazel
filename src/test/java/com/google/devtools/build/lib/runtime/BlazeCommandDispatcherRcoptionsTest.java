@@ -32,6 +32,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.List;
@@ -45,20 +46,21 @@ import org.junit.runners.JUnit4;
 public class BlazeCommandDispatcherRcoptionsTest {
 
   /** Example options to be used by the tests. */
-  public static class FooOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class FooOptions extends OptionsBase {
     @Option(
         name = "numoption",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "0")
-    public int numOption;
+    public abstract int getNumOption();
 
     @Option(
         name = "stringoption",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "[unspecified]")
-    public String stringOption;
+    public abstract String getStringOption();
   }
 
   @Command(
@@ -71,7 +73,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
     @Override
     public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
       FooOptions fooOptions = options.getOptions(FooOptions.class);
-      env.getReporter().getOutErr().printOut(String.valueOf(fooOptions.numOption));
+      env.getReporter().getOutErr().printOut(String.valueOf(fooOptions.getNumOption()));
       return BlazeCommandResult.success();
     }
   }
@@ -86,7 +88,9 @@ public class BlazeCommandDispatcherRcoptionsTest {
     @Override
     public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
       FooOptions fooOptions = options.getOptions(FooOptions.class);
-      env.getReporter().getOutErr().printOut(fooOptions.numOption + " " + fooOptions.stringOption);
+      env.getReporter()
+          .getOutErr()
+          .printOut(fooOptions.getNumOption() + " " + fooOptions.getStringOption());
       return BlazeCommandResult.success();
     }
   }
@@ -112,7 +116,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
     OptionsParsingResult startupOptionsProvider =
         OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
     for (var service : BAZEL_SERVICES) {
-      service.globalInit(startupOptionsProvider);
+      service.globalInit(startupOptionsProvider, BAZEL_SERVICES);
     }
     ServerDirectories serverDirectories =
         new ServerDirectories(
@@ -293,7 +297,8 @@ public class BlazeCommandDispatcherRcoptionsTest {
   }
 
   /** Options class for testing, so that defaults package has some content. */
-  public static class MockFragmentOptions extends FragmentOptions {
+  @OptionsClass
+  public abstract static class MockFragmentOptions extends FragmentOptions {
     public MockFragmentOptions() {}
 
     @Option(
@@ -301,6 +306,6 @@ public class BlazeCommandDispatcherRcoptionsTest {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "false")
-    public boolean fakeOpt;
+    public abstract boolean getFakeOpt();
   }
 }

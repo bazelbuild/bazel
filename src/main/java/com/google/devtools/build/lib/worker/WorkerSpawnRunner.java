@@ -137,9 +137,9 @@ final class WorkerSpawnRunner implements SpawnRunner {
       return false;
     }
     // Note: `allowlist` is sorted, we could binary search.
-    if (workerOptions.allowlist != null
-        && !workerOptions.allowlist.isEmpty()
-        && !workerOptions.allowlist.contains(Spawns.getWorkerKeyMnemonic(spawn))) {
+    if (workerOptions.getAllowlist() != null
+        && !workerOptions.getAllowlist().isEmpty()
+        && !workerOptions.getAllowlist().contains(Spawns.getWorkerKeyMnemonic(spawn))) {
       return false;
     }
     if (spawn.getToolFiles().isEmpty()) {
@@ -159,7 +159,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     context.report(
         SpawnSchedulingEvent.create(
             WorkerKey.makeWorkerTypeName(
-                Spawns.supportsMultiplexWorkers(spawn) && workerOptions.workerMultiplex,
+                Spawns.supportsMultiplexWorkers(spawn) && workerOptions.getWorkerMultiplex(),
                 context.speculating())));
     if (spawn.getToolFiles().isEmpty()) {
       throw createUserExecException(
@@ -281,7 +281,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
           .setPath(StringEncoding.internalToUnicode(input.getExecPathString()))
           .setDigest(digest);
     }
-    if (workerOptions.workerVerbose) {
+    if (workerOptions.getWorkerVerbose()) {
       requestBuilder.setVerbosity(VERBOSE_LEVEL);
     }
     if (key.isMultiplex()) {
@@ -411,7 +411,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
               resourceSet,
               context.speculating() ? ResourcePriority.DYNAMIC_WORKER : ResourcePriority.LOCAL);
       workerOwner = new WorkerOwner(handle.getWorker());
-      workerOwner.getWorker().setReporter(workerOptions.workerVerbose ? reporter : null);
+      workerOwner.getWorker().setReporter(workerOptions.getWorkerVerbose() ? reporter : null);
       request =
           createWorkRequest(
               spawn, context, inputFiles, flagFiles, virtualInputDigests, inputFileCache, key);
@@ -580,7 +580,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         finishWorkAsync(
             worker,
             request,
-            workerOptions.workerCancellation && Spawns.supportsWorkerCancellation(spawn),
+            workerOptions.getWorkerCancellation() && Spawns.supportsWorkerCancellation(spawn),
             handle);
         workerOwner.setWorker(null);
         resourceManager.releaseResourceOwnership();

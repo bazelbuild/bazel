@@ -49,8 +49,7 @@ This pattern can also be seen in the Angular project. The
 produces two targets. The first is a standard `nodejs_test` target which compares
 some generated output against a "golden" file (that is, a file containing the
 expected output). This can be built and run with a normal `bazel
-test` invocation. In `angular-cli`, you can run [one such
-target](https://github.com/angular/angular-cli/blob/e1269cb520871ee29b1a4eec6e6c0e4a94f0b5fc/etc/api/BUILD)
+test` invocation. In `angular-cli`, you can run [one such target](https://github.com/angular/angular-cli/blob/e1269cb520871ee29b1a4eec6e6c0e4a94f0b5fc/etc/api/BUILD)
 with `bazel test //etc/api:angular_devkit_core_api`.
 
 Over time, this golden file may need to be updated for legitimate reasons.
@@ -159,7 +158,7 @@ an imaginary `bazel publish` command.
 It's not immediately obvious what the implementation of the `_sphinx_publisher`
 rule might look like. Often, actions like this write a _launcher_ shell script.
 This method typically involves using
-[`ctx.actions.expand_template`](lib/actions#expand_template)
+[`ctx.actions.expand_template`](/versions/9.0.0/rules/lib/builtins/actions#expand_template)
 to write a very simple shell script, in this case invoking the publisher binary
 with a path to the output of the primary target. This way, the publisher
 implementation can remain generic, the `_sphinx_site` rule can just produce

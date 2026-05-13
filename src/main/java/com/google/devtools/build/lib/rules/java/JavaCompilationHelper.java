@@ -294,7 +294,9 @@ public final class JavaCompilationHelper {
     builder.setCompressJar(true);
     builder.setExtraData(computePerPackageData(ruleContext, javaToolchain));
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
-    builder.setFixDepsTool(getJavaConfiguration().getFixDepsTool());
+    semantics
+        .getFixDepsTool(ruleContext.getRule(), getJavaConfiguration())
+        .ifPresent(builder::setFixDepsTool);
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
     builder.setTargetLabel(
         attributes.getTargetLabel() == null ? label : attributes.getTargetLabel());
@@ -447,6 +449,9 @@ public final class JavaCompilationHelper {
     builder.setOutputDepsProto(headerDeps);
     builder.setPlugins(plugins);
     builder.enableDirectClasspath(enableDirectClasspath);
+    semantics
+        .getFixDepsTool(ruleContext.getRule(), getJavaConfiguration())
+        .ifPresent(builder::setFixDepsTool);
     builder.build(javaToolchain);
   }
 
@@ -472,6 +477,7 @@ public final class JavaCompilationHelper {
     builder.setToolsJars(javaToolchain.getTools());
     builder.setExecGroup(execGroup);
     builder.setUtf8Environment(semantics.utf8Environment(ruleContext.getExecutionPlatform()));
+    builder.enableParallelism(semantics.turbineParallelism());
     return builder;
   }
 

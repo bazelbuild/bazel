@@ -486,8 +486,7 @@ public final class StarlarkThread {
       StarlarkSemantics semantics,
       String contextDescription,
       SymbolGenerator<?> symbolGenerator) {
-    Preconditions.checkArgument(!mu.isFrozen());
-    this.mutability = mu;
+    this.mutability = Preconditions.checkNotNull(mu);
     this.semantics = semantics;
     this.allowRecursion = semantics.getBool(StarlarkSemantics.ALLOW_RECURSION);
     if (!contextDescription.isEmpty()) {

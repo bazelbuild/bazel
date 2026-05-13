@@ -44,7 +44,7 @@ public final class FingerprintValueService implements KeyValueWriter {
 
   /** A {@link Fingerprinter} implementation for non-production use. */
   public static final Fingerprinter NONPROD_FINGERPRINTER =
-      input -> PackedFingerprint.fromBytesOffsetZeros(murmur3_128().hashBytes(input).asBytes());
+      input -> PackedFingerprint.fromBytes(murmur3_128().hashBytes(input).asBytes());
 
   private final Executor executor;
   private final FingerprintValueStore store;
@@ -127,12 +127,13 @@ public final class FingerprintValueService implements KeyValueWriter {
       SkyKey key,
       FrontierNodeVersion nodeVersion)
       throws InterruptedException, SerializationException {
-    ListenableFuture<SerializationResult<ByteString>> serializedKey =
-        codecs.serializeMemoizedAsync(fingerprintValueService, key, null);
+    AsyncSerializationTask serializeKeyTask =
+        codecs.serializeMemoizedAsync(fingerprintValueService, key, /* profileCollector= */ null);
+    serializeKeyTask.run();
 
     ListenableFuture<PackedFingerprint> fingerprintFuture =
         Futures.transform(
-            serializedKey,
+            serializeKeyTask,
             k ->
                 fingerprintValueService.fingerprint(
                     nodeVersion.concat(k.getObject().toByteArray())),

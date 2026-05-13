@@ -71,9 +71,6 @@ java_library(
 
 java_test(
     name = "RepositoryTests",
-    jvm_flags = [
-        "-Djava.lang.Thread.allowVirtualThreads=true",
-    ],
     tags = [
         "rules",
     ],

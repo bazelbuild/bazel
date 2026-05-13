@@ -157,7 +157,7 @@ public final class MerkleTreeComputer {
 
   // Uploading Merkle trees mostly involves waiting on networking futures, for which virtual threads
   // are ideal.
-  @SuppressWarnings("AllowVirtualThreads")
+
   private static final ExecutorService MERKLE_TREE_UPLOAD_POOL =
       Executors.newThreadPerTaskExecutor(
           Thread.ofVirtual().name("merkle-tree-upload-", 0).factory());

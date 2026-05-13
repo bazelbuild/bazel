@@ -14,6 +14,10 @@
 
 package com.google.devtools.build.lib.util;
 
+import com.google.devtools.build.lib.server.FailureDetails.Command;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.protobuf.ExtensionRegistryLite;
+import com.google.protobuf.InvalidProtocolBufferException;
 import javax.annotation.Nullable;
 
 /**
@@ -45,5 +49,29 @@ public class AbruptExitException extends Exception {
 
   public DetailedExitCode getDetailedExitCode() {
     return detailedExitCode;
+  }
+
+  public SerializedAbruptExitException toSerialized() {
+    byte[] serializedFailureDetail = detailedExitCode.getFailureDetail().toByteArray();
+    return new SerializedAbruptExitException(getMessage(), serializedFailureDetail, this);
+  }
+
+  public static AbruptExitException fromSerialized(SerializedAbruptExitException e) {
+    try {
+      FailureDetail failureDetail =
+          FailureDetail.parseFrom(
+              e.getSerializedFailureDetail(), ExtensionRegistryLite.getEmptyRegistry());
+      return new AbruptExitException(DetailedExitCode.of(failureDetail), e);
+    } catch (InvalidProtocolBufferException ipbe) {
+      return new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(
+                      "Failed to parse FailureDetail from SerializedAbruptExitException: "
+                          + ipbe.getMessage())
+                  .setCommand(Command.newBuilder().setCode(Command.Code.COMMAND_FAILURE_UNKNOWN))
+                  .build()),
+          ipbe);
+    }
   }
 }

@@ -94,7 +94,6 @@ public class TaskGroup<T, R> implements AutoCloseable {
     }
   }
 
-  @SuppressWarnings("AllowVirtualThreads")
   private static ThreadFactory defaultThreadFactory() {
     return Thread.ofVirtual().factory();
   }

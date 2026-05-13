@@ -24,7 +24,7 @@ import javax.annotation.Nullable;
  * Generic object serialization/deserialization. Implementations should serialize values
  * deterministically.
  */
-public interface ObjectCodec<T> {
+public interface ObjectCodec<T> extends ProfilerLocationProvider {
   /**
    * Returns the class of the objects serialized/deserialized by this codec.
    *
@@ -37,6 +37,16 @@ public interface ObjectCodec<T> {
    * concrete class hierarchy looking for matches, and will never come to an interface.
    */
   Class<? extends T> getEncodedClass();
+
+  @Override
+  default String getLocationText() {
+    Class<?> encodedClass = getEncodedClass();
+    String name = encodedClass.getCanonicalName();
+    if (name == null) {
+      name = encodedClass.getName(); // anonymous classes have a name, but no canonical name
+    }
+    return name + "(" + getClass().getCanonicalName() + ")";
+  }
 
   /**
    * Returns additional subtypes of {@code T} that may be serialized/deserialized using this codec

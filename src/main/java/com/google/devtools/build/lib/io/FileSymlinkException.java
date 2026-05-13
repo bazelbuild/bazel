@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.io;
 
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.io.IOException;
 
 /** Exception indicating a problem with symlinks. */
+@SkybridgeInterface // TODO(tjgq): Replace with a type owned by NativePosixFilesService.
 public abstract class FileSymlinkException extends IOException {
   protected FileSymlinkException(String message) {
     super(message);

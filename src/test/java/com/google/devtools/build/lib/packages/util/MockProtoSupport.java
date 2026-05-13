@@ -194,13 +194,30 @@ public final class MockProtoSupport {
         package(default_visibility = ["//visibility:public"])
 
         cc_binary(
-            name = "proto2_py_plugin",
-            srcs = ["proto2_py_plugin.cc"],
-        )
-
-        cc_binary(
             name = "proto2_java_plugin",
             srcs = ["proto2_java_plugin.cc"],
+        )
+        """);
+
+    config.create(
+        "net/proto2/compiler/stubby/python/BUILD",
+        """
+        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+        load("@com_google_protobuf//bazel/toolchains:proto_lang_toolchain.bzl", "proto_lang_toolchain")
+        package(default_visibility = ["//visibility:public"])
+
+        cc_binary(
+            name = "plugin",
+            srcs = ["plugin.cc"],
+        )
+
+        proto_lang_toolchain(
+            name = "py_stubby_toolchain",
+            command_line = "--py_rpc_out=%s",
+            plugin = "//net/proto2/compiler/stubby/python:plugin",
+            plugin_format_flag = "--plugin=protoc-gen-py_rpc=%s",
+            progress_message = "Generating Python proto_library %{label}",
+            runtime = "//net/rpc/python:proto_python_api_2_stub",
         )
         """);
 

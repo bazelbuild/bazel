@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.skyframe.serialization.DependOnFutureShim.D
 import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.CacheMissReason;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.NoCachedData;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Restart;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
@@ -32,6 +31,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Re
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisJsonLogWriter;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -52,11 +52,11 @@ public final class SkyValueRetrieverUtils {
       throws InterruptedException {
     if (env.inErrorBubbling()) {
       // Remote retrieval during error bubbling causes incorrect error propagation. See b/449016469.
-      return new NoCachedData(CacheMissReason.NOT_ATTEMPTED);
+      return new NoCachedData(MissReason.MISS_REASON_NOT_ATTEMPTED);
     }
 
     if (analysisCachingDeps.shouldBailOutOnMissingFingerprint()) {
-      return new NoCachedData(CacheMissReason.NOT_ATTEMPTED);
+      return new NoCachedData(MissReason.MISS_REASON_NOT_ATTEMPTED);
     }
 
     Label label =
@@ -69,7 +69,7 @@ public final class SkyValueRetrieverUtils {
 
     if (label == null) {
       // If there's no label, there's no cached data.
-      return new NoCachedData(CacheMissReason.NOT_ATTEMPTED);
+      return new NoCachedData(MissReason.MISS_REASON_NOT_ATTEMPTED);
     }
 
     RetrievalResult retrievalResult = null;

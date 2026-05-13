@@ -15,7 +15,7 @@ Contains information about source files and instrumentation metadata files for r
 depset InstrumentedFilesInfo.instrumented_files
 ```
 
-[`depset`](../builtins/depset) of [`File`](../builtins/File) objects representing instrumented source files for this target and its dependencies.
+[`depset`](/versions/8.5.1/rules/lib/builtins/depset) of [`File`](/versions/8.5.1/rules/lib/builtins/File) objects representing instrumented source files for this target and its dependencies.
 
 ## metadata\_files
 
@@ -23,4 +23,4 @@ depset InstrumentedFilesInfo.instrumented_files
 depset InstrumentedFilesInfo.metadata_files
 ```
 
-[`depset`](../builtins/depset) of [`File`](../builtins/File) objects representing coverage metadata files for this target and its dependencies. These files contain additional information required to generate LCOV-format coverage output after the code is executed, e.g. the `.gcno` files generated when `gcc` is run with `-ftest-coverage`.
+[`depset`](/versions/8.5.1/rules/lib/builtins/depset) of [`File`](/versions/8.5.1/rules/lib/builtins/File) objects representing coverage metadata files for this target and its dependencies. These files contain additional information required to generate LCOV-format coverage output after the code is executed, e.g. the `.gcno` files generated when `gcc` is run with `-ftest-coverage`.

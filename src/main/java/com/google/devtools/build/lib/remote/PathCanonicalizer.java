@@ -126,7 +126,8 @@ final class PathCanonicalizer {
       switch (nextNode) {
         case SymlinkNode(PathFragment targetPath) -> {
           if (maxLinks == 0) {
-            throw new FileSymlinkLoopException(path);
+            throw new FileSymlinkLoopException(
+                path.getPathString() + FileSystem.ERR_TOO_MANY_SYMLINKS);
           }
           maxLinks--;
 

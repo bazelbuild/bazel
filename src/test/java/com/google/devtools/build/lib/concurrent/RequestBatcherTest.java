@@ -467,7 +467,7 @@ public final class RequestBatcherTest {
   }
 
   private record BatchOperation(
-      List<Request> requests, ImmutableList<? extends ResponseSink<Response>> sinks)
+      List<Request> requests, ImmutableList<? extends ResponseSink<Request, Response>> sinks)
       implements BatcherEvent {
     private void defaultReplyAll() {
       for (int i = 0; i < requests.size(); i++) {
@@ -476,7 +476,7 @@ public final class RequestBatcherTest {
     }
 
     private void failAll(Throwable t) {
-      for (ResponseSink<Response> sink : sinks) {
+      for (ResponseSink<Request, Response> sink : sinks) {
         sink.acceptFailure(t);
       }
     }
@@ -488,7 +488,8 @@ public final class RequestBatcherTest {
         new RequestBatcher.CallbackMultiplexer<Request, Response>() {
           @Override
           public Runnable execute(
-              List<Request> requests, ImmutableList<? extends ResponseSink<Response>> sinks) {
+              List<Request> requests,
+              ImmutableList<? extends ResponseSink<Request, Response>> sinks) {
             assertThat(requests).hasSize(sinks.size());
             events.offer(new BatchOperation(requests, sinks));
             return () -> events.offer(DoneCallbackCalled.INSTANCE);

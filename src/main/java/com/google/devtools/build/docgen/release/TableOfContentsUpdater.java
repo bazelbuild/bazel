@@ -42,7 +42,7 @@ public class TableOfContentsUpdater {
   private static final String VERSION_INDICATOR_END = "<!-- END_VERSION_INDICATOR -->";
 
   private static final String VERSION_INDICATOR_TEMPLATE =
-      """
+"""
 ·
 {% dynamic if setvar.version == "{canonical_version}" %}
 <strong>{pretty_version}</strong>
@@ -60,7 +60,7 @@ public class TableOfContentsUpdater {
     parser.parseAndExitUponError(args);
     TableOfContentsOptions options = parser.getOptions(TableOfContentsOptions.class);
 
-    if (options.printHelp) {
+    if (options.getPrintHelp()) {
       printUsage();
       Runtime.getRuntime().exit(0);
     }
@@ -72,29 +72,29 @@ public class TableOfContentsUpdater {
 
     Yaml yaml = new Yaml(getYamlOptions());
     List<String> versions;
-    try (FileInputStream fis = new FileInputStream(options.inputPath)) {
+    try (FileInputStream fis = new FileInputStream(options.getInputPath())) {
       Object data = yaml.load(fis);
-      versions = updateTocAndGetVersions(data, options.version, options.maxReleases);
-      yaml.dump(data, new OutputStreamWriter(new FileOutputStream(options.outputPath), UTF_8));
+      versions = updateTocAndGetVersions(data, options.getVersion(), options.getMaxReleases());
+      yaml.dump(data, new OutputStreamWriter(new FileOutputStream(options.getOutputPath()), UTF_8));
     } catch (Throwable t) {
       System.err.printf("ERROR: %s\n", t.getMessage());
       logger.atSevere().withCause(t).log(
-          "Failed to transform TOC from %s to %s", options.inputPath, options.outputPath);
+          "Failed to transform TOC from %s to %s", options.getInputPath(), options.getOutputPath());
       Runtime.getRuntime().exit(1);
       throw new IllegalStateException("Not reached");
     }
 
-    if (!options.versionIndicatorInputPath.isEmpty()) {
+    if (!options.getVersionIndicatorInputPath().isEmpty()) {
       try {
         Files.writeString(
-            Path.of(options.versionIndicatorOutputPath),
+            Path.of(options.getVersionIndicatorOutputPath()),
             makeUpdatedVersionIndicator(
-                Files.readString(Path.of(options.versionIndicatorInputPath)), versions));
+                Files.readString(Path.of(options.getVersionIndicatorInputPath())), versions));
       } catch (Throwable t) {
         System.err.printf("ERROR: %s\n", t.getMessage());
         logger.atSevere().withCause(t).log(
             "Failed to update version indicator from %s to %s",
-            options.versionIndicatorInputPath, options.versionIndicatorOutputPath);
+            options.getVersionIndicatorInputPath(), options.getVersionIndicatorOutputPath());
         Runtime.getRuntime().exit(1);
       }
     }
@@ -102,7 +102,7 @@ public class TableOfContentsUpdater {
 
   private static void printUsage() {
     System.err.println(
-        """
+"""
 Usage: toc-updater -i src_toc_path -o dest_toc_path -v version [-m max_releases] [-h] \
 [--version_indicator_input path --version_indicator_output path]
 

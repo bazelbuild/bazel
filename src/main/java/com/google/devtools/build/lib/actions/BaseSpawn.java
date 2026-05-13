@@ -91,8 +91,11 @@ public class BaseSpawn implements Spawn {
     if (result == null) {
       // Not expected to be called concurrently, and an idempotent computation if it is.
       result =
-          localResources.buildResourceSet(
-              OS.getCurrent(), action.getInputs().memoizedFlattenAndGetSize());
+          localResources
+              .buildResourceSet(OS.getCurrent(), action.getInputs().memoizedFlattenAndGetSize())
+              .withResourceOverrides(
+                  ExecutionRequirements.parseResources(getExecutionInfo()),
+                  ExecutionRequirements.parseResources(getCombinedExecProperties()));
       localResourcesCached = result;
     }
     return result;

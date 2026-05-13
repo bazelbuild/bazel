@@ -93,50 +93,51 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     this.options = options;
     this.appleCpus = AppleCpus.create(options);
     this.applePlatformType =
-        Preconditions.checkNotNull(options.applePlatformType, "applePlatformType");
+        Preconditions.checkNotNull(options.getApplePlatformType(), "applePlatformType");
     this.xcodeConfigLabel =
-        Preconditions.checkNotNull(options.xcodeVersionConfig, "xcodeConfigLabel");
+        Preconditions.checkNotNull(options.getXcodeVersionConfig(), "xcodeConfigLabel");
     // AppleConfiguration should not have this knowledge. This is a temporary workaround
     // for Starlarkification, until apple rules are toolchainized.
-    this.xcodeVersionFlag = options.xcodeVersion;
-    this.iosSdkVersionFlag = DottedVersion.maybeUnwrap(options.iosSdkVersion);
-    this.macOsSdkVersionFlag = DottedVersion.maybeUnwrap(options.macOsSdkVersion);
-    this.tvOsSdkVersionFlag = DottedVersion.maybeUnwrap(options.tvOsSdkVersion);
-    this.watchOsSdkVersionFlag = DottedVersion.maybeUnwrap(options.watchOsSdkVersion);
-    this.iosMinimumOsFlag = DottedVersion.maybeUnwrap(options.iosMinimumOs);
-    this.macosMinimumOsFlag = DottedVersion.maybeUnwrap(options.macosMinimumOs);
-    this.tvosMinimumOsFlag = DottedVersion.maybeUnwrap(options.tvosMinimumOs);
-    this.watchosMinimumOsFlag = DottedVersion.maybeUnwrap(options.watchosMinimumOs);
-    this.preferMutualXcode = options.preferMutualXcode;
-    this.includeXcodeExecRequirements = options.includeXcodeExecutionRequirements;
-    this.disableAppleFragment = options.disableAppleFragment;
+    this.xcodeVersionFlag = options.getXcodeVersion();
+    this.iosSdkVersionFlag = DottedVersion.maybeUnwrap(options.getIosSdkVersion());
+    this.macOsSdkVersionFlag = DottedVersion.maybeUnwrap(options.getMacOsSdkVersion());
+    this.tvOsSdkVersionFlag = DottedVersion.maybeUnwrap(options.getTvOsSdkVersion());
+    this.watchOsSdkVersionFlag = DottedVersion.maybeUnwrap(options.getWatchOsSdkVersion());
+    this.iosMinimumOsFlag = DottedVersion.maybeUnwrap(options.getIosMinimumOs());
+    this.macosMinimumOsFlag = DottedVersion.maybeUnwrap(options.getMacosMinimumOs());
+    this.tvosMinimumOsFlag = DottedVersion.maybeUnwrap(options.getTvosMinimumOs());
+    this.watchosMinimumOsFlag = DottedVersion.maybeUnwrap(options.getWatchosMinimumOs());
+    this.preferMutualXcode = options.getPreferMutualXcode();
+    this.includeXcodeExecRequirements = options.getIncludeXcodeExecutionRequirements();
+    this.disableAppleFragment = options.getDisableAppleFragment();
   }
 
   /** A class that contains information pertaining to Apple CPUs. */
   @AutoValue
   public abstract static class AppleCpus {
     public static AppleCpus create(AppleCommandLineOptions options) {
-      String appleSplitCpu = Preconditions.checkNotNull(options.appleSplitCpu, "appleSplitCpu");
+      String appleSplitCpu =
+          Preconditions.checkNotNull(options.getAppleSplitCpu(), "appleSplitCpu");
       ImmutableList<String> iosMultiCpus =
-          (options.iosMultiCpus == null || options.iosMultiCpus.isEmpty())
+          (options.getIosMultiCpus() == null || options.getIosMultiCpus().isEmpty())
               ? ImmutableList.of(DEFAULT_IOS_CPU)
-              : ImmutableList.copyOf(options.iosMultiCpus);
+              : ImmutableList.copyOf(options.getIosMultiCpus());
       ImmutableList<String> visionosCpus =
-          (options.visionosCpus == null || options.visionosCpus.isEmpty())
+          (options.getVisionosCpus() == null || options.getVisionosCpus().isEmpty())
               ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_VISIONOS_CPU)
-              : ImmutableList.copyOf(options.visionosCpus);
+              : ImmutableList.copyOf(options.getVisionosCpus());
       ImmutableList<String> watchosCpus =
-          (options.watchosCpus == null || options.watchosCpus.isEmpty())
+          (options.getWatchosCpus() == null || options.getWatchosCpus().isEmpty())
               ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_WATCHOS_CPU)
-              : ImmutableList.copyOf(options.watchosCpus);
+              : ImmutableList.copyOf(options.getWatchosCpus());
       ImmutableList<String> tvosCpus =
-          (options.tvosCpus == null || options.tvosCpus.isEmpty())
+          (options.getTvosCpus() == null || options.getTvosCpus().isEmpty())
               ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_TVOS_CPU)
-              : ImmutableList.copyOf(options.tvosCpus);
+              : ImmutableList.copyOf(options.getTvosCpus());
       ImmutableList<String> macosCpus =
-          (options.macosCpus == null || options.macosCpus.isEmpty())
+          (options.getMacosCpus() == null || options.getMacosCpus().isEmpty())
               ? ImmutableList.of(DEFAULT_MACOS_CPU)
-              : ImmutableList.copyOf(options.macosCpus);
+              : ImmutableList.copyOf(options.getMacosCpus());
 
       return new AutoValue_AppleConfiguration_AppleCpus(
           appleSplitCpu, iosMultiCpus, visionosCpus, watchosCpus, tvosCpus, macosCpus);

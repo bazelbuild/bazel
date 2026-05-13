@@ -21,6 +21,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsProvider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -32,15 +33,16 @@ public class FakeOptionsTest {
 
   @Test
   public void getOptions_unspecifiedClass_returnsNull() {
-    OptionsProvider optionsProvider = FakeOptions.builder().put(new TestOptions()).build();
+    OptionsProvider optionsProvider =
+        FakeOptions.builder().put(Options.getDefaults(TestOptions.class)).build();
 
     assertThat(optionsProvider.getOptions(TestOptions2.class)).isNull();
   }
 
   @Test
   public void getOptions_returnsProvidedValue() {
-    TestOptions options = new TestOptions();
-    options.value = "value";
+    TestOptions options = Options.getDefaults(TestOptions.class);
+    options.setValue("value");
     OptionsProvider optionsProvider = FakeOptions.builder().put(options).build();
 
     assertThat(optionsProvider.getOptions(TestOptions.class)).isEqualTo(options);
@@ -48,8 +50,8 @@ public class FakeOptionsTest {
 
   @Test
   public void getOptions_of_returnsOnlyProvidedValue() {
-    TestOptions options = new TestOptions();
-    options.value = "value";
+    TestOptions options = Options.getDefaults(TestOptions.class);
+    options.setValue("value");
     OptionsProvider optionsProvider = FakeOptions.of(options);
 
     assertThat(optionsProvider.getOptions(TestOptions.class)).isEqualTo(options);
@@ -77,7 +79,10 @@ public class FakeOptionsTest {
   @Test
   public void getStarlarkOptions_returnsEmpty() {
     OptionsProvider optionsProvider =
-        FakeOptions.builder().put(new TestOptions()).putDefaults(TestOptions2.class).build();
+        FakeOptions.builder()
+            .put(Options.getDefaults(TestOptions.class))
+            .putDefaults(TestOptions2.class)
+            .build();
 
     assertThat(optionsProvider.getStarlarkOptions()).isEmpty();
   }
@@ -90,7 +95,9 @@ public class FakeOptionsTest {
   @Test
   public void build_specifiedValueTwiceForSameClass_fails() {
     FakeOptions.Builder builder =
-        FakeOptions.builder().put(new TestOptions()).put(new TestOptions());
+        FakeOptions.builder()
+            .put(Options.getDefaults(TestOptions.class))
+            .put(Options.getDefaults(TestOptions.class));
 
     assertThrows(IllegalArgumentException.class, builder::build);
   }
@@ -98,7 +105,9 @@ public class FakeOptionsTest {
   @Test
   public void build_specifiedValueAndDefaultsForSameClass_fails() {
     FakeOptions.Builder builder =
-        FakeOptions.builder().put(new TestOptions()).putDefaults(TestOptions.class);
+        FakeOptions.builder()
+            .put(Options.getDefaults(TestOptions.class))
+            .putDefaults(TestOptions.class);
 
     assertThrows(IllegalArgumentException.class, builder::build);
   }
@@ -112,22 +121,28 @@ public class FakeOptionsTest {
   }
 
   /** Simple test option class example. */
-  public static final class TestOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class TestOptions extends OptionsBase {
     @Option(
         name = "option1",
         defaultValue = "TestOptions default",
         effectTags = OptionEffectTag.NO_OP,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED)
-    public String value;
+    public abstract String getValue();
+
+    public abstract void setValue(String value);
   }
 
   /** Simple test option class, different from {@link TestOptions}. */
-  public static final class TestOptions2 extends OptionsBase {
+  @OptionsClass
+  public abstract static class TestOptions2 extends OptionsBase {
     @Option(
         name = "option2",
         defaultValue = "TestOptions2 default",
         effectTags = OptionEffectTag.NO_OP,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED)
-    public String value;
+    public abstract String getValue();
+
+    public abstract void setValue(String value);
   }
 }

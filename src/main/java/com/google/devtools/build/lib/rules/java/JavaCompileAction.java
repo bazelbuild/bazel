@@ -191,7 +191,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   }
 
   /** Computes all of a {@link JavaCompileAction}'s inputs. */
-  static NestedSet<Artifact> allInputs(
+  private static NestedSet<Artifact> allInputs(
       NestedSet<Artifact> mandatoryInputs,
       NestedSet<Artifact> transitiveInputs,
       NestedSet<Artifact> dependencyArtifacts) {
@@ -279,18 +279,6 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     void extend(ExtraActionInfo.Builder builder, ImmutableList<String> arguments);
   }
 
-  static class ReducedClasspath {
-    final NestedSet<Artifact> reducedJars;
-    final int reducedLength;
-    final int fullLength;
-
-    ReducedClasspath(ImmutableList<Artifact> reducedJars, int fullLength) {
-      this.reducedJars = NestedSetBuilder.wrap(Order.STABLE_ORDER, reducedJars);
-      this.reducedLength = reducedJars.size();
-      this.fullLength = fullLength;
-    }
-  }
-
   private JavaSpawn getReducedSpawn(
       ActionExecutionContext actionExecutionContext,
       NestedSet<Artifact> reducedClasspath,
@@ -359,19 +347,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         expandedCommandLines,
         getEffectiveEnvironment(actionExecutionContext.getClientEnv()),
         getExecutionInfo(),
-        NestedSetBuilder.<Artifact>stableOrder()
-            .addTransitive(mandatoryInputs)
-            .addTransitive(transitiveInputs)
-            // Full spawn mode means classPathMode != JavaClasspathMode.BAZEL, which means
-            // JavaBuilder may read .jdeps files to perform classpath reduction on the executor. So
-            // make sure these files are staged as inputs to the executor action.
-            //
-            // Contrast this with getReducedSpawn, which reduces the classpath in the Blaze process
-            // *before* sending actions to the executor. In those cases we want to avoid staging
-            // .jdeps files, which have config prefixes in output paths, which compromise caching
-            // possible by stripping prefixes on the executor.
-            .addTransitive(dependencyArtifacts)
-            .build(),
+        getInputs(),
         /* onlyMandatoryOutput= */ null,
         pathMapper);
   }

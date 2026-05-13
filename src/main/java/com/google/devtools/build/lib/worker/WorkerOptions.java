@@ -26,6 +26,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.time.Duration;
 import java.util.List;
@@ -33,7 +34,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 /** Options related to worker processes. */
-public class WorkerOptions extends OptionsBase {
+@OptionsClass
+public abstract class WorkerOptions extends OptionsBase {
   public static final WorkerOptions DEFAULTS = Options.getDefaults(WorkerOptions.class);
 
   /**
@@ -91,7 +93,9 @@ public class WorkerOptions extends OptionsBase {
               + ". 'auto' calculates a reasonable default based on machine capacity. "
               + "\"=value\" sets a default for unspecified mnemonics.",
       allowMultiple = true)
-  public List<Map.Entry<String, Integer>> workerMaxInstances;
+  public abstract List<Map.Entry<String, Integer>> getWorkerMaxInstances();
+
+  public abstract void setWorkerMaxInstances(List<Map.Entry<String, Integer>> value);
 
   @Option(
       name = "worker_max_multiplex_instances",
@@ -111,7 +115,9 @@ public class WorkerOptions extends OptionsBase {
               + ". 'auto' calculates a reasonable default based on machine capacity. "
               + "\"=value\" sets a default for unspecified mnemonics.",
       allowMultiple = true)
-  public List<Map.Entry<String, Integer>> workerMaxMultiplexInstances;
+  public abstract List<Map.Entry<String, Integer>> getWorkerMaxMultiplexInstances();
+
+  public abstract void setWorkerMaxMultiplexInstances(List<Map.Entry<String, Integer>> value);
 
   @Option(
       name = "worker_quit_after_build",
@@ -119,7 +125,7 @@ public class WorkerOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help = "If enabled, all workers quit after a build is done.")
-  public boolean workerQuitAfterBuild;
+  public abstract boolean getWorkerQuitAfterBuild();
 
   @Option(
       name = "worker_verbose",
@@ -127,7 +133,9 @@ public class WorkerOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "If enabled, prints verbose messages when workers are started, shutdown, ...")
-  public boolean workerVerbose;
+  public abstract boolean getWorkerVerbose();
+
+  public abstract void setWorkerVerbose(boolean value);
 
   @Option(
       name = "worker_extra_flag",
@@ -139,7 +147,9 @@ public class WorkerOptions extends OptionsBase {
           "Extra command-flags that will be passed to worker processes in addition to "
               + "--persistent_worker, keyed by mnemonic (e.g. --worker_extra_flag=Javac=--debug.",
       allowMultiple = true)
-  public List<Map.Entry<String, String>> workerExtraFlags;
+  public abstract List<Map.Entry<String, String>> getWorkerExtraFlags();
+
+  public abstract void setWorkerExtraFlags(List<Map.Entry<String, String>> value);
 
   @Option(
       name = "worker_sandboxing",
@@ -150,7 +160,9 @@ public class WorkerOptions extends OptionsBase {
           "If enabled, singleplex workers will run in a sandboxed environment. Singleplex workers"
               + " are always sandboxed when running under the dynamic execution strategy,"
               + " irrespective of this flag.")
-  public boolean workerSandboxing;
+  public abstract boolean getWorkerSandboxing();
+
+  public abstract void setWorkerSandboxing(boolean value);
 
   @Option(
       name = "worker_multiplex",
@@ -159,7 +171,9 @@ public class WorkerOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help = "If enabled, workers will use multiplexing if they support it. ")
-  public boolean workerMultiplex;
+  public abstract boolean getWorkerMultiplex();
+
+  public abstract void setWorkerMultiplex(boolean value);
 
   @Option(
       name = "experimental_worker_cancellation",
@@ -167,7 +181,9 @@ public class WorkerOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       help = "If enabled, Bazel may send cancellation requests to workers that support them.")
-  public boolean workerCancellation;
+  public abstract boolean getWorkerCancellation();
+
+  public abstract void setWorkerCancellation(boolean value);
 
   @Option(
       name = "experimental_worker_multiplex_sandboxing",
@@ -180,7 +196,9 @@ public class WorkerOptions extends OptionsBase {
               + " directory per work request. Multiplex workers with the execution requirement are"
               + " always sandboxed when running under the dynamic execution strategy,"
               + " irrespective of this flag.")
-  public boolean multiplexSandboxing;
+  public abstract boolean getMultiplexSandboxing();
+
+  public abstract void setMultiplexSandboxing(boolean value);
 
   @Option(
       name = "experimental_worker_strict_flagfiles",
@@ -191,7 +209,9 @@ public class WorkerOptions extends OptionsBase {
           "If enabled, actions arguments for workers that do not follow the worker specification"
               + " will cause an error. Worker arguments must have exactly one @flagfile argument"
               + " as the last of its list of arguments.")
-  public boolean strictFlagfiles;
+  public abstract boolean getStrictFlagfiles();
+
+  public abstract void setStrictFlagfiles(boolean value);
 
   @Option(
       name = "experimental_total_worker_memory_limit_mb",
@@ -202,7 +222,9 @@ public class WorkerOptions extends OptionsBase {
       help =
           "If this limit is greater than zero idle workers might be killed if the total memory"
               + " usage of all  workers exceed the limit.")
-  public int totalWorkerMemoryLimitMb;
+  public abstract int getTotalWorkerMemoryLimitMb();
+
+  public abstract void setTotalWorkerMemoryLimitMb(int value);
 
   @Option(
       name = "experimental_worker_use_cgroups_on_linux",
@@ -214,7 +236,7 @@ public class WorkerOptions extends OptionsBase {
           "On linux, run all workers in its own cgroup (without any limits set) and use the"
               + " cgroup's own resource accounting for memory measurements. This is overridden by"
               + " --experimental_worker_sandbox_hardening for sandboxed workers.")
-  public boolean useCgroupsOnLinux;
+  public abstract boolean getUseCgroupsOnLinux();
 
   @Option(
       name = "experimental_worker_sandbox_hardening",
@@ -224,7 +246,7 @@ public class WorkerOptions extends OptionsBase {
       help =
           "If enabled, workers are run in a hardened sandbox, if the implementation allows it. If"
               + " hardening is enabled then tmp directories are distinct for different workers.")
-  public boolean sandboxHardening;
+  public abstract boolean getSandboxHardening();
 
   @Option(
       name = "experimental_shrink_worker_pool",
@@ -234,7 +256,9 @@ public class WorkerOptions extends OptionsBase {
       help =
           "If enabled, could shrink worker pool if worker memory pressure is high. This flag works"
               + " only when flag experimental_total_worker_memory_limit_mb is enabled.")
-  public boolean shrinkWorkerPool;
+  public abstract boolean getShrinkWorkerPool();
+
+  public abstract void setShrinkWorkerPool(boolean value);
 
   @Option(
       name = "experimental_worker_metrics_poll_interval",
@@ -245,7 +269,7 @@ public class WorkerOptions extends OptionsBase {
       help =
           "The interval between collecting worker metrics and possibly attempting evictions. "
               + "Cannot effectively be less than 1s for performance reasons.")
-  public Duration workerMetricsPollInterval;
+  public abstract Duration getWorkerMetricsPollInterval();
 
   @Option(
       name = "experimental_worker_memory_limit_mb",
@@ -257,7 +281,9 @@ public class WorkerOptions extends OptionsBase {
           "If this limit is greater than zero, workers might be killed if the memory usage of the "
               + "worker exceeds the limit. If not used together with dynamic execution and "
               + "`--experimental_dynamic_ignore_local_signals=9`, this may crash your build.")
-  public int workerMemoryLimitMb;
+  public abstract int getWorkerMemoryLimitMb();
+
+  public abstract void setWorkerMemoryLimitMb(int value);
 
   @Option(
       name = "experimental_worker_sandbox_inmemory_tracking",
@@ -270,7 +296,7 @@ public class WorkerOptions extends OptionsBase {
               + " memory. This may improve build performance at the cost of additional memory"
               + " usage. Only affects sandboxed workers. May be specified multiple times for"
               + " different mnemonics.")
-  public List<String> workerSandboxInMemoryTracking;
+  public abstract List<String> getWorkerSandboxInMemoryTracking();
 
   @Option(
       name = "experimental_worker_allowlist",
@@ -280,5 +306,7 @@ public class WorkerOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "If non-empty, only allow using persistent workers with the given worker key mnemonic.")
-  public ImmutableList<String> allowlist;
+  public abstract ImmutableList<String> getAllowlist();
+
+  public abstract void setAllowlist(ImmutableList<String> value);
 }

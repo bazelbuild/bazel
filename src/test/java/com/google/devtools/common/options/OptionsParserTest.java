@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser.ArgAndFallbackData;
-import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -42,29 +41,28 @@ import org.junit.runners.JUnit4;
 public final class OptionsParserTest {
 
   /** Dummy comment (linter suppression) */
-  public static class BadOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class BadOptions extends OptionsBase {
     @Option(
-      name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false"
-    )
-    public boolean foo1;
+        name = "foo",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false")
+    public abstract boolean getFoo1();
 
     @Option(
-      name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false"
-    )
-    public boolean foo2;
+        name = "foo",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false")
+    public abstract boolean getFoo2();
   }
 
   @Test
   public void errorsDuringConstructionAreWrapped() {
-    OptionsParser.ConstructionException e =
+    ConstructionException e =
         assertThrows(
-            OptionsParser.ConstructionException.class,
+            ConstructionException.class,
             () -> OptionsParser.builder().optionsClasses(BadOptions.class).build());
     assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
   }
@@ -100,35 +98,35 @@ public final class OptionsParserTest {
     }
   }
 
-  public static class ChoosyOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class ChoosyOptions extends OptionsBase {
     @Option(
         name = "choosy",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "default",
         converter = ChoosyConverter.class)
-    public String choosy;
+    public abstract String getChoosy();
   }
 
-  public static class ExampleFoo extends OptionsBase {
+  @OptionsClass
+  public abstract static class ExampleFoo extends OptionsBase {
 
     @Option(
-      name = "foo",
-      category = "one",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "defaultFoo"
-    )
-    public String foo;
+        name = "foo",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "defaultFoo")
+    public abstract String getFoo();
 
     @Option(
-      name = "bar",
-      category = "two",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "42"
-    )
-    public int bar;
+        name = "bar",
+        category = "two",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "42")
+    public abstract int getBar();
 
     @Option(
         name = "bing",
@@ -137,7 +135,7 @@ public final class OptionsParserTest {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null",
         allowMultiple = true)
-    public List<String> bing;
+    public abstract List<String> getBing();
 
     @Option(
         name = "bang",
@@ -147,67 +145,63 @@ public final class OptionsParserTest {
         defaultValue = "null",
         converter = StringConverter.class,
         allowMultiple = true)
-    public List<String> bang;
+    public abstract List<String> getBang();
 
     @Option(
         name = "nodoc",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "")
-    public String nodoc;
+    public abstract String getNodoc();
   }
 
-  public static class ExampleBaz extends OptionsBase {
+  @OptionsClass
+  public abstract static class ExampleBaz extends OptionsBase {
 
     @Option(
-      name = "baz",
-      category = "one",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "defaultBaz"
-    )
-    public String baz;
+        name = "baz",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "defaultBaz")
+    public abstract String getBaz();
   }
 
   /** Subclass of an options class. */
-  public static class ExampleBazSubclass extends ExampleBaz {
+  @OptionsClass
+  public abstract static class ExampleBazSubclass extends ExampleBaz {
 
     @Option(
-      name = "baz_subclass",
-      category = "one",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "defaultBazSubclass"
-    )
-    public String bazSubclass;
+        name = "baz_subclass",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "defaultBazSubclass")
+    public abstract String getBazSubclass();
   }
 
-  /**
-   * Example with empty to null string converter
-   */
-  public static class ExampleBoom extends OptionsBase {
+  /** Example with empty to null string converter */
+  @OptionsClass
+  public abstract static class ExampleBoom extends OptionsBase {
     @Option(
-      name = "boom",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "defaultBoom",
-      converter = EmptyToNullStringConverter.class
-    )
-    public String boom;
+        name = "boom",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "defaultBoom",
+        converter = EmptyToNullStringConverter.class)
+    public abstract String getBoom();
   }
 
-  /**
-   * Example with internal options
-   */
-  public static class ExampleInternalOptions extends OptionsBase {
+  /** Example with internal options */
+  @OptionsClass
+  public abstract static class ExampleInternalOptions extends OptionsBase {
     @Option(
-      name = "internal_boolean",
-      metadataTags = {OptionMetadataTag.INTERNAL},
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "true"
-    )
-    public boolean privateBoolean;
+        name = "internal_boolean",
+        metadataTags = {OptionMetadataTag.INTERNAL},
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "true")
+    public abstract boolean getPrivateBoolean();
 
     @Option(
         name = "internal_string",
@@ -215,10 +209,11 @@ public final class OptionsParserTest {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "super secret")
-    public String privateString;
+    public abstract String getPrivateString();
   }
 
-  public static class ExampleEquivalentWithFoo extends OptionsBase {
+  @OptionsClass
+  public abstract static class ExampleEquivalentWithFoo extends OptionsBase {
 
     @Option(
         name = "foo",
@@ -226,7 +221,7 @@ public final class OptionsParserTest {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "differentDefault")
-    public String foo;
+    public abstract String getFoo();
 
     @Option(
         name = "bar",
@@ -234,7 +229,7 @@ public final class OptionsParserTest {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "differentDefault")
-    public String bar;
+    public abstract String getBar();
 
     @Option(
         name = "ignored_with_value",
@@ -242,7 +237,7 @@ public final class OptionsParserTest {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "differentDefault")
-    public String ignoredWithValue;
+    public abstract String getIgnoredWithValue();
 
     @Option(
         name = "ignored_without_value",
@@ -250,10 +245,62 @@ public final class OptionsParserTest {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "false")
-    public boolean ignoredWithoutValue;
+    public abstract boolean getIgnoredWithoutValue();
   }
 
-  public static class ExampleIncompatibleWithFoo extends OptionsBase {
+  @OptionsClass
+  public abstract static class BooleanAliasOptions extends OptionsBase {
+    @Option(
+        name = "foo",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "true")
+    public abstract boolean getFoo();
+
+    @Option(
+        name = "bar",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "true")
+    public abstract boolean getBar();
+
+    @Option(
+        name = "flag_alias",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        allowMultiple = true)
+    public abstract List<String> getFlagAlias();
+  }
+
+  @OptionsClass
+  public abstract static class DeprecatedAliasOptions extends OptionsBase {
+    @Option(
+        name = "foo",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "true",
+        deprecationWarning = "Don't use foo.")
+    public abstract boolean getFoo();
+
+    @Option(
+        name = "bar",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "true")
+    public abstract boolean getBar();
+
+    @Option(
+        name = "flag_alias",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        allowMultiple = true)
+    public abstract List<String> getFlagAlias();
+  }
+
+  @OptionsClass
+  public abstract static class ExampleIncompatibleWithFoo extends OptionsBase {
 
     @Option(
         name = "foo",
@@ -261,7 +308,7 @@ public final class OptionsParserTest {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "true")
-    public boolean foo;
+    public abstract boolean getFoo();
   }
 
   public static class StringConverter extends Converter.Contextless<String> {
@@ -292,7 +339,7 @@ public final class OptionsParserTest {
     OptionsParser parser = OptionsParser.builder().optionsClasses(ChoosyOptions.class).build();
 
     assertThrows(OptionsParsingException.class, () -> parser.parse("--choosy=wat"));
-    assertThat(parser.getOptions(ChoosyOptions.class).choosy).isEqualTo("default");
+    assertThat(parser.getOptions(ChoosyOptions.class).getChoosy()).isEqualTo("default");
   }
 
   @Test
@@ -301,10 +348,10 @@ public final class OptionsParserTest {
         OptionsParser.builder().optionsClasses(ExampleFoo.class, ExampleBaz.class).build();
     parser.parse("--baz=oops", "--bar", "17");
     ExampleFoo foo = parser.getOptions(ExampleFoo.class);
-    assertThat(foo.foo).isEqualTo("defaultFoo");
-    assertThat(foo.bar).isEqualTo(17);
+    assertThat(foo.getFoo()).isEqualTo("defaultFoo");
+    assertThat(foo.getBar()).isEqualTo(17);
     ExampleBaz baz = parser.getOptions(ExampleBaz.class);
-    assertThat(baz.baz).isEqualTo("oops");
+    assertThat(baz.getBaz()).isEqualTo("oops");
   }
 
   @Test
@@ -382,12 +429,11 @@ public final class OptionsParserTest {
     OptionsParser parser = OptionsParser.builder().optionsClasses(ExampleBazSubclass.class).build();
     parser.parse("--baz_subclass=cat", "--baz=dog");
     ExampleBazSubclass subclassOptions = parser.getOptions(ExampleBazSubclass.class);
-    assertThat(subclassOptions.bazSubclass).isEqualTo("cat");
-    assertThat(subclassOptions.baz).isEqualTo("dog");
+    assertThat(subclassOptions.getBazSubclass()).isEqualTo("cat");
+    assertThat(subclassOptions.getBaz()).isEqualTo("dog");
     ExampleBaz options = parser.getOptions(ExampleBaz.class);
-    // This is a test showcasing the lack of functionality for retrieving parsed options at a
-    // superclass type class type. If there's a need for this functionality, we can add it later.
-    assertThat(options).isNull();
+    assertThat(options).isNotNull();
+    assertThat(options.getBaz()).isEqualTo("dog");
   }
 
   @Test
@@ -496,27 +542,26 @@ public final class OptionsParserTest {
     parser.parse("--boom=");
     ExampleBoom boom = parser.getOptions(ExampleBoom.class);
     // The converted value is intentionally null since boom uses the EmptyToNullStringConverter
-    assertThat(boom.boom).isNull();
+    assertThat(boom.getBoom()).isNull();
   }
 
-  public static class CategoryTest extends OptionsBase {
+  @OptionsClass
+  public abstract static class CategoryTest extends OptionsBase {
     @Option(
-      name = "swiss_bank_account_number",
-      documentationCategory =
-          OptionDocumentationCategory.UNDOCUMENTED, // Not printed in usage messages!
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "123456789"
-    )
-    public int swissBankAccountNumber;
+        name = "swiss_bank_account_number",
+        documentationCategory =
+            OptionDocumentationCategory.UNDOCUMENTED, // Not printed in usage messages!
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "123456789")
+    public abstract int getSwissBankAccountNumber();
 
     @Option(
-      name = "student_bank_account_number",
-      category = "one",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "987654321"
-    )
-    public int studentBankAccountNumber;
+        name = "student_bank_account_number",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "987654321")
+    public abstract int getStudentBankAccountNumber();
   }
 
   @Test
@@ -528,7 +573,7 @@ public final class OptionsParserTest {
                 .optionsClasses(ExampleFoo.class)
                 .build()
                 .getOptions(ExampleFoo.class)
-                .foo)
+                .getFoo())
         .isEqualTo("defaultFoo");
     assertThat(OptionsParser.builder().optionsClasses(ExampleFoo.class).build().getResidue())
         .isEmpty();
@@ -538,18 +583,18 @@ public final class OptionsParserTest {
   public void parserCanBeCalledRepeatedly() throws OptionsParsingException {
     OptionsParser parser = OptionsParser.builder().optionsClasses(ExampleFoo.class).build();
     parser.parse("--foo", "foo1");
-    assertThat(parser.getOptions(ExampleFoo.class).foo).isEqualTo("foo1");
+    assertThat(parser.getOptions(ExampleFoo.class).getFoo()).isEqualTo("foo1");
     parser.parse();
-    assertThat(parser.getOptions(ExampleFoo.class).foo).isEqualTo("foo1"); // no change
+    assertThat(parser.getOptions(ExampleFoo.class).getFoo()).isEqualTo("foo1"); // no change
     parser.parse("--foo", "foo2");
-    assertThat(parser.getOptions(ExampleFoo.class).foo).isEqualTo("foo2"); // updated
+    assertThat(parser.getOptions(ExampleFoo.class).getFoo()).isEqualTo("foo2"); // updated
   }
 
   @Test
   public void multipleOccurringOption() throws OptionsParsingException {
     OptionsParser parser = OptionsParser.builder().optionsClasses(ExampleFoo.class).build();
     parser.parse("--bing", "abcdef", "--foo", "foo1", "--bing", "123456" );
-    assertThat(parser.getOptions(ExampleFoo.class).bing).containsExactly("abcdef", "123456");
+    assertThat(parser.getOptions(ExampleFoo.class).getBing()).containsExactly("abcdef", "123456");
   }
 
   @Test
@@ -558,7 +603,8 @@ public final class OptionsParserTest {
     // This test also tests option values with embedded commas and spaces.
     OptionsParser parser = OptionsParser.builder().optionsClasses(ExampleFoo.class).build();
     parser.parse("--bang", "abc,def ghi", "--foo", "foo1", "--bang", "123456" );
-    assertThat(parser.getOptions(ExampleFoo.class).bang).containsExactly("abc,def ghi", "123456");
+    assertThat(parser.getOptions(ExampleFoo.class).getBang())
+        .containsExactly("abc,def ghi", "123456");
   }
 
   @Test
@@ -569,9 +615,9 @@ public final class OptionsParserTest {
     parser.parse("--foo", "well", "--baz", "here", "--", "--bar", "ignore");
     ExampleFoo foo = parser.getOptions(ExampleFoo.class);
     ExampleBaz baz = parser.getOptions(ExampleBaz.class);
-    assertThat(foo.foo).isEqualTo("well");
-    assertThat(baz.baz).isEqualTo("here");
-    assertThat(foo.bar).isEqualTo(42); // the default!
+    assertThat(foo.getFoo()).isEqualTo("well");
+    assertThat(baz.getBaz()).isEqualTo("here");
+    assertThat(foo.getBar()).isEqualTo(42); // the default!
     assertThat(parser.getResidue()).containsExactly("--bar", "ignore").inOrder();
   }
 
@@ -592,8 +638,8 @@ public final class OptionsParserTest {
     parser.parse("--foo", "one", "--bar", "43", "unknown1");
     parser.parse("--foo", "two", "unknown2");
     ExampleFoo foo = parser.getOptions(ExampleFoo.class);
-    assertThat(foo.foo).isEqualTo("two"); // second call takes precedence
-    assertThat(foo.bar).isEqualTo(43);
+    assertThat(foo.getFoo()).isEqualTo("two"); // second call takes precedence
+    assertThat(foo.getBar()).isEqualTo(43);
     assertThat(parser.getResidue()).containsExactly("unknown1", "unknown2").inOrder();
   }
 
@@ -643,21 +689,94 @@ public final class OptionsParserTest {
             .put("foo", "defaultFoo")
             .buildOrThrow();
 
-    assertThat(foo1.asMap()).isEqualTo(expectedMap);
-    assertThat(foo2.asMap()).isEqualTo(expectedMap);
+    assertThat(Options.toMap(foo1)).isEqualTo(expectedMap);
+    assertThat(Options.toMap(foo2)).isEqualTo(expectedMap);
+  }
+
+  @OptionsClass
+  public abstract static class BaseClass extends OptionsBase {
+    @Option(
+        name = "base",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "baseDefault")
+    public abstract String getBase();
+
+    public abstract void setBase(String base);
+  }
+
+  @OptionsClass
+  public abstract static class DerivedClass extends BaseClass {
+    @Option(
+        name = "derived",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "derivedDefault")
+    public abstract String getDerived();
+
+    public abstract void setDerived(String derived);
+  }
+
+  @Test
+  public void getOptionsWithInheritance() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(DerivedClass.class).build();
+    parser.parse("--base=b", "--derived=d");
+    BaseClass base = parser.getOptions(BaseClass.class);
+    assertThat(base.getBase()).isEqualTo("b");
+
+    DerivedClass derived = parser.getOptions(DerivedClass.class);
+    assertThat(derived.getBase()).isEqualTo("b");
+    assertThat(derived.getDerived()).isEqualTo("d");
+  }
+
+  @Test
+  public void setOptionsWithInheritance() throws Exception {
+    DerivedClass derived = Options.getDefaults(DerivedClass.class);
+    derived.setBase("b");
+    derived.setDerived("d");
+    assertThat(derived.getBase()).isEqualTo("b");
+    assertThat(derived.getDerived()).isEqualTo("d");
+  }
+
+  // Checks that fallback data can contain options classes where one is the ancestor of another
+  @Test
+  public void parseOptionsWithInheritance() throws Exception {
+    OpaqueOptionsData fallbackData =
+        OptionsParser.getFallbackOptionsData(ImmutableList.of(BaseClass.class, DerivedClass.class));
+
+    OptionsParser parser = OptionsParser.builder().optionsClasses().build();
+    parser.parseWithSourceFunction(
+        PriorityCategory.RC_FILE,
+        o -> ".bazelrc",
+        ImmutableList.of("--base", "b", "--derived", "d"),
+        fallbackData);
+  }
+
+  @Test
+  public void describeOptionsWithInheritance() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(DerivedClass.class).build();
+    String usage =
+        parser.describeOptionsWithDeprecatedCategories(ImmutableMap.of(), HelpVerbosity.LONG);
+    assertThat(usage).contains("--base");
+    assertThat(usage).contains("--derived");
+
+    // Check that --base is not duplicated.
+    int firstBase = usage.indexOf("--base");
+    int secondBase = usage.indexOf("--base", firstBase + 1);
+    assertThat(secondBase).isEqualTo(-1);
   }
 
   // Regression test for yet another subtle bug!  The inherited options weren't
   // being printed by toString.  One day, a real rain will come and wash all
   // this scummy code off the streets.
-  public static class DerivedBaz extends ExampleBaz {
+  @OptionsClass
+  public abstract static class DerivedBaz extends ExampleBaz {
     @Option(
-      name = "derived",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "defaultDerived"
-    )
-    public String derived;
+        name = "derived",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "defaultDerived")
+    public abstract String getDerived();
   }
 
   @Test
@@ -670,58 +789,57 @@ public final class OptionsParserTest {
     }
   }
 
-  // Tests for new default value override mechanism
-  public static class CustomOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class CustomOptions extends OptionsBase {
     @Option(
-      name = "simple",
-      category = "custom",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "simple default"
-    )
-    public String simple;
+        name = "simple",
+        category = "custom",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "simple default")
+    public abstract String getSimple();
 
     @Option(
-      name = "multipart_name",
-      category = "custom",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "multipart default"
-    )
-    public String multipartName;
+        name = "multipart_name",
+        category = "custom",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "multipart default")
+    public abstract String getMultipartName();
   }
 
   @Test
   public void assertDefaultStringsForCustomOptions() throws OptionsParsingException {
     CustomOptions options = Options.parse(CustomOptions.class).getOptions();
-    assertThat(options.simple).isEqualTo("simple default");
-    assertThat(options.multipartName).isEqualTo("multipart default");
+    assertThat(options.getSimple()).isEqualTo("simple default");
+    assertThat(options.getMultipartName()).isEqualTo("multipart default");
   }
 
-  public static class NullTestOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class NullTestOptions extends OptionsBase {
     @Option(
-      name = "simple",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public String simple;
+        name = "simple",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public abstract String getSimple();
   }
 
   @Test
   public void defaultNullStringGivesNull() throws Exception {
     NullTestOptions options = Options.parse(NullTestOptions.class).getOptions();
-    assertThat(options.simple).isNull();
+    assertThat(options.getSimple()).isNull();
   }
 
-  public static class ConverterWithContextTestOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class ConverterWithContextTestOptions extends OptionsBase {
     @Option(
         name = "foo",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         converter = ConverterWithContext.class,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "bar")
-    public String foo;
+    public abstract String getFoo();
 
     public static class ConverterWithContext implements Converter<String> {
 
@@ -751,35 +869,33 @@ public final class OptionsParserTest {
     parser.parse("--foo", "quux");
     ConverterWithContextTestOptions options =
         parser.getOptions(ConverterWithContextTestOptions.class);
-    assertThat(options.foo).isEqualTo("bleh quux");
+    assertThat(options.getFoo()).isEqualTo("bleh quux");
   }
 
-  public static class ImplicitDependencyOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class ImplicitDependencyOptions extends OptionsBase {
     @Option(
-      name = "first",
-      implicitRequirements = "--second=second",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public String first;
+        name = "first",
+        implicitRequirements = "--second=second",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public abstract String getFirst();
 
     @Option(
-      name = "second",
-      implicitRequirements = "--third=third",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public String second;
+        name = "second",
+        implicitRequirements = "--third=third",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public abstract String getSecond();
 
     @Option(
-      name = "third",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public String third;
+        name = "third",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public abstract String getThird();
   }
 
   @Test
@@ -788,21 +904,21 @@ public final class OptionsParserTest {
         OptionsParser.builder().optionsClasses(ImplicitDependencyOptions.class).build();
     parser.parse(
         OptionPriority.PriorityCategory.COMMAND_LINE, null, ImmutableList.of("--first=first"));
-    assertThat(parser.getOptions(ImplicitDependencyOptions.class).first).isEqualTo("first");
-    assertThat(parser.getOptions(ImplicitDependencyOptions.class).second).isEqualTo("second");
-    assertThat(parser.getOptions(ImplicitDependencyOptions.class).third).isEqualTo("third");
+    assertThat(parser.getOptions(ImplicitDependencyOptions.class).getFirst()).isEqualTo("first");
+    assertThat(parser.getOptions(ImplicitDependencyOptions.class).getSecond()).isEqualTo("second");
+    assertThat(parser.getOptions(ImplicitDependencyOptions.class).getThird()).isEqualTo("third");
     assertThat(parser.getWarnings()).isEmpty();
   }
 
-  public static class BadImplicitDependencyOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class BadImplicitDependencyOptions extends OptionsBase {
     @Option(
-      name = "first",
-      implicitRequirements = "xxx",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public String first;
+        name = "first",
+        implicitRequirements = "xxx",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public abstract String getFirst();
   }
 
   @Test
@@ -819,15 +935,15 @@ public final class OptionsParserTest {
     fail();
   }
 
-  public static class BadExpansionOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class BadExpansionOptions extends OptionsBase {
     @Option(
-      name = "first",
-      expansion = {"xxx"},
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public Void first;
+        name = "first",
+        expansion = {"xxx"},
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public abstract Void getFirst();
   }
 
   @Test
@@ -844,31 +960,29 @@ public final class OptionsParserTest {
   }
 
   /** ExpansionOptions */
-  public static class ExpansionOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class ExpansionOptions extends OptionsBase {
     @Option(
-      name = "underlying",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public String underlying;
+        name = "underlying",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public abstract String getUnderlying();
 
     @Option(
-      name = "expands",
-      expansion = {"--underlying=from_expansion"},
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public Void expands;
+        name = "expands",
+        expansion = {"--underlying=from_expansion"},
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public abstract Void getExpands();
   }
 
   @Test
   public void describeOptionsWithExpansion() throws Exception {
     OptionsParser parser = OptionsParser.builder().optionsClasses(ExpansionOptions.class).build();
     String usage =
-        parser.describeOptionsWithDeprecatedCategories(
-            ImmutableMap.of(), OptionsParser.HelpVerbosity.LONG);
+        parser.describeOptionsWithDeprecatedCategories(ImmutableMap.of(), HelpVerbosity.LONG);
     assertThat(usage).contains("  --expands\n      Expands to: --underlying=from_expansion");
   }
 
@@ -880,7 +994,7 @@ public final class OptionsParserTest {
         null,
         ImmutableList.of("--expands", "--underlying=direct_value"));
     ExpansionOptions options = parser.getOptions(ExpansionOptions.class);
-    assertThat(options.underlying).isEqualTo("direct_value");
+    assertThat(options.getUnderlying()).isEqualTo("direct_value");
     assertThat(parser.getWarnings()).isEmpty();
   }
 
@@ -915,7 +1029,7 @@ public final class OptionsParserTest {
         null,
         ImmutableList.of("--underlying=direct_value", "--expands"));
     ExpansionOptions options = parser.getOptions(ExpansionOptions.class);
-    assertThat(options.underlying).isEqualTo("from_expansion");
+    assertThat(options.getUnderlying()).isEqualTo("from_expansion");
     assertThat(parser.getWarnings())
         .containsExactly(
             "option '--expands' was expanded and now overrides the explicit option "
@@ -930,7 +1044,7 @@ public final class OptionsParserTest {
         null,
         ImmutableList.of("--underlying=direct_value", "--expands"));
     ExpansionOptions options = parser.getOptions(ExpansionOptions.class);
-    assertThat(options.underlying).isEqualTo("from_expansion");
+    assertThat(options.getUnderlying()).isEqualTo("from_expansion");
     assertThat(parser.getWarnings())
         .doesNotContain(
             "option '--expands' was expanded and now overrides the explicit option "
@@ -945,21 +1059,22 @@ public final class OptionsParserTest {
         null,
         ImmutableList.of("--underlying=from_expansion", "--expands"));
     ExpansionOptions options = parser.getOptions(ExpansionOptions.class);
-    assertThat(options.underlying).isEqualTo("from_expansion");
+    assertThat(options.getUnderlying()).isEqualTo("from_expansion");
     // The expansion option overrides the explicit option, but it is the same value, so expect
     // no warning.
     assertThat(parser.getWarnings()).isEmpty();
   }
 
   /** ExpansionOptions to allow-multiple values. */
-  public static class ExpansionOptionsToMultiple extends OptionsBase {
+  @OptionsClass
+  public abstract static class ExpansionOptionsToMultiple extends OptionsBase {
     @Option(
         name = "underlying",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null",
         allowMultiple = true)
-    public List<String> underlying;
+    public abstract List<String> getUnderlying();
 
     @Option(
         name = "expands",
@@ -967,7 +1082,7 @@ public final class OptionsParserTest {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null")
-    public Void expands;
+    public abstract Void getExpands();
   }
 
   /**
@@ -983,7 +1098,7 @@ public final class OptionsParserTest {
         null,
         ImmutableList.of("--expands", "--underlying=direct_value", "--expands"));
     ExpansionOptionsToMultiple options = parser.getOptions(ExpansionOptionsToMultiple.class);
-    assertThat(options.underlying)
+    assertThat(options.getUnderlying())
         .containsExactly("from_expansion", "direct_value", "from_expansion")
         .inOrder();
     assertThat(parser.getWarnings()).isEmpty();
@@ -995,7 +1110,7 @@ public final class OptionsParserTest {
     parser.parse(
         OptionPriority.PriorityCategory.COMMAND_LINE, null, ImmutableList.of("--expands=no"));
     ExpansionOptions options = parser.getOptions(ExpansionOptions.class);
-    assertThat(options.underlying).isEqualTo("from_expansion");
+    assertThat(options.getUnderlying()).isEqualTo("from_expansion");
     assertThat(parser.getWarnings())
         .containsExactly(
             "option '--expands' is an expansion option. It does not accept values, "
@@ -1007,10 +1122,10 @@ public final class OptionsParserTest {
   public void overrideWithHigherPriority() throws Exception {
     OptionsParser parser = OptionsParser.builder().optionsClasses(NullTestOptions.class).build();
     parser.parse(OptionPriority.PriorityCategory.RC_FILE, null, ImmutableList.of("--simple=a"));
-    assertThat(parser.getOptions(NullTestOptions.class).simple).isEqualTo("a");
+    assertThat(parser.getOptions(NullTestOptions.class).getSimple()).isEqualTo("a");
     parser.parse(
         OptionPriority.PriorityCategory.COMMAND_LINE, null, ImmutableList.of("--simple=b"));
-    assertThat(parser.getOptions(NullTestOptions.class).simple).isEqualTo("b");
+    assertThat(parser.getOptions(NullTestOptions.class).getSimple()).isEqualTo("b");
   }
 
   @Test
@@ -1018,9 +1133,9 @@ public final class OptionsParserTest {
     OptionsParser parser = OptionsParser.builder().optionsClasses(NullTestOptions.class).build();
     parser.parse(
         OptionPriority.PriorityCategory.COMMAND_LINE, null, ImmutableList.of("--simple=a"));
-    assertThat(parser.getOptions(NullTestOptions.class).simple).isEqualTo("a");
+    assertThat(parser.getOptions(NullTestOptions.class).getSimple()).isEqualTo("a");
     parser.parse(OptionPriority.PriorityCategory.RC_FILE, null, ImmutableList.of("--simple=b"));
-    assertThat(parser.getOptions(NullTestOptions.class).simple).isEqualTo("a");
+    assertThat(parser.getOptions(NullTestOptions.class).getSimple()).isEqualTo("a");
   }
 
   @Test
@@ -1059,32 +1174,30 @@ public final class OptionsParserTest {
     assertThat(singleOptionInstance.getExpandedFrom()).isNull();
   }
 
-  public static class ImplicitDependencyWarningOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class ImplicitDependencyWarningOptions extends OptionsBase {
     @Option(
-      name = "first",
-      implicitRequirements = "--second=requiredByFirst",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false"
-    )
-    public boolean first;
+        name = "first",
+        implicitRequirements = "--second=requiredByFirst",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false")
+    public abstract boolean getFirst();
 
     @Option(
-      name = "second",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public String second;
+        name = "second",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public abstract String getSecond();
 
     @Option(
-      name = "third",
-      implicitRequirements = "--second=requiredByThird",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public String third;
+        name = "third",
+        implicitRequirements = "--second=requiredByThird",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public abstract String getThird();
   }
 
   @Test
@@ -1142,8 +1255,8 @@ public final class OptionsParserTest {
     parser.parse("--first", "--second=requiredByFirst");
     ImplicitDependencyWarningOptions options =
         parser.getOptions(ImplicitDependencyWarningOptions.class);
-    assertThat(options.first).isTrue();
-    assertThat(options.second).isEqualTo("requiredByFirst");
+    assertThat(options.getFirst()).isTrue();
+    assertThat(options.getSecond()).isEqualTo("requiredByFirst");
     assertThat(parser.getWarnings()).isEmpty();
   }
 
@@ -1154,8 +1267,8 @@ public final class OptionsParserTest {
     parser.parse("--nofirst");
     ImplicitDependencyWarningOptions options =
         parser.getOptions(ImplicitDependencyWarningOptions.class);
-    assertThat(options.first).isFalse();
-    assertThat(options.second).isEqualTo("requiredByFirst");
+    assertThat(options.getFirst()).isFalse();
+    assertThat(options.getSecond()).isEqualTo("requiredByFirst");
     assertThat(parser.getWarnings())
         .containsExactly(
             "--nofirst sets option '--first' to its default value. Since this option has implicit "
@@ -1189,33 +1302,31 @@ public final class OptionsParserTest {
    * Options for testing the behavior of canonicalization when an option implicitly requires a
    * repeatable option.
    */
-  public static class ImplicitDependencyOnAllowMultipleOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class ImplicitDependencyOnAllowMultipleOptions extends OptionsBase {
     @Option(
-      name = "first",
-      implicitRequirements = "--second=requiredByFirst",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false"
-    )
-    public boolean first;
+        name = "first",
+        implicitRequirements = "--second=requiredByFirst",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false")
+    public abstract boolean getFirst();
 
     @Option(
-      name = "second",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null",
-      allowMultiple = true
-    )
-    public List<String> second;
+        name = "second",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        allowMultiple = true)
+    public abstract List<String> getSecond();
 
     @Option(
-      name = "third",
-      implicitRequirements = "--second=requiredByThird",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public String third;
+        name = "third",
+        implicitRequirements = "--second=requiredByThird",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public abstract String getThird();
   }
 
   @Test
@@ -1244,8 +1355,8 @@ public final class OptionsParserTest {
 
     ImplicitDependencyOnAllowMultipleOptions options =
         parser.getOptions(ImplicitDependencyOnAllowMultipleOptions.class);
-    assertThat(options.first).isTrue();
-    assertThat(options.second).containsExactly("explicitValue", "requiredByFirst");
+    assertThat(options.getFirst()).isTrue();
+    assertThat(options.getSecond()).containsExactly("explicitValue", "requiredByFirst");
     assertThat(parser.getWarnings()).isEmpty();
   }
 
@@ -1272,49 +1383,49 @@ public final class OptionsParserTest {
 
     ImplicitDependencyOnAllowMultipleOptions options =
         parser.getOptions(ImplicitDependencyOnAllowMultipleOptions.class);
-    assertThat(options.first).isTrue();
-    assertThat(options.second).containsExactly("requiredByFirst");
+    assertThat(options.getFirst()).isTrue();
+    assertThat(options.getSecond()).containsExactly("requiredByFirst");
     assertThat(parser.getWarnings()).isEmpty();
   }
 
-  public static class WarningOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class WarningOptions extends OptionsBase {
     @Deprecated
     @Option(
-      name = "first",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public Void first;
+        name = "first",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        defaultValue = "null")
+    public abstract Void getFirst();
 
     @Deprecated
     @Option(
-      name = "second",
-      allowMultiple = true,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public List<String> second;
+        name = "second",
+        allowMultiple = true,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        defaultValue = "null")
+    public abstract List<String> getSecond();
 
     @Deprecated
     @Option(
-      name = "third",
-      expansion = "--fourth=true",
-      abbrev = 't',
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public Void third;
+        name = "third",
+        expansion = "--fourth=true",
+        abbrev = 't',
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        defaultValue = "null")
+    public abstract Void getThird();
 
     @Option(
-      name = "fourth",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false"
-    )
-    public boolean fourth;
+        name = "fourth",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false")
+    public abstract boolean getFourth();
   }
 
   @Test
@@ -1337,7 +1448,7 @@ public final class OptionsParserTest {
     OptionsParser parser = OptionsParser.builder().optionsClasses(WarningOptions.class).build();
     parser.parse(OptionPriority.PriorityCategory.COMMAND_LINE, null, ImmutableList.of("--third"));
     assertThat(parser.getWarnings()).isEqualTo(ImmutableList.of("Option 'third' is deprecated"));
-    assertThat(parser.getOptions(WarningOptions.class).fourth).isTrue();
+    assertThat(parser.getOptions(WarningOptions.class).getFourth()).isTrue();
   }
 
   @Test
@@ -1345,46 +1456,43 @@ public final class OptionsParserTest {
     OptionsParser parser = OptionsParser.builder().optionsClasses(WarningOptions.class).build();
     parser.parse(OptionPriority.PriorityCategory.COMMAND_LINE, null, ImmutableList.of("-t"));
     assertThat(parser.getWarnings()).isEqualTo(ImmutableList.of("Option 'third' is deprecated"));
-    assertThat(parser.getOptions(WarningOptions.class).fourth).isTrue();
+    assertThat(parser.getOptions(WarningOptions.class).getFourth()).isTrue();
   }
 
-  public static class NewWarningOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class NewWarningOptions extends OptionsBase {
     @Option(
-      name = "first",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null",
-      deprecationWarning = "it's gone"
-    )
-    public Void first;
+        name = "first",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        deprecationWarning = "it's gone")
+    public abstract Void getFirst();
 
     @Option(
-      name = "second",
-      allowMultiple = true,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null",
-      deprecationWarning = "sorry, no replacement"
-    )
-    public List<String> second;
+        name = "second",
+        allowMultiple = true,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        deprecationWarning = "sorry, no replacement")
+    public abstract List<String> getSecond();
 
     @Option(
-      name = "third",
-      expansion = "--fourth=true",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null",
-      deprecationWarning = "use --forth instead"
-    )
-    public Void third;
+        name = "third",
+        expansion = "--fourth=true",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        deprecationWarning = "use --forth instead")
+    public abstract Void getThird();
 
     @Option(
-      name = "fourth",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false"
-    )
-    public boolean fourth;
+        name = "fourth",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false")
+    public abstract boolean getFourth();
   }
 
   @Test
@@ -1410,35 +1518,33 @@ public final class OptionsParserTest {
     parser.parse(OptionPriority.PriorityCategory.COMMAND_LINE, null, ImmutableList.of("--third"));
     assertThat(parser.getWarnings())
         .isEqualTo(ImmutableList.of("Option 'third' is deprecated: use --forth instead"));
-    assertThat(parser.getOptions(NewWarningOptions.class).fourth).isTrue();
+    assertThat(parser.getOptions(NewWarningOptions.class).getFourth()).isTrue();
   }
 
-  public static class ExpansionWarningOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class ExpansionWarningOptions extends OptionsBase {
     @Option(
-      name = "first",
-      expansion = "--underlying=expandedFromFirst",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public Void first;
+        name = "first",
+        expansion = "--underlying=expandedFromFirst",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public abstract Void getFirst();
 
     @Option(
-      name = "second",
-      expansion = "--underlying=expandedFromSecond",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public Void second;
+        name = "second",
+        expansion = "--underlying=expandedFromSecond",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public abstract Void getSecond();
 
     @Option(
-      name = "underlying",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public String underlying;
+        name = "underlying",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public abstract String getUnderlying();
   }
 
   @Test
@@ -1493,49 +1599,45 @@ public final class OptionsParserTest {
         .isLessThan(OptionPriority.PriorityCategory.SOFTWARE_REQUIREMENT);
   }
 
-  public static class IntrospectionExample extends OptionsBase {
+  @OptionsClass
+  public abstract static class IntrospectionExample extends OptionsBase {
     @Option(
-      name = "alpha",
-      category = "one",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "alphaDefaultValue"
-    )
-    public String alpha;
+        name = "alpha",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "alphaDefaultValue")
+    public abstract String getAlpha();
 
     @Option(
-      name = "beta",
-      category = "one",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "betaDefaultValue"
-    )
-    public String beta;
+        name = "beta",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "betaDefaultValue")
+    public abstract String getBeta();
 
     @Option(
-      name = "gamma",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "gammaDefaultValue"
-    )
-    public String gamma;
+        name = "gamma",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "gammaDefaultValue")
+    public abstract String getGamma();
 
     @Option(
-      name = "delta",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "deltaDefaultValue"
-    )
-    public String delta;
+        name = "delta",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "deltaDefaultValue")
+    public abstract String getDelta();
 
     @Option(
-      name = "echo",
-      metadataTags = {OptionMetadataTag.HIDDEN},
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "echoDefaultValue"
-    )
-    public String echo;
+        name = "echo",
+        metadataTags = {OptionMetadataTag.HIDDEN},
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "echoDefaultValue")
+    public abstract String getEcho();
   }
 
   @Test
@@ -1663,16 +1765,16 @@ public final class OptionsParserTest {
     assertThat(parser.getWarnings()).isEmpty();
   }
 
-  public static class ListExample extends OptionsBase {
+  @OptionsClass
+  public abstract static class ListExample extends OptionsBase {
     @Option(
-      name = "alpha",
-      converter = StringConverter.class,
-      allowMultiple = true,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public List<String> alpha;
+        name = "alpha",
+        converter = StringConverter.class,
+        allowMultiple = true,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public abstract List<String> getAlpha();
   }
 
   // Regression tests for bug:
@@ -1688,7 +1790,7 @@ public final class OptionsParserTest {
         OptionPriority.PriorityCategory.RC_FILE,
         "rc file origin",
         ImmutableList.of("--alpha=rc1", "--alpha=rc2"));
-    assertThat(parser.getOptions(ListExample.class).alpha)
+    assertThat(parser.getOptions(ListExample.class).getAlpha())
         .isEqualTo(ImmutableList.of("rc1", "rc2", "cli"));
   }
 
@@ -1742,16 +1844,16 @@ public final class OptionsParserTest {
     assertThat(parser.getWarnings()).isEmpty();
   }
 
-  public static class CommaSeparatedOptionsExample extends OptionsBase {
+  @OptionsClass
+  public abstract static class CommaSeparatedOptionsExample extends OptionsBase {
     @Option(
-      name = "alpha",
-      converter = CommaSeparatedOptionListConverter.class,
-      allowMultiple = true,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public List<String> alpha;
+        name = "alpha",
+        converter = CommaSeparatedOptionListConverter.class,
+        allowMultiple = true,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public abstract List<String> getAlpha();
   }
 
   @Test
@@ -1766,7 +1868,7 @@ public final class OptionsParserTest {
         OptionPriority.PriorityCategory.RC_FILE,
         "rc file origin",
         ImmutableList.of("--alpha=rc1,rc2"));
-    assertThat(parser.getOptions(CommaSeparatedOptionsExample.class).alpha)
+    assertThat(parser.getOptions(CommaSeparatedOptionsExample.class).getAlpha())
         .isEqualTo(ImmutableList.of("rc1", "rc2", "one", "two", "three"));
     assertThat(parser.getWarnings()).isEmpty();
   }
@@ -1797,68 +1899,62 @@ public final class OptionsParserTest {
     assertThat(parser.getWarnings()).isEmpty();
   }
 
-  public static class Yesterday extends OptionsBase {
+  @OptionsClass
+  public abstract static class Yesterday extends OptionsBase {
 
     @Option(
-      name = "a",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "a"
-    )
-    public String a;
+        name = "a",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "a")
+    public abstract String getA();
 
     @Option(
-      name = "b",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "b"
-    )
-    public String b;
+        name = "b",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "b")
+    public abstract String getB();
 
     @Option(
-      name = "c",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null",
-      expansion = {"--a=cExpansion"}
-    )
-    public Void c;
+        name = "c",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        expansion = {"--a=cExpansion"})
+    public abstract Void getC();
 
     @Option(
-      name = "d",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null",
-      allowMultiple = true
-    )
-    public List<String> d;
+        name = "d",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        allowMultiple = true)
+    public abstract List<String> getD();
 
     @Option(
-      name = "e",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null",
-      implicitRequirements = {"--a=eRequirement"}
-    )
-    public String e;
+        name = "e",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        implicitRequirements = {"--a=eRequirement"})
+    public abstract String getE();
 
     @Option(
-      name = "f",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null",
-      implicitRequirements = {"--b=fRequirement"}
-    )
-    public String f;
+        name = "f",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        implicitRequirements = {"--b=fRequirement"})
+    public abstract String getF();
 
     @Option(
-      name = "g",
-      abbrev = 'h',
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false"
-    )
-    public boolean g;
+        name = "g",
+        abbrev = 'h',
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false")
+    public abstract boolean getG();
   }
 
   public static List<String> canonicalize(Class<? extends OptionsBase> optionsClass, String... args)
@@ -1964,22 +2060,21 @@ public final class OptionsParserTest {
     assertThat(canonicalize(Yesterday.class, "--g=n")).containsExactly("--g=0");
   }
 
-  public static class LongValueExample extends OptionsBase {
+  @OptionsClass
+  public abstract static class LongValueExample extends OptionsBase {
     @Option(
-      name = "longval",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "2147483648"
-    )
-    public long longval;
+        name = "longval",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "2147483648")
+    public abstract long getLongval();
 
     @Option(
-      name = "intval",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "2147483647"
-    )
-    public int intval;
+        name = "intval",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "2147483647")
+    public abstract int getIntval();
   }
 
   @Test
@@ -1987,16 +2082,16 @@ public final class OptionsParserTest {
     OptionsParser parser = OptionsParser.builder().optionsClasses(LongValueExample.class).build();
     parser.parse("");
     LongValueExample result = parser.getOptions(LongValueExample.class);
-    assertThat(result.longval).isEqualTo(2147483648L);
-    assertThat(result.intval).isEqualTo(2147483647);
+    assertThat(result.getLongval()).isEqualTo(2147483648L);
+    assertThat(result.getIntval()).isEqualTo(2147483647);
 
     parser.parse("--longval", Long.toString(Long.MIN_VALUE));
     result = parser.getOptions(LongValueExample.class);
-    assertThat(result.longval).isEqualTo(Long.MIN_VALUE);
+    assertThat(result.getLongval()).isEqualTo(Long.MIN_VALUE);
 
     parser.parse("--longval", "100");
     result = parser.getOptions(LongValueExample.class);
-    assertThat(result.longval).isEqualTo(100);
+    assertThat(result.getLongval()).isEqualTo(100);
   }
 
   @Test
@@ -2007,15 +2102,15 @@ public final class OptionsParserTest {
     assertThat(e).hasMessageThat().contains("'2147483648' is not an int");
   }
 
-  public static class OldNameExample extends OptionsBase {
+  @OptionsClass
+  public abstract static class OldNameExample extends OptionsBase {
     @Option(
-      name = "new_name",
-      oldName = "old_name",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "defaultValue"
-    )
-    public String flag;
+        name = "new_name",
+        oldName = "old_name",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "defaultValue")
+    public abstract String getFlag();
 
     @Option(
         name = "new_boolean_name",
@@ -2023,7 +2118,7 @@ public final class OptionsParserTest {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "false")
-    public boolean booleanFlag;
+    public abstract boolean getBooleanFlag();
   }
 
   @Test
@@ -2031,7 +2126,7 @@ public final class OptionsParserTest {
     OptionsParser parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
     parser.parse("--old_name=foo");
     OldNameExample result = parser.getOptions(OldNameExample.class);
-    assertThat(result.flag).isEqualTo("foo");
+    assertThat(result.getFlag()).isEqualTo("foo");
     // Using old option name should cause a warning
     assertThat(parser.getWarnings())
         .contains("Option 'old_name' is deprecated: Use --new_name instead");
@@ -2041,7 +2136,7 @@ public final class OptionsParserTest {
     parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
     parser.parse("--new_name=foo");
     result = parser.getOptions(OldNameExample.class);
-    assertThat(result.flag).isEqualTo("foo");
+    assertThat(result.getFlag()).isEqualTo("foo");
     // Should be no warnings if the new name is used.
     assertThat(parser.getWarnings()).isEmpty();
   }
@@ -2051,7 +2146,7 @@ public final class OptionsParserTest {
     OptionsParser parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
     parser.parse("--old_name=foo", "--old_name=bar");
     OldNameExample result = parser.getOptions(OldNameExample.class);
-    assertThat(result.flag).isEqualTo("bar");
+    assertThat(result.getFlag()).isEqualTo("bar");
     // Using old option name should cause a warning
     assertThat(parser.getWarnings())
         .contains("Option 'old_name' is deprecated: Use --new_name instead");
@@ -2069,7 +2164,7 @@ public final class OptionsParserTest {
     OptionsParser parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
     parser.parse("--old_boolean_name=true");
     OldNameExample result = parser.getOptions(OldNameExample.class);
-    assertThat(result.booleanFlag).isTrue();
+    assertThat(result.getBooleanFlag()).isTrue();
     // Using old option name should cause a warning.
     assertThat(parser.getWarnings())
         .contains("Option 'old_boolean_name' is deprecated: Use --new_boolean_name instead");
@@ -2078,7 +2173,7 @@ public final class OptionsParserTest {
     parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
     parser.parse("--new_boolean_name=true");
     result = parser.getOptions(OldNameExample.class);
-    assertThat(result.booleanFlag).isTrue();
+    assertThat(result.getBooleanFlag()).isTrue();
     // Should be no warnings if the new name is used.
     assertThat(parser.getWarnings()).isEmpty();
   }
@@ -2088,7 +2183,7 @@ public final class OptionsParserTest {
     OptionsParser parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
     parser.parse("--old_boolean_name=false");
     OldNameExample result = parser.getOptions(OldNameExample.class);
-    assertThat(result.booleanFlag).isFalse();
+    assertThat(result.getBooleanFlag()).isFalse();
     // Using old option name should cause a warning.
     assertThat(parser.getWarnings())
         .contains("Option 'old_boolean_name' is deprecated: Use --new_boolean_name instead");
@@ -2097,7 +2192,7 @@ public final class OptionsParserTest {
     parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
     parser.parse("--new_boolean_name=false");
     result = parser.getOptions(OldNameExample.class);
-    assertThat(result.booleanFlag).isFalse();
+    assertThat(result.getBooleanFlag()).isFalse();
     // Should be no warnings if the new name is used.
     assertThat(parser.getWarnings()).isEmpty();
   }
@@ -2107,7 +2202,7 @@ public final class OptionsParserTest {
     OptionsParser parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
     parser.parse("--old_boolean_name");
     OldNameExample result = parser.getOptions(OldNameExample.class);
-    assertThat(result.booleanFlag).isTrue();
+    assertThat(result.getBooleanFlag()).isTrue();
     // Using old option name should cause a warning.
     assertThat(parser.getWarnings())
         .contains("Option 'old_boolean_name' is deprecated: Use --new_boolean_name instead");
@@ -2116,7 +2211,7 @@ public final class OptionsParserTest {
     parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
     parser.parse("--new_boolean_name");
     result = parser.getOptions(OldNameExample.class);
-    assertThat(result.booleanFlag).isTrue();
+    assertThat(result.getBooleanFlag()).isTrue();
     // Should be no warnings if the new name is used.
     assertThat(parser.getWarnings()).isEmpty();
   }
@@ -2126,7 +2221,7 @@ public final class OptionsParserTest {
     OptionsParser parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
     parser.parse("--noold_boolean_name");
     OldNameExample result = parser.getOptions(OldNameExample.class);
-    assertThat(result.booleanFlag).isFalse();
+    assertThat(result.getBooleanFlag()).isFalse();
     // Using old option name should cause a warning.
     assertThat(parser.getWarnings())
         .contains("Option 'old_boolean_name' is deprecated: Use --new_boolean_name instead");
@@ -2135,7 +2230,7 @@ public final class OptionsParserTest {
     parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
     parser.parse("--nonew_boolean_name");
     result = parser.getOptions(OldNameExample.class);
-    assertThat(result.booleanFlag).isFalse();
+    assertThat(result.getBooleanFlag()).isFalse();
     // Should be no warnings if the new name is used.
     assertThat(parser.getWarnings()).isEmpty();
   }
@@ -2145,7 +2240,7 @@ public final class OptionsParserTest {
     OptionsParser parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
     parser.parse("--old_boolean_name=false", "--old_boolean_name");
     OldNameExample result = parser.getOptions(OldNameExample.class);
-    assertThat(result.booleanFlag).isTrue();
+    assertThat(result.getBooleanFlag()).isTrue();
     // Using old option name should cause a single warning even if the old name was specified
     // multiple times.
     assertThat(parser.getWarnings())
@@ -2158,14 +2253,15 @@ public final class OptionsParserTest {
     OptionsParser parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
     parser.parse("--old_boolean_name=false", "--new_boolean_name");
     OldNameExample result = parser.getOptions(OldNameExample.class);
-    assertThat(result.booleanFlag).isTrue();
+    assertThat(result.getBooleanFlag()).isTrue();
     // Using old option name should cause a warning even when overridden by new name.
     assertThat(parser.getWarnings())
         .contains("Option 'old_boolean_name' is deprecated: Use --new_boolean_name instead");
     assertThat(parser.getWarnings()).containsNoDuplicates();
   }
 
-  public static class OldNameNoWarningExample extends OptionsBase {
+  @OptionsClass
+  public abstract static class OldNameNoWarningExample extends OptionsBase {
     @Option(
         name = "new_name",
         oldName = "old_name",
@@ -2173,7 +2269,7 @@ public final class OptionsParserTest {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "defaultValue")
-    public String flag;
+    public abstract String getFlag();
   }
 
   @Test
@@ -2182,19 +2278,19 @@ public final class OptionsParserTest {
         OptionsParser.builder().optionsClasses(OldNameNoWarningExample.class).build();
     parser.parse("--old_name=foo");
     OldNameNoWarningExample result = parser.getOptions(OldNameNoWarningExample.class);
-    assertThat(result.flag).isEqualTo("foo");
+    assertThat(result.getFlag()).isEqualTo("foo");
     // Using old option name should not cause a warning
     assertThat(parser.getWarnings()).isEmpty();
   }
 
-  public static class ExampleBooleanFooOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class ExampleBooleanFooOptions extends OptionsBase {
     @Option(
-      name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false"
-    )
-    public boolean foo;
+        name = "foo",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false")
+    public abstract boolean getFoo();
   }
 
   @Test
@@ -2209,156 +2305,29 @@ public final class OptionsParserTest {
     assertThat(e).hasMessageThat().contains("Unrecognized option: --no_foo");
   }
 
-  /** Dummy options that declares it uses only core types. */
-  @UsesOnlyCoreTypes
-  public static class CoreTypesOptions extends OptionsBase {
-    @Option(
-      name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false"
-    )
-    public boolean foo;
-
-    @Option(
-      name = "bar",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "abc"
-    )
-    public String bar;
-  }
-
-  /** Dummy options that does not declare using only core types. */
-  public static class NonCoreTypesOptions extends OptionsBase {
-    @Option(
-      name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false"
-    )
-    public boolean foo;
-  }
-
-  /** Dummy options that incorrectly claims to use only core types. */
-  @UsesOnlyCoreTypes
-  public static class BadCoreTypesOptions extends OptionsBase {
-    /** Dummy unsafe type. */
-    public static class Foo {
-      public int i = 0;
-    }
-
-    /** Converter for Foo. */
-    public static class FooConverter extends Converter.Contextless<Foo> {
-      @Override
-      public Foo convert(String input) throws OptionsParsingException {
-        Foo foo = new Foo();
-        foo.i = Integer.parseInt(input);
-        return foo;
-      }
-
-      @Override
-      public String getTypeDescription() {
-        return "a foo";
-      }
-    }
-
-    @Option(
-      name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null",
-      converter = FooConverter.class
-    )
-    public Foo foo;
-  }
-
-  /** Dummy options that is unsafe for @UsesOnlyCoreTypes but doesn't use the annotation. */
-  public static class SuperBadCoreTypesOptions extends OptionsBase {
-    @Option(
-      name = "foo",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null",
-      converter = BadCoreTypesOptions.FooConverter.class
-    )
-    public BadCoreTypesOptions.Foo foo;
-  }
-
-  /**
-   * Dummy options that illegally advertises @UsesOnlyCoreTypes, when its direct fields are fine but
-   * its inherited fields are not.
-   */
-  @UsesOnlyCoreTypes
-  public static class InheritedBadCoreTypesOptions extends SuperBadCoreTypesOptions {
-    @Option(
-      name = "bar",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false"
-    )
-    public boolean bar;
-  }
-
-  @Test
-  public void testUsesOnlyCoreTypes() {
-    assertThat(OptionsParser.getUsesOnlyCoreTypes(CoreTypesOptions.class)).isTrue();
-    assertThat(OptionsParser.getUsesOnlyCoreTypes(NonCoreTypesOptions.class)).isFalse();
-  }
-
-  @Test
-  public void testValidationOfUsesOnlyCoreTypes() {
-    OptionsParser.ConstructionException expected =
-        assertThrows(
-            "Should have detected illegal use of @UsesOnlyCoreTypes",
-            OptionsParser.ConstructionException.class,
-            () -> OptionsParser.getUsesOnlyCoreTypes(BadCoreTypesOptions.class));
-    assertThat(expected)
-        .hasMessageThat()
-        .matches(
-            "Options class '.*BadCoreTypesOptions' is marked as @UsesOnlyCoreTypes, but field "
-                + "'foo' has type '.*Foo'");
-  }
-
-  @Test
-  public void testValidationOfUsesOnlyCoreTypes_Inherited() {
-    OptionsParser.ConstructionException expected =
-        assertThrows(
-            "Should have detected illegal use of @UsesOnlyCoreTypes",
-            OptionsParser.ConstructionException.class,
-            () -> OptionsParser.getUsesOnlyCoreTypes(InheritedBadCoreTypesOptions.class));
-    assertThat(expected)
-        .hasMessageThat()
-        .matches(
-            "Options class '.*InheritedBadCoreTypesOptions' is marked as @UsesOnlyCoreTypes, but "
-                + "field 'foo' has type '.*Foo'");
-  }
-
   /** Dummy options for testing getHelpCompletion() and visitOptions(). */
-  public static class CompletionOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class CompletionOptions extends OptionsBase {
     @Option(
-      name = "secret",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false"
-    )
-    public boolean secret;
+        name = "secret",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false")
+    public abstract boolean getSecret();
 
     @Option(
         name = "b",
         documentationCategory = OptionDocumentationCategory.LOGGING,
         effectTags = {OptionEffectTag.NO_OP},
-        defaultValue = "false"
-      )
-      public boolean b;
+        defaultValue = "false")
+    public abstract boolean getB();
 
     @Option(
-      name = "a",
-      documentationCategory = OptionDocumentationCategory.QUERY,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false"
-    )
-    public boolean a;
+        name = "a",
+        documentationCategory = OptionDocumentationCategory.QUERY,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false")
+    public abstract boolean getA();
   }
 
   @Test
@@ -2426,12 +2395,11 @@ public final class OptionsParserTest {
             "invocation policy",
             /*implicitDependent=*/ null,
             /*expandedFrom=*/ null);
-    OptionDefinition optionDefinition =
-        FieldOptionDefinition.extractOptionDefinition(ExampleFoo.class.getField("foo"));
+    OptionDefinition optionDefinition = MethodOptionDefinition.get(ExampleFoo.class, "getFoo");
 
     parser.setOptionValueAtSpecificPriorityWithoutExpansion(origin, optionDefinition, "hello");
 
-    assertThat(parser.getOptions(ExampleFoo.class).foo).isEqualTo("hello");
+    assertThat(parser.getOptions(ExampleFoo.class).getFoo()).isEqualTo("hello");
     assertThat(
             parser.asCompleteListOfParsedOptions().stream()
                 .map(ParsedOptionDescription::getCommandLineForm))
@@ -2448,14 +2416,13 @@ public final class OptionsParserTest {
             "invocation policy",
             /*implicitDependent=*/ null,
             /*expandedFrom=*/ null);
-    OptionDefinition optionDefinition =
-        FieldOptionDefinition.extractOptionDefinition(ExampleFoo.class.getField("foo"));
+    OptionDefinition optionDefinition = MethodOptionDefinition.get(ExampleFoo.class, "getFoo");
 
     parser.setOptionValueAtSpecificPriorityWithoutExpansion(origin, optionDefinition, "hi=bar");
     parser.parse("--hi=123");
 
-    assertThat(parser.getOptions(ExampleFoo.class).foo).isEqualTo("hi=bar");
-    assertThat(parser.getOptions(ExampleFoo.class).bar).isEqualTo(123);
+    assertThat(parser.getOptions(ExampleFoo.class).getFoo()).isEqualTo("hi=bar");
+    assertThat(parser.getOptions(ExampleFoo.class).getBar()).isEqualTo(123);
     assertThat(
             parser.asCompleteListOfParsedOptions().stream()
                 .map(ParsedOptionDescription::getCommandLineForm))
@@ -2470,15 +2437,14 @@ public final class OptionsParserTest {
         OptionsParser.builder().optionsClasses(ImplicitDependencyOptions.class).build();
     OptionInstanceOrigin origin = createInvocationPolicyOrigin();
     OptionDefinition optionDefinition =
-        FieldOptionDefinition.extractOptionDefinition(
-            ImplicitDependencyOptions.class.getField("first"));
+        MethodOptionDefinition.get(ImplicitDependencyOptions.class, "getFirst");
 
     parser.setOptionValueAtSpecificPriorityWithoutExpansion(origin, optionDefinition, "hello");
 
     ImplicitDependencyOptions options = parser.getOptions(ImplicitDependencyOptions.class);
-    assertThat(options.first).isEqualTo("hello");
-    assertThat(options.second).isNull();
-    assertThat(options.third).isNull();
+    assertThat(options.getFirst()).isEqualTo("hello");
+    assertThat(options.getSecond()).isNull();
+    assertThat(options.getThird()).isNull();
     assertThat(
             parser.asCompleteListOfParsedOptions().stream()
                 .map(ParsedOptionDescription::getCommandLineForm))
@@ -2492,22 +2458,20 @@ public final class OptionsParserTest {
         OptionsParser.builder().optionsClasses(ImplicitDependencyOptions.class).build();
     ParsedOptionDescription first =
         ParsedOptionDescription.newDummyInstance(
-            FieldOptionDefinition.extractOptionDefinition(
-                ImplicitDependencyOptions.class.getField("first")),
+            MethodOptionDefinition.get(ImplicitDependencyOptions.class, "getFirst"),
             createInvocationPolicyOrigin(),
             /* conversionContext= */ null);
     OptionInstanceOrigin origin =
         createInvocationPolicyOrigin(/*implicitDependent=*/ first, /*expandedFrom=*/ null);
 
     OptionDefinition optionDefinition =
-        FieldOptionDefinition.extractOptionDefinition(
-            ImplicitDependencyOptions.class.getField("second"));
+        MethodOptionDefinition.get(ImplicitDependencyOptions.class, "getSecond");
 
     parser.setOptionValueAtSpecificPriorityWithoutExpansion(origin, optionDefinition, "hello");
 
     ImplicitDependencyOptions options = parser.getOptions(ImplicitDependencyOptions.class);
-    assertThat(options.second).isEqualTo("hello");
-    assertThat(options.third).isNull();
+    assertThat(options.getSecond()).isEqualTo("hello");
+    assertThat(options.getThird()).isNull();
     assertThat(
             parser.asCompleteListOfParsedOptions().stream()
                 .map(ParsedOptionDescription::getCommandLineForm))
@@ -2521,22 +2485,20 @@ public final class OptionsParserTest {
         OptionsParser.builder().optionsClasses(ImplicitDependencyOptions.class).build();
     ParsedOptionDescription first =
         ParsedOptionDescription.newDummyInstance(
-            FieldOptionDefinition.extractOptionDefinition(
-                ImplicitDependencyOptions.class.getField("first")),
+            MethodOptionDefinition.get(ImplicitDependencyOptions.class, "getFirst"),
             createInvocationPolicyOrigin(),
             /* conversionContext= */ null);
     OptionInstanceOrigin origin =
         createInvocationPolicyOrigin(/*implicitDependent=*/ null, /*expandedFrom=*/ first);
 
     OptionDefinition optionDefinition =
-        FieldOptionDefinition.extractOptionDefinition(
-            ImplicitDependencyOptions.class.getField("second"));
+        MethodOptionDefinition.get(ImplicitDependencyOptions.class, "getSecond");
 
     parser.setOptionValueAtSpecificPriorityWithoutExpansion(origin, optionDefinition, "hello");
 
     ImplicitDependencyOptions options = parser.getOptions(ImplicitDependencyOptions.class);
-    assertThat(options.second).isEqualTo("hello");
-    assertThat(options.third).isNull();
+    assertThat(options.getSecond()).isEqualTo("hello");
+    assertThat(options.getThird()).isNull();
     assertThat(
             parser.asCompleteListOfParsedOptions().stream()
                 .map(ParsedOptionDescription::getCommandLineForm))
@@ -2586,8 +2548,8 @@ public final class OptionsParserTest {
         fallbackData);
 
     assertThat(parser.getOptions(ExampleFoo.class)).isNotNull();
-    assertThat(parser.getOptions(ExampleFoo.class).foo).isEqualTo("bar");
-    assertThat(parser.getOptions(ExampleFoo.class).bar).isEqualTo(1);
+    assertThat(parser.getOptions(ExampleFoo.class).getFoo()).isEqualTo("bar");
+    assertThat(parser.getOptions(ExampleFoo.class).getBar()).isEqualTo(1);
 
     assertThat(parser.getOptions(ExampleEquivalentWithFoo.class)).isNull();
   }
@@ -2603,7 +2565,8 @@ public final class OptionsParserTest {
     assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
   }
 
-  public static class ExpandingOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class ExpandingOptions extends OptionsBase {
     @Option(
         name = "foo",
         category = "one",
@@ -2611,17 +2574,18 @@ public final class OptionsParserTest {
         effectTags = {OptionEffectTag.NO_OP},
         expansion = {"--nobar"},
         defaultValue = "null")
-    public Void foo;
+    public abstract Void getFoo();
   }
 
-  public static class ExpandingOptionsFallback extends OptionsBase {
+  @OptionsClass
+  public abstract static class ExpandingOptionsFallback extends OptionsBase {
     @Option(
         name = "bar",
         category = "one",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "true")
-    public boolean bar;
+    public abstract boolean getBar();
   }
 
   @Test
@@ -2689,5 +2653,74 @@ public final class OptionsParserTest {
         "invocation policy",
         implicitDependent,
         expandedFrom);
+  }
+
+  @Test
+  public void aliasWithNoPrefix_emitsWarningIfNative() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder()
+            .withAliasFlag("flag_alias")
+            .optionsClasses(BooleanAliasOptions.class)
+            .build();
+    parser.parse("--flag_alias=foo=bar");
+
+    parser.parse("--nofoo");
+
+    // The actual flag should not change from default.
+    assertThat(parser.getOptions(BooleanAliasOptions.class).getBar()).isTrue();
+    // The alias flag should change.
+    assertThat(parser.getOptions(BooleanAliasOptions.class).getFoo()).isFalse();
+    assertThat(parser.getWarnings())
+        .contains("Flag --nofoo is deprecated. Use --foo=false instead.");
+  }
+
+  @Test
+  public void aliasWithNoPrefix_failsIfNotNative() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder()
+            .withAliasFlag("flag_alias")
+            .optionsClasses(BooleanAliasOptions.class)
+            .build();
+    // Set up alias: baz=bar. baz is NOT a native flag.
+    parser.parse("--flag_alias=baz=bar");
+
+    // Use --nobaz. It should NOT swap and should fail as unrecognized.
+    assertThrows(OptionsParsingException.class, () -> parser.parse("--nobaz"));
+  }
+
+  @Test
+  public void aliasWithNoPrefixAndCustomWarning_emitsCustomWarning() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder()
+            .withAliasFlag("flag_alias")
+            .optionsClasses(DeprecatedAliasOptions.class)
+            .build();
+    parser.parse("--flag_alias=foo=bar");
+
+    parser.parse("--nofoo");
+
+    assertThat(parser.getWarnings()).contains("Option 'foo' is deprecated: Don't use foo.");
+  }
+
+  @Test
+  public void aliasWithNoPrefix_emitsCustomWarningIfAvailable() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder()
+            .withAliasFlag("flag_alias")
+            .optionsClasses(DeprecatedAliasOptions.class)
+            .build();
+    parser.parse("--flag_alias=foo=bar");
+
+    parser.parse("--nofoo");
+
+    // The actual flag should not change from default.
+    assertThat(parser.getOptions(DeprecatedAliasOptions.class).getBar()).isTrue();
+    // The alias flag should change.
+    assertThat(parser.getOptions(DeprecatedAliasOptions.class).getFoo()).isFalse();
+    // Should show custom warning.
+    assertThat(parser.getWarnings()).contains("Option 'foo' is deprecated: Don't use foo.");
+    // Should NOT show generalized warning because a custom one was present.
+    assertThat(parser.getWarnings())
+        .doesNotContain("Flag --nofoo is deprecated. Use --foo=false instead.");
   }
 }

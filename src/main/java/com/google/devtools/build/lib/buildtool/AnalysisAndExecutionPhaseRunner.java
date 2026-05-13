@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -89,7 +90,8 @@ public final class AnalysisAndExecutionPhaseRunner {
     env.throwPendingException();
 
     AnalysisAndExecutionResult analysisAndExecutionResult = null;
-    if (request.getBuildOptions().performAnalysisPhase) {
+    if (request.getBuildOptions().getPerformAnalysisPhase()) {
+      MemoryProfiler.instance().markPhase(ProfilePhase.ANALYZE_AND_EXECUTE);
       Profiler.instance().markPhase(ProfilePhase.ANALYZE_AND_EXECUTE);
 
       try (SilentCloseable c = Profiler.instance().profile("runAnalysisAndExecutionPhase");
@@ -189,7 +191,7 @@ public final class AnalysisAndExecutionPhaseRunner {
             request.getAspectsParameters(),
             request.getViewOptions(),
             request.getKeepGoing(),
-            request.getViewOptions().skipIncompatibleExplicitTargets,
+            request.getViewOptions().getSkipIncompatibleExplicitTargets(),
             request.getCheckForActionConflicts(),
             env.getQuiescingExecutors(),
             request.getTopLevelArtifactContext(),
@@ -198,7 +200,7 @@ public final class AnalysisAndExecutionPhaseRunner {
             env.getEventBus(),
             env.getRuntime().getBugReporter(),
             /* includeExecutionPhase= */ true,
-            request.getBuildOptions().skymeldAnalysisOverlapPercentage,
+            request.getBuildOptions().getSkymeldAnalysisOverlapPercentage(),
             env.getLocalResourceManager(),
             env.getBuildResultListener(),
             executionSetupCallback,

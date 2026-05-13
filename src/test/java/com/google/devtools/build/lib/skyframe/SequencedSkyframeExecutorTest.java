@@ -91,6 +91,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
@@ -781,7 +782,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         skyframeExecutor
             .getPackageManager()
             .getPackage(
-                new Reporter(new EventBus(), customEventCollector),
+                new Reporter(EventBusEventHandler.createWithNewEventBus(), customEventCollector),
                 PackageIdentifier.createInMainRepo("pkg"));
     assertThat(pkg.containsErrors()).isTrue();
     MoreAsserts.assertContainsEvent(customEventCollector, "name 'thisisanerror' is not defined");
@@ -2657,7 +2658,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         .inject(ImmutableMap.of(topKey, Delta.justNew(topTarget)));
     // Collect all events.
     eventCollector = new EventCollector();
-    reporter = new Reporter(eventBus, eventCollector);
+    reporter = new Reporter(new EventBusEventHandler(eventBus), eventCollector);
     skyframeExecutor.setEventBus(eventBus);
     skyframeExecutor.setActionOutputRoot(getOutputPath());
 

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.Options;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
@@ -68,9 +69,9 @@ public class WorkerTestUtils {
       boolean sandboxed,
       boolean dynamic,
       String... args) {
-    WorkerOptions workerOptions = new WorkerOptions();
-    workerOptions.workerMultiplex = multiplex;
-    workerOptions.workerSandboxing = sandboxed;
+    WorkerOptions workerOptions = Options.getDefaults(WorkerOptions.class);
+    workerOptions.setWorkerMultiplex(multiplex);
+    workerOptions.setWorkerSandboxing(sandboxed);
 
     return createWorkerKeyFromOptions(
         protocolFormat,

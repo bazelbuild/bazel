@@ -84,6 +84,7 @@ import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.Statement;
 import net.starlark.java.syntax.StringLiteral;
+import net.starlark.java.syntax.SyntaxError;
 
 /**
  * A Skyframe function to look up and load a single .bzl (or .scl) module.
@@ -820,15 +821,17 @@ public class BzlLoadFunction implements SkyFunction {
     // Validate that the current .bzl file satisfies each loaded dependency's load visibility.
     // Violations are reported as error events (since there can be more than one in a single file)
     // and also trigger a BzlLoadFailedException.
-    checkLoadVisibilities(
-        pkg,
-        "module " + label.getCanonicalForm(),
-        loadValues,
-        loadKeys,
-        programLoads,
-        /* demoteErrorsToWarnings= */ !builtins.starlarkSemantics.getBool(
-            BuildLanguageOptions.CHECK_BZL_VISIBILITY),
-        env.getListener());
+    if (!ruleClassProvider.isPackageUnderExperimental(pkg)) {
+      checkLoadVisibilities(
+          pkg,
+          "module " + label.getCanonicalForm(),
+          loadValues,
+          loadKeys,
+          programLoads,
+          /* demoteErrorsToWarnings= */ !builtins.starlarkSemantics.getBool(
+              BuildLanguageOptions.CHECK_BZL_VISIBILITY),
+          env.getListener());
+    }
 
     // Accumulate a transitive digest of the bzl file, the digests of its direct loads, and the
     // digest of the @_builtins pseudo-repository (if applicable).
@@ -870,6 +873,17 @@ public class BzlLoadFunction implements SkyFunction {
     // compile the .bzl file into a Program.
     Module module =
         Module.withPredeclaredAndData(builtins.starlarkSemantics, predeclared, bazelModuleContext);
+
+    // Type-tag and type-check the program
+    BzlCompileValue.TypeOptions typeOptions = compileValue.getTypeOptions();
+    if (typeOptions.wantStaticTypeChecking() || typeOptions.wantDynamicTypeChecking()) {
+      try {
+        prog = Starlark.withTypeInfo(prog, module, typeOptions.wantStaticTypeChecking());
+      } catch (SyntaxError.Exception e) {
+        Event.replayEventsOn(env.getListener(), e.errors());
+        throw typingFailed(label);
+      }
+    }
 
     // The BzlInitThreadContext holds Starlark thread-local state to be read and updated during
     // evaluation.
@@ -1358,7 +1372,10 @@ public class BzlLoadFunction implements SkyFunction {
       Label.RepoMappingRecorder repoMappingRecorder)
       throws BzlLoadFailedException, InterruptedException {
     Label label = key.getLabel();
-    try (Mutability mu = Mutability.create("loading", label)) {
+    try (Mutability mu =
+        prog.isMutationFreeAtTopLevel()
+            ? Mutability.IMMUTABLE
+            : Mutability.create("loading", label)) {
       StarlarkThread thread =
           StarlarkThread.create(
               mu, starlarkSemantics, /* contextDescription= */ "", SymbolGenerator.create(key));
@@ -1540,6 +1557,16 @@ public class BzlLoadFunction implements SkyFunction {
     // statement, and code that catches it should use the location in the Event they create.
     return new BzlLoadFailedException(
         "at " + loc + ": " + cause.getMessage(), cause.getDetailedExitCode());
+  }
+
+  static BzlLoadFailedException typingFailed(Label label) {
+    return new BzlLoadFailedException(
+        String.format(
+            "initialization of module '%s'%s failed",
+            // TODO(brandjon): This error message drops the repo part of the label.
+            label.toPathFragment(),
+            StarlarkBuiltinsValue.isBuiltinsRepo(label.getRepository()) ? " (internal)" : ""),
+        Code.TYPING_ERROR);
   }
 
   static BzlLoadFailedException executionFailed(Label label) {

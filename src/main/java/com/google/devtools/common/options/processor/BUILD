@@ -19,11 +19,19 @@ java_plugin(
     deps = [":options_preprocessor_lib"],
 )
 
+java_plugin(
+    name = "options_class_processor",
+    generates_api = True,
+    processor_class = "com.google.devtools.common.options.processor.OptionsClassProcessor",
+    deps = [":options_preprocessor_lib"],
+)
+
 java_library(
     name = "options_preprocessor_lib",
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/common/options:options_internal",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )

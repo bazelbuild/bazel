@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.CoreOptionConverters.BUILD_SETTING_CONVERTERS;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
@@ -24,6 +25,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.config.Scope;
@@ -241,6 +244,13 @@ public class StarlarkOptionsParser {
       boolean allowsMultiple = buildSettingObject.allowsMultiple();
       parsedBuildSettings.put(buildSetting, buildSettingObject);
       Object value = buildSettingAndFinalValue.getSecond();
+      if (value instanceof Collection<?>) {
+        if (buildSettingObject.getType().equals(Types.STRING_SET)) {
+          value = ImmutableSortedSet.copyOf((Collection<?>) value);
+        } else {
+          value = ImmutableList.copyOf((Collection<?>) value);
+        }
+      }
       Object rawDefaultValue =
           buildSettingTarget.getAssociatedRule().getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME);
       if (allowsMultiple) {
@@ -255,7 +265,7 @@ public class StarlarkOptionsParser {
           this.buildSettingDefaults.put(buildSetting, rawDefaultValue);
         }
         if (!value.equals(rawDefaultValue) || includeDefaultValues) {
-          parsedOptions.put(buildSetting, buildSettingAndFinalValue.getSecond());
+          parsedOptions.put(buildSetting, value);
         }
       }
 
@@ -281,7 +291,8 @@ public class StarlarkOptionsParser {
       nativeOptionsParser.setScopesAttributes(ImmutableMap.copyOf(scopeTypeMap));
 
       if (scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
-        customExecFlags.add(scopeType.substring(7));
+        customExecFlags.add(scopeType.substring(Scope.CUSTOM_EXEC_SCOPE_PREFIX.length()));
+        scopeTypeMap.put(scopeType.substring(Scope.CUSTOM_EXEC_SCOPE_PREFIX.length()), scopeType);
       }
 
       if (attrMap.isAttributeValueExplicitlySpecified("on_leave_scope")) {
@@ -305,8 +316,10 @@ public class StarlarkOptionsParser {
       scopeTypeMap.put(customExecFlag, ScopeType.TARGET);
     }
 
-    nativeOptionsParser.setStarlarkOptions(ImmutableMap.copyOf(parsedOptions));
+    nativeOptionsParser.setStarlarkOptions(
+        ImmutableMap.copyOf(parsedOptions), getStarlarkOptionsAllowingMultiple());
     nativeOptionsParser.setOnLeaveScopeValues(ImmutableMap.copyOf(onLeaveScopeMap));
+    nativeOptionsParser.setScopesAttributes(ImmutableMap.copyOf(scopeTypeMap));
     this.starlarkOptions.putAll(parsedOptions);
     this.scopes.putAll(scopeTypeMap);
     this.onLeaveScopeValues.putAll(onLeaveScopeMap);
@@ -468,6 +481,13 @@ public class StarlarkOptionsParser {
 
   public ImmutableMap<String, Object> getStarlarkOptions() {
     return ImmutableMap.copyOf(this.starlarkOptions);
+  }
+
+  public ImmutableSet<String> getStarlarkOptionsAllowingMultiple() {
+    return parsedBuildSettings.entrySet().stream()
+        .filter(entry -> entry.getValue().allowsMultiple() || entry.getValue().isRepeatableFlag())
+        .map(Map.Entry::getKey)
+        .collect(toImmutableSet());
   }
 
   public ImmutableMap<String, String> getScopesAttributes() {

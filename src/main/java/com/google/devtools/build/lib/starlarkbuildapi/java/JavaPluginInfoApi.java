@@ -14,13 +14,21 @@
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaPluginInfoApi.JavaPluginDataApi;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 
 /** Info object encapsulating information about Java plugins. */
+@StarlarkBuiltin(
+    name = "JavaPluginInfo",
+    doc =
+        "A provider encapsulating information about Java plugins. "
+            + "<p>At the moment, the only supported kind of plugins are annotation processors.",
+    category = DocCategory.PROVIDER)
 public interface JavaPluginInfoApi<
         FileT extends FileApi,
         JavaPluginDataT extends JavaPluginDataApi,

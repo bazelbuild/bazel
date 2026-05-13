@@ -31,6 +31,7 @@ java_library(
 java_library(
     name = "file_symlink_exception",
     srcs = ["FileSymlinkException.java"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface"],
 )
 
 java_library(

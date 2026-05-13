@@ -17,9 +17,11 @@ import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsClass;
 
 /** Options class for aquery specific query options. */
-public class AqueryOptions extends CommonQueryOptions {
+@OptionsClass
+public abstract class AqueryOptions extends CommonQueryOptions {
   @Option(
       name = "output",
       defaultValue = "text",
@@ -28,7 +30,7 @@ public class AqueryOptions extends CommonQueryOptions {
       help =
           "The format in which the aquery results should be printed. Allowed values for aquery "
               + "are: text, textproto, proto, streamed_proto, jsonproto.")
-  public String outputFormat;
+  public abstract String getOutputFormat();
 
   @Option(
       name = "include_commandline",
@@ -36,7 +38,9 @@ public class AqueryOptions extends CommonQueryOptions {
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help = "Includes the content of the action command lines in the output (potentially large).")
-  public boolean includeCommandline;
+  public abstract boolean getIncludeCommandline();
+
+  public abstract void setIncludeCommandline(boolean value);
 
   @Option(
       name = "include_artifacts",
@@ -44,7 +48,7 @@ public class AqueryOptions extends CommonQueryOptions {
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help = "Includes names of the action inputs and outputs in the output (potentially large).")
-  public boolean includeArtifacts;
+  public abstract boolean getIncludeArtifacts();
 
   @Option(
       name = "include_pruned_inputs",
@@ -55,7 +59,7 @@ public class AqueryOptions extends CommonQueryOptions {
           "Includes action inputs that were pruned during action execution. Only affects actions"
               + " that discover inputs and have been executed in a previous invocation. Only takes"
               + " effect if --include_artifacts is also set.")
-  public boolean includePrunedInputs;
+  public abstract boolean getIncludePrunedInputs();
 
   @Option(
       name = "include_param_files",
@@ -66,7 +70,7 @@ public class AqueryOptions extends CommonQueryOptions {
           "Include the content of the param files used in the command (potentially large). "
               + "Note: Enabling this flag will automatically enable the "
               + "--include_commandline flag.")
-  public boolean includeParamFiles;
+  public abstract boolean getIncludeParamFiles();
 
   @Option(
       name = "include_file_write_contents",
@@ -76,7 +80,7 @@ public class AqueryOptions extends CommonQueryOptions {
       help =
           "Include the file contents for the FileWrite, SourceSymlinkManifest, and "
               + "RepoMappingManifest actions (potentially large). ")
-  public boolean includeFileWriteContents;
+  public abstract boolean getIncludeFileWriteContents();
 
   @Option(
       name = "skyframe_state",
@@ -87,5 +91,5 @@ public class AqueryOptions extends CommonQueryOptions {
           "Without performing extra analysis, dump the current Action Graph from Skyframe. "
               + "Note: Specifying a target with --skyframe_state is currently not supported. "
               + "This flag is only available with --output=proto or --output=textproto.")
-  public boolean queryCurrentSkyframeState;
+  public abstract boolean getQueryCurrentSkyframeState();
 }

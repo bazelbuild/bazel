@@ -96,7 +96,7 @@ class SingleplexWorker extends Worker {
     Subprocess process = createProcessBuilder(args, clientEnv).start();
     if (cgroupFactory != null) {
       cgroup = cgroupFactory.create(workerId, ImmutableMap.of());
-    } else if (options.useCgroupsOnLinux && CgroupsInfo.isSupported()) {
+    } else if (options.getUseCgroupsOnLinux() && CgroupsInfo.isSupported()) {
       cgroup =
           CgroupsInfo.getBlazeSpawnsCgroup()
               .createIndividualSpawnCgroup(

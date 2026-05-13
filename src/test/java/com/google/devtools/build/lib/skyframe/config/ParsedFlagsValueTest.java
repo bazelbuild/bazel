@@ -27,6 +27,7 @@ import com.google.devtools.common.options.Converters.CommaSeparatedOptionListCon
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.List;
 import org.junit.Test;
@@ -38,28 +39,29 @@ import org.junit.runners.JUnit4;
 public final class ParsedFlagsValueTest {
 
   /** Extra options for this test. */
-  public static final class DummyTestOptions extends FragmentOptions {
+  @OptionsClass
+  public abstract static class DummyTestOptions extends FragmentOptions {
 
     @Option(
         name = "str_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "defVal")
-    public String strOption;
+    public abstract String getStrOption();
 
     @Option(
         name = "another_str_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "defVal")
-    public String anotherStrOption;
+    public abstract String getAnotherStrOption();
 
     @Option(
         name = "bool_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "false")
-    public boolean boolOption;
+    public abstract boolean getBoolOption();
 
     @Option(
         name = "list_option",
@@ -67,14 +69,14 @@ public final class ParsedFlagsValueTest {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null")
-    public List<String> listOption;
+    public abstract List<String> getListOption();
 
     @Option(
         name = "null_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null")
-    public String nullOption;
+    public abstract String getNullOption();
 
     @Option(
         name = "accumulating_option",
@@ -82,7 +84,7 @@ public final class ParsedFlagsValueTest {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null")
-    public List<String> accumulatingOption;
+    public abstract List<String> getAccumulatingOption();
 
     @Option(
         name = "dummy_option",
@@ -90,14 +92,14 @@ public final class ParsedFlagsValueTest {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "internal_default",
         implicitRequirements = {"--implicit_option=set_implicitly"})
-    public String dummyOption;
+    public abstract String getDummyOption();
 
     @Option(
         name = "implicit_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "implicit_default")
-    public String implicitOption;
+    public abstract String getImplicitOption();
   }
 
   private static final ImmutableSet<Class<? extends FragmentOptions>> BUILD_CONFIG_OPTIONS =
@@ -116,8 +118,8 @@ public final class ParsedFlagsValueTest {
     ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
 
     OptionsParsingResult result = parsedFlags.parsingResult();
-    assertThat(result.getOptions(DummyTestOptions.class).strOption).isEqualTo("bar");
-    assertThat(result.getOptions(DummyTestOptions.class).boolOption).isFalse();
+    assertThat(result.getOptions(DummyTestOptions.class).getStrOption()).isEqualTo("bar");
+    assertThat(result.getOptions(DummyTestOptions.class).getBoolOption()).isFalse();
     assertThat(result.getStarlarkOptions()).containsAtLeast("//custom:flag", "hello");
   }
 
@@ -142,8 +144,8 @@ public final class ParsedFlagsValueTest {
         .isNotEqualTo(modified.get(DummyTestOptions.class));
 
     // Check the modified values.
-    assertThat(modified.get(DummyTestOptions.class).strOption).isEqualTo("bar");
-    assertThat(modified.get(DummyTestOptions.class).boolOption).isFalse();
+    assertThat(modified.get(DummyTestOptions.class).getStrOption()).isEqualTo("bar");
+    assertThat(modified.get(DummyTestOptions.class).getBoolOption()).isFalse();
     assertThat(modified.getStarlarkOptions())
         .containsAtLeast(Label.parseCanonicalUnchecked("//custom:flag"), "hello");
   }
@@ -199,7 +201,7 @@ public final class ParsedFlagsValueTest {
 
     BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
 
-    assertThat(modified.get(DummyTestOptions.class).listOption)
+    assertThat(modified.get(DummyTestOptions.class).getListOption())
         // Because this flag does not allow multiple values the list simply overwrites the previous
         // value.
         .containsExactly("foo", "bar")
@@ -219,8 +221,9 @@ public final class ParsedFlagsValueTest {
 
     BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
 
-    assertThat(modified.get(DummyTestOptions.class).dummyOption).isEqualTo("direct");
-    assertThat(modified.get(DummyTestOptions.class).implicitOption).isEqualTo("set_implicitly");
+    assertThat(modified.get(DummyTestOptions.class).getDummyOption()).isEqualTo("direct");
+    assertThat(modified.get(DummyTestOptions.class).getImplicitOption())
+        .isEqualTo("set_implicitly");
   }
 
   @Test
@@ -236,7 +239,7 @@ public final class ParsedFlagsValueTest {
 
     BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
 
-    assertThat(modified.get(DummyTestOptions.class).accumulatingOption)
+    assertThat(modified.get(DummyTestOptions.class).getAccumulatingOption())
         .containsExactly("foo", "bar")
         .inOrder();
   }

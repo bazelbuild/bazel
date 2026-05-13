@@ -73,7 +73,7 @@ public class DiskCacheClient {
 
   // Disk cache operations are almost entirely I/O-bound as digests are only computed as part of
   // I/O operations, so using virtual threads is appropriate.
-  @SuppressWarnings("AllowVirtualThreads")
+
   private final ListeningExecutorService executorService =
       MoreExecutors.listeningDecorator(
           Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("disk-cache-", 0).factory()));

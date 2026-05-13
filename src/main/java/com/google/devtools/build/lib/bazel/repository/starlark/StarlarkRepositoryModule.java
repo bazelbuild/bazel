@@ -193,21 +193,6 @@ instantiate and return a repository rule. Created by \
   }
 
   @Override
-  public void failWithIncompatibleUseCcConfigureFromRulesCc(StarlarkThread thread)
-      throws EvalException {
-    if (thread
-        .getSemantics()
-        .getBool(BuildLanguageOptions.INCOMPATIBLE_USE_CC_CONFIGURE_FROM_RULES_CC)) {
-      throw Starlark.errorf(
-          "Incompatible flag "
-              + "--incompatible_use_cc_configure_from_rules_cc has been flipped. Please use "
-              + "cc_configure and related logic from https://github.com/bazelbuild/rules_cc. "
-              + "See https://github.com/bazelbuild/bazel/issues/10134 for details and migration "
-              + "instructions.");
-    }
-  }
-
-  @Override
   public Object moduleExtension(
       StarlarkCallable implementation,
       Dict<?, ?> tagClasses, // Dict<String, TagClass>

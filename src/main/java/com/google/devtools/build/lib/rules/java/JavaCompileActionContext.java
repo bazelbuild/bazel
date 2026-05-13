@@ -37,7 +37,6 @@ public class JavaCompileActionContext implements ActionContext {
   // TODO(djasper): Investigate caching across builds.
   private final ConcurrentHashMap<Artifact, Deps.Dependencies> cache = new ConcurrentHashMap<>();
 
-  @SuppressWarnings("AllowVirtualThreads")
   private final ExecutorService executor =
       Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("jdeps-reader-", 0).factory());
 

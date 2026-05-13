@@ -394,7 +394,7 @@ EOF
     --//flags:set_flag=v4,v5 \
     //flags:t1 &> $TEST_log \
       || fail "Build failed unexpectedly"
-  expect_log 'set_flag: set(\["v2", "v1", "v3"\])'
+  expect_log 'set_flag: set(\["v1", "v2", "v3"\])'
   expect_log 'platform: .*//plat:platform1'
 }
 

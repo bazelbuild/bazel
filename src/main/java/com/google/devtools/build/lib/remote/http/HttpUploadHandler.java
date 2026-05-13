@@ -102,6 +102,7 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
     addCredentialHeaders(request, cmd.uri());
     addExtraRemoteHeaders(request);
     addUserAgentHeader(request);
+    addAcceptHeaders(request);
     HttpChunkedInput body = buildBody(cmd);
     ctx.writeAndFlush(request)
         .addListener(
@@ -122,7 +123,6 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
   }
 
   @Override
-  @SuppressWarnings("deprecation")
   public void exceptionCaught(ChannelHandlerContext ctx, Throwable t) {
     if (t instanceof WriteTimeoutException) {
       super.exceptionCaught(ctx, new UploadTimeoutException(path, contentLength));
@@ -136,7 +136,6 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
   private HttpRequest buildRequest(String path, String host, long contentLength) {
     HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.PUT, path);
     request.headers().set(HttpHeaderNames.HOST, host);
-    request.headers().set(HttpHeaderNames.ACCEPT, "*/*");
     request.headers().set(HttpHeaderNames.CONTENT_LENGTH, contentLength);
     request.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
     return request;

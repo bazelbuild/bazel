@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -61,6 +62,7 @@ import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.EnvVar;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -73,7 +75,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.XattrProvider;
-import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.OptionAndRawValue;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
@@ -247,7 +248,7 @@ public class CommandEnvironment {
     this.runtime = runtime;
     this.workspace = workspace;
     this.directories = workspace.getDirectories();
-    this.reporter = new Reporter(eventBus);
+    this.reporter = new Reporter(new EventBusEventHandler(eventBus));
     this.eventBus = eventBus;
     this.commandThread = commandThread;
     this.command = command;
@@ -291,18 +292,18 @@ public class CommandEnvironment {
       this.relativeWorkingDirectory = PathFragment.EMPTY_FRAGMENT;
     }
 
-    this.waitTime = Duration.ofMillis(waitTimeInMs + commandOptions.waitTime);
-    this.commandStartTime = commandStartTime - commandOptions.startupTime;
+    this.waitTime = Duration.ofMillis(waitTimeInMs + commandOptions.getWaitTime());
+    this.commandStartTime = commandStartTime - commandOptions.getStartupTime();
     this.commandExtensions = ImmutableList.copyOf(commandExtensions);
     workspace.getSkyframeExecutor().setEventBus(eventBus);
     eventBus.register(this);
-    float httpTimeoutScaling = (float) commandOptions.httpTimeoutScaling;
-    if (commandOptions.httpTimeoutScaling <= 0) {
+    float httpTimeoutScaling = (float) commandOptions.getHttpTimeoutScaling();
+    if (commandOptions.getHttpTimeoutScaling() <= 0) {
       reporter.handle(
           Event.warn("Ignoring request to scale http timeouts by a non-positive factor"));
       httpTimeoutScaling = 1.0f;
     }
-    if (commandOptions.httpMaxParallelDownloads <= 0) {
+    if (commandOptions.getHttpMaxParallelDownloads() <= 0) {
       this.blazeModuleEnvironment.exit(
           new AbruptExitException(
               DetailedExitCode.of(
@@ -316,9 +317,9 @@ public class CommandEnvironment {
 
     this.httpDownloader =
         new HttpDownloader(
-            commandOptions.httpConnectorAttempts,
-            commandOptions.httpConnectorRetryMaxTimeout,
-            commandOptions.httpMaxParallelDownloads,
+            commandOptions.getHttpConnectorAttempts(),
+            commandOptions.getHttpConnectorRetryMaxTimeout(),
+            commandOptions.getHttpMaxParallelDownloads(),
             httpTimeoutScaling);
     this.delegatingDownloader = new DelegatingDownloader(httpDownloader);
 
@@ -327,18 +328,18 @@ public class CommandEnvironment {
             options.getOptions(ClientOptions.class),
             "CommandEnvironment needs its options provider to have ClientOptions loaded.");
 
-    this.clientEnv = makeMapFromMapEntries(clientOptions.clientEnv);
-    this.commandId = computeCommandId(commandOptions.invocationId, warnings, attemptNumber);
+    this.clientEnv = makeMapFromMapEntries(clientOptions.getClientEnv());
+    this.commandId = computeCommandId(commandOptions.getInvocationId(), warnings, attemptNumber);
     this.buildRequestId =
-        commandOptions.buildRequestId != null
-            ? commandOptions.buildRequestId
+        commandOptions.getBuildRequestId() != null
+            ? commandOptions.getBuildRequestId()
             : buildRequestIdOverride != null
                 ? buildRequestIdOverride
                 : UUID.randomUUID().toString();
 
     var repoEnvBuilder =
         new TreeMap<>(
-            commandOptions.useStrictRepoEnv
+            commandOptions.getUseStrictRepoEnv()
                 ? Maps.filterKeys(clientEnv, ALWAYS_INHERITED_REPO_ENV::contains)
                 : clientEnv);
     var nonstrictRepoEnvBuilder = new TreeMap<>(clientEnv);
@@ -349,21 +350,21 @@ public class CommandEnvironment {
     if (command.buildPhase().loads() || command.name().equals("info")) {
       // Compute the set of environment variables that are allowlisted on the commandline
       // for inheritance.
-      for (var envVar : options.getOptions(CoreOptions.class).actionEnvironment) {
+      for (var envVar : options.getOptions(CoreOptions.class).getActionEnvironment()) {
         switch (envVar) {
-          case Converters.EnvVar.Set(String name, String value) -> {
+          case EnvVar.Set(String name, String value) -> {
             visibleActionEnv.remove(name);
-            if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
+            if (!options.getOptions(CommonCommandOptions.class).getRepoEnvIgnoresActionEnv()) {
               repoEnvBuilder.put(name, value);
               nonstrictRepoEnvBuilder.put(name, value);
             }
           }
-          case Converters.EnvVar.Inherit(String name) -> {
+          case EnvVar.Inherit(String name) -> {
             visibleActionEnv.add(name);
           }
-          case Converters.EnvVar.Unset(String name) -> {
+          case EnvVar.Unset(String name) -> {
             visibleActionEnv.remove(name);
-            if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
+            if (!options.getOptions(CommonCommandOptions.class).getRepoEnvIgnoresActionEnv()) {
               repoEnvBuilder.remove(name);
               nonstrictRepoEnvBuilder.remove(name);
             }
@@ -372,8 +373,8 @@ public class CommandEnvironment {
       }
     }
     if (command.buildPhase().analyzes() || command.name().equals("info")) {
-      for (Converters.EnvVar envVar : options.getOptions(TestOptions.class).testEnvironment) {
-        if (envVar instanceof Converters.EnvVar.Inherit(String name)) {
+      for (EnvVar envVar : options.getOptions(TestOptions.class).getTestEnvironment()) {
+        if (envVar instanceof EnvVar.Inherit(String name)) {
           visibleTestEnv.add(name);
         }
       }
@@ -387,23 +388,23 @@ public class CommandEnvironment {
         bazelWorkspace = bazelWorkspace.replace('/', '\\');
       }
     }
-    for (var envVar : commandOptions.repositoryEnvironment) {
+    for (var envVar : commandOptions.getRepositoryEnvironment()) {
       switch (envVar) {
-        case Converters.EnvVar.Set(String name, String value) -> {
+        case EnvVar.Set(String name, String value) -> {
           if (bazelWorkspace != null) {
             value = value.replace("%bazel_workspace%", bazelWorkspace);
           }
           repoEnvBuilder.put(name, value);
           nonstrictRepoEnvBuilder.put(name, value);
         }
-        case Converters.EnvVar.Inherit(String name) -> {
+        case EnvVar.Inherit(String name) -> {
           String value = clientEnv.get(name);
           if (value != null) {
             repoEnvBuilder.put(name, value);
             nonstrictRepoEnvBuilder.put(name, value);
           }
         }
-        case Converters.EnvVar.Unset(String name) -> {
+        case EnvVar.Unset(String name) -> {
           repoEnvBuilder.remove(name);
           nonstrictRepoEnvBuilder.remove(name);
         }
@@ -426,7 +427,7 @@ public class CommandEnvironment {
     Path workspace = getWorkspace();
     Path workingDirectory;
     if (directories.inWorkspace()) {
-      PathFragment clientCwd = commandOptions.clientCwd;
+      PathFragment clientCwd = commandOptions.getClientCwd();
       if (clientCwd.containsUplevelReferences()) {
         throw new AbruptExitException(
             DetailedExitCode.of(
@@ -876,11 +877,11 @@ public class CommandEnvironment {
     var keepStateAfterBuildOption = options.getOptions(KeepStateAfterBuildOption.class);
     var analysisOptions = options.getOptions(AnalysisOptions.class);
     skyframeExecutor.decideKeepIncrementalState(
-        runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).batch,
-        keepStateAfterBuildOption.keepStateAfterBuild,
-        commonOptions.trackIncrementalState,
-        commonOptions.heuristicallyDropNodes,
-        analysisOptions != null && analysisOptions.discardAnalysisCache,
+        runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).getBatch(),
+        keepStateAfterBuildOption.getKeepStateAfterBuild(),
+        commonOptions.getTrackIncrementalState(),
+        commonOptions.getHeuristicallyDropNodes(),
+        analysisOptions != null && analysisOptions.getDiscardAnalysisCache(),
         reporter);
   }
 
@@ -895,7 +896,7 @@ public class CommandEnvironment {
   @VisibleForTesting
   public void beforeCommand(InvocationPolicy invocationPolicy) throws AbruptExitException {
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
-    eventBus.post(new BuildMetadataEvent(makeMapFromMapEntries(commonOptions.buildMetadata)));
+    eventBus.post(new BuildMetadataEvent(makeMapFromMapEntries(commonOptions.getBuildMetadata())));
     eventBus.post(
         new GotOptionsEvent(runtime.getStartupOptionsProvider(), options, invocationPolicy));
     throwPendingException();
@@ -1021,7 +1022,7 @@ public class CommandEnvironment {
       if (outputDirectoryHelper == null) {
         var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
         outputDirectoryHelper =
-            new ActionOutputDirectoryHelper(buildRequestOptions.directoryCreationCacheSpec);
+            new ActionOutputDirectoryHelper(buildRequestOptions.getDirectoryCreationCacheSpec());
       }
       return outputDirectoryHelper;
     }

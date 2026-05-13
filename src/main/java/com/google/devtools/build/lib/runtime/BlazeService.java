@@ -13,10 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
+import com.google.devtools.build.lib.util.SerializedAbruptExitException;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.common.options.OptionsProvider;
+import java.util.Collections;
 
 /**
  * Provides a piece of functionality in the Service Component (SC).
@@ -30,27 +31,31 @@ import com.google.devtools.common.options.OptionsParsingResult;
  * server. A service can be obtained by calling {@link BlazeRuntime#getBlazeService} with the
  * interface type as the argument.
  */
+@SkybridgeInterface
 public interface BlazeService extends OptionsSupplier {
 
   @Override
   default Iterable<Class<? extends OptionsBase>> getStartupOptions() {
-    return ImmutableList.of();
+    return Collections.emptyList();
   }
 
   @Override
   default Iterable<Class<? extends OptionsBase>> getCommonCommandOptions() {
-    return ImmutableList.of();
+    return Collections.emptyList();
   }
 
   @Override
   default Iterable<Class<? extends OptionsBase>> getCommandOptions(String commandName) {
-    return ImmutableList.of();
+    return Collections.emptyList();
   }
 
   /**
    * Called at the beginning of Bazel startup, right before {@link BlazeModule#globalInit}.
    *
-   * @throws AbruptExitException to shut down the server immediately
+   * @param startupOptions the server's startup options
+   * @param blazeServices the available services, including this service itself
+   * @throws SerializedAbruptExitException to shut down the server immediately
    */
-  default void globalInit(OptionsParsingResult startupOptions) throws AbruptExitException {}
+  default void globalInit(OptionsProvider startupOptions, Iterable<BlazeService> blazeServices)
+      throws SerializedAbruptExitException {}
 }

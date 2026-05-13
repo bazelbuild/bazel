@@ -192,14 +192,14 @@ public class BuildEventServiceTransport implements BuildEventTransport {
           checkNotNull(localFileUploader),
           checkNotNull(bepOptions),
           checkNotNull(clock),
-          besOptions.besLifecycleEvents,
+          besOptions.getBesLifecycleEvents(),
           checkNotNull(artifactGroupNamer),
           checkNotNull(eventBus),
-          (besOptions.besTimeout != null) ? besOptions.besTimeout : Duration.ZERO,
+          (besOptions.getBesTimeout() != null) ? besOptions.getBesTimeout() : Duration.ZERO,
           sleeper != null ? sleeper : new JavaSleeper(),
           checkNotNull(commandContext),
           checkNotNull(commandStartTime),
-          besOptions.besUploadMode);
+          besOptions.getBesUploadMode());
     }
   }
 }

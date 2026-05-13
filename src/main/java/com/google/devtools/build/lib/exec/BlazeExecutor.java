@@ -67,7 +67,7 @@ public final class BlazeExecutor implements Executor {
       ModuleActionContextRegistry actionContextRegistry,
       SpawnStrategyRegistry spawnStrategyRegistry) {
     ExecutionOptions executionOptions = checkNotNull(options.getOptions(ExecutionOptions.class));
-    this.showSubcommands = executionOptions.showSubcommands;
+    this.showSubcommands = executionOptions.getShowSubcommands();
     this.fileSystem = fileSystem;
     this.execRoot = execRoot;
     this.clock = clock;

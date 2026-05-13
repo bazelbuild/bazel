@@ -14,19 +14,16 @@
 
 package com.google.devtools.build.lib.buildeventservice.client;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-
-import com.google.auto.value.AutoBuilder;
-import com.google.protobuf.ByteString;
-import io.grpc.Status;
-import io.grpc.StatusException;
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Instant;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Future;
 import javax.annotation.Nullable;
 
 /** Interface used to abstract the Stubby and gRPC client implementations. */
+@SkybridgeInterface
 public interface BuildEventServiceClient {
 
   /** Context for a build command. */
@@ -38,33 +35,74 @@ public interface BuildEventServiceClient {
       @Nullable String projectId,
       boolean checkPrecedingLifecycleEvents) {
     public CommandContext {
-      checkNotNull(buildId);
-      checkNotNull(invocationId);
-      checkArgument(attemptNumber >= 1);
-      checkNotNull(keywords);
+      Objects.requireNonNull(buildId, "buildId");
+      Objects.requireNonNull(invocationId, "invocationId");
+      Objects.requireNonNull(keywords, "keywords");
+      if (attemptNumber < 1) {
+        throw new IllegalArgumentException("attemptNumber must be >= 1");
+      }
     }
 
     public static Builder builder() {
-      return new AutoBuilder_BuildEventServiceClient_CommandContext_Builder();
+      return new Builder();
     }
 
     /** Builder for {@link CommandContext}. */
-    @AutoBuilder
-    public abstract static class Builder {
-      public abstract Builder setBuildId(String buildId);
+    public static final class Builder {
+      private String buildId;
+      private String invocationId;
+      private int attemptNumber;
+      private Set<String> keywords;
+      private String projectId;
+      private boolean checkPrecedingLifecycleEvents;
 
-      public abstract Builder setInvocationId(String invocationId);
+      private Builder() {}
 
-      public abstract Builder setAttemptNumber(int attemptNumber);
+      @CanIgnoreReturnValue
+      public Builder setBuildId(String buildId) {
+        this.buildId = buildId;
+        return this;
+      }
 
-      public abstract Builder setKeywords(Set<String> keywords);
+      @CanIgnoreReturnValue
+      public Builder setInvocationId(String invocationId) {
+        this.invocationId = invocationId;
+        return this;
+      }
 
-      public abstract Builder setProjectId(@Nullable String projectId);
+      @CanIgnoreReturnValue
+      public Builder setAttemptNumber(int attemptNumber) {
+        this.attemptNumber = attemptNumber;
+        return this;
+      }
 
-      public abstract Builder setCheckPrecedingLifecycleEvents(
-          boolean checkPrecedingLifecycleEvents);
+      @CanIgnoreReturnValue
+      public Builder setKeywords(Set<String> keywords) {
+        this.keywords = keywords;
+        return this;
+      }
 
-      public abstract CommandContext build();
+      @CanIgnoreReturnValue
+      public Builder setProjectId(@Nullable String projectId) {
+        this.projectId = projectId;
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      public Builder setCheckPrecedingLifecycleEvents(boolean checkPrecedingLifecycleEvents) {
+        this.checkPrecedingLifecycleEvents = checkPrecedingLifecycleEvents;
+        return this;
+      }
+
+      public CommandContext build() {
+        return new CommandContext(
+            buildId,
+            invocationId,
+            attemptNumber,
+            keywords,
+            projectId,
+            checkPrecedingLifecycleEvents);
+      }
     }
   }
 
@@ -118,7 +156,8 @@ public interface BuildEventServiceClient {
      *
      * @param payload the {@link BuildEventStreamProtos.BuildEvent} in wire format
      */
-    record BazelEvent(Instant eventTime, long sequenceNumber, ByteString payload)
+    @SuppressWarnings("ArrayRecordComponent")
+    record BazelEvent(Instant eventTime, long sequenceNumber, byte[] payload)
         implements StreamEvent {}
 
     /** An event signalling the end of the stream. */
@@ -135,6 +174,44 @@ public interface BuildEventServiceClient {
     void apply(long sequenceNumber);
   }
 
+  /** The status of a stream. */
+  public interface StreamStatus {
+    /** Returns whether the status is successful. */
+    boolean isOk();
+
+    /** Returns whether the status is retriable. */
+    boolean isRetriable();
+
+    /** Returns whether the status indicates a failed precondition. */
+    boolean isFailedPrecondition();
+
+    /** Returns an error message for this status. */
+    String getErrorMessage();
+  }
+
+  /** An exception with an underlying {@link StreamStatus}. */
+  public class StreamException extends Exception {
+    private final StreamStatus status;
+
+    public StreamException(StreamStatus status, @Nullable Throwable cause) {
+      super(status.getErrorMessage(), cause);
+      this.status = status;
+    }
+
+    /** Returns the underlying {@link StreamStatus}. */
+    public StreamStatus getStatus() {
+      return status;
+    }
+  }
+
+  /** The reason why a stream is being aborted. */
+  enum AbortReason {
+    /** The operation was cancelled. */
+    CANCELLED,
+    /** A precondition was failed. */
+    FAILED_PRECONDITION,
+  }
+
   /** A handle to a bidirectional stream. */
   interface StreamContext {
 
@@ -142,7 +219,7 @@ public interface BuildEventServiceClient {
      * The completed status of the stream. The future will never fail, but in case of error will
      * contain a corresponding status.
      */
-    Future<Status> getStatus();
+    Future<StreamStatus> getStatus();
 
     /**
      * Sends a {@link StreamEvent} over the currently open stream. In case of error, this method
@@ -165,12 +242,12 @@ public interface BuildEventServiceClient {
      * block on the future returned by {@link #getStatus()} in order to make sure that all
      * ackCallback calls have been received. This method is NOOP if the stream was already finished.
      */
-    void abortStream(Status status);
+    void abortStream(AbortReason reason, @Nullable String description);
   }
 
   /** Makes a blocking RPC call that publishes a {@link LifecycleEvent}. */
   void publish(CommandContext commandContext, LifecycleEvent lifecycleEvent)
-      throws StatusException, InterruptedException;
+      throws StreamException, InterruptedException;
 
   /**
    * Starts a new stream with the given {@link CommandContext} and {@link AckCallback}. Callers must
@@ -185,11 +262,4 @@ public interface BuildEventServiceClient {
    * should be the last method called on this object.
    */
   void shutdown();
-
-  /**
-   * If possible, returns a user readable error message for a given {@link Throwable}.
-   *
-   * <p>As a last resort, it's valid to return {@link Throwable#getMessage()}.
-   */
-  String userReadableError(Throwable t);
 }

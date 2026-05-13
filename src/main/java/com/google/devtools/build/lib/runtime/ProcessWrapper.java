@@ -71,9 +71,9 @@ public final class ProcessWrapper {
   @Nullable
   public static ProcessWrapper fromCommandEnvironment(CommandEnvironment cmdEnv) {
     LocalExecutionOptions options = cmdEnv.getOptions().getOptions(LocalExecutionOptions.class);
-    Duration killDelay = options == null ? null : options.getLocalSigkillGraceSeconds();
+    Duration killDelay = options == null ? null : options.getLocalSigkillGraceSecondsDuration();
 
-    boolean gracefulSigterm = options != null && options.processWrapperGracefulSigterm;
+    boolean gracefulSigterm = options != null && options.getProcessWrapperGracefulSigterm();
 
     BinTools binTools = cmdEnv.getBlazeWorkspace().getBinTools();
     ActionInput actionInput = binTools.getActionInput(BIN_BASENAME);

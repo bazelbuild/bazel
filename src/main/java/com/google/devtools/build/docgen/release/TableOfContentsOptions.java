@@ -17,9 +17,11 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /** Command line options for the TOC updater. */
-public class TableOfContentsOptions extends OptionsBase {
+@OptionsClass
+public abstract class TableOfContentsOptions extends OptionsBase {
   @Option(
       name = "input",
       abbrev = 'i',
@@ -27,7 +29,7 @@ public class TableOfContentsOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Path to a YAML file that contains the old table of contents.")
-  public String inputPath;
+  public abstract String getInputPath();
 
   @Option(
       name = "output",
@@ -36,7 +38,7 @@ public class TableOfContentsOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Path of the YAML file where the new TOC should be written to.")
-  public String outputPath;
+  public abstract String getOutputPath();
 
   @Option(
       name = "version_indicator_input",
@@ -44,7 +46,7 @@ public class TableOfContentsOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Path of the file containing the version indicator.")
-  public String versionIndicatorInputPath;
+  public abstract String getVersionIndicatorInputPath();
 
   @Option(
       name = "version_indicator_output",
@@ -52,7 +54,7 @@ public class TableOfContentsOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Path of the file where the version indicator should be written.")
-  public String versionIndicatorOutputPath;
+  public abstract String getVersionIndicatorOutputPath();
 
   @Option(
       name = "version",
@@ -61,7 +63,7 @@ public class TableOfContentsOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The name of the Bazel release that should be included in the TOC.")
-  public String version;
+  public abstract String getVersion();
 
   @Option(
       name = "max_releases",
@@ -70,7 +72,7 @@ public class TableOfContentsOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Maximum number of Bazel releases that should be included in the TOC.")
-  public int maxReleases;
+  public abstract int getMaxReleases();
 
   @Option(
       name = "help",
@@ -79,9 +81,12 @@ public class TableOfContentsOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Prints the help string.")
-  public boolean printHelp;
+  public abstract boolean getPrintHelp();
 
   public boolean isValid() {
-    return !inputPath.isEmpty() && !outputPath.isEmpty() && !version.isEmpty() && maxReleases > 0;
+    return !getInputPath().isEmpty()
+        && !getOutputPath().isEmpty()
+        && !getVersion().isEmpty()
+        && getMaxReleases() > 0;
   }
 }

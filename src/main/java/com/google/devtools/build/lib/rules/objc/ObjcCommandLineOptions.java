@@ -15,47 +15,24 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.rules.apple.DottedVersionConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsClass;
 
 /** Command-line options for building Objective-C targets. */
-public class ObjcCommandLineOptions extends FragmentOptions {
+@OptionsClass
+public abstract class ObjcCommandLineOptions extends FragmentOptions {
   @Option(
-      name = "ios_simulator_version",
-      defaultValue = "null",
-      converter = DottedVersionConverter.class,
-      documentationCategory = OptionDocumentationCategory.TESTING,
-      effectTags = {OptionEffectTag.TEST_RUNNER},
+      name = "device_debug_entitlements",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.SIGNING,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
       help =
-          "The version of iOS to run on the simulator when running or testing. This is ignored "
-              + "for ios_test rules if a target device is specified in the rule.")
-  public DottedVersion.Option iosSimulatorVersion;
-
-  @Option(
-      name = "ios_simulator_device",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.TESTING,
-      effectTags = {OptionEffectTag.TEST_RUNNER},
-      help =
-          "The device to simulate when running an iOS application in the simulator, e.g. "
-              + "'iPhone 6'. You can get a list of devices by running 'xcrun simctl list "
-              + "devicetypes' on the machine the simulator will be run on.")
-  public String iosSimulatorDevice;
-
-  @Option(
-    name = "device_debug_entitlements",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.SIGNING,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    help =
-        "If set, and compilation mode is not 'opt', objc apps will include debug entitlements "
-            + "when signing."
-  )
-  public boolean deviceDebugEntitlements;
+          "If set, and compilation mode is not 'opt', objc apps will include debug entitlements "
+              + "when signing.")
+  public abstract boolean getDeviceDebugEntitlements();
 
   @Option(
       name = "incompatible_disallow_sdk_frameworks_attributes",
@@ -66,7 +43,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       help =
           "If true, disallow sdk_frameworks and weak_sdk_frameworks attributes in objc_library and"
               + " objc_import.")
-  public boolean incompatibleDisallowSdkFrameworksAttributes;
+  public abstract boolean getIncompatibleDisallowSdkFrameworksAttributes();
 
   @Option(
       name = "incompatible_objc_alwayslink_by_default",
@@ -77,7 +54,22 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       help =
           "If true, make the default value true for alwayslink attributes in objc_library and"
               + " objc_import.")
-  public boolean incompatibleObjcAlwayslinkByDefault;
+  public abstract boolean getIncompatibleObjcAlwayslinkByDefault();
+
+  /**
+   * @deprecated delete when we are sure it's not used anywhere.
+   */
+  @Deprecated
+  @Option(
+      name = "incompatible_disable_native_apple_binary_rule",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {
+        OptionEffectTag.EAGERNESS_TO_EXIT,
+      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
+      help = "No-op. Kept here for backwards compatibility.")
+  public abstract boolean getIncompatibleDisableNativeAppleBinaryRule();
 
   @Option(
       name = "incompatible_strip_executable_safely",
@@ -88,7 +80,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       help =
           "If true, strip action for executables will use flag -x, which does not break dynamic "
               + "symbol resolution.")
-  public boolean incompatibleStripExecutableSafely;
+  public abstract boolean getIncompatibleStripExecutableSafely();
 
   @Option(
       name = "incompatible_builtin_objc_strip_action",
@@ -97,7 +89,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "Whether to emit a strip action as part of objc linking.")
-  public boolean incompatibleBuiltinObjcStripAction;
+  public abstract boolean getIncompatibleBuiltinObjcStripAction();
 
   // Tracked in #28082.
   @Option(
@@ -110,5 +102,5 @@ public class ObjcCommandLineOptions extends FragmentOptions {
           "When true, Apple build flags are defined with Apple rules (in BUIILD files) and"
               + " ctx.fragments.objc is undefined. This is a migration flag to move all Apple"
               + " flags from core Bazel to Apple rules.")
-  public boolean disableObjcFragment;
+  public abstract boolean getDisableObjcFragment();
 }

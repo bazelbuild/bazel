@@ -143,6 +143,12 @@ TEST_F(RcOptionsTest, EmptyStartupLine) {
                                       no_expected_args);
 }
 
+TEST_F(RcOptionsTest, EmptyConfigLine) {
+  WriteRc("empty_config_line.bazelrc", "common:foo");
+  SuccessfullyParseRcWithExpectedArgs("empty_config_line.bazelrc",
+                                      {{"common:foo", {""}}});
+}
+
 TEST_F(RcOptionsTest, StartupWithOnlyCommentedArg) {
   WriteRc("startup_with_comment.bazelrc",
           "startup # bar");
@@ -555,7 +561,8 @@ TEST(RemoteFileTest, ParsingRemoteFiles) {
   std::unique_ptr<RcFile> rcfile = RcFile::Parse(
       "the base file", &workspace_layout, "my workspace", test_build_label,
       SemVer::Parse(test_build_label), &error, &error_text,
-      read_file.AsStdFunction(), canonicalize_path.AsStdFunction());
+      RcFile::MaxImportDepth, read_file.AsStdFunction(),
+      canonicalize_path.AsStdFunction());
   EXPECT_THAT(error_text, IsEmpty());
   ASSERT_EQ(error, RcFile::ParseError::NONE);
   EXPECT_THAT(rcfile, Pointee(Property(
@@ -567,6 +574,33 @@ TEST(RemoteFileTest, ParsingRemoteFiles) {
                   UnorderedElementsAre(Pair(
                       "startup", ElementsAre(Field(&RcOption::option,
                                                    "--max_idle_secs=123")))))));
+}
+
+TEST_F(RcOptionsTest, StartupConfigurationPlatformSpecific) {
+  WriteRc("startup_config.bazelrc",
+          "startup --max_idle_secs=10800  # Default\n"
+          "startup:linux --max_idle_secs=3600  # Linux specific\n"
+          "startup:linux --connect_timeout_secs=60  # Linux specific\n"
+          "startup:macos --max_idle_secs=1800  # macOS Specific\n"
+          "startup:macos --connect_timeout_secs=120  # macOS Specific\n");
+  SuccessfullyParseRcWithExpectedArgs(
+      "startup_config.bazelrc",
+      {{"startup", {"--max_idle_secs=10800"}},
+       {"startup:linux", {"--max_idle_secs=3600", "--connect_timeout_secs=60"}},
+       {"startup:macos",
+        {"--max_idle_secs=1800", "--connect_timeout_secs=120"}}});
+}
+
+TEST_F(RcOptionsTest, StartupConfigurationMultipleOptionsForPlatform) {
+  WriteRc("startup_config_multiple.bazelrc",
+          "startup:linux --host_jvm_args=-Xms256m\n"
+          "startup:linux --host_jvm_args=-Xmx2g\n"
+          "startup:linux --connect_timeout_secs=120\n");
+  SuccessfullyParseRcWithExpectedArgs(
+      "startup_config_multiple.bazelrc",
+      {{"startup:linux",
+        {"--host_jvm_args=-Xms256m", "--host_jvm_args=-Xmx2g",
+         "--connect_timeout_secs=120"}}});
 }
 
 }  // namespace

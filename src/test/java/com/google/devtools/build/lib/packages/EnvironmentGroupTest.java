@@ -95,11 +95,11 @@ public class EnvironmentGroupTest extends PackageLoadingTestCase {
   @Test
   public void fulfillers() throws Exception {
     EnvironmentLabels unpackedGroup = group.getEnvironmentLabels();
-    assertThat(unpackedGroup.getFulfillers(Label.parseCanonical("//pkg:baz")).toList())
+    assertThat(unpackedGroup.getFulfillers(Label.parseCanonical("//pkg:baz")))
         .containsExactly(Label.parseCanonical("//pkg:foo"), Label.parseCanonical("//pkg:bar"));
-    assertThat(unpackedGroup.getFulfillers(Label.parseCanonical("//pkg:bar")).toList())
+    assertThat(unpackedGroup.getFulfillers(Label.parseCanonical("//pkg:bar")))
         .containsExactly(Label.parseCanonical("//pkg:foo"));
-    assertThat(unpackedGroup.getFulfillers(Label.parseCanonical("//pkg:foo")).toList()).isEmpty();
+    assertThat(unpackedGroup.getFulfillers(Label.parseCanonical("//pkg:foo"))).isEmpty();
   }
 
   @Test

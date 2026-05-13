@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.testutil.TestFileOutErr;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.Options;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -465,7 +466,7 @@ public class DynamicSpawnStrategyUnitTest {
     DynamicSpawnStrategy dynamicSpawnStrategy =
         new DynamicSpawnStrategy(
             executorServiceForCleanup,
-            new DynamicExecutionOptions(),
+            Options.getDefaults(DynamicExecutionOptions.class),
             ignored -> ExecutionPolicy.ANYWHERE,
             ignored -> Optional.empty(),
             10,
@@ -512,7 +513,7 @@ public class DynamicSpawnStrategyUnitTest {
     DynamicSpawnStrategy dynamicSpawnStrategy =
         new DynamicSpawnStrategy(
             executorServiceForCleanup,
-            new DynamicExecutionOptions(),
+            Options.getDefaults(DynamicExecutionOptions.class),
             ignored -> ExecutionPolicy.ANYWHERE,
             ignored -> Optional.empty(),
             10,
@@ -558,9 +559,9 @@ public class DynamicSpawnStrategyUnitTest {
             .withProgressMessage("Building the thing")
             .setBuiltForToolConfiguration(true)
             .build();
-    DynamicExecutionOptions options = new DynamicExecutionOptions();
-    options.excludeTools = true;
-    options.localExecutionDelay = 0;
+    DynamicExecutionOptions options = Options.getDefaults(DynamicExecutionOptions.class);
+    options.setExcludeTools(true);
+    options.setLocalExecutionDelay(0);
     DynamicSpawnStrategy dynamicSpawnStrategy =
         createDynamicSpawnStrategy(ExecutionPolicy.ANYWHERE, (s) -> Optional.empty(), options);
 
@@ -589,7 +590,7 @@ public class DynamicSpawnStrategyUnitTest {
     SandboxedSpawnStrategy remote = createMockSpawnStrategy();
     ActionExecutionContext actionExecutionContext = createMockActionExecutionContext(local, remote);
     AtomicReference<DynamicMode> strategyThatCancelled = new AtomicReference<>();
-    DynamicExecutionOptions options = new DynamicExecutionOptions();
+    DynamicExecutionOptions options = Options.getDefaults(DynamicExecutionOptions.class);
     LocalBranch localBranch =
         new LocalBranch(
             actionExecutionContext, spawn, strategyThatCancelled, options, null, null, null);
@@ -607,7 +608,7 @@ public class DynamicSpawnStrategyUnitTest {
                     localBranch,
                     remoteBranch,
                     spawn,
-                    new DynamicExecutionOptions(),
+                    Options.getDefaults(DynamicExecutionOptions.class),
                     actionExecutionContext));
     assertThat(error).hasMessageThat().contains("Neither branch of /foo completed.");
   }
@@ -703,7 +704,9 @@ public class DynamicSpawnStrategyUnitTest {
       ExecutionPolicy executionPolicy,
       Function<Spawn, Optional<Spawn>> getPostProcessingSpawnForLocalExecution) {
     return createDynamicSpawnStrategy(
-        executionPolicy, getPostProcessingSpawnForLocalExecution, new DynamicExecutionOptions());
+        executionPolicy,
+        getPostProcessingSpawnForLocalExecution,
+        Options.getDefaults(DynamicExecutionOptions.class));
   }
 
   private DynamicSpawnStrategy createDynamicSpawnStrategy(

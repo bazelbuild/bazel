@@ -35,12 +35,12 @@ final class FormatUtils {
   private FormatUtils() {}
 
   static DependencyFilter getDependencyFilter(CommonQueryOptions queryOptions) {
-    if (queryOptions.includeToolDeps) {
-      return queryOptions.includeImplicitDeps
+    if (queryOptions.getIncludeToolDeps()) {
+      return queryOptions.getIncludeImplicitDeps()
           ? DependencyFilter.ALL_DEPS
           : DependencyFilter.NO_IMPLICIT_DEPS;
     }
-    return queryOptions.includeImplicitDeps
+    return queryOptions.getIncludeImplicitDeps()
         ? DependencyFilter.ONLY_TARGET_DEPS
         : DependencyFilter.NO_IMPLICIT_DEPS.and(DependencyFilter.ONLY_TARGET_DEPS);
   }

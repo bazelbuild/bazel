@@ -51,13 +51,13 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     parser.parse("--test_string=" + TEST_STRING_USER_VALUE);
 
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TEST_STRING_USER_VALUE);
+    assertThat(testOptions.getTestString()).isEqualTo(TEST_STRING_USER_VALUE);
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // Get the options again after policy enforcement.
     testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TEST_STRING_POLICY_VALUE);
+    assertThat(testOptions.getTestString()).isEqualTo(TEST_STRING_POLICY_VALUE);
     assertThat(
             parser.asCompleteListOfParsedOptions().stream()
                 .map(ParsedOptionDescription::getCommandLineForm))
@@ -85,13 +85,13 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
 
     // All the flags should be their default value.
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TestOptions.TEST_STRING_DEFAULT);
+    assertThat(testOptions.getTestString()).isEqualTo(TestOptions.TEST_STRING_DEFAULT);
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // Get the options again after policy enforcement.
     testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TEST_STRING_POLICY_VALUE);
+    assertThat(testOptions.getTestString()).isEqualTo(TEST_STRING_POLICY_VALUE);
   }
 
   /** Tests that SetValue overwrites the user's value when the flag allows multiple values. */
@@ -114,7 +114,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
 
     // Options should not be modified by running the parser through OptionsPolicyEnforcer.create().
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testMultipleString)
+    assertThat(testOptions.getTestMultipleString())
         .containsExactly(TEST_STRING_USER_VALUE, TEST_STRING_USER_VALUE_2)
         .inOrder();
 
@@ -122,7 +122,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
 
     // Get the options again after policy enforcement.
     testOptions = getTestOptions();
-    assertThat(testOptions.testMultipleString)
+    assertThat(testOptions.getTestMultipleString())
         .containsExactly(TEST_STRING_POLICY_VALUE, TEST_STRING_POLICY_VALUE_2)
         .inOrder();
   }
@@ -148,13 +148,13 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
 
     // Repeatable flags always default to the empty list.
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testMultipleString).isEmpty();
+    assertThat(testOptions.getTestMultipleString()).isEmpty();
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // Options should now be the values from the policy.
     testOptions = getTestOptions();
-    assertThat(testOptions.testMultipleString)
+    assertThat(testOptions.getTestMultipleString())
         .containsExactly(TEST_STRING_POLICY_VALUE, TEST_STRING_POLICY_VALUE_2)
         .inOrder();
   }
@@ -197,7 +197,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
 
     // Options should not be modified by running the parser through OptionsPolicyEnforcer.create().
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testMultipleString)
+    assertThat(testOptions.getTestMultipleString())
         .containsExactly(TEST_STRING_USER_VALUE, TEST_STRING_USER_VALUE_2)
         .inOrder();
 
@@ -205,7 +205,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
 
     // Get the options again after policy enforcement.
     testOptions = getTestOptions();
-    assertThat(testOptions.testMultipleString)
+    assertThat(testOptions.getTestMultipleString())
         .containsExactly(
             TEST_STRING_USER_VALUE,
             TEST_STRING_USER_VALUE_2,
@@ -235,19 +235,19 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
 
     // The flags that --test_expansion expands into should still be their default values
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_A_DEFAULT);
-    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
-    assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_DEFAULT);
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
+    assertThat(testOptions.getExpandedA()).isEqualTo(TestOptions.EXPANDED_A_DEFAULT);
+    assertThat(testOptions.getExpandedB()).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
+    assertThat(testOptions.getExpandedC()).isEqualTo(TestOptions.EXPANDED_C_DEFAULT);
+    assertThat(testOptions.getExpandedD()).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // After policy enforcement, the flags should be the values from --test_expansion
     testOptions = getTestOptions();
-    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_A_TEST_EXPANSION);
-    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_TEST_EXPANSION);
-    assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_TEST_EXPANSION);
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedA()).isEqualTo(TestOptions.EXPANDED_A_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedB()).isEqualTo(TestOptions.EXPANDED_B_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedC()).isEqualTo(TestOptions.EXPANDED_C_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedD()).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
   }
 
   @Test
@@ -266,19 +266,23 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
 
     // The flags that --test_expansion expands into should still be their default values
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_A_DEFAULT);
-    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
-    assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_DEFAULT);
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
+    assertThat(testOptions.getExpandedA()).isEqualTo(TestOptions.EXPANDED_A_DEFAULT);
+    assertThat(testOptions.getExpandedB()).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
+    assertThat(testOptions.getExpandedC()).isEqualTo(TestOptions.EXPANDED_C_DEFAULT);
+    assertThat(testOptions.getExpandedD()).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // After policy enforcement, the flags should be the values from the expansion flag
     testOptions = getTestOptions();
-    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_A_TEST_RECURSIVE_EXPANSION);
-    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_TEST_RECURSIVE_EXPANSION);
-    assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_TEST_RECURSIVE_EXPANSION);
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_TEST_RECURSIVE_EXPANSION);
+    assertThat(testOptions.getExpandedA())
+        .isEqualTo(TestOptions.EXPANDED_A_TEST_RECURSIVE_EXPANSION);
+    assertThat(testOptions.getExpandedB())
+        .isEqualTo(TestOptions.EXPANDED_B_TEST_RECURSIVE_EXPANSION);
+    assertThat(testOptions.getExpandedC())
+        .isEqualTo(TestOptions.EXPANDED_C_TEST_RECURSIVE_EXPANSION);
+    assertThat(testOptions.getExpandedD())
+        .isEqualTo(TestOptions.EXPANDED_D_TEST_RECURSIVE_EXPANSION);
   }
 
   @Test
@@ -298,20 +302,20 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     // The flags that --test_expansion expands into should still be their default values
     // except for the explicitly marked flag.
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
-    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
-    assertThat(testOptions.expandedC).isEqualTo(23);
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
+    assertThat(testOptions.getExpandedA()).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
+    assertThat(testOptions.getExpandedB()).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
+    assertThat(testOptions.getExpandedC()).isEqualTo(23);
+    assertThat(testOptions.getExpandedD()).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // After policy enforcement, the flags should be the values from --test_expansion,
     // except for the user-set value, since the expansion flag was set to overridable.
     testOptions = getTestOptions();
-    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_A_TEST_EXPANSION);
-    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_TEST_EXPANSION);
-    assertThat(testOptions.expandedC).isEqualTo(23);
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedA()).isEqualTo(TestOptions.EXPANDED_A_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedB()).isEqualTo(TestOptions.EXPANDED_B_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedC()).isEqualTo(23);
+    assertThat(testOptions.getExpandedD()).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
   }
 
   @Test
@@ -331,15 +335,15 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     // The flags that --test_expansion expands into should still be their default values
     // except for the explicitly marked flag.
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testMultipleString).containsExactly("foo");
+    assertThat(testOptions.getTestMultipleString()).containsExactly("foo");
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // After policy enforcement, the flags should be the values from --test_expansion,
     // except for the user-set value, since the expansion flag was set to overridable.
     testOptions = getTestOptions();
-    assertThat(testOptions.testMultipleString).containsExactly(
-        "foo", TestOptions.EXPANDED_MULTIPLE_1, TestOptions.EXPANDED_MULTIPLE_2);
+    assertThat(testOptions.getTestMultipleString())
+        .containsExactly("foo", TestOptions.EXPANDED_MULTIPLE_1, TestOptions.EXPANDED_MULTIPLE_2);
   }
 
   @Test
@@ -360,10 +364,10 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     // The flags that --test_expansion expands into should still be their default values
     // except for the explicitly marked flag.
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
-    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
-    assertThat(testOptions.expandedC).isEqualTo(23);
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
+    assertThat(testOptions.getExpandedA()).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
+    assertThat(testOptions.getExpandedB()).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
+    assertThat(testOptions.getExpandedC()).isEqualTo(23);
+    assertThat(testOptions.getExpandedD()).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
@@ -371,10 +375,10 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     // including the value that the user tried to set, since the expansion flag was set
     // non-overridably.
     testOptions = getTestOptions();
-    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_A_TEST_EXPANSION);
-    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_TEST_EXPANSION);
-    assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_TEST_EXPANSION);
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedA()).isEqualTo(TestOptions.EXPANDED_A_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedB()).isEqualTo(TestOptions.EXPANDED_B_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedC()).isEqualTo(TestOptions.EXPANDED_C_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedD()).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
   }
 
   @Test
@@ -394,12 +398,12 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
 
     // The flags that --test_expansion expands into should still be their default values
     // except for the explicitly marked flag.
-    assertThat(getTestOptions().testMultipleString).contains("foo");
+    assertThat(getTestOptions().getTestMultipleString()).contains("foo");
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // After policy enforcement, the flag should no longer have the user's value.
-    assertThat(getTestOptions().testMultipleString)
+    assertThat(getTestOptions().getTestMultipleString())
         .containsExactly(TestOptions.EXPANDED_MULTIPLE_1, TestOptions.EXPANDED_MULTIPLE_2);
   }
 
@@ -418,20 +422,20 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
 
     // --test_expansion should set the values from its expansion
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_A_TEST_EXPANSION);
-    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_TEST_EXPANSION);
-    assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_TEST_EXPANSION);
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedA()).isEqualTo(TestOptions.EXPANDED_A_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedB()).isEqualTo(TestOptions.EXPANDED_B_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedC()).isEqualTo(TestOptions.EXPANDED_C_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedD()).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // After policy enforcement, expanded_c should be set to 64 from the policy, but the
     // flags should remain the same from the expansion of --test_expansion.
     testOptions = getTestOptions();
-    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_A_TEST_EXPANSION);
-    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_TEST_EXPANSION);
-    assertThat(testOptions.expandedC).isEqualTo(64);
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedA()).isEqualTo(TestOptions.EXPANDED_A_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedB()).isEqualTo(TestOptions.EXPANDED_B_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedC()).isEqualTo(64);
+    assertThat(testOptions.getExpandedD()).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
   }
 
   @Test
@@ -450,15 +454,15 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
 
     // test_implicit_requirement sets implicit_requirement_a to "foo"
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testImplicitRequirement).isEqualTo(TEST_STRING_USER_VALUE);
-    assertThat(testOptions.implicitRequirementA)
+    assertThat(testOptions.getTestImplicitRequirement()).isEqualTo(TEST_STRING_USER_VALUE);
+    assertThat(testOptions.getImplicitRequirementA())
         .isEqualTo(TestOptions.IMPLICIT_REQUIREMENT_A_REQUIRED);
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     testOptions = getTestOptions();
-    assertThat(testOptions.testImplicitRequirement).isEqualTo(TEST_STRING_USER_VALUE);
-    assertThat(testOptions.implicitRequirementA).isEqualTo(TEST_STRING_POLICY_VALUE);
+    assertThat(testOptions.getTestImplicitRequirement()).isEqualTo(TEST_STRING_USER_VALUE);
+    assertThat(testOptions.getImplicitRequirementA()).isEqualTo(TEST_STRING_POLICY_VALUE);
   }
 
   @Test
@@ -473,13 +477,13 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
     parser.parse("--implicit_requirement_a=" + TEST_STRING_USER_VALUE);
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.implicitRequirementA).isEqualTo(TEST_STRING_USER_VALUE);
+    assertThat(testOptions.getImplicitRequirementA()).isEqualTo(TEST_STRING_USER_VALUE);
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     testOptions = getTestOptions();
-    assertThat(testOptions.testImplicitRequirement).isEqualTo(TEST_STRING_POLICY_VALUE);
-    assertThat(testOptions.implicitRequirementA)
+    assertThat(testOptions.getTestImplicitRequirement()).isEqualTo(TEST_STRING_POLICY_VALUE);
+    assertThat(testOptions.getImplicitRequirementA())
         .isEqualTo(TestOptions.IMPLICIT_REQUIREMENT_A_REQUIRED);
   }
 
@@ -497,14 +501,14 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     parser.parse("--test_string=" + TEST_STRING_USER_VALUE);
 
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TEST_STRING_USER_VALUE);
+    assertThat(testOptions.getTestString()).isEqualTo(TEST_STRING_USER_VALUE);
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // Even though the policy sets the value for test_string, the policy is overridable and the
     // user set the value, so it should be the user's value.
     testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TEST_STRING_USER_VALUE);
+    assertThat(testOptions.getTestString()).isEqualTo(TEST_STRING_USER_VALUE);
   }
 
   @Test
@@ -521,7 +525,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     parser.parse("--test_string=" + TEST_STRING_USER_VALUE);
 
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TEST_STRING_USER_VALUE);
+    assertThat(testOptions.getTestString()).isEqualTo(TEST_STRING_USER_VALUE);
 
     assertThrows(
         OptionsParsingException.class,
@@ -623,7 +627,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     parser.parse("--test_string=" + TEST_STRING_USER_VALUE);
 
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TEST_STRING_USER_VALUE);
+    assertThat(testOptions.getTestString()).isEqualTo(TEST_STRING_USER_VALUE);
 
     OptionsParsingException e =
         assertThrows(
@@ -651,13 +655,13 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
 
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo("test string default");
+    assertThat(testOptions.getTestString()).isEqualTo("test string default");
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // Get the options again after policy enforcement.
     testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TEST_STRING_POLICY_VALUE);
+    assertThat(testOptions.getTestString()).isEqualTo(TEST_STRING_POLICY_VALUE);
     assertThat(
             parser.asCompleteListOfParsedOptions().stream()
                 .map(ParsedOptionDescription::getCommandLineForm))
@@ -685,7 +689,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
 
     // Options should not be modified by running the parser through OptionsPolicyEnforcer.create().
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testMultipleString)
+    assertThat(testOptions.getTestMultipleString())
         .containsExactly(TEST_STRING_USER_VALUE, TEST_STRING_USER_VALUE_2)
         .inOrder();
 
@@ -718,13 +722,13 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
 
     // Options should not be modified by running the parser through OptionsPolicyEnforcer.create().
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testMultipleString).isEmpty();
+    assertThat(testOptions.getTestMultipleString()).isEmpty();
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // Get the options again after policy enforcement.
     testOptions = getTestOptions();
-    assertThat(testOptions.testMultipleString)
+    assertThat(testOptions.getTestMultipleString())
         .containsExactly(TEST_STRING_POLICY_VALUE, TEST_STRING_POLICY_VALUE_2)
         .inOrder();
   }

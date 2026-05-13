@@ -318,9 +318,11 @@ public class UnixFileSystem extends DiskBackedFileSystem {
     long startTime = Profiler.instance().nanoTimeMaybe();
     var comp = Blocker.begin();
     try {
-      return PathFragment.create(nativePosixFilesService.readlink(name));
-    } catch (InvalidArgumentIOException e) {
-      throw new NotASymlinkException(path, e);
+      String result = nativePosixFilesService.readlink(name);
+      if (result == null) {
+        throw new NotASymlinkException(path);
+      }
+      return PathFragment.create(result);
     } finally {
       Blocker.end(comp);
       Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_READLINK, name);

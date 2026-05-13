@@ -32,7 +32,6 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link TaskDeduplicator}. */
 @RunWith(JUnit4.class)
-@SuppressWarnings("AllowVirtualThreads")
 public class TaskDeduplicatorTest {
 
   @Test

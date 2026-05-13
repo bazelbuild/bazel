@@ -39,6 +39,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
@@ -52,7 +53,8 @@ import org.junit.runner.RunWith;
 public final class ConfigSettingTest extends BuildViewTestCase {
 
   /** Extra options for this test. */
-  public static class DummyTestOptions extends FragmentOptions {
+  @OptionsClass
+  public abstract static class DummyTestOptions extends FragmentOptions {
     public DummyTestOptions() {}
 
     @Option(
@@ -61,7 +63,7 @@ public final class ConfigSettingTest extends BuildViewTestCase {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "super secret",
         metadataTags = {OptionMetadataTag.INTERNAL})
-    public String internalOption;
+    public abstract String getInternalOption();
 
     @Option(
         name = "allow_multiple_option",
@@ -70,7 +72,7 @@ public final class ConfigSettingTest extends BuildViewTestCase {
         allowMultiple = true,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP})
-    public List<String> allowMultipleOption;
+    public abstract List<String> getAllowMultipleOption();
 
     @Option(
         name = "new_option_name",
@@ -78,7 +80,7 @@ public final class ConfigSettingTest extends BuildViewTestCase {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "",
         oldName = "old_option_name")
-    public String optionWithOldName;
+    public abstract String getOptionWithOldName();
 
     @Option(
         name = "non_configurable_option",
@@ -86,7 +88,7 @@ public final class ConfigSettingTest extends BuildViewTestCase {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "non-configurable",
         metadataTags = {OptionMetadataTag.NON_CONFIGURABLE})
-    public String nonConfigurableOption;
+    public abstract String getNonConfigurableOption();
   }
 
   /** Test fragment. */

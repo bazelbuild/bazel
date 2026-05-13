@@ -55,6 +55,13 @@ public class SerializationModule extends BlazeModule {
     }
   }
 
+  @Override
+  public void blazeShutdown() {
+    if (remoteAnalysisCachingServicesSupplier != null) {
+      remoteAnalysisCachingServicesSupplier.blazeShutdown();
+    }
+  }
+
   @ForOverride
   protected Supplier<ObjectCodecRegistry> getAnalysisCodecRegistrySupplier(
       BlazeRuntime runtime, BlazeDirectories directories) {

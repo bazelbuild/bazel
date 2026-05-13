@@ -19,11 +19,13 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /** Configuration options for Starlark debugging. */
 // TODO(laurentlb): Rename the flags (remove 'experimental' and replace 'skylark' with 'starlark')
 // when the interpreter code is more stable.
-public final class StarlarkDebuggerOptions extends OptionsBase {
+@OptionsClass
+public abstract class StarlarkDebuggerOptions extends OptionsBase {
   @Option(
       name = "experimental_skylark_debug",
       defaultValue = "false",
@@ -33,7 +35,7 @@ public final class StarlarkDebuggerOptions extends OptionsBase {
       help =
           "If true, Blaze will open the Starlark debug server at the start of the build "
               + "invocation, and wait for a debugger to attach before running the build.")
-  public boolean debugStarlark;
+  public abstract boolean getDebugStarlark();
 
   @Option(
       name = "experimental_skylark_debug_server_port",
@@ -42,7 +44,7 @@ public final class StarlarkDebuggerOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "The port on which the Starlark debug server will listen for connections.")
-  public int debugServerPort;
+  public abstract int getDebugServerPort();
 
   @Option(
       name = "experimental_skylark_debug_verbose_logging",
@@ -51,7 +53,7 @@ public final class StarlarkDebuggerOptions extends OptionsBase {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Show verbose logs for the debugger.")
-  public boolean verboseLogs;
+  public abstract boolean getVerboseLogs();
 
   @Option(
       name = "experimental_skylark_debug_reset_analysis",
@@ -62,5 +64,5 @@ public final class StarlarkDebuggerOptions extends OptionsBase {
       help =
           "If true, resets analysis before executing the build. Has no effect without"
               + " --experimental_skylark_debug")
-  public boolean resetAnalysis;
+  public abstract boolean getResetAnalysis();
 }

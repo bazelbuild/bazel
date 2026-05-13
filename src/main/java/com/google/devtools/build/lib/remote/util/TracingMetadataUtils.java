@@ -137,20 +137,20 @@ public class TracingMetadataUtils {
   }
 
   public static ClientInterceptor newCacheHeadersInterceptor(RemoteOptions options) {
-    Metadata metadata = newMetadataForHeaders(options.remoteHeaders);
-    metadata.merge(newMetadataForHeaders(options.remoteCacheHeaders));
+    Metadata metadata = newMetadataForHeaders(options.getRemoteHeaders());
+    metadata.merge(newMetadataForHeaders(options.getRemoteCacheHeaders()));
     return MetadataUtils.newAttachHeadersInterceptor(metadata);
   }
 
   public static ClientInterceptor newDownloaderHeadersInterceptor(RemoteOptions options) {
-    Metadata metadata = newMetadataForHeaders(options.remoteHeaders);
-    metadata.merge(newMetadataForHeaders(options.remoteDownloaderHeaders));
+    Metadata metadata = newMetadataForHeaders(options.getRemoteHeaders());
+    metadata.merge(newMetadataForHeaders(options.getRemoteDownloaderHeaders()));
     return MetadataUtils.newAttachHeadersInterceptor(metadata);
   }
 
   public static ClientInterceptor newExecHeadersInterceptor(RemoteOptions options) {
-    Metadata metadata = newMetadataForHeaders(options.remoteHeaders);
-    metadata.merge(newMetadataForHeaders(options.remoteExecHeaders));
+    Metadata metadata = newMetadataForHeaders(options.getRemoteHeaders());
+    metadata.merge(newMetadataForHeaders(options.getRemoteExecHeaders()));
     return MetadataUtils.newAttachHeadersInterceptor(metadata);
   }
 

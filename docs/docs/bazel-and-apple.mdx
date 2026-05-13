@@ -8,7 +8,7 @@ This page contains resources that help you use Bazel to build macOS and iOS
 projects. It links to a tutorial, build rules, and other information specific to
 using Bazel to build and test for those platforms.
 
-## Working with Bazel
+## Working with Bazel {#working-with-bazel}
 
 The following resources will help you work with Bazel on macOS and iOS projects:
 
@@ -17,14 +17,14 @@ The following resources will help you work with Bazel on macOS and iOS projects:
 *  [General Apple rules](https://github.com/bazelbuild/rules_apple)
 *  [Integration with Xcode](/install/ide)
 
-## Migrating to Bazel
+## Migrating to Bazel {#migrating-to-bazel}
 
 If you currently build your macOS and iOS projects with Xcode, follow the steps
 in the migration guide to start building them with Bazel:
 
 *  [Migrating from Xcode to Bazel](/migrate/xcode)
 
-## Apple apps and new rules
+## Apple apps and new rules {#apple-apps-new-rules}
 
 **Note**: Creating new rules is for advanced build and test scenarios.
 You do not need it when getting started with Bazel.
@@ -50,7 +50,7 @@ when building your macOS and iOS projects:
    *  [`ObjcProvider`](/rules/lib/providers/ObjcProvider)
    *  [`XcodeVersionConfig`](/rules/lib/providers/XcodeVersionConfig)
 
-## Xcode selection
+## Xcode selection {#xcode-selection}
 
 If your build requires Xcode, Bazel will select an appropriate version based on
 the `--xcode_config` and `--xcode_version` flags. The `--xcode_config` consumes

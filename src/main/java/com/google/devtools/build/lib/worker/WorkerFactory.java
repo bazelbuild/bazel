@@ -251,7 +251,7 @@ public class WorkerFactory {
       return false;
     }
     return workerBaseDir.equals(that.workerBaseDir)
-        && workerOptions.useCgroupsOnLinux == that.workerOptions.useCgroupsOnLinux
+        && workerOptions.getUseCgroupsOnLinux() == that.workerOptions.getUseCgroupsOnLinux()
         && Objects.equals(this.hardenedSandboxOptions, that.hardenedSandboxOptions);
   }
 

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.remote.circuitbreaker;
 
 import com.google.devtools.build.lib.remote.Retrier;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -45,8 +44,10 @@ public class FailureCircuitBreaker implements Retrier.CircuitBreaker {
    *     circuit breaker in given time window.
    * @param slidingWindowSize the size of the sliding window in milliseconds to calculate the number
    *     of failures.
+   * @param scheduledExecutor executor for scheduling tasks to decrement success and failure counts.
    */
-  public FailureCircuitBreaker(int failureRateThreshold, int slidingWindowSize) {
+  public FailureCircuitBreaker(
+      int failureRateThreshold, int slidingWindowSize, ScheduledExecutorService scheduledExecutor) {
     this.failures = new AtomicInteger(0);
     this.successes = new AtomicInteger(0);
     this.failureRateThreshold = failureRateThreshold;
@@ -56,8 +57,7 @@ public class FailureCircuitBreaker implements Retrier.CircuitBreaker {
     this.minFailCountToComputeFailureRate =
         CircuitBreakerFactory.DEFAULT_MIN_FAIL_COUNT_TO_COMPUTE_FAILURE_RATE;
     this.state = State.ACCEPT_CALLS;
-    this.scheduledExecutor =
-        slidingWindowSize > 0 ? Executors.newSingleThreadScheduledExecutor() : null;
+    this.scheduledExecutor = scheduledExecutor;
   }
 
   @Override

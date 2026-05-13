@@ -17,7 +17,8 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus;
-import com.google.devtools.build.lib.util.DecimalBucketer;
+import com.google.devtools.build.lib.util.Bucket;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
@@ -28,8 +29,14 @@ public interface RemoteAnalysisCacheClient {
   /** Timeout when accessing the future in order to shutdown the client. */
   int SHUTDOWN_TIMEOUT_IN_SECONDS = 5;
 
-  /** The result of a top-level targets lookup. */
-  record LookupTopLevelTargetsResult(TopLevelTargetsMatchStatus status, String statusMessage) {}
+
+
+  /** The key for memoizing top-level targets lookup results. */
+  record TopLevelTargetsCacheKey(
+      long evaluatingVersion,
+      String configurationHash,
+      boolean useFakeStampData,
+      String blazeVersion) {}
 
   /** Usage statistics. */
   record Stats(
@@ -37,8 +44,8 @@ public interface RemoteAnalysisCacheClient {
       long bytesReceived,
       long requestsSent,
       long batches,
-      ImmutableList<DecimalBucketer.Bucket> latencyMicros,
-      ImmutableList<DecimalBucketer.Bucket> batchLatencyMicros,
+      ImmutableList<Bucket> latencyMicros,
+      ImmutableList<Bucket> batchLatencyMicros,
       TopLevelTargetsMatchStatus matchStatus) {}
 
   Stats EMPTY_STATS =
@@ -51,13 +58,16 @@ public interface RemoteAnalysisCacheClient {
           ImmutableList.of(),
           TopLevelTargetsMatchStatus.MATCH_STATUS_UNSPECIFIED);
 
+
+
   /** Looks up an entry in the remote analysis cache based on a serialized key. */
-  ListenableFuture<ByteString> lookup(ByteString key);
+  ListenableFuture<LookupResult> lookup(ByteString key);
 
   /** Returns the usage statistics. */
   Stats getStats();
 
   /** Looks up the targets in the metadata table */
+  @CanIgnoreReturnValue
   LookupTopLevelTargetsResult lookupTopLevelTargets(
       long evaluatingVersion,
       String configurationHash,

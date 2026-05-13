@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -133,8 +134,8 @@ public final class SelectorList implements StarlarkValue, HasBinary {
     Object firstValue = null;
 
     for (Object value : values) {
-      if (value instanceof SelectorList) {
-        elements.addAll(((SelectorList) value).elements);
+      if (value instanceof SelectorList selectorList) {
+        elements.addAll(selectorList.elements);
       } else {
         elements.add(value);
       }
@@ -170,7 +171,7 @@ public final class SelectorList implements StarlarkValue, HasBinary {
   }
 
   private static TokenKind binaryOpToken(Object value) {
-    return getNativeType(value).equals(Dict.class) ? TokenKind.PIPE : TokenKind.PLUS;
+    return Map.class.isAssignableFrom(getNativeType(value)) ? TokenKind.PIPE : TokenKind.PLUS;
   }
 
   @Override
@@ -182,37 +183,38 @@ public final class SelectorList implements StarlarkValue, HasBinary {
     return null;
   }
 
-  private static final Class<?> NATIVE_LIST_TYPE = List.class;
-
   private static String getTypeName(Object x) {
-    if (x instanceof SelectorList) {
-      return "select of " + Depset.ElementType.of(((SelectorList) x).type);
-    } else if (x instanceof SelectorValue) {
-      return "select of " + Depset.ElementType.of(((SelectorValue) x).getType());
+    if (x instanceof SelectorList selectorList) {
+      return "select of " + Depset.ElementType.of(selectorList.type);
+    } else if (x instanceof SelectorValue selectorValue) {
+      return "select of " + Depset.ElementType.of(selectorValue.getType());
     } else {
       return Starlark.type(x);
     }
   }
 
   private static Class<?> getNativeType(Object value) {
-    if (value instanceof SelectorList) {
-      return ((SelectorList) value).type;
-    } else if (value instanceof SelectorValue) {
-      return ((SelectorValue) value).getType();
+    if (value instanceof SelectorList selectorList) {
+      return selectorList.type;
+    } else if (value instanceof SelectorValue selectorValue) {
+      return selectorValue.getType();
     } else {
       return value.getClass();
     }
   }
 
+  private static boolean isMappingType(Class<?> type) {
+    return Map.class.isAssignableFrom(type);
+  }
+
   private static boolean isListType(Class<?> type) {
-    return NATIVE_LIST_TYPE.isAssignableFrom(type);
+    return List.class.isAssignableFrom(type);
   }
 
   private static boolean canConcatenate(Class<?> type1, Class<?> type2) {
-    if (type1 == type2) {
-      return true;
-    }
-    return isListType(type1) && isListType(type2);
+    return type1 == type2
+        || (isMappingType(type1) && isMappingType(type2))
+        || (isListType(type1) && isListType(type2));
   }
 
   @Override

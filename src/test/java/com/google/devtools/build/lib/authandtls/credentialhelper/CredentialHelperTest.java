@@ -20,7 +20,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
 import com.google.devtools.build.lib.util.OS;
@@ -49,7 +49,8 @@ public class CredentialHelperTest {
           "io_bazel/src/test/java/com/google/devtools/build/lib/authandtls/credentialhelper/test_credential_helper"
               + (OS.getCurrent() == OS.WINDOWS ? ".exe" : ""));
 
-  private static final Reporter reporter = new Reporter(new EventBus());
+  private static final Reporter reporter =
+      new Reporter(EventBusEventHandler.createWithNewEventBus());
 
   private GetCredentialsResponse getCredentialsFromHelper(
       String credHelperPath, String uri, ImmutableMap<String, String> env) throws Exception {
@@ -78,7 +79,9 @@ public class CredentialHelperTest {
   private GetCredentialsResponse getCredentialsFromHelper(
       String uri, ImmutableMap<String, String> env) throws Exception {
     String credHelperPath =
-        Runfiles.create().rlocation(TEST_CREDENTIAL_HELPER_PATH.getPathString());
+        Runfiles.preload()
+            .withSourceRepository("")
+            .rlocation(TEST_CREDENTIAL_HELPER_PATH.getPathString());
 
     return getCredentialsFromHelper(credHelperPath, uri, env);
   }

@@ -45,13 +45,13 @@ public class InvocationPolicyBreakingConditionsTest extends InvocationPolicyEnfo
     parser.parse("--test_string=" + TEST_STRING_USER_VALUE);
 
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TEST_STRING_USER_VALUE);
+    assertThat(testOptions.getTestString()).isEqualTo(TEST_STRING_USER_VALUE);
 
     enforcer.enforce(parser, "test", ImmutableList.builder());
 
     // Still user value.
     testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TEST_STRING_USER_VALUE);
+    assertThat(testOptions.getTestString()).isEqualTo(TEST_STRING_USER_VALUE);
   }
 
   @Test
@@ -74,13 +74,13 @@ public class InvocationPolicyBreakingConditionsTest extends InvocationPolicyEnfo
     parser.parse("--test_string=" + TEST_STRING_USER_VALUE);
 
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TEST_STRING_USER_VALUE);
+    assertThat(testOptions.getTestString()).isEqualTo(TEST_STRING_USER_VALUE);
 
     enforcer.enforce(parser, "test", ImmutableList.builder());
 
     // Still user value.
     testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TEST_STRING_POLICY_VALUE_2);
+    assertThat(testOptions.getTestString()).isEqualTo(TEST_STRING_POLICY_VALUE_2);
   }
 
   @Test
@@ -93,13 +93,13 @@ public class InvocationPolicyBreakingConditionsTest extends InvocationPolicyEnfo
     parser.parse("--test_string=" + TEST_STRING_USER_VALUE);
 
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TEST_STRING_USER_VALUE);
+    assertThat(testOptions.getTestString()).isEqualTo(TEST_STRING_USER_VALUE);
 
     // Shouldn't throw.
     enforcer.enforce(parser, "test", ImmutableList.builder());
 
     // Still user value.
     testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TEST_STRING_USER_VALUE);
+    assertThat(testOptions.getTestString()).isEqualTo(TEST_STRING_USER_VALUE);
   }
 }

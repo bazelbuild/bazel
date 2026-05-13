@@ -318,7 +318,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     Path err = resolvedPaths.getTestStderr();
     FileOutErr testOutErr = new FileOutErr(out, err);
     Closeable streamed = null;
-    if (executionOptions.testOutput.equals(ExecutionOptions.TestOutputFormat.STREAMED)) {
+    if (executionOptions.getTestOutput().equals(ExecutionOptions.TestOutputFormat.STREAMED)) {
       streamed =
           createStreamedTestOutput(
               Reporter.outErrForReporter(actionExecutionContext.getEventHandler()), out);
@@ -614,6 +614,12 @@ public class StandaloneTestStrategy extends TestStrategy {
               .setExecutionInfo(ExecutionInfo.getDefaultInstance())
               .build();
       finalizeTest(standaloneTestResult, failedAttempts);
+    }
+
+    @Override
+    public TestRunnerSpawn getFlakyRetryRunner(List<SpawnResult> previousAttemptResults)
+        throws ExecException, InterruptedException {
+      return createTestRunnerSpawn(testAction, actionExecutionContext);
     }
   }
 

@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkToolchainTy
  */
 @AutoCodec
 public record ToolchainTypeRequirement(
-    @Override Label toolchainType, @Override boolean mandatory, boolean ignoreIfInvalid)
+    Label toolchainType, boolean mandatory, boolean ignoreIfInvalid)
     implements StarlarkToolchainTypeRequirement {
   public ToolchainTypeRequirement {
     requireNonNull(toolchainType, "toolchainType");

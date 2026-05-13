@@ -43,10 +43,10 @@ public final class TestFilter implements com.google.common.base.Predicate<Target
   /** Convert the options into a test filter. */
   public static TestFilter forOptions(LoadingOptions options) {
     return new TestFilter(
-        ImmutableSet.copyOf(options.testSizeFilterSet),
-        ImmutableSet.copyOf(options.testTimeoutFilterSet),
-        ImmutableList.copyOf(options.testTagFilterList),
-        ImmutableList.copyOf(options.testLangFilterList));
+        ImmutableSet.copyOf(options.getTestSizeFilterSet()),
+        ImmutableSet.copyOf(options.getTestTimeoutFilterSet()),
+        ImmutableList.copyOf(options.getTestTagFilterList()),
+        ImmutableList.copyOf(options.getTestLangFilterList()));
   }
 
   private final ImmutableSet<TestSize> testSizeFilterSet;

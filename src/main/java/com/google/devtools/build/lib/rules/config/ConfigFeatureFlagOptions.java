@@ -19,9 +19,11 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsClass;
 
 /** The options fragment which defines options related to tagged trimming of feature flags. */
-public final class ConfigFeatureFlagOptions extends FragmentOptions {
+@OptionsClass
+public abstract class ConfigFeatureFlagOptions extends FragmentOptions {
   /**
    * Whether to perform user-guided trimming of feature flags based on the tagging in the
    * transitive_configs attribute.
@@ -37,7 +39,7 @@ public final class ConfigFeatureFlagOptions extends FragmentOptions {
         OptionEffectTag.LOADING_AND_ANALYSIS
       },
       defaultValue = "false")
-  public boolean enforceTransitiveConfigsForConfigFeatureFlag = false;
+  public abstract boolean getEnforceTransitiveConfigsForConfigFeatureFlag();
 
   /**
    * If {@code true}, the configuration contains all non-default feature flag values, and any flags
@@ -57,5 +59,7 @@ public final class ConfigFeatureFlagOptions extends FragmentOptions {
       },
       metadataTags = {OptionMetadataTag.INTERNAL},
       defaultValue = "true")
-  public boolean allFeatureFlagValuesArePresent = true;
+  public abstract boolean getAllFeatureFlagValuesArePresent();
+
+  public abstract void setAllFeatureFlagValuesArePresent(boolean value);
 }

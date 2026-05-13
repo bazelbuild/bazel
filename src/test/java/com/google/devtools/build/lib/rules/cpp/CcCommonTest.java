@@ -23,6 +23,7 @@ import com.google.common.truth.IterableSubject;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -89,67 +90,6 @@ public class CcCommonTest extends BuildViewTestCase {
             srcs = ["bar.cc"],
         )
         """);
-  }
-
-  @Test
-  public void testSameCcFileTwice() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        """
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        cc_library(
-            name = "a",
-            srcs = [
-                "a1",
-                "a2",
-            ],
-        )
-
-        filegroup(
-            name = "a1",
-            srcs = ["a.cc"],
-        )
-
-        filegroup(
-            name = "a2",
-            srcs = ["a.cc"],
-        )
-        """);
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:a");
-    assertContainsEvent("Artifact 'a/a.cc' is duplicated");
-  }
-
-  @Test
-  public void testSameHeaderFileTwice() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        """
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        package(features = ["parse_headers"])
-
-        cc_library(
-            name = "a",
-            srcs = [
-                "a.cc",
-                "a1",
-                "a2",
-            ],
-        )
-
-        filegroup(
-            name = "a1",
-            srcs = ["a.h"],
-        )
-
-        filegroup(
-            name = "a2",
-            srcs = ["a.h"],
-        )
-        """);
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:a");
-    assertNoEvents();
   }
 
   @Test
@@ -589,31 +529,6 @@ public class CcCommonTest extends BuildViewTestCase {
             .findTransitivePrerequisitesOf(
                 getFilesToBuild(target).toList().get(0), CppCompileAction.class);
     return compilationSteps.get(0);
-  }
-
-  @Test
-  public void testIsolatedIncludes() throws Exception {
-    // Tests the (immediate) effect of declaring the includes attribute on a
-    // cc_library.
-
-    scratch.file(
-        "bang/BUILD",
-        """
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        cc_library(
-            name = "bang",
-            srcs = ["bang.cc"],
-            includes = ["bang_includes"],
-        )
-        """);
-
-    ConfiguredTarget foo = getConfiguredTarget("//bang:bang");
-
-    String includesRoot = "bang/bang_includes";
-    assertThat(CcInfo.get(foo).getCcCompilationContext().getIncludeDirs())
-        .containsAtLeast(
-            PathFragment.create(includesRoot),
-            targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot));
   }
 
   @Test
@@ -1593,11 +1508,12 @@ public class CcCommonTest extends BuildViewTestCase {
             "--experimental_override_name_platform_in_output_dir=%s=k8",
             TestConstants.PLATFORM_LABEL));
     CppCompileAction cppCompileAction = getCppCompileAction("//a:foo");
+    PathFragment paramFilePath = PathFragment.create("foo/bar/bar.o.params");
     assertThat(
-            cppCompileAction.getArguments().stream()
+            cppCompileAction.getArguments(paramFilePath, PathMapper.NOOP).stream()
                 .map(x -> removeOutDirectory(x))
                 .collect(ImmutableList.toImmutableList()))
-        .containsExactly("/usr/bin/mock-gcc", "@/k8-fastbuild/bin/a/_objs/foo/foo.o.params");
+        .containsExactly("/usr/bin/mock-gcc", "@foo/bar/bar.o.params");
   }
 
   @Test
