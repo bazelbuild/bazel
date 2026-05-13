@@ -196,11 +196,16 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
       } else if (value instanceof TriState triState) {
         value = triState.toInt();
       }
+
       return new Printer() {
         // Print labels in their canonical form.
         @Override
         public Printer repr(Object o, StarlarkSemantics semantics) {
-          return super.repr(o instanceof Label label ? labelPrinter.toString(label) : o, semantics);
+          return switch (o) {
+            case String str -> appendPrettyQuoted(str);
+            case Label label -> super.repr(labelPrinter.toString(label), semantics);
+            default -> super.repr(o, semantics);
+          };
         }
       }.repr(value, StarlarkSemantics.DEFAULT).toString();
     }

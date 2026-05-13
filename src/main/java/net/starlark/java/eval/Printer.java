@@ -13,6 +13,8 @@
 // limitations under the License.
 package net.starlark.java.eval;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Arrays;
 import java.util.IllegalFormatException;
@@ -36,6 +38,9 @@ public class Printer {
   // indicating a cycle.
   private Object[] stack;
   private int depth;
+
+  private static final char Q1 = '\'';
+  private static final char Q2 = '"';
 
   /** Creates a printer that writes to the given buffer. */
   public Printer(StringBuilder buffer) {
@@ -228,6 +233,74 @@ public class Printer {
       escapeCharacter(c);
     }
     return this.append('"');
+  }
+
+  @CanIgnoreReturnValue
+  private Printer appendTripleQuoted(String s, char quoteChar) {
+    checkArgument(quoteChar == Q1 || quoteChar == Q2, "quoteChar must be ' or \"");
+    String delimiter = String.valueOf(quoteChar).repeat(3);
+    this.append(delimiter);
+    char otherQuote = (quoteChar == Q2 ? Q1 : Q2);
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
+      if (c == otherQuote || c == '\n') {
+        this.append(c);
+      } else if (c == quoteChar) {
+        // Escape quoteChar only if it would otherwise be interpreted as the start of the closing
+        // delimiter:
+        if (i + 1 == s.length()) {
+          // ... if it immediately precedes the closing delimiter
+          this.append('\\').append(c);
+        } else if (i + 3 <= s.length() && s.substring(i, i + 3).equals(delimiter)) {
+          // ... or if it's part of an embedded triple-quote substring.
+          this.append('\\').append(c);
+        } else {
+          this.append(c);
+        }
+      } else {
+        escapeCharacter(c);
+      }
+    }
+    return this.append(delimiter);
+  }
+
+  /**
+   * Appends a "pretty" quoted string representation of {@code s} to the printer's buffer.
+   *
+   * <p>It heuristically chooses between single-line double quotes, and triple quotes (either ''' or
+   * """) based on the content of the string to minimize escaping.
+   */
+  @CanIgnoreReturnValue
+  public final Printer appendPrettyQuoted(String s) {
+    if (!s.contains("\n")) {
+      return appendQuoted(s);
+    }
+    return appendTripleQuoted(s, determineQuoteChar(s));
+  }
+
+  private static char determineQuoteChar(String s) {
+    int doubleQuotes = 0;
+    int singleQuotes = 0;
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
+      if (c == Q2) {
+        doubleQuotes++;
+      } else if (c == Q1) {
+        singleQuotes++;
+      }
+    }
+
+    char quoteChar = Q2;
+    boolean startsOrEndsWithDouble = s.startsWith("\"") || s.endsWith("\"");
+    boolean startsOrEndsWithSingle = s.startsWith("'") || s.endsWith("'");
+
+    if (doubleQuotes > singleQuotes) {
+      quoteChar = Q1;
+    } else if (startsOrEndsWithDouble && !startsOrEndsWithSingle) {
+      quoteChar = Q1;
+    }
+
+    return quoteChar;
   }
 
   @CanIgnoreReturnValue
