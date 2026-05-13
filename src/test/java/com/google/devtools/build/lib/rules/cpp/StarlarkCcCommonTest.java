@@ -7196,13 +7196,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testExpandedCompileApiBlocked() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      // API changes in rules_cc are difficult to keep in sync with
-      // main bazel github repo.
-      // TODO(b/507033784): Re-enable bazel ci uses a rules_cc version containing
-      // https://github.com/bazelbuild/rules_cc/pull/633.
-      return;
-    }
     scratch.file(
         "bazel_internal/test_rules/cc/BUILD",
         """
@@ -7223,7 +7216,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         def _impl(ctx):
             module_map = cc_common.create_module_map(
                 file = ctx.file.file,
-                identifier = "module",
+                name = "module",
             )
             return [ModuleMapInfo(module_map = module_map, file = ctx.file.file)]
 
@@ -7241,7 +7234,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             + " name = 'name', cc_toolchain = toolchain, ";
     List<String> calls =
         ImmutableList.of(
-            "cc_common.create_module_map(file=file, identifier='name')",
+            "cc_common.create_module_map(file=file, name='name')",
             compileCall + " module_map = module_map)",
             compileCall + " additional_module_maps = [module_map])",
             compileCall + "additional_exported_hdrs = [])",
