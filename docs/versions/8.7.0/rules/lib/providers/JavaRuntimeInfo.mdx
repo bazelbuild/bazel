@@ -1,0 +1,110 @@
+---
+title: 'JavaRuntimeInfo'
+---
+
+Information about the Java runtime being used.
+
+## Members
+
+* [default_cds](#default_cds)
+* [files](#files)
+* [hermetic_files](#hermetic_files)
+* [hermetic_static_libs](#hermetic_static_libs)
+* [java_executable_exec_path](#java_executable_exec_path)
+* [java_executable_runfiles_path](#java_executable_runfiles_path)
+* [java_home](#java_home)
+* [java_home_runfiles_path](#java_home_runfiles_path)
+* [lib_ct_sym](#lib_ct_sym)
+* [lib_modules](#lib_modules)
+* [version](#version)
+
+## default_cds
+
+```
+File JavaRuntimeInfo.default_cds
+```
+
+Returns the JDK default CDS archive.
+May return `None`.
+
+## files
+
+```
+depset JavaRuntimeInfo.files
+```
+
+Returns the files in the Java runtime.
+
+## hermetic_files
+
+```
+depset JavaRuntimeInfo.hermetic_files
+```
+
+Returns the files in the Java runtime needed for hermetic deployments.
+
+## hermetic_static_libs
+
+```
+sequence JavaRuntimeInfo.hermetic_static_libs
+```
+
+Returns the JDK static libraries.
+
+## java_executable_exec_path
+
+```
+string JavaRuntimeInfo.java_executable_exec_path
+```
+
+Returns the execpath of the Java executable.
+
+## java_executable_runfiles_path
+
+```
+string JavaRuntimeInfo.java_executable_runfiles_path
+```
+
+Returns the path of the Java executable in runfiles trees. This should only be used when one needs to access the JVM during the execution of a binary or a test built by Bazel. In particular, when one needs to invoke the JVM during an action, java_executable_exec_path should be used instead.
+
+## java_home
+
+```
+string JavaRuntimeInfo.java_home
+```
+
+Returns the execpath of the root of the Java installation.
+
+## java_home_runfiles_path
+
+```
+string JavaRuntimeInfo.java_home_runfiles_path
+```
+
+Returns the path of the Java installation in runfiles trees. This should only be used when one needs to access the JDK during the execution of a binary or a test built by Bazel. In particular, when one needs the JDK during an action, java_home should be used instead.
+
+## lib_ct_sym
+
+```
+File JavaRuntimeInfo.lib_ct_sym
+```
+
+Returns the lib/ct.sym file.
+May return `None`.
+
+## lib_modules
+
+```
+File JavaRuntimeInfo.lib_modules
+```
+
+Returns the lib/modules file.
+May return `None`.
+
+## version
+
+```
+int JavaRuntimeInfo.version
+```
+
+The Java feature version of the runtime. This is 0 if the version is unknown.
