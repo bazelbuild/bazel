@@ -291,7 +291,7 @@ platform(
     ],
 )
 
-REMOTE_PLATFORMS = ("rbe_ubuntu2004",)
+REMOTE_PLATFORMS = ("rbe_ubuntu2404",)
 
 [
     platform(

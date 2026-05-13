@@ -444,8 +444,8 @@ bazel_dep(name = "wabt", version = "1.0.37")
 rbe_preconfig = use_repo_rule("@bazel_ci_rules//:rbe_repo.bzl", "rbe_preconfig")
 
 rbe_preconfig(
-    name = "rbe_ubuntu2004",
-    toolchain = "ubuntu2004",
+    name = "rbe_ubuntu2404",
+    toolchain = "ubuntu2404",
 )
 
 list_source_repository = use_repo_rule("//src/test/shell/bazel:list_source_repository.bzl", "list_source_repository")
