@@ -241,8 +241,8 @@ tasks:
       - "//src:bazel_nojdk.exe"
     include_json_profile:
       - build
-  rbe_ubuntu2004:
-    platform: ubuntu2004
+  rbe_ubuntu2404:
+    platform: ubuntu2404
     name: "RBE"
     build_flags:
       - "--config=remote"

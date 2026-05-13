@@ -239,8 +239,8 @@ tasks:
       - "//src:bazel_nojdk.exe"
     include_json_profile:
       - build
-  rbe_ubuntu2004:
-    platform: ubuntu2004
+  rbe_ubuntu2404:
+    platform: ubuntu2404
     name: "RBE"
     shell_commands:
       - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
