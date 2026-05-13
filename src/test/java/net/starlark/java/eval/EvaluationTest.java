@@ -908,10 +908,23 @@ public final class EvaluationTest {
         .testEval("z", "42");
   }
 
-  // TODO(b/350661266): resolve types in isinstance().
   @Test
-  public void isinstanceExpression_notYetSupported() throws Exception {
-    ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
-    ev.new Scenario().testIfExactError("isinstance() is not yet supported", "isinstance(x, list)");
+  public void isinstanceExpression_evaluates() throws Exception {
+    ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).resolveTypeSyntax(true).build());
+    var semantics = StarlarkSemantics.builder().setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING, true).build();
+    ev.new Scenario(semantics)
+        .setUp(
+            """
+            xs = [1, 2, 3]
+            ys = (1, 2, 3)
+            a = isinstance(xs, list)
+            b = isinstance(xs, tuple)
+            c = isinstance(xs, list | tuple)
+            d = isinstance(ys, list | tuple)
+            """)
+        .testExpression("a", Boolean.TRUE)
+        .testExpression("b", Boolean.FALSE)
+        .testExpression("c", Boolean.TRUE)
+        .testExpression("d", Boolean.TRUE);
   }
 }

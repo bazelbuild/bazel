@@ -43,6 +43,7 @@ import net.starlark.java.syntax.Identifier;
 import net.starlark.java.syntax.IfStatement;
 import net.starlark.java.syntax.IndexExpression;
 import net.starlark.java.syntax.IntLiteral;
+import net.starlark.java.syntax.IsInstanceExpression;
 import net.starlark.java.syntax.LambdaExpression;
 import net.starlark.java.syntax.ListExpression;
 import net.starlark.java.syntax.LoadStatement;
@@ -573,8 +574,7 @@ final class Eval {
       case CAST:
         return eval(fr, ((CastExpression) expr).getValue());
       case ISINSTANCE:
-        fr.setErrorLocation(expr.getStartLocation());
-        throw new EvalException("isinstance() is not yet supported");
+        return evalIsInstance(fr, (IsInstanceExpression) expr);
       case IDENTIFIER:
         return evalIdentifier(fr, (Identifier) expr);
       case INDEX:
@@ -799,6 +799,11 @@ final class Eval {
       fr.setErrorLocation(loc);
       throw ex;
     }
+  }
+
+  private static Object evalIsInstance(StarlarkThread.Frame fr, IsInstanceExpression isInstance) throws EvalException, InterruptedException {
+    Object evaluatedValue = eval(fr, isInstance.getValue());
+    return TypeChecker.isValueSubtypeOf(evaluatedValue, isInstance.getStarlarkType());
   }
 
   private static Object evalIdentifier(StarlarkThread.Frame fr, Identifier id)

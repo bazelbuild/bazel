@@ -29,6 +29,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Resolver.Module;
 import net.starlark.java.syntax.Resolver.Scope;
+import net.starlark.java.syntax.Types.AbstractCollectionType;
 
 /**
  * A visitor for tagging the data structures of a resolved file with type information.
@@ -440,6 +441,24 @@ public final class TypeTagger extends NodeVisitor {
     setUsesTypeSyntax();
     cast.setStarlarkType(extractType(cast.getType()));
     super.visit(cast);
+  }
+
+  @Override
+  public void visit(IsInstanceExpression isInstance) {
+    StarlarkType type = extractType(isInstance.getType());
+    if (type instanceof AbstractCollectionType collectionType && !collectionType.getElementType().equals(Types.ANY)) {
+      errorf(isInstance.getType(), "Parameterized types are not allowed in isinstance()");
+      return;
+    }
+
+    if (type.equals(Types.ANY)) {
+      errorf(isInstance.getType(), "'Any' is not allowed in isinstance()");
+      return;
+    }
+
+    isInstance.setStarlarkType(type);
+
+    super.visit(isInstance);
   }
 
   @Override

@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ObjectArrays;
 import java.util.Objects;
 import net.starlark.java.syntax.Resolver.Module;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -2180,6 +2181,95 @@ public final class TypeCheckerTest {
             else:
                 '123' + 456
         """);
+  }
+
+  @Test
+  public void if_statement_isinstance_narrows_types() throws Exception {
+    assertValid(
+        """
+            def f(x: int | str) -> int:
+                if isinstance(x, int):
+                    return x + 1
+                else:
+                    return 0
+            """);
+
+    assertInvalid(
+        "operator '+' cannot be applied to types 'str' and 'int'",
+        """
+            def f(x: int | str) -> int:
+                if isinstance(x, int):
+                    return x + 1
+                else:
+                    return x + 1
+            """);
+
+    assertValid(
+        """
+            def g(x: int | str) -> int:
+                if not isinstance(x, int):
+                    a = "" + x
+                    return 0
+                else:
+                    return x + 1
+            """);
+
+    assertValid(
+        """
+            def f(x: int | str | float) -> int | float:
+              if isinstance(x, int) or isinstance(x, float):
+                return x
+              return 0
+            """);
+
+    assertInvalid("operator '+' cannot be applied to types 'int|str' and 'int|str'",
+        """
+            def f(x: int | str, y: int | str) -> int:
+              if isinstance(x, int) or isinstance(y, int):
+                return x + y
+              return 0
+            """);
+
+    assertValid(
+        """
+            def f(x: int | str, y: int | str) -> int:
+              if isinstance(x, int) and isinstance(y, int):
+                return x + y
+              return 0
+            """);
+
+    assertInvalid("f() declares return type 'int' but may return 'int|str'",
+        """
+            def f(x: int | str) -> int:
+              if isinstance(x, str) and isinstance(x, int):
+                return x
+              return 0
+            """);
+  }
+
+  @Test
+  public void isinstance_does_not_accidentally_widen_type() throws Exception {
+    assertValid(
+        """
+            def f(x: int) -> int:
+              if isinstance(x, int | str):
+                return x + 1
+              return x
+            """);
+  }
+
+  @Ignore("disabled until type alias resolving is implemented in Resolver and TypeTagger")
+  @Test
+  public void isinstance_works_with_typealiases() throws Exception {
+    assertValid(
+        """
+            type a = int
+            def f(x: int | str) -> int:
+              if isinstance(x, a):
+                return x
+              return 0
+            """
+    );
   }
 
   @Test
