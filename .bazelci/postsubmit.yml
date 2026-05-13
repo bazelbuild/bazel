@@ -32,16 +32,6 @@ tasks:
       - "--config=ci-macos"
       # Fine tune the number of test jobs running in parallel to avoid timeout
       - "--local_test_jobs=2"
-    test_targets:
-      - "//..."
-      # Disable python and shell integration tests on Intel Macs
-      - "-//src/test/shell/..."
-      - "-//src/test/py/..."
-      # https://github.com/bazelbuild/bazel/issues/17410
-      - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
-      # Disable android tests since we are moving Android rules out of the Bazel repo.
-      # ServerTests frequently runs into deadlocks on Intel Macs
-      - "-//src/test/java/com/google/devtools/build/lib/server:ServerTests"
     include_json_profile:
       - build
       - test
