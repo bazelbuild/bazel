@@ -37,6 +37,7 @@ java_library(
     name = "cache_not_found_exception",
     srcs = ["CacheNotFoundException.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:jsr305",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",

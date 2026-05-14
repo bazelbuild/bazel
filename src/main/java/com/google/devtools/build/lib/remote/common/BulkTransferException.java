@@ -78,8 +78,12 @@ public class BulkTransferException extends IOException {
   }
 
   /**
-   * Returns a {@link LostArtifacts} instance that is non-empty if and only if all suppressed
-   * exceptions are caused by cache misses.
+   * Returns a {@link LostArtifacts} instance containing every cache miss that resolves to an input
+   * of the current action.
+   *
+   * <p>Cache misses for other artifacts, such as stdout/stderr or an output that failed to download
+   * after a cache hit, are not actionable by action rewinding. However, they should not mask cache
+   * misses for action inputs that can be rewound.
    */
   public LostArtifacts getLostArtifacts(Function<PathFragment, ActionInput> actionInputResolver) {
     if (!allCausedByCacheNotFoundException(this)) {
@@ -101,14 +105,14 @@ public class BulkTransferException extends IOException {
                   + " with a filename",
               e);
         }
-        return LostArtifacts.EMPTY;
+        continue;
       }
       var actionInput = actionInputResolver.apply(execPath);
       if (actionInput == null) {
         // This can happen if the lost artifact is not an input of the action, but an output that
         // e.g. failed to be retrieved from the remote cache after a cache hit. This also can't be
         // solved by the rewinding that LostArtifacts would trigger.
-        return LostArtifacts.EMPTY;
+        continue;
       }
       byDigestBuilder.put(DigestUtil.toString(missingDigest), actionInput);
     }

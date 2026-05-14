@@ -35,6 +35,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTreeUploader;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.Message;
 import io.reactivex.rxjava3.annotations.NonNull;
 import io.reactivex.rxjava3.core.Completable;
@@ -297,6 +299,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
 
   static class UploadTask {
     Digest digest;
+    @Nullable PathFragment actionInputExecPath;
     AtomicReference<Disposable> disposable;
     SingleEmitter<Boolean> continuation;
     Completable completion;
@@ -341,6 +344,12 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
           AsyncSubject<Void> completion = AsyncSubject.create();
           UploadTask uploadTask = new UploadTask();
           uploadTask.digest = digest;
+          uploadTask.actionInputExecPath =
+              merkleTree
+                  .actionInputForDigest(digest)
+                  .filter(Artifact.DerivedArtifact.class::isInstance)
+                  .map(input -> input.getExecPath())
+                  .orElse(null);
           uploadTask.disposable = new AtomicReference<>();
           uploadTask.completion = Completable.fromObservable(completion);
           Completable upload =
@@ -433,7 +442,28 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
         () -> Profiler.instance().profile("upload"),
         ignored ->
             Flowable.fromIterable(uploadTasks)
-                .flatMapSingle(uploadTask -> toTransferResult(uploadTask.completion)),
+                .flatMapSingle(RemoteExecutionCache::toUploadTransferResult),
         SilentCloseable::close);
+  }
+
+  private static Single<TransferResult> toUploadTransferResult(UploadTask uploadTask) {
+    return toTransferResult(uploadTask.completion)
+        .map(result -> annotateCacheNotFoundException(result, uploadTask));
+  }
+
+  private static TransferResult annotateCacheNotFoundException(
+      TransferResult result, UploadTask uploadTask) {
+    if (!result.isError() || uploadTask.actionInputExecPath == null) {
+      return result;
+    }
+
+    IOException error = checkNotNull(result.getError());
+    if (error instanceof CacheNotFoundException cacheNotFoundException
+        && cacheNotFoundException.getMissingDigest().equals(uploadTask.digest)) {
+      return TransferResult.error(
+          new CacheNotFoundException(
+              cacheNotFoundException.getMissingDigest(), uploadTask.actionInputExecPath));
+    }
+    return result;
   }
 }
