@@ -185,7 +185,10 @@ public final class Mutability implements AutoCloseable {
 
   @Override
   public void close() {
-    freeze();
+    // Avoid TSan errors due to concurrent writes to the shared IMMUTABLE instance (b/512786661).
+    if (this != IMMUTABLE) {
+      freeze();
+    }
   }
 
   /**
