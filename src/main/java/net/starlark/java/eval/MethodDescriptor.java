@@ -384,12 +384,12 @@ final class MethodDescriptor {
       throw new IllegalStateException(ex);
 
     } catch (IllegalArgumentException ex) {
-      // "Can't happen": unexpected type mismatch.
+      // "Can't happen": unexpected type mismatch in obj/args.
       // Show details to aid debugging (see e.g. b/162444744).
       StringBuilder buf = new StringBuilder();
       buf.append(
           String.format(
-              "IllegalArgumentException (%s) in Starlark call of %s, obj=%s (%s), args=[",
+              "IllegalArgumentException (%s) in Starlark call of `%s`, obj=%s (%s), args=[",
               ex.getMessage(),
               method,
               Starlark.repr(obj, StarlarkSemantics.DEFAULT),
@@ -403,12 +403,12 @@ final class MethodDescriptor {
         sep = ", ";
       }
       buf.append(']');
-      throw new IllegalArgumentException(buf.toString());
+      throw new IllegalStateException(buf.toString(), ex);
 
     } catch (InvocationTargetException ex) {
       Throwable e = ex.getCause();
       if (e == null) {
-        throw new IllegalStateException(e);
+        throw new IllegalStateException(ex);
       }
       // Don't intercept unchecked exceptions.
       Throwables.throwIfUnchecked(e);
