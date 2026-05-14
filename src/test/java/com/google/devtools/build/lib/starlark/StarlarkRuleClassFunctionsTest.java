@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.events.util.EventCollectionApparatus.FailFastException;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectClass;
@@ -5626,6 +5627,50 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         .containsExactly(
             Label.parseCanonicalUnchecked("//toolchains:type1"),
             Label.parseCanonicalUnchecked("//toolchains:type2"));
+  }
+
+  @Test
+  public void testAspectWithWildcardToolchainsAspects_parsesCorrectly() throws Exception {
+    evalAndExport(
+        ev,
+        """
+        def _aspect_impl(target, ctx):
+            return []
+        my_aspect = aspect(
+            implementation = _aspect_impl,
+            toolchains_aspects = ["*"]
+        )
+        """);
+
+    StarlarkDefinedAspect aspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
+    var toolchainsAspects = aspect.getToolchainsAspects();
+
+    assertThat(toolchainsAspects).isInstanceOf(FixedListSupplier.class);
+    assertThat(((FixedListSupplier<Label>) toolchainsAspects).getList()).hasSize(1);
+  }
+
+  @Test
+  public void testAspectWithWildcardToolchainsAspects_mixedWithLabels_fails() throws Exception {
+    reporter.removeHandler(failFastHandler);
+
+    FailFastException failFastException =
+        assertThrows(
+            FailFastException.class,
+            () ->
+                evalAndExport(
+                    ev,
+                    """
+                    def _aspect_impl(target, ctx):
+                        return []
+                    my_aspect = aspect(
+                        implementation = _aspect_impl,
+                        toolchains_aspects = ["*", "//toolchains:type1"]
+                    )
+                    """));
+
+    assertThat(failFastException)
+        .hasMessageThat()
+        .contains("'*' must be the only item in 'toolchains_aspects' list");
   }
 
   @Test
