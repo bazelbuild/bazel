@@ -306,6 +306,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               // (b/127644784). All the packages are already loaded at this point, so there is
               // no need to start up multiple threads anyway.
               /* loadingPhaseThreads= */ 1,
+              // Passing true is safe because GenQuery passes UniverseScope.EMPTY.
+              /* trackIncrementalState= */ true,
               packageProvider.getValidTargetPredicate(),
               getEventHandler(ruleContext),
               settings,

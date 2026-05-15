@@ -41,6 +41,11 @@ public class SamePkgDirectRdepsFunction implements QueryFunction {
   }
 
   @Override
+  public boolean requiresEdges() {
+    return true;
+  }
+
+  @Override
   public int getMandatoryArguments() {
     return 1;
   }
