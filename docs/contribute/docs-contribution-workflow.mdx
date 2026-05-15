@@ -8,14 +8,18 @@ guidance, see the [Bazel docs style guide](/contribute/docs-style-guide).
 
 ## Bazel docs structure {#structure}
 
-Bazel documentation lives in two repositories:
+The source of truth for Bazel documentation is `bazelbuild/bazel`, where docs
+live alongside the code. `bazel-contrib/bazel-docs` is the hosting and pipeline
+layer: it syncs content from `bazelbuild/bazel`, generates PR previews, and
+holds Mintlify configuration. **Content changes always go to `bazelbuild/bazel`.**
 
 | Repository | What it contains |
 |---|---|
-| [`bazelbuild/bazel`](https://github.com/bazelbuild/bazel) | All doc content (`docs/` folder). **This is where you make changes.** |
-| [`bazel-contrib/bazel-docs`](https://github.com/bazel-contrib/bazel-docs) | The hosting pipeline. Syncs from `bazelbuild/bazel` and deploys to [preview.bazel.build](https://preview.bazel.build). |
+| [`bazelbuild/bazel`](https://github.com/bazelbuild/bazel) | All doc content (`docs/` folder). This is where you make changes. |
+| [`bazel-contrib/bazel-docs`](https://github.com/bazel-contrib/bazel-docs) | Hosting pipeline. Syncs from `bazelbuild/bazel`, generates PR previews, and deploys to [preview.bazel.build](https://preview.bazel.build). |
+<!-- TODO: Update preview.bazel.build to bazel.build once the domain cutover happens. Tracked in https://github.com/bazel-contrib/bazel-docs/issues/453 -->
 
-Doc files are in [MDX format](https://mdxjs.com/), which is Markdown with a YAML
+Bazel docs use [MDX format](https://mdxjs.com/), Markdown with a YAML
 frontmatter block at the top. Every page must start with:
 
 ```
@@ -33,7 +37,7 @@ Before you start, you need:
 - [Git](https://git-scm.com/)
 - The [Mintlify CLI](https://www.mintlify.com/docs/cli/install) for local preview.  
 
-## Type 1: Quick fix {#quick-fix}
+## Make a minor change {#quick-fix}
 
 For small isolated changes, such as a typo, broken link, phrasing tweaks, you can edit directly in the GitHub web UI without
 cloning anything.
@@ -47,7 +51,7 @@ cloning anything.
 5. GitHub prompts you to open a pull request. Set the base branch to
    **`master`** and click **Create pull request** it.
 
-## Type 2: Updating existing content {#updating-content}
+## Update existing content {#updating-content}
 
 Use this workflow for anything larger than a typo, such as rewording a section,
 correcting outdated information, or adding a paragraph to an existing page.
@@ -103,9 +107,9 @@ git push origin my-doc-fix # push to GitHub
 
 Open a pull request on GitHub from your fork to **`bazelbuild/bazel` master**.
 
-## Type 3: Adding a new section to an existing page {#new-section}
+## Add a new section to an existing page {#new-section}
 
-Follow the same workflow as Type 2. A few things to keep in mind:
+Follow the same workflow as [Update existing content](#updating-content). A few things to keep in mind:
 
 **Add a heading anchor ID.** Every heading should have an explicit `{#id}` so
 URLs to that section stay stable even if the heading text changes:
@@ -121,9 +125,9 @@ URLs to that section stay stable even if the heading text changes:
 sections and H3 (`###`) for subsections. Don't skip levels.
 
 **Update the page if there's a table of contents or "On this page" intro.**
-Some pages have an introductory list of topics — add your section there too.
+Some pages have an introductory list of topics. Add your section there too.
 
-## Type 4: Adding a new page {#new-page}
+## Add a new page {#new-page}
 
 1. Create the MDX file in the appropriate `docs/` subdirectory.
    Every file must start with frontmatter:
@@ -134,12 +138,12 @@ Some pages have an introductory list of topics — add your section there too.
    ---
    ```
 
-2. Add your page to the navigation in the
-   `docs.json` file in `bazel-contrib/bazel-docs`. Open an issue or ask a
-   maintainer to add your page to the nav — you don't need to do this yourself
-   for an initial PR.
+2. Add your page to the sidebar navigation. This requires a separate change
+   in `bazel-contrib/bazel-docs`. See
+   [Update the docs navigation](/contribute/docs-navigation) for instructions.
+   For an initial PR, you can skip this and ask a maintainer to help.
 
-3. Follow the same branch, commit, and PR steps as Type 2.
+3. Follow the same branch, commit, and PR steps as [Update existing content](#updating-content).
 
 ## MDX basics for doc contributors {#mdx-basics}
 
@@ -202,18 +206,31 @@ This is a warning.
 </Warning>
 ```
 
+For a full list of Mintlify formatting components (tabs, accordions, cards,
+and more), see the [Mintlify text formatting docs](https://mintlify.com/docs/create/text).
+
 ## What to expect after submitting {#after-submitting}
 
 - The Google CLA bot checks that you've signed the
   [Contributor License Agreement](https://cla.developers.google.com/). You
   only need to do this once.
 - CI runs a docs validation check.
-- A maintainer reviews your PR and might make requests for edits. Response times vary.
-- Once approved, your changes are merged to `master` and appear on the
-  live site after the next sync.
+- A maintainer reviews your PR and might request edits. Response times vary.
+- Once approved, a maintainer merges your changes to `master`. They appear on
+  the live site after the next sync.
 
-## Getting help {#getting-help}
+<Tip>
+If your new page does not appear in the sidebar of the PR preview, use the
+black file-changes icon in the preview to navigate directly to it. New pages
+do not appear in the sidebar until you update the navigation in
+`bazel-contrib/bazel-docs`.
+</Tip>
 
+## Get help {#getting-help}
+
+- Join the [Bazel community Slack](https://slack.bazel.build) and ask in the
+  `#documentation` channel. This is the best place for quick questions about
+  the docs platform or contribution process.
 - File an issue in [`bazelbuild/bazel`](https://github.com/bazelbuild/bazel/issues)
   with the label `type: documentation`.
 - For questions about the docs platform, open an
