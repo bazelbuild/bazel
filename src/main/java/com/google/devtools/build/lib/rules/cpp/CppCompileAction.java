@@ -1286,6 +1286,20 @@ public class CppCompileAction extends AbstractAction
   }
 
   /**
+   * Returns the set of headers that may be discovered during compilation.
+   *
+   * <p>This is used by {@link
+   * com.google.devtools.build.lib.analysis.actions.StrippingPathMapper#isPathStrippable} to check
+   * for path collisions after stripping configuration prefixes. Without this, path stripping may be
+   * enabled for an action whose declared inputs have no collisions, but whose discovered inputs
+   * (headers found via .d file parsing) do have collisions, causing a crash at execution time.
+   */
+  @Override
+  public NestedSet<Artifact> getAdditionalArtifactsForPathMapping() {
+    return allowedDerivedInputs;
+  }
+
+  /**
    * {@inheritDoc}
    *
    * <p>If this is compiling a module, restores the value of {@link #discoveredModules}, which is
