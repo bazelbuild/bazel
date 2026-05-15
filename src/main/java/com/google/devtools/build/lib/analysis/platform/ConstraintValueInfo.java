@@ -76,11 +76,15 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
    */
   public ConfigMatchingProvider configMatchingProvider(PlatformInfo platformInfo) {
     ConstraintValueInfo platformValue = platformInfo.constraints().get(this.constraint());
+    Label refinesLabel = constraint().refinesConstraintValueLabel();
+    ImmutableMap<Label, Label> refinements =
+        refinesLabel != null ? ImmutableMap.of(label(), refinesLabel) : ImmutableMap.of();
     return ConfigMatchingProvider.create(
         label,
         ImmutableMultimap.of(),
         ImmutableMap.of(),
-        ImmutableSet.of(),
+        ImmutableSet.of(label()),
+        refinements,
         computeMatchResult(platformValue));
   }
 

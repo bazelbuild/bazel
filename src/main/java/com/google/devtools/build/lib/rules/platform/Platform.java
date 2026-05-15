@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -104,11 +105,46 @@ public class Platform implements RuleConfiguredTargetFactory {
       throw ruleContext.throwWithAttributeError(PlatformRule.EXEC_PROPS_ATTR, e.getMessage());
     }
 
+    validateRefinementConstraints(
+        ruleContext,
+        PlatformProviderUtils.constraintValues(
+            ruleContext.getPrerequisites(PlatformRule.CONSTRAINT_VALUES_ATTR)),
+        platformInfo);
+
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .addProvider(FileProvider.class, FileProvider.EMPTY)
         .addProvider(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
         .addNativeDeclaredProvider(platformInfo)
         .build();
+  }
+
+  /**
+   * Validates that for every constraint value from a refining constraint setting, the refined
+   * constraint value is also present in the platform (directly or via parent).
+   */
+  private static void validateRefinementConstraints(
+      RuleContext ruleContext,
+      Iterable<ConstraintValueInfo> constraintValues,
+      PlatformInfo platformInfo)
+      throws RuleErrorException {
+    for (ConstraintValueInfo cv : constraintValues) {
+      Label refinedLabel = cv.constraint().refinesConstraintValueLabel();
+      if (refinedLabel != null
+          && !platformInfo.constraints().hasConstraintValueWithLabel(refinedLabel)) {
+        throw ruleContext.throwWithAttributeError(
+            PlatformRule.CONSTRAINT_VALUES_ATTR,
+            String.format(
+                "Constraint value %s is for constraint setting %s which refines constraint value"
+                    + " %s, but the platform does not include %s in its constraint_values."
+                    + " To fix, run: buildozer 'add constraint_values %s' %s",
+                cv.label(),
+                cv.constraint().label(),
+                refinedLabel,
+                refinedLabel,
+                refinedLabel,
+                ruleContext.getLabel()));
+      }
+    }
   }
 }
