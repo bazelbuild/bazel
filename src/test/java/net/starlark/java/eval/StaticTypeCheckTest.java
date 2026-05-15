@@ -20,6 +20,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.Expression;
@@ -60,12 +61,16 @@ public final class StaticTypeCheckTest {
   @SuppressWarnings("FieldCanBeFinal")
   private Module module = Module.create();
 
+  @SuppressWarnings("FieldCanBeFinal")
+  @Nullable
+  private TypeTagger.Loader loader = null;
+
   private Program compile(String... lines) throws SyntaxError.Exception {
     Preconditions.checkArgument(lines.length > 0);
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, options.build());
     Program prog = Program.compileFile(file, module);
-    TypeTable typeTable = TypeTagger.tagProgram(prog, module);
+    TypeTable typeTable = TypeTagger.tagProgram(prog, module, loader);
     if (typeTable.ok()) {
       TypeChecker.checkProgram(prog, typeTable, module);
     }

@@ -14,6 +14,8 @@
 
 package net.starlark.java.syntax;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -180,6 +182,41 @@ public final class TestUtils {
     @Nullable
     public StarlarkType getUniversalSymbolType(String name) {
       throw new UnsupportedOperationException("universal types not supported");
+    }
+  }
+
+  /** A static {@link TypeTagger.LoadableModule} implementation, for tests of the type checker. */
+  public static class LoadableModule implements TypeTagger.LoadableModule {
+    private final ImmutableMap<String, StarlarkType> exports;
+
+    public LoadableModule(Map<String, StarlarkType> exports) {
+      this.exports = ImmutableMap.copyOf(exports);
+    }
+
+    /** Creates a LoadableModule with exports expressed as flattened name-type pairs. */
+    public static LoadableModule of(Object... args) {
+      checkArgument(args.length % 2 == 0);
+      ImmutableMap.Builder<String, StarlarkType> exports = ImmutableMap.builder();
+      for (int i = 0; i < args.length; i += 2) {
+        exports.put((String) args[i], (StarlarkType) args[i + 1]);
+      }
+      return new LoadableModule(exports.buildOrThrow());
+    }
+
+    @Override
+    public Set<String> getExports() {
+      return exports.keySet();
+    }
+
+    @Override
+    public boolean hasExport(String name) {
+      return exports.containsKey(name);
+    }
+
+    @Override
+    @Nullable
+    public StarlarkType getExportType(String name) {
+      return exports.get(name);
     }
   }
 }

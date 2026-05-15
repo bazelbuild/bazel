@@ -26,6 +26,7 @@ import javax.annotation.concurrent.Immutable;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.Resolver.Binding;
 import net.starlark.java.syntax.Resolver.ComprehensionBinding;
+import net.starlark.java.syntax.TypeTagger;
 
 /**
  * An StarlarkThread represents a Starlark thread.
@@ -374,13 +375,14 @@ public final class StarlarkThread {
    * named module, or null if not found.
    */
   @FunctionalInterface
-  public interface Loader {
+  public interface Loader extends TypeTagger.Loader {
+    @Override
     @Nullable
     Module load(String module);
   }
 
   /** Returns the loader for Starlark load statements. */
-  Loader getLoader() {
+  public Loader getLoader() {
     return loader;
   }
 

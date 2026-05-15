@@ -1179,14 +1179,15 @@ public final class Starlark {
    *     {@code semantics}; or the original program otherwise.
    * @throws SyntaxError.Exception if there were type tagging or static type checker errors.
    */
-  public static Program maybeWithTypeInfo(Program prog, Module module, StarlarkSemantics semantics)
+  public static Program maybeWithTypeInfo(
+      Program prog, Module module, StarlarkSemantics semantics, @Nullable TypeTagger.Loader loader)
       throws SyntaxError.Exception {
     boolean staticTypeChecking =
         semantics.getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING);
     boolean dynamicTypeChecking =
         semantics.getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING);
     if (staticTypeChecking || dynamicTypeChecking) {
-      return withTypeInfo(prog, module, staticTypeChecking);
+      return withTypeInfo(prog, module, staticTypeChecking, loader);
     } else {
       return prog;
     }
@@ -1201,9 +1202,10 @@ public final class Starlark {
    * @return the program with a type table attached
    * @throws SyntaxError.Exception if there were type tagging or static type checker errors.
    */
-  public static Program withTypeInfo(Program prog, Module module, boolean staticTypeChecking)
+  public static Program withTypeInfo(
+      Program prog, Module module, boolean staticTypeChecking, @Nullable TypeTagger.Loader loader)
       throws SyntaxError.Exception {
-    TypeTable typeTable = TypeTagger.tagProgram(prog, module);
+    TypeTable typeTable = TypeTagger.tagProgram(prog, module, loader);
     if (typeTable.ok() && staticTypeChecking) {
       TypeChecker.checkProgram(prog, typeTable, module);
     }
@@ -1227,8 +1229,9 @@ public final class Starlark {
       ParserInput input, FileOptions options, Module module, StarlarkThread thread)
       throws SyntaxError.Exception, EvalException, InterruptedException {
     StarlarkFile file = StarlarkFile.parse(input, options);
-    Program prog = Program.compileFile(file, module);
-    prog = maybeWithTypeInfo(prog, module, thread.getSemantics());
+    Program prog =
+        maybeWithTypeInfo(
+            Program.compileFile(file, module), module, thread.getSemantics(), thread.getLoader());
     return execFileProgram(prog, module, thread);
   }
 
@@ -1361,7 +1364,8 @@ public final class Starlark {
       throws SyntaxError.Exception {
     Expression expr = Expression.parse(input);
     Program prog = Program.compileExpr(expr, module, options);
-    prog = maybeWithTypeInfo(prog, module, semantics);
+    // loader is null because expressions cannot contain load statements
+    prog = maybeWithTypeInfo(prog, module, semantics, /* loader= */ null);
     Resolver.Function rfn = prog.getResolvedFunction();
     int[] globalIndex = module.getIndicesOfGlobals(rfn.getGlobals()); // see execFileProgram
     return new StarlarkFunction(

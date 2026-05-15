@@ -30,6 +30,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.syntax.Resolver;
 import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.TypeTagger;
 
 /**
  * A {@link Module} represents a Starlark module, a container of global variables populated by
@@ -54,7 +55,7 @@ import net.starlark.java.syntax.TypeConstructor;
  * the universal ones) and client data. The particular {@link StarlarkSemantics} and client data may
  * filter what predeclared bindings are available via {@link GuardedValue}.
  */
-public final class Module implements Resolver.Module {
+public final class Module implements Resolver.Module, TypeTagger.LoadableModule {
 
   // The module's predeclared environment. Excludes UNIVERSE bindings. Values that are conditionally
   // present are stored as GuardedValues regardless of whether they are actually enabled.
@@ -332,6 +333,16 @@ public final class Module implements Resolver.Module {
     return i != null ? globals[i] : null;
   }
 
+  @Override
+  public Set<String> getExports() {
+    return globalIndex.keySet();
+  }
+
+  @Override
+  public boolean hasExport(String name) {
+    return globalIndex.containsKey(name);
+  }
+
   /**
    * Returns the exported Starlark type of the specified global variable; intended for use by other
    * modules that load this module (not by the evaluation of this module itself).
@@ -342,8 +353,9 @@ public final class Module implements Resolver.Module {
    * <p>If type checking was not enabled for this module (or if the global variable does not exist),
    * returns null.
    */
+  @Override
   @Nullable
-  public StarlarkType getGlobalType(String name) {
+  public StarlarkType getExportType(String name) {
     Integer i = globalIndex.get(name);
     return i != null ? getGlobalTypeByIndex(i) : null;
   }

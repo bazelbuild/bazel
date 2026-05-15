@@ -1210,8 +1210,28 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
     assertThatEvaluationResult(result).hasNoError();
-    assertThat(result.get(key).getModule().getGlobalType("x"))
+    assertThat(result.get(key).getModule().getExportType("x"))
         .isEqualTo(Types.union(Types.list(Types.INT), Types.list(Types.STR)));
+  }
+
+  @Test
+  public void testStaticTypeChecker_transitiveDeps() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
+    scratch.file("a/BUILD");
+    scratch.file("a/foo.bzl", "x: list[int] | list[str] = [1, 2, 3]");
+    scratch.file(
+        "a/bar.bzl",
+        """
+        load(":foo.bzl", "x")
+        y: list[int] = x
+        """);
+    reporter.removeHandler(failFastHandler);
+
+    SkyKey key = key("//a:bar.bzl");
+    SkyframeExecutorTestUtils.evaluate(
+        getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
+    assertContainsEvent("cannot assign type 'list[int]|list[str]' to 'y' of type 'list[int]'");
   }
 
   @Test

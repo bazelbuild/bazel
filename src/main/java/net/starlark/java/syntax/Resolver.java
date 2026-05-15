@@ -423,6 +423,9 @@ public final class Resolver extends NodeVisitor {
    * A static abstraction of a Starlark {@link net.starlark.java.eval.Module Module}, that resolves
    * names to scope and type information rather than to dynamic Starlark values.
    *
+   * <p>Contrast with {@link TypeTagger.LoadableModule}, which is an abstraction of an already
+   * compiled (and type-checked) module used by this one as a load dependency.
+   *
    * <p>The {@link #resolve} API returns information about predefined variables, including those
    * provided by the interpreter itself ({@link Scope#UNIVERSAL}), the application ({@link
    * Scope#PREDECLARED}), and even evaluations that are considered to precede the current
@@ -1155,7 +1158,7 @@ public final class Resolver extends NodeVisitor {
         frame,
         freevars,
         globals,
-        /* mutationFree= */ false);
+        /* mutationFreeAtTopLevel= */ false);
   }
 
   private void bindParam(ImmutableList.Builder<Parameter> params, Parameter param) {
@@ -1318,7 +1321,7 @@ public final class Resolver extends NodeVisitor {
     }
 
     ArrayList<Binding> frame = new ArrayList<>();
-    r.pushLocalBlock(file, frame, /*freevars=*/ null);
+    r.pushLocalBlock(file, frame, /* freevars= */ null);
 
     // First pass: creating bindings for statements in this block.
     r.createBindingsForBlock(stmts);
@@ -1373,7 +1376,7 @@ public final class Resolver extends NodeVisitor {
     Resolver r = new Resolver(errors, module, options, /* docCommentsMap= */ null);
 
     ArrayList<Binding> frame = new ArrayList<>();
-    r.pushLocalBlock(null, frame, /*freevars=*/ null); // for bindings in list comprehensions
+    r.pushLocalBlock(null, frame, /* freevars= */ null); // for bindings in list comprehensions
     r.visit(expr);
     r.popLocalBlock();
 

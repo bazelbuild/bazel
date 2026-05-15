@@ -39,6 +39,8 @@ public class TypeTaggerTest {
   private Module module =
       TestUtils.Module.withUniversalTypesAnd("struct", Types.STRUCT_CONSTRUCTOR);
 
+  private TypeTagger.Loader loader = null;
+
   /** Extracts an expression string to a type in an empty environment. */
   private StarlarkType extractType(String type) throws Exception {
     Expression expr = Expression.parseTypeExpression(ParserInput.fromLines(type), options.build());
@@ -94,7 +96,7 @@ public class TypeTaggerTest {
     assertThat(file.errors()).isEmpty();
     Resolver.resolveFile(file, module);
     assertThat(file.errors()).isEmpty();
-    TypeTable typeTable = TypeTagger.tagFile(file, module);
+    TypeTable typeTable = TypeTagger.tagFile(file, module, loader);
     return new Result(file, typeTable);
   }
 
@@ -687,5 +689,36 @@ public class TypeTaggerTest {
                 return (lambda w: w)(nested(x))
             """)
         .isFalse();
+  }
+
+  @Test
+  public void loadStatement() throws Exception {
+    loader = importName -> TestUtils.LoadableModule.of("typed", Types.INT, "untyped", Types.ANY);
+    Result result = tagFile("load('//x:x.bzl', local_t = 'typed', local_u = 'untyped')");
+    LoadStatement loadStmt = getFirstStatement(LoadStatement.class, result.file());
+
+    assertThat(loadStmt.getBindings().stream().map(b -> result.getType(b.getLocalName())))
+        .containsExactly(Types.INT, Types.ANY)
+        .inOrder();
+  }
+
+  @Test
+  public void loadStatement_requiresWorkingLoader() throws Exception {
+    loader = null;
+    assertInvalid(
+        "load statements are not supported because no module loader has been defined",
+        "load('//x:x.bzl', 'x')");
+  }
+
+  @Test
+  public void loadStatement_requiresLoadableModule() throws Exception {
+    loader = importName -> null;
+    assertInvalid("module '//x:x.bzl' not found", "load('//x:x.bzl', 'x')");
+  }
+
+  @Test
+  public void loadStatement_requiresExportedGlobal() throws Exception {
+    loader = importName -> TestUtils.LoadableModule.of();
+    assertInvalid("module '//x:x.bzl' does not contain symbol 'x'", "load('//x:x.bzl', 'x')");
   }
 }

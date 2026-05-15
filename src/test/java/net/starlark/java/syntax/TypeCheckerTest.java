@@ -42,6 +42,8 @@ public final class TypeCheckerTest {
 
   private Module module = TestUtils.Module.withUniversalTypes();
 
+  private TypeTagger.Loader loader = null;
+
   /**
    * Throws {@link AssertionError} if a file has errors, with an exception message that includes
    * {@code what} and the errors.
@@ -79,7 +81,7 @@ public final class TypeCheckerTest {
     assertNoErrors("parsing", file);
     Resolver.resolveFile(file, module);
     assertNoErrors("resolving", file);
-    TypeTable typeTable = TypeTagger.tagFile(file, module);
+    TypeTable typeTable = TypeTagger.tagFile(file, module, loader);
     assertNoErrors("type-tagging", typeTable);
     return new PreparedFile(file, typeTable);
   }
@@ -426,11 +428,15 @@ public final class TypeCheckerTest {
   public void canTolerateIrrelevantStatementTypes() throws Exception {
     assertValid(
         """
-        load("...", "B")
-        type A = B
-        B  # expression statement
+        type A = int
+        int # expression statement
+        def f() -> None:
+            for i in [0, 1]:
+                if i == 1:
+                    break
+                else:
+                    continue
         """);
-    // TODO: #28037 - Check break/continue, once we support for and def statements
   }
 
   /** A dummy type having a single field 'f' of a given type. */
@@ -2387,6 +2393,18 @@ public final class TypeCheckerTest {
             for x in (1, "two", 3.14):  # type error ignored in untyped code
                 def typed() -> int:
                     return "abc"        # type error checked in typed innner def
+        """);
+  }
+
+  @Test
+  public void load_statement() throws Exception {
+    loader = importName -> TestUtils.LoadableModule.of("x", Types.union(Types.INT, Types.STR));
+    assertInvalid(
+        ":3:1: cannot assign type 'int|str' to 'y[0]' of type 'int'",
+        """
+        load("//x:x.bzl", "x")
+        y : list[int] = [0]
+        y[0] = x
         """);
   }
 }

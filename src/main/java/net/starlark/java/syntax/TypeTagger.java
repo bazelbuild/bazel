@@ -25,9 +25,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.ArrayDeque;
 import java.util.LinkedHashMap;
+import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.spelling.SpellChecker;
-import net.starlark.java.syntax.Resolver.Module;
 import net.starlark.java.syntax.Resolver.Scope;
 
 /**
@@ -47,9 +47,42 @@ import net.starlark.java.syntax.Resolver.Scope;
  */
 public final class TypeTagger extends NodeVisitor {
 
+  /**
+   * An immutable view of a {@code load()} dependency. Provides the exported symbols (in practice:
+   * the evaluated module's global variables) and their types.
+   *
+   * <p>Contrast with {@link Resolver.Module}, which resolves a program's own names during the
+   * process of its compilation and type checking. A {@link LoadableModule} and {@link
+   * Resolver.Module} in theory need not be objects of the same class (although in practice, they
+   * are; see {@link net.starlark.java.eval.Module}).
+   */
+  public interface LoadableModule {
+    /** Returns the symbols (in practice, global variables) exported by this module. */
+    Set<String> getExports();
+
+    /** Returns whether the module exports a given symbol. */
+    boolean hasExport(String name);
+
+    /**
+     * Returns the Starlark type of the specified exported symbol, or null if the export was not
+     * assigned a type (in particular, if type tagging for the module was disabled).
+     */
+    @Nullable
+    StarlarkType getExportType(String name);
+  }
+
+  /** Returns the named module, or null if not found. */
+  @FunctionalInterface
+  public interface Loader {
+    @Nullable
+    LoadableModule load(String importName);
+  }
+
   private final TypeTable typeTable;
 
-  private final Module module;
+  private final Resolver.Module module;
+
+  @Nullable private final Loader loader;
 
   // Empty if we are tagging a type expression (inside which no function definitions are allowed).
   // Populated and mutated by visitation.
@@ -67,13 +100,18 @@ public final class TypeTagger extends NodeVisitor {
     typeTable.errors.add(new SyntaxError(loc, String.format(format, args)));
   }
 
-  private TypeTagger(TypeTable typeTable, Module module) {
+  private TypeTagger(TypeTable typeTable, Resolver.Module module, @Nullable Loader loader) {
     this.typeTable = typeTable;
     this.module = module;
+    this.loader = loader;
   }
 
-  private TypeTagger(TypeTable typeTable, Module module, Resolver.Function toplevel) {
-    this(typeTable, module);
+  private TypeTagger(
+      TypeTable typeTable,
+      Resolver.Module module,
+      @Nullable Loader loader,
+      Resolver.Function toplevel) {
+    this(typeTable, module, loader);
     functionStack.push(toplevel);
   }
 
@@ -204,14 +242,16 @@ public final class TypeTagger extends NodeVisitor {
    *     parsed with the appropriate {@link FileOptions} set; see {@link #tagFile}
    * @param exprFunction the resolver function for {@code expr} constructed by {@link
    *     Resolver#resolveExpr()}
-   * @param module a static Module containing type information for the bindings used in type
-   *     expressions
+   * @param module a static Resolver.Module containing type information for the bindings used in
+   *     type expressions
    * @throws SyntaxError.Exception if expr is not a type expression or if it could not be evaluated
    *     to a type.
    */
-  static StarlarkType extractType(Expression expr, Resolver.Function exprFunction, Module module)
+  static StarlarkType extractType(
+      Expression expr, Resolver.Function exprFunction, Resolver.Module module)
       throws SyntaxError.Exception {
-    TypeTagger r = new TypeTagger(new TypeTable(exprFunction), module);
+    // loader is null because expressions cannot contain load statements.
+    TypeTagger r = new TypeTagger(new TypeTable(exprFunction), module, /* loader= */ null);
     StarlarkType result = r.extractType(expr);
     if (!r.getTypeTable().ok()) {
       throw new SyntaxError.Exception(r.getTypeTable().errors());
@@ -418,6 +458,33 @@ public final class TypeTagger extends NodeVisitor {
   }
 
   @Override
+  public void visit(LoadStatement load) {
+    if (loader == null) {
+      errorf(load, "load statements are not supported because no module loader has been defined");
+      return;
+    }
+    String importName = load.getImport().getValue();
+    @Nullable LoadableModule loadedModule = loader.load(importName);
+    if (loadedModule == null) {
+      errorf(load, "module '%s' not found", importName);
+      return;
+    }
+    for (LoadStatement.Binding binding : load.getBindings()) {
+      String originalName = binding.getOriginalName().getName();
+      if (!loadedModule.hasExport(originalName)) {
+        errorf(
+            binding.getOriginalName(),
+            "module '%s' does not contain symbol '%s'%s",
+            importName,
+            originalName,
+            SpellChecker.didYouMean(originalName, loadedModule.getExports()));
+        continue;
+      }
+      setType(load, binding.getLocalName(), loadedModule.getExportType(originalName));
+    }
+  }
+
+  @Override
   public void visit(TypeAliasStatement node) {
     setUsesTypeSyntax();
     super.visit(node);
@@ -474,11 +541,14 @@ public final class TypeTagger extends NodeVisitor {
    * @throws IllegalArgumentException if the file's {@link FileOptions} don't contain {@link
    *     FileOptions#resolveTypeSyntax()} or do contain {@link
    *     FileOptions#tolerateInvalidTypeExpressions()}.
+   * @param loader a {@link Loader} for loading modules via load() statements; may be null if the
+   *     file is known to not contain load() statements
    */
-  public static TypeTable tagFile(StarlarkFile file, Module module) {
+  public static TypeTable tagFile(
+      StarlarkFile file, Resolver.Module module, @Nullable Loader loader) {
     checkFileOptions(file.getOptions());
     TypeTable typeTable = new TypeTable(file);
-    TypeTagger r = new TypeTagger(typeTable, module);
+    TypeTagger r = new TypeTagger(typeTable, module, loader);
     r.visit(file);
     return typeTable;
   }
@@ -490,11 +560,12 @@ public final class TypeTagger extends NodeVisitor {
    * (if any) is ignored. Any errors are reported in the returned type table's {@link
    * TypeTable#errors()} list.
    */
-  public static TypeTable tagProgram(Program prog, Module module) {
+  public static TypeTable tagProgram(
+      Program prog, Resolver.Module module, @Nullable Loader loader) {
     checkFileOptions(prog.getOptions());
     Resolver.Function toplevel = prog.getResolvedFunction();
     TypeTable typeTable = new TypeTable(toplevel);
-    TypeTagger r = new TypeTagger(typeTable, module);
+    TypeTagger r = new TypeTagger(typeTable, module, loader);
     r.visitProgram(prog);
     return typeTable;
   }
@@ -507,10 +578,12 @@ public final class TypeTagger extends NodeVisitor {
    * @param function the {@link Resolver.Function} that the resolver generated to wrap an
    *     expression.
    */
-  public static TypeTable tagExpr(Expression expr, Resolver.Function function, Module module)
+  public static TypeTable tagExpr(
+      Expression expr, Resolver.Function function, Resolver.Module module)
       throws SyntaxError.Exception {
     TypeTable typeTable = new TypeTable(function);
-    TypeTagger r = new TypeTagger(typeTable, module, function);
+    // Use a null loader because load() cannot appear in expressions.
+    TypeTagger r = new TypeTagger(typeTable, module, /* loader= */ null, function);
 
     r.visit(expr);
 

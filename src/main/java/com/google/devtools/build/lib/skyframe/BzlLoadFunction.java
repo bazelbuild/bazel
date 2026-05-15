@@ -878,7 +878,8 @@ public class BzlLoadFunction implements SkyFunction {
     BzlCompileValue.TypeOptions typeOptions = compileValue.getTypeOptions();
     if (typeOptions.wantStaticTypeChecking() || typeOptions.wantDynamicTypeChecking()) {
       try {
-        prog = Starlark.withTypeInfo(prog, module, typeOptions.wantStaticTypeChecking());
+        prog =
+            Starlark.withTypeInfo(prog, module, typeOptions.wantStaticTypeChecking(), loadMap::get);
       } catch (SyntaxError.Exception e) {
         Event.replayEventsOn(env.getListener(), e.errors());
         throw typingFailed(label);
