@@ -138,4 +138,40 @@ EOF
   rm BUILD bin.sh foo.bzl
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/29365
+function test_run_shell_passes_arguments_when_command_spills_to_script() {
+  mkdir -p test
+  cat > test/BUILD <<'EOF'
+load(":echo.bzl", "echo")
+
+echo(name = "echo")
+EOF
+
+  cat > test/echo.bzl <<'EOF'
+def _echo_impl(ctx):
+    out_file = ctx.actions.declare_file("%s.txt" % ctx.attr.name)
+
+    # A command long enough (>64000 bytes on non-Windows) to be spilled to a
+    # helper script by Bazel.
+    padding = "a" * 70000
+    ctx.actions.run_shell(
+        inputs = [],
+        outputs = [out_file],
+        command = "set -euo pipefail; echo {} $1 > {}".format(padding, out_file.path),
+        arguments = ["arg"],
+    )
+    return [DefaultInfo(files = depset([out_file]))]
+
+echo = rule(
+    implementation = _echo_impl,
+    attrs = {},
+)
+EOF
+
+  bazel build //test:echo &> $TEST_log \
+      || fail "Expected //test:echo to build, but it failed"
+  out_file="$(bazel info bazel-bin)/test/echo.txt"
+  assert_contains "arg$" "$out_file"
+}
+
 run_suite "Starlark rule definition tests"
