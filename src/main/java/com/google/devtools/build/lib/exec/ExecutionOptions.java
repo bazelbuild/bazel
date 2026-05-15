@@ -341,20 +341,23 @@ public abstract class ExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       allowMultiple = true,
       help =
-          "Set the number of resources available to Bazel. "
-              + "Takes in an assignment to a float or "
+          "Defines resources available to Bazel. "
+              + "The amount of a resource can be a fix float or defined in terms of "
               + ResourceConverter.HOST_RAM_KEYWORD
               + "/"
               + ResourceConverter.HOST_CPUS_KEYWORD
-              + ", optionally "
-              + "followed by [-|*]<float> (eg. memory="
-              + ResourceConverter.HOST_RAM_KEYWORD
-              + "*.5 to use half the available RAM). "
-              + "Can be used multiple times to specify multiple "
+              + " (eg. my_resource="
+              + ResourceConverter.HOST_CPUS_KEYWORD
+              + "). "
+              + "This option can be used multiple times to specify multiple "
               + "types of resources. Bazel will limit concurrently running actions "
               + "based on the available resources and the resources required. "
               + "Tests can declare the amount of resources they need "
-              + "by using a tag of the \"resources:<resource name>:<amount>\" format. ",
+              + "by using a tag of the \"resources:<resource name>:<amount>\" format. "
+              + "Build actions (i.e. `ctx.actions.{run,run_shell}`) can declare "
+              + "the amount of resources they need via the `resource_set` attribute."
+              + "Bazel automatically defines `cpu` and `memory` resources, "
+              + "which can be overridden by this flag.",
       converter = ResourceConverter.AssignmentConverter.class)
   public abstract List<Map.Entry<String, Double>> getLocalResourcesFields();
 
