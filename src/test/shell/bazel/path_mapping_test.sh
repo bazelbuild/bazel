@@ -1194,4 +1194,112 @@ EOF
   expect_log_n 'Hello, stdout!' 2
 }
 
+# Verifies that path stripping correctly accounts for discovered headers (via
+# getAllowedDerivedInputs) when a derived header (symlink) is depended upon
+# through multiple configurations. A reset transition causes the same
+# symlink_rule to be evaluated in two configs, producing two symlinks whose
+# paths collide after stripping. Without the fix (getAllowedDerivedInputs in
+# StrippingPathMapper), path stripping would not detect the collision among
+# these discovered headers and would incorrectly enable stripping, leading to
+# an IllegalStateException: "Duplicate paths are only allowed for distinct
+# shared artifacts".
+function test_path_stripping_cc_discovered_headers_duplicate_paths() {
+  if is_windows; then
+    echo "Skipping on Windows as it requires sandboxing"
+    return
+  fi
+
+  local -r pkg="${FUNCNAME[0]}"
+
+  cat > MODULE.bazel <<'EOF'
+EOF
+  add_rules_cc "MODULE.bazel"
+
+  mkdir -p "$pkg"
+  cat > "$pkg/defs.bzl" <<EOF
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
+load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+
+SETTING_NAME = "//$pkg:setting"
+SETTING_DEFAULT = "a"
+
+string_flag = rule(
+    implementation = lambda ctx: [],
+    build_setting = config.string(flag = True),
+)
+
+def _reset_transition_impl(_settings, _attr):
+    return {SETTING_NAME: SETTING_DEFAULT}
+
+reset_transition = transition(
+    implementation = _reset_transition_impl,
+    inputs = [],
+    outputs = [SETTING_NAME],
+)
+
+def _reset_rule_impl(ctx):
+    cc_infos = [dep[CcInfo] for dep in ctx.attr.deps if CcInfo in dep]
+    if cc_infos:
+        return cc_common.merge_cc_infos(direct_cc_infos = cc_infos)
+    return CcInfo()
+
+reset_rule = rule(
+    implementation = _reset_rule_impl,
+    cfg = reset_transition,
+    attrs = {"deps": attr.label_list()},
+    provides = [CcInfo],
+)
+
+def _symlink_impl(ctx):
+    src_file = ctx.files.src[0]
+    out = ctx.actions.declare_file("include/" + src_file.basename)
+    ctx.actions.symlink(output = out, target_file = src_file)
+    return DefaultInfo(files = depset([out]))
+
+symlink_rule = rule(
+    implementation = _symlink_impl,
+    attrs = {"src": attr.label(allow_files = True)},
+)
+EOF
+
+  cat > "$pkg/collider.h" <<'EOF'
+EOF
+
+  cat > "$pkg/stub_main.cpp" <<'EOF'
+int main() { return 0; }
+EOF
+
+  cat > "$pkg/BUILD" <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//$pkg:defs.bzl", "reset_rule", "string_flag", "symlink_rule")
+
+string_flag(name = "setting", build_setting_default = "a")
+
+symlink_rule(name = "symlink", src = "collider.h")
+cc_library(name = "lib", hdrs = [":symlink"])
+
+reset_rule(name = "reset_deps", deps = [":lib"])
+cc_library(name = "main", srcs = ["stub_main.cpp"], deps = [":lib", ":reset_deps"])
+EOF
+
+  local cache_dir="${TEST_TMPDIR}/disk_cache"
+
+  # The reset transition causes //$pkg:lib (and its symlink) to be analyzed
+  # under two configurations: the command-line config (setting=b) and the
+  # reset config (setting=a). Both produce a symlink at
+  # bazel-out/<config>/bin/$pkg/include/collider.h which collide after
+  # stripping. Without the fix, StrippingPathMapper only looked at declared
+  # inputs, missing these potential discovered headers.
+  bazel build \
+    --experimental_output_paths=strip \
+    --disk_cache="$cache_dir" \
+    --experimental_platform_in_output_dir \
+    --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping,CppArchive=+supports-path-mapping \
+    --//$pkg:setting=b \
+    "//$pkg:main" &>"$TEST_log"
+  local exit_code=$?
+  cat "$TEST_log" >&2
+  [[ $exit_code -eq 0 ]] || fail "Expected success"
+}
+
 run_suite "path mapping tests"
