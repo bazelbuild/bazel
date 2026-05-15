@@ -12,6 +12,8 @@ Cherry picks:
      cherry-pick to include github tools release branch (#29533)
    + 420dca55a0c9837fab29f6378738c694ac62d040:
      Release 10.0.0-pre.20260428.1 (2026-05-15)
+   + 7c5c33a292e926580897a80ef1a8ea84c50dc4b6:
+     Release 10.0.0-pre.20260428.1 (2026-05-15)
 ```
 
 New features:
