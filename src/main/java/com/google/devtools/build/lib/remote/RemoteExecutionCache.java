@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeUploader;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.RxFutures;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.Message;
@@ -199,7 +200,8 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
       RemoteActionExecutionContext context,
       RemotePathResolver remotePathResolver,
       Digest digest,
-      Path path) {
+      Path path,
+      boolean force) {
     return Futures.transformAsync(
         remotePathChecker.isAvailableLocally(context, path),
         isAvailableLocally -> {
@@ -217,7 +219,12 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
               throw new CacheNotFoundException(digest, path.getPathString());
             }
           }
-          return remoteCacheClient.uploadFile(context, digest, path);
+          return RxFutures.toListenableFuture(
+              casUploadCache.execute(
+                  digest,
+                  RxFutures.toCompletable(
+                      () -> remoteCacheClient.uploadFile(context, digest, path), directExecutor()),
+                  force));
         },
         directExecutor());
   }
@@ -277,8 +284,9 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
       Digest digest,
       MerkleTree.Uploadable merkleTree,
       Map<Digest, Message> additionalInputs,
-      @Nullable RemotePathResolver remotePathResolver) {
-    var upload = merkleTree.upload(this, context, remotePathResolver, digest);
+      @Nullable RemotePathResolver remotePathResolver,
+      boolean force) {
+    var upload = merkleTree.upload(this, context, remotePathResolver, digest, force);
     if (upload.isPresent()) {
       return upload.get();
     }
@@ -344,32 +352,28 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
           uploadTask.disposable = new AtomicReference<>();
           uploadTask.completion = Completable.fromObservable(completion);
           Completable upload =
-              casUploadCache.execute(
-                  digest,
-                  Single.<Boolean>create(
-                          continuation -> {
-                            uploadTask.continuation = continuation;
-                            emitter.onSuccess(uploadTask);
-                          })
-                      .flatMapCompletable(
-                          shouldUpload -> {
-                            if (!shouldUpload) {
-                              return Completable.complete();
-                            }
+              Single.<Boolean>create(
+                      continuation -> {
+                        uploadTask.continuation = continuation;
+                        emitter.onSuccess(uploadTask);
+                      })
+                  .flatMapCompletable(
+                      shouldUpload -> {
+                        if (!shouldUpload) {
+                          return Completable.complete();
+                        }
 
-                            return toCompletable(
-                                () ->
-                                    uploadBlob(
-                                        context,
-                                        uploadTask.digest,
-                                        merkleTree,
-                                        additionalInputs,
-                                        remotePathResolver),
-                                directExecutor());
-                          }),
-                  /* onAlreadyRunning= */ () -> emitter.onSuccess(uploadTask),
-                  /* onAlreadyFinished= */ emitter::onComplete,
-                  force);
+                        return toCompletable(
+                            () ->
+                                uploadBlob(
+                                    context,
+                                    uploadTask.digest,
+                                    merkleTree,
+                                    additionalInputs,
+                                    remotePathResolver,
+                                    force),
+                            directExecutor());
+                      });
           upload.subscribe(
               new CompletableObserver() {
                 @Override
