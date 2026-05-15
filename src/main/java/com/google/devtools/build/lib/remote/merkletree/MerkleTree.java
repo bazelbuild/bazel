@@ -159,6 +159,12 @@ public sealed interface MerkleTree {
           .collect(toImmutableMap(e -> adaptToDigest(e.getKey()), Map.Entry::getValue));
     }
 
+    public Optional<ActionInput> actionInputForDigest(Digest digest) {
+      return blobs.get(digest) instanceof ActionInput actionInput
+          ? Optional.of(actionInput)
+          : Optional.empty();
+    }
+
     @Override
     public RootOnly root() {
       return root;
@@ -179,13 +185,15 @@ public sealed interface MerkleTree {
             Optional.of(uploader.uploadVirtualActionInput(context, digest, virtualActionInput));
         case ActionInput actionInput -> {
           var spawnExecutionContext = context.getSpawnExecutionContext();
+          var spawnPathResolver =
+              spawnExecutionContext != null ? spawnExecutionContext.getPathResolver() : null;
           var pathResolver =
               // This can only be null when uploading a tree created by
               // MerkleTreeComputer#buildForFiles, which only happens for remote repo execution and
               // tests. Only the latter actually reach this code path since remote repo execution
               // doesn't upload any inputs.
-              spawnExecutionContext != null
-                  ? spawnExecutionContext.getPathResolver()
+              spawnPathResolver != null
+                  ? spawnPathResolver
                   : MerkleTreeComputer.PATH_ACTION_INPUT_RESOLVER;
           yield Optional.of(
               uploader.uploadFile(

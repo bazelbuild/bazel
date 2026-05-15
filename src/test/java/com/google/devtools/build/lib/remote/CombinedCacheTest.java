@@ -28,6 +28,7 @@ import static org.mockito.Mockito.verify;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -38,12 +39,15 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -55,8 +59,10 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -85,6 +91,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
@@ -376,6 +383,85 @@ public class CombinedCacheTest {
         .containsExactly(
             DigestUtil.toString(digestUtil.computeAsUtf8("bar")),
             ActionInputHelper.fromPath("foo"));
+  }
+
+  @Test
+  public void ensureInputsPresent_sharedMissingDigest_exceptionsHaveOwnLostInputs()
+      throws Exception {
+    RemoteCacheClient cacheProtocol = spy(new InMemoryCacheClient());
+    RemoteExecutionCache remoteCache = spy(newRemoteExecutionCache(cacheProtocol));
+
+    CountDownLatch findMissingDigestsCalls = new CountDownLatch(2);
+    doAnswer(
+            invocationOnMock -> {
+              findMissingDigestsCalls.countDown();
+              return invocationOnMock.callRealMethod();
+            })
+        .when(cacheProtocol)
+        .findMissingDigests(any(), any());
+
+    SettableFuture<Boolean> missingInputAvailable = SettableFuture.create();
+    CountDownLatch remotePathChecked = new CountDownLatch(1);
+    remoteCache.setRemotePathChecker(
+        (context, path) -> {
+          PathFragment execPath = path.relativeTo(execRoot);
+          if (execPath.equals(PathFragment.create("outputs/foo"))
+              || execPath.equals(PathFragment.create("outputs/bar"))) {
+            remotePathChecked.countDown();
+            return missingInputAvailable;
+          }
+          return immediateFuture(true);
+        });
+
+    Artifact foo = ActionsTestUtil.createArtifact(artifactRoot, "foo");
+    Artifact bar = ActionsTestUtil.createArtifact(artifactRoot, "bar");
+    Digest digest = fakeFileCache.createScratchInput(foo, "same");
+    assertThat(fakeFileCache.createScratchInput(bar, "same")).isEqualTo(digest);
+
+    Spawn fooSpawn = spawnWithInput(foo);
+    var fooContext = spawnExecutionContext(fooSpawn);
+    var fooRemoteContext = RemoteActionExecutionContext.create(fooSpawn, fooContext, metadata);
+    var fooTree = buildMerkleTree(fooSpawn, fooContext);
+
+    Spawn barSpawn = spawnWithInput(bar);
+    var barContext = spawnExecutionContext(barSpawn);
+    var barRemoteContext = RemoteActionExecutionContext.create(barSpawn, barContext, metadata);
+    var barTree = buildMerkleTree(barSpawn, barContext);
+
+    var fooFailure = new AtomicReference<Throwable>();
+    Thread fooThread =
+        new Thread(
+            () ->
+                ensureInputsPresentAndCapture(remoteCache, fooRemoteContext, fooTree, fooFailure));
+    fooThread.start();
+    assertThat(remotePathChecked.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
+
+    var barFailure = new AtomicReference<Throwable>();
+    Thread barThread =
+        new Thread(
+            () ->
+                ensureInputsPresentAndCapture(remoteCache, barRemoteContext, barTree, barFailure));
+    barThread.start();
+    assertThat(findMissingDigestsCalls.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+        .isTrue();
+
+    missingInputAvailable.set(false);
+    fooThread.join();
+    barThread.join();
+
+    assertThat(fooFailure.get()).isInstanceOf(BulkTransferException.class);
+    assertThat(
+            ((BulkTransferException) fooFailure.get())
+                .getLostArtifacts(execPath -> execPath.equals(foo.getExecPath()) ? foo : null)
+                .byDigest())
+        .containsExactly(DigestUtil.toString(digest), foo);
+
+    assertThat(barFailure.get()).isInstanceOf(BulkTransferException.class);
+    assertThat(
+            ((BulkTransferException) barFailure.get())
+                .getLostArtifacts(execPath -> execPath.equals(bar.getExecPath()) ? bar : null)
+                .byDigest())
+        .containsExactly(DigestUtil.toString(digest), bar);
   }
 
   @Test
@@ -738,5 +824,55 @@ public class CombinedCacheTest {
         /* symlinkTemplate= */ null,
         digestUtil,
         /* chunkingEnabled= */ false);
+  }
+
+  private Spawn spawnWithInput(ActionInput input) {
+    return new SimpleSpawn(
+        new FakeOwner("Mnemonic", "Progress Message", "//dummy:label"),
+        ImmutableList.of(),
+        ImmutableMap.of(),
+        ImmutableMap.of(),
+        NestedSetBuilder.create(Order.STABLE_ORDER, input),
+        ImmutableSet.of(),
+        ResourceSet.ZERO);
+  }
+
+  private FakeSpawnExecutionContext spawnExecutionContext(Spawn spawn) {
+    return new FakeSpawnExecutionContext(
+        spawn,
+        fakeFileCache,
+        execRoot,
+        new FileOutErr(execRoot.getRelative("stdout"), execRoot.getRelative("stderr")),
+        ImmutableClassToInstanceMap.of(),
+        /* actionFileSystem= */ null);
+  }
+
+  private MerkleTree.Uploadable buildMerkleTree(
+      Spawn spawn, FakeSpawnExecutionContext spawnExecutionContext) throws Exception {
+    return (MerkleTree.Uploadable)
+        merkleTreeComputer.buildForSpawn(
+            spawn,
+            ImmutableSet.of(),
+            /* scrubber= */ null,
+            spawnExecutionContext,
+            RemotePathResolver.createDefault(execRoot),
+            MerkleTreeComputer.BlobPolicy.KEEP_AND_REUPLOAD);
+  }
+
+  private void ensureInputsPresentAndCapture(
+      RemoteExecutionCache remoteCache,
+      RemoteActionExecutionContext context,
+      MerkleTree.Uploadable merkleTree,
+      AtomicReference<Throwable> failure) {
+    try {
+      remoteCache.ensureInputsPresent(
+          context,
+          merkleTree,
+          ImmutableMap.of(),
+          /* force= */ false,
+          RemotePathResolver.createDefault(execRoot));
+    } catch (Throwable t) {
+      failure.set(t);
+    }
   }
 }
