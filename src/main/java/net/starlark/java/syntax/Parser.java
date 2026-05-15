@@ -23,7 +23,6 @@ import com.google.errorprone.annotations.FormatMethod;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -164,13 +163,6 @@ final class Parser {
   private int errorsCount;
   private boolean recoveryMode; // stop reporting errors until next statement
 
-  // Intern string literals, as some files contain many literals for the same string.
-  //
-  // Ideally we would move this to the lexer, where we already do interning of identifiers. However,
-  // the parser has a special case optimization for concatenation of string literals, which the
-  // lexer can't handle.
-  private final Map<String, String> stringInterner = new HashMap<>();
-
   private Parser(Lexer lexer, List<SyntaxError> errors, FileOptions options) {
     this.lexer = lexer;
     this.locs = lexer.locs;
@@ -178,11 +170,6 @@ final class Parser {
     this.token = lexer;
     this.options = options;
     nextToken();
-  }
-
-  private String intern(String s) {
-    String prev = stringInterner.putIfAbsent(s, s);
-    return prev != null ? prev : s;
   }
 
   // Returns a token's string form as used in error messages.
@@ -667,8 +654,9 @@ final class Parser {
   // expr = STRING
   private StringLiteral parseStringLiteral() {
     Preconditions.checkState(token.kind == TokenKind.STRING);
-    StringLiteral literal =
-        new StringLiteral(locs, token.start, intern((String) token.value), token.end);
+    // Intern string literals, as they tend to be repeated (both intra-file and inter-file).
+    String value = ((String) token.value).intern();
+    StringLiteral literal = new StringLiteral(locs, token.start, value, token.end);
     nextToken();
     if (token.kind == TokenKind.STRING) {
       reportError(token.start, "Implicit string concatenation is forbidden, use the + operator");
@@ -1090,12 +1078,12 @@ final class Parser {
   // so we don't have to do the expensive string concatenation at runtime.
   private Expression optimizeBinOpExpression(
       Expression x, TokenKind op, int opOffset, Expression y) {
-    if (op == TokenKind.PLUS && x instanceof StringLiteral && y instanceof StringLiteral) {
-      return new StringLiteral(
-          locs,
-          x.getStartOffset(),
-          intern(((StringLiteral) x).getValue() + ((StringLiteral) y).getValue()),
-          y.getEndOffset());
+    if (op == TokenKind.PLUS
+        && x instanceof StringLiteral xStr
+        && y instanceof StringLiteral yStr) {
+      // Intern the concatenation of string literals.
+      String concat = (xStr.getValue() + yStr.getValue()).intern();
+      return new StringLiteral(locs, x.getStartOffset(), concat, y.getEndOffset());
     }
     return new BinaryOperatorExpression(locs, x, op, opOffset, y);
   }
