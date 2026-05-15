@@ -36,7 +36,8 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
 import com.google.devtools.build.lib.concurrent.SettableFutureKeyedValue;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
+import com.google.devtools.build.lib.skyframe.serialization.Fingerprinter;
 import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
@@ -53,6 +54,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.concurrent.Executor;
 import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 
@@ -89,7 +91,9 @@ final class FileDependencyDeserializer {
   /** Singleton representing the root file. */
   static final FileDependencies ROOT_FILE = FileDependencies.builder("").build();
 
-  private final FingerprintValueService fingerprintValueService;
+  private final FingerprintValueStore store;
+  private final Executor executor;
+  private final Fingerprinter fingerprinter;
 
   /**
    * A cache for {@link FileDependencies}, primarily for deduplication.
@@ -146,8 +150,11 @@ final class FileDependencyDeserializer {
               this::populateFutureNestedDependencies,
               FutureNestedDependencies.class);
 
-  FileDependencyDeserializer(FingerprintValueService fingerprintValueService) {
-    this.fingerprintValueService = fingerprintValueService;
+  FileDependencyDeserializer(
+      FingerprintValueStore store, Executor executor, Fingerprinter fingerprinter) {
+    this.store = store;
+    this.executor = executor;
+    this.fingerprinter = fingerprinter;
   }
 
   sealed interface FileDependenciesOrFuture permits FileDependencies, FutureFileDependencies {}
@@ -746,19 +753,18 @@ final class FileDependencyDeserializer {
     KeyT key = ownedFuture.key();
     ListenableFuture<byte[]> futureBytes;
     try {
-      futureBytes = fingerprintValueService.get(keyConverter.apply(key));
+      futureBytes = store.get(keyConverter.apply(key));
     } catch (IOException e) {
       return ownedFuture.failWith(e);
     }
 
     return ownedFuture.completeWith(
-        Futures.transformAsync(
-            futureBytes, waitFactory.apply(key), fingerprintValueService.getExecutor()));
+        Futures.transformAsync(futureBytes, waitFactory.apply(key), executor));
   }
 
   private KeyBytesProvider getKeyBytes(String cacheKey) {
     if (cacheKey.length() > MAX_KEY_LENGTH) {
-      return fingerprintValueService.fingerprint(cacheKey.getBytes(UTF_8));
+      return fingerprinter.fingerprint(cacheKey.getBytes(UTF_8));
     }
     return new StringKey(cacheKey);
   }
