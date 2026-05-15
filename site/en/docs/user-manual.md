@@ -1559,14 +1559,19 @@ failing status.
 
 Specifies how the test result summary should be displayed.
 
-*   `short` prints the results of each test along with the name of
-    the file containing the test output if the test failed. This is the default
-    value.
-*   `terse` like `short`, but even shorter: only print
-    information about tests which did not pass.
-*   `detailed` prints each individual test case that failed, not
-    only each test. The names of test output files are omitted.
-*   `none` does not print test summary.
+*   `short` lists all tests that ran to completion, along with the name of
+    the file containing the test output if the test failed. This is the
+    default value.
+*   `short_uncached` like `short`, but omits tests whose results were cached.
+*   `terse` lists only failed and flaky tests.
+*   `detailed` lists all tests that ran to completion and prints each
+    individual test case (passed, skipped, and failed). The names of test
+    output files are omitted.
+*   `detailed_uncached` like `detailed`, but omits tests whose results were
+    cached.
+*   `testcase` prints a summary at test-case resolution without detailed
+    information about failed test cases.
+*   `none` does not print a test summary.
 
 #### `--test_output={{ "<var>" }}output_style{{ "</var>" }}` {:#test-output}
 
