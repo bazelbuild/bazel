@@ -2117,6 +2117,17 @@ Strip the given number of leading components from file paths on extraction. Only
             },
             doc = "Path of the WebAssembly module to load."),
         @Param(
+            name = "compile",
+            defaultValue = "True",
+            positional = false,
+            named = true,
+            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_REPOSITORY_CTX_WASM_COMPILATION,
+            doc =
+                """
+                Whether to compile the WebAssembly module, which improves runtime performance
+                but takes longer than loading without compilation.
+                """),
+        @Param(
             name = "allocate_fn",
             defaultValue = "'allocate'",
             positional = false,
@@ -2151,19 +2162,22 @@ Strip the given number of leading components from file paths on extraction. Only
                 """)
       })
   public StarlarkWasmModule loadWasm(
-      Object path, String allocateFn, String watch, StarlarkThread thread)
+      Object path, boolean compile, String allocateFn, String watch, StarlarkThread thread)
       throws EvalException, RepositoryFunctionException, InterruptedException {
     StarlarkPath p = getPath(path);
 
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newLoadWasmEvent(
-            p.toString(), allocateFn, identifyingStringForLogging, thread.getCallerLocation());
+            p.toString(),
+            compile,
+            allocateFn,
+            identifyingStringForLogging,
+            thread.getCallerLocation());
     env.getListener().post(w);
     maybeWatch(p, ShouldWatch.fromString(watch));
-
     try {
       byte[] moduleContent = FileSystemUtils.readContent(p.getPath());
-      return new StarlarkWasmModule(p, path, moduleContent, allocateFn);
+      return new StarlarkWasmModule(p, path, moduleContent, compile, allocateFn);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -2297,7 +2311,10 @@ func(
       if (wasmModule == null) {
         maybeWatch(path, ShouldWatch.fromString(watch));
         byte[] moduleContent = FileSystemUtils.readContent(path.getPath());
-        wasmModule = new StarlarkWasmModule(path, pathOrModule, moduleContent, "allocate");
+        boolean compile =
+            starlarkSemantics.getBool(
+                BuildLanguageOptions.EXPERIMENTAL_REPOSITORY_CTX_WASM_COMPILATION);
+        wasmModule = new StarlarkWasmModule(path, pathOrModule, moduleContent, compile, "allocate");
       }
       return wasmModule.execute(function, inputBytes, timeout, memLimit);
     } catch (IOException e) {

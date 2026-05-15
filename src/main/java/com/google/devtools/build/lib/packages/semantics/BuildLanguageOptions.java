@@ -806,6 +806,15 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public abstract boolean getRepositoryCtxExecuteWasm();
 
   @Option(
+      name = "experimental_repository_ctx_wasm_compilation",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If true enables compilation of WebAssembly modules.")
+  public abstract boolean getRepositoryCtxWasmCompilation();
+
+  @Option(
       name = "incompatible_resolve_select_keys_eagerly",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -958,6 +967,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
                 StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS,
                 getInternalStarlarkUtf8ByteStrings())
             .setBool(EXPERIMENTAL_REPOSITORY_CTX_EXECUTE_WASM, getRepositoryCtxExecuteWasm())
+            .setBool(
+                EXPERIMENTAL_REPOSITORY_CTX_WASM_COMPILATION, getRepositoryCtxWasmCompilation())
             .setBool(StarlarkSemantics.FORCE_STARLARK_STACK_TRACE, getForceStarlarkStackTrace());
   }
 
@@ -1127,6 +1138,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       "+incompatible_locations_prefers_executable";
   public static final String EXPERIMENTAL_REPOSITORY_CTX_EXECUTE_WASM =
       "-experimental_repository_ctx_execute_wasm";
+  public static final String EXPERIMENTAL_REPOSITORY_CTX_WASM_COMPILATION =
+      "-experimental_repository_ctx_wasm_compilation";
   public static final String INCOMPATIBLE_RESOLVE_SELECT_KEYS_EAGERLY =
       "-incompatible_resolve_select_keys_eagerly";
 
