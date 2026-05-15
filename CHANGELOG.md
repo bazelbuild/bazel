@@ -10,6 +10,8 @@ Cherry picks:
      (https://github.com/bazelbuild/bazel/pull/29418)
    + 6de72fb7126113b15e67c9f0ae3745661c4881a7:
      cherry-pick to include github tools release branch (#29533)
+   + 420dca55a0c9837fab29f6378738c694ac62d040:
+     Release 10.0.0-pre.20260428.1 (2026-05-15)
 ```
 
 New features:
