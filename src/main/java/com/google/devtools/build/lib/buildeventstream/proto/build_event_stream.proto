@@ -520,6 +520,10 @@ message TargetConfigured {
   // List of all tags associated with this target (for all possible
   // configurations).
   repeated string tag = 3;
+
+  // The actual target, if the target is an alias (resolving to end of alias
+  // chain).
+  string actual = 4;
 }
 
 message File {

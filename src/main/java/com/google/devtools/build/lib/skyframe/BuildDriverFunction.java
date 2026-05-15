@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -433,10 +434,17 @@ public class BuildDriverFunction implements SkyFunction {
             e);
       }
 
+      Label actual =
+          (configuredTarget instanceof AliasConfiguredTarget alias)
+              ? alias.getActual().getLabel()
+              : null;
+
       env.getListener()
           .post(
               new TargetConfiguredEvent(
-                  target, getConfigurationValue(env, configuredTarget.getConfigurationKey())));
+                  target,
+                  getConfigurationValue(env, configuredTarget.getConfigurationKey()),
+                  actual));
     }
     postEventIfNecessary(
         postedEventsTypes, env, TopLevelTargetAnalyzedEvent.create(configuredTarget));

@@ -182,6 +182,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.common.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.rules.genquery.GenQueryPackageProviderFactory;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.KeepStateAfterBuildOption;
@@ -2407,7 +2408,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       BuildConfigurationValue configuration =
           getConfigurationFromGraph(graph, configuredTarget.getConfigurationKey());
       targetsWithConfiguration.add(new TargetAndConfiguration(target, configuration));
-      eventHandler.post(new TargetConfiguredEvent(target, configuration));
+      Label actual =
+          (configuredTarget instanceof AliasConfiguredTarget alias)
+              ? alias.getActual().getLabel()
+              : null;
+      eventHandler.post(new TargetConfiguredEvent(target, configuration, actual));
     }
 
     for (TopLevelAspectsKey key : topLevelAspectKeys) {
