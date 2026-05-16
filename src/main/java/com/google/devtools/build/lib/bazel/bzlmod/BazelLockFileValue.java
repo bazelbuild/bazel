@@ -47,7 +47,7 @@ public abstract class BazelLockFileValue implements SkyValue {
   // https://cs.opensource.google/bazel/bazel/+/release-7.3.0:src/main/java/com/google/devtools/build/lib/bazel/bzlmod/BazelLockFileModule.java;l=120-127;drc=5f5355b75c7c93fba1e15f6658f308953f4baf51
   // While this hack exists on 7.x, lockfile version increments should be done 2 at a time (i.e.
   // keep this number even).
-  public static final int LOCK_FILE_VERSION = 26;
+  public static final int LOCK_FILE_VERSION = 28;
 
   /** A valid empty lockfile. */
   public static final BazelLockFileValue EMPTY_LOCKFILE = builder().build();
@@ -112,7 +112,8 @@ public abstract class BazelLockFileValue implements SkyValue {
         .setRegistryFileHashes(ImmutableMap.of())
         .setSelectedYankedVersions(ImmutableMap.of())
         .setModuleExtensions(ImmutableMap.of())
-        .setFacts(ImmutableMap.of());
+        .setFacts(ImmutableMap.of())
+        .setFactsVersions(ImmutableMap.of());
   }
 
   /** Current version of the lock file */
@@ -134,6 +135,14 @@ public abstract class BazelLockFileValue implements SkyValue {
 
   public abstract ImmutableMap<ModuleExtensionId, Facts> getFacts();
 
+  /**
+   * The {@code factsVersion} parameter that {@code module_extension} declared at the time the
+   * corresponding {@link #getFacts()} entry was written. Compared against the current value before
+   * an extension runs; on mismatch the persisted facts are discarded and the extension is invoked
+   * with empty facts. Missing entries default to version 0.
+   */
+  public abstract ImmutableMap<ModuleExtensionId, Integer> getFactsVersions();
+
   public abstract Builder toBuilder();
 
   /** Builder type for {@link BazelLockFileValue}. */
@@ -152,6 +161,8 @@ public abstract class BazelLockFileValue implements SkyValue {
             value);
 
     public abstract Builder setFacts(ImmutableMap<ModuleExtensionId, Facts> value);
+
+    public abstract Builder setFactsVersions(ImmutableMap<ModuleExtensionId, Integer> value);
 
     public abstract BazelLockFileValue build();
   }
