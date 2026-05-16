@@ -20,6 +20,7 @@ import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
@@ -139,6 +140,7 @@ public abstract class RemoteCacheClient implements MissingDigestsFinder {
    *
    * <p>Callers should use {@link #uploadFile} instead.
    */
+  @VisibleForTesting
   public ListenableFuture<Void> uploadFileImpl(
       RemoteActionExecutionContext context, Digest digest, Path file) {
     return uploadBlobImpl(
@@ -184,8 +186,7 @@ public abstract class RemoteCacheClient implements MissingDigestsFinder {
   private ListenableFuture<Void> dedupedUpload(
       Digest digest, boolean force, Supplier<ListenableFuture<Void>> upload) {
     return RxFutures.toListenableFuture(
-        casUploadCache.execute(
-            digest, RxFutures.toCompletable(upload, directExecutor()), force));
+        casUploadCache.execute(digest, RxFutures.toCompletable(upload, directExecutor()), force));
   }
 
   /**
@@ -216,6 +217,7 @@ public abstract class RemoteCacheClient implements MissingDigestsFinder {
    *
    * <p>Callers should use {@link #uploadBlob} instead.
    */
+  @VisibleForTesting
   public abstract ListenableFuture<Void> uploadBlobImpl(
       RemoteActionExecutionContext context, Digest digest, Blob blob);
 
