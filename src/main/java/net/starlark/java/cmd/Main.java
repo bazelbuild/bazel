@@ -168,7 +168,7 @@ class Main {
     }
   }
 
-  public static void main(String[] args) throws IOException {
+  static int run(String[] args) throws IOException {
     String file = null;
     String cmd = null;
     String cpuprofile = null;
@@ -205,37 +205,50 @@ class Main {
       file = args[i];
     }
 
-    if (cpuprofile != null) {
-      FileOutputStream out = new FileOutputStream(cpuprofile);
-      Starlark.startCpuProfile(out, Duration.ofMillis(10));
-    }
-
-    int exit;
-    if (file == null) {
-      if (cmd != null) {
-        exit = execute(ParserInput.fromString(cmd, "<command-line>"));
-      } else {
-        readEvalPrintLoop();
-        exit = 0;
+    FileOutputStream cpuprofileOut = null;
+    boolean cpuprofileStarted = false;
+    try {
+      if (cpuprofile != null) {
+        cpuprofileOut = new FileOutputStream(cpuprofile);
+        cpuprofileStarted = Starlark.startCpuProfile(cpuprofileOut, Duration.ofMillis(10));
+        if (!cpuprofileStarted) {
+          cpuprofileOut.close();
+          cpuprofileOut = null;
+        }
       }
-    } else if (cmd == null) {
-      try {
-        exit = execute(ParserInput.readFile(file));
-      } catch (IOException e) {
-        // This results in such lame error messages as:
-        // "Error reading a.star: java.nio.file.NoSuchFileException: a.star"
-        System.err.format("Error reading %s: %s\n", file, e);
+
+      int exit;
+      if (file == null) {
+        if (cmd != null) {
+          exit = execute(ParserInput.fromString(cmd, "<command-line>"));
+        } else {
+          readEvalPrintLoop();
+          exit = 0;
+        }
+      } else if (cmd == null) {
+        try {
+          exit = execute(ParserInput.readFile(file));
+        } catch (IOException e) {
+          // This results in such lame error messages as:
+          // "Error reading a.star: java.nio.file.NoSuchFileException: a.star"
+          System.err.format("Error reading %s: %s\n", file, e);
+          exit = 1;
+        }
+      } else {
+        System.err.println("usage: Starlark [-cpuprofile file] [-c cmd | file]");
         exit = 1;
       }
-    } else {
-      System.err.println("usage: Starlark [-cpuprofile file] [-c cmd | file]");
-      exit = 1;
+      return exit;
+    } finally {
+      if (cpuprofileStarted) {
+        Starlark.stopCpuProfile();
+      } else if (cpuprofileOut != null) {
+        cpuprofileOut.close();
+      }
     }
+  }
 
-    if (cpuprofile != null) {
-      Starlark.stopCpuProfile();
-    }
-
-    System.exit(exit);
+  public static void main(String[] args) throws IOException {
+    System.exit(run(args));
   }
 }
