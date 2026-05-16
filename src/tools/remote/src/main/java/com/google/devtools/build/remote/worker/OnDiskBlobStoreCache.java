@@ -141,13 +141,13 @@ class OnDiskBlobStoreCache extends CombinedCache {
   @Override
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
-    return uploadBlob(context, digest, data, /* force= */ true);
+    return uploadBlob(context, digest, data);
   }
 
   @Override
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
-    return uploadFile(context, digest, file, /* force= */ true);
+    return uploadFile(context, digest, file);
   }
 
   public DiskCacheClient getDiskCacheClient() {
