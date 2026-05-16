@@ -88,10 +88,11 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
   }
 
   /**
-   * Tracks whether a digest is missing from the remote CAS. Used to deduplicate {@code
-   * findMissingDigests} calls across concurrent {@link #ensureInputsPresent} invocations. The
-   * actual upload deduplication is performed at a lower layer by {@code casUploadCache} so that
-   * each consumer can independently check whether its input file is still available locally.
+   * Deduplicates concurrent {@code findMissingDigests} queries for the same digest across
+   * overlapping {@link #ensureInputsPresent} invocations. Results reported as "present" stay
+   * cached, but a "missing" result is invalidated as soon as the triggered upload attempt
+   * terminates so that a later caller re-queries — important after action rewinding, where a
+   * digest previously reported as missing may have just been re-uploaded by the rewound producer.
    */
   private final AsyncTaskCache<Digest, Boolean> findMissingCache = AsyncTaskCache.create();
 
@@ -372,17 +373,23 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
                         if (!shouldUpload) {
                           return Completable.complete();
                         }
-
                         return toCompletable(
-                            () ->
-                                uploadBlob(
-                                    context,
-                                    uploadTask.digest,
-                                    merkleTree,
-                                    additionalInputs,
-                                    remotePathResolver,
-                                    force),
-                            directExecutor());
+                                () ->
+                                    uploadBlob(
+                                        context,
+                                        uploadTask.digest,
+                                        merkleTree,
+                                        additionalInputs,
+                                        remotePathResolver,
+                                        force),
+                                directExecutor())
+                            // On success, the digest is now present remotely: replace the cached
+                            // "missing" answer with "present" so late callers (or the next
+                            // ensureInputsPresent invocation) skip both findMissingDigests and
+                            // the upload path. On failure, invalidate so a subsequent caller
+                            // (e.g., after action rewinding) re-queries the remote.
+                            .doOnComplete(() -> findMissingCache.put(digest, false))
+                            .doOnError(t -> findMissingCache.invalidate(digest));
                       });
           upload.subscribe(
               new CompletableObserver() {
