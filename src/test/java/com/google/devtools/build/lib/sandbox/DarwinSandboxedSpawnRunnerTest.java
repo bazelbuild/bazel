@@ -59,6 +59,9 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
   /** Path to the base of the sandbox to pass to the spawn runner. */
   private Path sandboxBase;
 
+  /** Copy of the most recent generated sandbox profile passed to the mock {@code sandbox-exec}. */
+  private Path lastSandboxProfile;
+
   /** Location of the real {@code sandbox-exec} binary; saved while the test is running. */
   private String oldSandboxExec;
 
@@ -76,13 +79,19 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
     sandboxBase = execRoot.getRelative("sandbox");
     sandboxBase.createDirectory();
 
-    // The mock sandbox-exec just executes the given command and returns its output.
+    lastSandboxProfile = execRoot.getRelative("last-sandbox-profile.sb");
+
+    // The mock sandbox-exec captures the generated profile and then executes the given command.
     Path sandboxExec = execRoot.getRelative("sandbox-exec");
-    FileSystemUtils.writeContentAsLatin1(sandboxExec,
+    FileSystemUtils.writeContentAsLatin1(
+        sandboxExec,
         "#!/bin/sh\n"
-        + "shift\n"  // Skip -f flag.
-        + "shift\n"  // Skip target of -f flag.
-        + "exec \"$@\"\n");  // Remaining arguments are the process-wrapper's ones.
+            + "cp \"$2\" '"
+            + lastSandboxProfile.getPathString()
+            + "'\n"
+            + "shift\n" // Skip -f flag.
+            + "shift\n" // Skip target of -f flag.
+            + "exec \"$@\"\n"); // Remaining arguments are the process-wrapper's ones.
     sandboxExec.setExecutable(true);
     oldSandboxExec = DarwinSandboxedSpawnRunner.sandboxExecBinary;
     DarwinSandboxedSpawnRunner.sandboxExecBinary = sandboxExec.toString();
@@ -141,5 +150,26 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
           .asList()
           .containsExactly("--foo", "--bar");
     }
+  }
+
+  @Test
+  public void testSandboxProfileEscapesWritablePathStrings() throws Exception {
+    DarwinSandboxedSpawnRunner runner =
+        new DarwinSandboxedSpawnRunner(commandEnvironment, sandboxBase, treeDeleter);
+    Spawn spawn =
+        new SpawnBuilder("/bin/sh", "-c", "exit 0")
+            .withEnvironment("TEST_TMPDIR", "foo\\bar\") (regex \".*")
+            .build();
+    FileOutErr fileOutErr =
+        new FileOutErr(testRoot.getChild("stdout"), testRoot.getChild("stderr"));
+    SpawnExecutionContextForTesting policy =
+        new SpawnExecutionContextForTesting(spawn, fileOutErr, Duration.ofMinutes(1));
+
+    SpawnResult spawnResult = runner.exec(spawn, policy);
+
+    assertThat(spawnResult.status()).isEqualTo(Status.SUCCESS);
+    String sandboxProfile = FileSystemUtils.readContent(lastSandboxProfile, StandardCharsets.UTF_8);
+    assertThat(sandboxProfile).doesNotContain("(regex \".*\")");
+    assertThat(sandboxProfile).contains("foo\\\\bar\\\") (regex \\\".*");
   }
 }
