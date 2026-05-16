@@ -21,6 +21,7 @@ import build.bazel.remote.execution.v2.SplitBlobResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
@@ -67,8 +68,15 @@ public class ChunkedBlobDownloader {
   private void downloadAndReassembleChunks(
       RemoteActionExecutionContext context, List<Digest> chunkDigests, OutputStream out)
       throws IOException, InterruptedException {
+    OutputStream chunkOut =
+        new FilterOutputStream(out) {
+          @Override
+          public void write(byte[] b, int off, int len) throws IOException {
+            this.out.write(b, off, len);
+          }
+        };
     for (Digest chunkDigest : chunkDigests) {
-      getFromFuture(combinedCache.downloadBlob(context, chunkDigest, out));
+      getFromFuture(combinedCache.downloadBlob(context, chunkDigest, chunkOut));
     }
   }
 }
