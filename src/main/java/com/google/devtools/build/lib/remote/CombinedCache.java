@@ -363,7 +363,7 @@ public class CombinedCache extends AbstractReferenceCounted {
     return uploadFile(context, digest, file, /* force= */ false);
   }
 
-  protected ListenableFuture<Void> uploadFile(
+  private ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
@@ -414,7 +414,7 @@ public class CombinedCache extends AbstractReferenceCounted {
     return uploadBlob(context, digest, data, /* force= */ false);
   }
 
-  protected ListenableFuture<Void> uploadBlob(
+  private ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data, boolean force) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;

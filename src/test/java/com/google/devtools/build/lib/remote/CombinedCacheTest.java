@@ -307,26 +307,16 @@ public class CombinedCacheTest {
   @Test
   public void upload_failedUploads_doNotDeduplicate() throws Exception {
     AtomicBoolean failRequest = new AtomicBoolean(true);
-    InMemoryCacheClient inMemoryCacheClient = new InMemoryCacheClient();
     RemoteCacheClient remoteCacheClient = spy(new InMemoryCacheClient());
     doAnswer(
             invocationOnMock -> {
               if (failRequest.getAndSet(false)) {
                 return Futures.immediateFailedFuture(new IOException("Failed"));
               }
-              return inMemoryCacheClient.uploadFileImpl(
-                  invocationOnMock.getArgument(0),
-                  invocationOnMock.getArgument(1),
-                  invocationOnMock.getArgument(2));
+              return invocationOnMock.callRealMethod();
             })
         .when(remoteCacheClient)
         .uploadFileImpl(any(), any(), any());
-    doAnswer(
-            invocationOnMock ->
-                inMemoryCacheClient.findMissingDigests(
-                    invocationOnMock.getArgument(0), invocationOnMock.getArgument(1)))
-        .when(remoteCacheClient)
-        .findMissingDigests(any(), any());
     CombinedCache combinedCache = newCombinedCache(remoteCacheClient);
     Digest digest = fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file"), "content");
     Path file = execRoot.getRelative("file");
