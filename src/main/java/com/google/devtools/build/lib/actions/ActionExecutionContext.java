@@ -42,6 +42,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import javax.annotation.Nullable;
@@ -454,9 +455,17 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
   /**
    * Report a subcommand event to this Executor's Reporter and, if action logging is enabled, post
-   * it on its EventBus.
+   * it on its EventBus. Uses the spawn's own arguments.
    */
   public void maybeReportSubcommand(Spawn spawn, @Nullable String spawnRunner) {
+    maybeReportSubcommand(spawn, spawn.getArguments(), spawnRunner);
+  }
+
+  /**
+   * Report a subcommand event with the given arguments (which may have param files expanded).
+   */
+  public void maybeReportSubcommand(
+      Spawn spawn, List<String> arguments, @Nullable String spawnRunner) {
     ShowSubcommands showSubcommands = executor.reportsSubcommands();
     if (!showSubcommands.shouldShowSubcommands) {
       return;
@@ -488,7 +497,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         CommandFailureUtils.describeCommand(
             CommandDescriptionForm.COMPLETE,
             showSubcommands.prettyPrintArgs,
-            spawn.getArguments(),
+            arguments,
             spawn.getEnvironment(),
             /* environmentVariablesToClear= */ null,
             getExecRoot().getPathString(),

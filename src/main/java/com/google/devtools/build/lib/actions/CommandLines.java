@@ -134,6 +134,7 @@ public abstract sealed class CommandLines {
             paramFiles.add(
                 new ParamFileActionInput(
                     paramFileExecPath,
+                    paramArg,
                     ParameterFile.flagsOnly(chunk.arguments(pathMapper)),
                     paramFileInfo.getFileType()));
             for (String positionalArg : ParameterFile.nonFlags(chunk.arguments(pathMapper))) {
@@ -143,7 +144,10 @@ public abstract sealed class CommandLines {
           } else {
             paramFiles.add(
                 new ParamFileActionInput(
-                    paramFileExecPath, chunk.arguments(pathMapper), paramFileInfo.getFileType()));
+                    paramFileExecPath,
+                    paramArg,
+                    chunk.arguments(pathMapper),
+                    paramFileInfo.getFileType()));
           }
         }
       }
@@ -219,12 +223,22 @@ public abstract sealed class CommandLines {
   /** An in-memory param file virtual action input. */
   public static final class ParamFileActionInput extends VirtualActionInput {
     private final PathFragment paramFileExecPath;
+    private final String paramFileArg;
     private final Iterable<String> arguments;
     private final ParameterFileType type;
 
     public ParamFileActionInput(
         PathFragment paramFileExecPath, Iterable<String> arguments, ParameterFileType type) {
+      this(paramFileExecPath, "@" + paramFileExecPath.getPathString(), arguments, type);
+    }
+
+    public ParamFileActionInput(
+        PathFragment paramFileExecPath,
+        String paramFileArg,
+        Iterable<String> arguments,
+        ParameterFileType type) {
       this.paramFileExecPath = paramFileExecPath;
+      this.paramFileArg = paramFileArg;
       this.arguments = arguments;
       this.type = type;
     }
@@ -244,6 +258,11 @@ public abstract sealed class CommandLines {
     @Override
     public String getExecPathString() {
       return paramFileExecPath.getPathString();
+    }
+
+    /** Returns the argument that references this param file on the primary command line. */
+    public String getParamFileArg() {
+      return paramFileArg;
     }
 
     @Override
