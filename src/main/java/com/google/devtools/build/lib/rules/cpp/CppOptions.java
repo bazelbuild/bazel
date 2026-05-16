@@ -874,17 +874,6 @@ public abstract class CppOptions extends FragmentOptions {
   public abstract boolean getSaveFeatureState();
 
   @Option(
-      name = "incompatible_use_specific_tool_files",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "Use cc toolchain's compiler_files, as_files, and ar_files as inputs to appropriate "
-              + "actions. See https://github.com/bazelbuild/bazel/issues/8531")
-  public abstract boolean getUseSpecificToolFiles();
-
-  @Option(
       name = "incompatible_disable_nocopts",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
