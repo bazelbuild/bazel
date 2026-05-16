@@ -62,6 +62,7 @@ class OptionsParserImpl {
     private ArgsPreProcessor argsPreProcessor = args -> args;
     private final ArrayList<String> skippedPrefixes = new ArrayList<>();
     private boolean ignoreInternalOptions = true;
+    private boolean allowUnknownOptions = false;
     @Nullable private String aliasFlag = null;
     @Nullable private Object conversionContext = null;
     private final Map<String, String> aliases = new HashMap<>();
@@ -91,6 +92,15 @@ class OptionsParserImpl {
     @CanIgnoreReturnValue
     public Builder ignoreInternalOptions(boolean ignoreInternalOptions) {
       this.ignoreInternalOptions = ignoreInternalOptions;
+      return this;
+    }
+
+    /**
+     * Sets whether unknown long options should be preserved as skipped options for a later parse.
+     */
+    @CanIgnoreReturnValue
+    public Builder allowUnknownOptions(boolean allowUnknownOptions) {
+      this.allowUnknownOptions = allowUnknownOptions;
       return this;
     }
 
@@ -128,6 +138,7 @@ class OptionsParserImpl {
           this.argsPreProcessor,
           this.skippedPrefixes,
           this.ignoreInternalOptions,
+          this.allowUnknownOptions,
           this.aliasFlag,
           this.conversionContext,
           this.aliases);
@@ -184,6 +195,7 @@ class OptionsParserImpl {
   private final ArgsPreProcessor argsPreProcessor;
   private final List<String> skippedPrefixes;
   private final boolean ignoreInternalOptions;
+  private final boolean allowUnknownOptions;
   @Nullable private final String aliasFlag;
   @Nullable private final Object conversionContext;
 
@@ -219,6 +231,7 @@ class OptionsParserImpl {
       ArgsPreProcessor argsPreProcessor,
       List<String> skippedPrefixes,
       boolean ignoreInternalOptions,
+      boolean allowUnknownOptions,
       @Nullable String aliasFlag,
       @Nullable Object conversionContext,
       Map<String, String> aliases) {
@@ -226,6 +239,7 @@ class OptionsParserImpl {
     this.argsPreProcessor = argsPreProcessor;
     this.skippedPrefixes = skippedPrefixes;
     this.ignoreInternalOptions = ignoreInternalOptions;
+    this.allowUnknownOptions = allowUnknownOptions;
     this.aliasFlag = aliasFlag;
     this.conversionContext = conversionContext;
     this.flagAliasMappings = aliases;
@@ -250,7 +264,8 @@ class OptionsParserImpl {
             .withAliasFlag(aliasFlag)
             .withAliases(flagAliasMappings)
             .withConversionContext(conversionContext)
-            .ignoreInternalOptions(ignoreInternalOptions);
+            .ignoreInternalOptions(ignoreInternalOptions)
+            .allowUnknownOptions(allowUnknownOptions);
     for (String skippedPrefix : skippedPrefixes) {
       builder.skippedPrefix(skippedPrefix);
     }
@@ -799,6 +814,21 @@ class OptionsParserImpl {
 
     // Do not recognize internal options, which are treated as if they did not exist.
     if (lookupResult == null || shouldIgnoreOption(lookupResult.definition)) {
+      if (allowUnknownOptions && arg.startsWith("--")) {
+        return new ParsedOptionDescriptionOrIgnoredArgs(
+            Optional.of(
+                ParsedOptionDescription.newParsedOptionDescription(
+                    skippedArgsDefinition,
+                    commandLineForm.toString(),
+                    commandLineForm.toString(),
+                    new OptionInstanceOrigin(
+                        priority,
+                        sourceFunction.apply(skippedArgsDefinition),
+                        implicitDependent,
+                        expandedFrom),
+                    conversionContext)),
+            Optional.empty());
+      }
       String suggestion;
       // Do not offer suggestions for short-form options.
       if (arg.startsWith("--")) {

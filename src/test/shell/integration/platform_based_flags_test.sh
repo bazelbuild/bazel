@@ -652,4 +652,56 @@ EOF
   expect_log "//${pkg}:show: value = \"alt\""
 }
 
+function test_module_flag_alias_for_unknown_flag() {
+  # Only bazel supports modules.
+  is_bazel || return 0
+
+  local -r pkg="$FUNCNAME"
+  mkdir -p "$pkg"
+
+  cat > "$pkg/rules.bzl" <<EOF
+BuildSettingInfo = provider(fields = ["value"])
+
+def _sample_flag_impl(ctx):
+    return BuildSettingInfo(value = ctx.build_setting_value)
+
+sample_flag = rule(
+    implementation = _sample_flag_impl,
+    build_setting = config.string(flag = True),
+)
+
+def _show_sample_flag_impl(ctx):
+    value = ctx.attr.flag[BuildSettingInfo].value
+    print("%s: value = \"%s\"" % (ctx.label, value))
+
+show_sample_flag = rule(
+    implementation = _show_sample_flag_impl,
+    attrs = {
+        "flag": attr.label(providers = [BuildSettingInfo]),
+    },
+)
+EOF
+
+  cat > "$pkg/BUILD" <<EOF
+load(":rules.bzl", "sample_flag", "show_sample_flag")
+
+sample_flag(
+    name = "my_flag",
+    build_setting_default = "default",
+)
+
+show_sample_flag(
+    name = "show",
+    flag = ":my_flag",
+)
+EOF
+
+  cat >> MODULE.bazel <<EOF
+flag_alias(name = "myflag", starlark_flag = "//$pkg:my_flag")
+EOF
+
+  bazel build --myflag=custom_value //$pkg:show &> $TEST_log || fail "bazel failed"
+  expect_log "//${pkg}:show: value = \"custom_value\""
+}
+
 run_suite "Tests for platform based flags"
