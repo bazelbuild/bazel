@@ -91,8 +91,14 @@ function test_tmpdir() {
 #!/bin/sh
 set -e
 echo TEST_TMPDIR=$TEST_TMPDIR
+echo RAW_TMPDIR=$TMPDIR
+echo RAW_TEMP=$TEMP
+echo RAW_TMP=$TMP
 echo HOME=$HOME
 touch "$TEST_TMPDIR/foo"
+test -e "$TMPDIR/foo" || exit 1
+test -e "$TEMP/foo" || exit 1
+test -e "$TMP/foo" || exit 1
 touch "$HOME/bar"
 EOF
   chmod +x foo/bar_test.sh
@@ -107,11 +113,17 @@ EOF
   bazel test --test_output=all //foo:bar_test >& $TEST_log || \
     fail "Running sh_test failed"
   expect_log "TEST_TMPDIR=/.*"
+  expect_log "RAW_TMPDIR=/.*"
+  expect_log "RAW_TEMP=/.*"
+  expect_log "RAW_TMP=/.*"
   expect_log "HOME=/.*"
 
   bazel test --nocache_test_results --test_output=all --test_tmpdir=$TEST_TMPDIR //foo:bar_test \
     >& $TEST_log || fail "Running sh_test failed"
   expect_log "TEST_TMPDIR=$TEST_TMPDIR"
+  expect_log "RAW_TMPDIR=$TEST_TMPDIR"
+  expect_log "RAW_TEMP=$TEST_TMPDIR"
+  expect_log "RAW_TMP=$TEST_TMPDIR"
   expect_log "HOME=$TEST_TMPDIR"
 }
 
