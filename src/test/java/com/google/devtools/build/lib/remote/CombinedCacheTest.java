@@ -289,7 +289,7 @@ public class CombinedCacheTest {
   @Test
   @SuppressWarnings("FutureReturnValueIgnored")
   public void upload_deduplicationWorks() throws IOException {
-    RemoteCacheClient remoteCacheClient = mock(RemoteCacheClient.class);
+    RemoteCacheClient remoteCacheClient = spy(new InMemoryCacheClient());
     AtomicInteger times = new AtomicInteger(0);
     doAnswer(
             invocationOnMock -> {
@@ -297,7 +297,7 @@ public class CombinedCacheTest {
               return SettableFuture.create();
             })
         .when(remoteCacheClient)
-        .uploadFile(any(), any(), any());
+        .uploadFileImpl(any(), any(), any());
     CombinedCache combinedCache = newCombinedCache(remoteCacheClient);
     Digest digest = fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file"), "content");
     Path file = execRoot.getRelative("file");
@@ -312,19 +312,19 @@ public class CombinedCacheTest {
   public void upload_failedUploads_doNotDeduplicate() throws Exception {
     AtomicBoolean failRequest = new AtomicBoolean(true);
     InMemoryCacheClient inMemoryCacheClient = new InMemoryCacheClient();
-    RemoteCacheClient remoteCacheClient = mock(RemoteCacheClient.class);
+    RemoteCacheClient remoteCacheClient = spy(new InMemoryCacheClient());
     doAnswer(
             invocationOnMock -> {
               if (failRequest.getAndSet(false)) {
                 return Futures.immediateFailedFuture(new IOException("Failed"));
               }
-              return inMemoryCacheClient.uploadFile(
+              return inMemoryCacheClient.uploadFileImpl(
                   invocationOnMock.getArgument(0),
                   invocationOnMock.getArgument(1),
                   invocationOnMock.getArgument(2));
             })
         .when(remoteCacheClient)
-        .uploadFile(any(), any(), any());
+        .uploadFileImpl(any(), any(), any());
     doAnswer(
             invocationOnMock ->
                 inMemoryCacheClient.findMissingDigests(
@@ -536,7 +536,7 @@ public class CombinedCacheTest {
               return future;
             })
         .when(cacheProtocol)
-        .uploadBlob(any(), any(), (Blob) any());
+        .uploadBlobImpl(any(), any(), (Blob) any());
     doAnswer(
             invocationOnMock -> {
               SettableFuture<Void> future = SettableFuture.create();
@@ -545,7 +545,7 @@ public class CombinedCacheTest {
               return future;
             })
         .when(cacheProtocol)
-        .uploadFile(any(), any(), any());
+        .uploadFileImpl(any(), any(), any());
 
     Path path = execRoot.getRelative("foo");
     FileSystemUtils.writeContentAsLatin1(path, "bar");
@@ -575,14 +575,14 @@ public class CombinedCacheTest {
     thread.start();
     uploadBlobCalls.await();
     assertThat(futures).hasSize(2);
-    assertThat(remoteCache.casUploadCache.getInProgressTasks()).isNotEmpty();
+    assertThat(cacheProtocol.getInProgressUploads()).isNotEmpty();
 
     thread.interrupt();
     ensureInputsPresentReturned.await();
 
     // assert
-    assertThat(remoteCache.casUploadCache.getInProgressTasks()).isEmpty();
-    assertThat(remoteCache.casUploadCache.getFinishedTasks()).isEmpty();
+    assertThat(cacheProtocol.getInProgressUploads()).isEmpty();
+    assertThat(cacheProtocol.getFinishedUploads()).isEmpty();
     for (SettableFuture<Void> future : futures) {
       assertThat(future.isCancelled()).isTrue();
     }
@@ -616,7 +616,7 @@ public class CombinedCacheTest {
               return future;
             })
         .when(cacheProtocol)
-        .uploadBlob(any(), any(), (Blob) any());
+        .uploadBlobImpl(any(), any(), (Blob) any());
     doAnswer(
             invocationOnMock -> {
               SettableFuture<Void> future = SettableFuture.create();
@@ -625,7 +625,7 @@ public class CombinedCacheTest {
               return future;
             })
         .when(cacheProtocol)
-        .uploadFile(any(), any(), any());
+        .uploadFileImpl(any(), any(), any());
 
     Path path = execRoot.getRelative("foo");
     FileSystemUtils.writeContentAsLatin1(path, "bar");
@@ -667,8 +667,8 @@ public class CombinedCacheTest {
     assertThat(futures).hasSize(2);
 
     // assert
-    assertThat(remoteCache.casUploadCache.getInProgressTasks()).hasSize(2);
-    assertThat(remoteCache.casUploadCache.getFinishedTasks()).isEmpty();
+    assertThat(cacheProtocol.getInProgressUploads()).hasSize(2);
+    assertThat(cacheProtocol.getFinishedUploads()).isEmpty();
     for (SettableFuture<Void> future : futures) {
       assertThat(future.isCancelled()).isFalse();
     }
@@ -677,8 +677,8 @@ public class CombinedCacheTest {
       future.set(null);
     }
     ensureInputsPresentReturned.await();
-    assertThat(remoteCache.casUploadCache.getInProgressTasks()).isEmpty();
-    assertThat(remoteCache.casUploadCache.getFinishedTasks()).hasSize(2);
+    assertThat(cacheProtocol.getInProgressUploads()).isEmpty();
+    assertThat(cacheProtocol.getFinishedUploads()).hasSize(2);
   }
 
   @Test
@@ -702,7 +702,7 @@ public class CombinedCacheTest {
               return future;
             })
         .when(cacheProtocol)
-        .uploadBlob(any(), any(), (Blob) any());
+        .uploadBlobImpl(any(), any(), (Blob) any());
     doAnswer(
             invocationOnMock -> {
               Path file = invocationOnMock.getArgument(2, Path.class);
@@ -712,7 +712,7 @@ public class CombinedCacheTest {
               return future;
             })
         .when(cacheProtocol)
-        .uploadFile(any(), any(), any());
+        .uploadFileImpl(any(), any(), any());
 
     Path foo = execRoot.getRelative("foo");
     FileSystemUtils.writeContentAsLatin1(foo, "foo");
@@ -775,14 +775,14 @@ public class CombinedCacheTest {
     uploadFileCalls.await();
     assertThat(uploadBlobFutures).hasSize(2);
     assertThat(uploadFileFutures).hasSize(3);
-    assertThat(remoteCache.casUploadCache.getInProgressTasks()).hasSize(5);
+    assertThat(cacheProtocol.getInProgressUploads()).hasSize(5);
 
     thread1.interrupt();
     ensureInterrupted.await();
 
     // assert
-    assertThat(remoteCache.casUploadCache.getInProgressTasks()).hasSize(3);
-    assertThat(remoteCache.casUploadCache.getFinishedTasks()).isEmpty();
+    assertThat(cacheProtocol.getInProgressUploads()).hasSize(3);
+    assertThat(cacheProtocol.getFinishedUploads()).isEmpty();
     for (Map.Entry<Path, SettableFuture<Void>> entry : uploadFileFutures.entrySet()) {
       Path file = entry.getKey();
       SettableFuture<Void> future = entry.getValue();
@@ -800,8 +800,8 @@ public class CombinedCacheTest {
       future.set(null);
     }
     ensureInputsPresentReturned.await();
-    assertThat(remoteCache.casUploadCache.getInProgressTasks()).isEmpty();
-    assertThat(remoteCache.casUploadCache.getFinishedTasks()).hasSize(3);
+    assertThat(cacheProtocol.getInProgressUploads()).isEmpty();
+    assertThat(cacheProtocol.getFinishedUploads()).hasSize(3);
   }
 
   @Test
@@ -810,10 +810,10 @@ public class CombinedCacheTest {
     remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
     doAnswer(invocationOnMock -> Futures.immediateFailedFuture(new IOException("upload failed")))
         .when(cacheProtocol)
-        .uploadBlob(any(), any(), (Blob) any());
+        .uploadBlobImpl(any(), any(), (Blob) any());
     doAnswer(invocationOnMock -> Futures.immediateFailedFuture(new IOException("upload failed")))
         .when(cacheProtocol)
-        .uploadFile(any(), any(), any());
+        .uploadFileImpl(any(), any(), any());
     RemoteExecutionCache remoteCache = spy(newRemoteExecutionCache(cacheProtocol));
     Path path = execRoot.getRelative("foo");
     FileSystemUtils.writeContentAsLatin1(path, "bar");
@@ -836,18 +836,18 @@ public class CombinedCacheTest {
 
   @Test
   public void shutdownNow_cancelInProgressUploads() throws Exception {
-    RemoteCacheClient remoteCacheClient = mock(RemoteCacheClient.class);
+    RemoteCacheClient remoteCacheClient = spy(new InMemoryCacheClient());
     // Return a future that never completes
     doAnswer(invocationOnMock -> SettableFuture.create())
         .when(remoteCacheClient)
-        .uploadFile(any(), any(), any());
+        .uploadFileImpl(any(), any(), any());
     CombinedCache combinedCache = newCombinedCache(remoteCacheClient);
     Digest digest = fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file"), "content");
     Path file = execRoot.getRelative("file");
 
     ListenableFuture<Void> upload =
         combinedCache.uploadFile(remoteActionExecutionContext, digest, file);
-    assertThat(combinedCache.casUploadCache.getInProgressTasks()).contains(digest);
+    assertThat(remoteCacheClient.getInProgressUploads()).contains(digest);
     combinedCache.shutdownNow();
 
     assertThat(upload.isCancelled()).isTrue();
@@ -891,7 +891,7 @@ public class CombinedCacheTest {
       ListenableFuture<Void> secondUpload =
           combinedCache.uploadFile(remoteActionExecutionContext, digest, file);
 
-      assertThat(combinedCache.casUploadCache.getSubscriberCount(digest)).isEqualTo(2);
+      assertThat(grpcCacheClient.getUploadSubscriberCount(digest)).isEqualTo(2);
       verify(grpcCacheClient).findMissingDigests(any(), any());
       verify(grpcCacheClient).spliceBlob(any(), any(), any());
 

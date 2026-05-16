@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeUploader;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.RxFutures;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.Message;
@@ -61,7 +60,6 @@ import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.core.SingleEmitter;
 import io.reactivex.rxjava3.disposables.Disposable;
-import io.reactivex.rxjava3.functions.Supplier;
 import io.reactivex.rxjava3.subjects.AsyncSubject;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -229,8 +227,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
               throw new CacheNotFoundException(digest, path.getPathString());
             }
           }
-          return dedupedUpload(
-              digest, force, () -> remoteCacheClient.uploadFile(context, digest, path));
+          return remoteCacheClient.uploadFile(context, digest, path, force);
         },
         directExecutor());
   }
@@ -238,19 +235,8 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
   @Override
   public ListenableFuture<Void> uploadVirtualActionInput(
       RemoteActionExecutionContext context, Digest digest, VirtualActionInput virtualActionInput) {
-    return dedupedUpload(
-        digest,
-        /* force= */ false,
-        () ->
-            remoteCacheClient.uploadBlob(
-                context, digest, new VirtualActionInputBlob(virtualActionInput)));
-  }
-
-  private ListenableFuture<Void> dedupedUpload(
-      Digest digest, boolean force, Supplier<ListenableFuture<Void>> upload) {
-    return RxFutures.toListenableFuture(
-        casUploadCache.execute(
-            digest, RxFutures.toCompletable(upload, directExecutor()), force));
+    return remoteCacheClient.uploadBlob(
+        context, digest, new VirtualActionInputBlob(virtualActionInput));
   }
 
   private record VirtualActionInputBlob(VirtualActionInput virtualActionInput) implements Blob {
@@ -293,10 +279,8 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
   @Override
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, byte[] data) {
-    return dedupedUpload(
-        digest,
-        /* force= */ false,
-        () -> remoteCacheClient.uploadBlob(context, digest, () -> new ByteArrayInputStream(data)));
+    return remoteCacheClient.uploadBlob(
+        context, digest, () -> new ByteArrayInputStream(data));
   }
 
   private ListenableFuture<Void> uploadBlob(
@@ -313,10 +297,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
 
     Message message = additionalInputs.get(digest);
     if (message != null) {
-      return dedupedUpload(
-          digest,
-          force,
-          () -> remoteCacheClient.uploadBlob(context, digest, message.toByteString()));
+      return remoteCacheClient.uploadBlob(context, digest, message.toByteString(), force);
     }
 
     return immediateFailedFuture(
