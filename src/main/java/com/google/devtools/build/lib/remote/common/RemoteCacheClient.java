@@ -26,13 +26,12 @@ import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.RxFutures;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
-import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.functions.Supplier;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -131,13 +130,7 @@ public abstract class RemoteCacheClient implements MissingDigestsFinder {
    */
   public final ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
-    Completable upload =
-        casUploadCache.execute(
-            digest,
-            RxFutures.toCompletable(
-                () -> uploadFileImpl(context, digest, file), directExecutor()),
-            force);
-    return RxFutures.toListenableFuture(upload);
+    return dedupedUpload(digest, force, () -> uploadFileImpl(context, digest, file));
   }
 
   /**
@@ -185,12 +178,14 @@ public abstract class RemoteCacheClient implements MissingDigestsFinder {
    */
   public final ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, Blob blob, boolean force) {
+    return dedupedUpload(digest, force, () -> uploadBlobImpl(context, digest, blob));
+  }
+
+  private ListenableFuture<Void> dedupedUpload(
+      Digest digest, boolean force, Supplier<ListenableFuture<Void>> upload) {
     return RxFutures.toListenableFuture(
         casUploadCache.execute(
-            digest,
-            RxFutures.toCompletable(
-                () -> uploadBlobImpl(context, digest, blob), directExecutor()),
-            force));
+            digest, RxFutures.toCompletable(upload, directExecutor()), force));
   }
 
   /**
@@ -250,8 +245,7 @@ public abstract class RemoteCacheClient implements MissingDigestsFinder {
    */
   public final ListenableFuture<Void> dedupUpload(
       Digest digest, Supplier<ListenableFuture<Void>> upload, boolean force) {
-    return RxFutures.toListenableFuture(
-        casUploadCache.execute(digest, RxFutures.toCompletable(upload, directExecutor()), force));
+    return dedupedUpload(digest, force, upload);
   }
 
   /** Returns the digests currently being uploaded. */
