@@ -18,6 +18,7 @@ java_library(
     srcs = glob(
         ["*.java"],
         exclude = [
+            "DeletedPackages.java",
             "QueryTransitivePackagePreloader.java",
             "PackageOptions.java",
             "PackagePathCodecDependencies.java",
@@ -56,11 +57,15 @@ java_library(
 
 java_library(
     name = "package_options",
-    srcs = ["PackageOptions.java"],
+    srcs = [
+        "DeletedPackages.java",
+        "PackageOptions.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages:rule_visibility",
         "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
     ],

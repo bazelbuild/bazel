@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.pkgcache.DeletedPackages;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
@@ -72,7 +73,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link PackageLookupFunction}. */
 public abstract class PackageLookupFunctionTest extends FoundationTestCase {
-  private AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages;
+  private AtomicReference<DeletedPackages> deletedPackages;
   private MemoizingEvaluator evaluator;
   private RecordingDifferencer differencer;
   private Path emptyPackagePath;
@@ -91,7 +92,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
                 outputBase,
                 ImmutableList.of(Root.fromPath(emptyPackagePath), Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
-    deletedPackages = new AtomicReference<>(ImmutableSet.of());
+    deletedPackages = new AtomicReference<>(DeletedPackages.EMPTY);
     BlazeDirectories directories =
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, rootDirectory),
@@ -209,11 +210,39 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
   public void testDeletedPackage() throws Exception {
     scratch.file("parentpackage/deletedpackage/BUILD");
     deletedPackages.set(
-        ImmutableSet.of(PackageIdentifier.createInMainRepo("parentpackage/deletedpackage")));
+        DeletedPackages.exact(
+            ImmutableSet.of(PackageIdentifier.createInMainRepo("parentpackage/deletedpackage"))));
     PackageLookupValue packageLookupValue = lookupPackage("parentpackage/deletedpackage");
     assertThat(packageLookupValue.packageExists()).isFalse();
     assertThat(packageLookupValue.getErrorReason()).isEqualTo(ErrorReason.DELETED_PACKAGE);
     assertThat(packageLookupValue.getErrorMsg()).isNotNull();
+  }
+
+  @Test
+  public void testDeletedPackageSubtree() throws Exception {
+    scratch.file("parentpackage/deletedsubtree/BUILD");
+    scratch.file("parentpackage/deletedsubtree/inner/BUILD");
+    scratch.file("parentpackage/deletedsubtree/inner/deeper/BUILD");
+    scratch.file("parentpackage/sibling/BUILD");
+    deletedPackages.set(
+        DeletedPackages.of(
+            /* exact= */ ImmutableSet.of(),
+            /* subtrees= */ ImmutableSet.of(
+                PackageIdentifier.createInMainRepo("parentpackage/deletedsubtree"))));
+
+    for (String pkg :
+        ImmutableList.of(
+            "parentpackage/deletedsubtree",
+            "parentpackage/deletedsubtree/inner",
+            "parentpackage/deletedsubtree/inner/deeper")) {
+      PackageLookupValue value = lookupPackage(pkg);
+      assertThat(value.packageExists()).isFalse();
+      assertThat(value.getErrorReason()).isEqualTo(ErrorReason.DELETED_PACKAGE);
+    }
+
+    // Sibling package, and the parent package itself, are unaffected.
+    assertThat(lookupPackage("parentpackage/sibling").packageExists()).isTrue();
+    assertThat(lookupPackage("parentpackage").packageExists()).isTrue();
   }
 
   @Test

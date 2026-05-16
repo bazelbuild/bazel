@@ -406,6 +406,23 @@ public final class LoadingPhaseRunnerTest {
     assertThat(err.getPattern()).isEqualTo("//base");
   }
 
+  @Test
+  public void testDeletedPackageSubtree() throws Exception {
+    tester.addFile("base/BUILD", "exports_files(['base'])");
+    tester.addFile("base/inner/BUILD", "exports_files(['inner'])");
+    tester.skyframeExecutor.setDeletedPackages(
+        DeletedPackages.of(
+            ImmutableList.of(),
+            ImmutableList.of(PackageIdentifier.createInMainRepo("base"))));
+
+    TargetPatternPhaseValue result = tester.loadKeepGoing("//base", "//base/inner");
+    assertThat(result.hasError()).isTrue();
+    tester.assertContainsError(
+        "no such package 'base': Package is considered deleted due to --deleted_packages");
+    tester.assertContainsError(
+        "no such package 'base/inner': Package is considered deleted due to --deleted_packages");
+  }
+
   private void writeBuildFilesForTestFiltering() throws Exception {
     tester.addFile(
         "tests/BUILD",
@@ -1880,7 +1897,7 @@ public final class LoadingPhaseRunnerTest {
     }
 
     public void setDeletedPackages(PackageIdentifier... packages) {
-      skyframeExecutor.setDeletedPackages(ImmutableList.copyOf(packages));
+      skyframeExecutor.setDeletedPackages(DeletedPackages.exact(ImmutableList.copyOf(packages)));
     }
 
     public TargetPatternPhaseValue load(String... patterns) throws Exception {

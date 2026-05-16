@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
+import com.google.devtools.build.lib.pkgcache.DeletedPackages;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupValue.ContainingPackage;
@@ -68,7 +69,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
 
-  private AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages;
+  private AtomicReference<DeletedPackages> deletedPackages;
   private MemoizingEvaluator evaluator;
 
   @Before
@@ -81,7 +82,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
                 outputBase,
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
-    deletedPackages = new AtomicReference<>(ImmutableSet.of());
+    deletedPackages = new AtomicReference<>(DeletedPackages.EMPTY);
     BlazeDirectories directories =
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, outputBase),
@@ -261,7 +262,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
   @Test
   public void testDeletedPackageErrorReason() throws Exception {
     PackageIdentifier identifier = PackageIdentifier.createInMainRepo("deletedpackage");
-    deletedPackages.set(ImmutableSet.of(identifier));
+    deletedPackages.set(DeletedPackages.exact(ImmutableSet.of(identifier)));
     scratch.file("BUILD");
 
     PackageLookupValue packageLookupValue = lookupPackage(identifier);
