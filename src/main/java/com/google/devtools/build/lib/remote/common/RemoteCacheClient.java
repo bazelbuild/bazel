@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.RxFutures;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
-import io.reactivex.rxjava3.functions.Supplier;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -131,19 +130,7 @@ public abstract class RemoteCacheClient implements MissingDigestsFinder {
    */
   public final ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
-    return dedupedUpload(digest, force, () -> uploadFileImpl(context, digest, file));
-  }
-
-  /**
-   * Performs the actual network upload of a file. Called by the deduplicating {@link #uploadFile}
-   * wrappers. The default implementation delegates to {@link #uploadBlobImpl}.
-   *
-   * <p>Callers should use {@link #uploadFile} instead.
-   */
-  @VisibleForTesting
-  public ListenableFuture<Void> uploadFileImpl(
-      RemoteActionExecutionContext context, Digest digest, Path file) {
-    return uploadBlobImpl(
+    return uploadBlob(
         context,
         digest,
         new Blob() {
@@ -156,7 +143,8 @@ public abstract class RemoteCacheClient implements MissingDigestsFinder {
           public String description() {
             return "file " + file;
           }
-        });
+        },
+        force);
   }
 
   /**
@@ -180,13 +168,11 @@ public abstract class RemoteCacheClient implements MissingDigestsFinder {
    */
   public final ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, Blob blob, boolean force) {
-    return dedupedUpload(digest, force, () -> uploadBlobImpl(context, digest, blob));
-  }
-
-  private ListenableFuture<Void> dedupedUpload(
-      Digest digest, boolean force, Supplier<ListenableFuture<Void>> upload) {
     return RxFutures.toListenableFuture(
-        casUploadCache.execute(digest, RxFutures.toCompletable(upload, directExecutor()), force));
+        casUploadCache.execute(
+            digest,
+            RxFutures.toCompletable(() -> uploadBlobImpl(context, digest, blob), directExecutor()),
+            force));
   }
 
   /**
