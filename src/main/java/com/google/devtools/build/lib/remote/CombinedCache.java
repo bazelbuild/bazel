@@ -47,9 +47,7 @@ import com.google.devtools.build.lib.remote.common.ProgressStatusListener;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
-import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.RxFutures;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
@@ -60,7 +58,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import io.netty.util.AbstractReferenceCounted;
-import io.reactivex.rxjava3.core.Completable;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -96,7 +93,6 @@ public class CombinedCache extends AbstractReferenceCounted {
       SpawnCheckingCacheEvent.create("remote-cache");
 
   private final CountDownLatch closeCountDownLatch = new CountDownLatch(1);
-  protected final AsyncTaskCache.NoResult<Digest> casUploadCache = AsyncTaskCache.NoResult.create();
 
   private final ListeningExecutorService virtualThreadExecutor =
       MoreExecutors.listeningDecorator(
@@ -367,7 +363,7 @@ public class CombinedCache extends AbstractReferenceCounted {
     return uploadFile(context, digest, file, /* force= */ false);
   }
 
-  protected ListenableFuture<Void> uploadFile(
+  private ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
@@ -395,13 +391,7 @@ public class CombinedCache extends AbstractReferenceCounted {
                   return null;
                 });
       } else {
-        Completable upload =
-            casUploadCache.execute(
-                digest,
-                RxFutures.toCompletable(
-                    () -> remoteCacheClient.uploadFile(context, digest, file), directExecutor()),
-                force);
-        remoteCacheFuture = RxFutures.toListenableFuture(upload);
+        remoteCacheFuture = remoteCacheClient.uploadFile(context, digest, file, force);
       }
     }
 
@@ -424,7 +414,7 @@ public class CombinedCache extends AbstractReferenceCounted {
     return uploadBlob(context, digest, data, /* force= */ false);
   }
 
-  protected ListenableFuture<Void> uploadBlob(
+  private ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data, boolean force) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
@@ -437,14 +427,7 @@ public class CombinedCache extends AbstractReferenceCounted {
 
     ListenableFuture<Void> remoteCacheFuture = Futures.immediateVoidFuture();
     if (remoteCacheClient != null && context.getWriteCachePolicy().allowRemoteCache()) {
-      Completable upload =
-          casUploadCache.execute(
-              digest,
-              RxFutures.toCompletable(
-                  () -> remoteCacheClient.uploadBlob(context, digest, data), directExecutor()),
-              force);
-
-      remoteCacheFuture = RxFutures.toListenableFuture(upload);
+      remoteCacheFuture = remoteCacheClient.uploadBlob(context, digest, data, force);
     }
 
     return Futures.whenAllSucceed(diskCacheFuture, remoteCacheFuture)
@@ -805,8 +788,8 @@ public class CombinedCache extends AbstractReferenceCounted {
     if (diskCacheClient != null) {
       diskCacheClient.close();
     }
-    casUploadCache.shutdown();
     if (remoteCacheClient != null) {
+      remoteCacheClient.shutdownUploads();
       remoteCacheClient.close();
     }
 
@@ -827,13 +810,17 @@ public class CombinedCache extends AbstractReferenceCounted {
 
   /** Waits for active network I/Os to finish. */
   public void awaitTermination() throws InterruptedException {
-    casUploadCache.awaitTermination();
+    if (remoteCacheClient != null) {
+      remoteCacheClient.awaitUploadTermination();
+    }
     closeCountDownLatch.await();
   }
 
   /** Shuts the cache down and cancels active network I/Os. */
   public void shutdownNow() {
-    casUploadCache.shutdownNow();
+    if (remoteCacheClient != null) {
+      remoteCacheClient.shutdownUploadsNow();
+    }
   }
 
   public static FailureDetail createFailureDetail(String message, Code detailedCode) {
