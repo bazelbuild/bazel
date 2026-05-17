@@ -1119,4 +1119,41 @@ end_of_record'
   assert_not_contains "SF:external/+local_repository+other_repo/a.cc" "$coverage_file_path"
 }
 
+function test_cc_test_coverage_gcov_with_path_mapping() {
+  if is_gcov_missing_or_wrong_version; then
+    echo "Skipping test." && return
+  fi
+  setup_a_cc_lib_and_t_cc_test
+
+  bazel coverage --experimental_output_paths=strip \
+      --modify_execution_info=CppCompile=+supports-path-mapping,InstrumentedFileManifest=+supports-path-mapping \
+      --test_env=VERBOSE_COVERAGE=1 \
+      --test_output=all -s //:t &>"$TEST_log" \
+      || fail "Coverage for //:t failed"
+
+  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+
+  # Check the expected coverage for a.cc in the coverage file.
+  local expected_result_a_cc="SF:a.cc
+FN:3,_Z1ab
+FNDA:1,_Z1ab
+FNF:1
+FNH:1
+BRDA:4,0,0,1
+BRDA:4,0,1,0
+BRF:2
+BRH:1
+DA:3,1
+DA:4,1
+DA:5,1
+DA:7,0
+LH:3
+LF:4
+end_of_record"
+  assert_cc_coverage_result "$expected_result_a_cc" "$coverage_file_path"
+  # t.cc is not included in the coverage report because test targets are not
+  # instrumented by default.
+  assert_not_contains "SF:t\.cc" "$coverage_file_path"
+}
+
 run_suite "test tests"
