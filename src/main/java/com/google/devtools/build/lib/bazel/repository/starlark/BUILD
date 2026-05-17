@@ -55,7 +55,6 @@ java_library(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
-        "//third_party:caffeine",
         "//third_party:error_prone_annotations",
         "//third_party:flogger",
         "//third_party:guava",

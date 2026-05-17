@@ -147,10 +147,9 @@ maven.install(
         # keep sorted
         "args4j:args4j:2.37",
         "com.beust:jcommander:1.82",
-        "com.dylibso.chicory:compiler:1.7.5",
-        "com.dylibso.chicory:log:1.7.5",
-        "com.dylibso.chicory:runtime:1.7.5",
-        "com.dylibso.chicory:wasm:1.7.5",
+        "com.dylibso.chicory:log:1.5.2",
+        "com.dylibso.chicory:runtime:1.5.2",
+        "com.dylibso.chicory:wasm:1.5.2",
         "com.github.ben-manes.caffeine:caffeine:3.1.8",
         "com.github.stephenc.jcip:jcip-annotations:1.0-1",
         "com.google.api-client:google-api-client:1.35.2",
@@ -237,6 +236,11 @@ maven.install(
         "org.openjdk.jmh:jmh-core:1.37",
         "org.openjdk.jmh:jmh-generator-annprocess:1.37",
         "org.openjdk.jol:jol-core:0.17",
+        "org.ow2.asm:asm:9.9",
+        "org.ow2.asm:asm-analysis:9.9",
+        "org.ow2.asm:asm-commons:9.9",
+        "org.ow2.asm:asm-tree:9.9",
+        "org.ow2.asm:asm-util:9.9",
         "org.pcollections:pcollections:4.0.1",
         "org.threeten:threeten-extra:1.5.0",
         "org.tukaani:xz:1.9",
@@ -269,23 +273,6 @@ maven.override(
     coordinates = "io.github.eisop:checker-qual",
     target = "@maven//:org_checkerframework_checker_qual",
 )
-
-# Pin to the version in //third_party/asm/... to avoid one-version violations.
-[
-    maven.artifact(
-        group = "org.ow2.asm",
-        artifact = artifact,
-        version = "9.9",
-        force_version = True,
-    )
-    for artifact in [
-        "asm",
-        "asm-analysis",
-        "asm-commons",
-        "asm-tree",
-        "asm-util",
-    ]
-]
 
 # Test only maven dependencies
 [

@@ -113,6 +113,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.starlarkbuildapi.MacroFunctionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ComposedConfigurationTransitionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
@@ -1096,7 +1097,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         });
     if (parent != null) {
       transitionFactory =
-          ComposingTransitionFactory.of(transitionFactory, parent.getTransitionFactory());
+          ComposingTransitionFactory.ofUnchecked(transitionFactory, parent.getTransitionFactory());
     }
     // Check if the transition has any Starlark code.
     StarlarkTransitionCheckingVisitor visitor = new StarlarkTransitionCheckingVisitor();
@@ -1247,6 +1248,29 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     if (cfg instanceof StarlarkDefinedConfigTransition starlarkDefinedConfigTransition) {
       // defined in Starlark via, cfg = transition
       return new StarlarkRuleTransitionProvider(starlarkDefinedConfigTransition);
+    }
+    if (cfg instanceof ComposedConfigurationTransitionApi composition) {
+      TransitionFactory<RuleTransitionData> result = null;
+      for (ConfigurationTransitionApi element : composition.getElements()) {
+        TransitionFactory<RuleTransitionData> factory;
+        try {
+          factory = convertConfig(element);
+        } catch (EvalException unused) {
+          throw Starlark.errorf(
+              "invalid composed transition for `cfg`: it contains a native transition that can"
+                  + " only be used as an attribute transition, such as the exec transition");
+        }
+        if (result == null) {
+          result = factory;
+        } else {
+          try {
+            result = ComposingTransitionFactory.of(result, factory);
+          } catch (ComposingTransitionFactory.IncompatibleTransitionsException e) {
+            throw Starlark.errorf("invalid composed transition for `cfg`: %s", e.getMessage());
+          }
+        }
+      }
+      return result;
     }
     if (cfg instanceof ConfigurationTransitionApi cta) {
       // Every ConfigurationTransitionApi must be a TransitionFactory instance to be usable.
