@@ -24,7 +24,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
@@ -63,6 +62,9 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
+import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -297,7 +299,7 @@ public class CombinedCacheTest {
               return SettableFuture.create();
             })
         .when(remoteCacheClient)
-        .uploadFileImpl(any(), any(), any());
+        .uploadBlobImpl(any(), any(), any());
     CombinedCache combinedCache = newCombinedCache(remoteCacheClient);
     Digest digest = fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file"), "content");
     Path file = execRoot.getRelative("file");
@@ -320,7 +322,7 @@ public class CombinedCacheTest {
               return invocationOnMock.callRealMethod();
             })
         .when(remoteCacheClient)
-        .uploadFileImpl(any(), any(), any());
+        .uploadBlobImpl(any(), any(), any());
     CombinedCache combinedCache = newCombinedCache(remoteCacheClient);
     Digest digest = fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file"), "content");
     Path file = execRoot.getRelative("file");
@@ -535,7 +537,7 @@ public class CombinedCacheTest {
               return future;
             })
         .when(cacheProtocol)
-        .uploadFileImpl(any(), any(), any());
+        .uploadBlobImpl(any(), any(), any());
 
     Path path = execRoot.getRelative("foo");
     FileSystemUtils.writeContentAsLatin1(path, "bar");
@@ -615,7 +617,7 @@ public class CombinedCacheTest {
               return future;
             })
         .when(cacheProtocol)
-        .uploadFileImpl(any(), any(), any());
+        .uploadBlobImpl(any(), any(), any());
 
     Path path = execRoot.getRelative("foo");
     FileSystemUtils.writeContentAsLatin1(path, "bar");
@@ -680,29 +682,19 @@ public class CombinedCacheTest {
     RemoteExecutionCache remoteCache = spy(newRemoteExecutionCache(cacheProtocol));
     remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
 
-    ConcurrentLinkedDeque<SettableFuture<Void>> uploadBlobFutures = new ConcurrentLinkedDeque<>();
-    Map<Path, SettableFuture<Void>> uploadFileFutures = Maps.newConcurrentMap();
-    CountDownLatch uploadBlobCalls = new CountDownLatch(2);
-    CountDownLatch uploadFileCalls = new CountDownLatch(3);
+    Map<Digest, SettableFuture<Void>> uploadFutures = Maps.newConcurrentMap();
+    // 3 unique file digests + 2 unique directory blob digests = 5 uploads total.
+    CountDownLatch uploadCalls = new CountDownLatch(5);
     doAnswer(
             invocationOnMock -> {
+              Digest digest = invocationOnMock.getArgument(1, Digest.class);
               SettableFuture<Void> future = SettableFuture.create();
-              uploadBlobFutures.add(future);
-              uploadBlobCalls.countDown();
+              uploadFutures.put(digest, future);
+              uploadCalls.countDown();
               return future;
             })
         .when(cacheProtocol)
         .uploadBlobImpl(any(), any(), (Blob) any());
-    doAnswer(
-            invocationOnMock -> {
-              Path file = invocationOnMock.getArgument(2, Path.class);
-              SettableFuture<Void> future = SettableFuture.create();
-              uploadFileFutures.put(file, future);
-              uploadFileCalls.countDown();
-              return future;
-            })
-        .when(cacheProtocol)
-        .uploadFileImpl(any(), any(), any());
 
     Path foo = execRoot.getRelative("foo");
     FileSystemUtils.writeContentAsLatin1(foo, "foo");
@@ -710,6 +702,9 @@ public class CombinedCacheTest {
     FileSystemUtils.writeContentAsLatin1(bar, "bar");
     Path qux = execRoot.getRelative("qux");
     FileSystemUtils.writeContentAsLatin1(qux, "qux");
+    Digest fooDigest = digestUtil.computeAsUtf8("foo");
+    Digest barDigest = digestUtil.computeAsUtf8("bar");
+    Digest quxDigest = digestUtil.computeAsUtf8("qux");
 
     SortedMap<PathFragment, Path> input1 = new TreeMap<>();
     input1.put(PathFragment.create("foo"), foo);
@@ -761,10 +756,8 @@ public class CombinedCacheTest {
     // act
     thread1.start();
     thread2.start();
-    uploadBlobCalls.await();
-    uploadFileCalls.await();
-    assertThat(uploadBlobFutures).hasSize(2);
-    assertThat(uploadFileFutures).hasSize(3);
+    uploadCalls.await();
+    assertThat(uploadFutures).hasSize(5);
     assertThat(cacheProtocol.getInProgressUploads()).hasSize(5);
 
     thread1.interrupt();
@@ -773,20 +766,13 @@ public class CombinedCacheTest {
     // assert
     assertThat(cacheProtocol.getInProgressUploads()).hasSize(3);
     assertThat(cacheProtocol.getFinishedUploads()).isEmpty();
-    for (Map.Entry<Path, SettableFuture<Void>> entry : uploadFileFutures.entrySet()) {
-      Path file = entry.getKey();
-      SettableFuture<Void> future = entry.getValue();
-      if (file.equals(foo)) {
-        assertThat(future.isCancelled()).isTrue();
-      } else {
-        assertThat(future.isCancelled()).isFalse();
-      }
-    }
+    // foo is only in tree1, so interrupting thread1 cancels it; bar is shared and qux is only in
+    // tree2, so both are kept.
+    assertThat(uploadFutures.get(fooDigest).isCancelled()).isTrue();
+    assertThat(uploadFutures.get(barDigest).isCancelled()).isFalse();
+    assertThat(uploadFutures.get(quxDigest).isCancelled()).isFalse();
 
-    for (SettableFuture<Void> future : uploadBlobFutures) {
-      future.set(null);
-    }
-    for (SettableFuture<Void> future : uploadFileFutures.values()) {
+    for (SettableFuture<Void> future : uploadFutures.values()) {
       future.set(null);
     }
     ensureInputsPresentReturned.await();
@@ -803,7 +789,7 @@ public class CombinedCacheTest {
         .uploadBlobImpl(any(), any(), (Blob) any());
     doAnswer(invocationOnMock -> Futures.immediateFailedFuture(new IOException("upload failed")))
         .when(cacheProtocol)
-        .uploadFileImpl(any(), any(), any());
+        .uploadBlobImpl(any(), any(), any());
     RemoteExecutionCache remoteCache = spy(newRemoteExecutionCache(cacheProtocol));
     Path path = execRoot.getRelative("foo");
     FileSystemUtils.writeContentAsLatin1(path, "bar");
@@ -830,7 +816,7 @@ public class CombinedCacheTest {
     // Return a future that never completes
     doAnswer(invocationOnMock -> SettableFuture.create())
         .when(remoteCacheClient)
-        .uploadFileImpl(any(), any(), any());
+        .uploadBlobImpl(any(), any(), any());
     CombinedCache combinedCache = newCombinedCache(remoteCacheClient);
     Digest digest = fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file"), "content");
     Path file = execRoot.getRelative("file");
@@ -845,19 +831,31 @@ public class CombinedCacheTest {
 
   @Test
   public void uploadFile_chunkedUpload_deduplicatesRemoteUpload() throws Exception {
-    GrpcCacheClient grpcCacheClient = mock(GrpcCacheClient.class);
-    when(grpcCacheClient.getServerCapabilities()).thenAnswer(unused -> chunkingCapabilities());
-    when(grpcCacheClient.findMissingDigests(any(), any()))
-        .thenAnswer(unused -> immediateFuture(ImmutableSet.of()));
+    // Spy on a real GrpcCacheClient so that final methods on the RemoteCacheClient base class
+    // (e.g. dedupUpload, uploadFile) execute their real implementations against a properly
+    // initialized casUploadCache.
+    GrpcCacheClient grpcCacheClient =
+        spy(
+            new GrpcCacheClient(
+                mock(ReferenceCountedChannel.class),
+                mock(CallCredentialsProvider.class),
+                Options.getDefaults(RemoteOptions.class),
+                mock(RemoteRetrier.class),
+                digestUtil));
+    doAnswer(unused -> chunkingCapabilities()).when(grpcCacheClient).getServerCapabilities();
+    doAnswer(unused -> immediateFuture(ImmutableSet.of()))
+        .when(grpcCacheClient)
+        .findMissingDigests(any(), any());
 
     CountDownLatch spliceStarted = new CountDownLatch(1);
     SettableFuture<Void> spliceFuture = SettableFuture.create();
-    when(grpcCacheClient.spliceBlob(any(), any(), any()))
-        .thenAnswer(
+    doAnswer(
             unused -> {
               spliceStarted.countDown();
               return spliceFuture;
-            });
+            })
+        .when(grpcCacheClient)
+        .spliceBlob(any(), any(), any());
 
     CombinedCache combinedCache =
         new CombinedCache(
