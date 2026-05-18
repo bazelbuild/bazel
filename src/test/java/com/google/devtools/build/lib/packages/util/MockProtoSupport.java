@@ -449,31 +449,39 @@ public final class MockProtoSupport {
     if (TestConstants.PRODUCT_NAME.equals("bazel")) {
       Runfiles runfiles = Runfiles.preload().withSourceRepository("");
       PathFragment path =
-          PathFragment.create(runfiles.rlocation("com_google_protobuf/bazel/BUILD.bazel"));
+          PathFragment.create(runfiles.rlocation("com_google_protobuf/bazel/BUILD"));
       config.copyDirectory(
           path.getParentDirectory(), "third_party/protobuf/bazel", MAX_VALUE, false);
       config.overwrite(
           "third_party/protobuf/BUILD",
           "filegroup(name = 'license')",
-          "genrule(name='protoc_gen', cmd='', executable = True, outs = ['protoc'])");
+          "load('@rules_cc//cc:defs.bzl', 'cc_binary')",
+          "cc_binary(name='protoc', srcs=['protoc.cc'])",
+          "load('@rules_java//java:defs.bzl', 'java_library')",
+          "java_library(name = 'runtime', srcs = ['Runtime.java'])",
+          "alias(name = 'javalite_toolchain', actual = '//java/lite:toolchain')");
+      config.create("third_party/protobuf/protoc.cc", "int main() { return 0; }");
+      config.create("third_party/protobuf/Runtime.java", "class Runtime {}");
+      config.create(
+          "third_party/protobuf/java/lite/BUILD",
+          "load('//bazel/toolchains:proto_lang_toolchain.bzl', 'proto_lang_toolchain')",
+          "proto_lang_toolchain(name = 'toolchain', command_line = '--java_out=lite,immutable:$(OUT)', runtime = '//:runtime')");
       config.overwrite(
           "proto_bazel_features_workspace/MODULE.bazel", "module(name = 'proto_bazel_features')");
       // Overwritten to remove bazel7 toolchains from protobuf
       config.overwrite(
-          "third_party/protobuf/bazel/private/toolchains/BUILD.bazel",
+          "third_party/protobuf/bazel/private/oss/toolchains/BUILD.bazel",
           "load('//bazel/toolchains:proto_toolchain.bzl', 'proto_toolchain')",
           TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
           "proto_toolchain(name = 'protoc_sources',"
-              + "proto_compiler = '"
-              + ProtoConstants.DEFAULT_PROTOC_LABEL
-              + "')");
+              + "proto_compiler = '//proto:compiler')");
       config.overwrite(
-          "third_party/protobuf/bazel/private/toolchains/prebuilt/authenticity.bzl",
+          "third_party/protobuf/bazel/private/oss/toolchains/prebuilt/authenticity.bzl",
           "def _authenticity_impl(ctx):",
           "    return [OutputGroupInfo(_validation = depset())]",
           "authenticity_rule = rule(implementation = _authenticity_impl)");
       config.overwrite(
-          "third_party/protobuf/bazel/private/toolchains/prebuilt/BUILD.bazel",
+          "third_party/protobuf/bazel/private/oss/toolchains/prebuilt/BUILD.bazel",
           "load(':authenticity.bzl', 'authenticity_rule')",
           "authenticity_rule(name = 'authenticity_validation', visibility ="
               + " ['//visibility:public'])");
