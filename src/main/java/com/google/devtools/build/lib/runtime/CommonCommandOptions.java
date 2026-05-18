@@ -50,7 +50,7 @@ public abstract class CommonCommandOptions extends OptionsBase {
   // value during options parsing based on its (string) name.
   @Option(
       name = "enable_platform_specific_config",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
