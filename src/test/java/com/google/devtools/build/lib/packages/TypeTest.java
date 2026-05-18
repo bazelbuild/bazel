@@ -290,6 +290,19 @@ public class TypeTest {
   }
 
   @Test
+  public void testStringListRejectsDict() throws Exception {
+    Type.ConversionException e =
+        assertThrows(
+            Type.ConversionException.class,
+            () -> Types.STRING_LIST.convert(ImmutableMap.of("foo", "bar"), "myattr"));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "expected value of type 'list(string)' for myattr,"
+                + " but got {\"foo\": \"bar\"} (Map)");
+  }
+
+  @Test
   public void testStringListBadElements() throws Exception {
     Object input = Arrays.<Object>asList("foo", "bar", StarlarkInt.of(1));
     Type.ConversionException e =

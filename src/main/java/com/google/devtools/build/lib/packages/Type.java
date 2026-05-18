@@ -732,6 +732,10 @@ public abstract class Type<T> {
         throws ConversionException {
       Iterable<?> iterable;
 
+      if (x instanceof Map) {
+        throw new ConversionException(this, x, what);
+      }
+
       if (x instanceof Iterable) {
         iterable = (Iterable<?>) x;
       } else if (x instanceof Depset) {
