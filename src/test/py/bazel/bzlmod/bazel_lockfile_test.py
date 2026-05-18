@@ -3253,5 +3253,122 @@ class BazelLockfileTest(test_base.TestBase):
     self.assertNotIn('has changed its facts', stderr)
 
 
+  def testDeletedFactsDetectedByErrorMode(self):
+    """Test that ERROR mode detects facts deleted from the workspace lockfile.
+
+    Regression test for https://github.com/bazelbuild/bazel/issues/29161
+    """
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
+            'repo_rule = repository_rule(',
+            '    implementation = impl,',
+            '    attrs = {"hash": attr.string()},',
+            ')',
+            'def _mod_ext_impl(ctx):',
+            '    metadata = {"hello": {"hash": "olleh"}}',
+            '    repo_rule(',
+            '        name = "hello",',
+            '        hash = metadata["hello"]["hash"],',
+            '    )',
+            '    return ctx.extension_metadata(',
+            '        facts = metadata,',
+            '    )',
+            'lockfile_ext = module_extension(implementation = _mod_ext_impl)',
+        ],
+    )
+
+    # Initial build to generate lockfile with facts
+    self.RunBazel(['build', '@hello//:all', '--lockfile_mode=update'])
+
+    # Verify facts are in the lockfile
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+    extension_id = '//:extension.bzl%lockfile_ext'
+    self.assertIn(extension_id, lockfile['facts'])
+
+    # Delete facts from the workspace lockfile
+    del lockfile['facts'][extension_id]
+    with open(self.Path('MODULE.bazel.lock'), 'w') as f:
+      json.dump(lockfile, f, indent=2)
+
+    # ERROR mode should detect the missing facts
+    exit_code, stdout, stderr = self.RunBazel(
+        ['build', '@hello//:all', '--lockfile_mode=error'], allow_failure=True
+    )
+    self.assertNotEqual(exit_code, 0)
+
+  def testDeletedFactsRegeneratedByUpdateMode(self):
+    """Test that UPDATE mode regenerates facts deleted from the workspace lockfile.
+
+    Regression test for https://github.com/bazelbuild/bazel/issues/29161
+    """
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
+            'repo_rule = repository_rule(',
+            '    implementation = impl,',
+            '    attrs = {"hash": attr.string()},',
+            ')',
+            'def _mod_ext_impl(ctx):',
+            '    metadata = {"hello": {"hash": "olleh"}}',
+            '    repo_rule(',
+            '        name = "hello",',
+            '        hash = metadata["hello"]["hash"],',
+            '    )',
+            '    return ctx.extension_metadata(',
+            '        facts = metadata,',
+            '    )',
+            'lockfile_ext = module_extension(implementation = _mod_ext_impl)',
+        ],
+    )
+
+    # Initial build to generate lockfile with facts
+    self.RunBazel(['build', '@hello//:all', '--lockfile_mode=update'])
+
+    # Verify facts are in the lockfile
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+    extension_id = '//:extension.bzl%lockfile_ext'
+    self.assertIn(extension_id, lockfile['facts'])
+
+    # Delete facts from the workspace lockfile
+    del lockfile['facts'][extension_id]
+    with open(self.Path('MODULE.bazel.lock'), 'w') as f:
+      json.dump(lockfile, f, indent=2)
+
+    # UPDATE mode should regenerate the facts
+    self.RunBazel(['build', '@hello//:all', '--lockfile_mode=update'])
+
+    # Verify facts are back in the lockfile
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+    self.assertIn(extension_id, lockfile['facts'])
+    self.assertEqual(
+        lockfile['facts'][extension_id],
+        {'hello': {'hash': 'olleh'}},
+    )
+
+
 if __name__ == '__main__':
   absltest.main()
