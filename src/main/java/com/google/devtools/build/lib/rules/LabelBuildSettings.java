@@ -92,6 +92,15 @@ public final class LabelBuildSettings {
                 .value("universal")
                 .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
         .add(attr("on_leave_scope", NODEP_LABEL).nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+        /* <!-- #BLAZE_RULE(label_flag).ATTRIBUTE(build_setting_default) -->
+        The default label for this build setting's value. The providers of the referenced target
+        are forwarded by the <code>label_flag</code> until the value is changed by the command line
+        or by a transition.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        /* <!-- #BLAZE_RULE(label_setting).ATTRIBUTE(build_setting_default) -->
+        The default label for this build setting's value. The providers of the referenced target
+        are forwarded by the <code>label_setting</code> until the value is changed by a transition.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .setBuildSetting(BuildSetting.create(flag, NODEP_LABEL))
         .canHaveAnyProvider()
         .toolchainResolutionMode(ToolchainResolutionMode.DISABLED)
@@ -126,3 +135,69 @@ public final class LabelBuildSettings {
 
   private LabelBuildSettings() {}
 }
+
+/*<!-- #BLAZE_RULE (NAME = label_flag, FAMILY = General)[GENERIC_RULE] -->
+
+<p>
+  A <code>label_flag</code> is a label-typed build setting that forwards the providers of the
+  target referenced by its current value.
+</p>
+
+<p>
+  Use <code>label_flag</code> when you want a label-typed build setting that can be changed by
+  transitions and by users at the command line.
+</p>
+
+<h4 id="label_flag_examples">Example</h4>
+
+<pre class="code">
+label_flag(
+    name = "my_flag",
+    build_setting_default = ":default_target",
+)
+
+cc_library(
+    name = "default_target",
+    srcs = ["default.cc"],
+)
+
+cc_library(
+    name = "other_target",
+    srcs = ["other.cc"],
+)
+</pre>
+
+<p>
+  Users can override this with a command like
+  <code>bazel build //example:target --//example:my_flag=//example:other_target</code>.
+</p>
+
+<!-- #END_BLAZE_RULE -->*/
+
+/*<!-- #BLAZE_RULE (NAME = label_setting, FAMILY = General)[GENERIC_RULE] -->
+
+<p>
+  A <code>label_setting</code> is a label-typed build setting that forwards the providers of the
+  target referenced by its current value.
+</p>
+
+<p>
+  Use <code>label_setting</code> for internal configuration that should be changed by transitions
+  but not set directly by users on the command line.
+</p>
+
+<h4 id="label_setting_examples">Example</h4>
+
+<pre class="code">
+label_setting(
+    name = "current_tool",
+    build_setting_default = ":default_tool",
+)
+
+filegroup(
+    name = "default_tool",
+    srcs = ["tool.txt"],
+)
+</pre>
+
+<!-- #END_BLAZE_RULE -->*/

@@ -339,12 +339,14 @@ in a `.bazelrc` reduces command line clutter.
 [End to end example](https://github.com/bazelbuild/examples/tree/HEAD/configurations/label_typed_build_setting){: .external}
 
 Unlike other build settings, label-typed settings cannot be defined using the
-`build_setting` rule parameter. Instead, bazel has two built-in rules:
-`label_flag` and `label_setting`. These rules forward the providers of the
-actual target to which the build setting is set. `label_flag` and
-`label_setting` can be read/written by transitions and `label_flag` can be set
-by the user like other `build_setting` rules can. Their only difference is they
-can't customely defined.
+`build_setting` rule parameter. Instead, Bazel has two built-in rules:
+[`label_flag`](/reference/be/general#label_flag) and
+[`label_setting`](/reference/be/general#label_setting). These
+[language-agnostic native rules](/reference/be/overview#language-agnostic-native-rules)
+forward the providers of the actual target to which the build setting is set.
+Both can be read and written by transitions. `label_flag` can also be set by
+the user on the command line, while `label_setting` is intended for internal
+configuration. They cannot be user-defined.
 
 Label-typed settings will eventually replace the functionality of late-bound
 defaults. Late-bound default attributes are Label-typed attributes whose
@@ -379,6 +381,7 @@ parent_rule = rule(
 load("//example:rules.bzl", "dep_rule", "parent_rule")
 
 dep_rule(name = "dep")
+dep_rule(name = "other_dep")
 
 parent_rule(name = "parent", my_field_provider = ":my_field_provider")
 
@@ -386,6 +389,12 @@ label_flag(
     name = "my_field_provider",
     build_setting_default = ":dep"
 )
+```
+
+You can override a `label_flag` on the command line:
+
+```shell
+$ bazel build //example:parent --//example:my_field_provider=//example:other_dep
 ```
 
 ### Build settings and select() {:#build-settings-and-select}
