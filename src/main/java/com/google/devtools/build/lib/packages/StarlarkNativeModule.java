@@ -591,12 +591,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       }
       try {
         InputFile inputFile = targetDefinitionContext.createInputFile(file, loc);
-        // TODO: #19922 - The use of identity inequality in this visibility check seems suspect,
-        // since the same logical visibility may have multiple RuleVisibility instances. But it's
-        // unclear why we want to support idempotent exports_files() with the same logical
-        // visibility at all. With Macro-Aware Visibility, it becomes possible for two identical
-        // visibility lines to declare different actual visibility values depending on context.
-        if (inputFile.isVisibilitySpecified() && inputFile.getVisibility() != visibility) {
+        if (inputFile.isVisibilitySpecified()
+            && !inputFile.getVisibility().equals(visibility)) {
           throw Starlark.errorf(
               "visibility for exported file '%s' declared twice", inputFile.getName());
         }
