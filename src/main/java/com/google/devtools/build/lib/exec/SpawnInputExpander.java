@@ -107,8 +107,11 @@ public final class SpawnInputExpander {
         ArchivedTreeArtifact archivedTreeArtifact =
             expandArchivedTreeArtifacts ? null : treeArtifactValue.getArchivedArtifact();
         if (archivedTreeArtifact != null) {
-          // TODO(bazel-team): Add path mapping support for archived tree artifacts.
-          addMapping(inputMap, location, archivedTreeArtifact, baseDirectory);
+          addMapping(
+              inputMap,
+              mapForRunfiles(pathMapper, root, location),
+              archivedTreeArtifact,
+              baseDirectory);
         } else if (treeArtifactValue.getChildren().isEmpty()) {
           addMapping(inputMap, mapForRunfiles(pathMapper, root, location), artifact, baseDirectory);
         } else {

@@ -1289,4 +1289,101 @@ EOF
   rm -rf "$pkg"
 }
 
+function test_path_stripping_archived_tree_runfiles() {
+  if is_windows; then
+    echo "Skipping test_path_stripping_archived_tree_runfiles on Windows as it requires sandboxing"
+    return
+  fi
+
+  stop_worker
+  start_worker
+
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg"
+
+  cat > "$pkg/defs.bzl" <<EOF
+def _tree_gen_impl(ctx):
+    out = ctx.actions.declare_directory(ctx.label.name)
+    ctx.actions.run_shell(
+        outputs = [out],
+        command = "mkdir -p " + out.path,
+        mnemonic = "GenerateArchiveTree",
+    )
+    return [DefaultInfo(files = depset([out]))]
+
+tree_gen = rule(
+    implementation = _tree_gen_impl,
+)
+
+def _consume_impl(ctx):
+    out = ctx.actions.declare_file(ctx.label.name + ".out")
+    args = ctx.actions.args()
+    args.add(out)
+    ctx.actions.run(
+        inputs = ctx.files.srcs,
+        outputs = [out],
+        executable = ctx.executable.tool,
+        arguments = [args],
+        mnemonic = "ConsumeArchiveTree",
+        execution_requirements = {"supports-path-mapping": ""},
+    )
+    return [DefaultInfo(files = depset([out]))]
+
+consume = rule(
+    implementation = _consume_impl,
+    attrs = {
+        "srcs": attr.label_list(allow_files = True),
+        "tool": attr.label(
+            default = "//$pkg:my_binary",
+            cfg = "exec",
+            executable = True,
+        ),
+    },
+)
+EOF
+
+  cat > "$pkg/BUILD" <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load(":defs.bzl", "tree_gen", "consume")
+
+tree_gen(name = "my_tree")
+
+sh_binary(
+    name = "my_binary",
+    srcs = ["my_binary.sh"],
+    data = [":my_tree"],
+)
+
+consume(
+    name = "my_consume",
+    srcs = [":my_tree"],
+)
+EOF
+
+  cat > "$pkg/my_binary.sh" <<'EOF'
+#!/bin/bash
+touch "$1"
+EOF
+  chmod +x "$pkg/my_binary.sh"
+
+  bazel build -c fastbuild \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --archived_tree_artifact_mnemonics_filter=GenerateArchiveTree \
+    --experimental_output_paths=strip \
+    "//$pkg:my_consume" &> $TEST_log || fail "build failed unexpectedly"
+
+  expect_log 'linux-sandbox'
+  expect_not_log 'remote cache hit'
+
+  bazel build -c opt \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --archived_tree_artifact_mnemonics_filter=GenerateArchiveTree \
+    --experimental_output_paths=strip \
+    "//$pkg:my_consume" &> $TEST_log || fail "build failed unexpectedly"
+
+  expect_log '1 remote cache hit'
+
+  rm -rf "$pkg"
+}
+
 run_suite "path mapping tests"
