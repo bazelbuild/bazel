@@ -18,14 +18,17 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.String.format;
 
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
+import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -309,5 +312,50 @@ public class PathMappersTest extends BuildViewTestCase {
         .isEqualTo(PathFragment.create("pkg/file"));
     assertThat(pathMapper.map(PathFragment.create("bazel-out/k8-fastbuild-ST-12345/bin/pkg/file")))
         .isEqualTo(PathFragment.create("bazel-out/pm-k8-fastbuild-ST-12345/bin/pkg/file"));
+  }
+
+  /**
+   * Tests that CppCompileAction includes potential discovered headers in path stripping collision
+   * checks via getAdditionalArtifactsForPathMapping().
+   *
+   * <p>When a cc_library depends on headers, the CppCompileAction may discover these headers via
+   * .d file parsing. The getAdditionalArtifactsForPathMapping() method should return these
+   * potential headers so that StrippingPathMapper.isPathStrippable() can detect collisions before
+   * execution time.
+   */
+  @Test
+  public void cppCompileAction_returnsAdditionalArtifactsForPathMapping() throws Exception {
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+        cc_library(
+            name = "lib",
+            srcs = ["lib.cc"],
+            hdrs = ["lib.h"],
+        )
+        """);
+    scratch.file("pkg/lib.cc", "#include \"pkg/lib.h\"");
+    scratch.file("pkg/lib.h", "#define FOO 1");
+
+    ConfiguredTarget target = getConfiguredTarget("//pkg:lib");
+
+    // Find the CppCompileAction from the configured target's actions
+    CppCompileAction compileAction = null;
+    for (var action : ((RuleConfiguredTarget) target).getActions()) {
+      if (action instanceof CppCompileAction cppAction) {
+        compileAction = cppAction;
+        break;
+      }
+    }
+
+    assertThat(compileAction).isNotNull();
+
+    // The key assertion: getAdditionalArtifactsForPathMapping() should return the potential
+    // headers (allowedDerivedInputs) so that path stripping collision detection works correctly.
+    // Before the fix, this would return empty, causing path stripping to be enabled even when
+    // discovered headers from different configurations would collide.
+    assertThat(compileAction.getAdditionalArtifactsForPathMapping().isEmpty()).isFalse();
   }
 }
