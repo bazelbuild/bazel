@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.MoreCollectors;
 import com.google.common.eventbus.Subscribe;
-import com.google.common.hash.HashCode;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -42,12 +41,10 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.NoSpawnCacheModule;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
@@ -401,16 +398,10 @@ public final class TargetCompleteEventTest extends BuildIntegrationTestCase {
         .collect(MoreCollectors.onlyElement());
   }
 
-  private static void assertDigest(String contents, byte[] bepDigest) {
-    // Try all registered hash functions and verify that one of them was used to produce the digest.
-    boolean foundHashFunction = false;
-    for (DigestHashFunction hashFunction : DigestHashFunction.getPossibleHashFunctions()) {
-      HashCode hashCode = hashFunction.getHashFunction().hashString(contents, UTF_8);
-      if (Arrays.equals(bepDigest, hashCode.asBytes())) {
-        foundHashFunction = true;
-      }
-    }
-    assertThat(foundHashFunction).isTrue();
+  private void assertDigest(String contents, byte[] bepDigest) {
+    assertThat(
+            fileSystem.getDigestFunction().getHashFunction().hashString(contents, UTF_8).asBytes())
+        .isEqualTo(bepDigest);
   }
 
   private static ImmutableList<BuildEvent> parseBuildEventsFromBEPStream(File bep)
