@@ -56,6 +56,7 @@ public class AutoCpuConverter extends Converter.Contextless<String> {
               case S390X -> "s390x";
               case MIPS64 -> "mips64";
               case RISCV64 -> "riscv64";
+              case SW64 -> "sw_64";
               default -> "unknown";
             };
         default -> "unknown";
