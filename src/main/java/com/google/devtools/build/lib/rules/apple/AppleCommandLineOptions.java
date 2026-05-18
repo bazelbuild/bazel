@@ -123,7 +123,7 @@ public abstract class AppleCommandLineOptions extends FragmentOptions {
 
   @Option(
       name = "macos_minimum_os",
-      defaultValue = "null",
+      defaultValue = "12.0",
       converter = DottedVersionConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
@@ -134,7 +134,7 @@ public abstract class AppleCommandLineOptions extends FragmentOptions {
 
   @Option(
       name = "host_macos_minimum_os",
-      defaultValue = "null",
+      defaultValue = "12.0",
       converter = DottedVersionConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},

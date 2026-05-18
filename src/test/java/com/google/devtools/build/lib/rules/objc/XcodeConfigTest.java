@@ -927,10 +927,18 @@ public class XcodeConfigTest extends BuildViewTestCase {
             .put(ApplePlatform.TVOS_SIMULATOR, "103")
             .put(ApplePlatform.MACOS, "104")
             .build();
+    ImmutableMap<ApplePlatform, String> platformToMinimumOs =
+        ImmutableMap.<ApplePlatform, String>builder()
+            .put(ApplePlatform.IOS_SIMULATOR, "101")
+            .put(ApplePlatform.WATCHOS_SIMULATOR, "102")
+            .put(ApplePlatform.TVOS_SIMULATOR, "103")
+            .put(ApplePlatform.MACOS, "12.0")
+            .build();
     for (ApplePlatform platform : platformToVersion.keySet()) {
-      DottedVersion version = DottedVersion.fromString(platformToVersion.get(platform));
-      assertThat(getSdkVersionForPlatform(platform)).isEqualTo(version);
-      assertThat(getMinimumOsVersionForPlatform(platform)).isEqualTo(version);
+      assertThat(getSdkVersionForPlatform(platform))
+          .isEqualTo(DottedVersion.fromString(platformToVersion.get(platform)));
+      assertThat(getMinimumOsVersionForPlatform(platform))
+          .isEqualTo(DottedVersion.fromString(platformToMinimumOs.get(platform)));
     }
   }
 
@@ -990,10 +998,18 @@ public class XcodeConfigTest extends BuildViewTestCase {
             .put(ApplePlatform.TVOS_SIMULATOR, "45")
             .put(ApplePlatform.MACOS, "46")
             .build();
+    ImmutableMap<ApplePlatform, String> platformToMinimumOs =
+        ImmutableMap.<ApplePlatform, String>builder()
+            .put(ApplePlatform.IOS_SIMULATOR, "43")
+            .put(ApplePlatform.WATCHOS_SIMULATOR, "44")
+            .put(ApplePlatform.TVOS_SIMULATOR, "45")
+            .put(ApplePlatform.MACOS, "12.0")
+            .build();
     for (ApplePlatform platform : platformToVersion.keySet()) {
-      DottedVersion version = DottedVersion.fromString(platformToVersion.get(platform));
-      assertThat(getSdkVersionForPlatform(platform)).isEqualTo(version);
-      assertThat(getMinimumOsVersionForPlatform(platform)).isEqualTo(version);
+      assertThat(getSdkVersionForPlatform(platform))
+          .isEqualTo(DottedVersion.fromString(platformToVersion.get(platform)));
+      assertThat(getMinimumOsVersionForPlatform(platform))
+          .isEqualTo(DottedVersion.fromString(platformToMinimumOs.get(platform)));
     }
   }
 
@@ -1055,10 +1071,18 @@ public class XcodeConfigTest extends BuildViewTestCase {
             .put(ApplePlatform.TVOS_SIMULATOR, "15.5")
             .put(ApplePlatform.MACOS, "15.6")
             .build();
+    ImmutableMap<ApplePlatform, String> platformToMinimumOs =
+        ImmutableMap.<ApplePlatform, String>builder()
+            .put(ApplePlatform.IOS_SIMULATOR, "15.3")
+            .put(ApplePlatform.WATCHOS_SIMULATOR, "15.4")
+            .put(ApplePlatform.TVOS_SIMULATOR, "15.5")
+            .put(ApplePlatform.MACOS, "12.0")
+            .build();
     for (ApplePlatform platform : platformToVersion.keySet()) {
-      DottedVersion version = DottedVersion.fromString(platformToVersion.get(platform));
-      assertThat(getSdkVersionForPlatform(platform)).isEqualTo(version);
-      assertThat(getMinimumOsVersionForPlatform(platform)).isEqualTo(version);
+      assertThat(getSdkVersionForPlatform(platform))
+          .isEqualTo(DottedVersion.fromString(platformToVersion.get(platform)));
+      assertThat(getMinimumOsVersionForPlatform(platform))
+          .isEqualTo(DottedVersion.fromString(platformToMinimumOs.get(platform)));
     }
   }
 
@@ -1134,7 +1158,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     assertThat(info.getValue("xcode").toString()).isEqualTo("0.0");
     assertThat(info.getValue("ios_sdk").toString()).isEqualTo("1.0");
     assertThat(info.getValue("tvos_sdk").toString()).isEqualTo("2.5");
-    assertThat(info.getValue("macos_min").toString()).isEqualTo("3.0");
+    assertThat(info.getValue("macos_min").toString()).isEqualTo("12.0");
     assertThat(info.getValue("watchos_min").toString()).isEqualTo("4.5");
     assertThat(info.getValue("availability").toString()).isEqualTo("unknown");
     assertThat((Map<?, ?>) info.getValue("execution_info"))
