@@ -15,7 +15,10 @@
 package com.google.devtools.build.lib.starlarkbuildapi.config;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
+import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Represents a configuration transition across a dependency edge. */
@@ -28,4 +31,23 @@ import net.starlark.java.eval.StarlarkValue;
             + " configuration transition, then the configuration of <code>//package:bar</code> (and"
             + " its dependencies) will be <code>//package:foo</code>'s configuration plus the"
             + " changes specified by the transition function.")
-public interface ConfigurationTransitionApi extends StarlarkValue {}
+public interface ConfigurationTransitionApi extends StarlarkValue {
+
+  @StarlarkMethod(
+      name = "and_then",
+      doc =
+          "Returns a new transition that applies this transition followed by the given one. The"
+              + " second transition reads the build settings produced by this one; the original"
+              + " transitions are left unchanged. The result is itself a transition and may be"
+              + " composed further.<p>A composition may be used as a rule or attribute transition"
+              + " wherever its component transitions could be used. At most one of the composed"
+              + " transitions may target the exec configuration (e.g. <code>config.exec</code>)."
+              + " When two transitions in the chain split the configuration, the result has the"
+              + " cross product of their splits; the key for each combined split is the"
+              + " comma-separated concatenation of the component keys.",
+      parameters = {@Param(name = "transition", doc = "The transition to apply after this one.")})
+  default ConfigurationTransitionApi andThen(ConfigurationTransitionApi transition)
+      throws EvalException {
+    return ComposedConfigurationTransitionApi.compose(this, transition);
+  }
+}

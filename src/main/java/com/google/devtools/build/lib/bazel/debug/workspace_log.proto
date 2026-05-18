@@ -152,7 +152,6 @@ message WhichEvent {
 message LoadWasmEvent {
   string module_path = 1;
   string allocate_fn = 2;
-  bool compile = 3;
 }
 
 message ExecuteWasmEvent {

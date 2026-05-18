@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionType;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAttrModuleApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ComposedConfigurationTransitionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.util.FileType;
@@ -534,6 +536,29 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     }
     if (trans instanceof StarlarkDefinedConfigTransition starlarkDefinedTransition) {
       return new StarlarkAttributeTransitionProvider(starlarkDefinedTransition);
+    }
+    if (trans instanceof ComposedConfigurationTransitionApi composition) {
+      TransitionFactory<AttributeTransitionData> result = null;
+      for (ConfigurationTransitionApi element : composition.getElements()) {
+        TransitionFactory<AttributeTransitionData> factory;
+        try {
+          factory = convertCfg(thread, element);
+        } catch (EvalException unused) {
+          throw Starlark.errorf(
+              "invalid composed transition for `cfg`: it contains a native transition that can"
+                  + " only be used as a rule transition");
+        }
+        if (result == null) {
+          result = factory;
+        } else {
+          try {
+            result = ComposingTransitionFactory.of(result, factory);
+          } catch (ComposingTransitionFactory.IncompatibleTransitionsException e) {
+            throw Starlark.errorf("invalid composed transition for `cfg`: %s", e.getMessage());
+          }
+        }
+      }
+      return result;
     }
     if (trans instanceof ConfigurationTransitionApi cta) {
       // Every ConfigurationTransitionApi must be a TransitionFactory instance to be usable.
