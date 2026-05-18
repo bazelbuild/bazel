@@ -163,6 +163,16 @@ message ExecuteWasmEvent {
   int64 memory_limit_bytes = 5;
 }
 
+// Information on "digest" event in repository_ctx.
+message DigestEvent {
+  // The path of the file to hash.
+  string path = 1;
+  // The hash algorithm to use.
+  string algorithm = 2;
+  // The format of the digest.
+  string format = 3;
+}
+
 message WorkspaceEvent {
   // Location in the code (.bzl file) where the event originates.
   string location = 1;
@@ -187,5 +197,6 @@ message WorkspaceEvent {
     RenameEvent rename_event = 15;
     LoadWasmEvent load_wasm_event = 16;
     ExecuteWasmEvent execute_wasm_event = 17;
+    DigestEvent digest_event = 18;
   }
 }
