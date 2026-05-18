@@ -2366,4 +2366,117 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         /*expected:*/ ImmutableList.of(DEFAULTDEP_INPUT),
         /*not expected:*/ ImmutableList.of(ADEP_INPUT, BDEP_INPUT));
   }
+
+  @Test
+  public void selectInAttrDefault() throws Exception {
+    writeConfigRules();
+    scratch.file(
+        "pkg/rule.bzl",
+        """
+        def _impl(ctx):
+            pass
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "x": attr.string(default = select({
+                    "//conditions:a": "a_val",
+                    "//conditions:b": "b_val",
+                    "//conditions:default": "default_val",
+                })),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":rule.bzl", "my_rule")
+        my_rule(name = "t")
+        """);
+
+    useConfiguration("--foo=a");
+    ConfiguredTargetAndData ctad = getConfiguredTargetAndData("//pkg:t");
+    AttributeMap attributes = getMapperFromConfiguredTargetAndTarget(ctad);
+    assertThat(attributes.get("x", Type.STRING)).isEqualTo("a_val");
+
+    useConfiguration("--foo=b");
+    ctad = getConfiguredTargetAndData("//pkg:t");
+    attributes = getMapperFromConfiguredTargetAndTarget(ctad);
+    assertThat(attributes.get("x", Type.STRING)).isEqualTo("b_val");
+  }
+
+  @Test
+  public void selectInAttrDefault_overriddenByExplicitValue() throws Exception {
+    writeConfigRules();
+    scratch.file(
+        "pkg/rule.bzl",
+        """
+        def _impl(ctx):
+            pass
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "x": attr.string(default = select({
+                    "//conditions:a": "a_val",
+                    "//conditions:b": "b_val",
+                    "//conditions:default": "default_val",
+                })),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":rule.bzl", "my_rule")
+        my_rule(name = "t", x = "explicit")
+        """);
+
+    useConfiguration("--foo=a");
+    ConfiguredTargetAndData ctad = getConfiguredTargetAndData("//pkg:t");
+    AttributeMap attributes = getMapperFromConfiguredTargetAndTarget(ctad);
+    assertThat(attributes.get("x", Type.STRING)).isEqualTo("explicit");
+  }
+
+  @Test
+  public void selectInAttrDefault_labelList() throws Exception {
+    writeConfigRules();
+    scratch.file(
+        "pkg/rule.bzl",
+        """
+        def _impl(ctx):
+            pass
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "deps": attr.label_list(default = select({
+                    "//conditions:a": ["//pkg:adep"],
+                    "//conditions:b": ["//pkg:bdep"],
+                    "//conditions:default": [],
+                })),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":rule.bzl", "my_rule")
+        my_rule(name = "t")
+        filegroup(name = "adep")
+        filegroup(name = "bdep")
+        """);
+
+    useConfiguration("--foo=a");
+    ConfiguredTargetAndData ctad = getConfiguredTargetAndData("//pkg:t");
+    AttributeMap attributes = getMapperFromConfiguredTargetAndTarget(ctad);
+    assertThat(attributes.get("deps", BuildType.LABEL_LIST))
+        .containsExactly(Label.parseCanonicalUnchecked("//pkg:adep"));
+
+    useConfiguration("--foo=b");
+    ctad = getConfiguredTargetAndData("//pkg:t");
+    attributes = getMapperFromConfiguredTargetAndTarget(ctad);
+    assertThat(attributes.get("deps", BuildType.LABEL_LIST))
+        .containsExactly(Label.parseCanonicalUnchecked("//pkg:bdep"));
+  }
 }
