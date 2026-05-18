@@ -35,6 +35,7 @@ import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -74,6 +75,19 @@ public abstract class ExecutionOptions extends OptionsBase {
               + " value is \"remote,worker,sandboxed,local\". See"
               + " https://blog.bazel.build/2019/06/19/list-strategy.html for details.")
   public abstract List<String> getSpawnStrategy();
+
+  @Option(
+      name = "experimental_detect_stale_runfiles",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If true, verifies that runfiles entries are real symbolic links before reusing an"
+              + " existing runfiles directory based on manifest equality. Detects stale runfiles"
+              + " on Windows when symlink privileges are unavailable and the tree is materialized"
+              + " as copies. Has no effect on platforms that always use real symlinks.")
+  public abstract boolean getDetectStaleRunfiles();
 
   @Option(
       name = "genrule_strategy",

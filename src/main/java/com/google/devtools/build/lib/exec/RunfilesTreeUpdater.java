@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.exec;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -46,6 +47,7 @@ import javax.annotation.concurrent.ThreadSafe;
 public class RunfilesTreeUpdater {
   private final Path execRoot;
   private final XattrProvider xattrProvider;
+  private final boolean detectStaleRunfiles;
 
   /**
    * Deduplicates multiple attempts to update the same runfiles tree.
@@ -59,12 +61,18 @@ public class RunfilesTreeUpdater {
       new ConcurrentHashMap<>();
 
   public static RunfilesTreeUpdater forCommandEnvironment(CommandEnvironment env) {
-    return new RunfilesTreeUpdater(env.getExecRoot(), env.getXattrProvider());
+    ExecutionOptions options = env.getOptions().getOptions(ExecutionOptions.class);
+    return new RunfilesTreeUpdater(
+        env.getExecRoot(),
+        env.getXattrProvider(),
+        options != null && options.getDetectStaleRunfiles());
   }
 
-  public RunfilesTreeUpdater(Path execRoot, XattrProvider xattrProvider) {
+  public RunfilesTreeUpdater(
+      Path execRoot, XattrProvider xattrProvider, boolean detectStaleRunfiles) {
     this.execRoot = execRoot;
     this.xattrProvider = xattrProvider;
+    this.detectStaleRunfiles = detectStaleRunfiles;
   }
 
   /** Creates or updates input runfiles trees for a spawn. */
@@ -120,18 +128,12 @@ public class RunfilesTreeUpdater {
       // implying the symlinks exist and are already up to date. If the output manifest is a
       // symbolic link, it is likely a symbolic link to the input manifest, so we cannot trust it as
       // an up-to-date check.
-      // On Windows, where symlinks may be silently replaced by copies, a previous run in SKIP mode
-      // could have resulted in an output manifest that is an identical copy of the input manifest,
-      // which we must not treat as up to date, but we also don't want to unnecessarily rebuild the
-      // runfiles directory all the time. Instead, check for the presence of the first runfile in
-      // the manifest. If it is present, we can be certain that the previous mode wasn't SKIP.
       if (tree.getSymlinksMode() == RunfileSymlinksMode.CREATE
           && !outputManifest.isSymbolicLink()
           && Arrays.equals(
               DigestUtils.getDigestWithManualFallback(outputManifest, xattrProvider),
               DigestUtils.getDigestWithManualFallback(inputManifest, xattrProvider))
-          && (OS.getCurrent() != OS.WINDOWS
-              || isRunfilesDirectoryPopulated(runfilesDir, outputManifest))) {
+          && runfilesDirIsFresh(runfilesDir, outputManifest)) {
         return;
       }
     } catch (IOException e) {
@@ -154,6 +156,16 @@ public class RunfilesTreeUpdater {
     }
   }
 
+  private boolean runfilesDirIsFresh(Path runfilesDir, Path outputManifest) {
+    if (detectStaleRunfiles) {
+      // Manifest equality only proves freshness when entries are real symlinks, not copies.
+      return runfilesUseRealSymlinks(runfilesDir, outputManifest);
+    }
+    // Legacy: only checks that the first runfile exists (doesn't catch copy-mode staleness).
+    return OS.getCurrent() != OS.WINDOWS
+        || isRunfilesDirectoryPopulated(runfilesDir, outputManifest);
+  }
+
   private static boolean isRunfilesDirectoryPopulated(Path runfilesDir, Path outputManifest) {
     String relativeRunfilePath;
     try (BufferedReader reader =
@@ -166,5 +178,43 @@ public class RunfilesTreeUpdater {
     }
     // The runfile could be a dangling symlink.
     return runfilesDir.getRelative(relativeRunfilePath).exists(Symlinks.NOFOLLOW);
+  }
+
+  /**
+   * Returns true if the runfiles directory is populated and its entries are real symlinks.
+   *
+   * <p>When the entries are real symlinks (Linux, or Windows with symlink privileges), the
+   * manifest-equality short-circuit in {@link #updateRunfilesTree} is sound: the symlinks
+   * auto-follow current source content. When they are content copies (Windows without symlink
+   * privileges, where {@code WindowsFileSystem.createSymbolicLink} silently falls back to {@code
+   * Files.copy}), the short-circuit is unsafe and the caller must re-sync.
+   *
+   * <p>Returns false when the directory is empty/missing (e.g. the previous run was SKIP) or when
+   * the first non-empty entry isn't a symlink, so the caller falls through to the create path.
+   *
+   * <p>Empty-file manifest entries (lines with only a path and no target) are skipped: they are
+   * always materialized as regular files even when the rest of the tree uses symlinks, so they
+   * can't be used to distinguish symlink-mode from copy-mode.
+   */
+  @VisibleForTesting
+  static boolean runfilesUseRealSymlinks(Path runfilesDir, Path outputManifest) {
+    String firstEntryPath = null;
+    try (BufferedReader reader =
+        new BufferedReader(new InputStreamReader(outputManifest.getInputStream(), ISO_8859_1))) {
+      String line;
+      while ((line = reader.readLine()) != null) {
+        String[] parts = line.split(" ", -1);
+        if (parts.length >= 2 && !parts[1].isEmpty()) {
+          firstEntryPath = parts[0];
+          break;
+        }
+      }
+    } catch (IOException e) {
+      return false;
+    }
+    if (firstEntryPath == null) {
+      return false;
+    }
+    return runfilesDir.getRelative(firstEntryPath).isSymbolicLink();
   }
 }

@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.DosFileAttributes;
 import javax.annotation.Nullable;
 
@@ -86,7 +87,12 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
       if (!createSymbolicLinks && existingFile) {
         // If symlinks aren't enabled and the target is an existing file, fall back to a copy.
-        Files.copy(target, link);
+        // REPLACE_EXISTING: idempotent overwrite. COPY_ATTRIBUTES: propagates source mtime.
+        Files.copy(
+            target,
+            link,
+            StandardCopyOption.REPLACE_EXISTING,
+            StandardCopyOption.COPY_ATTRIBUTES);
       } else if (createSymbolicLinks
           && (existingFile || (!existingDirectory && type != SymlinkTargetType.DIRECTORY))) {
         // If symlinks are enabled and the target is not an existing or future directory, create a
