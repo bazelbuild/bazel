@@ -54,8 +54,10 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 
 /**
@@ -91,7 +93,6 @@ final class FileDependencyDeserializer {
   /** Singleton representing the root file. */
   static final FileDependencies ROOT_FILE = FileDependencies.builder("").build();
 
-  private final FingerprintValueStore store;
   private final Executor executor;
   private final Fingerprinter fingerprinter;
 
@@ -109,50 +110,48 @@ final class FileDependencyDeserializer {
    * retained by the {@code SkyValue}s that depend on them. When all such associated {@code
    * SkyValue}s are invalidated, the dependency information becomes eligible for GC.
    */
-  private final ValueOrFutureMap<
+  private final DependencyMap<
           String, FileDependenciesOrFuture, FileDependencies, FutureFileDependencies>
       fileCache =
-          new ValueOrFutureMap<>(
+          new DependencyMap<>(
               Caffeine.newBuilder().weakValues().<String, FileDependenciesOrFuture>build().asMap(),
               FutureFileDependencies::new,
-              this::populateFutureFileDependencies,
-              FutureFileDependencies.class);
+              FutureFileDependencies.class,
+              FileDependencyDeserializer.this::populateFutureFileDependencies);
 
   /**
    * A cache for {@link ListingDependencies}, primarily for deduplication.
    *
    * <p>This follows the design of {@link #fileCache} but is for directory listings.
    */
-  private final ValueOrFutureMap<
+  private final DependencyMap<
           String, ListingDependenciesOrFuture, ListingDependencies, FutureListingDependencies>
       listingCache =
-          new ValueOrFutureMap<>(
+          new DependencyMap<>(
               Caffeine.newBuilder()
                   .weakValues()
                   .<String, ListingDependenciesOrFuture>build()
                   .asMap(),
               FutureListingDependencies::new,
-              this::populateFutureListingDependencies,
-              FutureListingDependencies.class);
+              FutureListingDependencies.class,
+              FileDependencyDeserializer.this::populateFutureListingDependencies);
 
-  private final ValueOrFutureMap<
+  private final DependencyMap<
           PackedFingerprint,
           NestedDependenciesOrFuture,
           NestedDependencies,
           FutureNestedDependencies>
       nestedCache =
-          new ValueOrFutureMap<>(
+          new DependencyMap<>(
               Caffeine.newBuilder()
                   .weakValues()
                   .<PackedFingerprint, NestedDependenciesOrFuture>build()
                   .asMap(),
               FutureNestedDependencies::new,
-              this::populateFutureNestedDependencies,
-              FutureNestedDependencies.class);
+              FutureNestedDependencies.class,
+              FileDependencyDeserializer.this::populateFutureNestedDependencies);
 
-  FileDependencyDeserializer(
-      FingerprintValueStore store, Executor executor, Fingerprinter fingerprinter) {
-    this.store = store;
+  FileDependencyDeserializer(Executor executor, Fingerprinter fingerprinter) {
     this.executor = executor;
     this.fingerprinter = fingerprinter;
   }
@@ -183,13 +182,14 @@ final class FileDependencyDeserializer {
    * @return either an immediate {@link FileDependencies} instance or effectively a {@link
    *     ListenableFuture<FileDependencies>} instance.
    */
-  FileDependenciesOrFuture getFileDependencies(String key) {
-    return fileCache.getValueOrFuture(key);
+  FileDependenciesOrFuture getFileDependencies(String key, FingerprintValueStore store) {
+    return fileCache.getValueOrFuture(key, store);
   }
 
   private FileDependenciesOrFuture populateFutureFileDependencies(
-      FutureFileDependencies ownedFuture) {
-    return fetchInvalidationData(this::getKeyBytes, WaitForFileInvalidationData::new, ownedFuture);
+      FutureFileDependencies ownedFuture, FingerprintValueStore store) {
+    return fetchInvalidationData(
+        this::getKeyBytes, WaitForFileInvalidationData::new, ownedFuture, store);
   }
 
   sealed interface ListingDependenciesOrFuture
@@ -217,14 +217,14 @@ final class FileDependencyDeserializer {
    * @return either an immediate {@link ListingDependencies} instance or effectively a {@link
    *     ListenableFuture<ListingDependencies>} instance.
    */
-  ListingDependenciesOrFuture getListingDependencies(String key) {
-    return listingCache.getValueOrFuture(key);
+  ListingDependenciesOrFuture getListingDependencies(String key, FingerprintValueStore store) {
+    return listingCache.getValueOrFuture(key, store);
   }
 
   private ListingDependenciesOrFuture populateFutureListingDependencies(
-      FutureListingDependencies ownedFuture) {
+      FutureListingDependencies ownedFuture, FingerprintValueStore store) {
     return fetchInvalidationData(
-        this::getKeyBytes, WaitForListingInvalidationData::new, ownedFuture);
+        this::getKeyBytes, WaitForListingInvalidationData::new, ownedFuture, store);
   }
 
   sealed interface NestedDependenciesOrFuture
@@ -251,22 +251,26 @@ final class FileDependencyDeserializer {
    * @param key is a fingerprint of the byte representation described at {@link
    *     FileDependencySerializer#computeNodeBytes}.
    */
-  NestedDependenciesOrFuture getNestedDependencies(PackedFingerprint key) {
-    return nestedCache.getValueOrFuture(key);
+  NestedDependenciesOrFuture getNestedDependencies(
+      PackedFingerprint key, FingerprintValueStore store) {
+    return nestedCache.getValueOrFuture(key, store);
   }
 
   private NestedDependenciesOrFuture populateFutureNestedDependencies(
-      FutureNestedDependencies ownedFuture) {
-    return fetchInvalidationData(Functions.identity(), WaitForNestedNodeBytes::new, ownedFuture);
+      FutureNestedDependencies ownedFuture, FingerprintValueStore store) {
+    return fetchInvalidationData(
+        Functions.identity(), WaitForNestedNodeBytes::new, ownedFuture, store);
   }
 
   // ---------- Begin FileDependencies deserialization implementation ----------
 
   private class WaitForFileInvalidationData implements AsyncFunction<byte[], FileDependencies> {
     private final String key;
+    private final FingerprintValueStore store;
 
-    private WaitForFileInvalidationData(String key) {
+    private WaitForFileInvalidationData(String key, FingerprintValueStore store) {
       this.key = key;
+      this.store = store;
     }
 
     @Override
@@ -296,7 +300,7 @@ final class FileDependencyDeserializer {
       if (parentDirectoryEnd < pathBegin) {
         checkState(
             !data.hasParentMtsv(), "no parent directory, but had parent MTSV %s, %s", key, data);
-        return resolveParent(key, data, key.substring(pathBegin), /* parentKey= */ null);
+        return resolveParent(key, data, key.substring(pathBegin), /* parentKey= */ null, store);
       }
 
       String parentDirectory = key.substring(pathBegin, parentDirectoryEnd);
@@ -306,35 +310,41 @@ final class FileDependencyDeserializer {
               data.hasParentMtsv() ? data.getParentMtsv() : LongVersionGetter.MINIMAL,
               FILE_KEY_DELIMITER);
       String basename = key.substring(parentDirectoryEnd + 1);
-      return resolveParent(key, data, basename, parentKey);
+      return resolveParent(key, data, basename, parentKey, store);
     }
   }
 
   private ListenableFuture<FileDependencies> resolveParent(
-      String key, FileInvalidationData data, String basename, @Nullable String parentKey) {
-    var waitForParent = new WaitForParent(key, data, basename);
+      String key,
+      FileInvalidationData data,
+      String basename,
+      @Nullable String parentKey,
+      FingerprintValueStore store) {
+    var waitForParent = new WaitForParent(key, data, basename, store);
 
     if (parentKey == null) {
       return waitForParent.apply(/* parentOrMissing= */ null);
     }
 
-    switch (getFileDependencies(parentKey)) {
-      case FileDependencies parent:
-        return waitForParent.apply(parent);
-      case FutureFileDependencies future:
-        return Futures.transformAsync(future, waitForParent, directExecutor());
-    }
+    return switch (getFileDependencies(parentKey, store)) {
+      case FileDependencies parent -> waitForParent.apply(parent);
+      case FutureFileDependencies future ->
+          Futures.transformAsync(future, waitForParent, directExecutor());
+    };
   }
 
   private class WaitForParent implements AsyncFunction<FileDependencies, FileDependencies> {
     private final String key;
     private final FileInvalidationData data;
     private final String basename;
+    private final FingerprintValueStore store;
 
-    private WaitForParent(String key, FileInvalidationData data, String basename) {
+    private WaitForParent(
+        String key, FileInvalidationData data, String basename, FingerprintValueStore store) {
       this.key = key;
       this.data = data;
       this.basename = basename;
+      this.store = store;
     }
 
     @Override
@@ -355,7 +365,7 @@ final class FileDependencyDeserializer {
         case MissingFileDependencies unused:
           return immediateFuture(FileDependencies.newMissingInstance());
       }
-      return processSymlinks(key, data, /* symlinkIndex= */ 0, parentDirectory, builder);
+      return processSymlinks(key, data, /* symlinkIndex= */ 0, parentDirectory, builder, store);
     }
   }
 
@@ -370,7 +380,8 @@ final class FileDependencyDeserializer {
       FileInvalidationData data,
       int symlinkIndex,
       @Nullable String parentDirectory, // null if root-level
-      FileDependencies.Builder builder) {
+      FileDependencies.Builder builder,
+      FingerprintValueStore store) {
     if (symlinkIndex >= data.getSymlinksCount()) {
       return immediateFuture(builder.build());
     }
@@ -399,7 +410,7 @@ final class FileDependencyDeserializer {
       if (!normalizedLinkTarget.isEmpty()) { // Avoids adding root as a resolved path.
         builder.addPath(normalizedLinkTarget);
       }
-      return processSymlinks(key, data, symlinkIndex + 1, normalizedLinkParent, builder);
+      return processSymlinks(key, data, symlinkIndex + 1, normalizedLinkParent, builder, store);
     }
 
     String linkBasename = normalizedLinkTarget.substring(normalizedLinkParent.length() + 1);
@@ -411,14 +422,13 @@ final class FileDependencyDeserializer {
             FILE_KEY_DELIMITER);
 
     var waitForSymlinkParent =
-        new WaitForSymlinkParent(key, data, symlinkIndex, linkBasename, builder);
+        new WaitForSymlinkParent(key, data, symlinkIndex, linkBasename, builder, store);
 
-    switch (getFileDependencies(newParentKey)) {
-      case FileDependencies resolvedParent:
-        return waitForSymlinkParent.apply(resolvedParent);
-      case FutureFileDependencies future:
-        return Futures.transformAsync(future, waitForSymlinkParent, directExecutor());
-    }
+    return switch (getFileDependencies(newParentKey, store)) {
+      case FileDependencies resolvedParent -> waitForSymlinkParent.apply(resolvedParent);
+      case FutureFileDependencies future ->
+          Futures.transformAsync(future, waitForSymlinkParent, directExecutor());
+    };
   }
 
   private class WaitForSymlinkParent implements AsyncFunction<FileDependencies, FileDependencies> {
@@ -427,18 +437,21 @@ final class FileDependencyDeserializer {
     private final int symlinkIndex;
     private final String linkBasename;
     private final FileDependencies.Builder builder;
+    private final FingerprintValueStore store;
 
     private WaitForSymlinkParent(
         String key,
         FileInvalidationData data,
         int symlinkIndex,
         String linkBasename,
-        FileDependencies.Builder builder) {
+        FileDependencies.Builder builder,
+        FingerprintValueStore store) {
       this.key = key;
       this.data = data;
       this.symlinkIndex = symlinkIndex;
       this.linkBasename = linkBasename;
       this.builder = builder;
+      this.store = store;
     }
 
     @Override
@@ -447,7 +460,7 @@ final class FileDependencyDeserializer {
         case AvailableFileDependencies parent -> {
           String parentPath = parent.resolvedPath();
           builder.addPath(getRelative(parentPath, linkBasename)).addDependency(parent);
-          yield processSymlinks(key, data, symlinkIndex + 1, parentPath, builder);
+          yield processSymlinks(key, data, symlinkIndex + 1, parentPath, builder, store);
         }
         case MissingFileDependencies unused ->
             immediateFuture(FileDependencies.newMissingInstance());
@@ -508,9 +521,11 @@ final class FileDependencyDeserializer {
   private class WaitForListingInvalidationData
       implements AsyncFunction<byte[], ListingDependencies> {
     private final String key;
+    private final FingerprintValueStore store;
 
-    private WaitForListingInvalidationData(String key) {
+    private WaitForListingInvalidationData(String key, FingerprintValueStore store) {
       this.key = key;
+      this.store = store;
     }
 
     @Override
@@ -542,19 +557,23 @@ final class FileDependencyDeserializer {
               path,
               data.hasFileMtsv() ? data.getFileMtsv() : LongVersionGetter.MINIMAL,
               FILE_KEY_DELIMITER);
-      switch (getFileDependencies(fileKey)) {
-        case FileDependencies dependencies:
-          return immediateFuture(ListingDependencies.from(dependencies));
-        case FutureFileDependencies future:
-          return Futures.transform(future, ListingDependencies::from, directExecutor());
-      }
+      return switch (getFileDependencies(fileKey, store)) {
+        case FileDependencies dependencies ->
+            immediateFuture(ListingDependencies.from(dependencies));
+        case FutureFileDependencies future ->
+            Futures.transform(future, ListingDependencies::from, directExecutor());
+      };
     }
   }
 
   // ---------- Begin NestedDependencies deserialization implementation ----------
 
   private class WaitForNestedNodeBytes implements AsyncFunction<byte[], NestedDependencies> {
-    private WaitForNestedNodeBytes(PackedFingerprint unused) {}
+    private final FingerprintValueStore store;
+
+    private WaitForNestedNodeBytes(PackedFingerprint unused, FingerprintValueStore store) {
+      this.store = store;
+    }
 
     /**
      * Parses the {@code bytes} to create a {@link NestedDependencies} instance.
@@ -594,55 +613,47 @@ final class FileDependencyDeserializer {
 
           for (int i = 0; i < nestedCount; i++) {
             var key = PackedFingerprint.readFrom(codedIn);
-            switch (getNestedDependencies(key)) {
-              case NestedDependencies dependencies:
-                elements[i] = dependencies;
-                break;
-              case FutureNestedDependencies future:
+            switch (getNestedDependencies(key, store)) {
+              case NestedDependencies dependencies -> elements[i] = dependencies;
+              case FutureNestedDependencies future -> {
                 countdown.registerPendingElement();
                 Futures.addCallback(future, new WaitingForElement(i, countdown), directExecutor());
-                break;
+              }
             }
           }
 
           int nestedAndFileCount = nestedCount + fileCount;
           for (int i = nestedCount; i < nestedAndFileCount; i++) {
             String key = codedIn.readString();
-            switch (getFileDependencies(key)) {
-              case FileDependencies dependencies:
-                elements[i] = dependencies;
-                break;
-              case FutureFileDependencies future:
+            switch (getFileDependencies(key, store)) {
+              case FileDependencies dependencies -> elements[i] = dependencies;
+              case FutureFileDependencies future -> {
                 countdown.registerPendingElement();
                 Futures.addCallback(future, new WaitingForElement(i, countdown), directExecutor());
-                break;
+              }
             }
           }
 
           int total = nestedAndFileCount + listingCount;
           for (int i = nestedAndFileCount; i < total; i++) {
             String key = codedIn.readString();
-            switch (getListingDependencies(key)) {
-              case ListingDependencies dependencies:
-                elements[i] = dependencies;
-                break;
-              case FutureListingDependencies future:
+            switch (getListingDependencies(key, store)) {
+              case ListingDependencies dependencies -> elements[i] = dependencies;
+              case FutureListingDependencies future -> {
                 countdown.registerPendingElement();
                 Futures.addCallback(future, new WaitingForElement(i, countdown), directExecutor());
-                break;
+              }
             }
           }
 
           for (int i = 0; i < sourceCount; i++) {
             String key = codedIn.readString();
-            switch (getFileDependencies(key)) {
-              case FileDependencies dependencies:
-                sources[i] = dependencies;
-                break;
-              case FutureFileDependencies future:
+            switch (getFileDependencies(key, store)) {
+              case FileDependencies dependencies -> sources[i] = dependencies;
+              case FutureFileDependencies future -> {
                 countdown.registerPendingElement();
                 Futures.addCallback(future, new WaitingForSource(i, countdown), directExecutor());
-                break;
+              }
             }
           }
           countdown.notifyInitializationDone();
@@ -748,8 +759,9 @@ final class FileDependencyDeserializer {
   private <KeyT, T, FutureT extends SettableFutureKeyedValue<FutureT, KeyT, T>>
       FutureT fetchInvalidationData(
           Function<KeyT, ? extends KeyBytesProvider> keyConverter,
-          Function<KeyT, AsyncFunction<byte[], T>> waitFactory,
-          FutureT ownedFuture) {
+          BiFunction<KeyT, FingerprintValueStore, AsyncFunction<byte[], T>> waitFactory,
+          FutureT ownedFuture,
+          FingerprintValueStore store) {
     KeyT key = ownedFuture.key();
     ListenableFuture<byte[]> futureBytes;
     try {
@@ -759,7 +771,7 @@ final class FileDependencyDeserializer {
     }
 
     return ownedFuture.completeWith(
-        Futures.transformAsync(futureBytes, waitFactory.apply(key), executor));
+        Futures.transformAsync(futureBytes, waitFactory.apply(key, store), executor));
   }
 
   private KeyBytesProvider getKeyBytes(String cacheKey) {
@@ -767,5 +779,38 @@ final class FileDependencyDeserializer {
       return fingerprinter.fingerprint(cacheKey.getBytes(UTF_8));
     }
     return new StringKey(cacheKey);
+  }
+
+  private static final class DependencyMap<
+          KeyT,
+          ValueOrFutureT,
+          ValueT extends ValueOrFutureT,
+          FutureT extends SettableFutureKeyedValue<FutureT, KeyT, ValueT>>
+      extends AbstractValueOrFutureMap<KeyT, ValueOrFutureT, ValueT, FutureT> {
+    private final BiFunction<FutureT, FingerprintValueStore, ValueOrFutureT> populator;
+
+    private DependencyMap(
+        ConcurrentMap<KeyT, ValueOrFutureT> map,
+        BiFunction<KeyT, BiConsumer<KeyT, ValueT>, ValueOrFutureT> valueOrFutureFactory,
+        Class<FutureT> futureType,
+        BiFunction<FutureT, FingerprintValueStore, ValueOrFutureT> populator) {
+      super(map, valueOrFutureFactory, futureType);
+      this.populator = populator;
+    }
+
+    ValueOrFutureT getValueOrFuture(KeyT key, FingerprintValueStore store) {
+      ValueOrFutureT result = getOrCreateValueForSubclasses(key);
+      if (futureType().isInstance(result)) {
+        FutureT future = futureType().cast(result);
+        if (future.tryTakeOwnership()) {
+          try {
+            return populator.apply(future, store);
+          } finally {
+            future.verifyComplete();
+          }
+        }
+      }
+      return result;
+    }
   }
 }
