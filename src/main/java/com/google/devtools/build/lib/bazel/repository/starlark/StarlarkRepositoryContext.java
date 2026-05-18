@@ -235,7 +235,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
           .getFileSystem()
           .supportsSymbolicLinksNatively(linkPath.getPath().asFragment())) {
         // The symlink may be emulated as a copy, which would need to be tracked for invalidation.
-        maybeWatch(targetPath, ShouldWatch.AUTO);
+        maybeWatchEmulatedSymlinkTarget(targetPath);
       }
     } catch (IOException e) {
       throw new RepositoryFunctionException(
@@ -569,8 +569,22 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     if (!p.isDir()) {
       throw Starlark.errorf("can't call watch_tree() on non-directory %s", p);
     }
+    maybeWatchTree(p, ShouldWatch.YES);
+  }
+
+  private void maybeWatchEmulatedSymlinkTarget(StarlarkPath path)
+      throws EvalException, RepositoryFunctionException, InterruptedException {
+    if (path.isDir()) {
+      maybeWatchTree(path, ShouldWatch.AUTO);
+      return;
+    }
+    maybeWatch(path, ShouldWatch.AUTO);
+  }
+
+  private void maybeWatchTree(StarlarkPath path, ShouldWatch shouldWatch)
+      throws EvalException, RepositoryFunctionException, InterruptedException {
     RepoCacheFriendlyPath repoCacheFriendlyPath =
-        toRepoCacheFriendlyPath(p.getPath(), ShouldWatch.YES);
+        toRepoCacheFriendlyPath(path.getPath(), shouldWatch);
     if (repoCacheFriendlyPath == null) {
       return;
     }
