@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathContainmentPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Optional;
 
@@ -30,6 +31,7 @@ public final class StripPrefixedPath {
   private final PathFragment pathFragment;
   private final boolean found;
   private final boolean skip;
+  private final boolean foldedPrefixCollision;
 
   /**
    * If a prefix is given, it will be removed from the entry's path. This also turns absolute paths
@@ -45,7 +47,7 @@ public final class StripPrefixedPath {
     Preconditions.checkNotNull(entry);
     PathFragment entryPath = relativize(entry);
     if (prefix.isEmpty()) {
-      return new StripPrefixedPath(entryPath, false, false);
+      return new StripPrefixedPath(entryPath, false, false, false);
     }
 
     // Bazel parses Starlark files, which are the ultimate source of prefixes, as Latin-1
@@ -53,6 +55,7 @@ public final class StripPrefixedPath {
     PathFragment prefixPath = relativize(prefix.get().getBytes(ISO_8859_1));
     boolean found = false;
     boolean skip = false;
+    boolean foldedPrefixCollision = false;
     if (entryPath.startsWith(prefixPath)) {
       found = true;
       entryPath = entryPath.relativeTo(prefixPath);
@@ -61,8 +64,15 @@ public final class StripPrefixedPath {
       }
     } else {
       skip = true;
+      // Defense in depth (macOS / APFS): if the entry's bytes do not match the prefix but the
+      // platform-aware policy reports them as folded-equal, the kernel would resolve the entry
+      // under the same inode tree as the prefix. We always skip such entries, relativeTo is
+      // byte-level and stripping a folded form would silently merge distinct archive entries
+      // into a single on-disk path. The flag is exposed so callers can audit the occurrence.
+      foldedPrefixCollision =
+          PathContainmentPolicy.HOST_POLICY.isContained(entryPath, prefixPath);
     }
-    return new StripPrefixedPath(entryPath, found, skip);
+    return new StripPrefixedPath(entryPath, found, skip, foldedPrefixCollision);
   }
 
   /**
@@ -76,10 +86,12 @@ public final class StripPrefixedPath {
     return entryPath;
   }
 
-  private StripPrefixedPath(PathFragment pathFragment, boolean found, boolean skip) {
+  private StripPrefixedPath(
+      PathFragment pathFragment, boolean found, boolean skip, boolean foldedPrefixCollision) {
     this.pathFragment = pathFragment;
     this.found = found;
     this.skip = skip;
+    this.foldedPrefixCollision = foldedPrefixCollision;
   }
 
   public static PathFragment maybeDeprefixSymlink(
@@ -105,6 +117,15 @@ public final class StripPrefixedPath {
 
   public boolean skip() {
     return skip;
+  }
+
+  /**
+   * Returns true iff the entry's bytes did not match the configured prefix, but the host's
+   * containment policy considers them equivalent (NFC/NFD, ligature, or case folding on APFS).
+   * Such entries are always skipped, this accessor lets callers surface the event in diagnostics.
+   */
+  public boolean foldedPrefixCollision() {
+    return foldedPrefixCollision;
   }
 
   static PathFragment createPathFragment(byte[] rawBytes) {

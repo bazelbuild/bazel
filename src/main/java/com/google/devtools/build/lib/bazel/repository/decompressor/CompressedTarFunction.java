@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorV
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathContainmentPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -115,7 +116,8 @@ public abstract class CompressedTarFunction implements Decompressor {
         }
 
         Path filePath = descriptor.destinationPath().getRelative(strippedRelativePath);
-        if (!filePath.startsWith(descriptor.destinationPath())) {
+        if (!PathContainmentPolicy.HOST_POLICY
+            .isContained(filePath, descriptor.destinationPath())) {
           throw new IOException(
               String.format(
                   "Failed to extract %s, path is escaping the destination directory",
@@ -138,7 +140,8 @@ public abstract class CompressedTarFunction implements Decompressor {
                         : descriptor.destinationPath())
                     .getRelative(targetName);
             if (!targetName.isAbsolute()
-                && !resolvedTargetPath.startsWith(descriptor.destinationPath())) {
+                && !PathContainmentPolicy.HOST_POLICY.isContained(
+                    resolvedTargetPath, descriptor.destinationPath())) {
               throw new IOException(
                   String.format(
                       "Tar entries cannot refer to files outside of their directory: %s has a"
