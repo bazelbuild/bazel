@@ -8,6 +8,7 @@ filegroup(
     srcs = [
         "BUILD",
         "//src/test/java/net/starlark/java/annot/processor:srcs",
+        "//src/test/java/net/starlark/java/cmd:srcs",
         "//src/test/java/net/starlark/java/eval:srcs",
         "//src/test/java/net/starlark/java/spelling:srcs",
         "//src/test/java/net/starlark/java/syntax:srcs",
