@@ -290,4 +290,33 @@ public final class ParsedFlagsValueTest {
     assertThat(modified.getStarlarkOptions())
         .doesNotContainKey(Label.parseCanonicalUnchecked("//custom:flag"));
   }
+
+  @Test
+  public void mergeWith_starlark_resetToDefault_removesScope() throws Exception {
+    // Regression test: when a starlark flag is reset to its default value, the scope entry
+    // should also be removed. Previously, addScopeTypeMap(source.getScopeTypeMap()) would
+    // re-introduce the scope even after removeStarlarkOption cleaned it up, causing two
+    // configs to have different checksums despite identical visible state.
+    Label flagLabel = Label.parseCanonicalUnchecked("//custom:flag");
+    BuildOptions original =
+        BuildOptions.of(BUILD_CONFIG_OPTIONS).toBuilder()
+            .addStarlarkOption(flagLabel, "non_default")
+            .addScopeType(flagLabel, new com.google.devtools.build.lib.analysis.config.Scope.ScopeType("default"))
+            .build();
+
+    NativeAndStarlarkFlags flags =
+        NativeAndStarlarkFlags.builder()
+            .optionsClasses(BUILD_CONFIG_OPTIONS)
+            .starlarkFlags(ImmutableMap.of("//custom:flag", "default"))
+            .starlarkFlagDefaults(ImmutableMap.of("//custom:flag", "default"))
+            .build();
+    ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
+
+    BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
+
+    // The flag should be removed (at default).
+    assertThat(modified.getStarlarkOptions()).doesNotContainKey(flagLabel);
+    // The scope should also be removed - not leaked from the source.
+    assertThat(modified.getScopeTypeMap()).doesNotContainKey(flagLabel);
+  }
 }

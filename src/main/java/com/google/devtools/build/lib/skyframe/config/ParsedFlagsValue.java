@@ -231,7 +231,13 @@ public final class ParsedFlagsValue implements SkyValue {
       updateStarlarkFlag(builder, starlarkOption.getKey(), starlarkOption.getValue());
     }
 
-    return BuildConfigurationKey.create(builder.addScopeTypeMap(source.getScopeTypeMap()).build());
+    // Only re-add scopes for starlark options that are still present after processing.
+    // Without this filter, scopes for flags removed (because they were at default) would be
+    // re-introduced, causing configs to have different checksums despite identical visible state.
+    BuildOptions result = builder.build();
+    var filteredScopes = new java.util.HashMap<>(source.getScopeTypeMap());
+    filteredScopes.keySet().retainAll(result.getStarlarkOptions().keySet());
+    return BuildConfigurationKey.create(result.toBuilder().addScopeTypeMap(filteredScopes).build());
   }
 
   private static void updateOptionValue(
