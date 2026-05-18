@@ -849,10 +849,14 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
 
     if (resourceSetUnchecked != Starlark.NONE) {
-      validateResourceSetBuilder(resourceSetUnchecked);
-      builder.setResources(
-          StarlarkActionResourceSetBuilder.create(
-              (StarlarkCallable) resourceSetUnchecked, mnemonic, getSemantics()));
+      if (resourceSetUnchecked instanceof Dict) {
+        builder.setResources(parseResourceSetFromDict(resourceSetUnchecked));
+      } else {
+        validateResourceSetBuilder(resourceSetUnchecked);
+        builder.setResources(
+            StarlarkActionResourceSetBuilder.create(
+                (StarlarkCallable) resourceSetUnchecked, mnemonic, getSemantics()));
+      }
     }
 
     // Always register the action
@@ -965,7 +969,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       }
     }
 
-    private static double getNumericOrDefault(
+    static double getNumericOrDefault(
         Map<String, Object> resourceSetMap, String key, double defaultValue) throws EvalException {
       if (!resourceSetMap.containsKey(key)) {
         return defaultValue;
@@ -1002,6 +1006,29 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     public int hashCode() {
       return Objects.hashCode(fn, mnemonic, semantics);
     }
+  }
+
+  private static ResourceSet parseResourceSetFromDict(Object resourceSetUnchecked)
+      throws EvalException {
+    Map<String, Object> resourceSetMapRaw =
+        Dict.cast(resourceSetUnchecked, String.class, Object.class, "resource_set");
+
+    if (!validResources.containsAll(resourceSetMapRaw.keySet())) {
+      String message =
+          String.format(
+              "Illegal resource keys: (%s)",
+              Joiner.on(",").join(Sets.difference(resourceSetMapRaw.keySet(), validResources)));
+      throw Starlark.errorf("%s", message);
+    }
+
+    return ResourceSet.create(
+        StarlarkActionResourceSetBuilder.getNumericOrDefault(
+            resourceSetMapRaw, ResourceSet.MEMORY, DEFAULT_RESOURCE_SET.getMemoryMb()),
+        StarlarkActionResourceSetBuilder.getNumericOrDefault(
+            resourceSetMapRaw, ResourceSet.CPU, DEFAULT_RESOURCE_SET.getCpuUsage()),
+        (int)
+            StarlarkActionResourceSetBuilder.getNumericOrDefault(
+                resourceSetMapRaw, "local_test", DEFAULT_RESOURCE_SET.getLocalTestCount()));
   }
 
   private static void validateResourceSetBuilder(Object fn) throws EvalException {
