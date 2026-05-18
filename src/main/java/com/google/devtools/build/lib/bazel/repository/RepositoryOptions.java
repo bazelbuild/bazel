@@ -291,7 +291,7 @@ public abstract class RepositoryOptions extends OptionsBase {
           This file consists of directives, one per line, that adjust how the
           Bazel downloader acts. The directives are: `allow`, `block`, `rewrite`,
           and `all_blocked_message`. The directives are applied in the order
-          `rewrite, allow, block'.
+          `rewrite, allow, block`.
 
           Comments are allowed and must be on their own line (no trailing comments)
           and preceded by a `#`. Example: `# evil.com is known to host malicious code`
