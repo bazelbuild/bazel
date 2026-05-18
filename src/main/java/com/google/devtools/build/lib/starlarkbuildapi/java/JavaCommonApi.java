@@ -524,6 +524,8 @@ public interface JavaCommonApi<
         @Param(name = "enable_direct_classpath", defaultValue = "True", named = true),
         @Param(name = "additional_inputs", defaultValue = "[]", named = true),
         @Param(name = "additional_outputs", defaultValue = "[]", named = true),
+        @Param(name = "coverage_includes", defaultValue = "[]", named = true),
+        @Param(name = "coverage_excludes", defaultValue = "[]", named = true)
       })
   void createCompilationAction(
       StarlarkRuleContextT ctx,
@@ -553,7 +555,9 @@ public interface JavaCommonApi<
       boolean enableJSpecify,
       boolean enableDirectClasspath,
       Sequence<?> additionalInputs,
-      Sequence<?> additionalOutputs)
+      Sequence<?> additionalOutputs,
+      Sequence<?> coverageIncludes,
+      Sequence<?> coverageExcludes)
       throws EvalException,
           TypeException,
           RuleErrorException,
