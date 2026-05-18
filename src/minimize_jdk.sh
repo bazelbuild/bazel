@@ -65,7 +65,7 @@ UNAME=$(uname -s | tr 'A-Z' 'a-z')
 # compatible JDKs.
 # Native access is required for the JNI library.
 # Compact object headers reduce retained and peak memory usage.
-JVM_OPTIONS='--enable-native-access=ALL-UNNAMED -XX:+UseCompactObjectHeaders'
+JVM_OPTIONS='--enable-native-access=ALL-UNNAMED -XX:+UseCompactObjectHeaders --illegal-final-field-mutation=deny'
 
 # Strips an extracted JDK archive to its home directory.
 # Some JDK archives (e.g., macOS .jdk bundles) nest the JDK home inside
