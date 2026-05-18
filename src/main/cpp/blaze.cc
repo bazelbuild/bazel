@@ -869,9 +869,12 @@ static void ConnectOrDie(const OptionProcessor &option_processor,
     const auto next_attempt_time =
         attempt_time + std::chrono::milliseconds(100);
 
+    BAZEL_LOG(INFO) << "DEBUG: About to call server->Connect()";
     if (server->Connect()) {
+      BAZEL_LOG(INFO) << "DEBUG: server->Connect() returned true";
       return;
     }
+    BAZEL_LOG(INFO) << "DEBUG: server->Connect() returned false";
 
     if (attempt_time >= (last_message_time + min_message_interval)) {
       auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(
@@ -884,7 +887,9 @@ static void ConnectOrDie(const OptionProcessor &option_processor,
     }
 
     std::this_thread::sleep_until(next_attempt_time);
+    BAZEL_LOG(INFO) << "DEBUG: About to call server_startup->IsStillAlive()";
     if (!server_startup->IsStillAlive()) {
+      BAZEL_LOG(INFO) << "DEBUG: server_startup->IsStillAlive() returned false";
       option_processor.PrintStartupOptionsProvenanceMessage();
       if (server->ProcessInfo().jvm_log_file_append_) {
         // Don't dump the log if we were appending - the user should know where
@@ -975,15 +980,19 @@ static void StartServerAndConnect(
   BAZEL_LOG(USER) << "Starting local " << startup_options.product_name
                   << " server (" << build_label << ")"
                   << " and connecting to it...";
+  BAZEL_LOG(INFO) << "DEBUG: About to call ExecuteDaemon";
   BlazeServerStartup *server_startup;
   const int server_pid = ExecuteDaemon(
       server_exe, server_exe_args, PrepareEnvironmentForJvm(),
       server->ProcessInfo().jvm_log_file_,
       server->ProcessInfo().jvm_log_file_append_, startup_options.install_base,
       server_dir, startup_options, &server_startup);
+  BAZEL_LOG(INFO) << "DEBUG: ExecuteDaemon returned pid=" << server_pid;
 
+  BAZEL_LOG(INFO) << "DEBUG: About to call ConnectOrDie";
   ConnectOrDie(option_processor, startup_options, server_pid, server_startup,
                server);
+  BAZEL_LOG(INFO) << "DEBUG: ConnectOrDie returned";
 
   delete server_startup;
 }
@@ -1747,16 +1756,26 @@ bool BlazeServer::TryConnect(CommandServer::Stub *client) {
 
 bool BlazeServer::Connect() {
   assert(!Connected());
+  BAZEL_LOG(INFO) << "DEBUG: Inside BlazeServer::Connect()";
 
   blaze_util::Path server_dir = output_base_.GetRelative("server");
 
   command_server::ServerInfo server_info;
   std::string bytes;
+  BAZEL_LOG(INFO) << "DEBUG: About to read server_info.rawproto";
   if (!blaze_util::ReadFile(server_dir.GetRelative("server_info.rawproto"),
-                            &bytes) ||
-      !server_info.ParseFromString(bytes)) {
+                            &bytes)) {
+    BAZEL_LOG(INFO) << "DEBUG: ReadFile failed";
     return false;
   }
+  BAZEL_LOG(INFO) << "DEBUG: ReadFile succeeded, size=" << bytes.size();
+
+  BAZEL_LOG(INFO) << "DEBUG: About to call ParseFromString";
+  if (!server_info.ParseFromString(bytes)) {
+    BAZEL_LOG(INFO) << "DEBUG: ParseFromString failed";
+    return false;
+  }
+  BAZEL_LOG(INFO) << "DEBUG: ParseFromString succeeded";
 
   const std::string port = server_info.address();
   const std::string ipv4_prefix = "127.0.0.1:";
@@ -1767,6 +1786,7 @@ bool BlazeServer::Connect() {
   if (port.compare(0, ipv4_prefix.size(), ipv4_prefix) &&
       port.compare(0, ipv6_prefix_1.size(), ipv6_prefix_1) &&
       port.compare(0, ipv6_prefix_2.size(), ipv6_prefix_2)) {
+    BAZEL_LOG(INFO) << "DEBUG: Not directed to localhost, port=" << port;
     return false;
   }
 
@@ -1775,25 +1795,38 @@ bool BlazeServer::Connect() {
 
   const pid_t server_pid = server_info.pid();
   if (server_pid < 0) {
+    BAZEL_LOG(INFO) << "DEBUG: Invalid server_pid=" << server_pid;
     return false;
   }
 
+  BAZEL_LOG(INFO) << "DEBUG: About to call VerifyServerProcess";
   if (!VerifyServerProcess(server_pid, output_base_)) {
+    BAZEL_LOG(INFO) << "DEBUG: VerifyServerProcess returned false";
     return false;
   }
+  BAZEL_LOG(INFO) << "DEBUG: VerifyServerProcess returned true";
 
   grpc::ChannelArguments channel_args;
   // Bazel client and server always run on the same machine and communicate
   // locally over gRPC; so we want to ignore any configured proxies when setting
   // up a gRPC channel to the server.
   channel_args.SetInt(GRPC_ARG_ENABLE_HTTP_PROXY, 0);
+  
+  BAZEL_LOG(INFO) << "DEBUG: About to call grpc::CreateCustomChannel";
   std::shared_ptr<grpc::Channel> channel(grpc::CreateCustomChannel(
       port, grpc::InsecureChannelCredentials(), channel_args));
-  std::unique_ptr<CommandServer::Stub> client(CommandServer::NewStub(channel));
+  BAZEL_LOG(INFO) << "DEBUG: grpc::CreateCustomChannel returned";
 
+  BAZEL_LOG(INFO) << "DEBUG: About to call CommandServer::NewStub";
+  std::unique_ptr<CommandServer::Stub> client(CommandServer::NewStub(channel));
+  BAZEL_LOG(INFO) << "DEBUG: CommandServer::NewStub returned";
+
+  BAZEL_LOG(INFO) << "DEBUG: About to call TryConnect";
   if (!TryConnect(client.get())) {
+    BAZEL_LOG(INFO) << "DEBUG: TryConnect returned false";
     return false;
   }
+  BAZEL_LOG(INFO) << "DEBUG: TryConnect returned true";
 
   this->client_ = std::move(client);
   process_info_.server_pid_ = server_pid;
