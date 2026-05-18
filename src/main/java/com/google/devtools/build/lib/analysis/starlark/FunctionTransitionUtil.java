@@ -249,27 +249,13 @@ public final class FunctionTransitionUtil {
     ImmutableMap<Label, Object> onLeaveScopeValues =
         scopeDetails != null ? scopeDetails.buildSettingToOnLeaveScopeValue() : ImmutableMap.of();
 
-    // Collect flags that are referenced by custom exec scopes (exec:--<flag>). These flags
-    // should be treated as having TARGET scope so they don't propagate to exec config.
-    Set<Label> customExecReferencedFlags = new HashSet<>();
-    for (Scope.ScopeType scope : scopeTypeMap.values()) {
-      if (scope.scopeType().startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
-        customExecReferencedFlags.add(
-            Label.parseCanonicalUnchecked(
-                scope.scopeType().substring(Scope.CUSTOM_EXEC_SCOPE_PREFIX.length())));
-      }
-    }
-
     if (!options.get(CoreOptions.class).getExcludeStarlarkFlagsFromExecConfig()) {
       // Starlark flags propagate to exec by default. This can only be changed by a flag explicitly
-      // setting "scope = 'target'" or being referenced by a custom exec scope.
+      // setting "scope = 'target'".
       return starlarkOptions.entrySet().stream()
           .filter(
               entry -> {
                 Label actual = aliasToActual.getOrDefault(entry.getKey(), entry.getKey());
-                if (customExecReferencedFlags.contains(actual)) {
-                  return false; // Treated as TARGET scope - don't propagate.
-                }
                 Scope.ScopeType scope = scopeTypeMap.get(actual);
                 String scopeType = scope != null ? scope.scopeType() : Scope.ScopeType.DEFAULT;
                 return scopeType.equals(Scope.ScopeType.UNIVERSAL)
@@ -294,11 +280,7 @@ public final class FunctionTransitionUtil {
     for (Map.Entry<Label, Object> entry : starlarkOptions.entrySet()) {
       Label actual = aliasToActual.getOrDefault(entry.getKey(), entry.getKey());
       Scope.ScopeType scope = scopeTypeMap.get(actual);
-      // Flags referenced by custom exec scopes are treated as TARGET.
-      String scopeType =
-          customExecReferencedFlags.contains(actual)
-              ? Scope.ScopeType.TARGET
-              : (scope != null ? scope.scopeType() : Scope.ScopeType.DEFAULT);
+      String scopeType = scope != null ? scope.scopeType() : Scope.ScopeType.DEFAULT;
       if (scopeType.equals(Scope.ScopeType.UNIVERSAL)) {
         ans.put(entry);
       } else if (scopeType.equals(Scope.ScopeType.TARGET)) {
@@ -324,24 +306,8 @@ public final class FunctionTransitionUtil {
         Label anotherFlag =
             Label.parseCanonicalUnchecked(
                 scopeType.substring(Scope.CUSTOM_EXEC_SCOPE_PREFIX.length()));
-        if (anotherFlag.getPackageIdentifier().equals(COMMAND_LINE_OPTION_PACKAGE_IDENTIFIER)) {
-          boolean found = false;
-          for (FragmentOptions fragment : options.getNativeOptions()) {
-            Map<String, Object> nativeOptions = fragment.asMap();
-            if (nativeOptions.containsKey(anotherFlag.getName())) {
-              ans.put(entry.getKey(), nativeOptions.get(anotherFlag.getName()));
-              found = true;
-              break;
-            }
-          }
-          if (!found) {
-            throw new IllegalStateException(
-                "Flag " + anotherFlag + " is not found in the native options.");
-          }
-        } else {
-          if (starlarkOptions.containsKey(anotherFlag)) {
-            ans.put(entry.getKey(), starlarkOptions.get(anotherFlag));
-          }
+        if (starlarkOptions.containsKey(anotherFlag)) {
+          ans.put(entry.getKey(), starlarkOptions.get(anotherFlag));
         }
       }
     }
