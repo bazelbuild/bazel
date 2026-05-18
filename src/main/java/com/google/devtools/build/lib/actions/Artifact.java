@@ -332,6 +332,15 @@ public abstract sealed class Artifact
 
     SourceArtifact getSourceArtifact(PathFragment execPath, ArtifactRoot root, ArtifactOwner owner);
 
+    default SourceArtifact getSourceArtifact(
+        PathFragment execPath, ArtifactRoot root, ArtifactOwner owner, boolean isDirectory) {
+      SourceArtifact artifact = getSourceArtifact(execPath, root, owner);
+      if (isDirectory) {
+        artifact.markAsDirectory();
+      }
+      return artifact;
+    }
+
     /**
      * Whether to include the generating action key when serializing the given derived artifact in
      * the given context.
@@ -765,11 +774,18 @@ public abstract sealed class Artifact
    */
   public static final class SourceArtifact extends Artifact {
     private final ArtifactOwner owner;
+    private volatile boolean isDirectory;
 
     @VisibleForTesting
     public SourceArtifact(ArtifactRoot root, PathFragment execPath, ArtifactOwner owner) {
+      this(root, execPath, owner, /* isDirectory= */ false);
+    }
+
+    public SourceArtifact(
+        ArtifactRoot root, PathFragment execPath, ArtifactOwner owner, boolean isDirectory) {
       super(root, execPath, execPath.hashCode());
       this.owner = owner;
+      this.isDirectory = isDirectory;
     }
 
     /**
@@ -802,6 +818,11 @@ public abstract sealed class Artifact
     }
 
     @Override
+    public boolean isDirectory() {
+      return isDirectory;
+    }
+
+    @Override
     public ArtifactOwner getArtifactOwner() {
       return owner;
     }
@@ -813,6 +834,10 @@ public abstract sealed class Artifact
 
     boolean differentOwnerOrRoot(ArtifactOwner owner, ArtifactRoot root) {
       return !this.owner.equals(owner) || !this.getRoot().equals(root);
+    }
+
+    void markAsDirectory() {
+      isDirectory = true;
     }
   }
 
