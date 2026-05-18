@@ -314,6 +314,7 @@ public class TaskGroup<T, R> implements AutoCloseable {
     ensureOwner();
 
     TaskGroupState s = state;
+    boolean ownerDidNotJoin = false;
     switch (s) {
       case TaskGroupState.NEW -> {
         // If the group is new, the latch was never decremented. We need to decrement it here
@@ -321,8 +322,12 @@ public class TaskGroup<T, R> implements AutoCloseable {
         latch.countDown();
       }
       case TaskGroupState.FORKED -> {
-        // throw if the owner didn't join after forking
-        throw new IllegalStateException("Owner did not join after forking");
+        cancel();
+        // The latch is initialized with a count of 1 (the owner's share). In the FORKED state,
+        // join() was never called, so this initial count of 1 was never decremented. We must
+        // decrement it here, otherwise waiting for the subtasks to terminate will deadlock.
+        latch.countDown();
+        ownerDidNotJoin = true;
       }
       case TaskGroupState.JOIN_STARTED -> {
         // Cancel the group if join did not complete.
@@ -338,6 +343,11 @@ public class TaskGroup<T, R> implements AutoCloseable {
       latch.awaitUninterruptibly();
     } finally {
       state = TaskGroupState.CLOSED;
+    }
+
+    // throw if the owner didn't join after forking
+    if (ownerDidNotJoin) {
+      throw new IllegalStateException("Owner did not join after forking");
     }
   }
 
