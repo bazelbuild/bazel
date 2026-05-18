@@ -13,19 +13,27 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.base.Splitter;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
+import com.google.devtools.build.lib.rules.config.FeatureFlagValue;
 import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -61,6 +69,17 @@ public final class StarlarkExecTransitionLoader {
         throws BzlLoadFailedException, InterruptedException, StarlarkExecTransitionLoadingException;
   }
 
+  /** Caller-provided logic for loading {@link StarlarkBuildSettingsDetailsValue}. */
+  public interface BuildSettingsDetailsLoader {
+    /**
+     * Loads scope info for the given build settings. Returns null if not all Skyframe deps are
+     * ready.
+     */
+    @Nullable
+    StarlarkBuildSettingsDetailsValue getValue(Set<Label> buildSettings, Set<Label> hostFlags)
+        throws InterruptedException, StarlarkExecTransitionLoadingException;
+  }
+
   /**
    * Loads the Starlark transition that implements execution transition logic according to {@link
    * CoreOptions#starlarkExecConfig}.
@@ -68,6 +87,8 @@ public final class StarlarkExecTransitionLoader {
    * @param options the current configured target's {@link BuildOptions}. This is used to find the
    *     value for {@link CoreOptions#starlarkExecConfig}.
    * @param bzlFileLoader caller-provided logic for loading {@link BzlLoadValue.Key} skyvalues.
+   * @param detailsLoader caller-provided logic for loading {@link
+   *     StarlarkBuildSettingsDetailsValue} for scope info.
    * @return null if Skyframe deps need loading. A filled {@link Optional} if this build implements
    *     the exec transition with a Starlark transition. An empty {@link Optional} if this build
    *     implements the exec transition with native logic.
@@ -76,7 +97,9 @@ public final class StarlarkExecTransitionLoader {
    */
   @Nullable
   public static Optional<StarlarkAttributeTransitionProvider> loadStarlarkExecTransition(
-      @Nullable BuildOptions options, BzlFileLoader bzlFileLoader)
+      @Nullable BuildOptions options,
+      BzlFileLoader bzlFileLoader,
+      BuildSettingsDetailsLoader detailsLoader)
       throws StarlarkExecTransitionLoadingException, InterruptedException {
     if (options == null || options.equals(CommonOptions.EMPTY_OPTIONS)) {
       return Optional.empty();
@@ -110,14 +133,51 @@ public final class StarlarkExecTransitionLoader {
       throw new StarlarkExecTransitionLoadingException(
           flagName, userRef, parsedRef.starlarkSymbolName() + " is not a Starlark transition");
     }
+
+    // Load scope info for all Starlark build setting flags in the current config, filtering out
+    // feature flags since they don't have scopes.
+    StarlarkBuildSettingsDetailsValue scopeDetails = null;
+    Set<Label> starlarkFlags =
+        options.getStarlarkOptions().entrySet().stream()
+            .filter(e -> !(e.getValue() instanceof FeatureFlagValue))
+            .map(Map.Entry::getKey)
+            .collect(toImmutableSet());
+
+    // Look up the host flags declared by users in the blazerc/MODULE.bazel files with alias
+    // pointing to the starlark definition. This is useful to determine exec propagation for flags
+    // with scope that starts with "exec:--".
+    ImmutableSet<Label> hostFlags =
+        options.get(CoreOptions.class).getCommandLineFlagAliasesMap().entrySet().stream()
+            .filter(alias -> alias.getKey().startsWith("host_"))
+            .map(Map.Entry::getValue)
+            .collect(toImmutableSet());
+
+    if (!starlarkFlags.isEmpty() || !hostFlags.isEmpty()) {
+      scopeDetails = detailsLoader.getValue(starlarkFlags, hostFlags);
+      if (scopeDetails == null) {
+        return null;
+      }
+    }
+
     return Optional.of(
-        new StarlarkExecTransitionProvider((StarlarkDefinedConfigTransition) transition));
+        new StarlarkExecTransitionProvider(
+            (StarlarkDefinedConfigTransition) transition, scopeDetails));
   }
 
   /** A marker class to distinguish the exec transition from other starlark transitions. */
   static class StarlarkExecTransitionProvider extends StarlarkAttributeTransitionProvider {
-    StarlarkExecTransitionProvider(StarlarkDefinedConfigTransition execTransition) {
+    @Nullable private final StarlarkBuildSettingsDetailsValue scopeDetails;
+
+    StarlarkExecTransitionProvider(
+        StarlarkDefinedConfigTransition execTransition,
+        @Nullable StarlarkBuildSettingsDetailsValue scopeDetails) {
       super(execTransition);
+      this.scopeDetails = scopeDetails;
+    }
+
+    @Override
+    public SplitTransition create(AttributeTransitionData data) {
+      return createWithScopeDetails(data, scopeDetails);
     }
 
     @Override
@@ -129,6 +189,22 @@ public final class StarlarkExecTransitionLoader {
     @Override
     public boolean isExecTransitionProvider() {
       return true;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(super.hashCode(), scopeDetails);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof StarlarkExecTransitionProvider that)) {
+        return false;
+      }
+      return super.equals(o) && Objects.equals(scopeDetails, that.scopeDetails);
     }
   }
 

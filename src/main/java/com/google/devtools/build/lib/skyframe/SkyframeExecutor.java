@@ -2250,6 +2250,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                 throw new IllegalStateException("Unknown error while creating exec transition", e);
               }
               return (BzlLoadValue) result.get(bzlKey);
+            },
+            (buildSettings, hostFlags) -> {
+              SkyKey detailsKey = StarlarkBuildSettingsDetailsValue.key(buildSettings, hostFlags);
+              EvaluationResult<SkyValue> result =
+                  evaluate(
+                      ImmutableList.of(detailsKey),
+                      /* keepGoing= */ false,
+                      /* numThreads= */ DEFAULT_THREAD_COUNT,
+                      eventHandler);
+              if (result.hasError()) {
+                throw new StarlarkExecTransitionLoadingException(
+                    "Failed to load build settings details for exec transition");
+              }
+              return (StarlarkBuildSettingsDetailsValue) result.get(detailsKey);
             })
         .orElse(null);
   }
@@ -3715,16 +3729,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
           @Override
           public ImmutableMap<String, Object> getStarlarkOptions() {
-            return ImmutableMap.of();
-          }
-
-          @Override
-          public ImmutableMap<String, String> getScopesAttributes() {
-            return ImmutableMap.of();
-          }
-
-          @Override
-          public ImmutableMap<String, Object> getOnLeaveScopeValues() {
             return ImmutableMap.of();
           }
 
