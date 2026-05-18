@@ -39,6 +39,8 @@ import com.google.devtools.build.lib.actions.FileValue.SymlinkFileValueWithStore
 import com.google.devtools.build.lib.actions.FileValue.SymlinkFileValueWithoutStoredChain;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
+import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
@@ -180,7 +182,15 @@ public class FileFunctionTest {
                         new AtomicReference<>(ImmutableSet.of()),
                         CrossRepositoryLabelViolationStrategy.ERROR,
                         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
-                .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
+                .put(
+                    SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
+                    new LocalRepositoryLookupFunction(directories.getWorkspace()))
+                .put(
+                    SkyFunctions.MODULE_FILE,
+                    (skyKey, env) -> BzlmodTestUtil.emptyRootModuleFileValue())
+                .put(
+                    SkyFunctions.BAZEL_DEP_GRAPH,
+                    (skyKey, env) -> BazelDepGraphValue.createEmptyDepGraph())
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
                     new RepositoryFetchFunction(

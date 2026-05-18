@@ -28,6 +28,9 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
+import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -123,6 +126,7 @@ public abstract class GlobTestBase {
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
+    RepoDefinitionFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDirectoryValue.VENDOR_DIRECTORY.set(differencer, Optional.empty());
 
     createTestFiles();
@@ -172,7 +176,14 @@ public abstract class GlobTestBase {
     skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator, directories));
     skyFunctions.put(
         FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
-    skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
+    skyFunctions.put(
+        SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
+        new LocalRepositoryLookupFunction(directories.getWorkspace()));
+    skyFunctions.put(
+        SkyFunctions.MODULE_FILE,
+        (skyKey, env) -> BzlmodTestUtil.emptyRootModuleFileValue());
+    skyFunctions.put(
+        SkyFunctions.BAZEL_DEP_GRAPH, (skyKey, env) -> BazelDepGraphValue.createEmptyDepGraph());
     skyFunctions.put(
         SkyFunctions.REPOSITORY_MAPPING,
         new SkyFunction() {
