@@ -42,6 +42,7 @@ public final class CcCommon {
           CppActionNames.CPP_MODULE_DEPS_SCANNING,
           CppActionNames.CPP20_MODULE_COMPILE,
           CppActionNames.CPP20_MODULE_CODEGEN,
+          CppActionNames.CUDA_COMPILE,
           CppActionNames.ASSEMBLE,
           CppActionNames.PREPROCESS_ASSEMBLE,
           CppActionNames.CLIF_MATCH,

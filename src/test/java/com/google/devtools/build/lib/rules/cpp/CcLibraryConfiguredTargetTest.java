@@ -1207,6 +1207,40 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .isEqualTo("CppCompileHeader");
   }
 
+  @Test
+  public void testCudaCompileActionMnemonic() throws Exception {
+    // TODO: Remove when we bump rules_cc
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withActionConfigs(CppActionNames.CUDA_COMPILE));
+    useConfiguration("--incompatible_cuda_compile_action");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget(
+            "foo",
+            "x",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+            "cc_library(name = 'x', srcs = ['a.cu'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/a.o", x).getMnemonic())
+        .isEqualTo("CudaCompile");
+  }
+
+  @Test
+  public void testCudaCompileWithoutFlagUsesCppCompile() throws Exception {
+    ConfiguredTarget x =
+        scratchConfiguredTarget(
+            "foo",
+            "x",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+            "cc_library(name = 'x', srcs = ['a.cu'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/a.o", x).getMnemonic())
+        .isEqualTo("CppCompile");
+  }
+
   private CppCompileAction getGeneratingCompileAction(
       String packageRelativePath, ConfiguredTarget owner) {
     return (CppCompileAction) getGeneratingAction(getBinArtifact(packageRelativePath, owner));

@@ -805,6 +805,10 @@ public final class CppConfiguration extends Fragment
     return cppOptions.getUseSpecificToolFiles();
   }
 
+  public boolean useCudaCompileAction() {
+    return cppOptions.useCudaCompileAction;
+  }
+
   public boolean disableNoCopts() {
     return cppOptions.getDisableNoCopts();
   }

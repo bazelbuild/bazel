@@ -77,6 +77,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private ImmutableList<Artifact> additionalOutputs = ImmutableList.of();
   private boolean needsIncludeValidation;
+  private boolean useCudaCompileAction;
 
   // New fields need to be added to the copy constructor.
 
@@ -88,6 +89,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     this.shareable = false;
     this.configuration = configuration;
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
+    this.useCudaCompileAction = this.cppConfiguration.useCudaCompileAction();
     this.mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
     this.additionalIncludeScanningRoots = new ArrayList<>();
     this.ccToolchain = ccToolchain;
@@ -216,6 +218,9 @@ public final class CppCompileActionBuilder implements StarlarkValue {
       throw new IllegalStateException();
     } else if (CppFileTypes.C_SOURCE.matches(sourcePath)) {
       return CppActionNames.C_COMPILE;
+    } else if (this.useCudaCompileAction && CppFileTypes.CUDA_SOURCE.matches(sourcePath)) {
+      // NOTE: Must be checked before C++ until .cu is removed from CPP_SOURCE
+      return CppActionNames.CUDA_COMPILE;
     } else if (CppFileTypes.CPP_SOURCE.matches(sourcePath)) {
       return CppActionNames.CPP_COMPILE;
     } else if (CppFileTypes.OBJC_SOURCE.matches(sourcePath)) {
