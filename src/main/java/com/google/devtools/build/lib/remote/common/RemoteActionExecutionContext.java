@@ -73,6 +73,7 @@ public class RemoteActionExecutionContext {
   private final NetworkTime networkTime;
   private final CachePolicy writeCachePolicy;
   private final CachePolicy readCachePolicy;
+  private final boolean chunked;
 
   private RemoteActionExecutionContext(
       @Nullable Spawn spawn,
@@ -85,7 +86,8 @@ public class RemoteActionExecutionContext {
         requestMetadata,
         networkTime,
         CachePolicy.ANY_CACHE,
-        CachePolicy.ANY_CACHE);
+        CachePolicy.ANY_CACHE,
+        /* chunked= */ false);
   }
 
   private RemoteActionExecutionContext(
@@ -95,12 +97,31 @@ public class RemoteActionExecutionContext {
       NetworkTime networkTime,
       CachePolicy writeCachePolicy,
       CachePolicy readCachePolicy) {
+    this(
+        spawn,
+        spawnExecutionContext,
+        requestMetadata,
+        networkTime,
+        writeCachePolicy,
+        readCachePolicy,
+        /* chunked= */ false);
+  }
+
+  private RemoteActionExecutionContext(
+      @Nullable Spawn spawn,
+      @Nullable SpawnExecutionContext spawnExecutionContext,
+      RequestMetadata requestMetadata,
+      NetworkTime networkTime,
+      CachePolicy writeCachePolicy,
+      CachePolicy readCachePolicy,
+      boolean chunked) {
     this.spawn = spawn;
     this.spawnExecutionContext = spawnExecutionContext;
     this.requestMetadata = requestMetadata;
     this.networkTime = networkTime;
     this.writeCachePolicy = writeCachePolicy;
     this.readCachePolicy = readCachePolicy;
+    this.chunked = chunked;
   }
 
   public RemoteActionExecutionContext withWriteCachePolicy(CachePolicy writeCachePolicy) {
@@ -110,7 +131,8 @@ public class RemoteActionExecutionContext {
         requestMetadata,
         networkTime,
         writeCachePolicy,
-        readCachePolicy);
+        readCachePolicy,
+        chunked);
   }
 
   public RemoteActionExecutionContext withReadCachePolicy(CachePolicy readCachePolicy) {
@@ -120,7 +142,31 @@ public class RemoteActionExecutionContext {
         requestMetadata,
         networkTime,
         writeCachePolicy,
-        readCachePolicy);
+        readCachePolicy,
+        chunked);
+  }
+
+  /**
+   * Returns a context that marks ByteStream Write calls as carrying a content-defined chunk. The
+   * server can use this to skip re-chunking the uploaded data.
+   */
+  public RemoteActionExecutionContext chunked() {
+    return new RemoteActionExecutionContext(
+        spawn,
+        spawnExecutionContext,
+        requestMetadata,
+        networkTime,
+        writeCachePolicy,
+        readCachePolicy,
+        /* chunked= */ true);
+  }
+
+  /**
+   * Returns {@code true} if ByteStream Write calls should signal that data is a content-defined
+   * chunk.
+   */
+  public boolean isChunked() {
+    return chunked;
   }
 
   /**

@@ -89,9 +89,16 @@ public class ChunkedBlobUploader {
       return;
     }
 
+    // Both FindMissingDigests and the subsequent ByteStream writes use the chunked
+    // context so the server knows these RPCs concern individual chunks, not whole
+    // blobs. This prevents the server from treating chunks as candidates for
+    // further chunking, which would cause double-chunking.
+    // spliceBlob is excluded: it does not support layered chunking and expects
+    // each referenced blob to be a complete, unchunked blob.
+    RemoteActionExecutionContext chunkContext = context.chunked();
     ImmutableSet<Digest> missingDigests =
-        getFromFuture(grpcCacheClient.findMissingDigests(context, chunkDigests));
-    uploadMissingChunks(context, missingDigests, chunkDigests, file);
+        getFromFuture(grpcCacheClient.findMissingDigests(chunkContext, chunkDigests));
+    uploadMissingChunks(chunkContext, missingDigests, chunkDigests, file);
     getFromFuture(grpcCacheClient.spliceBlob(context, blobDigest, chunkDigests));
   }
 
