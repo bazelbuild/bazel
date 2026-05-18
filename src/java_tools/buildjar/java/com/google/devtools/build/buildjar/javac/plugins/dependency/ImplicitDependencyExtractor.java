@@ -37,15 +37,20 @@ public class ImplicitDependencyExtractor {
   private final Map<Path, Deps.Dependency> depsMap;
 
   private final Set<Path> platformJars;
+  private final DependencyModule dependencyModule;
 
   /**
    * ImplicitDependencyExtractor does not guarantee any ordering of the reported dependencies.
    * Clients should preserve the original classpath ordering if trying to minimize their classpaths
    * using this information.
    */
-  public ImplicitDependencyExtractor(Map<Path, Deps.Dependency> depsMap, Set<Path> platformJars) {
+  public ImplicitDependencyExtractor(
+      Map<Path, Deps.Dependency> depsMap,
+      Set<Path> platformJars,
+      DependencyModule dependencyModule) {
     this.depsMap = depsMap;
     this.platformJars = platformJars;
+    this.dependencyModule = dependencyModule;
   }
 
   /**
@@ -104,7 +109,7 @@ public class ImplicitDependencyExtractor {
           path,
           Deps.Dependency.newBuilder()
               .setKind(completed ? Deps.Dependency.Kind.IMPLICIT : Deps.Dependency.Kind.INCOMPLETE)
-              .setPath(path.toString())
+              .setPath(dependencyModule.stripWorkDir(path))
               .build());
     }
   }

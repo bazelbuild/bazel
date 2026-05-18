@@ -156,7 +156,9 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     errWriter = log.getWriter(WriterKind.ERROR);
     implicitDependencyExtractor =
         new ImplicitDependencyExtractor(
-            dependencyModule.getImplicitDependenciesMap(), dependencyModule.getPlatformJars());
+            dependencyModule.getImplicitDependenciesMap(),
+            dependencyModule.getPlatformJars(),
+            dependencyModule);
     checkingTreeScanner = context.get(CheckingTreeScanner.class);
     if (checkingTreeScanner == null) {
       checkingTreeScanner =
@@ -250,6 +252,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   private static class CheckingTreeScanner extends TreePathScanner<Void, Void> {
 
     private final ImmutableSet<Path> directJars;
+    private final DependencyModule dependencyModule;
 
     /** Strict deps diagnostics. */
     private final List<SjdDiagnostic> diagnostics;
@@ -288,6 +291,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
         JavaFileManager fileManager,
         Names names) {
       this.directJars = dependencyModule.directJars();
+      this.dependencyModule = dependencyModule;
       this.diagnostics = diagnostics;
       this.missingTargets = missingTargets;
       this.directDependenciesMap = dependencyModule.getExplicitDependenciesMap();
@@ -361,10 +365,11 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
         Dependency dep =
             Dependency.newBuilder()
                 // Path.toString uses the platform separator (`\` on Windows), but the proto must
-                // use the same separator as in the arguments.
+                // use the same separator as in the arguments. stripWorkDir handles both separator
+                // normalization and stripping the non-deterministic sandbox slot prefix.
                 //
                 // An empty path is OK in the cases we produce it. See readJarOwnerFromManifest.
-                .setPath(jar.pathOrEmpty().toString().replace(File.separatorChar, '/'))
+                .setPath(dependencyModule.stripWorkDir(jar.pathOrEmpty()))
                 .setKind(Dependency.Kind.EXPLICIT)
                 .build();
         directDependenciesMap.put(jar.pathOrEmpty(), dep);
