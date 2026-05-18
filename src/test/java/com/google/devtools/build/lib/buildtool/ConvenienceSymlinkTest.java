@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.buildtool.util.TestRuleModule;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
@@ -293,6 +294,20 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
 
   private Path getOutputPath() {
     return getBlazeWorkspace().getDirectories().getOutputPath(TestConstants.WORKSPACE_NAME);
+  }
+
+  private Path getExternalPath() {
+    return getOutputBase().getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
+  }
+
+  private Path getCleanExternalLinkPath() throws IOException {
+    Path externalLink = getWorkspace().getChild("external");
+    if (externalLink.isSymbolicLink()) {
+      externalLink.delete();
+    } else if (externalLink.exists(Symlinks.NOFOLLOW)) {
+      externalLink.deleteTree();
+    }
+    return externalLink;
   }
 
   /** Gets a mapping from the workspace-relative paths of symlinks to the paths they point to. */
@@ -801,6 +816,98 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     buildTarget("//target:target");
 
     assertThat(getWorkspace().getChild("prefix-genfiles").isSymbolicLink()).isTrue();
+  }
+
+  @Test
+  public void externalLink_omittedWithoutIncompatibleFlag() throws Exception {
+    Path externalLink = getCleanExternalLinkPath();
+
+    write("target/BUILD", "basic_rule(name='target')");
+    buildTarget("//target:target");
+
+    assertThat(externalLink.exists(Symlinks.NOFOLLOW)).isFalse();
+  }
+
+  @Test
+  public void externalLink_presentWithIncompatibleFlag() throws Exception {
+    addOptions("--incompatible_external_symlink");
+    Path externalLink = getCleanExternalLinkPath();
+
+    write("target/BUILD", "basic_rule(name='target')");
+    buildTarget("//target:target");
+
+    assertThat(externalLink.isSymbolicLink()).isTrue();
+    assertThat(externalLink.readSymbolicLink()).isEqualTo(getExternalPath().asFragment());
+  }
+
+  @Test
+  public void externalLink_doesNotReplaceExistingDirectoryWithIncompatibleFlag() throws Exception {
+    addOptions("--incompatible_external_symlink");
+
+    Path externalDirectory = getWorkspace().getChild("external");
+    externalDirectory.createDirectoryAndParents();
+    write("external/source.txt", "existing source");
+
+    write("target/BUILD", "basic_rule(name='target')");
+    buildTarget("//target:target");
+
+    assertThat(externalDirectory.isDirectory(Symlinks.NOFOLLOW)).isTrue();
+    assertThat(getWorkspace().getRelative("external/source.txt").isFile()).isTrue();
+  }
+
+  @Test
+  public void externalLink_doesNotReplaceExistingFileWithIncompatibleFlag() throws Exception {
+    addOptions("--incompatible_external_symlink");
+    Path externalPath = getCleanExternalLinkPath();
+    FileSystemUtils.writeIsoLatin1(externalPath, "existing source");
+
+    write("target/BUILD", "basic_rule(name='target')");
+    buildTarget("//target:target");
+
+    assertThat(externalPath.isFile(Symlinks.NOFOLLOW)).isTrue();
+    assertThat(new String(FileSystemUtils.readContentAsLatin1(externalPath)))
+        .isEqualTo("existing source\n");
+  }
+
+  @Test
+  public void externalLink_replacesExistingSymlinkWithIncompatibleFlag() throws Exception {
+    addOptions("--incompatible_external_symlink");
+    Path manualExternal = getOutputBase().getRelative("manual-external");
+    manualExternal.createDirectoryAndParents();
+    Path externalLink = getCleanExternalLinkPath();
+    externalLink.createSymbolicLink(manualExternal);
+
+    write("target/BUILD", "basic_rule(name='target')");
+    buildTarget("//target:target");
+
+    assertThat(externalLink.isSymbolicLink()).isTrue();
+    assertThat(externalLink.readSymbolicLink()).isEqualTo(getExternalPath().asFragment());
+  }
+
+  @Test
+  public void externalLink_replacesBrokenSymlinkWithIncompatibleFlag() throws Exception {
+    addOptions("--incompatible_external_symlink");
+    Path externalLink = getCleanExternalLinkPath();
+    externalLink.createSymbolicLink(getOutputBase().getRelative("missing-external"));
+
+    write("target/BUILD", "basic_rule(name='target')");
+    buildTarget("//target:target");
+
+    assertThat(externalLink.isSymbolicLink()).isTrue();
+    assertThat(externalLink.readSymbolicLink()).isEqualTo(getExternalPath().asFragment());
+  }
+
+  @Test
+  public void externalLink_notManagedWithoutIncompatibleFlag() throws Exception {
+    Path manualExternal = getOutputBase().getRelative("manual-external");
+    manualExternal.createDirectoryAndParents();
+    Path externalLink = getCleanExternalLinkPath();
+    externalLink.createSymbolicLink(manualExternal);
+
+    write("target/BUILD", "basic_rule(name='target')");
+    buildTarget("//target:target");
+
+    assertThat(externalLink.readSymbolicLink()).isEqualTo(manualExternal.asFragment());
   }
 
   @Test
