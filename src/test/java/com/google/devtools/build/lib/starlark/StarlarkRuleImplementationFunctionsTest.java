@@ -4314,4 +4314,57 @@ args.add_all(d, map_each = _map_each, uniquify = True)
     Dict<?, ?> dict = (Dict<?, ?>) ev.eval("{k: None for k in [DefaultInfo, p, DefaultInfo, p]}");
     assertThat(dict.size()).isEqualTo(2);
   }
+
+  @Test
+  public void testRunShellWithTimeout() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    ev.exec(
+        "ruleContext.actions.run_shell(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  mnemonic = 'DummyMnemonic',",
+        "  command = 'dummy_command',",
+        "  timeout = 120)");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getExecutionInfo())
+        .containsEntry(
+            com.google.devtools.build.lib.actions.ExecutionRequirements.TIMEOUT, "120");
+  }
+
+  @Test
+  public void testRunShellWithZeroTimeout() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    ev.exec(
+        "ruleContext.actions.run_shell(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  mnemonic = 'DummyMnemonic',",
+        "  command = 'dummy_command',",
+        "  timeout = 0)");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getExecutionInfo())
+        .doesNotContainKey(
+            com.google.devtools.build.lib.actions.ExecutionRequirements.TIMEOUT);
+  }
+
+  @Test
+  public void testRunShellWithNegativeTimeout() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.checkEvalErrorContains(
+        "'timeout' must be a non-negative integer, got -1",
+        "ruleContext.actions.run_shell(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  mnemonic = 'DummyMnemonic',",
+        "  command = 'dummy_command',",
+        "  timeout = -1)");
+  }
 }

@@ -161,7 +161,7 @@ public final class Spawns {
    */
   public static Duration getTimeout(Spawn spawn, Duration defaultTimeout) throws ExecException {
     String timeoutStr = spawn.getExecutionInfo().get(ExecutionRequirements.TIMEOUT);
-    if (timeoutStr == null) {
+    if (timeoutStr == null || timeoutStr.isEmpty()) {
       return defaultTimeout == null ? Duration.ZERO : defaultTimeout;
     }
     try {
