@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.devtools.build.lib.concurrent.SettableFutureKeyedValue;
 import java.util.concurrent.ConcurrentMap;
@@ -34,16 +33,20 @@ import java.util.function.Function;
  *
  * <p>In the case of an error, the future is retained, according to the {@link #map} implementation.
  *
- * <p>{@code FutureT} must be a subclass of {@link SettableFutureKeyedValue}. Unfortunately, this
- * additional constraint cannot be expressed using Java generics, but it is checked at runtime
- * during construction.
+ * <p>{@code FutureT} must be a subclass of {@code ValueOrFutureT}. Unfortunately, this constraint
+ * cannot be expressed using Java generics in conjunction with the constraint that {@code FutureT}
+ * extends {@link SettableFutureKeyedValue}. It is the caller's responsibility to ensure this
+ * relationship holds.
  */
 abstract class AbstractValueOrFutureMap<
-        KeyT, ValueOrFutureT, ValueT extends ValueOrFutureT, FutureT extends ValueOrFutureT>
+        KeyT,
+        ValueOrFutureT,
+        ValueT extends ValueOrFutureT,
+        FutureT extends SettableFutureKeyedValue<FutureT, KeyT, ValueT>>
     implements BiConsumer<KeyT, ValueT> {
 
   private final ConcurrentMap<KeyT, ValueOrFutureT> map;
-  private final FutureValueFactory futureValueFactory;
+  private final ValueOrFutureFactory futureValueFactory;
   private final Class<FutureT> futureType;
 
   /**
@@ -52,19 +55,13 @@ abstract class AbstractValueOrFutureMap<
    * @param futureValueFactory creates appropriate instances of {@link SettableFutureKeyedValue}.
    *     The key and consumer parameters are provided for use in {@link SettableFutureKeyedValue}'s
    *     constructor.
-   * @throws IllegalArgumentException if {@code FutureT} is not a subclass of {@link
-   *     SettableFutureKeyedValue}
    */
   AbstractValueOrFutureMap(
       ConcurrentMap<KeyT, ValueOrFutureT> map,
-      BiFunction<KeyT, BiConsumer<KeyT, ValueT>, FutureT> futureValueFactory,
+      BiFunction<KeyT, BiConsumer<KeyT, ValueT>, ValueOrFutureT> futureOrValueFactory,
       Class<FutureT> futureType) {
     this.map = map;
-    this.futureValueFactory = new FutureValueFactory(futureValueFactory);
-    checkArgument(
-        SettableFutureKeyedValue.class.isAssignableFrom(futureType),
-        "%s was not an instanceof SettableFutureKeyedValue",
-        futureType);
+    this.futureValueFactory = new ValueOrFutureFactory(futureOrValueFactory);
     this.futureType = futureType;
   }
 
@@ -85,17 +82,17 @@ abstract class AbstractValueOrFutureMap<
     map.put(key, value);
   }
 
-  private final class FutureValueFactory implements Function<KeyT, FutureT> {
-    private final BiFunction<KeyT, BiConsumer<KeyT, ValueT>, FutureT> futureValueFactory;
+  private final class ValueOrFutureFactory implements Function<KeyT, ValueOrFutureT> {
+    private final BiFunction<KeyT, BiConsumer<KeyT, ValueT>, ValueOrFutureT> futureOrValueFactory;
 
-    private FutureValueFactory(
-        BiFunction<KeyT, BiConsumer<KeyT, ValueT>, FutureT> futureValueFactory) {
-      this.futureValueFactory = futureValueFactory;
+    private ValueOrFutureFactory(
+        BiFunction<KeyT, BiConsumer<KeyT, ValueT>, ValueOrFutureT> futureOrValueFactory) {
+      this.futureOrValueFactory = futureOrValueFactory;
     }
 
     @Override
-    public FutureT apply(KeyT key) {
-      return futureValueFactory.apply(key, AbstractValueOrFutureMap.this);
+    public ValueOrFutureT apply(KeyT key) {
+      return futureOrValueFactory.apply(key, AbstractValueOrFutureMap.this);
     }
   }
 }
