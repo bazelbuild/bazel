@@ -1,0 +1,237 @@
+---
+title: 'Docs contribution workflow'
+---
+
+This page guides you through contributing to the Bazel
+documentation, from a one-line typo fix to adding a new page. For style
+guidance, see the [Bazel docs style guide](/contribute/docs-style-guide).
+
+## Bazel docs structure {#structure}
+
+The source of truth for Bazel documentation is `bazelbuild/bazel`, where docs
+live alongside the code. `bazel-contrib/bazel-docs` is the hosting and pipeline
+layer: it syncs content from `bazelbuild/bazel`, generates PR previews, and
+holds Mintlify configuration. **Content changes always go to `bazelbuild/bazel`.**
+
+| Repository | What it contains |
+|---|---|
+| [`bazelbuild/bazel`](https://github.com/bazelbuild/bazel) | All doc content (`docs/` folder). This is where you make changes. |
+| [`bazel-contrib/bazel-docs`](https://github.com/bazel-contrib/bazel-docs) | Hosting pipeline. Syncs from `bazelbuild/bazel`, generates PR previews, and deploys to [preview.bazel.build](https://preview.bazel.build). |
+<!-- TODO: Update preview.bazel.build to bazel.build once the domain cutover happens. Tracked in https://github.com/bazel-contrib/bazel-docs/issues/453 -->
+
+Bazel docs use [MDX format](https://mdxjs.com/), Markdown with a YAML
+frontmatter block at the top. Every page must start with:
+
+```
+---
+title: 'Your Page Title'
+---
+```
+
+## Prerequisites {#prerequisites}
+
+Before you start, you need:
+
+- A [GitHub account](https://github.com) 
+- A fork of [`bazelbuild/bazel`](https://github.com/bazelbuild/bazel)
+- [Git](https://git-scm.com/)
+- The [Mintlify CLI](https://www.mintlify.com/docs/cli/install) for local preview.  
+
+## Make a minor change {#quick-fix}
+
+For small isolated changes, such as a typo, broken link, phrasing tweaks, you can edit directly in the GitHub web UI without
+cloning anything.
+
+1. Find the file in
+   [`bazelbuild/bazel/docs/`](https://github.com/bazelbuild/bazel/tree/master/docs)
+   on GitHub.
+2. To edit the file, click the **pencil icon** in the top-right corner.
+3. Make your edit.
+4. Click **Commit changes...**, provide a commit message, and click **Propose changes"**.
+5. GitHub prompts you to open a pull request. Set the base branch to
+   **`master`** and click **Create pull request** it.
+
+## Update existing content {#updating-content}
+
+Use this workflow for anything larger than a typo, such as rewording a section,
+correcting outdated information, or adding a paragraph to an existing page.
+
+### Set up locally
+
+Fork [`bazelbuild/bazel`](https://github.com/bazelbuild/bazel) on GitHub first, then clone the repo and add the upstream remote:
+
+```bash
+git clone https://github.com/YOUR_USERNAME/bazel.git
+cd bazel
+git remote add upstream https://github.com/bazelbuild/bazel.git
+```
+
+### Make and preview your changes
+
+Check out a new branch off of `master`.
+
+```bash
+git fetch upstream
+git checkout -b my-doc-fix upstream/master
+```
+
+Edit the file in `docs/`, for example, `docs/concepts/labels.mdx`.
+
+To preview locally, you need a local copy of `bazel-contrib/bazel-docs`:
+
+```bash
+# One-time setup
+git clone https://github.com/bazel-contrib/bazel-docs.git
+cd bazel-docs
+```
+
+Copy your changed file(s) into the local `bazel-docs` mirror to preview them:
+
+```bash
+cp ~/path/to/bazel/docs/concepts/labels.mdx concepts/labels.mdx
+
+# Start the local dev server
+mintlify dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) to render your changes.
+
+### Commit and open a PR
+
+Add, commit, and push your changes:
+```bash
+git add --all # stage all changes 
+git commit -m "docs: your commit msg here"
+git push origin my-doc-fix # push to GitHub
+```
+
+Open a pull request on GitHub from your fork to **`bazelbuild/bazel` master**.
+
+## Add a new section to an existing page {#new-section}
+
+Follow the same workflow as [Update existing content](#updating-content). A few things to keep in mind:
+
+**Add a heading anchor ID.** Every heading should have an explicit `{#id}` so
+URLs to that section stay stable even if the heading text changes:
+
+```md
+## My new section {#my-new-section}
+```
+
+**Use sentence case for headings.** Write "Getting started" not
+"Getting Started".
+
+**Keep the heading hierarchy consistent.** Pages use H2 (`##`) for top-level
+sections and H3 (`###`) for subsections. Don't skip levels.
+
+**Update the page if there's a table of contents or "On this page" intro.**
+Some pages have an introductory list of topics. Add your section there too.
+
+## Add a new page {#new-page}
+
+1. Create the MDX file in the appropriate `docs/` subdirectory.
+   Every file must start with frontmatter:
+
+   ```
+   ---
+   title: 'Your Page Title'
+   ---
+   ```
+
+2. Add your page to the sidebar navigation. This requires a separate change
+   in `bazel-contrib/bazel-docs`. See
+   [Update the docs navigation](/contribute/docs-navigation) for instructions.
+   For an initial PR, you can skip this and ask a maintainer to help.
+
+3. Follow the same branch, commit, and PR steps as [Update existing content](#updating-content).
+
+## MDX basics for doc contributors {#mdx-basics}
+
+MDX is mostly standard Markdown with a few differences.
+
+### Self-closing HTML tags {#self-closing-tags}
+
+JSX requires void elements to be self-closing. Use `<img ... />` and
+`<br />`, not `<img ...>` or `<br>`.
+
+### Links {#links}
+
+Use root-relative paths for internal links. Don't include the `.mdx` extension in the links:
+
+```md
+[labels](/concepts/labels)
+[style guide](/contribute/docs-style-guide)
+```
+
+### Code blocks {#code-blocks}
+
+Always specify a language for syntax highlighting:
+
+````md
+```bash
+bazel build //my/example:app
+```
+````
+
+Common languages used in Bazel docs: `bash`, `python`, `starlark`, `json`,
+`posix-terminal`.
+
+### Images {#images}
+
+Place images in the `images/` subdirectory alongside your MDX file and
+reference them with a root-relative path:
+
+```md
+![Alt text](/contribute/images/my-diagram.png)
+```
+
+Use self-closing syntax: Markdown image syntax does not require the trailing `/>`, 
+but `<img>` tags must self-close when you use them directly:
+
+```md
+<img src="/contribute/images/my-diagram.png" alt="Alt text" width="400" />
+```
+
+### Notes and callouts {#callouts}
+
+Mintlify supports callout components. Use them for important warnings or tips:
+
+```md
+<Note>
+This is a note.
+</Note>
+
+<Warning>
+This is a warning.
+</Warning>
+```
+
+For a full list of Mintlify formatting components (tabs, accordions, cards,
+and more), see the [Mintlify text formatting docs](https://mintlify.com/docs/create/text).
+
+## What to expect after submitting {#after-submitting}
+
+- The Google CLA bot checks that you've signed the
+  [Contributor License Agreement](https://cla.developers.google.com/). You
+  only need to do this once.
+- CI runs a docs validation check.
+- A maintainer reviews your PR and might request edits. Response times vary.
+- Once approved, a maintainer merges your changes to `master`. They appear on
+  the live site after the next sync.
+
+<Tip>
+If your new page does not appear in the sidebar of the PR preview, use the
+black file-changes icon in the preview to navigate directly to it. New pages
+do not appear in the sidebar until you update the navigation in
+`bazel-contrib/bazel-docs`.
+</Tip>
+
+## Get help {#getting-help}
+
+- Join the [Bazel community Slack](https://slack.bazel.build) and ask in the
+  `#documentation` channel. This is the best place for quick questions about
+  the docs platform or contribution process.
+- File an issue in [`bazelbuild/bazel`](https://github.com/bazelbuild/bazel/issues)
+  with the label `type: documentation`.
+- For questions about the docs platform, open an
+  issue in [`bazel-contrib/bazel-docs`](https://github.com/bazel-contrib/bazel-docs/issues).
