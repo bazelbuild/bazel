@@ -315,28 +315,6 @@ public class StarlarkOptionsParser {
     return defaultValue;
   }
 
-  private static String getScopeType(Target buildSettingTarget) throws OptionsParsingException {
-    // TODO: b/384058698 - use NonConfigurableAttributeMapper to ensure "scope" isn't selectable.
-    var attrMap = RawAttributeMapper.of(buildSettingTarget.getAssociatedRule());
-    String scopeType = ScopeType.DEFAULT.toString();
-    if (attrMap.isAttributeValueExplicitlySpecified("scope")) {
-      scopeType = attrMap.get("scope", Type.STRING);
-      if (!ScopeType.allowedAttributeValues().contains(scopeType.toLowerCase(Locale.ROOT))
-          && !scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
-        throw new OptionsParsingException(
-            String.format(
-                "Can't load flag --%s: Invalid \"scope\" attribute value \"%s\". Allowed values:"
-                    + " [%s].",
-                buildSettingTarget.getLabel().getCanonicalForm(),
-                scopeType,
-                ScopeType.allowedAttributeValues().stream()
-                    .map(s -> "\"" + s + "\"")
-                    .collect(joining(", "))));
-      }
-    }
-    return scopeType;
-  }
-
   /**
    * Parses the given {@code flag=value} setting.
    *
