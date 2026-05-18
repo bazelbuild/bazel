@@ -2688,15 +2688,12 @@ EOF
       //tools:bazel_wrapper >& $TEST_log \
       || fail "Failed first build of //tools:bazel_wrapper"
 
-  local exec_path
-  exec_path=$(bazel info bazel-bin)/tools/bazel_wrapper
-  [[ -L "$exec_path" ]] \
-      || fail "Expected $exec_path to be a symlink, got: $(ls -la "$exec_path" 2>&1)"
+  [[ -L bazel-bin/tools/bazel_wrapper ]] \
+      || fail "Expected bazel-bin/tools/bazel_wrapper to be a symlink"
 
   # Move the sh_binary into a same-named subpackage. The output that was
   # previously a symlinked file at .../tools/bazel_wrapper must now become a
   # directory at .../tools/bazel_wrapper/ which contains the new outputs.
-  rm tools/BUILD
   mkdir -p tools/bazel_wrapper
   cat > tools/bazel_wrapper/BUILD <<'EOF'
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
