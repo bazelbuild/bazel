@@ -113,7 +113,7 @@ public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestB
     }
 
     @Override
-    public void shutdown() {}
+    public void resetCommandState() {}
   }
 
   @Override

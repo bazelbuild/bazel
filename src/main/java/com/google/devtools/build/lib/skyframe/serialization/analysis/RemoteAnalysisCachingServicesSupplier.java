@@ -75,8 +75,8 @@ public interface RemoteAnalysisCachingServicesSupplier {
     return null;
   }
 
-  /** Relinquishes any underlying resources. */
-  void shutdown();
+  /** Relinquishes any underlying resource that is scoped to the current command. */
+  void resetCommandState();
 
   /** Relinquishes any global, server-lifetime resources (like cached channels). */
   default void blazeShutdown() {}

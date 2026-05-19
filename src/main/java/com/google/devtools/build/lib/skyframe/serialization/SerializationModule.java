@@ -51,7 +51,7 @@ public class SerializationModule extends BlazeModule {
   @Override
   public void commandComplete() {
     if (remoteAnalysisCachingServicesSupplier != null) {
-      remoteAnalysisCachingServicesSupplier.shutdown();
+      remoteAnalysisCachingServicesSupplier.resetCommandState();
     }
   }
 
@@ -104,6 +104,6 @@ public class SerializationModule extends BlazeModule {
     }
 
     @Override
-    public void shutdown() {}
+    public void resetCommandState() {}
   }
 }
