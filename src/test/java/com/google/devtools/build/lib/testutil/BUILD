@@ -300,10 +300,20 @@ java_library(
         "TestConstants.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/bazel:bazel_services",  # unuseddeps: keep
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "TestServices",
+    srcs = [
+        "TestServices.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/bazel:bazel_services",  # unuseddeps: keep
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
         "//third_party:guava",
     ],
 )

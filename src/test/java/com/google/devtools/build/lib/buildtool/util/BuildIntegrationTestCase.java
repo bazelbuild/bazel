@@ -126,6 +126,7 @@ import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestFileOutErr;
+import com.google.devtools.build.lib.testutil.TestServices;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CommandBuilder;
@@ -650,7 +651,7 @@ public abstract class BuildIntegrationTestCase {
             .addBlazeModule(connectivityModule)
             .addBlazeModule(new SkymeldModule())
             .addBlazeModule(new CredentialModule());
-    for (BlazeService service : TestConstants.BLAZE_SERVICES) {
+    for (BlazeService service : TestServices.BLAZE_SERVICES) {
       builder.addBlazeService(service);
     }
     getSpawnModules().forEach(builder::addBlazeModule);
