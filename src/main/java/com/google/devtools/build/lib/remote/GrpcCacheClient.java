@@ -98,7 +98,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   private final AtomicBoolean closed = new AtomicBoolean();
 
   boolean shouldVerifyDownloads() {
-    return options.getRemoteVerifyDownloads();
+    return options.remoteVerifyDownloads;
   }
 
   @VisibleForTesting
