@@ -299,6 +299,8 @@ REMOTE_PLATFORMS = ("rbe_ubuntu2404",)
         exec_properties = {
             "dockerNetwork": "standard",
             "dockerPrivileged": "true",
+            "dockerRunAsRoot": "true",
+            "linuxIsolation": "OFF",
             "Pool": "default",
         },
         parents = ["@" + platform_name + "//config:platform"],

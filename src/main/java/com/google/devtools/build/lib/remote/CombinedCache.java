@@ -597,7 +597,7 @@ public class CombinedCache extends AbstractReferenceCounted {
         directExecutor());
   }
 
-  /** A reporter that reports download progresses. */
+  /** A reporter that reports download progress. */
   public static class DownloadProgressReporter {
     private static final Pattern PATTERN = Pattern.compile("^bazel-out/[^/]+/[^/]+/");
     private final boolean includeFile;
