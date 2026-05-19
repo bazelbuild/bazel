@@ -20,9 +20,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.concurrent.PaddedAddresses.createPaddedBaseAddress;
 import static com.google.devtools.build.lib.concurrent.PaddedAddresses.getAlignedAddress;
-import static com.google.devtools.build.lib.concurrent.RequestBatcher.createBatchExecutionStrategy;
-import static com.google.devtools.build.lib.concurrent.RequestBatcher.createCallbackBatchExecutionStrategy;
-import static com.google.devtools.build.lib.concurrent.RequestBatcher.createPerResponseBatchExecutionStrategy;
+import static com.google.devtools.build.lib.concurrent.RequestBatching.createBatchExecutionStrategy;
 import static java.util.concurrent.ForkJoinPool.commonPool;
 import static org.junit.Assert.assertThrows;
 
@@ -31,8 +29,12 @@ import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.devtools.build.lib.concurrent.RequestBatcher.Operation;
-import com.google.devtools.build.lib.concurrent.RequestBatcher.ResponseSink;
+import com.google.devtools.build.lib.concurrent.RequestBatching.CallbackMultiplexer;
+import com.google.devtools.build.lib.concurrent.RequestBatching.FutureMultiplexer;
+import com.google.devtools.build.lib.concurrent.RequestBatching.FutureSink;
+import com.google.devtools.build.lib.concurrent.RequestBatching.Multiplexer;
+import com.google.devtools.build.lib.concurrent.RequestBatching.Operation;
+import com.google.devtools.build.lib.concurrent.RequestBatching.ResponseSink;
 import com.google.devtools.build.lib.unsafe.UnsafeProvider;
 
 import java.lang.ref.Cleaner;
@@ -60,8 +62,8 @@ public final class RequestBatcherTest {
     // This covers Step 1A in the documentation.
     var batcher =
         RequestBatcher.<Request, Response>create(
-            createBatchExecutionStrategy(
-                requests -> immediateFuture(respondTo(requests)), commonPool()),
+            requests -> immediateFuture(respondTo(requests)),
+            commonPool(),
             /* maxBatchSize= */ 255,
             /* maxConcurrentRequests= */ 1);
     ListenableFuture<Response> response = batcher.submit(new Request(1));
@@ -76,7 +78,8 @@ public final class RequestBatcherTest {
     var multiplexer = new SettableMultiplexer();
     var batcher =
         RequestBatcher.<Request, Response>create(
-            createBatchExecutionStrategy(multiplexer, commonPool()),
+            multiplexer,
+            commonPool(),
             /* maxBatchSize= */ batchSize - 1,
             /* maxConcurrentRequests= */ 1);
     ListenableFuture<Response> response0 = batcher.submit(new Request(0));
@@ -133,9 +136,7 @@ public final class RequestBatcherTest {
     var multiplexer = new SettableMultiplexer();
     var batcher =
         RequestBatcher.<Request, Response>create(
-            createBatchExecutionStrategy(multiplexer, commonPool()),
-            /* maxBatchSize= */ 255,
-            /* maxConcurrentRequests= */ 1);
+            multiplexer, commonPool(), /* maxBatchSize= */ 255, /* maxConcurrentRequests= */ 1);
     ListenableFuture<Response> response1 = batcher.submit(new Request(1));
     BatchedOperations requestResponses1 = multiplexer.queue.take();
 
@@ -213,8 +214,8 @@ public final class RequestBatcherTest {
   public void randomRaces_executeCorrectly() throws Exception {
     var batcher =
         RequestBatcher.<Request, Response>create(
-            createBatchExecutionStrategy(
-                requests -> immediateFuture(respondTo(requests)), commonPool()),
+            requests -> immediateFuture(respondTo(requests)),
+            commonPool(),
             /* maxBatchSize= */ 255,
             /* maxConcurrentRequests= */ 4);
 
@@ -257,13 +258,12 @@ public final class RequestBatcherTest {
   @Test
   public void perResponseMultiplexer_simpleSubmit_executes() throws Exception {
     var batcher =
-        RequestBatcher.<Request, Response>create(
-            createPerResponseBatchExecutionStrategy(
-                (requests, sinks) -> {
-                  assertThat(requests).hasSize(1);
-                  assertThat(sinks).hasSize(1);
-                  sinks.get(0).acceptFutureResponse(immediateFuture(new Response(1)));
-                }),
+        RequestBatcher.<Request, Response>createWithFutureMultiplexer(
+            (requests, sinks) -> {
+              assertThat(requests).hasSize(1);
+              assertThat(sinks).hasSize(1);
+              sinks.get(0).acceptFuture(immediateFuture(new Response(1)));
+            },
             /* maxBatchSize= */ 255,
             /* maxConcurrentRequests= */ 1);
 
@@ -274,10 +274,10 @@ public final class RequestBatcherTest {
 
   @Test
   public void perResponseMultiplexer_batching_succeeds() throws Exception {
-    var multiplexer = new PerResponseSettableMultiplexer();
+    var multiplexer = new FutureSettableMultiplexer();
     var batcher =
-        RequestBatcher.<Request, Response>create(
-            createPerResponseBatchExecutionStrategy(multiplexer),
+        RequestBatcher.<Request, Response>createWithFutureMultiplexer(
+            multiplexer,
             /* maxBatchSize= */ 1, // actual batch size is 2
             /* maxConcurrentRequests= */ 1);
 
@@ -315,10 +315,10 @@ public final class RequestBatcherTest {
 
   @Test
   public void perResponseMultiplexer_individualResponseFailure_isIsolated() throws Exception {
-    var multiplexer = new PerResponseSettableMultiplexer();
+    var multiplexer = new FutureSettableMultiplexer();
     var batcher =
-        RequestBatcher.<Request, Response>create(
-            createPerResponseBatchExecutionStrategy(multiplexer),
+        RequestBatcher.<Request, Response>createWithFutureMultiplexer(
+            multiplexer,
             /* maxBatchSize= */ 1, // actual batch size is 2
             /* maxConcurrentRequests= */ 1);
 
@@ -354,24 +354,21 @@ public final class RequestBatcherTest {
   public void perResponseMultiplexer_missingFuture_throwsIllegalState() throws Exception {
     var futureResponses = new LinkedBlockingQueue<SettableFuture<Response>>();
     var multiplexer =
-        new RequestBatcher.PerResponseMultiplexer<Request, Response>() {
+        new FutureMultiplexer<Request, Response>() {
           @Override
           public void execute(
-              List<Request> requests,
-              ImmutableList<? extends RequestBatcher.FutureResponseSink<Response>> sinks) {
+              List<Request> requests, ImmutableList<? extends FutureSink<Response>> sinks) {
             // Faulty implementation: only sets the first future in the batch, and "forgets" to set
             // the rest.
             var futureResponse = SettableFuture.<Response>create();
             futureResponses.add(futureResponse);
-            sinks.get(0).acceptFutureResponse(futureResponse);
+            sinks.get(0).acceptFuture(futureResponse);
           }
         };
 
     var batcher =
-        RequestBatcher.<Request, Response>create(
-            createPerResponseBatchExecutionStrategy(multiplexer),
-            /* maxBatchSize= */ 255,
-            /* maxConcurrentRequests= */ 1);
+        RequestBatcher.<Request, Response>createWithFutureMultiplexer(
+            multiplexer, /* maxBatchSize= */ 255, /* maxConcurrentRequests= */ 1);
 
     // Blocks the first worker to allow a batch to form.
     ListenableFuture<Response> response0 = batcher.submit(new Request(0));
@@ -415,7 +412,8 @@ public final class RequestBatcherTest {
     var multiplexer = new SettableMultiplexer();
     var batcher =
         RequestBatcher.<Request, Response>create(
-            createBatchExecutionStrategy(multiplexer, crashDetectingExecutor),
+            multiplexer,
+            crashDetectingExecutor,
             /* maxBatchSize= */ 255,
             /* maxConcurrentRequests= */ 1);
 
@@ -485,7 +483,7 @@ public final class RequestBatcherTest {
   private static RequestBatcher<Request, Response> createCallbackMultiplexerBatcher(
       LinkedBlockingQueue<BatcherEvent> events) {
     var multiplexer =
-        new RequestBatcher.CallbackMultiplexer<Request, Response>() {
+        new CallbackMultiplexer<Request, Response>() {
           @Override
           public Runnable execute(
               List<Request> requests,
@@ -496,10 +494,8 @@ public final class RequestBatcherTest {
           }
         };
 
-    return RequestBatcher.<Request, Response>create(
-        createCallbackBatchExecutionStrategy(multiplexer),
-        /* maxBatchSize= */ 1,
-        /* maxConcurrentRequests= */ 1);
+    return RequestBatcher.<Request, Response>createWithCallbackMultiplexer(
+        multiplexer, /* maxBatchSize= */ 1, /* maxConcurrentRequests= */ 1);
   }
 
   @Test
@@ -656,8 +652,7 @@ public final class RequestBatcherTest {
     }
   }
 
-  private static class SettableMultiplexer
-      implements RequestBatcher.Multiplexer<Request, Response> {
+  private static class SettableMultiplexer implements Multiplexer<Request, Response> {
     private final LinkedBlockingQueue<BatchedOperations> queue = new LinkedBlockingQueue<>();
 
     @Override
@@ -683,15 +678,13 @@ public final class RequestBatcherTest {
     return Lists.transform(requests, request -> new Response(request.x()));
   }
 
-  private static class PerResponseSettableMultiplexer
-      implements RequestBatcher.PerResponseMultiplexer<Request, Response> {
+  private static class FutureSettableMultiplexer implements FutureMultiplexer<Request, Response> {
     private final LinkedBlockingQueue<BatchedPerResponseRequests> queue =
         new LinkedBlockingQueue<>();
 
     @Override
     public void execute(
-        List<Request> requests,
-        ImmutableList<? extends RequestBatcher.FutureResponseSink<Response>> sinks) {
+        List<Request> requests, ImmutableList<? extends FutureSink<Response>> sinks) {
       assertThat(requests).hasSize(sinks.size());
 
       List<SettableFuture<Response>> settableFutures = new ArrayList<>();
@@ -699,7 +692,7 @@ public final class RequestBatcherTest {
         SettableFuture<Response> settableFuture = SettableFuture.create();
         settableFutures.add(settableFuture);
         // This links the batcher's internal future to our controllable future.
-        sinks.get(i).acceptFutureResponse(settableFuture);
+        sinks.get(i).acceptFuture(settableFuture);
       }
       queue.add(new BatchedPerResponseRequests(requests, settableFutures));
     }
