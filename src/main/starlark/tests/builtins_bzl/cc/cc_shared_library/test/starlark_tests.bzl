@@ -133,6 +133,9 @@ def _linking_order_test_macro(name, target):
                 "//conditions:default": False,
             }),
         },
+        config_settings = {
+            "//command_line_option:interface_shared_objects": False,
+        },
     )
 
 linking_order_test = _linking_order_test_macro
