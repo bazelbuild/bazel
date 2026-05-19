@@ -20,17 +20,19 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
 import com.google.devtools.build.lib.skyframe.LocalDiffAwareness.SequentialView;
 import com.google.devtools.build.lib.testing.common.FakeOptions;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -42,13 +44,13 @@ import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestName;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Integration tests for LocalDiffAwareness. */
 @RunWith(JUnit4.class)
-public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
+public class LocalDiffAwarenessTest {
 
   /** Try this many times to pick up file changes. Inotify needs some nanoseconds of patience. */
   private static final int MAX_RETRY_COUNT = 20;
@@ -59,16 +61,15 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
   private Path testCaseRoot;
   private Path testCaseIgnoredDir;
 
-  @Rule public TestName name = new TestName();
+  @Rule public final TemporaryFolder tmp = new TemporaryFolder();
 
   @Before
   public final void initializeSettings() throws Exception {
     LocalDiffAwareness.Factory factory =
         new LocalDiffAwareness.Factory(
             ImmutableList.<String>of(), new FsEventsNativeDepsServiceImpl());
-    // Make sure all test functions have their own directory to test
-    testCaseRoot = testRoot.getChild(name.getMethodName());
-    testCaseRoot.createDirectoryAndParents();
+    FileSystem fileSystem = FileSystems.getNativeFileSystem(DigestHashFunction.SHA256);
+    testCaseRoot = fileSystem.getPath(tmp.getRoot().getAbsolutePath());
     testCaseIgnoredDir = testCaseRoot.getChild("ignored-dir");
     testCaseIgnoredDir.createDirectoryAndParents();
 

@@ -177,7 +177,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/vfs/util",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:junit4",
