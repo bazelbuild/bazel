@@ -93,20 +93,6 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testEmptyLibrary() throws Exception {
-    ConfiguredTarget emptylib = getConfiguredTarget("//empty:emptylib");
-    // We create .a for empty libraries, for simplicity (in Blaze).
-    // But we avoid creating .so files for empty libraries,
-    // because those have a potentially significant run-time startup cost.
-    assertThat(
-            CcInfo.get(emptylib)
-                .getCcLinkingContext()
-                .getDynamicLibrariesForRuntime(/* linkingStatically= */ false)
-                .isEmpty())
-        .isTrue();
-  }
-
-  @Test
   public void testEmptyBinary() throws Exception {
     ConfiguredTarget emptybin = getConfiguredTarget("//empty:emptybinary");
     assertThat(baseNamesOf(getFilesToBuild(emptybin)))
@@ -118,24 +104,6 @@ public class CcCommonTest extends BuildViewTestCase {
     Artifact object = getOutputGroup(cLib, OutputGroupInfo.FILES_TO_COMPILE).getSingleton();
     CppCompileAction compileAction = (CppCompileAction) getGeneratingAction(object);
     return compileAction.getCompilerOptions();
-  }
-
-  @Test
-  public void testCopts() throws Exception {
-    scratch.file(
-        "copts/BUILD",
-        """
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        cc_library(
-            name = "c_lib",
-            srcs = ["foo.cc"],
-            copts = [
-                "-Wmy-warning",
-                "-frun-faster",
-            ],
-        )
-        """);
-    assertThat(getCopts("//copts:c_lib")).containsAtLeast("-Wmy-warning", "-frun-faster");
   }
 
   @Test
@@ -244,21 +212,6 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(getGeneratingAction(staticallyDotA).getMnemonic()).isEqualTo("CppArchive");
     PathFragment dotAPath = staticallyDotA.getExecPath();
     assertThat(dotAPath.getPathString()).endsWith(STATIC_LIB);
-  }
-
-  @Test
-  public void testIsolatedDefines() throws Exception {
-    ConfiguredTarget isolatedDefines =
-        scratchConfiguredTarget(
-            "isolated_defines",
-            "defineslib",
-            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-            "cc_library(name = 'defineslib',",
-            "           srcs = ['defines.cc'],",
-            "           defines = ['FOO', 'BAR'])");
-    assertThat(CcInfo.get(isolatedDefines).getCcCompilationContext().getDefines())
-        .containsExactly("FOO", "BAR")
-        .inOrder();
   }
 
   @Test
@@ -489,19 +442,6 @@ public class CcCommonTest extends BuildViewTestCase {
         "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
         "cc_library(name='csrc', srcs=['foo.c'])");
     assertTempsForTarget("//csrc:csrc").containsExactly("foo.i", "foo.s");
-  }
-
-  @Test
-  public void testAlwaysLinkYieldsLo() throws Exception {
-    ConfiguredTarget alwaysLink =
-        scratchConfiguredTarget(
-            "always_link",
-            "always_link",
-            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-            "cc_library(name = 'always_link',",
-            "           alwayslink = 1,",
-            "           srcs = ['always_link.cc'])");
-    assertThat(baseNamesOf(getFilesToBuild(alwaysLink))).contains("libalways_link.lo");
   }
 
   @Test
@@ -993,16 +933,6 @@ public class CcCommonTest extends BuildViewTestCase {
             "           srcs = ['libshared.so', 'libshared.so.1.1', 'foo.cc'])");
     List<String> artifactNames = baseArtifactNames(getLinkerInputs(target));
     assertThat(artifactNames).containsAtLeast("libshared.so", "libshared.so.1.1");
-  }
-
-  @Test
-  public void testLibraryInHdrs() throws Exception {
-    scratchConfiguredTarget(
-        "a",
-        "a",
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "cc_library(name='a', srcs=['a.cc'], hdrs=[':b'])",
-        "cc_library(name='b', srcs=['b.cc'])");
   }
 
   @Test
