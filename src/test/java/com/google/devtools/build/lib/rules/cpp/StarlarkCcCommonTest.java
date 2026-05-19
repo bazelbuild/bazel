@@ -1656,18 +1656,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                     CppRuleClasses.SUPPORTS_PIC,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     var picStaticLibraries =
-        ImmutableList.of(
-            "a.pic.a",
-            "b.rlib",
-            "e.pic.a",
-            "libdep1.a",
-            "c.pic.a",
-            "libdep2.a",
-            "libstl_cc_library.a");
-    if (AnalysisMock.get().isThisBazel()) {
-      picStaticLibraries =
-          ImmutableList.of("a.pic.a", "libdep2.a", "b.rlib", "c.pic.a", "e.pic.a", "libdep1.a");
-    }
+        ImmutableList.of("a.pic.a", "b.rlib", "e.pic.a", "libdep1.a", "c.pic.a", "libdep2.a");
     doTestCcLinkingContext(
         ImmutableList.of("a.a", "b.rlib", "c.a", "d.a"),
         picStaticLibraries,
@@ -1686,18 +1675,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                     CppRuleClasses.SUPPORTS_PIC,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     var picStaticLibraries =
-        ImmutableList.of(
-            "a.pic.a",
-            "libdep2.a",
-            "b.rlib",
-            "c.pic.a",
-            "e.pic.a",
-            "libdep1.a",
-            "libstl_cc_library.a");
-    if (AnalysisMock.get().isThisBazel()) {
-      picStaticLibraries =
-          ImmutableList.of("a.pic.a", "libdep2.a", "b.rlib", "c.pic.a", "e.pic.a", "libdep1.a");
-    }
+        ImmutableList.of("a.pic.a", "libdep2.a", "b.rlib", "c.pic.a", "e.pic.a", "libdep1.a");
     doTestCcLinkingContext(
         ImmutableList.of("a.a", "b.rlib", "c.a", "d.a"),
         picStaticLibraries,

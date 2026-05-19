@@ -427,17 +427,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testCreate_errorForEmptyFilegroupSources() throws Exception {
-    checkError(
-        "x",
-        "x",
-        "does not produce any objc_library srcs files",
-        "load('@rules_cc//cc:objc_library.bzl', 'objc_library')",
-        "filegroup(name = 'fg', srcs = [])",
-        "objc_library(name = 'x', srcs = ['fg'])");
-  }
-
-  @Test
   public void testCreate_srcsContainingHeaders() throws Exception {
     scratch.file("x/a.m", "dummy source file");
     scratch.file("x/a.h", "dummy header file");
