@@ -209,9 +209,6 @@ public class CppCompileAction extends AbstractAction
    */
   private NestedSet<Artifact> topLevelModules;
 
-  private ParamFileActionInput paramFileActionInput;
-  @Nullable private final PathFragment paramFilePath;
-
   private final NestedSet<Artifact> moduleFiles;
   private final Artifact modmapInputFile;
 
@@ -310,13 +307,6 @@ public class CppCompileAction extends AbstractAction
     this.topLevelModules = null;
     this.grepIncludes = grepIncludes;
     this.dotdFile = isGenerateDotdFile(sourceFile) ? dotdFile : null;
-    this.paramFilePath =
-        featureConfiguration.isEnabled(CppRuleClasses.COMPILER_PARAM_FILE)
-            ? outputFile
-                .getExecPath()
-                .getParentDirectory()
-                .getChild(outputFile.getFilename() + ".params")
-            : null;
 
     NestedSetBuilder<Artifact> allowedDerivedInputsBuilder =
         NestedSetBuilder.fromNestedSet(mandatoryInputs)
@@ -367,7 +357,6 @@ public class CppCompileAction extends AbstractAction
       String actionName,
       FeatureConfiguration featureConfiguration,
       ImmutableList<PathFragment> builtInIncludeDirectories,
-      @Nullable PathFragment paramFilePath,
       NestedSet<Artifact> moduleFiles,
       Artifact modmapInputFile) {
     super(owner, mandatoryInputs, rawOutputs);
@@ -393,7 +382,6 @@ public class CppCompileAction extends AbstractAction
     this.actionName = actionName;
     this.featureConfiguration = featureConfiguration;
     this.builtInIncludeDirectories = builtInIncludeDirectories;
-    this.paramFilePath = paramFilePath;
     this.moduleFiles = moduleFiles;
     this.modmapInputFile = modmapInputFile;
   }
@@ -979,7 +967,7 @@ public class CppCompileAction extends AbstractAction
               "failed to generate compile environment variables for rule '%s: %s",
               getOwner().getLabel(), e.getMessage());
       DetailedExitCode code = createDetailedExitCode(message, Code.COMMAND_GENERATION_FAILURE);
-      throw new ActionExecutionException(message, this, /*catastrophe=*/ false, code);
+      throw new ActionExecutionException(message, this, /* catastrophe= */ false, code);
     }
   }
 
@@ -1007,14 +995,7 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   public List<String> getArguments() throws CommandLineExpansionException {
-    return compileCommandLine.getArguments(
-        /* parameterFilePath= */ null, getOverwrittenVariables(), PathMapper.NOOP);
-  }
-
-  @VisibleForTesting
-  List<String> getArguments(PathFragment paramFilePath, PathMapper pathMapper)
-      throws CommandLineExpansionException {
-    return compileCommandLine.getArguments(paramFilePath, getOverwrittenVariables(), pathMapper);
+    return compileCommandLine.getArguments(getOverwrittenVariables(), PathMapper.NOOP);
   }
 
   @Override
@@ -1068,7 +1049,7 @@ public class CppCompileAction extends AbstractAction
     }
     // TODO(ulfjack): Extra actions currently ignore the client environment.
     for (Map.Entry<String, String> envVariable :
-        getEffectiveEnvironment(/*clientEnv=*/ ImmutableMap.of()).entrySet()) {
+        getEffectiveEnvironment(/* clientEnv= */ ImmutableMap.of()).entrySet()) {
       info.addVariable(
           EnvironmentVariable.newBuilder()
               .setName(envVariable.getKey())
@@ -1210,7 +1191,7 @@ public class CppCompileAction extends AbstractAction
                 includePath);
         DetailedExitCode code =
             createDetailedExitCode(message, Code.INCLUDE_PATH_OUTSIDE_EXEC_ROOT);
-        throw new ActionExecutionException(message, this, /*catastrophe=*/ false, code);
+        throw new ActionExecutionException(message, this, /* catastrophe= */ false, code);
       }
     }
   }
@@ -1465,23 +1446,8 @@ public class CppCompileAction extends AbstractAction
         PathMappers.create(
             this, PathMappers.getOutputPathsMode(configuration), /* isStarlarkAction= */ false);
 
-    if (featureConfiguration.isEnabled(CppRuleClasses.COMPILER_PARAM_FILE)) {
-      try {
-        paramFileActionInput =
-            new ParamFileActionInput(
-                paramFilePath,
-                compileCommandLine.getCompilerOptions(getOverwrittenVariables(), pathMapper),
-                // TODO(b/132888308): Support MSVC, which has its own method of escaping strings.
-                ParameterFileType.GCC_QUOTED);
-      } catch (CommandLineExpansionException e) {
-        String message =
-            String.format(
-                "failed to generate compile command for rule '%s: %s",
-                getOwner().getLabel(), e.getMessage());
-        DetailedExitCode code = createDetailedExitCode(message, Code.COMMAND_GENERATION_FAILURE);
-        throw new ActionExecutionException(message, this, /* catastrophe= */ false, code);
-      }
-    }
+    ArgumentsAndParamFileActionInput argumentsAndParamFileActionInput =
+        getArgumentsForExecute(pathMapper);
 
     if (shouldScanIncludes) {
       updateActionInputs(additionalInputs);
@@ -1507,8 +1473,10 @@ public class CppCompileAction extends AbstractAction
       spawn =
           createSpawn(
               actionExecutionContext.getExecRoot(),
+              argumentsAndParamFileActionInput.arguments(),
               actionExecutionContext.getClientEnv(),
-              pathMapper);
+              pathMapper,
+              argumentsAndParamFileActionInput.paramFileActionInput());
     } finally {
       clearAdditionalInputs();
     }
@@ -1596,6 +1564,57 @@ public class CppCompileAction extends AbstractAction
     return ActionResult.create(spawnResults);
   }
 
+  record ArgumentsAndParamFileActionInput(
+      List<String> arguments, @Nullable ParamFileActionInput paramFileActionInput) {}
+
+  @VisibleForTesting
+  ArgumentsAndParamFileActionInput getArgumentsForExecute(PathMapper pathMapper)
+      throws ActionExecutionException {
+    List<String> compilerOptions = null;
+    try {
+      compilerOptions =
+          compileCommandLine.getCompilerOptions(getOverwrittenVariables(), pathMapper);
+    } catch (CommandLineExpansionException e) {
+      String message =
+          String.format(
+              "failed to generate compile command for rule '%s: %s",
+              getOwner().getLabel(), e.getMessage());
+      DetailedExitCode code = createDetailedExitCode(message, Code.COMMAND_GENERATION_FAILURE);
+      throw new ActionExecutionException(message, this, /* catastrophe= */ false, code);
+    }
+    List<String> args = null; // null means use a param file.
+    if (!featureConfiguration.isEnabled(CppRuleClasses.COMPILER_PARAM_FILE)) {
+      args = compileCommandLine.getArgumentsWithCompilerOptions(pathMapper, compilerOptions);
+      if (featureConfiguration.isEnabled(CppRuleClasses.COMPILER_PARAM_FILE_ON_DEMAND)) {
+        int totalLength = 0;
+        for (String arg : args) {
+          totalLength += (arg.length() + 1);
+        }
+        if (totalLength > configuration.getCommandLineLimits().maxLength) {
+          // COMPILER_PARAM_FILE_ON_DEMAND is enabled and the command line is too long:
+          args = null; // null means use a param file.
+        }
+      }
+    }
+    ParamFileActionInput paramFileActionInput = null;
+    if (args == null) { // null means use a param file so we prepare one and update args.
+      Artifact outputFile = getPrimaryOutput();
+      PathFragment paramFilePath =
+          outputFile
+              .getExecPath()
+              .getParentDirectory()
+              .getChild(outputFile.getFilename() + ".params");
+      paramFileActionInput =
+          new ParamFileActionInput(
+              paramFilePath,
+              compilerOptions,
+              // TODO(b/132888308): Support MSVC, which has its own method of escaping strings.
+              ParameterFileType.GCC_QUOTED);
+      args = compileCommandLine.getArgumentsWithParameterFile(pathMapper, paramFilePath);
+    }
+    return new ArgumentsAndParamFileActionInput(args, paramFileActionInput);
+  }
+
   private void copyTempOutErrToActionOutErrMaybe(
       FileOutErr tempOutErr,
       FileOutErr outErr,
@@ -1680,7 +1699,12 @@ public class CppCompileAction extends AbstractAction
         .collect(toImmutableSet());
   }
 
-  Spawn createSpawn(Path execRoot, Map<String, String> clientEnv, PathMapper pathMapper)
+  Spawn createSpawn(
+      Path execRoot,
+      List<String> args,
+      Map<String, String> clientEnv,
+      PathMapper pathMapper,
+      @Nullable ParamFileActionInput paramFileActionInput)
       throws ActionExecutionException {
     // Intentionally not adding {@link CppCompileAction#inputsForInvalidation}, those are not needed
     // for execution.
@@ -1740,7 +1764,7 @@ public class CppCompileAction extends AbstractAction
     try {
       return new SimpleSpawn(
           this,
-          ImmutableList.copyOf(getArguments(paramFilePath, pathMapper)),
+          ImmutableList.copyOf(args),
           getEffectiveEnvironment(clientEnv, pathMapper),
           executionInfo.buildOrThrow(),
           inputs,

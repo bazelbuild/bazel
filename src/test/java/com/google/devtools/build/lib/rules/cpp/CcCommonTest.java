@@ -1508,12 +1508,11 @@ public class CcCommonTest extends BuildViewTestCase {
             "--experimental_override_name_platform_in_output_dir=%s=k8",
             TestConstants.PLATFORM_LABEL));
     CppCompileAction cppCompileAction = getCppCompileAction("//a:foo");
-    PathFragment paramFilePath = PathFragment.create("foo/bar/bar.o.params");
     assertThat(
-            cppCompileAction.getArguments(paramFilePath, PathMapper.NOOP).stream()
+            cppCompileAction.getArgumentsForExecute(PathMapper.NOOP).arguments().stream()
                 .map(x -> removeOutDirectory(x))
                 .collect(ImmutableList.toImmutableList()))
-        .containsExactly("/usr/bin/mock-gcc", "@foo/bar/bar.o.params");
+        .containsExactly("/usr/bin/mock-gcc", "@/k8-fastbuild/bin/a/_objs/foo/foo.o.params");
   }
 
   @Test
@@ -1541,6 +1540,72 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(argv).contains("/usr/bin/mock-gcc");
     assertThat(argv).contains("-o");
     assertThat(argv).contains("/k8-fastbuild/bin/a/_objs/foo/foo.o");
+  }
+
+  @Test
+  public void testCompilationParameterFileOnDemand() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.COMPILER_PARAM_FILE_ON_DEMAND));
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='foo', srcs=['foo.cc'])");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
+    CppCompileAction cppCompileAction = getCppCompileAction("//a:foo");
+    // It should NOT use the param file because it's on-demand and command line is short.
+    assertThat(
+            cppCompileAction.getArgumentsForExecute(PathMapper.NOOP).arguments().stream()
+                .map(x -> removeOutDirectory(x)))
+        .containsAtLeast(
+            "/usr/bin/mock-gcc",
+            "--default-compile-flag",
+            "-MD",
+            "-MF",
+            "/k8-fastbuild/bin/a/_objs/foo/foo.d",
+            "-frandom-seed=/k8-fastbuild/bin/a/_objs/foo/foo.o",
+            "-iquote",
+            ".",
+            "-iquote",
+            "/k8-fastbuild/bin",
+            "--sysroot=/usr/grte/v1",
+            "-c",
+            "a/foo.cc",
+            "-o",
+            "/k8-fastbuild/bin/a/_objs/foo/foo.o");
+  }
+
+  @Test
+  public void testCompilationParameterFileOnDemandLongCommandLine() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.COMPILER_PARAM_FILE_ON_DEMAND));
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='foo', srcs=['foo.cc'])");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL),
+        "--min_param_file_size=0"); // Force max length to be 0
+    CppCompileAction cppCompileAction = getCppCompileAction("//a:foo");
+    // With min_param_file_size=0, it should dynamically decide to use the param file
+    assertThat(
+            cppCompileAction.getArgumentsForExecute(PathMapper.NOOP).arguments().stream()
+                .map(x -> removeOutDirectory(x)))
+        .containsExactly("/usr/bin/mock-gcc", "@/k8-fastbuild/bin/a/_objs/foo/foo.o.params");
   }
 
   @Test

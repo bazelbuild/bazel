@@ -146,9 +146,7 @@ public class CompileCommandLineTest extends BuildViewTestCase {
                     "    ),",
                     "]"))
             .build();
-    assertThat(
-            compileCommandLine.getArguments(
-                /* parameterFilePath= */ null, /* overwrittenVariables= */ null, PathMapper.NOOP))
+    assertThat(compileCommandLine.getArguments(/* overwrittenVariables= */ null, PathMapper.NOOP))
         .contains("-some_foo_flag");
   }
 
@@ -190,8 +188,7 @@ public class CompileCommandLineTest extends BuildViewTestCase {
                     "]"))
             .setCoptsFilter(CoptsFilter.fromRegex(Pattern.compile(".*i_am_a_flag.*")))
             .build();
-    return compileCommandLine.getArguments(
-        /* parameterFilePath= */ null, /* overwrittenVariables= */ null, PathMapper.NOOP);
+    return compileCommandLine.getArguments(/* overwrittenVariables= */ null, PathMapper.NOOP);
   }
 
   private CompileCommandLine.Builder makeCompileCommandLineBuilder() throws Exception {

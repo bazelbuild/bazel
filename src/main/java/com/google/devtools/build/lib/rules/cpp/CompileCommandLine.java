@@ -70,32 +70,61 @@ public final class CompileCommandLine {
   }
 
   /**
+   * Returns the arguments for the compilation.
+   *
    * @param overwrittenVariables: Variables that will overwrite original build variables. When null,
    *     unmodified original variables are used.
+   * @param pathMapper: The path mapper to remap paths within the output directory.
    */
   List<String> getArguments(
-      @Nullable PathFragment parameterFilePath,
-      @Nullable CcToolchainVariables overwrittenVariables,
-      PathMapper pathMapper)
+      @Nullable CcToolchainVariables overwrittenVariables, PathMapper pathMapper)
       throws CommandLineExpansionException {
-    List<String> commandLine = new ArrayList<>();
+    return getArgumentsWithCompilerOptions(
+        pathMapper, getCompilerOptions(overwrittenVariables, pathMapper));
+  }
 
+  /**
+   * Returns the arguments for the compilation when compilerOptions have already been generated.
+   *
+   * @param pathMapper: The path mapper to remap paths within the output directory.
+   * @param compilerOptions: The compiler options to use. Essentially all arguments except the tool
+   *     itself.
+   */
+  List<String> getArgumentsWithCompilerOptions(
+      PathMapper pathMapper, @Nullable List<String> compilerOptions) {
+    List<String> commandLine = new ArrayList<>();
     // first: The command name.
+    commandLine.add(getToolPathForCommandLine(pathMapper));
+    // second: The compiler options.
+    commandLine.addAll(compilerOptions);
+    return commandLine;
+  }
+
+  /**
+   * Returns the arguments for the compilation when using a parameter file.
+   *
+   * @param pathMapper: The path mapper to remap paths within the output directory.
+   * @param parameterFilePath: The path to the parameter file. When null, the arguments will be
+   *     returned without using a parameter file.
+   */
+  List<String> getArgumentsWithParameterFile(
+      PathMapper pathMapper, PathFragment parameterFilePath) {
+    List<String> commandLine = new ArrayList<>();
+    // first: The command name.
+    commandLine.add(getToolPathForCommandLine(pathMapper));
+    // second: The parameter file path.
+    commandLine.add("@" + parameterFilePath.getSafePathString());
+    return commandLine;
+  }
+
+  private String getToolPathForCommandLine(PathMapper pathMapper) {
     if (pathMapper.isNoop()) {
-      commandLine.add(getToolPath());
+      return getToolPath();
     } else {
       // getToolPath() ultimately returns a PathFragment's getSafePathString(), so its safe to
       // reparse it here with no risk of e.g. altering a user-specified absolute path.
-      commandLine.add(pathMapper.map(PathFragment.create(getToolPath())).getSafePathString());
+      return pathMapper.map(PathFragment.create(getToolPath())).getSafePathString();
     }
-
-    // second: The compiler options.
-    if (parameterFilePath != null) {
-      commandLine.add("@" + parameterFilePath.getSafePathString());
-    } else {
-      commandLine.addAll(getCompilerOptions(overwrittenVariables, pathMapper));
-    }
-    return commandLine;
   }
 
   /**
