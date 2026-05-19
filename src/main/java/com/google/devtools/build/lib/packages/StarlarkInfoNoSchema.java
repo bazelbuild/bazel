@@ -22,9 +22,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Compactable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.TokenKind;
@@ -293,12 +293,8 @@ public class StarlarkInfoNoSchema extends StarlarkInfo {
   @Override
   public StarlarkInfoNoSchema unsafeOptimizeMemoryLayout() {
     for (int i = table.length / 2; i < table.length; i++) {
-      if (table[i] instanceof StarlarkList<?>) {
-        // On duplicated lists, ImmutableStarlarkLists objects are duplicated, but not underlying
-        // Object arrays
-        table[i] = ((StarlarkList<?>) table[i]).unsafeOptimizeMemoryLayout();
-      } else if (table[i] instanceof StarlarkInfo) {
-        table[i] = ((StarlarkInfo) table[i]).unsafeOptimizeMemoryLayout();
+      if (table[i] instanceof Compactable compactable) {
+        table[i] = compactable.unsafeOptimizeMemoryLayout();
       }
     }
     return this;
