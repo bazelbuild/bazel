@@ -3,7 +3,7 @@ bazel-runfiles==0.24.0
 beautifulsoup4==4.14.3
 certifi==2026.1.4
 charset-normalizer==3.4.4
-idna==3.11
+idna==3.15
 markdownify==1.2.2
 requests==2.33.0
 six==1.17.0
