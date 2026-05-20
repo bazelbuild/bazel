@@ -362,6 +362,12 @@ tasks:
       - "-//src/test/shell/bazel:bazel_sandboxing_networking_test"
       # Disable some Android tests since we are moving Android rules out of the Bazel repo.
       - "-//src/test/shell/bazel:bazel_android_tools_test"
+      # Disable tests that fail on RBE due to sandboxing/mount restrictions
+      - "-//src/test/shell/integration:sandboxing_test"
+      - "-//src/test/java/com/google/devtools/build/lib/shell:CommandUsingLinuxSandboxTest"
+      - "-//src/test/shell/bazel:bazel_spawnstats_test"
+      - "-//src/test/shell/integration:bazel_hardened_sandboxed_worker_test"
+      - "-//src/test/shell/integration:test_test"
     include_json_profile:
       - build
       - test
