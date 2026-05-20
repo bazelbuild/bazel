@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 
 import com.google.common.base.Functions;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AbstractSaneAnalysisException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -157,6 +159,38 @@ public sealed class ActionConflictException extends AbstractSaneAnalysisExceptio
     sb.append("\n");
   }
 
+  /** Appends a line diff for large string values e.g. describeKey which can be 50k chars long. */
+  private static void describeKeyDiff(
+      StringBuilder sb, ActionExecutionMetadata metadataA, ActionExecutionMetadata metadataB) {
+    sb.append("Action describeKey: ");
+
+    String valueA = metadataA.describeKey();
+    String valueB = metadataB.describeKey();
+    valueA = valueA != null ? valueA : "(null)";
+    valueB = valueB != null ? valueB : "(null)";
+
+    // Do not print the values when they are identical.
+    if (valueA.equals(valueB)) {
+      sb.append("are equal\n");
+      return;
+    }
+
+    sb.append("are different:\n");
+    List<String> linesA = Splitter.on('\n').splitToList(valueA.trim());
+    List<String> linesB = Splitter.on('\n').splitToList(valueB.trim());
+
+    int maxLen = Math.max(linesA.size(), linesB.size());
+
+    for (int i = 0; i < maxLen; i++) {
+      String lineA = i < linesA.size() ? linesA.get(i) : "(null)";
+      String lineB = i < linesB.size() ? linesB.get(i) : "(null)";
+      if (!lineA.equals(lineB)) {
+        sb.append("  Action A: ").append(lineA).append("\n");
+        sb.append("  Action B: ").append(lineB).append("\n");
+      }
+    }
+  }
+
   private static void addListDetail(
       StringBuilder sb, String key, Iterable<Artifact> valueA, Iterable<Artifact> valueB) {
     Set<Artifact> diffA = differenceWithoutOwner(valueA, valueB);
@@ -267,17 +301,11 @@ public sealed class ActionConflictException extends AbstractSaneAnalysisExceptio
       Thread.currentThread().interrupt();
     }
 
-    if ((a instanceof ActionExecutionMetadata) && (b instanceof ActionExecutionMetadata)) {
+    if ((a instanceof ActionExecutionMetadata metadataA)
+        && (b instanceof ActionExecutionMetadata metadataB)) {
       addStringDetail(
-          sb,
-          "Progress message",
-          ((ActionExecutionMetadata) a).getProgressMessage(),
-          ((ActionExecutionMetadata) b).getProgressMessage());
-      addStringDetail(
-          sb,
-          "Action describeKey",
-          ((ActionExecutionMetadata) a).describeKey(),
-          ((ActionExecutionMetadata) b).describeKey());
+          sb, "Progress message", metadataA.getProgressMessage(), metadataB.getProgressMessage());
+      describeKeyDiff(sb, metadataA, metadataB);
     }
 
     Artifact aPrimaryInput = a.getPrimaryInput();
