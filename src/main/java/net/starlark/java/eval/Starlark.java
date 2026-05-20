@@ -103,7 +103,9 @@ public final class Starlark {
       UNIVERSE.entrySet().stream()
           .collect(
               toImmutableMap(
-                  Map.Entry::getKey, entry -> Starlark.getStarlarkType(entry.getValue())));
+                  Map.Entry::getKey,
+                  // makeUniverse() only uses StarlarkSemantics.DEFAULT
+                  e -> Starlark.getStarlarkType(e.getValue(), StarlarkSemantics.DEFAULT)));
 
   /**
    * An {@code IllegalArgumentException} subclass for when a non-Starlark object is encountered in a
@@ -337,20 +339,16 @@ public final class Starlark {
   }
 
   /** Returns the type of the given Starlark value. */
-  // TODO: #27370 - We'll probably need to thread a StarlarkSemantics (or an opaque interface
-  // wrapping it) through here, since the type of a value may depend on flag-guarding of its APIs.
-  static StarlarkType getStarlarkType(Object value) {
+  static StarlarkType getStarlarkType(Object value, StarlarkSemantics semantics) {
     return switch (value) {
       case String s -> Types.STR;
       case Boolean b -> Types.BOOL;
       case StarlarkValue x -> {
-        @Nullable StarlarkType type = x.getStarlarkType();
+        @Nullable StarlarkType type = x.getStarlarkType(semantics);
         if (type == null) {
-          // TODO: #28325 - For types with ClassDescriptors, return the type stored in the
-          // descriptor.
-          type = Types.ANY;
+          type = CallUtils.getBuiltinManager(semantics).getClassStarlarkType(value.getClass());
         }
-        yield type;
+        yield type != null ? type : Types.ANY;
       }
       default -> {
         checkValid(value); // throws
@@ -1310,7 +1308,7 @@ public final class Starlark {
       for (int i : globalIndex) {
         Object value = module.getGlobalByIndex(i);
         if (value != null && module.getGlobalTypeByIndex(i) == null) {
-          module.setGlobalTypeByIndex(i, Starlark.getStarlarkType(value));
+          module.setGlobalTypeByIndex(i, Starlark.getStarlarkType(value, thread.getSemantics()));
         }
       }
     }

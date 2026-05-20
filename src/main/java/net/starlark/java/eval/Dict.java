@@ -123,16 +123,24 @@ public abstract sealed class Dict<K, V>
   Dict() {}
 
   @Override
-  public final StarlarkType getStarlarkType() {
+  public final StarlarkType getStarlarkType(StarlarkSemantics semantics) {
     // TODO(ilist@): store the type for non-homogeneous dicts
     // Current implementation traverses the dict and computes union of all elements - same as most
     // of the native calls. This is correct, but could be expensive.
-    return isEmpty()
-        ? Types.dict(Types.ANY, Types.ANY)
-        : Types.dict(
-            Types.union(keySet().stream().map(Starlark::getStarlarkType).collect(toImmutableSet())),
-            Types.union(
-                values().stream().map(Starlark::getStarlarkType).collect(toImmutableSet())));
+    if (isEmpty()) {
+      return mutability().isFrozen()
+          ? Types.dict(Types.NEVER, Types.NEVER)
+          : Types.dict(Types.ANY, Types.ANY);
+    }
+    return Types.dict(
+        Types.union(
+            keySet().stream()
+                .map(k -> Starlark.getStarlarkType(k, semantics))
+                .collect(toImmutableSet())),
+        Types.union(
+            values().stream()
+                .map(v -> Starlark.getStarlarkType(v, semantics))
+                .collect(toImmutableSet())));
   }
 
   /**

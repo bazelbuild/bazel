@@ -19,7 +19,9 @@ import static net.starlark.java.syntax.TestUtils.assertContainsError;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -34,6 +36,7 @@ import net.starlark.java.syntax.TypeChecker;
 import net.starlark.java.syntax.TypeConstructor;
 import net.starlark.java.syntax.TypeTable;
 import net.starlark.java.syntax.TypeTagger;
+import net.starlark.java.syntax.Types;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -318,5 +321,125 @@ public final class StaticTypeCheckTest {
         """);
     assertInvalid("cannot assign type 'int' to 'x' of type 'str'", "x: str = PREDECLARED_INT");
     assertInvalid("cannot assign type 'str' to 'x' of type 'int'", "x: int = PREDECLARED_STR");
+  }
+
+  // No StarlarkBuiltin annotation.
+  public static final class MyUnannotatedType implements StarlarkValue {
+    @StarlarkMethod(name = "foo", doc = "...")
+    public int foo() {
+      return 123;
+    }
+  }
+
+  @StarlarkBuiltin(name = "MyType")
+  public static final class MyType implements StarlarkValue {
+    @StarlarkMethod(name = "foo", doc = "...")
+    public int foo() {
+      return 123;
+    }
+  }
+
+  @StarlarkBuiltin(name = "MySelfCallType")
+  public static final class MySelfCallType implements StarlarkValue {
+    @StarlarkMethod(name = "MySelfCallType", doc = "...", selfCall = true)
+    public int selfCall() {
+      return 123;
+    }
+
+    @StarlarkMethod(name = "bar", doc = "...")
+    public int bar() {
+      return 123;
+    }
+  }
+
+  @StarlarkBuiltin(name = "MyExplicitlyTypedType")
+  public static final class MyExplicitlyTypedType implements StarlarkValue {
+    @Override
+    // Override causes no 'MyExplicitlyTypedType' type to be auto-generated.
+    public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+      return Types.STRUCT_OF_ANY;
+    }
+  }
+
+  @StarlarkBuiltin(name = "MyExplicitlyTypedSelfCallType")
+  public static final class MyExplicitlyTypedSelfCallType implements StarlarkValue {
+    @StarlarkMethod(name = "MyExplicitlyTypedSelfCallType", doc = "...", selfCall = true)
+    public int selfCall() {
+      return 123;
+    }
+
+    @Override
+    // Override causes no 'MyExplicitlyTypedSelfCallType' type to be auto-generated.
+    public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+      return new StarlarkType() {
+        @Override
+        public String toString() {
+          return "ExplicitlyTypedSelfCall";
+        }
+
+        @Override
+        public ImmutableList<StarlarkType> getSupertypes() {
+          return ImmutableList.of(
+              // Nullary callable returning int.
+              Types.callable(
+                  ImmutableList.of(),
+                  ImmutableList.of(),
+                  0,
+                  0,
+                  ImmutableSet.of(),
+                  null,
+                  null,
+                  Types.INT));
+        }
+      };
+    }
+  }
+
+  @Test
+  public void predeclaredBuiltinTypes() throws Exception {
+    module =
+        Module.withPredeclared(
+            StarlarkSemantics.DEFAULT,
+            ImmutableMap.of(
+                "my_unannotated_type_value",
+                new MyUnannotatedType(),
+                "my_type_value",
+                new MyType(),
+                "my_self_call_value",
+                new MySelfCallType(),
+                "my_explicitly_typed_value",
+                new MyExplicitlyTypedType(),
+                "my_explicitly_typed_self_call_value",
+                new MyExplicitlyTypedSelfCallType()));
+    assertValid(
+        """
+        a: int = my_unannotated_type_value.foo()
+        b: int = my_type_value.foo()
+        c: int = my_self_call_value()
+        d: int = my_self_call_value.bar()
+        e: int = my_explicitly_typed_value.some_field  # typed as struct-of-Any
+        f: int = my_explicitly_typed_self_call_value()
+        """);
+
+    assertInvalid(
+        "cannot assign type 'MyUnannotatedType' to 'x' of type 'str'",
+        "x: str = my_unannotated_type_value");
+    assertInvalid("cannot assign type 'MyType' to 'x' of type 'str'", "x: str = my_type_value");
+    assertInvalid(
+        "cannot assign type 'MySelfCallType' to 'x' of type 'str'", "x: str = my_self_call_value");
+    assertInvalid("cannot assign type 'int' to 'x' of type 'str'", "x: str = my_self_call_value()");
+    assertInvalid(
+        "cannot assign type 'ExplicitlyTypedSelfCall' to 'x' of type 'str'",
+        "x: str = my_explicitly_typed_self_call_value");
+    assertInvalid(
+        "cannot assign type 'int' to 'x' of type 'float'",
+        "x: float = my_explicitly_typed_self_call_value()");
+    assertInvalid(
+        "cannot assign type 'struct' to 'x' of type 'str'", "x: str = my_explicitly_typed_value");
+
+    assertInvalid(
+        "'my_type_value' of type 'MyType' does not have field 'bar'",
+        "_: str = my_type_value.bar()");
+    assertInvalid("'my_type_value' is not callable; got type 'MyType'", "_: str = my_type_value()");
   }
 }

@@ -209,7 +209,7 @@ public final class Module implements Resolver.Module, TypeTagger.LoadableModule 
       return null;
     }
     // TODO: #27370 - Precompute and cache predeclared types.
-    return Starlark.getStarlarkType(value);
+    return Starlark.getStarlarkType(value, semantics);
   }
 
   @Override

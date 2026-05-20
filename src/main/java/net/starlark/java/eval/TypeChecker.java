@@ -21,12 +21,12 @@ import net.starlark.java.syntax.Types;
 /** Type checker for Starlark types. */
 public final class TypeChecker {
 
-  static boolean isValueSubtypeOf(Object value, StarlarkType type2) {
+  static boolean isValueSubtypeOf(Object value, StarlarkType type2, StarlarkSemantics semantics) {
     // Fast path for Any type. `Starlark.getStarlarkType(value)` can take long time to evaluate
     if (Objects.equals(type2, Types.ANY)) {
       return true;
     }
-    return StarlarkType.assignableFrom(type2, Starlark.getStarlarkType(value));
+    return StarlarkType.assignableFrom(type2, Starlark.getStarlarkType(value, semantics));
   }
 
   private TypeChecker() {}

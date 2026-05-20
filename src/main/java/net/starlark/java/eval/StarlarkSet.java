@@ -804,11 +804,14 @@ s.symmetric_difference_update([2, 3])  # None; s == set([1, 3])
   }
 
   @Override
-  public StarlarkType getStarlarkType() {
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
     // TODO(ilist@): store the type for non-homogeneous sets
-    return isEmpty()
-        ? Types.set(Types.ANY)
-        : Types.set(Types.union(stream().map(Starlark::getStarlarkType).collect(toImmutableSet())));
+    if (isEmpty()) {
+      return mutability().isFrozen() ? Types.set(Types.NEVER) : Types.set(Types.ANY);
+    }
+    return Types.set(
+        Types.union(
+            stream().map(e -> Starlark.getStarlarkType(e, semantics)).collect(toImmutableSet())));
   }
 
   /**

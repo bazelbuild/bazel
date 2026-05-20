@@ -603,7 +603,7 @@ public final class TypeChecker extends NodeVisitor {
         returnTypes.add(Types.ANY);
         continue;
       }
-      Types.CallableType callable = callFunctionElemType instanceof Types.CallableType c ? c : null;
+      @Nullable Types.CallableType callable = toCallableType(callFunctionElemType);
       if (callable == null) {
         errorf(
             call.getFunction(),
@@ -775,6 +775,23 @@ public final class TypeChecker extends NodeVisitor {
       }
       return Types.union(values);
     }
+  }
+
+  /**
+   * Returns {@code t} if it is a {@link Types.CallableType}; or its callable supertype otherwise
+   * (e.g. for self-call builtins); or null if it is not callable.
+   */
+  @Nullable
+  private Types.CallableType toCallableType(StarlarkType t) {
+    if (t instanceof Types.CallableType callableType) {
+      return callableType;
+    }
+    for (StarlarkType supertype : t.getSupertypes()) {
+      if (supertype instanceof Types.CallableType callableType) {
+        return callableType;
+      }
+    }
+    return null;
   }
 
   /**

@@ -67,7 +67,8 @@ public sealed class BuiltinFunction implements StarlarkCallable
   }
 
   @Override
-  public StarlarkType getStarlarkType() {
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+    // desc.manager embeds a semantics (which should be the same as the arg)
     return desc.getStarlarkType();
   }
 

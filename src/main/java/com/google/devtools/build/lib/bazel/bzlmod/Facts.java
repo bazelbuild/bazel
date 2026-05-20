@@ -179,8 +179,7 @@ public abstract class Facts implements StarlarkIndexable {
   }
 
   @Override
-  public StarlarkType getStarlarkType() {
-    // TODO: Use Mapping instead of dict when available.
-    return Types.dict(Types.STR, Types.ANY);
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+    return Types.mapping(Types.STR, Types.ANY);
   }
 }
