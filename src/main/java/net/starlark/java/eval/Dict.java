@@ -805,7 +805,8 @@ public abstract sealed class Dict<K, V>
     @Override
     public StarlarkValue unsafeOptimizeMemoryLayout() {
       Preconditions.checkState(mutability.isFrozen());
-      MapBackedDict<K, V> self = (MapBackedDict<K, V>) this;
+      // The private field contents can only be accessed if the type is MapBackedDict
+      MapBackedDict<K, V> self = this;
       CompactImmutableDict<K, V> compact = CompactImmutableDict.copyOf(self.contents);
       self.contents = compact;
       return compact;
