@@ -270,4 +270,12 @@ public abstract class RemoteAnalysisCachingOptions extends OptionsBase {
           "If true, bails out from remote analysis cache retrieval if a single fingerprint is"
               + " missing.")
   public abstract boolean getAnalysisCacheBailOnMissingFingerprint();
+
+  @Option(
+      name = "experimental_skycache_analysis_only",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "If true, Skycache will only be used for analysis phase.")
+  public abstract boolean getSkycacheAnalysisOnly();
 }
