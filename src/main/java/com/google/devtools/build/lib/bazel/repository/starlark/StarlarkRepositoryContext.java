@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.github.difflib.patch.PatchFailedException;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -587,7 +588,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     if (!p.isDir()) {
       throw Starlark.errorf("can't call watch_tree() on non-directory %s", p);
     }
-    List<String> excludes = Types.STRING_LIST.convert(exclude, "'watch_tree' argument");
+    ImmutableList<String> excludes =
+        Sequence.cast(exclude, String.class, "excludes").getImmutableList();
     RepoCacheFriendlyPath repoCacheFriendlyPath =
         toRepoCacheFriendlyPath(p.getPath(), ShouldWatch.YES);
     if (repoCacheFriendlyPath == null) {

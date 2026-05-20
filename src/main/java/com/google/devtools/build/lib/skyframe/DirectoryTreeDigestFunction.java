@@ -75,7 +75,7 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
             .filter(
                 entry -> {
                   List<String> excludes = filteredRootedPath.excludes();
-                  if (excludes == null || excludes.isEmpty()) {
+                  if (excludes.isEmpty()) {
                     return true;
                   }
                   String path = rootedPath.getRootRelativePath().getRelative(entry).toString();

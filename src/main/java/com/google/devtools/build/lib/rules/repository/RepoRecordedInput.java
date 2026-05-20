@@ -60,6 +60,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
@@ -620,7 +621,8 @@ public abstract sealed class RepoRecordedInput {
    * (including adding/removing/renaming files or directories and changing file contents) will cause
    * it to go out of date.
    *
-   * Files can be excluded from the out-of-date check with the given {@code excludes} glob patterns.
+   * <p>Files can be excluded from the out-of-date check with the given {@code excludes} glob
+   * patterns.
    */
   public static final class DirTree extends RepoRecordedInput {
 
@@ -632,7 +634,10 @@ public abstract sealed class RepoRecordedInput {
      * <p>Since there is currently only one parameter (excludes), it is hardcoded with the
      * delimiter.
      *
-     * <p>Eg. <code>/example/path?&lt;TAB&gt;excludes=glob/pattern/to/**&#47exclude</code>
+     * <p>For a DirTree with path '/foo/bar' and an exclude list of 'abc/**' and 'file,with,commas',
+     * the serialized form is (replace &lt;TAB&gt; with an actual tab character):</p>
+     *
+     * <p><code>/foo/bar?&lt;TAB&gt;excludes=abc/**,file%2Cwith%2Ccommas</code>
      */
     public static final String METADATA_DELIMITER = "?\texcludes=";
 
@@ -652,14 +657,14 @@ public abstract sealed class RepoRecordedInput {
                 String excludesQueryString =
                     s.substring(metadataIndex + METADATA_DELIMITER.length());
                 String[] excludesArray = excludesQueryString.split(",");
-                List<String> excludesList =
+                ImmutableList<String> excludesList =
                     Arrays.stream(excludesArray)
                         .map(exclude -> URLDecoder.decode(exclude, StandardCharsets.UTF_8))
-                        .collect(Collectors.toList());
+                        .collect(ImmutableList.toImmutableList());
                 return new DirTree(
                     RepoCacheFriendlyPath.parse(s.substring(0, metadataIndex)), excludesList);
               } else {
-                return new DirTree(RepoCacheFriendlyPath.parse(s), null);
+                return new DirTree(RepoCacheFriendlyPath.parse(s), ImmutableList.of());
               }
             } catch (LabelSyntaxException e) {
               // malformed inputs cause refetch
@@ -670,9 +675,9 @@ public abstract sealed class RepoRecordedInput {
 
     private final RepoCacheFriendlyPath path;
     /** The glob patterns to exclude from watch/change detection. */
-    private final List<String> excludes;
+    private final ImmutableList<String> excludes;
 
-    public DirTree(RepoCacheFriendlyPath path, List<String> excludes) {
+    public DirTree(RepoCacheFriendlyPath path, @Nonnull ImmutableList<String> excludes) {
       this.path = path;
       this.excludes = excludes;
     }
@@ -691,7 +696,7 @@ public abstract sealed class RepoRecordedInput {
     @Override
     public int hashCode() {
       int hash = path.hashCode();
-      if (excludes != null && !excludes.isEmpty()) {
+      if (!excludes.isEmpty()) {
         return hash + excludes.hashCode();
       }
       return hash;
@@ -699,7 +704,7 @@ public abstract sealed class RepoRecordedInput {
 
     @Override
     public String toStringInternal() {
-      if (this.excludes == null || this.excludes.isEmpty()) {
+      if (this.excludes.isEmpty()) {
         return path.toString();
       } else {
         // Excludes parameters represented as a query string.

@@ -1,11 +1,13 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.SkyKey;
 import java.util.List;
 import java.util.Map;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.util.regex.Pattern;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import javax.annotation.Nonnull;
 
 /**
  * A {@link RootedPath} along with metadata indicating what files should be filtered away under it.
@@ -25,15 +27,14 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  * /tmp/path/.git/**
  * /tmp/path/cache/ignoreMe
  * </pre>
+ *
+ * <p>This record is used as the return value for {@link SkyKey#argument()} when computing the
+ * digest in {@link com.google.devtools.build.lib.skyframe.DirectoryTreeDigestFunction}</p>
  */
-public record FilteredRootedPath(RootedPath path, RootedPath globBase, List<String> excludes) {
+public record FilteredRootedPath(RootedPath path, RootedPath globBase, @Nonnull List<String> excludes) {
 
   /** Returns if the given {@code rootedPath} would be filtered/excluded out. */
   public boolean excludes(RootedPath rootedPath, Map<String, Pattern> patternCache) {
-    if (excludes == null) {
-      return false;
-    }
-
     // Are we comparing the same roots?
     if (!rootedPath.getRoot().equals(globBase.getRoot())) {
       return false;
@@ -44,10 +45,6 @@ public record FilteredRootedPath(RootedPath path, RootedPath globBase, List<Stri
 
   /** Returns if the given {@code path} would be filtered/excluded out. */
   public boolean excludes(String path, Map<String, Pattern> patternCache) {
-    if (excludes == null) {
-      return false;
-    }
-
     PathFragment baseExclude = globBase.getRootRelativePath();
     for (String exclude : excludes) {
       String excludePattern = baseExclude.getRelative(exclude).toString();

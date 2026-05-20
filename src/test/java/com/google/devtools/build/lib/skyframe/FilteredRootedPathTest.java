@@ -21,12 +21,13 @@ import org.junit.Test;
  */
 @RunWith(JUnit4.class)
 public class FilteredRootedPathTest {
-  private FileSystem filesystem;
+
   private Path root;
 
   @Before
   public final void initializeFileSystem() throws Exception  {
-    filesystem = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
+    FileSystem filesystem = new InMemoryFileSystem(BlazeClock.instance(),
+        DigestHashFunction.SHA256);
     root = filesystem.getPath("/");
   }
 
@@ -72,13 +73,10 @@ public class FilteredRootedPathTest {
   }
 
   @Test
-  public void nullOrEmptyExcludes() {
+  public void emptyExcludes() {
     Path pkg = root.getRelative("pkg");
     RootedPath rootedPath =
         RootedPath.toRootedPath(Root.fromPath(pkg), PathFragment.create("foo/bar"));
-
-    FilteredRootedPath pNull = new FilteredRootedPath(rootedPath, rootedPath, null);
-    assertThat(pNull.excludes("/pkg/foo/bar", null)).isFalse();
 
     FilteredRootedPath pEmpty = new FilteredRootedPath(rootedPath, rootedPath, List.of());
     assertThat(pEmpty.excludes("/pkg/foo/bar", null)).isFalse();
