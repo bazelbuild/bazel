@@ -1,7 +1,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.skyframe.SkyKey;
 import java.util.List;
 import java.util.Map;
 import com.google.devtools.build.lib.vfs.UnixGlob;
