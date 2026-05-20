@@ -98,7 +98,7 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
   }
 
   private String getTreeDigest(String path) throws Exception {
-    return getTreeDigest(path, null);
+    return getTreeDigest(path, ImmutableList.of());
   }
 
   private String getTreeDigest(String path, List<String> excludes) throws Exception {
