@@ -308,6 +308,7 @@ java_library(
 
 java_library(
     name = "TestServices",
+    testonly = True,
     srcs = [
         "TestServices.java",
     ],
