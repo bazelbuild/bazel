@@ -129,7 +129,7 @@ public class CombinedCache extends AbstractReferenceCounted {
         synchronized (this) {
           config = ChunkingConfig.fromServerCapabilities(getRemoteServerCapabilities());
           if (config != null) {
-            downloader = new ChunkedBlobDownloader(grpcClient, CombinedCache.this);
+            downloader = new ChunkedBlobDownloader(grpcClient, CombinedCache.this, digestUtil);
             uploader = new ChunkedBlobUploader(grpcClient, CombinedCache.this, config, digestUtil);
           }
           initialized = true;
