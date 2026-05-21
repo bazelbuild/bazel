@@ -25,7 +25,6 @@ import static com.google.devtools.build.lib.analysis.constraints.ConstraintConst
 import static com.google.devtools.build.lib.remote.CombinedCache.createFailureDetail;
 import static com.google.devtools.build.lib.remote.util.Utils.createExecExceptionForCredentialHelperException;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
-import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputPath;
 import static com.google.devtools.build.lib.remote.util.Utils.grpcAwareErrorMessage;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToRemoteCache;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
@@ -810,6 +809,20 @@ public class RemoteExecutionService {
     }
 
     return result;
+  }
+
+  /**
+   * Returns the (exec root relative) path of a spawn output that should be made available via
+   * {@link SpawnResult#getInMemoryOutput(ActionInput)}.
+   */
+  @Nullable
+  private static PathFragment getInMemoryOutputPath(Spawn spawn) {
+    String outputPath =
+        spawn.getExecutionInfo().get(ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS);
+    if (outputPath != null) {
+      return PathFragment.create(outputPath);
+    }
+    return null;
   }
 
   /**
