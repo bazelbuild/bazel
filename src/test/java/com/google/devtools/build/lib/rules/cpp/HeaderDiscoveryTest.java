@@ -345,6 +345,97 @@ public final class HeaderDiscoveryTest {
     assertThat(result.toList()).containsExactly(variant2);
   }
 
+  private final ArtifactRoot fastbuildRoot =
+      ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, DERIVED_SEGMENT, "k8-fastbuild", "bin");
+  private final ArtifactRoot optRoot =
+      ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, DERIVED_SEGMENT, "k8-opt", "bin");
+
+  /**
+   * A simple PathMapper that strips the config segment from output paths, mapping e.g.
+   * "derived/k8-fastbuild/bin/gen/foo.h" → "derived/cfg/bin/gen/foo.h".
+   */
+  private static final PathMapper STRIPPING_PATH_MAPPER =
+      new PathMapper() {
+        @Override
+        public PathFragment map(PathFragment execPath) {
+          // Only map output paths of the form "derived/<config>/bin/..."
+          if (execPath.startsWith(PathFragment.create(DERIVED_SEGMENT))
+              && execPath.segmentCount() >= 3) {
+            return execPath
+                .subFragment(0, 1)
+                .getRelative("cfg")
+                .getRelative(execPath.subFragment(2));
+          }
+          return execPath;
+        }
+      };
+
+  @Test
+  public void pathMapped_twoArtifactsSameMappedPath_bothDiscovered() throws Exception {
+    ArtifactResolver artifactResolver = mock(ArtifactResolver.class);
+    Artifact derivedFastbuild =
+        ActionsTestUtil.createArtifact(
+            fastbuildRoot, execRoot.getRelative("derived/k8-fastbuild/bin/gen/foo.h"));
+    Artifact derivedOpt =
+        ActionsTestUtil.createArtifact(
+            optRoot, execRoot.getRelative("derived/k8-opt/bin/gen/foo.h"));
+
+    // The .d file reports the mapped path
+    Path mappedDepPath = execRoot.getRelative("derived/cfg/bin/gen/foo.h");
+
+    NestedSet<Artifact> result =
+        discoverInputs(
+            nonWindowsAction(),
+            artifactResolver,
+            ImmutableList.of(mappedDepPath),
+            NestedSetBuilder.create(Order.STABLE_ORDER, derivedFastbuild, derivedOpt),
+            STRIPPING_PATH_MAPPER);
+
+    // Both artifacts should appear in the discovered inputs since their mapped paths collide
+    assertThat(result.toList()).containsExactly(derivedFastbuild, derivedOpt);
+  }
+
+  @Test
+  public void pathMapped_treeArtifactsSameMappedPath_bothDiscovered() throws Exception {
+    ArtifactResolver artifactResolver = mock(ArtifactResolver.class);
+    SpecialArtifact treeFastbuild =
+        treeArtifact(execRoot.getRelative("derived/k8-fastbuild/bin/gen/tree"), fastbuildRoot);
+    SpecialArtifact treeOpt =
+        treeArtifact(execRoot.getRelative("derived/k8-opt/bin/gen/tree"), optRoot);
+
+    // The .d file reports a file under the mapped tree path
+    Path mappedDepPath = execRoot.getRelative("derived/cfg/bin/gen/tree/header.h");
+
+    NestedSet<Artifact> result =
+        discoverInputs(
+            nonWindowsAction(),
+            artifactResolver,
+            ImmutableList.of(mappedDepPath),
+            NestedSetBuilder.create(Order.STABLE_ORDER, treeFastbuild, treeOpt),
+            STRIPPING_PATH_MAPPER);
+
+    // Both tree artifacts should be discovered
+    assertThat(result.toList()).containsExactly(treeFastbuild, treeOpt);
+  }
+
+  @Test
+  public void noPathMapping_singleArtifactDiscovered() throws Exception {
+    ArtifactResolver artifactResolver = mock(ArtifactResolver.class);
+    Artifact derived =
+        ActionsTestUtil.createArtifact(derivedArtifactRoot, derivedRoot.getRelative("gen/foo.h"));
+
+    NestedSet<Artifact> result =
+        discoverInputs(
+            nonWindowsAction(),
+            artifactResolver,
+            ImmutableList.of(derivedRoot.getRelative("gen/foo.h")),
+            NestedSetBuilder.create(Order.STABLE_ORDER, derived),
+            PathMapper.NOOP);
+
+    // With NOOP, standard single-entry behavior
+    assertThat(result.toList()).containsExactly(derived);
+  }
+
   // Helpers
 
   private void checkHeaderInclusion(
@@ -383,6 +474,34 @@ public final class HeaderDiscoveryTest {
         artifactResolver,
         /* siblingRepositoryLayout= */ false,
         PathMapper.NOOP);
+  }
+
+  private NestedSet<Artifact> discoverInputs(
+      ActionsTestUtil.NullAction action,
+      ArtifactResolver artifactResolver,
+      List<Path> dependencies,
+      NestedSet<Artifact> allowedDerivedInputs,
+      PathMapper pathMapper)
+      throws ActionExecutionException {
+    return HeaderDiscovery.discoverInputsFromDependencies(
+        action,
+        ActionsTestUtil.createArtifact(derivedArtifactRoot, derivedRoot.getRelative("foo.cc")),
+        /* shouldValidateInclusions= */ true,
+        dependencies,
+        /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
+        allowedDerivedInputs,
+        execRoot,
+        artifactResolver,
+        /* siblingRepositoryLayout= */ false,
+        pathMapper);
+  }
+
+  private SpecialArtifact treeArtifact(Path path, ArtifactRoot root) {
+    return SpecialArtifact.create(
+        root,
+        root.getExecPath().getRelative(root.getRoot().relativize(path)),
+        ActionsTestUtil.NULL_ARTIFACT_OWNER,
+        Artifact.SpecialArtifactType.TREE);
   }
 
   private SpecialArtifact treeArtifact(Path path) {
