@@ -532,6 +532,16 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op")
     public abstract String getUnreachableCacheRetryInterval();
+
+    @Deprecated
+    @Option(
+        name = "remote_analysis_json_log",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated. No-op.")
+    public abstract String getJsonLog();
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */

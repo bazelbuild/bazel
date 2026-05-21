@@ -60,8 +60,6 @@ public class RemoteAnalysisCacheDeps
   private final Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher;
   private final RemoteAnalysisCachingEventListener listener;
   private final FrontierNodeVersion frontierNodeVersion;
-  @Nullable private final RemoteAnalysisJsonLogWriter jsonLogWriter;
-
   private final ListenableFuture<ObjectCodecs> objectCodecs;
   private final ListenableFuture<FingerprintValueService> fingerprintValueServiceFuture;
   @Nullable private final ListenableFuture<? extends RemoteAnalysisCacheClient> analysisCacheClient;
@@ -81,7 +79,6 @@ public class RemoteAnalysisCacheDeps
       boolean minimizeMemory,
       RemoteAnalysisCachingServicesSupplier servicesSupplier,
       RemoteAnalysisCachingEventListener listener,
-      RemoteAnalysisJsonLogWriter jsonLogWriter,
       ListenableFuture<ObjectCodecs> objectCodecs,
       FrontierNodeVersion frontierNodeVersion,
       Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher,
@@ -92,8 +89,6 @@ public class RemoteAnalysisCacheDeps
     this.serializedFrontierProfile = serializedFrontierProfile;
     this.activeDirectoriesMatcher = activeDirectoriesMatcher;
     this.eventHandler = eventHandler;
-
-    this.jsonLogWriter = jsonLogWriter;
 
     this.objectCodecs = objectCodecs;
     this.listener = listener;
@@ -112,7 +107,6 @@ public class RemoteAnalysisCacheDeps
     this.serializedFrontierProfile = "";
     this.activeDirectoriesMatcher = Optional.empty();
     this.eventHandler = null;
-    this.jsonLogWriter = null;
     this.objectCodecs = null;
     this.listener = null;
     this.frontierNodeVersion = null;
@@ -202,13 +196,6 @@ public class RemoteAnalysisCacheDeps
   public RemoteAnalysisMetadataWriter getMetadataWriter() throws InterruptedException {
     checkEnabled();
     return resolveWithTimeout(metadataWriter, "metadata writer");
-  }
-
-  @Nullable
-  @Override
-  public RemoteAnalysisJsonLogWriter getJsonLogWriter() {
-    checkEnabled();
-    return jsonLogWriter;
   }
 
   @Override

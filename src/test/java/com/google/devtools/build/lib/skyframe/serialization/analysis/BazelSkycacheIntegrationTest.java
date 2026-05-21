@@ -103,8 +103,7 @@ public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestB
                   newSingleThreadExecutor(),
                   failingStore,
                   new FingerprintValueCache(FingerprintValueCache.SyncMode.NOT_LINKED),
-                  FingerprintValueService.NONPROD_FINGERPRINTER,
-                  /* jsonLogWriter= */ null));
+                  FingerprintValueService.NONPROD_FINGERPRINTER));
     }
 
     @Override

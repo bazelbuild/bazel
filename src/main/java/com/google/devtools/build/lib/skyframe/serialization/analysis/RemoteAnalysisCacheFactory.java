@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.ForkJoinPool.commonPool;
 
@@ -50,8 +49,6 @@ import com.google.devtools.build.lib.pkgcache.PackagePathCodecDependencies;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.InstrumentationOutput;
-import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.DestinationRelativeTo;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
@@ -69,13 +66,8 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Root.RootCodecDependencies;
-import com.google.gson.stream.JsonWriter;
-import java.io.BufferedOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -175,12 +167,11 @@ public final class RemoteAnalysisCacheFactory {
 
     // Create various objets we need
 
-    RemoteAnalysisJsonLogWriter jsonLogWriter = createJsonLogWriterMaybe(env, options);
     ListenableFuture<ObjectCodecs> objectCodecs = createObjectCodecs(env, topLevelOptions);
 
     RemoteAnalysisCachingServicesSupplier servicesSupplier =
         env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
-    servicesSupplier.configure(options, clientId, env.getCommandId().toString(), jsonLogWriter);
+    servicesSupplier.configure(options, clientId, env.getCommandId().toString());
 
     // Set up parameters for the metadata store, if needed
 
@@ -214,7 +205,6 @@ public final class RemoteAnalysisCacheFactory {
             options.getSkycacheMinimizeMemory(),
             servicesSupplier,
             env.getRemoteAnalysisCachingEventListener(),
-            jsonLogWriter,
             objectCodecs,
             frontierNodeVersion,
             activeDirectoriesMatcher,
@@ -423,48 +413,6 @@ public final class RemoteAnalysisCacheFactory {
                     options.getServerChecksumOverride(), env.getDirectories().getInstallMD5())));
 
     return options.getServerChecksumOverride();
-  }
-
-  @Nullable
-  private static RemoteAnalysisJsonLogWriter createJsonLogWriterMaybe(
-      CommandEnvironment env, RemoteAnalysisCachingOptions options) throws AbruptExitException {
-    if (options.getJsonLog() == null) {
-      return null;
-    }
-    try {
-      InstrumentationOutput jsonLog =
-          env.getRuntime()
-              .getInstrumentationOutputFactory()
-              .createInstrumentationOutput(
-                  "remote_cache_jsonlog",
-                  PathFragment.create(options.getJsonLog()),
-                  DestinationRelativeTo.WORKING_DIRECTORY_OR_HOME,
-                  env,
-                  env.getReporter(),
-                  /* append= */ false,
-                  /* internal= */ false);
-      var result =
-          new RemoteAnalysisJsonLogWriter(
-              new JsonWriter(
-                  new OutputStreamWriter(
-                      new BufferedOutputStream(jsonLog.createOutputStream(), 262144), ISO_8859_1)));
-      env.getReporter()
-          .handle(
-              Event.info(String.format("Writing Skycache JSON log to '%s'", options.getJsonLog())));
-      return result;
-    } catch (IOException e) {
-      throw new AbruptExitException(
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setMessage(
-                      String.format(
-                          "Cannot open remote analysis JSON log file '%s': %s",
-                          options.getJsonLog(), e.getMessage()))
-                  .setRemoteAnalysisCaching(
-                      RemoteAnalysisCaching.newBuilder()
-                          .setCode(RemoteAnalysisCaching.Code.CANNOT_OPEN_LOG_FILE))
-                  .build()));
-    }
   }
 
   private static ImmutableSet<String> getConfigurationOptionsAsStrings(BuildOptions targetOptions) {

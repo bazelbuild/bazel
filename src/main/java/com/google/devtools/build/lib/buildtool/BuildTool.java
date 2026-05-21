@@ -108,7 +108,6 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.SerializationDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisJsonLogWriter;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisMetadataWriter;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
@@ -441,17 +440,6 @@ public class BuildTool {
             reportOnlyBailOutReason(analysisCacheReaderDeps);
           } else {
             logAnalysisCachingStats(analysisCacheReaderDeps);
-            if (analysisCacheReaderDeps.mode() != RemoteAnalysisCacheMode.OFF) {
-              RemoteAnalysisJsonLogWriter logWriter =
-                  serializationDependenciesProvider.getJsonLogWriter();
-              if (logWriter != null) {
-                logWriter.close();
-                if (logWriter.hadErrors()) {
-                  env.getReporter()
-                      .handle(Event.warn("Skycache JSON log writing had errors, check Java logs"));
-                }
-              }
-            }
           }
         }
       }

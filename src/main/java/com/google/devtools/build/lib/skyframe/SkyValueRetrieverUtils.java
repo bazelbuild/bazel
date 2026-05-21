@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.io.BaseEncoding.base16;
-
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -30,12 +28,10 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Re
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievedValue;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisJsonLogWriter;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.time.Instant;
 import java.util.function.Supplier;
 
 /**
@@ -73,7 +69,6 @@ public final class SkyValueRetrieverUtils {
     }
 
     RetrievalResult retrievalResult = null;
-    Exception exception = null;
     RetrievalContext state = env.getState(stateSupplier).getRetrievalContext();
     try {
       retrievalResult =
@@ -92,31 +87,12 @@ public final class SkyValueRetrieverUtils {
       //
       // Don't crash the build if deserialization failed. Gracefully fallback to local evaluation.
       analysisCachingDeps.recordSerializationException(e, key);
-      exception = e;
       retrievalResult = new NoCachedData(e.getReason());
     } catch (RuntimeException | InterruptedException e) {
-      exception = e;
       throw e;
     } finally {
       if (retrievalResult == Restart.RESTART) {
         state.addRestart();
-      } else if (analysisCachingDeps.getJsonLogWriter() != null && !state.isLogged()) {
-        RemoteAnalysisJsonLogWriter logWriter = analysisCachingDeps.getJsonLogWriter();
-        try (var entry = logWriter.startEntry("retrieve")) {
-          entry.addField("start", state.getStart());
-          entry.addField("end", Instant.now());
-          entry.addField("skyKey", key.toString());
-          entry.addField("cacheKey", base16().lowerCase().encode(state.getCacheKey().toBytes()));
-          entry.addField("restarts", state.getRestarts());
-          if (retrievalResult != null) {
-            entry.addField("result", retrievalResult.toString());
-          }
-          if (exception != null) {
-            entry.addField("exception", exception.getMessage());
-          }
-        }
-
-        state.setLogged();
       }
     }
 

@@ -190,7 +190,6 @@ public final class FrontierSerializer {
             selectedKeys,
             serializationDependenciesProvider.getFingerprintValueService(),
             serializationDependenciesProvider.getFileInvalidationWriter(),
-            serializationDependenciesProvider.getJsonLogWriter(),
             eventBus,
             profileCollector,
             serializationStats);

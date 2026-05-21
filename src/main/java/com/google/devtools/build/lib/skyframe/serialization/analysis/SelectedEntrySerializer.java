@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.io.BaseEncoding.base16;
 import static com.google.common.util.concurrent.Futures.whenAllSucceed;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.EmptyFileOpNode.EMPTY_FILE_OP_NODE;
@@ -70,7 +69,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -202,9 +200,6 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
 
   private final FingerprintValueService fingerprintValueService;
 
-  @Nullable // If not JSON log is written
-  private final RemoteAnalysisJsonLogWriter jsonLogWriter;
-
   private final FileOpNodeMemoizingLookup fileOpNodes;
   private final FileDependencySerializer fileDependencySerializer;
 
@@ -223,7 +218,6 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
       ImmutableSet<SkyKey> selection,
       FingerprintValueService fingerprintValueService,
       KeyValueWriter fileInvalidationWriter,
-      @Nullable RemoteAnalysisJsonLogWriter jsonLogWriter,
       EventBus eventBus,
       ProfileCollector profileCollector,
       SerializationStats serializationStats)
@@ -243,7 +237,6 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
             codecs,
             frontierVersion,
             fingerprintValueService,
-            jsonLogWriter,
             fileOpNodes,
             fileDependencySerializer,
             writeStatuses,
@@ -287,7 +280,6 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
       ObjectCodecs codecs,
       FrontierNodeVersion frontierVersion,
       FingerprintValueService fingerprintValueService,
-      @Nullable RemoteAnalysisJsonLogWriter jsonLogWriter,
       FileOpNodeMemoizingLookup fileOpNodes,
       FileDependencySerializer fileDependencySerializer,
       SerializationStatus writeStatuses,
@@ -298,7 +290,6 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
     this.codecs = codecs;
     this.frontierVersion = frontierVersion;
     this.fingerprintValueService = fingerprintValueService;
-    this.jsonLogWriter = jsonLogWriter;
     this.fileOpNodes = fileOpNodes;
     this.fileDependencySerializer = fileDependencySerializer;
     this.writeStatuses = writeStatuses;
@@ -347,8 +338,6 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
       return;
     }
 
-    Instant before = Instant.now();
-
     InMemoryNodeEntry nodeEntry = graph.getIfPresent(key);
     if (nodeEntry == null) {
       // TODO: b/400460727 - add some coverage for this code path
@@ -374,8 +363,7 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
         () -> writeStatuses.counters.entriesWaitingForValueBytes.decrementAndGet(),
         directExecutor());
 
-    new FileOpNodeProcessor(
-            keyResultTask, valueResultTask, isExecutionValue(key), key, dependencyKey, before)
+    new FileOpNodeProcessor(keyResultTask, valueResultTask, isExecutionValue(key), dependencyKey)
         .run();
   }
 
@@ -383,23 +371,17 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
     private final AsyncSerializationTask keyResultTask;
     private final AsyncSerializationTask valueResultTask;
     private final boolean isExecutionValue;
-    private final SkyKey skyKey;
     private final ActionLookupKey dependencyKey;
-    private final Instant start;
 
     private FileOpNodeProcessor(
         AsyncSerializationTask keyResultTask,
         AsyncSerializationTask valueResultTask,
         boolean isExecutionValue,
-        SkyKey skyKey,
-        ActionLookupKey dependencyKey,
-        Instant start) {
+        ActionLookupKey dependencyKey) {
       this.keyResultTask = keyResultTask;
       this.valueResultTask = valueResultTask;
       this.isExecutionValue = isExecutionValue;
-      this.skyKey = skyKey;
       this.dependencyKey = dependencyKey;
-      this.start = start;
     }
 
     @Override
@@ -457,20 +439,6 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
 
     private final class InvalidationDataInfoHandler
         implements FutureCallback<InvalidationDataInfo> {
-      private void log(
-          PackedFingerprint versionedKey, byte[] entryBytes, @Nullable Throwable exception) {
-        try (var entry = jsonLogWriter.startEntry("upload")) {
-          entry.addField("start", start);
-          entry.addField("end", Instant.now());
-          entry.addField("skyKey", skyKey.toString());
-          entry.addField("dependencyKey", dependencyKey.toString());
-          entry.addField("cacheKey", base16().lowerCase().encode(versionedKey.toBytes()));
-          entry.addField("valueSize", entryBytes.length);
-          if (exception != null) {
-            entry.addField("exception", exception.getMessage());
-          }
-        }
-      }
 
       /**
        * Saves the entry for to the {@link FingerprintValueService}.
@@ -575,13 +543,7 @@ final class SelectedEntrySerializer implements Consumer<SkyKey> {
               },
               directExecutor());
 
-          if (jsonLogWriter != null) {
-            WriteStatus logStatus =
-                jsonLogWriter.logWrite(putStatus, e -> log(versionedKey, entryBytes, e));
-            writeStatuses.addWriteStatus(logStatus);
-          } else {
-            writeStatuses.addWriteStatus(putStatus);
-          }
+          writeStatuses.addWriteStatus(putStatus);
 
           // IMPORTANT: when this completes, no more write statuses can be added.
           writeStatuses.selectedEntryDone();

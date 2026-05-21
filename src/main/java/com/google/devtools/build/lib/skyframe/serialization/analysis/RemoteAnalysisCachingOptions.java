@@ -71,17 +71,6 @@ public abstract class RemoteAnalysisCachingOptions extends OptionsBase {
   public abstract String getSerializedFrontierProfile();
 
   @Option(
-      name = "remote_analysis_json_log",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.BAZEL_MONITORING},
-      help =
-          "If set, a JSON file is written to this location that contains a detailed log of "
-              + "the behavior of remote analysis caching. It's interpreted as a path relative "
-              + "to the current working directory.")
-  public abstract String getJsonLog();
-
-  @Option(
       name = "experimental_remote_analysis_cache_mode",
       defaultValue = "off",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

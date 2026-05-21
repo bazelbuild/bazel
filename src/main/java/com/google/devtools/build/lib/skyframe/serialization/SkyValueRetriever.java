@@ -31,7 +31,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import java.io.IOException;
-import java.time.Instant;
 import java.util.HexFormat;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -49,16 +48,10 @@ public final class SkyValueRetriever {
   public static final class RetrievalContext {
     private SerializationState state;
     private int restarts;
-    private boolean logged;
-    @Nullable private Instant start;
-    @Nullable private PackedFingerprint cacheKey;
 
     public RetrievalContext() {
       state = InitialQuery.INITIAL_QUERY;
       restarts = 0;
-      logged = false;
-      start = null;
-      cacheKey = null;
     }
 
     public SerializationState getState() {
@@ -77,32 +70,7 @@ public final class SkyValueRetriever {
       restarts++;
     }
 
-    public boolean isLogged() {
-      return logged;
-    }
 
-    public void setLogged() {
-      Verify.verify(!logged);
-      logged = true;
-    }
-
-    public Instant getStart() {
-      return start;
-    }
-
-    public void setStart(Instant start) {
-      Verify.verify(this.start == null);
-      this.start = start;
-    }
-
-    public PackedFingerprint getCacheKey() {
-      return cacheKey;
-    }
-
-    public void setCacheKey(PackedFingerprint cacheKey) {
-      Verify.verify(this.cacheKey == null);
-      this.cacheKey = cacheKey;
-    }
   }
 
   /**
@@ -232,8 +200,6 @@ public final class SkyValueRetriever {
               PackedFingerprint cacheKey =
                   FingerprintValueService.computeFingerprint(
                       fingerprintValueService, codecs, key, frontierNodeVersion);
-              retrievalContext.setStart(Instant.now());
-              retrievalContext.setCacheKey(cacheKey);
               ListenableFuture<?> responseFuture;
               if (analysisCacheClient == null) {
                 ListenableFuture<byte[]> futureValueBytes;

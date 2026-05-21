@@ -75,10 +75,6 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     /** Returns the {@link FingerprintValueService} implementation. */
     FingerprintValueService getFingerprintValueService() throws InterruptedException;
 
-    /** Returns the JSON log writer or null if this log is not enabled. */
-    @Nullable
-    RemoteAnalysisJsonLogWriter getJsonLogWriter();
-
     String getSerializedFrontierProfile();
 
     Optional<Predicate<PackageIdentifier>> getActiveDirectoriesMatcher();

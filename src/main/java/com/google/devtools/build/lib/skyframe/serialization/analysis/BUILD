@@ -38,7 +38,6 @@ java_library(
         ":options",
         ":remote_analysis_cache_client",
         ":remote_analysis_caching_server_state",
-        ":remote_analysis_json_log_writer",
         ":remote_analysis_metadata_writer",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
@@ -65,7 +64,6 @@ java_library(
         ":long_version_getter_test_injection",
         ":missing_skyframe_entry_exception",
         ":options",
-        ":remote_analysis_json_log_writer",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -312,7 +310,6 @@ java_library(
         ":client_id",
         ":options",
         ":remote_analysis_cache_client",
-        ":remote_analysis_json_log_writer",
         ":remote_analysis_metadata_writer",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
@@ -377,17 +374,6 @@ java_library(
 )
 
 java_library(
-    name = "remote_analysis_json_log_writer",
-    srcs = ["RemoteAnalysisJsonLogWriter.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
-        "//third_party:flogger",
-        "//third_party:gson",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
     name = "remote_analysis_cache_manager",
     srcs = ["RemoteAnalysisCacheManager.java"],
     deps = [
@@ -420,7 +406,6 @@ java_library(
         ":remote_analysis_cache_deps",
         ":remote_analysis_cache_manager",
         ":remote_analysis_caching_services_supplier",
-        ":remote_analysis_json_log_writer",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
@@ -437,7 +422,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/pkgcache:package_path_codec_dependencies",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
-        "//src/main/java/com/google/devtools/build/lib/runtime:instrumentation_output",
         "//src/main/java/com/google/devtools/build/lib/skyframe:prerequisite_package_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyfocus_options",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
@@ -447,10 +431,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:flogger",
-        "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -465,7 +447,6 @@ java_library(
         ":options",
         ":remote_analysis_cache_client",
         ":remote_analysis_caching_services_supplier",
-        ":remote_analysis_json_log_writer",
         ":remote_analysis_metadata_writer",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
