@@ -425,7 +425,7 @@ public class BazelRepositoryModule extends BlazeModule {
       }
       try {
         UrlRewriter rewriter =
-            UrlRewriter.getDownloaderUrlRewriter(env.getWorkspace(), repoOptions.downloaderConfigs);
+            UrlRewriter.getDownloaderUrlRewriter(env.getWorkspace(), repoOptions.downloaderConfig);
         downloadManager.setUrlRewriter(rewriter);
       } catch (UrlRewriterParseException e) {
         // It's important that the build stops ASAP, because this config file may be required for
