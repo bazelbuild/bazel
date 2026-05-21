@@ -59,7 +59,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
@@ -678,7 +677,7 @@ public abstract sealed class RepoRecordedInput {
     /** The glob patterns to exclude from watch/change detection. */
     private final ImmutableList<String> excludes;
 
-    public DirTree(RepoCacheFriendlyPath path, @Nonnull ImmutableList<String> excludes) {
+    public DirTree(RepoCacheFriendlyPath path, ImmutableList<String> excludes) {
       this.path = path;
       this.excludes = excludes;
     }

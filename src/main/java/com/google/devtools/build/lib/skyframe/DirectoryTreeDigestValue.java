@@ -17,16 +17,11 @@ package com.google.devtools.build.lib.skyframe;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Map;
-import java.util.Objects;
-import java.util.regex.Pattern;
-import javax.annotation.Nonnull;
 
 /**
  * Contains information about the recursive digest of a directory tree, including all transitive
@@ -42,8 +37,8 @@ public record DirectoryTreeDigestValue(String hexDigest) implements SkyValue {
   }
 
   public static Key key(
-      RootedPath rootedPath, RootedPath globBase, @Nonnull ImmutableList<String> excludes) {
-    return new Key(rootedPath, globBase, excludes);
+      RootedPath rootedPath, RootedPath globBase, ImmutableList<String> excludes) {
+    return Key.of(rootedPath, globBase, excludes);
   }
 
   /**
@@ -69,74 +64,34 @@ public record DirectoryTreeDigestValue(String hexDigest) implements SkyValue {
    * /tmp/path/cache/ignoreMe
    * </pre>
    */
-  public static class Key implements SkyKey {
+  @AutoCodec
+  record Key(RootedPath rootedPath, RootedPath globBase, ImmutableList<String> excludes)
+      implements SkyKey {
+    Key {
+      requireNonNull(rootedPath, "rootedPath");
+      requireNonNull(globBase, "globBase");
+      requireNonNull(excludes, "excludes");
+    }
 
-    private final RootedPath rootedPath;
-    private final RootedPath globBase;
-    private final ImmutableList<String> excludes;
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
-    private Key(
-        RootedPath rootedPath, RootedPath globBase, @Nonnull ImmutableList<String> excludes) {
-      this.rootedPath = rootedPath;
-      this.globBase = globBase;
-      this.excludes = excludes;
+    static Key of(RootedPath rootedPath, RootedPath globBase, ImmutableList<String> excludes) {
+      return create(rootedPath, globBase, excludes);
+    }
+
+    @AutoCodec.Instantiator
+    static Key create(RootedPath rootedPath, RootedPath globBase, ImmutableList<String> excludes) {
+      return interner.intern(new Key(rootedPath, globBase, excludes));
     }
 
     @Override
-    public int hashCode() {
-      return Objects.hash(rootedPath, globBase, excludes);
-    }
-
-    @Override
-    public final boolean equals(Object obj) {
-      if (this == obj) {
-        return true;
-      }
-      if (!(obj instanceof Key other)) {
-        return false;
-      }
-      return rootedPath.equals(other.getRootedPath())
-          && globBase.equals(other.getGlobBase())
-          && excludes.equals(other.getExcludes());
-    }
-
-    public RootedPath getRootedPath() {
-      return rootedPath;
-    }
-
-    public RootedPath getGlobBase() {
-      return globBase;
-    }
-
-    public ImmutableList<String> getExcludes() {
-      return excludes;
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
     }
 
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.DIRECTORY_TREE_DIGEST;
-    }
-
-    /** Returns if the given {@code rootedPath} would be filtered/excluded out. */
-    public boolean excludes(RootedPath rootedPath, Map<String, Pattern> patternCache) {
-      // Are we comparing the same roots?
-      if (!rootedPath.getRoot().equals(globBase.getRoot())) {
-        return false;
-      }
-      String path = rootedPath.getRootRelativePath().toString();
-      return excludes(path, patternCache);
-    }
-
-    /** Returns if the given {@code path} would be filtered/excluded out. */
-    public boolean excludes(String path, Map<String, Pattern> patternCache) {
-      PathFragment baseExclude = globBase.getRootRelativePath();
-      for (String exclude : excludes) {
-        String excludePattern = baseExclude.getRelative(exclude).toString();
-        if (UnixGlob.matches(excludePattern, path, patternCache)) {
-          return true;
-        }
-      }
-      return false;
     }
   }
 }

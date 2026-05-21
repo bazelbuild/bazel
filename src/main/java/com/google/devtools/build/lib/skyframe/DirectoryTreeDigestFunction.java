@@ -22,7 +22,9 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -31,7 +33,6 @@ import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
@@ -46,8 +47,8 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
       throws InterruptedException, DirectoryTreeDigestFunctionException {
     Map<String, Pattern> patternCache = new HashMap<>();
     DirectoryTreeDigestValue.Key key = (DirectoryTreeDigestValue.Key) skyKey;
-    RootedPath rootedPath = key.getRootedPath();
-    if (key.excludes(rootedPath, patternCache)) {
+    RootedPath rootedPath = key.rootedPath();
+    if (excludes(rootedPath, key.globBase(), key.excludes(), patternCache)) {
       // The path we are trying to compute a digest for is excluded.
       // This should only happen at the very beginning/root of a tree digest as the subsequent
       // computation of digests for child nodes should be excluded before they are asked to be
@@ -58,8 +59,8 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
               String.format(
                   "Tried to compute the digest of path '%s' but this path was filtered out by glob exclude base '%s' and excludes: %s",
                   rootedPath,
-                  key.getGlobBase(),
-                  key.getExcludes())));
+                  key.globBase(),
+                  key.excludes())));
     }
     DirectoryListingValue dirListingValue =
         (DirectoryListingValue) env.getValue(DirectoryListingValue.key(rootedPath));
@@ -74,12 +75,8 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
             .map(Dirent::getName)
             .filter(
                 entry -> {
-                  List<String> excludes = key.getExcludes();
-                  if (excludes.isEmpty()) {
-                    return true;
-                  }
                   String path = rootedPath.getRootRelativePath().getRelative(entry).toString();
-                  return !key.excludes(path, patternCache);
+                  return !excludes(path, key.globBase(), key.excludes(), patternCache);
                 })
             .sorted()
             .collect(toImmutableSet());
@@ -163,8 +160,8 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
                 p ->
                     DirectoryTreeDigestValue.key(
                             /* rootedPath= */ p.getSecond().realRootedPath(p.getFirst()),
-                            /* globBase= */ key.getGlobBase(),
-                            /* excludes= */ key.getExcludes()))
+                            /* globBase= */ key.globBase(),
+                            /* excludes= */ key.excludes()))
             .collect(toImmutableSet());
     SkyframeLookupResult result = env.getValuesAndExceptions(dirTreeDigestValueKeys);
     if (env.valuesMissing()
@@ -176,6 +173,36 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
         .map(DirectoryTreeDigestValue.class::cast)
         .map(DirectoryTreeDigestValue::hexDigest)
         .collect(toImmutableList());
+  }
+
+  /** Returns if the given {@code rootedPath} would be filtered/excluded out. */
+  public static boolean excludes(
+      RootedPath rootedPath,
+      RootedPath globBase,
+      ImmutableList<String> excludes,
+      Map<String, Pattern> patternCache) {
+    // Are we comparing the same roots?
+    if (!rootedPath.getRoot().equals(globBase.getRoot())) {
+      return false;
+    }
+    String path = rootedPath.getRootRelativePath().toString();
+    return excludes(path, globBase, excludes, patternCache);
+  }
+
+  /** Returns if the given {@code path} would be filtered/excluded out. */
+  public static boolean excludes(
+      String path,
+      RootedPath globBase,
+      ImmutableList<String> excludes,
+      Map<String, Pattern> patternCache) {
+    PathFragment baseExclude = globBase.getRootRelativePath();
+    for (String exclude : excludes) {
+      String excludePattern = baseExclude.getRelative(exclude).toString();
+      if (UnixGlob.matches(excludePattern, path, patternCache)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static final class DirectoryTreeDigestFunctionException extends SkyFunctionException {

@@ -1477,6 +1477,7 @@ java_library(
     srcs = ["DirectoryTreeDigestValue.java"],
     deps = [
         ":sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
