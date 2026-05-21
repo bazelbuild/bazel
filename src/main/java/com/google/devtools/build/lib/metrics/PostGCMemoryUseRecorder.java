@@ -24,6 +24,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -135,7 +136,12 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
   }
 
   @Subscribe
-  private synchronized void executionStarted(SomeExecutionStartedEvent event) {
+  private synchronized void executionStartedSkymeld(SomeExecutionStartedEvent event) {
+    executionStarted = true;
+  }
+
+  @Subscribe
+  private synchronized void executionStartedNonSkymeld(ExecutionStartingEvent event) {
     executionStarted = true;
   }
 
