@@ -234,9 +234,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
           .getPath()
           .getFileSystem()
           .supportsSymbolicLinksNatively(linkPath.getPath().asFragment())) {
-        // The fallback may expose the target contents without a native symlink (for example via a
-        // copy or junction), so record the target path deeply enough for invalidation.
-        maybeWatchEmulatedSymlinkTarget(targetPath);
+        // The symlink may be emulated as a copy, which would need to be tracked for invalidation.
+        maybeWatch(targetPath, ShouldWatch.AUTO);
       }
     } catch (IOException e) {
       throw new RepositoryFunctionException(
@@ -571,15 +570,6 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       throw Starlark.errorf("can't call watch_tree() on non-directory %s", p);
     }
     maybeWatchTree(p, ShouldWatch.YES);
-  }
-
-  private void maybeWatchEmulatedSymlinkTarget(StarlarkPath path)
-      throws EvalException, RepositoryFunctionException, InterruptedException {
-    if (path.isDir()) {
-      maybeWatchTree(path, ShouldWatch.AUTO);
-      return;
-    }
-    maybeWatch(path, ShouldWatch.AUTO);
   }
 
   private void maybeWatchTree(StarlarkPath path, ShouldWatch shouldWatch)

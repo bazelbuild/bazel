@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
-import com.google.devtools.build.lib.skyframe.DirectoryTreeDigestValue;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -182,10 +181,6 @@ public final class StarlarkRepositoryContextTest {
     when(environment.getValueOrThrow(any(), eq(IOException.class)))
         .thenAnswer(
             invocation -> {
-              Object skyKey = invocation.getArgument(0);
-              if (skyKey instanceof DirectoryTreeDigestValue.Key) {
-                return DirectoryTreeDigestValue.of("tree-digest");
-              }
               return Mockito.mock(FileValue.class);
             });
     PathPackageLocator packageLocator =
@@ -591,7 +586,7 @@ public final class StarlarkRepositoryContextTest {
   }
 
   @Test
-  public void testEmulatedSymlinkToDirectoryRecordsDirTreeInput() throws Exception {
+  public void testEmulatedSymlinkToDirectoryRecordsFileInput() throws Exception {
     setUpScratch(new Scratch(new NonNativeSymlinkInMemoryFileSystem(), "/"));
     setUpRepo("test");
     scratch.file("/source/tree/data.txt", "hello");
@@ -601,7 +596,7 @@ public final class StarlarkRepositoryContextTest {
     assertThat(context.getRecordedInputs()).hasSize(1);
     assertThat(context.getRecordedInputs().get(0).input())
         .isEqualTo(
-            new RepoRecordedInput.DirTree(
+            new RepoRecordedInput.File(
                 RepoRecordedInput.RepoCacheFriendlyPath.createOutsideWorkspace(
                     PathFragment.create("/source/tree"))));
   }
