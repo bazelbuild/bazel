@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
+import net.starlark.java.eval.Sequence;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -1471,6 +1472,60 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
             "toolchain_aspect on @@//test:t2",
             "toolchain_aspect on @@//toolchain:foo_with_dep",
             "toolchain_aspect on @@//toolchain:toolchain_dep");
+  }
+
+  @Test
+  public void toolchainTypesFunc_wildcardEnumeratesResolvedToolchains() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        AspectInfo = provider()
+
+        def _impl(target, ctx):
+          res = ['my_aspect on ' + str(target.label)]
+          for toolchain_type in ctx.rule.toolchains.toolchain_types():
+            if AspectInfo in ctx.rule.toolchains[toolchain_type]:
+              res.extend(ctx.rule.toolchains[toolchain_type][AspectInfo].res)
+          return [AspectInfo(res = res)]
+
+        toolchain_aspect = aspect(
+          implementation = _impl,
+          toolchains_aspects = ['*'],
+        )
+
+        def _rule_impl(ctx):
+          pass
+
+        r1 = rule(
+          implementation = _rule_impl,
+          toolchains = ['//rule:toolchain_type_1', '//rule:toolchain_type_2'],
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:defs.bzl', 'r1')
+        r1(name = 't1')
+        """);
+    useConfiguration(
+        "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:foo_toolchain_with_provider");
+
+    var analysisResult = update(ImmutableList.of("//test:defs.bzl%toolchain_aspect"), "//test:t1");
+
+    assertThat(getAspectKeys("//test:t1", "//test:defs.bzl%toolchain_aspect")).hasSize(1);
+    assertThat(getAspectKeys("//toolchain:foo", "//test:defs.bzl%toolchain_aspect")).hasSize(1);
+    assertThat(getAspectKeys("//toolchain:foo_with_provider", "//test:defs.bzl%toolchain_aspect"))
+        .hasSize(1);
+
+    ConfiguredAspect configuredAspect =
+        Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
+    assertThat(
+            getStarlarkProvider(configuredAspect, "//test:defs.bzl", "AspectInfo")
+                .getValue("res", Sequence.class))
+        .containsExactly(
+            "my_aspect on @@//test:t1",
+            "my_aspect on @@//toolchain:foo",
+            "my_aspect on @@//toolchain:foo_with_provider");
   }
 
   private ImmutableList<AspectKey> getAspectKeys(String targetLabel, String aspectLabel) {

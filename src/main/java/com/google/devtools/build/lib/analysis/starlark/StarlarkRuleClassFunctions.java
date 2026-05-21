@@ -71,6 +71,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
+import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
@@ -1148,8 +1149,17 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     if (inputs.isEmpty()) {
       return ImmutableSet.of();
     }
+    Sequence<String> labelStrings = Sequence.cast(inputs, String.class, attributeName);
+    if ("toolchains_aspects".equals(attributeName)
+        && labelStrings.size() == 1
+        && "*".equals(labelStrings.get(0))) {
+      return ImmutableSet.of(AspectDefinition.ALL_TOOLCHAINS);
+    }
     ImmutableSet.Builder<Label> parsedLabels = new ImmutableSet.Builder<>();
-    for (String input : Sequence.cast(inputs, String.class, attributeName)) {
+    for (String input : labelStrings) {
+      if ("toolchains_aspects".equals(attributeName) && "*".equals(input)) {
+        throw Starlark.errorf("'*' must be the only item in 'toolchains_aspects' list");
+      }
       try {
         Label label = labelConverter.convert(input);
         parsedLabels.add(label);
