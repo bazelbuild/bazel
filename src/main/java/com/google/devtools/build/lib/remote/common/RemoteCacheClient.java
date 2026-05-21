@@ -114,20 +114,12 @@ public abstract class RemoteCacheClient implements MissingDigestsFinder {
   /**
    * Uploads a {@code file} BLOB to the CAS.
    *
-   * <p>Concurrent uploads of the same digest are deduplicated.
+   * <p>Concurrent uploads of the same digest are deduplicated. If {@code force} is true an upload
+   * that has already finished is re-executed.
    *
    * @param context the context for the action.
    * @param digest The digest of the file.
    * @param file The file to upload.
-   */
-  public final ListenableFuture<Void> uploadFile(
-      RemoteActionExecutionContext context, Digest digest, Path file) {
-    return uploadFile(context, digest, file, /* force= */ false);
-  }
-
-  /**
-   * Same as {@link #uploadFile(RemoteActionExecutionContext, Digest, Path)}, but if {@code force}
-   * is true an upload that has already finished is re-executed.
    */
   public final ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
@@ -151,21 +143,13 @@ public abstract class RemoteCacheClient implements MissingDigestsFinder {
   /**
    * Uploads a blob to the CAS.
    *
-   * <p>Concurrent uploads of the same digest are deduplicated.
+   * <p>Concurrent uploads of the same digest are deduplicated. If {@code force} is true an upload
+   * that has already finished is re-executed.
    *
    * @param context the context for the action.
    * @param digest The digest of the blob.
    * @param blob A supplier for the blob to upload. May be called multiple times, but is closed by
    *     the implementation after the upload is complete.
-   */
-  public final ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, Blob blob) {
-    return uploadBlob(context, digest, blob, /* force= */ false);
-  }
-
-  /**
-   * Same as {@link #uploadBlob(RemoteActionExecutionContext, Digest, Blob)}, but if {@code force}
-   * is true an upload that has already finished is re-executed.
    */
   public final ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, Blob blob, boolean force) {
@@ -180,20 +164,12 @@ public abstract class RemoteCacheClient implements MissingDigestsFinder {
   /**
    * Uploads an in-memory BLOB to the CAS.
    *
-   * <p>Concurrent uploads of the same digest are deduplicated.
+   * <p>Concurrent uploads of the same digest are deduplicated. If {@code force} is true an upload
+   * that has already finished is re-executed.
    *
    * @param context the context for the action.
    * @param digest The digest of the blob.
    * @param data The BLOB to upload.
-   */
-  public final ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, ByteString data) {
-    return uploadBlob(context, digest, data, /* force= */ false);
-  }
-
-  /**
-   * Same as {@link #uploadBlob(RemoteActionExecutionContext, Digest, ByteString)}, but if {@code
-   * force} is true an upload that has already finished is re-executed.
    */
   public final ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data, boolean force) {

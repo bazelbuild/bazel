@@ -385,7 +385,8 @@ public class CombinedCache extends AbstractReferenceCounted {
             remoteCacheClient.dedupUpload(
                 digest, () -> uploadChunked(context, digest, file), /* force= */ false);
       } else {
-        remoteCacheFuture = remoteCacheClient.uploadFile(context, digest, file);
+        remoteCacheFuture =
+            remoteCacheClient.uploadFile(context, digest, file, /* force= */ false);
       }
     }
 
@@ -436,7 +437,7 @@ public class CombinedCache extends AbstractReferenceCounted {
 
     ListenableFuture<Void> remoteCacheFuture = Futures.immediateVoidFuture();
     if (remoteCacheClient != null && context.getWriteCachePolicy().allowRemoteCache()) {
-      remoteCacheFuture = remoteCacheClient.uploadBlob(context, digest, blob);
+      remoteCacheFuture = remoteCacheClient.uploadBlob(context, digest, blob, /* force= */ false);
     }
 
     return Futures.whenAllSucceed(diskCacheFuture, remoteCacheFuture)

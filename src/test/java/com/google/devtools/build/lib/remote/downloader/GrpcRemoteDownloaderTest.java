@@ -237,7 +237,7 @@ public class GrpcRemoteDownloaderTest {
     final RemoteCacheClient cacheClient = new InMemoryCacheClient();
     final GrpcRemoteDownloader downloader = newDownloader(cacheClient);
 
-    getFromFuture(cacheClient.uploadBlob(context, contentDigest, ByteString.copyFrom(content)));
+    getFromFuture(cacheClient.uploadBlob(context, contentDigest, ByteString.copyFrom(content), /* force= */ false));
     final byte[] downloaded =
         downloadBlob(
             downloader, URI.create("http://example.com/content.txt"), Optional.<Checksum>empty());
@@ -351,7 +351,7 @@ public class GrpcRemoteDownloaderTest {
     final GrpcRemoteDownloader downloader = newDownloader(cacheClient, /* httpDownloader= */ null);
     // Add a cache entry for the empty Digest to verify that the implementation checks the status
     // before fetching the digest.
-    getFromFuture(cacheClient.uploadBlob(context, Digest.getDefaultInstance(), ByteString.EMPTY));
+    getFromFuture(cacheClient.uploadBlob(context, Digest.getDefaultInstance(), ByteString.EMPTY, /* force= */ false));
 
     var exception =
         assertThrows(
@@ -395,7 +395,7 @@ public class GrpcRemoteDownloaderTest {
     final RemoteCacheClient cacheClient = new InMemoryCacheClient();
     final GrpcRemoteDownloader downloader = newDownloader(cacheClient);
 
-    getFromFuture(cacheClient.uploadBlob(context, contentDigest, ByteString.copyFrom(content)));
+    getFromFuture(cacheClient.uploadBlob(context, contentDigest, ByteString.copyFrom(content), /* force= */ false));
     final byte[] downloaded =
         downloadBlob(
             downloader,
@@ -435,7 +435,7 @@ public class GrpcRemoteDownloaderTest {
     final GrpcRemoteDownloader downloader = newDownloader(cacheClient);
 
     getFromFuture(
-        cacheClient.uploadBlob(context, contentDigest, ByteString.copyFromUtf8("wrong content")));
+        cacheClient.uploadBlob(context, contentDigest, ByteString.copyFromUtf8("wrong content"), /* force= */ false));
 
     IOException e =
         assertThrows(

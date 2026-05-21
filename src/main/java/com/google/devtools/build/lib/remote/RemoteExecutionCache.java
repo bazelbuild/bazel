@@ -237,7 +237,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
   public ListenableFuture<Void> uploadVirtualActionInput(
       RemoteActionExecutionContext context, Digest digest, VirtualActionInput virtualActionInput) {
     return remoteCacheClient.uploadBlob(
-        context, digest, new VirtualActionInputBlob(virtualActionInput));
+        context, digest, new VirtualActionInputBlob(virtualActionInput), /* force= */ false);
   }
 
   private record VirtualActionInputBlob(VirtualActionInput virtualActionInput) implements Blob {
@@ -281,7 +281,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, byte[] data) {
     return remoteCacheClient.uploadBlob(
-        context, digest, () -> new ByteArrayInputStream(data));
+        context, digest, () -> new ByteArrayInputStream(data), /* force= */ false);
   }
 
   private ListenableFuture<Void> uploadBlob(
