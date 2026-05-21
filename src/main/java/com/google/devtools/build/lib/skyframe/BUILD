@@ -1462,7 +1462,6 @@ java_library(
         ":directory_listing_value",
         ":directory_tree_digest_value",
         ":filesystem_keys",
-        ":filtered_rooted_path",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -1477,20 +1476,11 @@ java_library(
     name = "directory_tree_digest_value",
     srcs = ["DirectoryTreeDigestValue.java"],
     deps = [
-        ":filtered_rooted_path",
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-    ],
-)
-
-java_library(
-    name = "filtered_rooted_path",
-    srcs = ["FilteredRootedPath.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:jsr305",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
     ],
 )
 

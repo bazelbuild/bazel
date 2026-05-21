@@ -45,9 +45,9 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, DirectoryTreeDigestFunctionException {
     Map<String, Pattern> patternCache = new HashMap<>();
-    FilteredRootedPath filteredRootedPath = (FilteredRootedPath) skyKey.argument();
-    RootedPath rootedPath = filteredRootedPath.path();
-    if (filteredRootedPath.excludes(rootedPath, patternCache)) {
+    DirectoryTreeDigestValue.Key key = (DirectoryTreeDigestValue.Key) skyKey;
+    RootedPath rootedPath = key.getRootedPath();
+    if (key.excludes(rootedPath, patternCache)) {
       // The path we are trying to compute a digest for is excluded.
       // This should only happen at the very beginning/root of a tree digest as the subsequent
       // computation of digests for child nodes should be excluded before they are asked to be
@@ -57,9 +57,9 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
           new FileNotFoundException(
               String.format(
                   "Tried to compute the digest of path '%s' but this path was filtered out by glob exclude base '%s' and excludes: %s",
-                  rootedPath.toString(),
-                  filteredRootedPath.globBase(),
-                  filteredRootedPath.excludes())));
+                  rootedPath,
+                  key.getGlobBase(),
+                  key.getExcludes())));
     }
     DirectoryListingValue dirListingValue =
         (DirectoryListingValue) env.getValue(DirectoryListingValue.key(rootedPath));
@@ -74,12 +74,12 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
             .map(Dirent::getName)
             .filter(
                 entry -> {
-                  List<String> excludes = filteredRootedPath.excludes();
+                  List<String> excludes = key.getExcludes();
                   if (excludes.isEmpty()) {
                     return true;
                   }
                   String path = rootedPath.getRootRelativePath().getRelative(entry).toString();
-                  return !filteredRootedPath.excludes(path, patternCache);
+                  return !key.excludes(path, patternCache);
                 })
             .sorted()
             .collect(toImmutableSet());
@@ -93,8 +93,7 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
 
     // For each entry that is a directory (or a symlink to a directory), find its own
     // DirectoryTreeDigestValue.
-    ImmutableList<String> subDirTreeDigests =
-        getSubDirTreeDigests(env, fileValues, filteredRootedPath);
+    ImmutableList<String> subDirTreeDigests = getSubDirTreeDigests(env, fileValues, key);
     if (subDirTreeDigests == null) {
       return null;
     }
@@ -155,7 +154,7 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
   private static ImmutableList<String> getSubDirTreeDigests(
       Environment env,
       ImmutableList<Pair<RootedPath, FileValue>> fileValues,
-      FilteredRootedPath filteredRootedPath)
+      DirectoryTreeDigestValue.Key key)
       throws InterruptedException {
     ImmutableSet<SkyKey> dirTreeDigestValueKeys =
         fileValues.stream()
@@ -163,10 +162,9 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
             .map(
                 p ->
                     DirectoryTreeDigestValue.key(
-                        new FilteredRootedPath(
-                            /* path= */ p.getSecond().realRootedPath(p.getFirst()),
-                            /* globBase= */ filteredRootedPath.globBase(),
-                            /* excludes= */filteredRootedPath.excludes())))
+                            /* rootedPath= */ p.getSecond().realRootedPath(p.getFirst()),
+                            /* globBase= */ key.getGlobBase(),
+                            /* excludes= */ key.getExcludes()))
             .collect(toImmutableSet());
     SkyframeLookupResult result = env.getValuesAndExceptions(dirTreeDigestValueKeys);
     if (env.valuesMissing()

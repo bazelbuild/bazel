@@ -39,7 +39,6 @@ import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
@@ -101,10 +100,10 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
     return getTreeDigest(path, ImmutableList.of());
   }
 
-  private String getTreeDigest(String path, List<String> excludes) throws Exception {
+  private String getTreeDigest(String path, ImmutableList<String> excludes) throws Exception {
     RootedPath rootedPath =
         RootedPath.toRootedPath(Root.absoluteRoot(fileSystem), scratch.resolve(path));
-    SkyKey key = DirectoryTreeDigestValue.key(new FilteredRootedPath(rootedPath, rootedPath, excludes));
+    SkyKey key = DirectoryTreeDigestValue.key(rootedPath, rootedPath, excludes);
     MemoizingEvaluator evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
     var result = evaluator.evaluate(ImmutableList.of(key), evaluationContext);
     if (result.hasError()) {
@@ -130,10 +129,10 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
     scratch.file("b/b", "b");
     scratch.file("c", "c");
     String excludeB = "**/b/b";
-    String oldDigest = getTreeDigest("/", List.of(excludeB));
+    String oldDigest = getTreeDigest("/", ImmutableList.of(excludeB));
 
     scratch.overwriteFile("b/b", "something else");
-    assertThat(getTreeDigest("/", List.of(excludeB))).isEqualTo(oldDigest);
+    assertThat(getTreeDigest("/", ImmutableList.of(excludeB))).isEqualTo(oldDigest);
   }
 
   @Test
@@ -148,7 +147,7 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
     assertThat(updatedDigest).isNotEqualTo(oldDigest);
 
     scratch.file("b/ignoredFile", "ignored");
-    assertThat(getTreeDigest("/", List.of("**/ignoredFile"))).isEqualTo(updatedDigest);
+    assertThat(getTreeDigest("/", ImmutableList.of("**/ignoredFile"))).isEqualTo(updatedDigest);
   }
 
   @Test
@@ -158,13 +157,13 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
     scratch.file("c", "c");
     scratch.file("ignoredFile", "ignored");
     String ignorePattern = "**/ignoredFile";
-    String oldDigest = getTreeDigest("/", List.of(ignorePattern));
+    String oldDigest = getTreeDigest("/", ImmutableList.of(ignorePattern));
 
     scratch.deleteFile("ignoredFile");
-    assertThat(getTreeDigest("/", List.of(ignorePattern))).isEqualTo(oldDigest);
+    assertThat(getTreeDigest("/", ImmutableList.of(ignorePattern))).isEqualTo(oldDigest);
 
     scratch.deleteFile("b/b");
-    assertThat(getTreeDigest("/", List.of(ignorePattern))).isNotEqualTo(oldDigest);
+    assertThat(getTreeDigest("/", ImmutableList.of(ignorePattern))).isNotEqualTo(oldDigest);
   }
 
   @Test
@@ -174,15 +173,15 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
     scratch.file("c", "c");
     scratch.file("ignoredFile", "ignored");
     String ignorePattern = "**/ignored*";
-    String oldDigest = getTreeDigest("/", List.of(ignorePattern));
+    String oldDigest = getTreeDigest("/", ImmutableList.of(ignorePattern));
 
     scratch.deleteFile("ignoredFile");
     scratch.file("ignoredFileRenamed", "ignored");
-    assertThat(getTreeDigest("/", List.of(ignorePattern))).isEqualTo(oldDigest);
+    assertThat(getTreeDigest("/", ImmutableList.of(ignorePattern))).isEqualTo(oldDigest);
 
     scratch.deleteFile("b/b");
     scratch.file("b/b1", "b");
-    assertThat(getTreeDigest("/", List.of(ignorePattern))).isNotEqualTo(oldDigest);
+    assertThat(getTreeDigest("/", ImmutableList.of(ignorePattern))).isNotEqualTo(oldDigest);
   }
 
   @Test

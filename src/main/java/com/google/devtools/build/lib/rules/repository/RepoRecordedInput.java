@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.DirectoryTreeDigestValue;
 import com.google.devtools.build.lib.skyframe.EnvironmentVariableValue;
-import com.google.devtools.build.lib.skyframe.FilteredRootedPath;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepoEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
@@ -726,7 +725,7 @@ public abstract sealed class RepoRecordedInput {
     @Override
     public SkyKey getSkyKey(BlazeDirectories directories) {
       RootedPath rootedPath = path.getRootedPath(directories);
-      return DirectoryTreeDigestValue.key(new FilteredRootedPath(rootedPath, rootedPath, excludes));
+      return DirectoryTreeDigestValue.key(rootedPath, rootedPath, excludes);
     }
 
     @Override

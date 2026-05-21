@@ -1686,7 +1686,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:directory_tree_digest_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:directory_tree_digest_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:file_function",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:filtered_rooted_path",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
@@ -1705,15 +1704,16 @@ java_test(
 )
 
 java_test(
-    name = "FilteredRootedPathTest",
+    name = "DirectoryTreeDigestValueTest",
     timeout = "short",
-    srcs = ["FilteredRootedPathTest.java"],
+    srcs = ["DirectoryTreeDigestValueTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/clock",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:filtered_rooted_path",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:directory_tree_digest_value",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],
