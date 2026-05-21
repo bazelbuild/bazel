@@ -569,13 +569,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     if (!p.isDir()) {
       throw Starlark.errorf("can't call watch_tree() on non-directory %s", p);
     }
-    maybeWatchTree(p, ShouldWatch.YES);
-  }
-
-  private void maybeWatchTree(StarlarkPath path, ShouldWatch shouldWatch)
-      throws EvalException, RepositoryFunctionException, InterruptedException {
     RepoCacheFriendlyPath repoCacheFriendlyPath =
-        toRepoCacheFriendlyPath(path.getPath(), shouldWatch);
+        toRepoCacheFriendlyPath(p.getPath(), ShouldWatch.YES);
     if (repoCacheFriendlyPath == null) {
       return;
     }
