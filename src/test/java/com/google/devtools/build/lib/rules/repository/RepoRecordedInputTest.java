@@ -75,6 +75,23 @@ public class RepoRecordedInputTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testDirectoryFileMarkerDoesNotCaptureChildChanges() throws Exception {
+    RootedPath path =
+        RootedPath.toRootedPath(Root.fromPath(rootDirectory), scratch.dir("tree"));
+    scratch.file("tree/data.txt", "hello");
+
+    FileValue directoryValue = Mockito.mock(FileValue.class);
+    when(directoryValue.isDirectory()).thenReturn(true);
+
+    String oldMarker = RepoRecordedInput.File.fileValueToMarkerValue(path, directoryValue);
+    scratch.file("tree/added.txt", "new");
+
+    assertThat(oldMarker).isEqualTo("DIR");
+    assertThat(RepoRecordedInput.File.fileValueToMarkerValue(path, directoryValue))
+        .isEqualTo(oldMarker);
+  }
+
+  @Test
   public void testSplitIntoBatches() {
     assertThat(splitIntoBatches(ImmutableList.of())).isEmpty();
     assertThat(

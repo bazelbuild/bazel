@@ -234,7 +234,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
           .getPath()
           .getFileSystem()
           .supportsSymbolicLinksNatively(linkPath.getPath().asFragment())) {
-        // The symlink may be emulated as a copy, which would need to be tracked for invalidation.
+        // The fallback may expose the target contents without a native symlink (for example via a
+        // copy or junction), so record the target path deeply enough for invalidation.
         maybeWatchEmulatedSymlinkTarget(targetPath);
       }
     } catch (IOException e) {
