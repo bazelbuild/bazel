@@ -82,17 +82,21 @@ public class UrlRewriter {
   /**
    * Obtain a new {@code UrlRewriter} configured with the specified config file.
    *
-   * @param configPaths Paths to the config file to use. May be null.
+   * @param configPath Path to the config file to use. May be null.
    */
   public static UrlRewriter getDownloaderUrlRewriter(
-      Path workspaceRoot, @Nullable List<PathFragment> configPaths)
+      Path workspaceRoot, @Nullable PathFragment configPath)
       throws UrlRewriterParseException {
     // "empty" UrlRewriter shouldn't alter auth headers
-    if (configPaths == null
-        || configPaths.isEmpty()
-        || configPaths.stream().anyMatch(PathFragment::isEmpty)) {
+    if (configPath == null || configPath.isEmpty()) {
       return new UrlRewriter(ImmutableList.of(""), ImmutableList.of(new StringReader("")));
     }
+
+    // 9.1.1 and 9.2.0+ only: #27877 was accidentially cherry-picked into 9.1.0, breaking users
+    // who relied on the fact that --downloader_config was not a repeatable flag.
+    // Instead of reverting the whole change, we do a bare-minimum "revert" here and feed the
+    // singular flag value as a singleton list into the rest of the logic.
+    ImmutableList<PathFragment> configPaths = ImmutableList.of(configPath);
 
     // There have been reports (eg. https://github.com/bazelbuild/bazel/issues/22104) that
     // there are occasional errors when `configFile` can't be found, and when this happens
