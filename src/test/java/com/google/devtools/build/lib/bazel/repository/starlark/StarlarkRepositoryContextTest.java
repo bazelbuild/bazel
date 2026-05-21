@@ -179,10 +179,7 @@ public final class StarlarkRepositoryContextTest {
     when(environment.getValue(PackageLookupValue.key(fakeFileLabel.getPackageIdentifier())))
         .thenReturn(PackageLookupValue.success(root, BuildFileName.BUILD));
     when(environment.getValueOrThrow(any(), eq(IOException.class)))
-        .thenAnswer(
-            invocation -> {
-              return Mockito.mock(FileValue.class);
-            });
+        .thenReturn(Mockito.mock(FileValue.class));
     PathPackageLocator packageLocator =
         new PathPackageLocator(
             outputDirectory,
