@@ -534,6 +534,10 @@ def _example_library_impl(ctx):
   ]
 ```
 
+When defining a provider, it is strongly recommended to specify the `fields`
+parameter. This creates a *schemaful provider*, which allows Bazel to store
+provider instances more compactly.
+
 ##### Custom initialization of providers
 
 It's possible to guard the instantiation of a provider with custom
