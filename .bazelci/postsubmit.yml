@@ -56,7 +56,7 @@ tasks:
     include_json_profile:
       - build
       - test
-  ubuntu2204:
+  ubuntu2404:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -282,8 +282,8 @@ tasks:
       - "//src:bazel_nojdk.exe"
     include_json_profile:
       - build
-  rbe_ubuntu2004:
-    platform: ubuntu2004
+  rbe_ubuntu2404:
+    platform: ubuntu2404
     name: "RBE"
     build_flags:
       - "--config=remote"
@@ -336,6 +336,14 @@ tasks:
       - "-//src/test/shell/bazel:verify_workspace"
       # Disable some Android tests since we are moving Android rules out of the Bazel repo.
       - "-//src/test/shell/bazel:bazel_android_tools_test"
+      # Disable tests that fail on RBE due to sandboxing/mount restrictions
+      - "-//src/test/shell/integration:sandboxing_test"
+      - "-//src/test/java/com/google/devtools/build/lib/shell:CommandUsingLinuxSandboxTest"
+      - "-//src/test/shell/bazel:bazel_spawnstats_test"
+      - "-//src/test/shell/integration:bazel_hardened_sandboxed_worker_test"
+      - "-//src/test/shell/integration:test_test"
+      - "-//src/test/tools:daemonize_test"
+      - "-//src/test/tools:linux-sandbox_test"
     include_json_profile:
       - build
       - test
