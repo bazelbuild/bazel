@@ -538,4 +538,494 @@ EOF
   assert_paths_stripped "$TEST_log" "$pkg/_objs/main/main."
 }
 
+##############################################################################
+# Colliding-inputs tests.
+#
+# When path stripping maps inputs from different configurations onto the same
+# root-relative path, the build must still succeed as long as the colliding
+# files have identical content (verified by StrippingPathMapper.isPathStrippable).
+# The tests below cover C++ headers, Java JARs (full and reduced classpath),
+# and Starlark run_shell actions.
+##############################################################################
+
+# Test: C++ header collision.
+# Aim: Verify that CppCompile actions use stripped paths when two generated
+# headers from different configurations collide on the same root-relative path
+# but have identical content.
+# Case: A Starlark rule produces a header under a config transition.  Two
+# instances with different setting values generate identical "shared.h" files.
+# The cc_binary depending on both should compile with stripped paths.
+function test_identical_colliding_inputs_are_stripped() {
+  add_rules_cc MODULE.bazel
+  local -r pkg="third_party/${FUNCNAME[0]}"
+  mkdir -p "$pkg/rules"
+  cat > $pkg/rules/defs.bzl <<EOF
+SettingInfo = provider(fields = ["value"])
+
+def _setting_impl(ctx):
+    return SettingInfo(value = ctx.build_setting_value)
+
+my_setting = rule(
+    implementation = _setting_impl,
+    build_setting = config.string(),
+)
+
+def _transition_impl(settings, attr):
+    return {"//$pkg/rules:my_setting": attr.setting_value}
+
+_my_transition = transition(
+    implementation = _transition_impl,
+    inputs = [],
+    outputs = ["//$pkg/rules:my_setting"],
+)
+
+def _gen_identical_header_impl(ctx):
+    # Generate a header with content that does NOT depend on the config setting,
+    # so that outputs from different configurations are identical.
+    header = ctx.actions.declare_file("shared.h")
+    ctx.actions.write(header, "#define SHARED_VALUE 42\\n")
+    return [
+        DefaultInfo(files = depset([header])),
+    ]
+
+gen_identical_header = rule(
+    _gen_identical_header_impl,
+    cfg = _my_transition,
+    attrs = {
+        "setting_value": attr.string(),
+    },
+)
+EOF
+  cat > $pkg/rules/BUILD << 'EOF'
+load(":defs.bzl", "my_setting")
+
+my_setting(
+    name = "my_setting",
+    build_setting_default = "",
+)
+EOF
+
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+load("//$pkg/rules:defs.bzl", "gen_identical_header")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+gen_identical_header(
+    name = "header_a",
+    setting_value = "a",
+)
+gen_identical_header(
+    name = "header_b",
+    setting_value = "b",
+)
+cc_binary(
+    name = "main",
+    srcs = [
+        "main.cc",
+        ":header_a",
+        ":header_b",
+    ],
+    includes = ["."],
+)
+EOF
+  cat > $pkg/main.cc <<'EOF'
+#include "shared.h"
+int main() {
+  return SHARED_VALUE - 42;
+}
+EOF
+
+  bazel clean
+  bazel build -s \
+    --modify_execution_info=CppCompile=+supports-path-mapping \
+    "//$pkg:main" 2>"$TEST_log" \
+    || fail "Expected success"
+
+  # For "bazel-out/x86-fastbuild/bin/...", return "bazel-out".
+  output_path=$(bazel info | grep '^output_path:')
+  bazel_out="${output_path##*/}"
+
+  # The two shared.h files from different configs have identical content,
+  # so path mapping should be used (paths stripped) for the CppCompile action.
+  # The extension can be .pic.o or .o depending on the platform.
+  assert_paths_stripped "$TEST_log" "$pkg/_objs/main/main."
+
+}
+
+# Test: Java JAR collision (full classpath / getFullSpawn).
+# Aim: Verify that JavaCompileAction uses stripped paths when two JARs from
+# different configurations collide on the same root-relative path but have
+# identical content.
+# Case: A java_library is built under two different config transitions,
+# producing identical JARs.  A Starlark rule forwards both as JavaInfo deps
+# to a downstream java_binary, whose compilation should use stripped paths.
+# This exercises JavaCompileAction.getFullSpawn().
+function test_identical_colliding_java_inputs_are_stripped() {
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg/rules"
+  cat > $pkg/rules/defs.bzl <<EOF
+load("@rules_java//java/common:java_info.bzl", "JavaInfo")
+
+SettingInfo = provider(fields = ["value"])
+
+def _setting_impl(ctx):
+    return SettingInfo(value = ctx.build_setting_value)
+
+my_setting = rule(
+    implementation = _setting_impl,
+    build_setting = config.string(),
+)
+
+def _transition_impl(settings, attr):
+    return {"//$pkg/rules:my_setting": attr.setting_value}
+
+_my_transition = transition(
+    implementation = _transition_impl,
+    inputs = [],
+    outputs = ["//$pkg/rules:my_setting"],
+)
+
+def _transitioned_java_dep_impl(ctx):
+    # Forward the JavaInfo from a java_library built under a config transition.
+    # Since the java_library doesn't depend on the custom setting, the JARs
+    # are identical across configurations.
+    return [ctx.attr.dep[JavaInfo]]
+
+transitioned_java_dep = rule(
+    _transitioned_java_dep_impl,
+    cfg = _my_transition,
+    attrs = {
+        "dep": attr.label(providers = [JavaInfo]),
+        "setting_value": attr.string(),
+    },
+    provides = [JavaInfo],
+)
+EOF
+  cat > $pkg/rules/BUILD << 'EOF'
+load(":defs.bzl", "my_setting")
+
+my_setting(
+    name = "my_setting",
+    build_setting_default = "",
+)
+EOF
+
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_library.bzl", "java_library")
+load("//$pkg/rules:defs.bzl", "transitioned_java_dep")
+java_library(
+    name = "mylib",
+    srcs = ["MyLib.java"],
+)
+transitioned_java_dep(
+    name = "dep_a",
+    dep = ":mylib",
+    setting_value = "a",
+)
+transitioned_java_dep(
+    name = "dep_b",
+    dep = ":mylib",
+    setting_value = "b",
+)
+java_binary(
+    name = "mybin",
+    srcs = ["MyBin.java"],
+    main_class = "main.MyBin",
+    deps = [
+        ":dep_a",
+        ":dep_b",
+    ],
+)
+EOF
+  cat > $pkg/MyLib.java <<'EOF'
+package mylib;
+public class MyLib {
+  public static void runMyLib() {
+    System.out.println("MyLib checking in.");
+  }
+}
+EOF
+  cat > $pkg/MyBin.java <<'EOF'
+package main;
+import mylib.MyLib;
+public class MyBin {
+  public static void main(String[] argv) {
+    MyLib.runMyLib();
+  }
+}
+EOF
+
+  bazel clean
+  bazel build --experimental_output_paths=strip \
+    "//$pkg:mybin" -s 2>"$TEST_log" \
+    || fail "Expected success"
+
+  # For "bazel-out/x86-fastbuild/bin/...", return "bazel-out".
+  output_path=$(bazel info | grep '^output_path:')
+  bazel_out="${output_path##*/}"
+
+  # The two libmylib.jar files from different configs have identical content,
+  # so path mapping should be used (paths stripped) for the java_binary
+  # compilation.
+  assert_paths_stripped "$TEST_log" "bin/$pkg/mybin.jar"
+
+  # Verify that a .params file was used (ParameterFileWriteAction) and that
+  # it contains stripped paths for the classpath JAR.
+  local params_file="${bazel_out:0:5}-bin/$pkg/mybin.jar-0.params"
+  [[ -f "$params_file" ]] \
+    || fail "Expected params file to exist: $params_file"
+  grep -q "${bazel_out}/cfg/bin/$pkg/libmylib" "$params_file" \
+    || fail "Expected stripped libmylib path in params file: $(cat $params_file)"
+}
+
+# Test: Java JAR collision (reduced classpath / getReducedSpawn).
+# Aim: Same as test_identical_colliding_java_inputs_are_stripped, but with
+# classpath reduction enabled (--experimental_java_classpath=bazel).
+# Case: Identical setup to the previous test.  The difference is that this
+# exercises JavaCompileAction.getReducedSpawn() instead of getFullSpawn(),
+# ensuring stripped paths are also applied in the reduced-classpath code path.
+function test_identical_colliding_java_inputs_are_stripped_reduced_classpath() {
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg/rules"
+  cat > $pkg/rules/defs.bzl <<EOF
+load("@rules_java//java/common:java_info.bzl", "JavaInfo")
+
+SettingInfo = provider(fields = ["value"])
+
+def _setting_impl(ctx):
+    return SettingInfo(value = ctx.build_setting_value)
+
+my_setting = rule(
+    implementation = _setting_impl,
+    build_setting = config.string(),
+)
+
+def _transition_impl(settings, attr):
+    return {"//$pkg/rules:my_setting": attr.setting_value}
+
+_my_transition = transition(
+    implementation = _transition_impl,
+    inputs = [],
+    outputs = ["//$pkg/rules:my_setting"],
+)
+
+def _transitioned_java_dep_impl(ctx):
+    return [ctx.attr.dep[JavaInfo]]
+
+transitioned_java_dep = rule(
+    _transitioned_java_dep_impl,
+    cfg = _my_transition,
+    attrs = {
+        "dep": attr.label(providers = [JavaInfo]),
+        "setting_value": attr.string(),
+    },
+    provides = [JavaInfo],
+)
+EOF
+  cat > $pkg/rules/BUILD << 'EOF'
+load(":defs.bzl", "my_setting")
+
+my_setting(
+    name = "my_setting",
+    build_setting_default = "",
+)
+EOF
+
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_library.bzl", "java_library")
+load("//$pkg/rules:defs.bzl", "transitioned_java_dep")
+java_library(
+    name = "mylib",
+    srcs = ["MyLib.java"],
+)
+transitioned_java_dep(
+    name = "dep_a",
+    dep = ":mylib",
+    setting_value = "a",
+)
+transitioned_java_dep(
+    name = "dep_b",
+    dep = ":mylib",
+    setting_value = "b",
+)
+java_binary(
+    name = "mybin",
+    srcs = ["MyBin.java"],
+    main_class = "main.MyBin",
+    deps = [
+        ":dep_a",
+        ":dep_b",
+    ],
+)
+EOF
+  cat > $pkg/MyLib.java <<'EOF'
+package mylib;
+public class MyLib {
+  public static void runMyLib() {
+    System.out.println("MyLib checking in.");
+  }
+}
+EOF
+  cat > $pkg/MyBin.java <<'EOF'
+package main;
+import mylib.MyLib;
+public class MyBin {
+  public static void main(String[] argv) {
+    MyLib.runMyLib();
+  }
+}
+EOF
+
+  bazel clean
+  bazel build --experimental_output_paths=strip \
+    --experimental_java_classpath=bazel \
+    "//$pkg:mybin" -s 2>"$TEST_log" \
+    || fail "Expected success"
+
+  # For "bazel-out/x86-fastbuild/bin/...", return "bazel-out".
+  output_path=$(bazel info | grep '^output_path:')
+  bazel_out="${output_path##*/}"
+
+  # With classpath reduction, JavaCompileAction.getReducedSpawn() is used.
+  # The two libmylib.jar files from different configs have identical content,
+  # so path mapping should be used (paths stripped).
+  assert_paths_stripped "$TEST_log" "bin/$pkg/mybin.jar"
+
+  # Verify that a .params file was used (ParameterFileWriteAction) and that
+  # it contains stripped paths for the classpath JAR.
+  local params_file="${bazel_out:0:5}-bin/$pkg/mybin.jar-0.params"
+  [[ -f "$params_file" ]] \
+    || fail "Expected params file to exist: $params_file"
+  grep -q "${bazel_out}/cfg/bin/$pkg/libmylib" "$params_file" \
+    || fail "Expected stripped libmylib path in params file: $(cat $params_file)"
+}
+
+# Test: Starlark run_shell action collision.
+# Aim: Verify that SpawnAction uses stripped paths when two generated files
+# from different configurations collide on the same root-relative path but
+# have identical content.
+# Case: A Starlark rule generates an identical "data.txt" file under two
+# different config transitions.  A downstream Starlark run_shell action
+# concatenates both files.  This exercises SpawnAction.getSpawn() and checks
+# that the actual shell command line uses /cfg/ stripped paths.
+function test_identical_colliding_starlark_action_inputs_are_stripped() {
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg/rules"
+  cat > $pkg/rules/defs.bzl <<EOF
+SettingInfo = provider(fields = ["value"])
+
+def _setting_impl(ctx):
+    return SettingInfo(value = ctx.build_setting_value)
+
+my_setting = rule(
+    implementation = _setting_impl,
+    build_setting = config.string(),
+)
+
+def _transition_impl(settings, attr):
+    return {"//$pkg/rules:my_setting": attr.setting_value}
+
+_my_transition = transition(
+    implementation = _transition_impl,
+    inputs = [],
+    outputs = ["//$pkg/rules:my_setting"],
+)
+
+def _gen_identical_file_impl(ctx):
+    f = ctx.actions.declare_file("data.txt")
+    ctx.actions.write(f, "identical content\\n")
+    return [DefaultInfo(files = depset([f]))]
+
+gen_identical_file = rule(
+    _gen_identical_file_impl,
+    cfg = _my_transition,
+    attrs = {
+        "setting_value": attr.string(),
+    },
+)
+
+def _cat_impl(ctx):
+    inputs = ctx.files.srcs
+    output = ctx.actions.declare_file(ctx.attr.name + ".out")
+    out_args = ctx.actions.args()
+    out_args.add(output)
+    in_args = ctx.actions.args()
+    in_args.add_all(inputs)
+    ctx.actions.run_shell(
+        inputs = inputs,
+        outputs = [output],
+        arguments = [out_args, in_args],
+        command = "out=\$1; shift; cat \$@ > \$out",
+        execution_requirements = {"supports-path-mapping": "1"},
+    )
+    return [DefaultInfo(files = depset([output]))]
+
+cat_rule = rule(
+    _cat_impl,
+    attrs = {
+        "srcs": attr.label_list(allow_files = True),
+    },
+)
+EOF
+  cat > $pkg/rules/BUILD << 'EOF'
+load(":defs.bzl", "my_setting")
+
+my_setting(
+    name = "my_setting",
+    build_setting_default = "",
+)
+EOF
+
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+load("//$pkg/rules:defs.bzl", "gen_identical_file", "cat_rule")
+gen_identical_file(
+    name = "file_a",
+    setting_value = "a",
+)
+gen_identical_file(
+    name = "file_b",
+    setting_value = "b",
+)
+cat_rule(
+    name = "combined",
+    srcs = [
+        ":file_a",
+        ":file_b",
+    ],
+)
+EOF
+
+  bazel clean
+  bazel build --experimental_output_paths=strip \
+    "//$pkg:combined" -s 2>"$TEST_log" \
+    || fail "Expected success"
+
+  # For "bazel-out/x86-fastbuild/bin/...", return "bazel-out".
+  output_path=$(bazel info | grep '^output_path:')
+  bazel_out="${output_path##*/}"
+
+  # The two data.txt files from different configs have identical content,
+  # so path mapping should be used (paths stripped) for the Starlark
+  # run_shell action (SpawnAction.getSpawn).
+  # Note: assert_paths_stripped uses xargs which chokes on single quotes
+  # in run_shell commands, so we check directly.
+  # Grep for the actual bash command line (not the SUBCOMMAND header).
+  local action_cmd
+  action_cmd=$(grep "bash.*combined.out" "$TEST_log" || true)
+  [[ -n "$action_cmd" ]] || fail "No bash command found for combined.out in $TEST_log"
+  echo "$action_cmd" | grep -q "${bazel_out}/cfg/bin/$pkg/combined.out" \
+    || fail "Expected combined.out with /cfg/ path in action: $action_cmd"
+  echo "$action_cmd" | grep -q "${bazel_out}/cfg/bin/$pkg/data.txt" \
+    || fail "Expected data.txt with /cfg/ path in action: $action_cmd"
+  # Verify no non-stripped config paths appear for our package's artifacts.
+  echo "$action_cmd" | grep -oE "${bazel_out}/[^ ')]+" | grep "$pkg" | while read -r path; do
+    echo "$path" | grep -q "/cfg/" \
+      || fail "Found non-stripped path for $pkg artifact: $path"
+  done
+}
+
 run_suite "Tests stripping config prefixes from output paths for better action caching"
