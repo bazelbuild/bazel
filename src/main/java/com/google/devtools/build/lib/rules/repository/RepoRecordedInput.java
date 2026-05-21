@@ -627,18 +627,20 @@ public abstract sealed class RepoRecordedInput {
 
     /**
      * A string sequence to delimit extra metadata on a directory path. This borrows web's query
-     * string to represent the extra options. An extra tab character is used after the question mark
-     * to further avoid collisions with real file paths.
+     * string to represent the extra options, but instead of a '?' to serve as the separator between
+     * the path and the query string, '?/../' is used instead. This takes advantage of the fact that
+     * the underlying path representation is a {@link PathFragment} which is normalized - meaning
+     * that a '/../' could never appear in the valid path.
      *
      * <p>Since there is currently only one parameter (excludes), it is hardcoded with the
      * delimiter.
      *
      * <p>For a DirTree with path '/foo/bar' and an exclude list of 'abc/**' and 'file,with,commas',
-     * the serialized form is (replace &lt;TAB&gt; with an actual tab character):</p>
+     * the serialized form is:
      *
-     * <p><code>/foo/bar?&lt;TAB&gt;excludes=abc/**,file%2Cwith%2Ccommas</code>
+     * <p><code>/foo/bar?/../excludes=abc%2F**,file%2Cwith%2Ccommas</code>
      */
-    public static final String METADATA_DELIMITER = "?\texcludes=";
+    public static final String METADATA_DELIMITER = "?/../excludes=";
 
     public static final Parser PARSER =
         new Parser() {
