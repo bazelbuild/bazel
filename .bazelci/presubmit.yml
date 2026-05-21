@@ -368,6 +368,8 @@ tasks:
       - "-//src/test/shell/bazel:bazel_spawnstats_test"
       - "-//src/test/shell/integration:bazel_hardened_sandboxed_worker_test"
       - "-//src/test/shell/integration:test_test"
+      - "-//src/test/tools:daemonize_test"
+      - "-//src/test/tools:linux-sandbox_test"
     include_json_profile:
       - build
       - test
