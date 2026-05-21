@@ -32,7 +32,7 @@ java_library(
     deps = [
         ":build_event_service_client",
         ":build_event_service_proto_util",
-        "//src/main/java/com/google/devtools/build/lib/remote/util",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/grpc-java:grpc-jar",
