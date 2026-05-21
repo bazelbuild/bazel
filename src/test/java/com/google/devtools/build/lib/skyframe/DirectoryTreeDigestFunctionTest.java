@@ -27,15 +27,12 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStateKey;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
-import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -259,12 +256,6 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
     assertThat(getTreeDigest("dir")).isEqualTo(oldDigest);
   }
 
-  public Path root() {
-    FileSystem filesystem =
-        new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
-    return filesystem.getPath("/");
-  }
-
   public static boolean excludes(DirectoryTreeDigestValue.Key key, String path) {
     return DirectoryTreeDigestFunction.excludes(path, key.globBase(), key.excludes(), null);
   }
@@ -275,11 +266,11 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
 
   @Test
   public void keyBasicExcludes() {
-    Path pkg = root().getRelative("pkg");
+    Path pkg = root.getRelative("pkg");
     RootedPath rootedPath =
         RootedPath.toRootedPath(Root.fromPath(pkg), PathFragment.create("foo/bar"));
     DirectoryTreeDigestValue.Key key =
-        DirectoryTreeDigestValue.Key.of(
+        DirectoryTreeDigestValue.key(
             rootedPath, rootedPath, ImmutableList.of("ignoredFile", "**/*.tmp"));
 
     assertThat(excludes(key, "foo/bar/ignoredFile")).isTrue();
@@ -299,7 +290,7 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
         RootedPath.toRootedPath(Root.fromPath(pkg2), PathFragment.create("foo/bar/ignoredFile"));
 
     DirectoryTreeDigestValue.Key key =
-        DirectoryTreeDigestValue.Key.of(rootedPath, rootedPath, ImmutableList.of("ignoredFile"));
+        DirectoryTreeDigestValue.key(rootedPath, rootedPath, ImmutableList.of("ignoredFile"));
 
     assertThat(excludes(key, differentRoot)).isFalse();
   }
@@ -313,7 +304,7 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
         RootedPath.toRootedPath(Root.fromPath(pkg), PathFragment.create("foo/bar/ignoredFile"));
 
     DirectoryTreeDigestValue.Key key =
-        DirectoryTreeDigestValue.Key.of(rootedPath, rootedPath, ImmutableList.of("ignoredFile"));
+        DirectoryTreeDigestValue.key(rootedPath, rootedPath, ImmutableList.of("ignoredFile"));
     assertThat(excludes(key, sameRootIgnoredFile)).isTrue();
   }
 
@@ -324,7 +315,7 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
         RootedPath.toRootedPath(Root.fromPath(pkg), PathFragment.create("foo/bar"));
 
     DirectoryTreeDigestValue.Key key =
-        DirectoryTreeDigestValue.Key.of(rootedPath, rootedPath, ImmutableList.of());
+        DirectoryTreeDigestValue.key(rootedPath, rootedPath, ImmutableList.of());
     assertThat(excludes(key, "/pkg/foo/bar")).isFalse();
   }
 }
