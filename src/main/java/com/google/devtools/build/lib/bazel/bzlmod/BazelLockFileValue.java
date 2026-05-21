@@ -133,6 +133,13 @@ public abstract class BazelLockFileValue implements SkyValue {
           ModuleExtensionId, ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
       getModuleExtensions();
 
+  /**
+   * Per-extension perpetually true facts that are passed to extensions at evaluation time without
+   * any invalidation (except for {@link #getFactsVersions()}).
+   *
+   * <p>These are not stored in LockFileModuleExtension as they are intended to be independent of
+   * the eval factors.
+   */
   public abstract ImmutableMap<ModuleExtensionId, Facts> getFacts();
 
   /**
@@ -140,6 +147,9 @@ public abstract class BazelLockFileValue implements SkyValue {
    * corresponding {@link #getFacts()} entry was written. Compared against the current value before
    * an extension runs; on mismatch the persisted facts are discarded and the extension is invoked
    * with empty facts. Missing entries default to version 0.
+   *
+   * <p>This is not stored in Facts to ensure a legible, mergeable JSON representation for facts
+   * that is only as indented as absolutely necessary.
    */
   public abstract ImmutableMap<ModuleExtensionId, Integer> getFactsVersions();
 
