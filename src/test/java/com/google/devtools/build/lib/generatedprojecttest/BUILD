@@ -18,7 +18,11 @@ java_test(
     name = "BuildFileContentsGeneratorTest",
     size = "small",
     srcs = ["BuildFileContentsGeneratorTest.java"],
-    runtime_deps = ["//src/main/java/com/google/devtools/build/lib/bazel/rules"],
+    runtime_deps = [
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:bazel_rule_class_provider",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:bazel_rules_module",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:bazel_strategy_module",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/net/starlark/java/syntax",

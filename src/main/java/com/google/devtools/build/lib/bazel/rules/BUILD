@@ -17,63 +17,38 @@ filegroup(
 )
 
 java_library(
-    name = "rules",
-    srcs = glob(["*.java"]),
+    name = "bazel_rule_class_provider",
+    srcs = ["BazelRuleClassProvider.java"],
     resources = [
         ":builtins_bzl_zip",
     ],
     deps = [
+        ":bazel_prerequisite_validator",
+        ":cc_rules",
+        ":generic_rules",
+        ":java_rules",
+        ":objc_rules",
+        ":toolchain_rules",
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/analysis:actions/file_write_action_context",
-        "//src/main/java/com/google/devtools/build/lib/analysis:actions/template_expansion_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:common_prerequisite_validator",
-        "//src/main/java/com/google/devtools/build/lib/analysis:constraints/environment_rule",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_option_converters",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/genrule",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:bazel_java_semantics",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/python",
-        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
-        "//src/main/java/com/google/devtools/build/lib/exec:module_action_context_registry",
-        "//src/main/java/com/google/devtools/build/lib/exec:spawn_cache",
-        "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_registry",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
-        "//src/main/java/com/google/devtools/build/lib/remote:remote_module",
-        "//src/main/java/com/google/devtools/build/lib/remote/options",
-        "//src/main/java/com/google/devtools/build/lib/rules:alias",
-        "//src/main/java/com/google/devtools/build/lib/rules:extra/action_listener_rule",
-        "//src/main/java/com/google/devtools/build/lib/rules:extra/extra_action_rule",
-        "//src/main/java/com/google/devtools/build/lib/rules:filegroup/filegroup",
-        "//src/main/java/com/google/devtools/build/lib/rules:label_build_settings",
-        "//src/main/java/com/google/devtools/build/lib/rules:toolchain_type",
         "//src/main/java/com/google/devtools/build/lib/rules/android",
-        "//src/main/java/com/google/devtools/build/lib/rules/apple",
         "//src/main/java/com/google/devtools/build/lib/rules/config",
         "//src/main/java/com/google/devtools/build/lib/rules/core",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/build/lib/rules/genquery",
-        "//src/main/java/com/google/devtools/build/lib/rules/genrule",
-        "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
-        "//src/main/java/com/google/devtools/build/lib/rules/objc",
         "//src/main/java/com/google/devtools/build/lib/rules/platform",
         "//src/main/java/com/google/devtools/build/lib/rules/proto",
-        "//src/main/java/com/google/devtools/build/lib/rules/starlarkdocextract",
-        "//src/main/java/com/google/devtools/build/lib/rules/test:test_suite_rule",
         "//src/main/java/com/google/devtools/build/lib/rules/test:testing_support_rules",
-        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/objc",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:env_var",
         "//src/main/java/com/google/devtools/build/lib/util:os",
@@ -86,8 +61,137 @@ java_library(
     ],
 )
 
+java_library(
+    name = "objc_rules",
+    srcs = ["ObjcRules.java"],
+    deps = [
+        ":cc_rules",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/rules/apple",
+        "//src/main/java/com/google/devtools/build/lib/rules/core",
+        "//src/main/java/com/google/devtools/build/lib/rules/objc",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/objc",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "generic_rules",
+    srcs = ["GenericRules.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:constraints/environment_rule",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
+        "//src/main/java/com/google/devtools/build/lib/rules:alias",
+        "//src/main/java/com/google/devtools/build/lib/rules:filegroup/filegroup",
+        "//src/main/java/com/google/devtools/build/lib/rules:label_build_settings",
+        "//src/main/java/com/google/devtools/build/lib/rules/core",
+        "//src/main/java/com/google/devtools/build/lib/rules/genquery",
+        "//src/main/java/com/google/devtools/build/lib/rules/starlarkdocextract",
+        "//src/main/java/com/google/devtools/build/lib/rules/test:test_suite_rule",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "bazel_strategy_module",
+    srcs = ["BazelStrategyModule.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:actions/file_write_action_context",
+        "//src/main/java/com/google/devtools/build/lib/analysis:actions/template_expansion_action",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
+        "//src/main/java/com/google/devtools/build/lib/exec:module_action_context_registry",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_cache",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_registry",
+        "//src/main/java/com/google/devtools/build/lib/remote:remote_module",
+        "//src/main/java/com/google/devtools/build/lib/remote/options",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "bazel_prerequisite_validator",
+    srcs = ["BazelPrerequisiteValidator.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:common_prerequisite_validator",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+    ],
+)
+
+java_library(
+    name = "cc_rules",
+    srcs = ["CcRules.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/rules/core",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/rules/platform",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "bazel_rules_module",
+    srcs = ["BazelRulesModule.java"],
+    deps = [
+        ":bazel_rule_class_provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_option_converters",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/exec:module_action_context_registry",
+        "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "toolchain_rules",
+    srcs = ["ToolchainRules.java"],
+    deps = [
+        ":cc_rules",
+        ":java_rules",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules/genrule",
+        "//src/main/java/com/google/devtools/build/lib/rules:toolchain_type",
+        "//src/main/java/com/google/devtools/build/lib/rules/core",
+        "//src/main/java/com/google/devtools/build/lib/rules/genrule",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "java_rules",
+    srcs = ["JavaRules.java"],
+    deps = [
+        ":cc_rules",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:bazel_java_semantics",
+        "//src/main/java/com/google/devtools/build/lib/rules:extra/action_listener_rule",
+        "//src/main/java/com/google/devtools/build/lib/rules:extra/extra_action_rule",
+        "//src/main/java/com/google/devtools/build/lib/rules/core",
+        "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
+    ],
+)
+
 # We need this redirect target so that the builtins zip can be packaged as a
-# resource next to the BazelBuiltins class (com/google/devtools/...). Otherwise
+# resource next to the BazelRuleClassProvider class (com/google/devtools/...). Otherwise
 # it gets placed under the package path of the original zip target.
 genrule(
     name = "builtins_bzl_zip",
