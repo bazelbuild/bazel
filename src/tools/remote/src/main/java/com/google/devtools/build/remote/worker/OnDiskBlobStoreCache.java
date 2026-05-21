@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -127,18 +126,6 @@ class OnDiskBlobStoreCache extends CombinedCache {
 
   public RemoteOptions getRemoteOptions() {
     return options;
-  }
-
-  @Override
-  public ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, ByteString data) {
-    return uploadBlob(context, digest, data, /* force= */ true);
-  }
-
-  @Override
-  public ListenableFuture<Void> uploadFile(
-      RemoteActionExecutionContext context, Digest digest, Path file) {
-    return uploadFile(context, digest, file, /* force= */ true);
   }
 
   public DiskCacheClient getDiskCacheClient() {
