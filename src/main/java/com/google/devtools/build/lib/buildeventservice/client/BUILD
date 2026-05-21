@@ -31,3 +31,22 @@ java_library(
         "@googleapis//google/devtools/build/v1:build_java_proto",
     ],
 )
+
+java_library(
+    name = "build_event_service_grpc_client",
+    srcs = ["BuildEventServiceGrpcClient.java"],
+    runtime_deps = [
+        # This is required for client TLS.
+        "//third_party:netty_tcnative",
+    ],
+    deps = [
+        ":build_event_service_client",
+        ":build_event_service_proto_util",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party/grpc-java:grpc-jar",
+        "@googleapis//google/devtools/build/v1:build_java_grpc",
+        "@googleapis//google/devtools/build/v1:build_java_proto",
+    ],
+)
