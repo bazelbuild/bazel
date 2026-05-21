@@ -23,7 +23,9 @@ java_library(
     ],
     runtime_deps = [
         "//src/main/java/com/google/devtools/build/lib/bazel:modules",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:bazel_rule_class_provider",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:bazel_rules_module",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:bazel_strategy_module",
     ],
 )
 
