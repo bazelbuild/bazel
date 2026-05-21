@@ -348,9 +348,20 @@ public class RequestBatcher<RequestT, ResponseT> {
    */
   private void executeBatch(Operation<RequestT, ResponseT> requestResponse) {
     ImmutableList<Operation<RequestT, ResponseT>> batch = populateBatch(requestResponse);
-    batchExecutionStrategy
-        .executeBatch(Lists.transform(batch, Operation::request), batch)
-        .addListener(this::continueToNextBatchOrBecomeIdle, queueDrainingExecutor);
+    ListenableFuture<?> batchFuture;
+    try {
+      batchFuture =
+          batchExecutionStrategy.executeBatch(Lists.transform(batch, Operation::request), batch);
+    } catch (Throwable t) {
+      // Guard against synchronous exceptions from the multiplexer. Fail the batch's futures and
+      // schedule continuation to prevent leaking worker slots.
+      for (Operation<RequestT, ResponseT> operation : batch) {
+        operation.acceptFailure(t);
+      }
+      queueDrainingExecutor.execute(this::continueToNextBatchOrBecomeIdle);
+      return;
+    }
+    batchFuture.addListener(this::continueToNextBatchOrBecomeIdle, queueDrainingExecutor);
   }
 
   /**

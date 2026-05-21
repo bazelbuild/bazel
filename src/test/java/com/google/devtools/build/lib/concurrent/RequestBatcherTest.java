@@ -627,6 +627,40 @@ public final class RequestBatcherTest {
     assertThat(events.take()).isEqualTo(DoneCallbackCalled.INSTANCE);
   }
 
+  @Test
+  public void synchronousException_failsFuturesAndAllowsSubsequentSubmissions() throws Exception {
+    var failure = new RuntimeException("Sync Failure");
+    var faultyMultiplexer =
+        new Multiplexer<Request, Response>() {
+          @Override
+          public ListenableFuture<List<Response>> execute(List<Request> requests) {
+            throw failure;
+          }
+        };
+
+    var delegatingMultiplexer = new DelegatingMultiplexer(faultyMultiplexer);
+
+    var batcher =
+        RequestBatcher.<Request, Response>create(
+            delegatingMultiplexer,
+            commonPool(),
+            /* maxBatchSize= */ 255,
+            /* maxConcurrentRequests= */ 1);
+
+    ListenableFuture<Response> response = batcher.submit(new Request(1));
+
+    var thrown = assertThrows(ExecutionException.class, response::get);
+    assertThat(thrown).hasCauseThat().isEqualTo(failure);
+
+    // Now switch to a good multiplexer and verify we can still submit
+    var goodMultiplexer = new SettableMultiplexer();
+    delegatingMultiplexer.delegate = goodMultiplexer;
+
+    ListenableFuture<Response> goodResponse = batcher.submit(new Request(2));
+    goodMultiplexer.queue.take().setSimpleResponses();
+    assertThat(goodResponse.get()).isEqualTo(new Response(2));
+  }
+
   private static class FakeConcurrentFifo extends ConcurrentFifo<Operation<Request, Response>> {
     private final ConcurrentLinkedQueue<Operation<Request, Response>> queue =
         new ConcurrentLinkedQueue<>();
@@ -706,6 +740,19 @@ public final class RequestBatcherTest {
       for (int i = 0; i < requests.size(); i++) {
         settableFutures.get(i).set(new Response(requests.get(i).x()));
       }
+    }
+  }
+
+  private static class DelegatingMultiplexer implements Multiplexer<Request, Response> {
+    private volatile Multiplexer<Request, Response> delegate;
+
+    private DelegatingMultiplexer(Multiplexer<Request, Response> delegate) {
+      this.delegate = delegate;
+    }
+
+    @Override
+    public ListenableFuture<List<Response>> execute(List<Request> requests) {
+      return delegate.execute(requests);
     }
   }
 
