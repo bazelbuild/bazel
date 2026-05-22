@@ -821,7 +821,10 @@ public class BzlLoadFunction implements SkyFunction {
     // Validate that the current .bzl file satisfies each loaded dependency's load visibility.
     // Violations are reported as error events (since there can be more than one in a single file)
     // and also trigger a BzlLoadFailedException.
-    if (!ruleClassProvider.isPackageUnderExperimental(pkg)) {
+    //
+    // Experimental and prototype code is exempted from load visibility.
+    if (!ruleClassProvider.isPackageUnderExperimental(pkg)
+        && !ruleClassProvider.isPackageUnderPrototypes(pkg)) {
       checkLoadVisibilities(
           pkg,
           "module " + label.getCanonicalForm(),

@@ -738,6 +738,11 @@ public /*final*/ class ConfiguredRuleClassProvider
   }
 
   @Override
+  public boolean isPackageUnderPrototypes(PackageIdentifier packageIdentifier) {
+    return prerequisiteValidator.packageUnderPrototypes(packageIdentifier);
+  }
+
+  @Override
   public String getRunfilesPrefix() {
     return runfilesPrefix;
   }

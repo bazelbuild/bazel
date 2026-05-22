@@ -1134,6 +1134,8 @@ public abstract class PackageFunction implements SkyFunction {
         }
         boolean isUnderExperimental =
             packageFactory.getRuleClassProvider().isPackageUnderExperimental(packageId);
+        boolean isUnderPrototypes =
+            packageFactory.getRuleClassProvider().isPackageUnderPrototypes(packageId);
         try {
           loadedModules =
               loadBzlModules(
@@ -1144,7 +1146,7 @@ public abstract class PackageFunction implements SkyFunction {
                   keys.build(),
                   starlarkBuiltinsValue.starlarkSemantics,
                   bzlLoadFunctionForInlining,
-                  !isUnderExperimental,
+                  /* checkVisibility= */ !(isUnderExperimental || isUnderPrototypes),
                   actionOnFilesystemErrorCodeLoadingBzlFile);
         } catch (NoSuchPackageException e) {
           throw new PackageFunctionException(e, Transience.PERSISTENT);
