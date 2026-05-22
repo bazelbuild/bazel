@@ -199,7 +199,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   }
 
   private void setDeletedPackages(Set<PackageIdentifier> deletedPackages) {
-    skyframeExecutor.setDeletedPackages(deletedPackages);
+    skyframeExecutor.setDeletedPackages(DeletedPackages.exact(deletedPackages));
   }
 
   private Set<Label> parseList(String... patterns)

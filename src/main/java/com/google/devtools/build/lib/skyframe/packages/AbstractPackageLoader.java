@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RuleVisibility;
+import com.google.devtools.build.lib.pkgcache.DeletedPackages;
 import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.BzlCompileFunction;
@@ -562,7 +563,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(
             SkyFunctions.PACKAGE_LOOKUP,
             new PackageLookupFunction(
-                /* deletedPackages= */ new AtomicReference<>(ImmutableSet.of()),
+                /* deletedPackages= */ new AtomicReference<>(DeletedPackages.EMPTY),
                 getCrossRepositoryLabelViolationStrategy(),
                 getBuildFilesByPriority()))
         .put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.NOOP)

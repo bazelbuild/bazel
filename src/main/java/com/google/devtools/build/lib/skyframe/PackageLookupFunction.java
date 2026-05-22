@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -28,6 +27,7 @@ import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.ErrorDeterminingRepositoryException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.RepositoryFetchException;
+import com.google.devtools.build.lib.pkgcache.DeletedPackages;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
@@ -62,12 +62,12 @@ public class PackageLookupFunction implements SkyFunction {
     ERROR
   }
 
-  private final AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages;
+  private final AtomicReference<DeletedPackages> deletedPackages;
   private final CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
   private final ImmutableList<BuildFileName> buildFilesByPriority;
 
   public PackageLookupFunction(
-      AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages,
+      AtomicReference<DeletedPackages> deletedPackages,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
       ImmutableList<BuildFileName> buildFilesByPriority) {
     this.deletedPackages = deletedPackages;
@@ -95,7 +95,7 @@ public class PackageLookupFunction implements SkyFunction {
           "Invalid package name '" + packageKey + "': " + packageNameErrorMsg);
     }
 
-    if (deletedPackages.get().contains(packageKey)) {
+    if (deletedPackages.get().matches(packageKey)) {
       return PackageLookupValue.DELETED_PACKAGE_VALUE;
     }
 

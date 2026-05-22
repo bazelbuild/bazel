@@ -19,7 +19,6 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -146,8 +145,7 @@ public class PackageLoadingTest extends FoundationTestCase {
         QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
-    skyframeExecutor.setDeletedPackages(
-        ImmutableSet.copyOf(packageOptions.getDeletedPackagesOrEmptySet()));
+    skyframeExecutor.setDeletedPackages(packageOptions.getDeletedPackages());
   }
 
   private static OptionsParser parse(String... options) throws Exception {
