@@ -313,7 +313,7 @@ java_library(
         "TestServices.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/bazel:bazel_services",  # unuseddeps: keep
+        "//src/main/java/com/google/devtools/build/lib/bazel:bazel_services",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
         "//third_party:guava",
     ],
