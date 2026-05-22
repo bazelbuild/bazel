@@ -1238,6 +1238,40 @@ message BuildMetrics {
     }
     repeated AspectCount aspect = 15;
 
+    // Stats about Starlark-definied providers.
+    message StarlarkProviderStats {
+      // Total number of starlark provider instances returned by rule/aspect
+      // implementations. The same instance (in the Java object sense) may be
+      // counted more than once when either a) multiple rules return the same
+      // instance or b) blaze interns equivalent instances.
+      int32 total_count = 1;
+
+      message StalarkProvider {
+        // StarlarkProvider#getName.
+        string name = 1;
+        // Location where the provider is defined, as file:line:col. The file
+        // path is relative to the workspace or its package root.
+        string location = 2;
+        // Number of times an instance of this provider was returned. The same
+        // instance (in the Java object sense) may be counted more than once
+        // when either a) multiple rules return the same instance or b) blaze
+        // interns equivalent instances.
+        int32 count = 3;
+
+        message Schema {
+          // Number of fields in the provider's schema.
+          int32 field_count = 1;
+        }
+
+        // Schema of the provider. Not set for schemaless providers.
+        Schema schema = 5;
+      }
+
+      repeated StalarkProvider providers = 3;
+    }
+
+    StarlarkProviderStats starlark_provider_stats = 18;
+
     // Removed due to overlap with EvaluationStat
     reserved 16;
   }

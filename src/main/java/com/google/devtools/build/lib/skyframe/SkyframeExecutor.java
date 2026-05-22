@@ -1254,7 +1254,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * unsupported.
    */
   @Nullable
-  public abstract SkyframeStats getSkyframeStats(ExtendedEventHandler eventHandler);
+  public abstract SkyframeStats getSkyframeStats();
 
   /**
    * Decides if graph edges should be stored during this evaluation and checks if the state from the

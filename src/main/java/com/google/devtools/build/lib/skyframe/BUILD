@@ -269,6 +269,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_dependency_state",
+        "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider_map",
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:workspace_status_action",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:additional_configuration_change_event",
@@ -3336,7 +3337,7 @@ java_library(
     srcs = ["SkyframeStats.java"],
     deps = [
         ":sky_key_stats",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//third_party:guava",
     ],
 )

@@ -13,17 +13,28 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Multiset;
-import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.common.collect.ImmutableMultiset;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 
 /**
  * Container for Stats we want to generate for BEP, `blaze dump --rules` and `blaze dump
  * --skyframe=count` which extracts information from a SkyframeExecutor.
  *
- * <p>ruleStats and aspectStats are expected to be sorted.
+ * <p>{@link #ruleStats()} and {@link #aspectStats} are expected to be sorted by {@link
+ * SkyKeyStats#getName}. {@link #starlarkProviders()} is expected to be sorted in descending order
+ * by count.
  */
-public final record SkyframeStats(
+public record SkyframeStats(
     ImmutableList<SkyKeyStats> ruleStats,
     ImmutableList<SkyKeyStats> aspectStats,
-    Multiset<SkyFunctionName> functionNameStats) {}
+    ImmutableMultiset<StarlarkProvider> starlarkProviders) {
+
+  public SkyframeStats {
+    checkNotNull(ruleStats);
+    checkNotNull(aspectStats);
+    checkNotNull(starlarkProviders);
+  }
+}

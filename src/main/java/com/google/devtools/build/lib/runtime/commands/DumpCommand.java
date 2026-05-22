@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -384,7 +383,7 @@ public class DumpCommand implements BlazeCommand {
       }
 
       if (dumpOptions.getDumpRules()) {
-        dumpRuleStats(env.getReporter(), env.getBlazeWorkspace(), env.getSkyframeExecutor(), out);
+        dumpRuleStats(env.getBlazeWorkspace(), env.getSkyframeExecutor(), out);
         out.println();
       }
 
@@ -481,12 +480,11 @@ public class DumpCommand implements BlazeCommand {
   }
 
   private static void dumpRuleStats(
-      ExtendedEventHandler eventHandler,
       BlazeWorkspace workspace,
       SkyframeExecutor executor,
       PrintStream out)
       throws InterruptedException {
-    SkyframeStats skyframeStats = executor.getSkyframeStats(eventHandler);
+    SkyframeStats skyframeStats = executor.getSkyframeStats();
     if (skyframeStats.ruleStats().isEmpty()) {
       out.print("No rules in Bazel server, please run a build command first.");
       return;

@@ -22,8 +22,10 @@ import static com.google.devtools.build.lib.buildeventservice.BuildEventServiceM
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -46,6 +48,8 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.BuildFinishedId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.TargetCompletedId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.StarlarkProviderStats.StalarkProvider;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BzlMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BzlMetrics.BzlFileMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
@@ -92,6 +96,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
@@ -997,16 +1002,7 @@ project = project_pb2.Project.create(
 
     buildTarget("//foo:empty");
 
-    BzlMetrics bzlMetrics = null;
-    try (InputStream in = new FileInputStream(buildEventBinaryFile)) {
-      BuildEvent ev;
-      while ((ev = BuildEvent.parseDelimitedFrom(in)) != null) {
-        if (ev.hasBuildMetrics()) {
-          bzlMetrics = ev.getBuildMetrics().getBzlMetrics();
-          break;
-        }
-      }
-    }
+    BzlMetrics bzlMetrics = getBuildMetrics(buildEventBinaryFile).getBzlMetrics();
 
     if (!publishPackageMetrics) {
       assertThat(bzlMetrics).isEqualToDefaultInstance();
@@ -1025,6 +1021,50 @@ project = project_pb2.Project.create(
       assertThat(bzlMetrics.getBzlFileMetricsList()).containsExactly(bigBzlMetrics);
     }
     assertThat(bzlMetrics.getBzlFileCount()).isEqualTo(2);
+  }
+
+  @Test
+  public void starlarkProviderMetrics() throws Exception {
+    write(
+        "foo/defs.bzl",
+        """
+        A = provider()
+        B = provider(fields = ["x", "y"])
+
+        def _impl(ctx):
+          return [
+            A(some_field = "a"),
+            B(x = "x", y = "y"),
+            DefaultInfo(files = depset([])),
+          ]
+
+        my_rule = rule(implementation = _impl)
+        """);
+    write(
+        "foo/BUILD",
+        """
+        load(":defs.bzl", "my_rule")
+        my_rule(name = "example")
+        """);
+    File buildEventBinaryFile = tmpFolder.newFile();
+    addOptions(
+        "--build_event_binary_file=" + buildEventBinaryFile.getAbsolutePath(),
+        "--experimental_record_skyframe_metrics");
+
+    buildTarget("//foo:example");
+
+    ImmutableMap<String, StalarkProvider> starlarkProviderStats =
+        Maps.uniqueIndex(
+            getBuildMetrics(buildEventBinaryFile)
+                .getBuildGraphMetrics()
+                .getStarlarkProviderStats()
+                .getProvidersList(),
+            StalarkProvider::getName);
+    assertThat(starlarkProviderStats.keySet()).containsExactly("A", "B");
+    assertThat(starlarkProviderStats.get("A").getLocation()).startsWith("foo/defs.bzl:1");
+    assertThat(starlarkProviderStats.get("A").hasSchema()).isFalse();
+    assertThat(starlarkProviderStats.get("B").getLocation()).startsWith("foo/defs.bzl:2");
+    assertThat(starlarkProviderStats.get("B").getSchema().getFieldCount()).isEqualTo(2);
   }
 
   private static final class DelayingCloseBufferedOutputStream extends BufferedOutputStream {
@@ -1047,5 +1087,17 @@ project = project_pb2.Project.create(
     public boolean isClosed() {
       return closed.get();
     }
+  }
+
+  private static BuildMetrics getBuildMetrics(File buildEventBinaryFile) throws IOException {
+    try (InputStream in = new FileInputStream(buildEventBinaryFile)) {
+      BuildEvent ev;
+      while ((ev = BuildEvent.parseDelimitedFrom(in)) != null) {
+        if (ev.hasBuildMetrics()) {
+          return ev.getBuildMetrics();
+        }
+      }
+    }
+    throw new NoSuchElementException();
   }
 }

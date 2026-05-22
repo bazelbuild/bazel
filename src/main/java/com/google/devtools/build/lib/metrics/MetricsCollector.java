@@ -18,6 +18,7 @@ import static java.util.Objects.requireNonNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultiset;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.AspectCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.RuleClassCount;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.StarlarkProviderStats;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BzlMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.Distribution;
@@ -60,6 +62,7 @@ import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochCon
 import com.google.devtools.build.lib.dynamic.DynamicExecutionFinishedEvent;
 import com.google.devtools.build.lib.metrics.MetricsModule.Options;
 import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PeakHeap;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.metrics.ExtremaPackageMetricsRecorder;
 import com.google.devtools.build.lib.packages.metrics.PackageLoadMetrics;
 import com.google.devtools.build.lib.packages.metrics.PackageMetricsPackageLoadingListener;
@@ -68,9 +71,9 @@ import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.NetworkMetricsCollector;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.LocationPrinter;
 import com.google.devtools.build.lib.runtime.SpawnStats;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
-import com.google.devtools.build.lib.skyframe.SkyKeyStats;
 import com.google.devtools.build.lib.skyframe.SkyframeStats;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
@@ -538,35 +541,58 @@ class MetricsCollector {
 
     // getSkyframeStats return Nullable for unsupported implementations, so
     // ensure we get stats before proceeding.
-    SkyframeStats skyframeStats = env.getSkyframeExecutor().getSkyframeStats(env.getReporter());
+    SkyframeStats skyframeStats = env.getSkyframeExecutor().getSkyframeStats();
     if (skyframeStats == null) {
       return;
     }
 
-    Stream<SkyKeyStats> ruleActionStats = skyframeStats.ruleStats().stream();
-    Stream<SkyKeyStats> aspectActionStats = skyframeStats.aspectStats().stream();
+    skyframeStats
+        .ruleStats()
+        .forEach(
+            a ->
+                builder.addRuleClass(
+                    RuleClassCount.newBuilder()
+                        .setKey(a.getKey())
+                        .setRuleClass(a.getName())
+                        .setCount(a.getCount())
+                        .setActionCount(a.getActionCount())
+                        .build()));
+    skyframeStats
+        .aspectStats()
+        .forEach(
+            a ->
+                builder.addAspect(
+                    AspectCount.newBuilder()
+                        .setKey(a.getKey())
+                        .setAspectName(a.getName())
+                        .setCount(a.getCount())
+                        .setActionCount(a.getActionCount())
+                        .build()));
 
-    ruleActionStats.forEach(
-        a ->
-            builder.addRuleClass(
-                RuleClassCount.newBuilder()
-                    .setKey(a.getKey())
-                    .setRuleClass(a.getName())
-                    .setCount(a.getCount())
-                    .setActionCount(a.getActionCount())
-                    .build()));
-    aspectActionStats.forEach(
-        a ->
-            builder.addAspect(
-                AspectCount.newBuilder()
-                    .setKey(a.getKey())
-                    .setAspectName(a.getName())
-                    .setCount(a.getCount())
-                    .setActionCount(a.getActionCount())
-                    .build()));
+    ImmutableMultiset<StarlarkProvider> starlarkProviders = skyframeStats.starlarkProviders();
+    StarlarkProviderStats.Builder providerStats =
+        builder.getStarlarkProviderStatsBuilder().setTotalCount(starlarkProviders.size());
+    LocationPrinter printer =
+        new LocationPrinter(
+            /* attemptToPrintRelativePaths= */ true,
+            env.getDirectories().getWorkspace().asFragment());
+    printer.packageLocatorCreated(env.getPackageLocator());
+    starlarkProviders.forEachEntry(
+        (provider, count) -> {
+          var providerBuilder =
+              providerStats
+                  .addProvidersBuilder()
+                  .setName(provider.getName())
+                  .setLocation(printer.getLocationString(provider.getLocation()))
+                  .setCount(count);
+          ImmutableList<String> fields = provider.getFields();
+          if (fields != null) {
+            providerBuilder.getSchemaBuilder().setFieldCount(fields.size());
+          }
+        });
   }
 
-  private MemoryMetrics createMemoryMetrics() {
+  private static MemoryMetrics createMemoryMetrics() {
     MemoryMetrics.Builder memoryMetrics = MemoryMetrics.newBuilder();
     if (MemoryProfiler.instance().getHeapUsedMemoryAtFinish() > 0) {
       memoryMetrics.setUsedHeapSizePostBuild(MemoryProfiler.instance().getHeapUsedMemoryAtFinish());
