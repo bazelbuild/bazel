@@ -24,6 +24,7 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.SplitBlobResponse;
 import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -56,7 +57,8 @@ public class ChunkedBlobDownloaderTest {
 
   @Before
   public void setUp() {
-    downloader = new ChunkedBlobDownloader(grpcCacheClient, combinedCache);
+    when(grpcCacheClient.shouldVerifyDownloads()).thenReturn(true);
+    downloader = new ChunkedBlobDownloader(grpcCacheClient, combinedCache, DIGEST_UTIL);
   }
 
   @Test
@@ -183,5 +185,57 @@ public class ChunkedBlobDownloaderTest {
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     assertThrows(IOException.class, () -> downloader.downloadChunked(context, blobDigest, out));
+  }
+
+  @Test
+  public void downloadChunked_blobDigestMismatch_throwsOutputDigestMismatch() throws Exception {
+    byte[] chunkData = new byte[] {1, 2, 3};
+    Digest chunkDigest = DIGEST_UTIL.compute(chunkData);
+    Digest blobDigest = DIGEST_UTIL.compute(new byte[] {4, 5, 6});
+
+    SplitBlobResponse splitResponse =
+        SplitBlobResponse.newBuilder().addChunkDigests(chunkDigest).build();
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest)))
+        .thenReturn(Futures.immediateFuture(splitResponse));
+    when(combinedCache.downloadBlob(any(), eq(chunkDigest), any()))
+        .thenAnswer(
+            invocation -> {
+              OutputStream out = invocation.getArgument(2);
+              out.write(chunkData);
+              return Futures.immediateFuture(null);
+            });
+
+    OutputDigestMismatchException e =
+        assertThrows(
+            OutputDigestMismatchException.class,
+            () -> downloader.downloadChunked(context, blobDigest, new ByteArrayOutputStream()));
+
+    assertThat(e).hasMessageThat().contains(blobDigest.getHash());
+    assertThat(e).hasMessageThat().contains(chunkDigest.getHash());
+  }
+
+  @Test
+  public void downloadChunked_blobDigestMismatchVerificationDisabled_succeeds() throws Exception {
+    when(grpcCacheClient.shouldVerifyDownloads()).thenReturn(false);
+    byte[] chunkData = new byte[] {1, 2, 3};
+    Digest chunkDigest = DIGEST_UTIL.compute(chunkData);
+    Digest blobDigest = DIGEST_UTIL.compute(new byte[] {4, 5, 6});
+
+    SplitBlobResponse splitResponse =
+        SplitBlobResponse.newBuilder().addChunkDigests(chunkDigest).build();
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest)))
+        .thenReturn(Futures.immediateFuture(splitResponse));
+    when(combinedCache.downloadBlob(any(), eq(chunkDigest), any()))
+        .thenAnswer(
+            invocation -> {
+              OutputStream out = invocation.getArgument(2);
+              out.write(chunkData);
+              return Futures.immediateFuture(null);
+            });
+
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    downloader.downloadChunked(context, blobDigest, out);
+
+    assertThat(out.toByteArray()).isEqualTo(chunkData);
   }
 }
