@@ -4,7 +4,8 @@ labels: ["mirror request", "type: process", "P2", "team-OSS"]
 assignees:
   - sgowroji
   - iancha1992
-  - satyanandak
+  - deepa64
+  - bharadwaj
 title: "[Mirror] "
 body:
   - type: markdown
