@@ -56,6 +56,7 @@ PRIVATE_STARLARKIFICATION_ALLOWLIST = [
     ("", "third_party/protobuf"),
     ("protobuf", ""),
     ("com_google_protobuf", ""),
+    ("", "third_party/upb"),
     # Rust rules
     ("", "rust/private"),
     ("rules_rust", "rust/private"),
