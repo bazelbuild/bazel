@@ -1740,7 +1740,11 @@ public class RemoteExecutionService {
           spawnResult.exitCode(),
           spawnResult.getStartTime(),
           spawnResult.getWallTimeInMs(),
-          /* preserveExecutableBit= */ false);
+          /* preserveExecutableBit= */ false,
+          // Preserve the historical (and somewhat inconsistent) handling of
+          // absolute symlinks for spawn outputs: resolve them to the file or
+          // directory they point to. See {@link UploadManifest#addFiles}.
+          /* preserveAbsoluteSymlinks= */ false);
     }
   }
 

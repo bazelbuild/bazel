@@ -211,7 +211,15 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
                   /* exitCode= */ 0,
                   /* startTime= */ Instant.now(),
                   /* wallTimeInMs= */ 0,
-                  /* preserveExecutableBit= */ true)
+                  /* preserveExecutableBit= */ true,
+                  // Upload absolute symlinks (e.g. those created by
+                  // `rctx.symlink(Label(...), ...)`) as symlinks instead of
+                  // resolving them to the file or directory they point to.
+                  // Resolving them pulls in content from a sibling repo, and
+                  // any relative symlinks inside that content would then be
+                  // materialized at a location where their `..` targets no
+                  // longer resolve.
+                  /* preserveAbsoluteSymlinks= */ true)
               .upload(context, cache, reporter);
     } catch (ExecException | IOException e) {
       reporter.handle(

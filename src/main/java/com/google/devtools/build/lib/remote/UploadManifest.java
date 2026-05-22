@@ -94,6 +94,7 @@ public class UploadManifest {
   private final ActionResult.Builder result;
   private final boolean allowAbsoluteSymlinks;
   private final boolean preserveExecutableBit;
+  private final boolean preserveAbsoluteSymlinks;
   private final ConcurrentHashMap<Digest, Path> digestToFile = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<Digest, ByteString> digestToBlobs = new ConcurrentHashMap<>();
   @Nullable private ActionKey actionKey;
@@ -112,7 +113,8 @@ public class UploadManifest {
       int exitCode,
       Instant startTime,
       int wallTimeInMs,
-      boolean preserveExecutableBit)
+      boolean preserveExecutableBit,
+      boolean preserveAbsoluteSymlinks)
       throws ExecException, IOException, InterruptedException {
     ActionResult.Builder result = ActionResult.newBuilder();
     result.setExitCode(exitCode);
@@ -125,7 +127,8 @@ public class UploadManifest {
             /* allowAbsoluteSymlinks= */ cacheCapabilities
                 .getSymlinkAbsolutePathStrategy()
                 .equals(SymlinkAbsolutePathStrategy.Value.ALLOWED),
-            preserveExecutableBit);
+            preserveExecutableBit,
+            preserveAbsoluteSymlinks);
     manifest.addFiles(outputFiles);
     if (outErr != null) {
       manifest.setStdoutStderr(outErr);
@@ -177,7 +180,24 @@ public class UploadManifest {
         remotePathResolver,
         result,
         allowAbsoluteSymlinks,
-        /* preserveExecutableBit= */ false);
+        /* preserveExecutableBit= */ false,
+        /* preserveAbsoluteSymlinks= */ false);
+  }
+
+  @VisibleForTesting
+  public UploadManifest(
+      DigestUtil digestUtil,
+      RemotePathResolver remotePathResolver,
+      ActionResult.Builder result,
+      boolean allowAbsoluteSymlinks,
+      boolean preserveExecutableBit) {
+    this(
+        digestUtil,
+        remotePathResolver,
+        result,
+        allowAbsoluteSymlinks,
+        preserveExecutableBit,
+        /* preserveAbsoluteSymlinks= */ false);
   }
 
   public UploadManifest(
@@ -185,12 +205,14 @@ public class UploadManifest {
       RemotePathResolver remotePathResolver,
       ActionResult.Builder result,
       boolean allowAbsoluteSymlinks,
-      boolean preserveExecutableBit) {
+      boolean preserveExecutableBit,
+      boolean preserveAbsoluteSymlinks) {
     this.digestUtil = digestUtil;
     this.remotePathResolver = remotePathResolver;
     this.result = result;
     this.allowAbsoluteSymlinks = allowAbsoluteSymlinks;
     this.preserveExecutableBit = preserveExecutableBit;
+    this.preserveAbsoluteSymlinks = preserveAbsoluteSymlinks;
   }
 
   private void setStdoutStderr(FileOutErr outErr) throws IOException {
@@ -224,7 +246,9 @@ public class UploadManifest {
    *
    * <p>For historical reasons, non-dangling absolute symlinks are uploaded as the file or directory
    * they point to. This is inconsistent with the treatment of non-dangling relative symlinks, which
-   * are uploaded as such, but fixing it would now require an incompatible change. For the purposes
+   * are uploaded as such, but fixing it for spawn outputs would now require an incompatible change.
+   * Callers that need consistent symlink handling (such as the remote repo contents cache) can set
+   * {@code preserveAbsoluteSymlinks} to upload absolute symlinks as symlinks too. For the purposes
    * of this check, a looping symlink is considered dangling.
    *
    * <p>All files are uploaded with the executable bit set, in accordance with input Merkle trees.
@@ -270,7 +294,7 @@ public class UploadManifest {
           continue;
         }
         if (statFollow.isFile() && !statFollow.isSpecialFile()) {
-          if (target.isAbsolute()) {
+          if (target.isAbsolute() && !preserveAbsoluteSymlinks) {
             // Symlink to file uploaded as a file.
             addFile(digestUtil.compute(file, statFollow), file, statNoFollow);
           } else {
@@ -280,7 +304,7 @@ public class UploadManifest {
           continue;
         }
         if (statFollow.isDirectory()) {
-          if (target.isAbsolute()) {
+          if (target.isAbsolute() && !preserveAbsoluteSymlinks) {
             // Symlink to directory uploaded as a directory.
             addDirectory(file);
           } else {
@@ -487,7 +511,7 @@ public class UploadManifest {
           } catch (FileSymlinkLoopException e) {
             // Treat a looping symlink as a dangling symlink.
           }
-          if (statFollow == null || !target.isAbsolute()) {
+          if (statFollow == null || !target.isAbsolute() || preserveAbsoluteSymlinks) {
             // Symlink uploaded as a symlink.
             if (target.isAbsolute()) {
               checkAbsoluteSymlinkAllowed(path, target);

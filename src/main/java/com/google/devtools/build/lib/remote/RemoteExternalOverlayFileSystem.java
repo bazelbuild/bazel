@@ -64,6 +64,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -316,6 +317,27 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem {
     // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
     // target.
     prefetch(walkResult.symlinks());
+
+    // Materialize any other repos whose contents are referenced by absolute symlinks in this
+    // repo. The repo rule's impl is not re-executed on a cache hit, so any sibling repos that
+    // the original execution materialized through `rctx.path(label)` (typical for "subproject"
+    // style repos that mirror entries of a sibling) are not materialized again here unless we
+    // explicitly request it. Without this, the symlinks would dangle at the OS level.
+    var referencedRepoNames = new LinkedHashSet<String>();
+    for (var symlinkPath : walkResult.symlinks()) {
+      var target = externalFs.getPath(symlinkPath).readSymbolicLink();
+      if (target.isAbsolute()
+          && target.startsWith(externalDirectory)
+          && target.segmentCount() > externalDirectorySegmentCount) {
+        var referencedRepoName = target.getSegment(externalDirectorySegmentCount);
+        if (!referencedRepoName.equals(repo.getName())) {
+          referencedRepoNames.add(referencedRepoName);
+        }
+      }
+    }
+    for (var referencedRepoName : referencedRepoNames) {
+      ensureMaterialized(RepositoryName.createUnvalidated(referencedRepoName), reporter);
+    }
 
     // After the repo has been copied, atomically materialize the marker file. This ensures that the
     // repo doesn't have to be refetched after the next server restart.
