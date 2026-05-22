@@ -1461,6 +1461,25 @@ message BuildMetrics {
   }
 
   RemoteAnalysisCacheStatistics remote_analysis_cache_statistics = 13;
+
+  // Metrics about bzl/scl files. Only regular files are considered, not
+  // builtins or prelude files.
+  message BzlMetrics {
+    // Number of bzl/scl files loaded.
+    int32 bzl_file_count = 1;
+
+    message BzlFileMetrics {
+      // Workspace-relative path of the file.
+      string path = 1;
+      // File size in bytes.
+      int64 size = 2;
+    }
+
+    // Metrics about individual bzl/scl files.
+    repeated BzlFileMetrics bzl_file_metrics = 2;
+  }
+
+  BzlMetrics bzl_metrics = 14;
 }
 
 // Event providing additional statistics/logs after completion of the build.

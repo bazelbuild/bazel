@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.AspectCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.RuleClassCount;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BzlMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.Distribution;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.DynamicExecutionMetrics;
@@ -113,6 +114,8 @@ class MetricsCollector {
   private final ActionSummary.Builder actionSummary = ActionSummary.newBuilder();
   private final TargetMetrics.Builder targetMetrics = TargetMetrics.newBuilder();
   private final PackageMetrics.Builder packageMetrics = PackageMetrics.newBuilder();
+  private final BzlMetrics.Builder bzlMetrics = BzlMetrics.newBuilder();
+
   private final TimingMetrics.Builder timingMetrics = TimingMetrics.newBuilder();
   private final ArtifactMetrics.Builder artifactMetrics = ArtifactMetrics.newBuilder();
   private final BuildGraphMetrics.Builder buildGraphMetrics = BuildGraphMetrics.newBuilder();
@@ -182,6 +185,7 @@ class MetricsCollector {
           metrics = metrics.limit(5L * extremaPackageMetricsRecorder.getNumPackagesToTrack());
         }
         metrics.forEach(packageMetrics::addPackageLoadMetrics);
+        bzlMetrics.mergeFrom(recorder.getBzlMetrics());
       }
     }
 
@@ -356,6 +360,7 @@ class MetricsCollector {
             .setMemoryMetrics(createMemoryMetrics())
             .setTargetMetrics(targetMetrics.build())
             .setPackageMetrics(packageMetrics.build())
+            .setBzlMetrics(bzlMetrics.build())
             .setTimingMetrics(finishTimingMetrics())
             .setCumulativeMetrics(createCumulativeMetrics())
             .setArtifactMetrics(artifactMetrics.build())
