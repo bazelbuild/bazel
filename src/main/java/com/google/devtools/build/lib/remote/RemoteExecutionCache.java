@@ -90,9 +90,8 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
   /**
    * Deduplicates concurrent {@code findMissingDigests} queries for the same digest across
    * overlapping {@link #ensureInputsPresent} invocations. Results reported as "present" stay
-   * cached, but a "missing" result is invalidated as soon as the triggered upload attempt
-   * terminates so that a later caller re-queries — important after action rewinding, where a
-   * digest previously reported as missing may have just been re-uploaded by the rewound producer.
+   * cached until explicitly invalidated, but a "missing" result is invalidated as soon as the
+   * triggered upload attempt terminates.
    */
   private final AsyncTaskCache<Digest, Boolean> findMissingCache = AsyncTaskCache.create();
 
