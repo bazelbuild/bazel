@@ -1,3 +1,27 @@
+## Release 10.0.0-pre.20260516.1 (2026-05-22)
+
+```
+Baseline: e2792d172525887b9ba4307c9bdd0483c736c5ad
+```
+
+New features:
+
+  - Add `add_prefix` attribute to `git_repository` to allow cloning
+    repositories into a given subdirectory prefix
+  - {r,m}ctx.download* report the size of downloaded files
+    RELNOTES: Addition to the user-facing Build API
+
+Important changes:
+
+  - `--tls_certificate=`, `--tls_client_certificate=`, and
+    `--tls_client_key=` can now be used to reset those flags to their
+    unset state.
+  - In output of `query --output=build`, string attributes containing
+    newline characters are now enclosed in triple double quotes (""")
+    for better readability.
+
+This release contains contributions from many people at Google, as well as Albert Lloveras, Chi Wang, dependabot[bot], Fabian Meumertzheim, Fredrik Medley, gaurav0107, John Millikin, Kapunahele Wong, Keith Smiley, Malte Poll, Nikki Vijaybhaskar, Richard Lavoie, Steffeeen, Tyler French, Will Stranton.
+
 ## Release 10.0.0-pre.20260428.1 (2026-05-15)
 
 ```
