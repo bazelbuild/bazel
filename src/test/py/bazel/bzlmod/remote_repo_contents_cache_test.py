@@ -1058,6 +1058,132 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
         expect_symlinks=True, watch_dep_file=False
     )
 
+  def testMaterializationWithRelativeSymlinkEscapingMirroredSubdir(self):
+    # Mirrors the layout used by toolchains_llvm_bootstrapped where libcxx is
+    # created by rctx.symlink-ing each top-level entry of an inner subdirectory
+    # of a "raw" archive repo. The inner archive contains a relative symlink
+    # whose target escapes that subdirectory and points into a sibling
+    # directory of the raw archive (e.g. ../../../llvm/include/...).
+    #
+    # Without RRCC, accesses through the top-level absolute symlink resolve the
+    # deep relative symlink against the raw archive layout, so it stays valid.
+    # With RRCC, the top-level absolute symlinks are uploaded as resolved
+    # directories, so the materialized subproject has the deep relative symlink
+    # at a new location where its target no longer resolves.
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          [
+              'startup --windows_enable_symlinks',
+          ],
+          mode='a',
+      )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'raw_repo_rule = use_repo_rule("//:raw_repo.bzl", "raw_repo_rule")',
+            'raw_repo_rule(name = "raw_repo")',
+            'my_repo_rule = use_repo_rule("//:my_repo.bzl", "my_repo_rule")',
+            'my_repo_rule(name = "my_repo")',
+            (
+                'other_repo_rule ='
+                ' use_repo_rule("//:other_repo.bzl", "other_repo_rule")'
+            ),
+            'other_repo_rule(name = "other")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    # raw_repo contains "subproject/sub/inner_link.txt", a relative symlink
+    # that escapes the "subproject" directory.
+    self.ScratchFile(
+        'raw_repo.bzl',
+        [
+            'def _raw_repo_impl(rctx):',
+            '  rctx.file("BUILD", "")',
+            '  rctx.file("subproject/BUILD",'
+            ' "exports_files([\'sub/regular.txt\','
+            ' \'sub/inner_link.txt\'])")',
+            '  rctx.file("subproject/sub/regular.txt", "regular")',
+            '  rctx.file("other_dir/data.txt", "hello")',
+            '  res = rctx.execute(["ln", "-s",'
+            ' "../../other_dir/data.txt",'
+            ' "subproject/sub/inner_link.txt"])',
+            '  if res.return_code != 0:',
+            '    fail("ln failed: " + res.stderr)',
+            '  print("JUST FETCHED RAW_REPO")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'raw_repo_rule = repository_rule(_raw_repo_impl)',
+        ],
+    )
+    # my_repo mirrors raw_repo/subproject by symlinking each of its top-level
+    # entries. The symlinks are absolute, so when RRCC uploads my_repo they
+    # get resolved into the actual directory contents.
+    self.ScratchFile(
+        'my_repo.bzl',
+        [
+            'def _my_repo_impl(rctx):',
+            (
+                '  src_dir ='
+                ' rctx.path(Label("@raw_repo//:BUILD")).dirname.get_child('
+                '"subproject")'
+            ),
+            '  for entry in src_dir.readdir():',
+            '    rctx.symlink(entry, entry.basename)',
+            '  print("JUST FETCHED MY_REPO")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'my_repo_rule = repository_rule(_my_repo_impl)',
+        ],
+    )
+    # other_repo reads the deep file through my_repo, which triggers
+    # materialization. It is not reproducible so it always re-runs and
+    # therefore always exercises the materialization path.
+    self.ScratchFile(
+        'other_repo.bzl',
+        [
+            'def _other_impl(rctx):',
+            '  content = rctx.read(rctx.attr.deep_file)',
+            '  rctx.file("BUILD", "filegroup(name = \'haha\')")',
+            '  rctx.file("contents.txt", content)',
+            '  return rctx.repo_metadata()',
+            'other_repo_rule = repository_rule(',
+            '  _other_impl,',
+            '  attrs = {',
+            '    "deep_file": attr.label(default ='
+            ' "@my_repo//:sub/inner_link.txt"),',
+            '  },',
+            ')',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+    inner_link = os.path.join(repo_dir, 'sub/inner_link.txt')
+
+    # First fetch: not cached. The raw_repo on-disk layout makes the deep
+    # symlink resolve through my_repo's top-level absolute symlink.
+    _, _, stderr = self.RunBazel(['build', '@other//:haha'])
+    stderr_text = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED RAW_REPO', stderr_text)
+    self.assertIn('JUST FETCHED MY_REPO', stderr_text)
+    self.assertTrue(os.path.exists(inner_link))
+    with open(inner_link) as f:
+      self.assertEqual(f.read(), 'hello')
+
+    # After expunge: my_repo is cached in RRCC, not materialized yet.
+    self.RunBazel(['clean', '--expunge'])
+
+    # Rebuild: my_repo is loaded from RRCC and materialized when other_repo
+    # resolves its deep_file label. The deep relative symlink must still
+    # resolve to readable content.
+    _, _, stderr = self.RunBazel(['build', '@other//:haha'])
+    stderr_text = '\n'.join(stderr)
+    self.assertNotIn('JUST FETCHED MY_REPO', stderr_text)
+    self.assertTrue(
+        os.path.exists(inner_link),
+        '%s should exist after RRCC materialization' % inner_link,
+    )
+    with open(inner_link) as f:
+      self.assertEqual(f.read(), 'hello')
+
   def testBzlFilePrefetching(self):
     self.ScratchFile(
         'MODULE.bazel',
