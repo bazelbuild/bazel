@@ -54,11 +54,20 @@ public final class StarlarkAnnotations {
     }
   }
 
+  // A map from a class to its most-specific ancestor annotated as StarlarkBuiltin
+  private static final ClassValue<Class<?>> starlarkBuiltinAncestors =
+      new ClassValue<Class<?>>() {
+        @Override
+        protected Class<?> computeValue(Class<?> type) {
+          return findAnnotatedAncestorUncached(type, StarlarkBuiltin.class);
+        }
+      };
+
   /**
    * Searches a class or interface's class hierarchy for the given class annotation.
    *
-   * <p>If the given class annotation appears multiple times within the class hierachy, this chooses
-   * the annotation on the most-specified class in the hierarchy.
+   * <p>If the given class annotation appears multiple times within the class hierarchy, this
+   * chooses the annotation on the most-specified class in the hierarchy.
    *
    * @return the best-fit class that declares the annotation, or null if no class in the hierarchy
    *     declares it
@@ -67,6 +76,15 @@ public final class StarlarkAnnotations {
    */
   @Nullable
   private static Class<?> findAnnotatedAncestor(
+      Class<?> classObj, Class<? extends Annotation> annotation) {
+    if (annotation == StarlarkBuiltin.class) {
+      return starlarkBuiltinAncestors.get(classObj);
+    }
+    return findAnnotatedAncestorUncached(classObj, annotation);
+  }
+
+  @Nullable
+  private static Class<?> findAnnotatedAncestorUncached(
       Class<?> classObj, Class<? extends Annotation> annotation) {
     if (classObj.isAnnotationPresent(annotation)) {
       return classObj;
