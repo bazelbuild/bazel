@@ -351,13 +351,6 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             defaultValue = "unbound"),
         @Param(
-            name = "copts_filter",
-            documented = false,
-            positional = false,
-            named = true,
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
-            defaultValue = "unbound"),
-        @Param(
             name = "separate_module_headers",
             documented = false,
             positional = false,
@@ -417,7 +410,6 @@ public interface CcModuleApi<
       Object variablesExtension,
       Object languageObject,
       Object purposeObject,
-      Object coptsFilterObject,
       Object separateModuleHeadersObject,
       Sequence<?> moduleInterfacesUnchecked, // <Artifact> expected
       Object nonCompilationAdditionalInputsObject,
