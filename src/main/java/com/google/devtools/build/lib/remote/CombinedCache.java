@@ -830,10 +830,10 @@ public class CombinedCache extends AbstractReferenceCounted {
 
   /** Shuts the cache down and cancels active network I/Os. */
   public void shutdownNow() {
-    virtualThreadExecutor.shutdownNow();
     if (remoteCacheClient != null) {
       remoteCacheClient.shutdownUploadsNow();
     }
+    virtualThreadExecutor.shutdownNow();
   }
 
   public static FailureDetail createFailureDetail(String message, Code detailedCode) {
