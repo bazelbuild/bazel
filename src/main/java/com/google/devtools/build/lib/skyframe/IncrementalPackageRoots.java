@@ -283,6 +283,7 @@ public class IncrementalPackageRoots implements PackageRoots {
             pkgId.getRepository(),
             pkg.sourceRoot().asPath(),
             execroot,
+            singleSourceRoot.asPath(),
             useSiblingRepositoryLayout,
             lazilyPlantedSymlinksRef);
       } else if (!maybeConflictingBaseNamesLowercase.isEmpty()) {

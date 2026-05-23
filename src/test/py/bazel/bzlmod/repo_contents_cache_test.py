@@ -763,6 +763,146 @@ class RepoContentsCacheTest(test_base.TestBase):
     # by the replanting logic, so cross-repo symlinks prevent caching.
     self.doTestCachedRepoWithSymlinks(expect_cross_repo_cached=False)
 
+  def doTestRepoWithWorkspaceSymlinkSurvivesWorkspaceMove(self):
+    """Regression test for https://github.com/bazelbuild/bazel/issues/29515.
+
+    A reproducible repo that symlinks a file from the main workspace has those
+    symlinks replanted to relative paths through `../_main/...`. On Windows
+    (which resolves symlinks logically) those targets dangle when the repo is
+    read through the execroot unless a corresponding `_main` symlink exists
+    under `<execroot>/external/` too. After the fix, the build must succeed
+    even when the cached repo is reused from a completely different workspace
+    (with the original workspace and output base nuked between builds).
+
+    The workspace is set up under a subdirectory of `_test_cwd` (rather than
+    in `_test_cwd` itself) so that we can delete it without breaking the
+    `tempfile.TemporaryFile(dir=self._test_cwd)` calls inside `RunBazel`.
+    """
+    # Files that make up the workspace. Each file is written to both the
+    # original and the new workspace; the original is later deleted entirely.
+    ws_files = {
+        'payload/BUILD.bazel': [],
+        'payload/hello.txt': ['Hello from workspace!'],
+        'MODULE.bazel': [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "linked", "same_repo_only")',
+        ],
+        'extension.bzl': [
+            'def _linked_impl(ctx):',
+            '    ctx.file("REPO.bazel")',
+            '    # Workspace symlink: replantSymlinks rewrites this as',
+            '    # ../_main/payload/hello.txt before the repo is (potentially)',
+            '    # placed in the contents cache.',
+            '    ctx.symlink(',
+            '        ctx.path(Label("@@//payload:hello.txt")),',
+            '        "linked_hello.txt",',
+            '    )',
+            '    ctx.file("BUILD", "exports_files([\\"linked_hello.txt\\"])")',
+            '    return ctx.repo_metadata(reproducible = True)',
+            'linked = repository_rule(implementation = _linked_impl)',
+            '',
+            'def _same_repo_only_impl(ctx):',
+            '    ctx.file("REPO.bazel")',
+            '    ctx.file("data", "Hello from same-repo!")',
+            '    # Same-repo absolute symlink: replanted to a portable relative',
+            '    # path, so this repo is eligible for the contents cache.',
+            '    ctx.symlink(ctx.path("data"), "sym_same_repo")',
+            '    ctx.file("BUILD", "exports_files([\\"sym_same_repo\\"])")',
+            '    return ctx.repo_metadata(reproducible = True)',
+            'same_repo_only = repository_rule(',
+            '    implementation = _same_repo_only_impl,',
+            ')',
+            '',
+            'def _ext_impl(ctx):',
+            '    linked(name = "linked")',
+            '    same_repo_only(name = "same_repo_only")',
+            'ext = module_extension(implementation = _ext_impl)',
+        ],
+        'BUILD': [
+            'genrule(',
+            '    name = "use_linked",',
+            '    srcs = [',
+            '        "@linked//:linked_hello.txt",',
+            '        "@same_repo_only//:sym_same_repo",',
+            '    ],',
+            '    outs = ["output.txt"],',
+            # $(SRCS) expands to execroot-relative paths, which is the access
+            # pattern that triggers the bug being regressed.
+            '    cmd = "cat $(SRCS) > $@",',
+            ')',
+        ],
+    }
+    for rel_path, lines in ws_files.items():
+      self.ScratchFile('original_ws/' + rel_path, lines)
+
+    # First build in the original workspace: fetches and (where eligible)
+    # caches the repos. Use an explicit output base so we can delete it.
+    original_ws = os.path.join(self._test_cwd, 'original_ws')
+    original_output_base = tempfile.mkdtemp(dir=self._tests_root)
+    self.RunBazel(
+        [
+            f'--output_base={original_output_base}',
+            'build',
+            '//:use_linked',
+        ],
+        cwd=original_ws,
+    )
+    output = os.path.join(original_ws, 'bazel-bin/output.txt')
+    self.AssertFileContentContains(output, 'Hello from workspace!')
+    self.AssertFileContentContains(output, 'Hello from same-repo!')
+
+    # Shut the server down so the output base can be deleted on Windows
+    # (where running processes hold file handles).
+    self.RunBazel(
+        [f'--output_base={original_output_base}', 'shutdown'],
+        cwd=original_ws,
+    )
+
+    # Set up a fresh workspace from scratch (no copy from the original to
+    # ensure the original's bazel-* convenience symlinks don't leak in).
+    new_ws = os.path.join(self._test_cwd, 'new_ws')
+    for rel_path, lines in ws_files.items():
+      self.ScratchFile('new_ws/' + rel_path, lines)
+
+    # Nuke the original workspace and its output base. After this point only
+    # the contents cache and the new workspace remain on disk.
+    shutil.rmtree(original_ws)
+    shutil.rmtree(original_output_base)
+
+    # Build from the new workspace with a fresh output base. The
+    # `same_repo_only` repo must come straight from the cache; the
+    # `linked` repo with the workspace symlink must work (either from the
+    # cache or refetched) and resolve correctly against the new workspace.
+    new_output_base = tempfile.mkdtemp(dir=self._tests_root)
+    self.RunBazel(
+        [
+            f'--output_base={new_output_base}',
+            'build',
+            '//:use_linked',
+        ],
+        cwd=new_ws,
+    )
+    output = os.path.join(new_ws, 'bazel-bin/output.txt')
+    self.AssertFileContentContains(output, 'Hello from workspace!')
+    self.AssertFileContentContains(output, 'Hello from same-repo!')
+
+  def testRepoWithWorkspaceSymlinkSurvivesWorkspaceMove(self):
+    self.doTestRepoWithWorkspaceSymlinkSurvivesWorkspaceMove()
+
+  def testRepoWithWorkspaceSymlinkSurvivesWorkspaceMove_symlinksEnabledOnWindows(
+      self,
+  ):
+    if not self.IsWindows():
+      self.skipTest('This test is only relevant on Windows')
+    self.ScratchFile(
+        '.bazelrc',
+        [
+            'startup --windows_enable_symlinks',
+        ],
+        mode='a',
+    )
+    self.doTestRepoWithWorkspaceSymlinkSurvivesWorkspaceMove()
+
 
 if __name__ == '__main__':
   absltest.main()

@@ -38,8 +38,6 @@ import net.starlark.java.eval.Starlark;
 /** Utility methods related to repo fetching. */
 public class RepositoryUtils {
 
-  public static final String WORKSPACE_SYMLINK_NAME = "_main";
-
   private RepositoryUtils() {}
 
   public static boolean isValidRepoRoot(Path directory) {
@@ -102,7 +100,8 @@ public class RepositoryUtils {
     boolean portableSymlinksOnly = true;
     try {
       Collection<Path> symlinks = FileSystemUtils.traverseTree(repoDir, Path::isSymbolicLink);
-      Path workspaceSymlinkUnderExternal = externalRepoRoot.getChild(WORKSPACE_SYMLINK_NAME);
+      Path workspaceSymlinkUnderExternal =
+          externalRepoRoot.getChild(LabelConstants.WORKSPACE_SYMLINK_NAME);
       FileSystemUtils.ensureSymbolicLink(workspaceSymlinkUnderExternal, workspace);
       for (Path symlink : symlinks) {
         PathFragment target = symlink.readSymbolicLink();

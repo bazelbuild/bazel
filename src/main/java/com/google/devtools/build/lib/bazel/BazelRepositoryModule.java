@@ -68,7 +68,6 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCom
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverride;
-import com.google.devtools.build.lib.bazel.repository.RepositoryUtils;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter;
@@ -569,7 +568,7 @@ public class BazelRepositoryModule extends BlazeModule {
             || externalRoot.getFileSystem() instanceof RemoteExternalOverlayFileSystem) {
           try {
             FileSystemUtils.ensureSymbolicLink(
-                externalRoot.getChild(RepositoryUtils.WORKSPACE_SYMLINK_NAME), env.getWorkspace());
+                externalRoot.getChild(LabelConstants.WORKSPACE_SYMLINK_NAME), env.getWorkspace());
           } catch (IOException e) {
             env.getReporter().handle(Event.error(e.getMessage()));
             env.getBlazeModuleEnvironment()
