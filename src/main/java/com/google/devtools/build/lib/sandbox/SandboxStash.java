@@ -470,8 +470,43 @@ public class SandboxStash {
     return isTestAction(mnemonic) && outputs.files().size() == 1;
   }
 
+  /**
+   * Validates that an environment variable value used to construct a host filesystem path does not
+   * contain path traversal sequences or absolute path components. This prevents action-environment
+   * values from escaping the sandbox exec root when used in {@code Path.getRelative()} and
+   * subsequent {@code renameTo()} calls that are executed by the Bazel server JVM itself (not the
+   * sandboxed child process).
+   *
+   * @param envVarName the name of the environment variable, for error messages.
+   * @param value the value to validate.
+   * @return the validated value.
+   * @throws IllegalArgumentException if the value contains traversal or absolute path components.
+   */
+  private static String validateEnvPathComponent(String envVarName, @Nullable String value) {
+    if (value == null) {
+      return "";
+    }
+    PathFragment fragment = PathFragment.create(value);
+    if (fragment.isAbsolute()) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Action environment variable %s must not be an absolute path, got: %s",
+              envVarName, value));
+    }
+    if (fragment.containsUplevelReferences()) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Action environment variable %s must not contain '..' path traversal, got: %s",
+              envVarName, value));
+    }
+    return value;
+  }
+
   private static String getCurrentRunfilesDir(Map<String, String> environment) {
-    return environment.get("TEST_WORKSPACE") + "/" + environment.get(TEST_SRCDIR);
+    String workspace =
+        validateEnvPathComponent("TEST_WORKSPACE", environment.get("TEST_WORKSPACE"));
+    String srcDir = validateEnvPathComponent(TEST_SRCDIR, environment.get(TEST_SRCDIR));
+    return workspace + "/" + srcDir;
   }
 
   private ImmutableList<Path> sortStashesByMatchingTargetSegments(
