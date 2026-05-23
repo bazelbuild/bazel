@@ -26,7 +26,9 @@ import com.google.devtools.build.lib.vfs.util.FileSystems;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.HashMap;
+import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.junit.Rule;
@@ -45,12 +47,14 @@ public class ZipDecompressorTest {
   private static final int FILE = 0100644;
   private static final int EXECUTABLE = 0100755;
   private static final int DIRECTORY = 040755;
+  private static final int SYMLINK = 0120777;
 
   // External attributes hold the permissions in the higher-order bits, so the input int has to be
   // shifted.
   private static final int FILE_ATTRIBUTE = FILE << 16;
   private static final int EXECUTABLE_ATTRIBUTE = EXECUTABLE << 16;
   private static final int DIRECTORY_ATTRIBUTE = DIRECTORY << 16;
+  private static final int SYMLINK_ATTRIBUTE = SYMLINK << 16;
 
   private static final String ARCHIVE_NAME = "test_decompress_archive.zip";
 
@@ -64,6 +68,84 @@ public class ZipDecompressorTest {
       zos.closeEntry();
     }
     return fs.getPath(zipFile.getAbsolutePath());
+  }
+
+  private Path createSymlinkZipFile(String entryName, String target) throws IOException {
+    FileSystem fs = FileSystems.getNativeFileSystem();
+    File zipFile = folder.newFile("symlink.zip");
+    byte[] targetBytes = target.getBytes(UTF_8);
+    CRC32 crc = new CRC32();
+    crc.update(targetBytes);
+
+    try (ZipOutputStream zipOutputStream = new ZipOutputStream(new FileOutputStream(zipFile))) {
+      ZipEntry entry = new ZipEntry(entryName);
+      entry.setMethod(ZipEntry.STORED);
+      entry.setTime(0);
+      entry.setCrc(crc.getValue());
+      entry.setSize(targetBytes.length);
+      entry.setCompressedSize(targetBytes.length);
+      zipOutputStream.putNextEntry(entry);
+      zipOutputStream.write(targetBytes);
+      zipOutputStream.closeEntry();
+    }
+
+    byte[] zipBytes = Files.readAllBytes(zipFile.toPath());
+    setCentralDirectoryExternalAttributes(zipBytes, entryName, SYMLINK_ATTRIBUTE);
+    Files.write(zipFile.toPath(), zipBytes);
+
+    return fs.getPath(zipFile.getAbsolutePath());
+  }
+
+  private static void setCentralDirectoryExternalAttributes(
+      byte[] zipBytes, String entryName, int externalAttributes) throws IOException {
+    byte[] entryNameBytes = entryName.getBytes(UTF_8);
+    for (int offset = 0; offset <= zipBytes.length - 46; ) {
+      if (getLittleEndianInt(zipBytes, offset) != 0x02014b50) {
+        offset++;
+        continue;
+      }
+
+      int nameLength = getLittleEndianShort(zipBytes, offset + 28);
+      int extraLength = getLittleEndianShort(zipBytes, offset + 30);
+      int commentLength = getLittleEndianShort(zipBytes, offset + 32);
+      int nameOffset = offset + 46;
+      if (nameLength == entryNameBytes.length
+          && startsWith(zipBytes, nameOffset, entryNameBytes)) {
+        zipBytes[offset + 5] = 3; // Set "version made by" OS to Unix.
+        setLittleEndianInt(zipBytes, offset + 38, externalAttributes);
+        return;
+      }
+      offset = nameOffset + nameLength + extraLength + commentLength;
+    }
+
+    throw new IOException("Could not find central directory entry for " + entryName);
+  }
+
+  private static boolean startsWith(byte[] bytes, int offset, byte[] prefix) {
+    if (offset + prefix.length > bytes.length) {
+      return false;
+    }
+    for (int i = 0; i < prefix.length; i++) {
+      if (bytes[offset + i] != prefix[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static int getLittleEndianShort(byte[] bytes, int offset) {
+    return (bytes[offset] & 0xff) | ((bytes[offset + 1] & 0xff) << 8);
+  }
+
+  private static int getLittleEndianInt(byte[] bytes, int offset) {
+    return getLittleEndianShort(bytes, offset) | (getLittleEndianShort(bytes, offset + 2) << 16);
+  }
+
+  private static void setLittleEndianInt(byte[] bytes, int offset, int value) {
+    bytes[offset] = (byte) value;
+    bytes[offset + 1] = (byte) (value >> 8);
+    bytes[offset + 2] = (byte) (value >> 16);
+    bytes[offset + 3] = (byte) (value >> 24);
   }
 
   /**
@@ -206,5 +288,18 @@ public class ZipDecompressorTest {
             .build();
     IOException thrown = assertThrows(IOException.class, () -> decompress(descriptor));
     assertThat(thrown).hasMessageThat().contains("path is escaping the destination directory");
+  }
+
+  @Test
+  public void testDecompressZipWithAbsoluteSymlinkTarget() throws IOException {
+    Path zipFile = createSymlinkZipFile("config.bzl", "/etc/passwd");
+    DecompressorDescriptor descriptor =
+        DecompressorDescriptor.builder()
+            .setArchivePath(zipFile)
+            .setDestinationPath(zipFile.getParentDirectory().getRelative("out"))
+            .build();
+
+    IOException thrown = assertThrows(IOException.class, () -> decompress(descriptor));
+    assertThat(thrown).hasMessageThat().contains("pointing to /etc/passwd");
   }
 }

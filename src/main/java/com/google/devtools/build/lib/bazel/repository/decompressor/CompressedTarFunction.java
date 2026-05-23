@@ -137,8 +137,8 @@ public abstract class CompressedTarFunction implements Decompressor {
                         ? filePath.getParentDirectory()
                         : descriptor.destinationPath())
                     .getRelative(targetName);
-            if (!targetName.isAbsolute()
-                && !resolvedTargetPath.startsWith(descriptor.destinationPath())) {
+            if (targetName.isAbsolute()
+                || !resolvedTargetPath.startsWith(descriptor.destinationPath())) {
               throw new IOException(
                   String.format(
                       "Tar entries cannot refer to files outside of their directory: %s has a"
