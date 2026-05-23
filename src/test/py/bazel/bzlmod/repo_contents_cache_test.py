@@ -153,6 +153,112 @@ class RepoContentsCacheTest(test_base.TestBase):
     )
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
 
+  def testMaterializationWithRelativeSymlinkEscapingMirroredSubdir(self):
+    # Mirrors the (RRCC-equivalent) test
+    # remote_repo_contents_cache_test.testMaterializationWithRelativeSymlinkEscapingMirroredSubdir.
+    # Unlike RRCC, LRCC sidesteps the entire problem class: `replantSymlinks`
+    # in `RepositoryUtils` marks a repo with cross-repo symlinks as not safe
+    # for local cache reuse, and `RepositoryFetchFunction` then skips
+    # `moveToCache` entirely. As a result the repo's impl runs on every
+    # invocation and the symlinks are recreated against the current output
+    # base, so there are never dangling references.
+    if self.IsWindows():
+      self.skipTest('Test uses ln -s which is Unix-specific')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'raw_repo_rule = use_repo_rule("//:raw_repo.bzl", "raw_repo_rule")',
+            'raw_repo_rule(name = "raw_repo")',
+            'my_repo_rule = use_repo_rule("//:my_repo.bzl", "my_repo_rule")',
+            'my_repo_rule(name = "my_repo")',
+            (
+                'other_repo_rule ='
+                ' use_repo_rule("//:other_repo.bzl", "other_repo_rule")'
+            ),
+            'other_repo_rule(name = "other")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'raw_repo.bzl',
+        [
+            'def _raw_repo_impl(rctx):',
+            '  rctx.file("BUILD", "")',
+            '  rctx.file("subproject/BUILD",'
+            ' "exports_files([\'sub/regular.txt\','
+            ' \'sub/inner_link.txt\'])")',
+            '  rctx.file("subproject/sub/regular.txt", "regular")',
+            '  rctx.file("other_dir/data.txt", "hello")',
+            '  res = rctx.execute(["ln", "-s",'
+            ' "../../other_dir/data.txt",'
+            ' "subproject/sub/inner_link.txt"])',
+            '  if res.return_code != 0:',
+            '    fail("ln failed: " + res.stderr)',
+            '  print("JUST FETCHED RAW_REPO")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'raw_repo_rule = repository_rule(_raw_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'my_repo.bzl',
+        [
+            'def _my_repo_impl(rctx):',
+            '  src_dir ='
+            ' rctx.path(Label("@raw_repo//:BUILD")).dirname.get_child('
+            '"subproject")',
+            '  for entry in src_dir.readdir():',
+            '    rctx.symlink(entry, entry.basename)',
+            '  print("JUST FETCHED MY_REPO")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'my_repo_rule = repository_rule(_my_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'other_repo.bzl',
+        [
+            'def _other_impl(rctx):',
+            '  content = rctx.read(rctx.attr.deep_file)',
+            '  rctx.file("BUILD", "filegroup(name = \'haha\')")',
+            '  rctx.file("contents.txt", content)',
+            '  return rctx.repo_metadata()',
+            'other_repo_rule = repository_rule(',
+            '  _other_impl,',
+            '  attrs = {',
+            '    "deep_file": attr.label(default ='
+            ' "@my_repo//:sub/inner_link.txt"),',
+            '  },',
+            ')',
+        ],
+    )
+
+    repo_dir = self.repoDir('my_repo')
+    inner_link = os.path.join(repo_dir, 'sub/inner_link.txt')
+
+    # First fetch: not cached.
+    _, _, stderr = self.RunBazel(['build', '@other//:haha'])
+    stderr_text = '\n'.join(stderr)
+    self.assertIn('JUST FETCHED RAW_REPO', stderr_text)
+    self.assertIn('JUST FETCHED MY_REPO', stderr_text)
+    self.assertTrue(os.path.exists(inner_link))
+    with open(inner_link) as f:
+      self.assertEqual(f.read(), 'hello')
+
+    # After expunge: raw_repo is cached (only same-repo symlinks, portable),
+    # but my_repo is intentionally NOT cached because its cross-repo symlinks
+    # are not safe to reuse from a shared cache location. The impl runs
+    # again, recreating the symlinks against the current external root.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@other//:haha'])
+    stderr_text = '\n'.join(stderr)
+    self.assertNotIn('JUST FETCHED RAW_REPO', stderr_text)
+    self.assertIn('JUST FETCHED MY_REPO', stderr_text)
+    self.assertTrue(
+        os.path.exists(inner_link),
+        '%s should exist after rebuild' % inner_link,
+    )
+    with open(inner_link) as f:
+      self.assertEqual(f.read(), 'hello')
+
   def testNotCachedWhenPredeclaredInputsChange(self):
     self.ScratchFile(
         'MODULE.bazel',
