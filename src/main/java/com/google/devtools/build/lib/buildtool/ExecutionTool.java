@@ -652,7 +652,6 @@ public class ExecutionTool {
           new SymlinkForest(
               packageRoots.getPackageRootsMap(),
               getExecRoot(),
-              env.getWorkspace(),
               runtime.getProductName(),
               request
                   .getOptions(BuildLanguageOptions.class)

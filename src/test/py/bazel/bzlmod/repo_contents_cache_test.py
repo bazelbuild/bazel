@@ -101,6 +101,23 @@ class RepoContentsCacheTest(test_base.TestBase):
     except OSError:
       pass  # Not a symlink means not cached, which is expected
 
+  def _rmtreeWithRetry(self, path, attempts=10, delay=0.5):
+    """Like shutil.rmtree, but retries on Windows file-lock errors.
+
+    `bazel shutdown` returns before the OS has finished releasing file
+    handles in the output base, so a follow-up rmtree may transiently hit
+    PermissionError on Windows. We retry a few times before giving up.
+    """
+    last_err = None
+    for _ in range(attempts):
+      try:
+        shutil.rmtree(path)
+        return
+      except OSError as e:
+        last_err = e
+        time.sleep(delay)
+    raise last_err
+
   def testCachedAfterCleanExpunge(self):
     self.ScratchFile(
         'MODULE.bazel',
@@ -826,9 +843,14 @@ class RepoContentsCacheTest(test_base.TestBase):
             '        "@same_repo_only//:sym_same_repo",',
             '    ],',
             '    outs = ["output.txt"],',
-            # $(SRCS) expands to execroot-relative paths, which is the access
-            # pattern that triggers the bug being regressed.
-            '    cmd = "cat $(SRCS) > $@",',
+            # cmd_bat uses native cmd.exe with execroot-relative Windows paths
+            # to match the original reproducer; on Windows the bug only
+            # manifests through that resolver, not through MSYS bash/cat which
+            # dereferences symlinks differently.
+            '    cmd = "cat $(execpath @linked//:linked_hello.txt) '
+            '$(execpath @same_repo_only//:sym_same_repo) > $@",',
+            '    cmd_bat = "type $(execpath @linked//:linked_hello.txt) '
+            '$(execpath @same_repo_only//:sym_same_repo) > $@",',
             ')',
         ],
     }
@@ -851,10 +873,12 @@ class RepoContentsCacheTest(test_base.TestBase):
     self.AssertFileContentContains(output, 'Hello from workspace!')
     self.AssertFileContentContains(output, 'Hello from same-repo!')
 
-    # Shut the server down so the output base can be deleted on Windows
-    # (where running processes hold file handles).
+    # Let Bazel itself delete the output base via `clean --expunge` (which
+    # also shuts the server down). On Windows direct rmtree of a still-warm
+    # output base races with the OS releasing file handles, but the Bazel
+    # client knows how to wait for its own server to fully exit.
     self.RunBazel(
-        [f'--output_base={original_output_base}', 'shutdown'],
+        [f'--output_base={original_output_base}', 'clean', '--expunge'],
         cwd=original_ws,
     )
 
@@ -864,10 +888,14 @@ class RepoContentsCacheTest(test_base.TestBase):
     for rel_path, lines in ws_files.items():
       self.ScratchFile('new_ws/' + rel_path, lines)
 
-    # Nuke the original workspace and its output base. After this point only
-    # the contents cache and the new workspace remain on disk.
+    # Nuke the original workspace. The original output base is already gone
+    # (clean --expunge above). After this point only the contents cache and
+    # the new workspace remain on disk.
     shutil.rmtree(original_ws)
-    shutil.rmtree(original_output_base)
+    if os.path.exists(original_output_base):
+      # clean --expunge may leave behind an empty shell on some platforms;
+      # remove what's left, retrying a few times for Windows file-handle lag.
+      self._rmtreeWithRetry(original_output_base)
 
     # Build from the new workspace with a fresh output base. The
     # `same_repo_only` repo must come straight from the cache; the
@@ -885,6 +913,40 @@ class RepoContentsCacheTest(test_base.TestBase):
     output = os.path.join(new_ws, 'bazel-bin/output.txt')
     self.AssertFileContentContains(output, 'Hello from workspace!')
     self.AssertFileContentContains(output, 'Hello from same-repo!')
+
+    # On platforms that natively support symbolic links (always on Unix; on
+    # Windows only with Developer Mode), the fix materializes a `_main`
+    # symlink under `<execroot>/external/` pointing at the workspace, so the
+    # relative `../_main/...` targets that replantSymlinks produces resolve
+    # correctly when read through the execroot. Verify it's there.
+    #
+    # The behavioral check above (the build itself) only catches the bug on
+    # Windows with real symlinks (which Bazel CI Windows runners don't have),
+    # so this structural assertion is what actually guards the fix on the
+    # Linux/macOS test runs.
+    _, stdout, _ = self.RunBazel(
+        [f'--output_base={new_output_base}', 'info', 'execution_root'],
+        cwd=new_ws,
+    )
+    execroot = stdout[0].strip()
+    workspace_link = os.path.join(execroot, 'external', '_main')
+    if not self.IsWindows() or self._realSymlinksWork():
+      self.assertTrue(
+          os.path.lexists(workspace_link),
+          msg=f'expected workspace symlink to be planted at {workspace_link}',
+      )
+
+  def _realSymlinksWork(self):
+    """Best-effort check for whether the OS can create a real symlink here."""
+    probe_dir = tempfile.mkdtemp(dir=self._tests_root)
+    target = os.path.join(probe_dir, 'target')
+    os.mkdir(target)
+    link = os.path.join(probe_dir, 'link')
+    try:
+      os.symlink(target, link, target_is_directory=True)
+      return True
+    except OSError:
+      return False
 
   def testRepoWithWorkspaceSymlinkSurvivesWorkspaceMove(self):
     self.doTestRepoWithWorkspaceSymlinkSurvivesWorkspaceMove()

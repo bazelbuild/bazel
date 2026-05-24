@@ -52,14 +52,6 @@ public class LabelConstants {
   // With this prefix, non-main repositories are symlinked under
   // $output_base/execution_root/__main__/external
   public static final PathFragment EXTERNAL_PATH_PREFIX = PathFragment.create("external");
-
-  /**
-   * The name of the symlink to the main workspace planted under {@code <output_base>/external/}
-   * (and, for executions that may resolve symlinks logically, under {@code <execroot>/external/}).
-   * It allows repo-rule symlinks pointing into the main workspace to be replanted as relative
-   * paths through {@code ../_main/...}.
-   */
-  public static final String WORKSPACE_SYMLINK_NAME = "_main";
   // With this prefix, non-main repositories are sibling symlinks of
   // $output_base/execution_root/__main__
   public static final PathFragment EXPERIMENTAL_EXTERNAL_PATH_PREFIX = PathFragment.create("..");

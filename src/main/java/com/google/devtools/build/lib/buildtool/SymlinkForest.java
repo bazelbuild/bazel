@@ -51,7 +51,6 @@ public class SymlinkForest {
 
   private final ImmutableMap<PackageIdentifier, Root> packageRoots;
   private final Path execroot;
-  @Nullable private final Path workspace;
   private final String productName;
   private final String prefix;
   private final boolean siblingRepositoryLayout;
@@ -59,20 +58,7 @@ public class SymlinkForest {
   /** Constructor for a symlink forest creator without non-symlinked directories parameter. */
   public SymlinkForest(
       ImmutableMap<PackageIdentifier, Root> packageRoots, Path execroot, String productName) {
-    this(packageRoots, execroot, /* workspace= */ null, productName, false);
-  }
-
-  /**
-   * Convenience constructor that omits the workspace path. Intended for tests that do not exercise
-   * the planting of the {@code _main} symlink under the execroot's external directory.
-   */
-  @VisibleForTesting
-  public SymlinkForest(
-      ImmutableMap<PackageIdentifier, Root> packageRoots,
-      Path execroot,
-      String productName,
-      boolean siblingRepositoryLayout) {
-    this(packageRoots, execroot, /* workspace= */ null, productName, siblingRepositoryLayout);
+    this(packageRoots, execroot, productName, false);
   }
 
   /**
@@ -82,20 +68,15 @@ public class SymlinkForest {
    *
    * @param packageRoots source package roots to which to create symlinks
    * @param execroot path where to plant the symlink forest
-   * @param workspace path to the main workspace, used to materialize a {@code _main} symlink
-   *     alongside other external repository symlinks under the execroot. May be {@code null} in
-   *     test settings where this symlink is not needed.
    * @param productName {@code BlazeRuntime#getProductName()}
    */
   public SymlinkForest(
       ImmutableMap<PackageIdentifier, Root> packageRoots,
       Path execroot,
-      @Nullable Path workspace,
       String productName,
       boolean siblingRepositoryLayout) {
     this.packageRoots = packageRoots;
     this.execroot = execroot;
-    this.workspace = workspace;
     this.productName = productName;
     this.prefix = productName + "-";
     this.siblingRepositoryLayout = siblingRepositoryLayout;
@@ -146,7 +127,7 @@ public class SymlinkForest {
       throws IOException {
     Optional<Path> plantedSymlink =
         plantSingleSymlinkForExternalRepo(
-            repository, source, execroot, workspace, siblingRepositoryLayout, externalRepoLinks);
+            repository, source, execroot, siblingRepositoryLayout, externalRepoLinks);
     plantedSymlink.ifPresent(plantedSymlinks::add);
   }
 
@@ -471,7 +452,6 @@ public class SymlinkForest {
       RepositoryName repository,
       Path source,
       Path execroot,
-      @Nullable Path workspace,
       boolean siblingRepositoryLayout,
       Set<Path> alreadyPlantedExternalRepoLinks)
       throws IOException {
@@ -485,28 +465,8 @@ public class SymlinkForest {
     // to   <output_base>/external/<external repo name>
     Path execrootLink = execroot.getRelative(repository.getExecPath(siblingRepositoryLayout));
 
-    if (!siblingRepositoryLayout) {
-      Path externalDir = execroot.getRelative(LabelConstants.EXTERNAL_PATH_PREFIX);
-      // Always ensure the external directory exists before any repo symlink is planted into it.
-      // createDirectoryAndParents is idempotent and thus safe under concurrent invocations (as
-      // in IncrementalPackageRoots).
-      externalDir.createDirectoryAndParents();
-      // Materialize <execroot>/external/_main as a symlink to the workspace, mirroring the
-      // <output_base>/external/_main symlink created during repo fetching (see
-      // RepositoryUtils.replantSymlinks). This is needed for external repositories whose
-      // cross-repo symlinks were replanted as relative paths through ../_main/...: on Windows,
-      // where symlinks resolve using logical paths, such relative targets dangle when the repo
-      // is accessed via <execroot>/external/<repo>/... unless _main also exists alongside the
-      // repo there. See https://github.com/bazelbuild/bazel/issues/29515.
-      if (workspace != null) {
-        Path workspaceLink = externalDir.getChild(LabelConstants.WORKSPACE_SYMLINK_NAME);
-        // Gate via the shared set so the symlink is created at most once even under concurrent
-        // invocations. No external repo can be named "_main" so this entry never collides with
-        // a real repo's execroot link.
-        if (alreadyPlantedExternalRepoLinks.add(workspaceLink)) {
-          createWorkspaceLinkUnderExecroot(workspaceLink, workspace);
-        }
-      }
+    if (!siblingRepositoryLayout && alreadyPlantedExternalRepoLinks.isEmpty()) {
+      execroot.getRelative(LabelConstants.EXTERNAL_PATH_PREFIX).createDirectoryAndParents();
     }
     // Prevent re-creating existing symlinks.
     if (!alreadyPlantedExternalRepoLinks.add(execrootLink)) {
@@ -514,27 +474,6 @@ public class SymlinkForest {
     }
     execrootLink.createSymbolicLink(source);
     return Optional.of(execrootLink);
-  }
-
-  /**
-   * Creates the {@code _main} workspace symlink under the execroot's external directory.
-   *
-   * <p>Skipped when the filesystem can only emulate symlinks (via junctions or copies on Windows
-   * without Developer Mode / symlink privilege): a junction would create a cycle through the
-   * {@code bazel-<workspace>} convenience symlink for tools that walk the workspace, and a file
-   * copy doesn't apply to a directory target. This is also correct from a functional standpoint:
-   * the relative {@code ../_main/...} targets that motivate this symlink are only produced when
-   * {@link com.google.devtools.build.lib.bazel.repository.RepositoryUtils#replantSymlinks} can
-   * create real symlinks, which is gated on the same filesystem capability.
-   */
-  private static void createWorkspaceLinkUnderExecroot(Path workspaceLink, Path workspace)
-      throws IOException {
-    if (!workspaceLink
-        .getFileSystem()
-        .supportsSymbolicLinksNatively(workspaceLink.asFragment())) {
-      return;
-    }
-    workspaceLink.createSymbolicLink(workspace);
   }
 
   private static PackageIdentifier createInRepo(
