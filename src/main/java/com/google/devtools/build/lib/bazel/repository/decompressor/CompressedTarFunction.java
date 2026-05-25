@@ -137,8 +137,12 @@ public abstract class CompressedTarFunction implements Decompressor {
                         ? filePath.getParentDirectory()
                         : descriptor.destinationPath())
                     .getRelative(targetName);
-            if (targetName.isAbsolute()
-                || !resolvedTargetPath.startsWith(descriptor.destinationPath())) {
+            // maybeDeprefixSymlink already re-anchors absolute targets under the
+            // destination directory, so the escape check below is what catches both
+            // ../ escapes and absolute targets that resolve outside the destination
+            // after re-anchoring (previously silently allowed via the isAbsolute()
+            // short-circuit).
+            if (!resolvedTargetPath.startsWith(descriptor.destinationPath())) {
               throw new IOException(
                   String.format(
                       "Tar entries cannot refer to files outside of their directory: %s has a"

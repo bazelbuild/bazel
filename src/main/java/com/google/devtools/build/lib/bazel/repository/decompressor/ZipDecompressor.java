@@ -155,9 +155,14 @@ public class ZipDecompressor implements Decompressor {
       // For symlinks, the "compressed data" is actually the target name.
       ByteStreams.readFully(reader.getInputStream(entry), buffer);
 
-      PathFragment target = StripPrefixedPath.createPathFragment(buffer);
+      // Rewrite the symlink target first: absolute targets are re-anchored under the
+      // destination directory and the configured prefix is stripped. Validating the
+      // rewritten target is what catches both classic ../ escapes and absolute targets
+      // whose embedded ../ segments would resolve outside the destination after
+      // re-anchoring (the path that was previously silently allowed for absolute links).
+      PathFragment target = maybeDeprefixSymlink(buffer, prefix, destinationDirectory);
       Path targetPath = outputPath.getParentDirectory().getRelative(target);
-      if (target.isAbsolute() || !targetPath.startsWith(destinationDirectory)) {
+      if (!targetPath.startsWith(destinationDirectory)) {
         throw new IOException(
             "Zip entries cannot refer to files outside of their directory: "
                 + reader.getFilename()
@@ -167,7 +172,7 @@ public class ZipDecompressor implements Decompressor {
                 + new String(buffer, UTF_8));
       }
 
-      symlinks.put(outputPath, maybeDeprefixSymlink(buffer, prefix, destinationDirectory));
+      symlinks.put(outputPath, target);
     } else {
       try (InputStream input = reader.getInputStream(entry);
           OutputStream output = outputPath.getOutputStream()) {
