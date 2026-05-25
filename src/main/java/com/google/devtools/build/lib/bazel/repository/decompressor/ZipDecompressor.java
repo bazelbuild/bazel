@@ -153,8 +153,7 @@ public class ZipDecompressor implements Decompressor {
       Preconditions.checkState(entry.getSize() < MAX_PATH_LENGTH);
       byte[] buffer = new byte[(int) entry.getSize()];
       // For symlinks, the "compressed data" is actually the target name.
-      int read = reader.getInputStream(entry).read(buffer);
-      Preconditions.checkState(read == buffer.length);
+      ByteStreams.readFully(reader.getInputStream(entry), buffer);
 
       PathFragment target = StripPrefixedPath.createPathFragment(buffer);
       Path targetPath = outputPath.getParentDirectory().getRelative(target);
