@@ -114,7 +114,8 @@ public final class FrontierSerializer {
         computeSelectionResult(
             graph,
             serializationDependenciesProvider.getActiveDirectoriesMatcher(),
-            /* traversalMode= */ TraversalMode.PRE_SERIALIZATION);
+            /* traversalMode= */ TraversalMode.PRE_SERIALIZATION,
+            serializationDependenciesProvider.getSkycacheAnalysisOnly());
     ImmutableSet<SkyKey> selectedKeys = selectionResult.selectedKeys();
     if (!keepStateAfterBuild && serializationDependenciesProvider.shouldMinimizeMemory()) {
       clearActionLookupValues(graph, selectedKeys);
@@ -259,9 +260,14 @@ public final class FrontierSerializer {
       InMemoryGraph graph,
       Collection<Label> topLevelTargets,
       Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher) {
+    // At this point (post-analysis), ExecutionPhaseSkyKeys do not exist in the graph,
+    // making the skycacheAnalysisOnly setting technically non-consequential.
     SelectionResult selectionResult =
         computeSelectionResult(
-            graph, activeDirectoriesMatcher, /* traversalMode= */ TraversalMode.POST_ANALYSIS);
+            graph,
+            activeDirectoriesMatcher,
+            /* traversalMode= */ TraversalMode.POST_ANALYSIS,
+            /* skycacheAnalysisOnly= */ false);
     ImmutableSet<SkyKey> selectedKeys = selectionResult.selection().keySet();
     Set<PackageIdentifier> packageIdentifierSet = Sets.newConcurrentHashSet();
     graph.parallelForEach(
@@ -314,19 +320,25 @@ public final class FrontierSerializer {
   private static SelectionResult computeSelectionResult(
       InMemoryGraph graph,
       Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher,
-      TraversalMode traversalMode) {
+      TraversalMode traversalMode,
+      boolean skycacheAnalysisOnly) {
     if (activeDirectoriesMatcher.isPresent()) {
       ImmutableMap<SkyKey, SelectionMarking> selection =
-          computeSelection(graph, activeDirectoriesMatcher.get(), traversalMode);
+          computeSelection(
+              graph, activeDirectoriesMatcher.get(), traversalMode, skycacheAnalysisOnly);
       return new SelectionResult(selection);
     } else {
-      ImmutableMap<SkyKey, SelectionMarking> selection = computeFullSelection(graph, traversalMode);
+      ImmutableMap<SkyKey, SelectionMarking> selection =
+          computeFullSelection(graph, traversalMode, skycacheAnalysisOnly);
       return new SelectionResult(selection);
     }
   }
 
   private static ImmutableMap<SkyKey, SelectionMarking> computeSelection(
-      InMemoryGraph graph, Predicate<PackageIdentifier> matcher, TraversalMode traversalMode) {
+      InMemoryGraph graph,
+      Predicate<PackageIdentifier> matcher,
+      TraversalMode traversalMode,
+      boolean skycacheAnalysisOnly) {
     var selection = new ConcurrentHashMap<SkyKey, SelectionMarking>();
     graph.parallelForEach(
         node -> {
@@ -337,7 +349,8 @@ public final class FrontierSerializer {
                 markActiveAndTraverseEdges(graph, key, selection, traversalMode);
               }
             }
-            case ActionLookupData data when traversalMode == TraversalMode.PRE_SERIALIZATION -> {
+            case ActionLookupData data
+                when !skycacheAnalysisOnly && traversalMode == TraversalMode.PRE_SERIALIZATION -> {
               if (shouldUpload(data, node)) {
                 // Notably, we don't check the `matcher` for execution values, because we want to
                 // serialize all ActionLookupData even if they're below the frontier, because the
@@ -345,7 +358,7 @@ public final class FrontierSerializer {
                 selection.putIfAbsent(data, FRONTIER_CANDIDATE);
               }
             }
-            case Artifact artifact -> {
+            case Artifact artifact when !skycacheAnalysisOnly -> {
               SkyKey artifactKey = selectArtifactKey(artifact);
               if (artifactKey != null) {
                 // TODO: b/441769854 - add test coverage
@@ -389,7 +402,7 @@ public final class FrontierSerializer {
   }
 
   private static ImmutableMap<SkyKey, SelectionMarking> computeFullSelection(
-      InMemoryGraph graph, TraversalMode traversalMode) {
+      InMemoryGraph graph, TraversalMode traversalMode, boolean skycacheAnalysisOnly) {
     var selection = new ConcurrentHashMap<SkyKey, SelectionMarking>();
     graph.parallelForEach(
         node -> {
@@ -399,12 +412,13 @@ public final class FrontierSerializer {
                 selection.putIfAbsent(key, FRONTIER_CANDIDATE);
               }
             }
-            case ActionLookupData data when traversalMode == TraversalMode.PRE_SERIALIZATION -> {
+            case ActionLookupData data
+                when !skycacheAnalysisOnly && traversalMode == TraversalMode.PRE_SERIALIZATION -> {
               if (shouldUpload(data, node)) {
                 selection.putIfAbsent(data, FRONTIER_CANDIDATE);
               }
             }
-            case Artifact artifact -> {
+            case Artifact artifact when !skycacheAnalysisOnly -> {
               SkyKey artifactKey = selectArtifactKey(artifact);
               if (artifactKey != null) {
                 selection.putIfAbsent(artifactKey, FRONTIER_CANDIDATE);
