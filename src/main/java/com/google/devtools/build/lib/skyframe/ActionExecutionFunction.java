@@ -179,6 +179,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     RemoteAnalysisCacheReaderDepsProvider remoteCachingDependencies =
         cachingDependenciesSupplier.get();
     if (remoteCachingDependencies.mode().isRetrievalEnabled()
+        && !remoteCachingDependencies.getSkycacheAnalysisOnly()
         && !skyframeActionExecutor.shouldSkipRetrieval(actionLookupData)) {
       switch (retrieveRemoteSkyValue(
           actionLookupData, env, remoteCachingDependencies, InputDiscoveryState::new)) {

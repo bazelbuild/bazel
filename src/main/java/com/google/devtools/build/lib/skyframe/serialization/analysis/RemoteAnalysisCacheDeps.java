@@ -60,6 +60,8 @@ public class RemoteAnalysisCacheDeps
   private final Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher;
   private final RemoteAnalysisCachingEventListener listener;
   private final FrontierNodeVersion frontierNodeVersion;
+  private final boolean skycacheAnalysisOnly;
+
   private final ListenableFuture<ObjectCodecs> objectCodecs;
   private final ListenableFuture<FingerprintValueService> fingerprintValueServiceFuture;
   @Nullable private final ListenableFuture<? extends RemoteAnalysisCacheClient> analysisCacheClient;
@@ -82,9 +84,11 @@ public class RemoteAnalysisCacheDeps
       ListenableFuture<ObjectCodecs> objectCodecs,
       FrontierNodeVersion frontierNodeVersion,
       Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher,
-      String serializedFrontierProfile) {
+      String serializedFrontierProfile,
+      boolean skycacheAnalysisOnly) {
     this.mode = mode;
     this.bailOutOnMissingFingerprint = bailOutOnMissingFingerprint;
+    this.skycacheAnalysisOnly = skycacheAnalysisOnly;
     this.minimizeMemory = minimizeMemory;
     this.serializedFrontierProfile = serializedFrontierProfile;
     this.activeDirectoriesMatcher = activeDirectoriesMatcher;
@@ -104,6 +108,7 @@ public class RemoteAnalysisCacheDeps
     this.mode = RemoteAnalysisCacheMode.OFF;
     this.bailOutOnMissingFingerprint = false;
     this.minimizeMemory = false;
+    this.skycacheAnalysisOnly = false;
     this.serializedFrontierProfile = "";
     this.activeDirectoriesMatcher = Optional.empty();
     this.eventHandler = null;
@@ -239,5 +244,11 @@ public class RemoteAnalysisCacheDeps
       throw new IllegalStateException(
           "At this point the Skycache client should have been initialized", e);
     }
+  }
+
+  @Override
+  public boolean getSkycacheAnalysisOnly() {
+    checkEnabled();
+    return skycacheAnalysisOnly;
   }
 }
