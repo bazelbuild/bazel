@@ -19,6 +19,8 @@
     "https://bcr.bazel.build/modules/apple_support/1.23.1/MODULE.bazel": "53763fed456a968cf919b3240427cf3a9d5481ec5466abc9d5dc51bc70087442",
     "https://bcr.bazel.build/modules/apple_support/1.23.1/source.json": "d888b44312eb0ad2c21a91d026753f330caa48a25c9b2102fae75eb2b0dcfdd2",
     "https://bcr.bazel.build/modules/apple_support/1.8.1/MODULE.bazel": "500f7aa32c008222e360dc9a158c248c2dbaeb3b6246c19e7269981dbd61e29b",
+    "https://bcr.bazel.build/modules/apple_support/2.3.0/MODULE.bazel": "d48f824ae8eeea5f837eb3038cef3615075d996d3e82eb9187192c2820605a81",
+    "https://bcr.bazel.build/modules/apple_support/2.3.0/source.json": "d99b0a50918c4484856d773026b2fd60a694668c70fc0e19d592786dc7e5e469",
     "https://bcr.bazel.build/modules/bazel_ci_rules/1.0.0/MODULE.bazel": "0f92c944b9c466066ed484cfc899cf43fca765df78caca18984c62479f7925eb",
     "https://bcr.bazel.build/modules/bazel_ci_rules/1.0.0/source.json": "3405a2a7f9f827a44934b01470faeac1b56fb1304955c98ee9fcd03ad2ca5dcc",
     "https://bcr.bazel.build/modules/bazel_features/1.0.0/MODULE.bazel": "d7f022dc887efb96e1ee51cec7b2e48d41e36ff59a6e4f216c40e4029e1585bf",
@@ -296,164 +298,45 @@
               ]
             }
           }
-        },
-        "recordedRepoMappingEntries": [
-          [
-            "",
-            "abseil-cpp",
-            "abseil-cpp+"
-          ],
-          [
-            "",
-            "apple_support",
-            "apple_support+"
-          ],
-          [
-            "",
-            "async_profiler",
-            "+async_profiler_repos+async_profiler"
-          ],
-          [
-            "",
-            "async_profiler_linux_arm64",
-            "+async_profiler_repos+async_profiler_linux_arm64"
-          ],
-          [
-            "",
-            "async_profiler_linux_x64",
-            "+async_profiler_repos+async_profiler_linux_x64"
-          ],
-          [
-            "",
-            "async_profiler_macos",
-            "+async_profiler_repos+async_profiler_macos"
-          ],
-          [
-            "",
-            "bazel_skylib",
-            "bazel_skylib+"
-          ],
-          [
-            "",
-            "bazel_tools",
-            "bazel_tools"
-          ],
-          [
-            "",
-            "blake3",
-            "blake3+"
-          ],
-          [
-            "",
-            "c-ares",
-            "c-ares+"
-          ],
-          [
-            "",
-            "chicory",
-            "chicory+"
-          ],
-          [
-            "",
-            "com_github_grpc_grpc",
-            "grpc+"
-          ],
-          [
-            "",
-            "com_google_protobuf",
-            "protobuf+"
-          ],
-          [
-            "",
-            "googleapis",
-            "googleapis+"
-          ],
-          [
-            "",
-            "grpc-java",
-            "grpc-java+"
-          ],
-          [
-            "",
-            "io_bazel_skydoc",
-            "stardoc+"
-          ],
-          [
-            "",
-            "platforms",
-            "platforms"
-          ],
-          [
-            "",
-            "re2",
-            "re2+"
-          ],
-          [
-            "",
-            "rules_cc",
-            "rules_cc+"
-          ],
-          [
-            "",
-            "rules_go",
-            "rules_go+"
-          ],
-          [
-            "",
-            "rules_graalvm",
-            "rules_graalvm+"
-          ],
-          [
-            "",
-            "rules_java",
-            "rules_java+"
-          ],
-          [
-            "",
-            "rules_jvm_external",
-            "rules_jvm_external+"
-          ],
-          [
-            "",
-            "rules_kotlin",
-            "rules_kotlin+"
-          ],
-          [
-            "",
-            "rules_license",
-            "rules_license+"
-          ],
-          [
-            "",
-            "rules_pkg",
-            "rules_pkg+"
-          ],
-          [
-            "",
-            "rules_proto",
-            "rules_proto+"
-          ],
-          [
-            "",
-            "rules_python",
-            "rules_python+"
-          ],
-          [
-            "",
-            "rules_shell",
-            "rules_shell+"
-          ],
-          [
-            "",
-            "zlib",
-            "zlib+"
-          ],
-          [
-            "",
-            "zstd-jni",
-            "zstd-jni+"
-          ]
-        ]
+        }
+      }
+    },
+    "@@bazel_ci_rules+//:rbe_config.bzl%rbe_config_extension": {
+      "general": {
+        "bzlTransitiveDigest": "9+l/EBrynYwo8/gokt6U/+ZoE2tIACzH5rOoPfI01wE=",
+        "usagesDigest": "HujAq5EGA+Tlz7DHoDf3wQuuXcobfsrLb9WdkQry/+A=",
+        "recordedInputs": [],
+        "generatedRepoSpecs": {
+          "rbe_ubuntu2404": {
+            "repoRuleId": "@@bazel_ci_rules+//:rbe_config.bzl%_rbe_config",
+            "attributes": {
+              "preset_name": "ubuntu2404"
+            }
+          }
+        }
+      }
+    },
+    "@@envoy_api+//bazel:repositories.bzl%non_module_deps": {
+      "general": {
+        "bzlTransitiveDigest": "9WmOn7ZEOTymbChrodgB7kkXkW9M2y+/emhjtH43DMc=",
+        "usagesDigest": "lOhJkV09ITWn6LOK9fLMuf1t3969wdr45lToQ2MVQoU=",
+        "recordedInputs": [
+          "REPO_MAPPING:envoy_api+,bazel_tools bazel_tools",
+          "REPO_MAPPING:envoy_api+,envoy_api envoy_api+"
+        ],
+        "generatedRepoSpecs": {
+          "prometheus_metrics_model": {
+            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
+            "attributes": {
+              "urls": [
+                "https://github.com/prometheus/client_model/archive/v0.6.2.tar.gz"
+              ],
+              "sha256": "47c5ea7949f68e7f7b344350c59b6bd31eeb921f0eec6c3a566e27cf1951470c",
+              "strip_prefix": "client_model-0.6.2",
+              "build_file_content": "\nload(\"@envoy_api//bazel:api_build_system.bzl\", \"api_cc_py_proto_library\")\nload(\"@io_bazel_rules_go//proto:def.bzl\", \"go_proto_library\")\n\napi_cc_py_proto_library(\n    name = \"client_model\",\n    srcs = [\n        \"io/prometheus/client/metrics.proto\",\n    ],\n    visibility = [\"//visibility:public\"],\n)\n\ngo_proto_library(\n    name = \"client_model_go_proto\",\n    importpath = \"github.com/prometheus/client_model/go\",\n    proto = \":client_model\",\n    visibility = [\"//visibility:public\"],\n)\n"
+            }
+          }
+        }
       }
     },
     "@@googleapis+//:extensions.bzl%switched_rules": {
