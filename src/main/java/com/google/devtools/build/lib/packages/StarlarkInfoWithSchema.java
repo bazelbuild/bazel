@@ -18,6 +18,9 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -38,7 +41,23 @@ import net.starlark.java.syntax.TokenKind;
  * instability in some pathological cases. See {@link StarlarkProvider#optimizeField} for more
  * information.
  */
-public class StarlarkInfoWithSchema extends StarlarkInfo {
+public final class StarlarkInfoWithSchema extends StarlarkInfo {
+
+  /**
+   * Interner for instances that have no {@linkplain Starlark#truth truthy} values.
+   *
+   * <p>Interning is limited to instances without truthy values for two reasons:
+   *
+   * <ol>
+   *   <li>This covers the most frequent category of duplicates in practice. Interning further may
+   *       not be worth the cost.
+   *   <li>Hashing truthy values can be arbitrarily expensive and potentially even dangerous due to
+   *       the possibility of object graph cycles.
+   * </ol>
+   */
+  private static final Interner<StarlarkInfoWithSchema> nonTruthyInterner =
+      BlazeInterners.newWeakInterner();
+
   private final StarlarkProvider provider;
 
   // For each field in provider.getFields the table contains on corresponding position either null,
@@ -195,13 +214,16 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
 
   @Override
   public StarlarkInfoWithSchema unsafeOptimizeMemoryLayout() {
+    boolean sawTruthyValue = false;
     int n = table.length;
     for (int i = 0; i < n; i++) {
-      if (table[i] instanceof Compactable compactable) {
+      Object val = table[i];
+      sawTruthyValue = sawTruthyValue || truth(val);
+      if (val instanceof Compactable compactable) {
         table[i] = compactable.unsafeOptimizeMemoryLayout();
       }
     }
-    return this;
+    return sawTruthyValue ? this : nonTruthyInterner.intern(this);
   }
 
   @Override
@@ -220,7 +242,7 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
 
   @Override
   public int hashCode() {
-    return Arrays.hashCode(table);
+    return 31 * provider.hashCode() + Arrays.hashCode(table);
   }
 
   /** Returns the index of the given named field in the given list of fields, or -1 if not found. */
@@ -230,5 +252,16 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
     }
     int idx = Collections.binarySearch(fields, name);
     return idx >= 0 ? idx : -1;
+  }
+
+  /**
+   * Augmented version of {@link Starlark#truth} that handles {@link NestedSet} and {@code null}.
+   */
+  private static boolean truth(Object val) {
+    return switch (val) {
+      case NestedSet<?> nestedSet -> !nestedSet.isEmpty();
+      case null -> false;
+      default -> Starlark.truth(val);
+    };
   }
 }
