@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -47,15 +49,38 @@ public class ConstraintSetting implements RuleConfiguredTargetFactory {
         ruleContext
             .attributes()
             .get(ConstraintSettingRule.DEFAULT_CONSTRAINT_VALUE_ATTR, BuildType.NODEP_LABEL);
+    Label refinesConstraintValueAttr =
+        ruleContext
+            .attributes()
+            .get(ConstraintSettingRule.REFINES_CONSTRAINT_VALUE_ATTR, BuildType.LABEL);
 
     validateDefaultConstraintValue(ruleContext, constraintSetting, defaultConstraintValue);
+
+    // The ConstraintValueInfo of the refined value (resolved through aliases), if any. Its label
+    // is the underlying constraint_value's label, so platform validation and select() refinement
+    // match the value as it appears on platforms.
+    ConstraintValueInfo refinedValue = null;
+    if (refinesConstraintValueAttr != null) {
+      refinedValue =
+          PlatformProviderUtils.constraintValue(
+              ruleContext.getPrerequisite(ConstraintSettingRule.REFINES_CONSTRAINT_VALUE_ATTR));
+      if (refinedValue == null) {
+        // Should not happen since the attribute mandates ConstraintValueInfo.
+        throw ruleContext.throwWithAttributeError(
+            ConstraintSettingRule.REFINES_CONSTRAINT_VALUE_ATTR,
+            "The refined constraint value '"
+                + refinesConstraintValueAttr
+                + "' is not a constraint_value.");
+      }
+    }
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .addProvider(FileProvider.class, FileProvider.EMPTY)
         .addProvider(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
         .addNativeDeclaredProvider(
-            ConstraintSettingInfo.create(constraintSetting, defaultConstraintValue))
+            ConstraintSettingInfo.create(
+                constraintSetting, defaultConstraintValue, refinedValue))
         .build();
   }
 
