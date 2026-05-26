@@ -154,6 +154,14 @@ public class RuleContext extends TargetContext
      * of prototypes may not depend on packages that are in prototypes.
      */
     public abstract boolean packageUnderPrototypes(PackageIdentifier packageIdentifier);
+
+    /**
+     * Returns whether the given package is allowed to depend on prototype packages. (If the given
+     * package is itself an experimental or prototype package, this method's result is ignored.)
+     */
+    default boolean mayDependOnPrototypes(PackageIdentifier packageIdentifier) {
+      return false;
+    }
   }
 
   public static final String TOOLCHAIN_ATTR_NAME = "$toolchain";

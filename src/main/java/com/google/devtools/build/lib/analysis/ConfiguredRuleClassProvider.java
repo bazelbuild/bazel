@@ -743,6 +743,11 @@ public /*final*/ class ConfiguredRuleClassProvider
   }
 
   @Override
+  public boolean mayPackageDependOnPrototypes(PackageIdentifier packageIdentifier) {
+    return prerequisiteValidator.mayDependOnPrototypes(packageIdentifier);
+  }
+
+  @Override
   public String getRunfilesPrefix() {
     return runfilesPrefix;
   }

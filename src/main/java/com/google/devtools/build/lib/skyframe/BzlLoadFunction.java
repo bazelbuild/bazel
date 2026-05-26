@@ -791,6 +791,8 @@ public class BzlLoadFunction implements SkyFunction {
             programLoads,
             pkg,
             ruleClassProvider::isPackageUnderExperimental,
+            ruleClassProvider::isPackageUnderPrototypes,
+            ruleClassProvider::mayPackageDependOnPrototypes,
             builtins.starlarkSemantics.getBool(BuildLanguageOptions.ALLOW_EXPERIMENTAL_LOADS),
             repoMapping,
             key.isSclDialect(),
@@ -1069,13 +1071,14 @@ public class BzlLoadFunction implements SkyFunction {
       ImmutableList<Pair<String, Location>> loads,
       PackageIdentifier base,
       Predicate<PackageIdentifier> isUnderExperimental,
+      Predicate<PackageIdentifier> isUnderPrototypes,
+      Predicate<PackageIdentifier> mayDependOnPrototypes,
       boolean allowExperimentalLoads,
       RepositoryMapping repoMapping,
       boolean withinSclDialect,
       boolean isSclFlagEnabled,
       @Nullable Label.RepoMappingRecorder repoMappingRecorder) {
     boolean ok = true;
-    boolean baseWithinExperimental = isUnderExperimental.test(base);
 
     ImmutableList.Builder<Label> loadLabels = ImmutableList.builderWithExpectedSize(loads.size());
     for (Pair<String, Location> load : loads) {
@@ -1103,14 +1106,22 @@ public class BzlLoadFunction implements SkyFunction {
             /* withinSclDialect= */ withinSclDialect,
             /* mentionSclInErrorMessage= */ isSclFlagEnabled);
         if (!allowExperimentalLoads
-            && !baseWithinExperimental
-            && isUnderExperimental.test(label.getPackageIdentifier())) {
+            && isUnderExperimental.test(label.getPackageIdentifier())
+            && !isUnderExperimental.test(base)) {
           throw new LabelSyntaxException(
               """
               Cannot load an experimental Starlark file from a non-experimental package.
               Consider moving the loaded file to a non-experimental package.
               To temporarily bypass this error, use --allow_experimental_loads.
               """);
+        }
+        if (isUnderPrototypes.test(label.getPackageIdentifier())
+            && !isUnderExperimental.test(base)
+            && !isUnderPrototypes.test(base)
+            && !mayDependOnPrototypes.test(base)) {
+          throw new LabelSyntaxException(
+              "Cannot load a Starlark file under prototypes from a non-experimental, non-prototypes"
+                  + " package. Consider moving the loaded file to a non-prototype package.");
         }
         loadLabels.add(label);
       } catch (LabelSyntaxException ex) {
@@ -1133,6 +1144,8 @@ public class BzlLoadFunction implements SkyFunction {
       ImmutableList<Pair<String, Location>> loads,
       PackageIdentifier base,
       Predicate<PackageIdentifier> isUnderExperimental,
+      Predicate<PackageIdentifier> isUnderPrototypes,
+      Predicate<PackageIdentifier> mayDependOnPrototypes,
       RepositoryMapping repoMapping,
       StarlarkSemantics starlarkSemantics) {
     return getLoadLabels(
@@ -1140,6 +1153,8 @@ public class BzlLoadFunction implements SkyFunction {
         loads,
         base,
         isUnderExperimental,
+        isUnderPrototypes,
+        mayDependOnPrototypes,
         /* allowExperimentalLoads= */ starlarkSemantics.getBool(
             BuildLanguageOptions.ALLOW_EXPERIMENTAL_LOADS),
         repoMapping,
