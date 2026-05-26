@@ -29,7 +29,6 @@ import net.starlark.java.eval.Compactable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.TokenKind;
 
 /**
@@ -48,8 +47,7 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
 
   // `table` elements should already be optimized by caller, see StarlarkProvider#optimizeField
   @VisibleForSerialization // private
-  StarlarkInfoWithSchema(StarlarkProvider provider, Object[] table, @Nullable Location loc) {
-    super(loc);
+  StarlarkInfoWithSchema(StarlarkProvider provider, Object[] table) {
     this.provider = provider;
     this.table = table;
   }
@@ -105,7 +103,7 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
     }
 
     @Override
-    public StarlarkInfoWithSchema createFromArgs(StarlarkThread thread) throws EvalException {
+    public StarlarkInfoWithSchema createFromArgs() throws EvalException {
       if (unexpected != null) {
         throw Starlark.errorf(
             "got unexpected field%s '%s' in call to instantiate provider %s",
@@ -113,16 +111,15 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
             Joiner.on("', '").join(unexpected),
             provider.getPrintableName());
       }
-      return new StarlarkInfoWithSchema(provider, valueTable, thread.getCallerLocation());
+      return new StarlarkInfoWithSchema(provider, valueTable);
     }
 
     @Override
-    public StarlarkInfo createFromMap(Map<String, Object> map, StarlarkThread thread)
-        throws EvalException {
+    public StarlarkInfo createFromMap(Map<String, Object> map) throws EvalException {
       for (Map.Entry<String, Object> e : map.entrySet()) {
         addNamedArg(e.getKey(), e.getValue());
       }
-      return createFromArgs(thread);
+      return createFromArgs();
     }
   }
 
@@ -193,7 +190,7 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
       }
       ztable[i] = x.table[i] != null ? x.table[i] : y.table[i];
     }
-    return new StarlarkInfoWithSchema(x.provider, ztable, Location.BUILTIN);
+    return new StarlarkInfoWithSchema(x.provider, ztable);
   }
 
   @Override

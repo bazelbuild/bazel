@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import java.lang.reflect.Method;
 import java.util.Map;
 import javax.annotation.Nullable;
-import net.starlark.java.syntax.Location;
 
 /** Helper class to provide a RuleClassProvider for tests. */
 public class TestRuleClassProvider {
@@ -190,8 +189,7 @@ public class TestRuleClassProvider {
       return new RuleConfiguredTargetBuilder(ruleContext)
           .setFilesToBuild(NestedSetBuilder.emptySet(Order.STABLE_ORDER))
           .addProvider(RunfilesProvider.EMPTY)
-          .addNativeDeclaredProvider(
-              new TemplateVariableInfo(ImmutableMap.copyOf(variables), Location.BUILTIN))
+          .addNativeDeclaredProvider(new TemplateVariableInfo(ImmutableMap.copyOf(variables)))
           .build();
     }
   }

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
 import java.util.Map;
-import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -38,11 +37,8 @@ public final class StarlarkInfoWithMessage extends StarlarkInfoNoSchema {
   private final String unknownFieldError;
 
   private StarlarkInfoWithMessage(
-      Provider provider,
-      Map<String, Object> values,
-      @Nullable Location loc,
-      String unknownFieldError) {
-    super(provider, values, loc);
+      Provider provider, Map<String, Object> values, String unknownFieldError) {
+    super(provider, values);
     this.unknownFieldError = unknownFieldError;
   }
 
@@ -83,6 +79,6 @@ public final class StarlarkInfoWithMessage extends StarlarkInfoNoSchema {
   public static StarlarkInfo createWithCustomMessage(
       Provider provider, Map<String, Object> values, String unknownFieldError) {
     Preconditions.checkNotNull(unknownFieldError);
-    return new StarlarkInfoWithMessage(provider, values, Location.BUILTIN, unknownFieldError);
+    return new StarlarkInfoWithMessage(provider, values, unknownFieldError);
   }
 }

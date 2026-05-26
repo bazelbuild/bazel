@@ -26,7 +26,6 @@ import net.starlark.java.eval.Compactable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.TokenKind;
 
 /**
@@ -49,14 +48,12 @@ public class StarlarkInfoNoSchema extends StarlarkInfo {
   // The efficient table algorithms would be a nice addition to the Starlark
   // interpreter, to allow other clients to define their own fast structs
   // (or to define a standard one). See also comments at Info about upcoming clean-ups.
-  private StarlarkInfoNoSchema(Provider provider, Object[] table, @Nullable Location loc) {
-    super(loc);
+  private StarlarkInfoNoSchema(Provider provider, Object[] table) {
     this.provider = provider;
     this.table = table;
   }
 
-  StarlarkInfoNoSchema(Provider provider, Map<String, Object> values, @Nullable Location loc) {
-    super(loc);
+  StarlarkInfoNoSchema(Provider provider, Map<String, Object> values) {
     this.provider = provider;
     this.table = toTable(values);
   }
@@ -72,15 +69,12 @@ public class StarlarkInfoNoSchema extends StarlarkInfo {
    * @param provider A {@code Provider} without a schema. {@code StarlarkProvider} with a schema is
    *     not supported by this call.
    * @param values the field values
-   * @param loc the creation location for this instance. Built-in provider instances may use {@link
-   *     Location#BUILTIN}, which is the default if null.
    */
-  static StarlarkInfo createSchemaless(
-      Provider provider, Map<String, Object> values, @Nullable Location loc) {
+  static StarlarkInfo createSchemaless(Provider provider, Map<String, Object> values) {
     Preconditions.checkArgument(
         !(provider instanceof StarlarkProvider)
             || ((StarlarkProvider) provider).getFields() == null);
-    return new StarlarkInfoNoSchema(provider, values, loc);
+    return new StarlarkInfoNoSchema(provider, values);
   }
 
   // Converts a map to a table of sorted keys followed by corresponding values.
@@ -136,14 +130,13 @@ public class StarlarkInfoNoSchema extends StarlarkInfo {
     }
 
     @Override
-    public StarlarkInfo createFromArgs(StarlarkThread thread) throws EvalException {
-      return new StarlarkInfoNoSchema(provider, namedArgMap, thread.getCallerLocation());
+    public StarlarkInfo createFromArgs() {
+      return new StarlarkInfoNoSchema(provider, namedArgMap);
     }
 
     @Override
-    public StarlarkInfo createFromMap(Map<String, Object> map, StarlarkThread thread)
-        throws EvalException {
-      return new StarlarkInfoNoSchema(provider, map, thread.getCallerLocation());
+    public StarlarkInfo createFromMap(Map<String, Object> map) {
+      return new StarlarkInfoNoSchema(provider, map);
     }
   }
 
@@ -287,7 +280,7 @@ public class StarlarkInfoNoSchema extends StarlarkInfo {
       zi++;
     }
 
-    return new StarlarkInfoNoSchema(x.provider, ztable, Location.BUILTIN);
+    return new StarlarkInfoNoSchema(x.provider, ztable);
   }
 
   @Override

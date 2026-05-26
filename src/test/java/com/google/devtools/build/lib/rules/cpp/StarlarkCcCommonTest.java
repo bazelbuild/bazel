@@ -4329,9 +4329,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     EvalException e = assertThrows(EvalException.class, () -> featureFromStarlark(featureStruct));
     String msg = e.getMessage();
     assertThat(msg).contains("A feature must either have a nonempty 'name' field or be enabled.");
-    assertThat(msg)
-        .contains(
-            "in FeatureInfo instantiated at /workspace/tools/cpp/cc_toolchain_config_lib.bzl:");
   }
 
   @Test

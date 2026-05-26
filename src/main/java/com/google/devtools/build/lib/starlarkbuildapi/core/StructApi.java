@@ -20,8 +20,6 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Interface for the "struct" object in the build API. */
@@ -47,9 +45,8 @@ public interface StructApi extends StarlarkValue {
                 + "return s.x + getattr(s, \"y\")  # returns 5</pre>",
         extraKeywords =
             @Param(name = "kwargs", defaultValue = "{}", doc = "Dictionary of arguments."),
-        useStarlarkThread = true,
         selfCall = true)
     @StarlarkConstructor
-    StructApi createStruct(Dict<String, Object> kwargs, StarlarkThread thread) throws EvalException;
+    StructApi createStruct(Dict<String, Object> kwargs);
   }
 }
