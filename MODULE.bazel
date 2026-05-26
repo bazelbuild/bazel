@@ -450,16 +450,23 @@ use_repo(
 # Other Bazel testing dependencies
 # =========================================
 
-bazel_dep(name = "bazel_ci_rules", version = "1.0.0")
+bazel_dep(name = "bazel_ci_rules", version = "2.0.0")
 bazel_dep(name = "rules_fuzzing", version = "0.6.0")
 bazel_dep(name = "wabt", version = "1.0.37")
 
-rbe_preconfig = use_repo_rule("@bazel_ci_rules//:rbe_repo.bzl", "rbe_preconfig")
-
-rbe_preconfig(
-    name = "rbe_ubuntu2404",
-    toolchain = "ubuntu2404",
+git_override(
+    module_name = "bazel_ci_rules",
+    remote = "https://github.com/bazelbuild/continuous-integration.git",
+    commit = "0fd2a39dee6b4faf8804762eaa589f5c2ae85d1c",
+    strip_prefix = "rules",
 )
+
+rbe = use_extension("@bazel_ci_rules//:rbe_config.bzl", "rbe_config_extension")
+rbe.config(
+    name = "rbe_ubuntu2404",
+    preset = "ubuntu2404",
+)
+use_repo(rbe, "rbe_ubuntu2404")
 
 list_source_repository = use_repo_rule("//src/test/shell/bazel:list_source_repository.bzl", "list_source_repository")
 
