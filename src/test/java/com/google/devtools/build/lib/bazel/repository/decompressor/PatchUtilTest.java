@@ -199,6 +199,30 @@ public final class PatchUtilTest {
   }
 
   @Test
+  public void testTruncatedNewFileModeRaisesPatchFailed() throws IOException {
+    // Regression test: a "new file mode" line shorter than 18 characters
+    // (the index PatchUtil.applyInternal reaches with charAt(17)) must
+    // produce a declared PatchFailedException, not an uncaught
+    // StringIndexOutOfBoundsException.
+    Path patchFile = scratch.file("/root/patchfile", "diff --git a/foo b/foo", "new file mode 1");
+    PatchFailedException expected =
+        assertThrows(PatchFailedException.class, () -> PatchUtil.apply(patchFile, 1, root));
+    assertThat(expected).hasMessageThat().contains("Truncated file mode");
+  }
+
+  @Test
+  public void testTruncatedNewModeRaisesPatchFailed() throws IOException {
+    // Regression test: a "new mode" line shorter than 13 characters
+    // (the index PatchUtil.applyInternal reaches with charAt(12)) must
+    // produce a declared PatchFailedException, not an uncaught
+    // StringIndexOutOfBoundsException.
+    Path patchFile = scratch.file("/root/patchfile", "diff --git a/foo b/foo", "new mode 1");
+    PatchFailedException expected =
+        assertThrows(PatchFailedException.class, () -> PatchUtil.apply(patchFile, 1, root));
+    assertThat(expected).hasMessageThat().contains("Truncated file mode");
+  }
+
+  @Test
   public void testGitFormatPatching() throws IOException, PatchFailedException {
     Path foo =
         scratch.file(
