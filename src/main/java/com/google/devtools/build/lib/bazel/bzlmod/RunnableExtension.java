@@ -43,6 +43,12 @@ interface RunnableExtension {
   byte[] getBzlTransitiveDigest();
 
   ImmutableMap<String, Optional<String>> getStaticEnvVars();
+  /**
+   * The current schema version of the facts produced by this extension. Persisted in the lockfile
+   * alongside the facts and compared against the value before the extension runs: if they differ,
+   * the persisted facts are discarded and the extension is invoked with empty facts.
+   */
+  int getFactsVersion();
 
   /** Runs the extension. Returns null if a Skyframe restart is required. */
   @Nullable
