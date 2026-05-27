@@ -397,12 +397,6 @@ bazel_dep(name = "bazel_ci_rules", version = "2.0.0")
 bazel_dep(name = "rules_fuzzing", version = "0.5.2")
 bazel_dep(name = "wabt", version = "1.0.37")
 
-git_override(
-    module_name = "bazel_ci_rules",
-    remote = "https://github.com/bazelbuild/continuous-integration.git",
-    commit = "0fd2a39dee6b4faf8804762eaa589f5c2ae85d1c",
-    strip_prefix = "rules",
-)
 
 rbe = use_extension("@bazel_ci_rules//:rbe_config.bzl", "rbe_config_extension")
 rbe.config(
