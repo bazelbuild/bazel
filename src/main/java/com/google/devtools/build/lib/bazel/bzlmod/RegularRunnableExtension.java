@@ -210,6 +210,11 @@ final class RegularRunnableExtension implements RunnableExtension {
     return BazelModuleContext.of(bzlLoadValue.getModule()).bzlTransitiveDigest();
   }
 
+  @Override
+  public int getFactsVersion() {
+    return extension.factsVersion();
+  }
+
   @Nullable
   @Override
   public RunModuleExtensionResult run(
