@@ -119,6 +119,8 @@ public class BazelLockFileModule extends BlazeModule {
         new HashMap<ModuleExtensionId, LockFileModuleExtension.WithFactors>(numExtensions);
     var combinedFacts = new HashMap<ModuleExtensionId, Facts>(numExtensions);
     combinedFacts.putAll(oldLockfile.getFacts());
+    var combinedFactsVersions = new HashMap<ModuleExtensionId, Integer>(numExtensions);
+    combinedFactsVersions.putAll(oldLockfile.getFactsVersions());
     var doneValues = evaluator.getDoneValues();
     for (var extensionId : depGraphValue.getExtensionUsagesTable().rowKeySet()) {
       if (extensionId.isInnate()) {
@@ -129,6 +131,7 @@ public class BazelLockFileModule extends BlazeModule {
       if (value != null) {
         newExtensionInfos.put(extensionId, value.lockFileInfo().get());
         combinedFacts.put(extensionId, value.facts());
+        combinedFactsVersions.put(extensionId, value.factsVersion());
       }
     }
     var relevantFacts =
@@ -138,6 +141,16 @@ public class BazelLockFileModule extends BlazeModule {
                 entry ->
                     depGraphValue.getExtensionUsagesTable().containsRow(entry.getKey())
                         && !entry.getValue().equals(Facts.EMPTY)),
+            ModuleExtensionId.LEXICOGRAPHIC_COMPARATOR);
+    // Only store non-zero versions for extensions that have facts persisted; the default is 0.
+    var relevantFactsVersions =
+        ImmutableSortedMap.copyOf(
+            Maps.filterEntries(
+                combinedFactsVersions,
+                entry ->
+                    relevantFacts.containsKey(entry.getKey())
+                        && entry.getValue() != null
+                        && entry.getValue() != 0),
             ModuleExtensionId.LEXICOGRAPHIC_COMPARATOR);
 
     Thread updateLockfile =
@@ -170,6 +183,7 @@ public class BazelLockFileModule extends BlazeModule {
                       .setSelectedYankedVersions(moduleResolutionValue.getSelectedYankedVersions())
                       .setModuleExtensions(notReproducibleExtensionInfos)
                       .setFacts(relevantFacts)
+                      .setFactsVersions(relevantFactsVersions)
                       .build();
 
               // Write the new values to the files, but only if needed. This is not just a
@@ -199,6 +213,7 @@ public class BazelLockFileModule extends BlazeModule {
                       .setSelectedYankedVersions(ImmutableMap.of())
                       .setModuleExtensions(reproducibleExtensionInfos)
                       .setFacts(relevantFacts)
+                      .setFactsVersions(relevantFactsVersions)
                       .build();
 
               if (!newHiddenLockfile.equals(oldHiddenLockfileFinal)) {
