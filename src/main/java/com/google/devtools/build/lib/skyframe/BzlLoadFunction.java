@@ -1116,8 +1116,6 @@ public class BzlLoadFunction implements SkyFunction {
               """);
         }
         if (isUnderPrototypes.test(label.getPackageIdentifier())
-            && !isUnderExperimental.test(base)
-            && !isUnderPrototypes.test(base)
             && !mayDependOnPrototypes.test(base)) {
           throw new LabelSyntaxException(
               "Cannot load a Starlark file under prototypes from a non-experimental, non-prototypes"
