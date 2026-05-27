@@ -142,6 +142,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
     // Check the lockfile first for that module extension
     LockfileMode lockfileMode = BazelLockFileFunction.LOCKFILE_MODE.get(env);
+    int currentFactsVersion = extension.getFactsVersion();
     Facts lockfileFacts = Facts.EMPTY;
     // Store workspace lockfile facts separately for validation in ERROR mode
     Facts workspaceLockfileFacts = Facts.EMPTY;
@@ -156,11 +157,21 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       if (workspaceLockfile == null || hiddenLockfile == null) {
         return null;
       }
-      workspaceLockfileFacts = workspaceLockfile.getFacts().get(extensionId);
-      lockfileFacts = workspaceLockfileFacts;
-      if (lockfileFacts == null) {
-        lockfileFacts = hiddenLockfile.getFacts().getOrDefault(extensionId, Facts.EMPTY);
-        workspaceLockfileFacts = Facts.EMPTY;
+      // Prefer the workspace lockfile facts when present, falling back to the hidden lockfile.
+      // In both cases, facts whose stored factsVersion differs from the current extension's
+      // facts_version are discarded: the extension's schema may have changed.
+      if (workspaceLockfile.getFacts().containsKey(extensionId)) {
+        int workspaceFactsVersion =
+            workspaceLockfile.getFactsVersions().getOrDefault(extensionId, 0);
+        if (workspaceFactsVersion == currentFactsVersion) {
+          workspaceLockfileFacts = workspaceLockfile.getFacts().get(extensionId);
+          lockfileFacts = workspaceLockfileFacts;
+        }
+      } else {
+        int hiddenFactsVersion = hiddenLockfile.getFactsVersions().getOrDefault(extensionId, 0);
+        if (hiddenFactsVersion == currentFactsVersion) {
+          lockfileFacts = hiddenLockfile.getFacts().getOrDefault(extensionId, Facts.EMPTY);
+        }
       }
       var lockedExtensionMap = workspaceLockfile.getModuleExtensions().get(extensionId);
       var lockedExtension =
@@ -292,6 +303,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         usagesValue,
         lockFileInfo,
         newFacts,
+        currentFactsVersion,
         env);
   }
 
@@ -352,6 +364,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           usagesValue,
           Optional.of(new LockFileModuleExtension.WithFactors(evalFactors, lockedExtension)),
           facts,
+          extension.getFactsVersion(),
           env);
     }
     // Reproducible extensions are always locked in the hidden lockfile to provide best-effort
@@ -410,6 +423,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       SingleExtensionUsagesValue usagesValue,
       Optional<LockFileModuleExtension.WithFactors> lockFileInfo,
       Facts facts,
+      int factsVersion,
       Environment env)
       throws SingleExtensionEvalFunctionException {
     Optional<RootModuleFileFixup> fixup = Optional.empty();
@@ -446,7 +460,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                     Function.identity())),
         lockFileInfo,
         fixup,
-        facts);
+        facts,
+        factsVersion);
   }
 
   private static SingleExtensionEvalFunctionException createOutdatedLockfileException(

@@ -54,6 +54,7 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Location;
@@ -330,8 +331,13 @@ rule. Created by \
       Sequence<?> environ, // <String>
       boolean osDependent,
       boolean archDependent,
+      StarlarkInt factsVersion,
       StarlarkThread thread)
       throws EvalException {
+    int factsVersionInt = factsVersion.toInt("facts_version");
+    if (factsVersionInt < 0) {
+      throw Starlark.errorf("facts_version must be non-negative, got %d", factsVersionInt);
+    }
     return ModuleExtension.builder()
         .setImplementation(implementation)
         .setTagClasses(
@@ -343,6 +349,7 @@ rule. Created by \
         .setLocation(thread.getCallerLocation())
         .setOsDependent(osDependent)
         .setArchDependent(archDependent)
+        .setFactsVersion(factsVersionInt)
         .build();
   }
 
