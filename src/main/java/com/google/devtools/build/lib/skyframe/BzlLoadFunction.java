@@ -826,20 +826,17 @@ public class BzlLoadFunction implements SkyFunction {
     // Validate that the current .bzl file satisfies each loaded dependency's load visibility.
     // Violations are reported as error events (since there can be more than one in a single file)
     // and also trigger a BzlLoadFailedException.
-    //
-    // Experimental and prototype code is exempted from load visibility.
-    if (!ruleClassProvider.isPackageUnderExperimental(pkg)
-        && !ruleClassProvider.isPackageUnderPrototypes(pkg)) {
-      checkLoadVisibilities(
-          pkg,
-          "module " + label.getCanonicalForm(),
-          loadValues,
-          loadKeys,
-          programLoads,
-          /* demoteErrorsToWarnings= */ !builtins.starlarkSemantics.getBool(
-              BuildLanguageOptions.CHECK_BZL_VISIBILITY),
-          env.getListener());
-    }
+    checkLoadVisibilities(
+        pkg,
+        "module " + label.getCanonicalForm(),
+        loadValues,
+        loadKeys,
+        programLoads,
+        /* demoteErrorsToWarnings= */ !builtins.starlarkSemantics.getBool(
+            BuildLanguageOptions.CHECK_BZL_VISIBILITY),
+        ruleClassProvider::isPackageUnderExperimental,
+        ruleClassProvider::isPackageUnderPrototypes,
+        env.getListener());
 
     // Accumulate a transitive digest of the bzl file, the digests of its direct loads, and the
     // digest of the @_builtins pseudo-repository (if applicable).
@@ -1295,13 +1292,28 @@ public class BzlLoadFunction implements SkyFunction {
       List<BzlLoadValue.Key> loadKeys,
       List<Pair<String, Location>> programLoads,
       boolean demoteErrorsToWarnings,
+      Predicate<PackageIdentifier> isUnderExperimental,
+      Predicate<PackageIdentifier> isUnderPrototype,
       EventHandler handler)
       throws BzlLoadFailedException {
+    if (isUnderExperimental.test(requestingPackage)) {
+      // Experimental code is exempted from load visibility.
+      return;
+    }
+    boolean requestingIsPrototype = isUnderPrototype.test(requestingPackage);
+
     boolean foundViolation = false;
     for (int i = 0; i < loadValues.size(); i++) {
-      BzlVisibility loadVisibility = loadValues.get(i).getBzlVisibility();
       Label loadLabel = loadKeys.get(i).getLabel();
       PackageIdentifier loadPackage = loadLabel.getPackageIdentifier();
+      if (requestingIsPrototype && !isUnderPrototype.test(loadPackage)) {
+        // Prototypes can always load from normal packages; there's no load-visibility equivalent
+        // flag for --check_visibility_for_prototypes. But load visibility is still enforced between
+        // two prototypes packages (possibly demoted to a warning, below).
+        continue;
+      }
+
+      BzlVisibility loadVisibility = loadValues.get(i).getBzlVisibility();
       if (!(requestingPackage.equals(loadPackage)
           || loadVisibility.allowsPackage(requestingPackage))) {
         Location loc = programLoads.get(i).second;

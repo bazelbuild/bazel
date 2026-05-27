@@ -101,6 +101,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -701,7 +702,8 @@ public abstract class PackageFunction implements SkyFunction {
       List<BzlLoadValue.Key> keys,
       StarlarkSemantics semantics,
       @Nullable BzlLoadFunction bzlLoadFunctionForInlining,
-      boolean checkVisibility,
+      Predicate<PackageIdentifier> isUnderExperimental,
+      Predicate<PackageIdentifier> isUnderPrototype,
       ActionOnFilesystemErrorCodeLoadingBzlFile actionOnFilesystemErrorCodeLoadingBzlFile)
       throws NoSuchPackageException, InterruptedException {
     List<BzlLoadValue> bzlLoads;
@@ -714,17 +716,17 @@ public abstract class PackageFunction implements SkyFunction {
         return null; // Skyframe deps unavailable
       }
       // Validate that the current BUILD file satisfies each loaded dependency's load visibility.
-      if (checkVisibility) {
-        BzlLoadFunction.checkLoadVisibilities(
-            packageId,
-            requestingFileDescription,
-            bzlLoads,
-            keys,
-            programLoads,
-            /* demoteErrorsToWarnings= */ !semantics.getBool(
-                BuildLanguageOptions.CHECK_BZL_VISIBILITY),
-            env.getListener());
-      }
+      BzlLoadFunction.checkLoadVisibilities(
+          packageId,
+          requestingFileDescription,
+          bzlLoads,
+          keys,
+          programLoads,
+          /* demoteErrorsToWarnings= */ !semantics.getBool(
+              BuildLanguageOptions.CHECK_BZL_VISIBILITY),
+          isUnderExperimental,
+          isUnderPrototype,
+          env.getListener());
     } catch (BzlLoadFailedException e) {
       Throwable rootCause = Throwables.getRootCause(e);
       PackageFunctionException.Builder exceptionBuilder =
@@ -1134,10 +1136,6 @@ public abstract class PackageFunction implements SkyFunction {
         } catch (LabelSyntaxException e) {
           throw new IllegalStateException("Failed to construct label representing BUILD file", e);
         }
-        boolean isUnderExperimental =
-            packageFactory.getRuleClassProvider().isPackageUnderExperimental(packageId);
-        boolean isUnderPrototypes =
-            packageFactory.getRuleClassProvider().isPackageUnderPrototypes(packageId);
         try {
           loadedModules =
               loadBzlModules(
@@ -1148,7 +1146,8 @@ public abstract class PackageFunction implements SkyFunction {
                   keys.build(),
                   starlarkBuiltinsValue.starlarkSemantics,
                   bzlLoadFunctionForInlining,
-                  /* checkVisibility= */ !(isUnderExperimental || isUnderPrototypes),
+                  packageFactory.getRuleClassProvider()::isPackageUnderExperimental,
+                  packageFactory.getRuleClassProvider()::isPackageUnderPrototypes,
                   actionOnFilesystemErrorCodeLoadingBzlFile);
         } catch (NoSuchPackageException e) {
           throw new PackageFunctionException(e, Transience.PERSISTENT);
