@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.auth.Credentials;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Strings;
@@ -515,9 +516,7 @@ public class DownloadManager {
     if (!type.isPresent()) {
       return output;
     }
-    String basename =
-        MoreObjects.firstNonNull(
-            Strings.emptyToNull(PathFragment.create(url.getPath()).getBaseName()), "temp");
+    String basename = MoreObjects.firstNonNull(Strings.emptyToNull(getUrlBaseName(url)), "temp");
     if (!type.get().isEmpty()) {
       String suffix = "." + type.get();
       if (!basename.endsWith(suffix)) {
@@ -530,17 +529,35 @@ public class DownloadManager {
   }
 
   /**
-   * Deterimine the list of filenames to look for in the distdirs. Note that an output name may be
-   * specified that is unrelated to the primary URL. This happens, e.g., when the paramter output is
-   * specified in ctx.download.
+   * Determine the list of filenames to look for in the distdirs. Note that an output name may be
+   * specified that is unrelated to the primary URL. This happens, e.g., when the parameter output
+   * is specified in ctx.download.
    */
-  private static ImmutableSet<String> getCandidateFileNames(URI url, Path destination) {
-    String urlBaseName = PathFragment.create(url.getPath()).getBaseName();
+  @VisibleForTesting
+  static ImmutableSet<String> getCandidateFileNames(URI url, Path destination) {
+    String urlBaseName = getUrlBaseName(url);
     if (!Strings.isNullOrEmpty(urlBaseName) && !urlBaseName.equals(destination.getBaseName())) {
       return ImmutableSet.of(urlBaseName, destination.getBaseName());
     } else {
       return ImmutableSet.of(destination.getBaseName());
     }
+  }
+
+  private static String getUrlBaseName(URI url) {
+    String path = url.getPath();
+    if (path == null && url.isOpaque()) {
+      // Match URL#getPath() behavior for opaque file URIs such as file:../archive.tgz.
+      String rawPath = url.getRawSchemeSpecificPart();
+      int queryStart = rawPath.indexOf('?');
+      if (queryStart != -1) {
+        rawPath = rawPath.substring(0, queryStart);
+      }
+      path =
+          rawPath.isEmpty()
+              ? ""
+              : URI.create(url.getScheme() + ":" + rawPath).getSchemeSpecificPart();
+    }
+    return path == null ? "" : PathFragment.create(path).getBaseName();
   }
 
   private static class CacheProgress implements ExtendedEventHandler.FetchProgress {
