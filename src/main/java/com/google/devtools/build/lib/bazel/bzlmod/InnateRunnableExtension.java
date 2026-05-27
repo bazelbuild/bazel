@@ -153,6 +153,7 @@ final class InnateRunnableExtension implements RunnableExtension {
   @Override
   public ImmutableMap<String, Optional<String>> getStaticEnvVars() {
     return ImmutableMap.of();
+  }
   
   @Override
   public int getFactsVersion() {
