@@ -1,3 +1,11 @@
+## Release 10.0.0-pre.20260520.2 (2026-05-28)
+
+```
+Baseline: 3d40c422df61c4adb243ef68fff7e84584019a1f
+```
+
+This release contains contributions from many people at Google, as well as .
+
 ## Release 10.0.0-pre.20260516.1 (2026-05-22)
 
 ```
