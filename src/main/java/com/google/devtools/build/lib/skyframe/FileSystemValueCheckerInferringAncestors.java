@@ -24,14 +24,8 @@ import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
-import com.google.devtools.build.lib.server.FailureDetails;
-import com.google.devtools.build.lib.server.FailureDetails.DiffAwareness.Code;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker.DirtyResult;
-import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
-import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -144,7 +138,7 @@ public final class FileSystemValueCheckerInferringAncestors {
       int nThreads,
       SyscallCache syscallCache,
       SkyValueDirtinessChecker skyValueDirtinessChecker)
-      throws InterruptedException, AbruptExitException {
+      throws InterruptedException {
     Map<RootedPath, NodeVisitState> nodeStates = makeNodeVisitStates(modifiedKeys);
     return new FileSystemValueCheckerInferringAncestors(
             tsgm,
@@ -186,8 +180,7 @@ public final class FileSystemValueCheckerInferringAncestors {
     return nodeStates;
   }
 
-  private ImmutableDiff processEntries(int nThreads)
-      throws InterruptedException, AbruptExitException {
+  private ImmutableDiff processEntries(int nThreads) throws InterruptedException {
     ExecutorService executor = Executors.newFixedThreadPool(nThreads);
 
     // Materialize all leaves before scheduling them -- otherwise, we could race with the
@@ -213,25 +206,6 @@ public final class FileSystemValueCheckerInferringAncestors {
       try {
         Futures.getDone(future);
       } catch (ExecutionException e) {
-        if (e.getCause() instanceof StatFailedException statFailed) {
-          if (statFailed.getCause() instanceof DetailedIOException detailedException) {
-            FailureDetail failureDetailWithUpdatedErrorMessage =
-                detailedException.getDetailedExitCode().getFailureDetail().toBuilder()
-                    .setMessage(statFailed.getMessage() + ": " + detailedException.getMessage())
-                    .build();
-            throw new AbruptExitException(
-                DetailedExitCode.of(failureDetailWithUpdatedErrorMessage), e);
-          }
-          throw new AbruptExitException(
-              DetailedExitCode.of(
-                  FailureDetail.newBuilder()
-                      .setMessage(
-                          statFailed.getMessage() + ": " + statFailed.getCause().getMessage())
-                      .setDiffAwareness(
-                          FailureDetails.DiffAwareness.newBuilder().setCode(Code.DIFF_STAT_FAILED))
-                      .build()),
-              e);
-        }
         throw new IllegalStateException(e);
       }
     }
@@ -278,7 +252,7 @@ public final class FileSystemValueCheckerInferringAncestors {
     return new ImmutableDiff(valuesToInvalidate, valuesToInject);
   }
 
-  private void processEntry(RootedPath path, NodeVisitState state) throws StatFailedException {
+  private void processEntry(RootedPath path, NodeVisitState state) {
     NodeVisitState rootParentSentinel =
         new NodeVisitState(/* collectMaybeDeletedChildren= */ false);
 
@@ -314,13 +288,16 @@ public final class FileSystemValueCheckerInferringAncestors {
       RootedPath path,
       boolean isInferredDirectory,
       @Nullable Set<String> maybeDeletedChildren,
-      NodeVisitState parentState)
-      throws StatFailedException {
+      NodeVisitState parentState) {
     FileStateKey key = FileStateValue.key(path);
     @Nullable InMemoryNodeEntry fsvNode = inMemoryGraph.getIfPresent(key);
     @Nullable FileStateValue oldFsv = fsvNode != null ? (FileStateValue) fsvNode.toValue() : null;
     if (oldFsv == null) {
-      visitUnknownEntry(key, isInferredDirectory, parentState);
+      try {
+        visitUnknownEntry(key, isInferredDirectory, parentState);
+      } catch (IOException e) {
+        valuesToInvalidate.add(key);
+      }
       parentState.addMaybeDeletedChild(path.getRootRelativePath().getBaseName());
       return true;
     }
@@ -332,22 +309,32 @@ public final class FileSystemValueCheckerInferringAncestors {
       if (oldFsv.getType().isDirectory()) {
         return false;
       }
-      Version directoryFileStateNodeMtsv;
       try {
-        directoryFileStateNodeMtsv =
+        Version directoryFileStateNodeMtsv =
             skyValueDirtinessChecker.getMaxTransitiveSourceVersionForNewValue(
                 key, FileStateValue.DIRECTORY_FILE_STATE_NODE);
+        valuesToInject.put(
+            key,
+            Delta.justNew(FileStateValue.DIRECTORY_FILE_STATE_NODE, directoryFileStateNodeMtsv));
       } catch (IOException e) {
-        throw new StatFailedException(
-            "Failed to get MTSV for inferred directory " + path.asPath(), e);
+        valuesToInvalidate.add(key);
       }
-      valuesToInject.put(
-          key, Delta.justNew(FileStateValue.DIRECTORY_FILE_STATE_NODE, directoryFileStateNodeMtsv));
       parentListingKey(path).ifPresent(valuesToInvalidate::add);
       return true;
     }
 
-    FileStateValue newFsv = injectAndGetNewFileStateValueIfDirty(path, fsvNode, oldFsv);
+    FileStateValue newFsv;
+    try {
+      newFsv = injectAndGetNewFileStateValueIfDirty(fsvNode, oldFsv);
+    } catch (IOException e) {
+      valuesToInvalidate.add(key);
+      parentState.addMaybeDeletedChild(path.getRootRelativePath().getBaseName());
+      parentListingKey(path).ifPresent(valuesToInvalidate::add);
+      if (oldFsv.isDirectory()) {
+        deletedDirectories.add(path);
+      }
+      return true;
+    }
     if (newFsv.getType().exists()) {
       parentState.markInferredDirectory();
     } else if (oldFsv.getType().exists()) {
@@ -372,17 +359,11 @@ public final class FileSystemValueCheckerInferringAncestors {
    * the new file state value if dirty.
    */
   private FileStateValue injectAndGetNewFileStateValueIfDirty(
-      RootedPath path, InMemoryNodeEntry oldFsvNode, FileStateValue oldFsv)
-      throws StatFailedException {
+      InMemoryNodeEntry oldFsvNode, FileStateValue oldFsv) throws IOException {
     Preconditions.checkState(oldFsv != null, "Unexpected null FileStateValue.");
     @Nullable Version oldMtsv = oldFsvNode.getMaxTransitiveSourceVersion();
-    DirtyResult dirtyResult;
-    try {
-      dirtyResult =
-          skyValueDirtinessChecker.check(oldFsvNode.getKey(), oldFsv, oldMtsv, syscallCache, tsgm);
-    } catch (IOException e) {
-      throw new StatFailedException("Failed to check dirtiness of " + path.asPath(), e);
-    }
+    DirtyResult dirtyResult =
+        skyValueDirtinessChecker.check(oldFsvNode.getKey(), oldFsv, oldMtsv, syscallCache, tsgm);
     if (!dirtyResult.isDirty()) {
       return oldFsv;
     }
@@ -394,7 +375,7 @@ public final class FileSystemValueCheckerInferringAncestors {
 
   private void visitUnknownEntry(
       FileStateKey key, boolean isInferredDirectory, NodeVisitState parentState)
-      throws StatFailedException {
+      throws IOException {
     RootedPath path = key.argument();
     // Run stats on unknown files in order to preserve the parent listing if present unless we
     // already know it has changed.
@@ -437,20 +418,11 @@ public final class FileSystemValueCheckerInferringAncestors {
 
   /** Injects the new file state value for unknown entry. */
   private FileStateValue injectAndGetNewFileStateValueForUnknownEntry(RootedPath path, SkyKey key)
-      throws StatFailedException {
-    FileStateValue newValue;
-    try {
-      newValue = (FileStateValue) skyValueDirtinessChecker.createNewValue(path, syscallCache, tsgm);
-    } catch (IOException e) {
-      throw new StatFailedException(
-          "Failed to create file state value for unknown path " + path.asPath(), e);
-    }
-    Version newMtsv;
-    try {
-      newMtsv = skyValueDirtinessChecker.getMaxTransitiveSourceVersionForNewValue(key, newValue);
-    } catch (IOException e) {
-      throw new StatFailedException("Failed to get MTSV for unknown path " + path.asPath(), e);
-    }
+      throws IOException {
+    FileStateValue newValue =
+        (FileStateValue) skyValueDirtinessChecker.createNewValue(path, syscallCache, tsgm);
+    Version newMtsv =
+        skyValueDirtinessChecker.getMaxTransitiveSourceVersionForNewValue(key, newValue);
     valuesToInject.put(key, Delta.justNew(newValue, newMtsv));
     return newValue;
   }
@@ -489,11 +461,5 @@ public final class FileSystemValueCheckerInferringAncestors {
       case SYMLINK -> Dirent.Type.SYMLINK;
       case DIRECTORY -> Dirent.Type.DIRECTORY;
     };
-  }
-
-  private static final class StatFailedException extends Exception {
-    StatFailedException(String message, IOException cause) {
-      super(message, cause);
-    }
   }
 }
