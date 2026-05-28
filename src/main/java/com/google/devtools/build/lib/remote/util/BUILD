@@ -12,16 +12,44 @@ filegroup(
 )
 
 java_library(
+    name = "async_task_cache",
+    srcs = ["AsyncTaskCache.java"],
+    deps = [
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:rxjava3",
+    ],
+)
+
+java_library(
+    name = "rx_futures",
+    srcs = ["RxFutures.java"],
+    deps = [
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:rxjava3",
+    ],
+)
+
+java_library(
     name = "util",
     srcs = glob(
         ["*.java"],
         exclude = [
+            "AsyncTaskCache.java",
             "DigestOutputStream.java",
             "DigestUtil.java",
+            "RxFutures.java",
         ],
     ),
+    exports = [
+        ":async_task_cache",
+        ":rx_futures",
+    ],
     deps = [
+        ":async_task_cache",
         ":digest_utils",
+        ":rx_futures",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",

@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree.ContentSource;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.vfs.Path;
@@ -79,6 +80,14 @@ public class RemoteExecutionCache extends CombinedCache {
   public interface RemotePathChecker {
     boolean isRemote(RemoteActionExecutionContext context, Path path) throws IOException;
   }
+
+  /**
+   * Deduplicates concurrent {@code findMissingDigests} queries for the same digest across
+   * overlapping {@link #ensureInputsPresent} invocations. Results reported as "present" stay cached
+   * until explicitly invalidated, but a "missing" result is invalidated as soon as the triggered
+   * upload attempt terminates.
+   */
+  private final AsyncTaskCache<Digest, Boolean> findMissingCache = AsyncTaskCache.create();
 
   private RemotePathChecker remotePathChecker =
       new RemotePathChecker() {
@@ -211,10 +220,11 @@ public class RemoteExecutionCache extends CombinedCache {
       Digest digest,
       MerkleTree merkleTree,
       Map<Digest, Message> additionalInputs,
-      @Nullable RemotePathResolver remotePathResolver) {
+      @Nullable RemotePathResolver remotePathResolver,
+      boolean force) {
     Directory node = merkleTree.getDirectoryByDigest(digest);
     if (node != null) {
-      return remoteCacheClient.uploadBlob(context, digest, node.toByteString());
+      return remoteCacheClient.uploadBlob(context, digest, node.toByteString(), force);
     }
 
     ContentSource file = merkleTree.getFileByDigest(digest);
@@ -222,7 +232,7 @@ public class RemoteExecutionCache extends CombinedCache {
       return switch (file) {
         case ContentSource.VirtualActionInputSource(VirtualActionInput virtualActionInput) ->
             remoteCacheClient.uploadBlob(
-                context, digest, new VirtualActionInputBlob(virtualActionInput));
+                context, digest, new VirtualActionInputBlob(virtualActionInput), force);
         case ContentSource.PathSource(Path path) -> {
           try {
             if (remotePathChecker.isRemote(context, path)) {
@@ -242,14 +252,14 @@ public class RemoteExecutionCache extends CombinedCache {
           } catch (IOException e) {
             yield immediateFailedFuture(e);
           }
-          yield remoteCacheClient.uploadFile(context, digest, path);
+          yield remoteCacheClient.uploadFile(context, digest, path, force);
         }
       };
     }
 
     Message message = additionalInputs.get(digest);
     if (message != null) {
-      return remoteCacheClient.uploadBlob(context, digest, message.toByteString());
+      return remoteCacheClient.uploadBlob(context, digest, message.toByteString(), force);
     }
 
     return immediateFailedFuture(
@@ -305,32 +315,40 @@ public class RemoteExecutionCache extends CombinedCache {
           uploadTask.disposable = new AtomicReference<>();
           uploadTask.completion = Completable.fromObservable(completion);
           Completable upload =
-              casUploadCache.execute(
-                  digest,
-                  Single.<Boolean>create(
+              findMissingCache
+                  .execute(
+                      digest,
+                      Single.<Boolean>create(
                           continuation -> {
                             uploadTask.continuation = continuation;
                             emitter.onSuccess(uploadTask);
-                          })
-                      .flatMapCompletable(
-                          shouldUpload -> {
-                            if (!shouldUpload) {
-                              return Completable.complete();
-                            }
-
-                            return toCompletable(
+                          }),
+                      /* onAlreadyRunning= */ () -> emitter.onSuccess(uploadTask),
+                      /* onAlreadyFinished= */ () -> emitter.onSuccess(uploadTask),
+                      force)
+                  .flatMapCompletable(
+                      shouldUpload -> {
+                        if (!shouldUpload) {
+                          return Completable.complete();
+                        }
+                        return toCompletable(
                                 () ->
                                     uploadBlob(
                                         context,
                                         uploadTask.digest,
                                         merkleTree,
                                         additionalInputs,
-                                        remotePathResolver),
-                                directExecutor());
-                          }),
-                  /* onAlreadyRunning= */ () -> emitter.onSuccess(uploadTask),
-                  /* onAlreadyFinished= */ emitter::onComplete,
-                  force);
+                                        remotePathResolver,
+                                        force),
+                                directExecutor())
+                            // On success, the digest is now present remotely: replace the cached
+                            // "missing" answer with "present" so late callers (or the next
+                            // ensureInputsPresent invocation) skip both findMissingDigests and
+                            // the upload path. On failure, invalidate so a subsequent caller
+                            // (e.g., after action rewinding) re-queries the remote.
+                            .doOnComplete(() -> findMissingCache.put(digest, false))
+                            .doOnError(t -> findMissingCache.invalidate(digest));
+                      });
           upload.subscribe(
               new CompletableObserver() {
                 @Override
