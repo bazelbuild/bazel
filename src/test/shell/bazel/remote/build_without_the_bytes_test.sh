@@ -2609,4 +2609,48 @@ EOF
   bazel run "${FLAGS[@]}" //:foo >& $TEST_log || fail "Failed to run //:foo"
 }
 
+function test_symlink_output_replaced_by_subpackage() {
+  # Regression test for https://github.com/bazelbuild/bazel/issues/29480.
+  mkdir -p tools
+  cat > tools/wrapper_script.sh <<'EOF'
+#!/bin/bash
+echo hello
+EOF
+  chmod +x tools/wrapper_script.sh
+
+  cat > tools/BUILD <<'EOF'
+sh_binary(
+    name = "bazel_wrapper",
+    srcs = ["wrapper_script.sh"],
+)
+EOF
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      //tools:bazel_wrapper >& $TEST_log \
+      || fail "Failed first build of //tools:bazel_wrapper"
+
+  [[ -L bazel-bin/tools/bazel_wrapper ]] \
+      || fail "Expected bazel-bin/tools/bazel_wrapper to be a symlink"
+
+  # Move the sh_binary into a same-named subpackage. The output that was
+  # previously a symlinked file at .../tools/bazel_wrapper must now become a
+  # directory at .../tools/bazel_wrapper/ which contains the new outputs.
+  mkdir -p tools/bazel_wrapper
+  cat > tools/bazel_wrapper/BUILD <<'EOF'
+sh_binary(
+    name = "bazel_wrapper",
+    srcs = ["//tools:wrapper_script.sh"],
+)
+EOF
+  cat > tools/BUILD <<'EOF'
+exports_files(["wrapper_script.sh"])
+EOF
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      //tools/bazel_wrapper:bazel_wrapper >& $TEST_log \
+      || fail "Failed second build after moving sh_binary to a subpackage"
+}
+
 run_suite "Build without the Bytes tests"

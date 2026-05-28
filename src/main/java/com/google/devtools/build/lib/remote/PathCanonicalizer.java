@@ -169,6 +169,8 @@ final class PathCanonicalizer {
   /** Removes cached information for a path prefix. */
   void clearPrefix(PathFragment pathPrefix) {
     Node node = getRootNode(pathPrefix);
+    Node parent = null;
+    String parentSegment = null;
     Iterator<String> segments = pathPrefix.segments().iterator();
     boolean hasNext = segments.hasNext();
 
@@ -176,19 +178,22 @@ final class PathCanonicalizer {
       String segment = segments.next();
       hasNext = segments.hasNext();
 
-      if (!hasNext) {
-        // Found the path prefix.
-        if (node.tab != null) {
-          node.tab.remove(segment);
+      if (node.targetPath != null) {
+        // Invalidate all intermediate symlinks.
+        if (parent != null) {
+          parent.tab.remove(parentSegment);
         }
         return;
       }
 
-      if (node.targetPath != null) {
-        // Path prefix not in trie.
+      if (!hasNext) {
+        // Found the path prefix.
+        node.tab.remove(segment);
         return;
       }
 
+      parent = node;
+      parentSegment = segment;
       node = node.tab.get(segment);
     }
   }
