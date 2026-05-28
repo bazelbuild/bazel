@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -73,8 +74,10 @@ public final class AsyncTaskCache<KeyT, ValueT> {
   @GuardedBy("lock")
   private final ArrayList<CompletableEmitter> terminationSubscriber = new ArrayList<>();
 
-  @GuardedBy("lock")
-  private Map<KeyT, ValueT> finished = new HashMap<>();
+  // Concurrent so that {@link #invalidate} can run without acquiring {@code lock}, which prevents
+  // lock-ordering deadlocks when invalidation is triggered from within another cache's observer
+  // notification (e.g., a doFinally on an upload completion).
+  private final ConcurrentHashMap<KeyT, ValueT> finished = new ConcurrentHashMap<>();
 
   @GuardedBy("lock")
   private Map<KeyT, Execution> inProgress = new HashMap<>();
@@ -85,9 +88,25 @@ public final class AsyncTaskCache<KeyT, ValueT> {
 
   /** Returns a set of keys for tasks which is finished. */
   public ImmutableSet<KeyT> getFinishedTasks() {
-    synchronized (lock) {
-      return ImmutableSet.copyOf(finished.keySet());
-    }
+    return ImmutableSet.copyOf(finished.keySet());
+  }
+
+  /**
+   * Removes any cached result for the given {@code key}, so that the next call to {@link #execute}
+   * for that key re-runs the task. Does not affect in-progress tasks. Safe to call concurrently
+   * with {@link #execute}.
+   */
+  public void invalidate(KeyT key) {
+    finished.remove(key);
+  }
+
+  /**
+   * Atomically replaces the cached result for {@code key} with {@code value}. The new value is
+   * visible to subsequent {@link #execute} callers. Safe to call concurrently with {@link
+   * #execute}.
+   */
+  public void put(KeyT key, ValueT value) {
+    finished.put(key, value);
   }
 
   /** Returns a set of keys for tasks which is still executing. */
@@ -299,13 +318,16 @@ public final class AsyncTaskCache<KeyT, ValueT> {
               return;
             }
 
-            if (!force && finished.containsKey(key)) {
-              onAlreadyFinished.run();
-              emitter.onSuccess(finished.get(key));
-              return;
+            if (!force) {
+              ValueT cached = finished.get(key);
+              if (cached != null) {
+                onAlreadyFinished.run();
+                emitter.onSuccess(cached);
+                return;
+              }
+            } else {
+              finished.remove(key);
             }
-
-            finished.remove(key);
 
             Execution execution = inProgress.get(key);
             if (execution != null) {
@@ -400,7 +422,7 @@ public final class AsyncTaskCache<KeyT, ValueT> {
                   // Reduce retained size in case references to the cache are held after shutdown.
                   terminationSubscriber.trimToSize();
                   inProgress = new HashMap<>();
-                  finished = new HashMap<>();
+                  finished.clear();
                   emitter.onComplete();
                 } else {
                   terminationSubscriber.add(emitter);
