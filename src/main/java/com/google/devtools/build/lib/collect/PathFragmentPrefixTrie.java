@@ -17,10 +17,12 @@ package com.google.devtools.build.lib.collect;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -37,6 +39,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @ThreadSafe
 public final class PathFragmentPrefixTrie {
 
+  private final boolean caseSensitive;
   private final Set<PathFragment> includedPaths = new HashSet<>();
   private final Set<PathFragment> excludedPaths = new HashSet<>();
 
@@ -85,7 +88,12 @@ public final class PathFragmentPrefixTrie {
   private Segment root;
 
   public PathFragmentPrefixTrie() {
-    root = new InterimSegment();
+    this(OsPathPolicy.HOST_POLICY.isCaseSensitive());
+  }
+
+  public PathFragmentPrefixTrie(boolean caseSensitive) {
+    this.caseSensitive = caseSensitive;
+    this.root = new InterimSegment();
   }
 
   public static PathFragmentPrefixTrie of(Collection<String> paths)
@@ -124,17 +132,16 @@ public final class PathFragmentPrefixTrie {
     Iterator<String> segments = pathFragment.segments().iterator();
     while (segments.hasNext()) {
       String nextSegment = segments.next();
+      String key =
+          caseSensitive ? nextSegment.intern() : nextSegment.toLowerCase(Locale.US).intern();
       if (segments.hasNext()) {
-        current =
-            current
-                .getSegmentMap()
-                .computeIfAbsent(nextSegment.intern(), unused -> new InterimSegment());
+        current = current.getSegmentMap().computeIfAbsent(key, unused -> new InterimSegment());
         continue;
       }
 
       // This is the last segment.
       Segment newChild =
-          switch (current.getSegmentMap().get(nextSegment)) {
+          switch (current.getSegmentMap().get(key)) {
             case InterimSegment segment ->
                 included
                     ? new IncludedSegment(segment.getSegmentMap())
@@ -145,7 +152,7 @@ public final class PathFragmentPrefixTrie {
             case IncludedSegment segment ->
                 throw new PathFragmentAlreadyAddedException(pathFragment, true, toString());
           };
-      current.getSegmentMap().put(nextSegment.intern(), newChild);
+      current.getSegmentMap().put(key, newChild);
     }
 
     if (included) {
@@ -173,7 +180,8 @@ public final class PathFragmentPrefixTrie {
     Segment lastSegment = current;
 
     for (String nextSegment : pathFragment.segments()) {
-      current = current.getSegmentMap().get(nextSegment);
+      String key = caseSensitive ? nextSegment : nextSegment.toLowerCase(Locale.US);
+      current = current.getSegmentMap().get(key);
       if (current == null) {
         break;
       }

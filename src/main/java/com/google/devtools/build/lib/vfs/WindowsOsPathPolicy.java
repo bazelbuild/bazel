@@ -205,4 +205,9 @@ class WindowsOsPathPolicy implements OsPathPolicy {
     // forward slashes with backslashes instead of trying to enumerate these special cases.
     return callablePathString.replace('/', '\\');
   }
+
+  @Override
+  public boolean isCaseSensitive() {
+    return false;
+  }
 }
