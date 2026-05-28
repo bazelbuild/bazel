@@ -339,9 +339,10 @@ public final class SharedValueSerializationContextTest {
 
     var unused = codecs.serializeMemoizedAndBlocking(fingerprintValueService, new NotNestedSet(a));
 
-    ImmutableList<byte[]> storeValues = ImmutableList.copyOf(store.fingerprintToContents.values());
+    ImmutableList<ByteString> storeValues =
+        ImmutableList.copyOf(store.fingerprintToContents.values());
     assertThat(storeValues).hasSize(1);
-    assertThat(storeValues.get(0)).hasLength(compress ? 23 : 1007);
+    assertThat(storeValues.get(0).toByteArray()).hasLength(compress ? 23 : 1007);
   }
 
   /** Test data for {@link #errorInSharedPut}. */
