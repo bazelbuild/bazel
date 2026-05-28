@@ -89,8 +89,8 @@ public final class FrontierSerializer {
   private FrontierSerializer() {}
 
   enum TraversalMode {
-    POST_ANALYSIS,
-    PRE_SERIALIZATION,
+    FOR_POST_ANALYSIS_MINIMIZE_MEMORY,
+    FOR_SERIALIZATION,
   }
 
   /**
@@ -114,7 +114,7 @@ public final class FrontierSerializer {
         computeSelectionResult(
             graph,
             serializationDependenciesProvider.getActiveDirectoriesMatcher(),
-            /* traversalMode= */ TraversalMode.PRE_SERIALIZATION,
+            /* traversalMode= */ TraversalMode.FOR_SERIALIZATION,
             serializationDependenciesProvider.getSkycacheAnalysisOnly());
     ImmutableSet<SkyKey> selectedKeys = selectionResult.selectedKeys();
     if (!keepStateAfterBuild && serializationDependenciesProvider.shouldMinimizeMemory()) {
@@ -266,7 +266,7 @@ public final class FrontierSerializer {
         computeSelectionResult(
             graph,
             activeDirectoriesMatcher,
-            /* traversalMode= */ TraversalMode.POST_ANALYSIS,
+            /* traversalMode= */ TraversalMode.FOR_POST_ANALYSIS_MINIMIZE_MEMORY,
             /* skycacheAnalysisOnly= */ false);
     ImmutableSet<SkyKey> selectedKeys = selectionResult.selection().keySet();
     Set<PackageIdentifier> packageIdentifierSet = Sets.newConcurrentHashSet();
@@ -350,7 +350,7 @@ public final class FrontierSerializer {
               }
             }
             case ActionLookupData data
-                when !skycacheAnalysisOnly && traversalMode == TraversalMode.PRE_SERIALIZATION -> {
+                when !skycacheAnalysisOnly && traversalMode == TraversalMode.FOR_SERIALIZATION -> {
               if (shouldUpload(data, node)) {
                 // Notably, we don't check the `matcher` for execution values, because we want to
                 // serialize all ActionLookupData even if they're below the frontier, because the
@@ -358,7 +358,8 @@ public final class FrontierSerializer {
                 selection.putIfAbsent(data, FRONTIER_CANDIDATE);
               }
             }
-            case Artifact artifact when !skycacheAnalysisOnly -> {
+            case Artifact artifact
+                when !skycacheAnalysisOnly && traversalMode == TraversalMode.FOR_SERIALIZATION -> {
               SkyKey artifactKey = selectArtifactKey(artifact);
               if (artifactKey != null) {
                 // TODO: b/441769854 - add test coverage
@@ -413,12 +414,13 @@ public final class FrontierSerializer {
               }
             }
             case ActionLookupData data
-                when !skycacheAnalysisOnly && traversalMode == TraversalMode.PRE_SERIALIZATION -> {
+                when !skycacheAnalysisOnly && traversalMode == TraversalMode.FOR_SERIALIZATION -> {
               if (shouldUpload(data, node)) {
                 selection.putIfAbsent(data, FRONTIER_CANDIDATE);
               }
             }
-            case Artifact artifact when !skycacheAnalysisOnly -> {
+            case Artifact artifact
+                when !skycacheAnalysisOnly && traversalMode == TraversalMode.FOR_SERIALIZATION -> {
               SkyKey artifactKey = selectArtifactKey(artifact);
               if (artifactKey != null) {
                 selection.putIfAbsent(artifactKey, FRONTIER_CANDIDATE);
@@ -520,7 +522,7 @@ public final class FrontierSerializer {
     // Right after analysis we want to discard PackageValues that are no longer needed. While
     // traversing the graph we may encounter execution nodes that are not yet finished. It is safe
     // to skip them.
-    if (traversalMode == TraversalMode.POST_ANALYSIS && !node.isDone()) {
+    if (traversalMode == TraversalMode.FOR_POST_ANALYSIS_MINIMIZE_MEMORY && !node.isDone()) {
       Preconditions.checkState(
           !(node.getKey() instanceof ActionLookupKey)
               || node.getKey() instanceof ActionTemplateExpansionKey);
