@@ -659,21 +659,6 @@ java_library(
 )
 
 java_library(
-    name = "byte_stream_build_event_artifact_uploader_factory",
-    srcs = ["ByteStreamBuildEventArtifactUploaderFactory.java"],
-    deps = [
-        ":byte_stream_build_event_artifact_uploader",
-        ":combined_cache",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/remote/options",
-        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "byte_stream_uploader",
     srcs = ["ByteStreamUploader.java"],
     deps = [
