@@ -354,6 +354,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
 
   @Override
   public boolean delete(PathFragment path) throws IOException {
+    PathFragment originalPath = path;
     try {
       path = resolveSymbolicLinksForParent(path);
     } catch (FileNotFoundException ignored) {
@@ -363,7 +364,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
 
     // No action implementations call renameTo concurrently with other filesystem operations, so
     // there's no risk of a race condition below.
-    pathCanonicalizer.clearPrefix(path);
+    pathCanonicalizer.clearPrefix(originalPath);
 
     boolean deleted = localFs.getPath(path).delete();
     if (isOutput(path)) {
