@@ -64,7 +64,7 @@ final class Eval {
 
   // ---- entry point ----
 
-  // Called from StarlarkFunction.fastcall.
+  // Called from StarlarkFunction.call().
   static Object execFunctionBody(StarlarkThread.Frame fr, List<Statement> statements)
       throws EvalException, InterruptedException {
     fr.thread.checkInterrupt();

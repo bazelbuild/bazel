@@ -789,7 +789,7 @@ public final class Starlark {
    * Calls the function-like value {@code fn} in the specified thread, passing it the given
    * positional and named arguments, as if by the Starlark expression {@code fn(*args, **kwargs)}.
    *
-   * <p>See also {@link #fastcall}.
+   * <p>See also {@link #callViaArgumentProcessor} and {@link #positionalOnlyCall}.
    */
   public static Object call(
       StarlarkThread thread, Object fn, List<Object> args, Map<String, Object> kwargs)
@@ -804,45 +804,6 @@ public final class Starlark {
       argumentProcessor.addNamedArg(e.getKey(), Starlark.checkValid(e.getValue()));
     }
     return callViaArgumentProcessor(thread, callable, argumentProcessor);
-  }
-
-  /**
-   * Calls the function-like value {@code fn} in the specified thread, passing it the given
-   * positional and named arguments in the "fastcall" array representation.
-   *
-   * <p>The caller must not subsequently modify or even inspect the two arrays.
-   *
-   * <p>If the call throws an unchecked throwable, regardless of whether it originates in a
-   * user-defined built-in function or a bug in the interpreter itself, the throwable is wrapped by
-   * {@link UncheckedEvalException} (for {@link RuntimeException}) or {@link UncheckedEvalError}
-   * (for {@link Error}). The {@linkplain Throwable#getStackTrace stack trace} will reflect the
-   * Starlark call stack rather than the Java call stack. The original throwable (and the Java call
-   * stack) may be retrieved using {@link Throwable#getCause}.
-   */
-  // TODO(b/380824219): Remove this method once callWithArguments has been implemented on all
-  // StarlarkCallable implementations that currently implement fastcall, plus a default
-  // implementation in StarlarkCallable that forwards to StarlarkCallable.call().
-  public static Object fastcall(
-      StarlarkThread thread, StarlarkCallable callable, Object[] positional, Object[] named)
-      throws EvalException, InterruptedException {
-
-    // LINT.IfChange(fastcall)
-    thread.push(callable);
-    try {
-      return callable.fastcall(thread, positional, named);
-    } catch (UncheckedEvalException | UncheckedEvalError ex) {
-      throw ex; // already wrapped
-    } catch (RuntimeException ex) {
-      throw new UncheckedEvalException(ex, thread);
-    } catch (Error ex) {
-      throw new UncheckedEvalError(ex, thread);
-    } catch (EvalException ex) {
-      // If this exception was newly thrown, set its stack.
-      throw ex.ensureStack(thread);
-    } finally {
-      thread.pop();
-    }
-    // LINT.ThenChange(:positionalOnlyCall)
   }
 
   /**
