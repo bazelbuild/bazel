@@ -217,7 +217,8 @@ public class MerkleTreeComputerTest {
                   RemoteActionExecutionContext context,
                   RemotePathResolver remotePathResolver,
                   Digest digest,
-                  Path path) {
+                  Path path,
+                  boolean force) {
                 return immediateVoidFuture();
               }
 
