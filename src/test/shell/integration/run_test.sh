@@ -16,8 +16,6 @@
 #
 # Integration tests for "bazel run"
 
-NO_SIGNAL_OVERRIDE=1
-
 # --- begin runfiles.bash initialization ---
 # Copy-pasted from Bazel's Bash runfiles library (tools/bash/runfiles/runfiles.bash).
 set -euo pipefail
