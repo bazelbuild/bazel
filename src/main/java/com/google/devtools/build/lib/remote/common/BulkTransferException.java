@@ -13,19 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.common;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifacts;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.function.Function;
 
 /**
@@ -118,24 +115,27 @@ public class BulkTransferException extends IOException {
 
   @Override
   public String getMessage() {
-    // Only report unique messages to avoid flooding the user, e.g. in case a remote cache server is
-    // unavailable
-    // and causing several identical messages. Also sort the messages, for more deterministic
-    // result. All of this allows
-    // more efficient event deduplication when reporting the returned aggregated message.
-    List<String> uniqueSortedMessages =
-        Arrays.stream(super.getSuppressed())
-            .map(Throwable::getMessage)
-            .filter(Objects::nonNull)
-            .sorted()
-            .distinct()
-            .collect(toImmutableList());
+    Throwable[] exceptions = super.getSuppressed();
 
-    return switch (uniqueSortedMessages.size()) {
-      case 0 -> "Unknown error during bulk transfer";
-      case 1 -> Iterables.getOnlyElement(uniqueSortedMessages);
-      default ->
-          "Multiple errors during bulk transfer:\n" + Joiner.on("\n").join(uniqueSortedMessages);
-    };
+    if (exceptions.length == 0) {
+      return "Unknown error during bulk transfer";
+    } else if (exceptions.length == 1) {
+      return exceptions[0].getMessage();
+    } else {
+      StringBuilder sb = new StringBuilder();
+      sb.append("Multiple errors during bulk transfer:\n");
+      Set<String> uniqueMessages = new HashSet<>();
+      for (var e : exceptions) {
+        if (uniqueMessages.contains(e.getMessage())) {
+          continue;
+        }
+        uniqueMessages.add(e.getMessage());
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        e.printStackTrace(pw);
+        sb.append(sw).append("\n\n");
+      }
+      return sb.toString();
+    }
   }
 }
