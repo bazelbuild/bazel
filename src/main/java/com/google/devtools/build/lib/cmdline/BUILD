@@ -39,7 +39,6 @@ java_library(
         ":query_exception_marker_interface",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:nested_sets_should_be_interned_by_equality",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",

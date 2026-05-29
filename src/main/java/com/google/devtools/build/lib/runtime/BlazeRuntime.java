@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.buildtool.CommandPrecompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetInterner;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
@@ -832,7 +831,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       finalCommandResult = BlazeCommandResult.detailedExitCode(otherThreadWonExitCode);
     }
     env.getBlazeWorkspace().clearEventBus();
-    NestedSetInterner.clear();
 
     // Some module's commandComplete() relies on the stoppage of profiler. And it is impossible the
     // profiler is needed after all `BlazeModule.afterCommand`s are executed.

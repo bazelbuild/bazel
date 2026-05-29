@@ -60,6 +60,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.lang.ref.WeakReference;
 import java.nio.charset.Charset;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -316,6 +317,21 @@ public final class NestedSetCodecTest {
     NestedSet<String> singletonNestedSet =
         NestedSet.<String>builder(Order.STABLE_ORDER).add("a").build();
     objectCodecs.serialize(singletonNestedSet);
+  }
+
+  @Test
+  public void serializationWeaklyCachesNestedSet() throws Exception {
+    // Avoid NestedSetBuilder.wrap/create - they use their own cache which interferes with what
+    // we're testing.
+    NestedSet<?> nestedSet = NestedSetBuilder.stableOrder().add("a").add("b").build();
+    FingerprintValueStore storageEndpoint = FingerprintValueStore.inMemoryStore();
+    FingerprintValueService fingerprintValueService =
+        FingerprintValueService.createForTesting(storageEndpoint);
+    ObjectCodecs codecs = createCodecs(createStore(storageEndpoint));
+    var unused = codecs.serializeMemoizedAndBlocking(fingerprintValueService, nestedSet);
+    WeakReference<?> ref = new WeakReference<>(nestedSet);
+    nestedSet = null;
+    GcFinalization.awaitClear(ref);
   }
 
   @Test
