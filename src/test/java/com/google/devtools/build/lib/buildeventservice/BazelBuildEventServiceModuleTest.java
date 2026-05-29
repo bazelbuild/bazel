@@ -29,6 +29,8 @@ import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
@@ -48,6 +50,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.BuildFinishedId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.TargetCompletedId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildFinished;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.StarlarkProviderStats.StalarkProvider;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BzlMetrics;
@@ -57,6 +60,7 @@ import com.google.devtools.build.lib.buildeventstream.transports.BinaryFormatFil
 import com.google.devtools.build.lib.buildeventstream.transports.JsonFormatFileTransport;
 import com.google.devtools.build.lib.buildeventstream.transports.TextFormatFileTransport;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.network.ConnectivityStatus;
 import com.google.devtools.build.lib.network.ConnectivityStatusProvider;
 import com.google.devtools.build.lib.network.NoOpConnectivityModule;
@@ -68,11 +72,18 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.NoSpawnCacheModule;
 import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.CommandLineSection;
 import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.Option;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
+import com.google.devtools.build.lib.testutil.ControllableActionStrategyModule;
+import com.google.devtools.build.lib.testutil.SpawnController;
+import com.google.devtools.build.lib.testutil.SpawnController.ExecResult;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.skyframe.NotifyingHelper;
 import com.google.devtools.common.options.Options;
+import com.google.protobuf.MessageLite;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import io.grpc.ManagedChannel;
@@ -99,6 +110,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import org.junit.After;
@@ -123,6 +135,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
 
   private BazelBuildEventServiceModule besModule;
   private BlazeModule connectivityModule = new NoOpConnectivityModule();
+  private final SpawnController spawnController = new SpawnController();
 
   @Rule public TemporaryFolder tmpFolder = new TemporaryFolder();
 
@@ -146,6 +159,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
         .addBlazeModule(new NoSpawnCacheModule())
         .addBlazeModule(new CredentialModule())
         .addBlazeModule(new PackageMetricsModule())
+        .addBlazeModule(new ControllableActionStrategyModule(spawnController, "standalone"))
         .addBlazeModule(
             new BazelBuildEventServiceModule() {
               @Override
@@ -239,6 +253,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
   public void tearDown() throws Exception {
     fakeServer.shutdownNow();
     fakeServer.awaitTermination();
+    spawnController.verifyAllShimsConsumed();
   }
 
   @Test
@@ -954,16 +969,11 @@ project = project_pb2.Project.create(
         "--build_event_binary_file=" + buildEventBinaryFile.getAbsolutePath());
     buildTarget("//hello:hello");
 
-    BuildEvent canonicalCommandLineEvent = null;
-    try (InputStream in = new FileInputStream(buildEventBinaryFile)) {
-      BuildEvent ev;
-      while ((ev = BuildEvent.parseDelimitedFrom(in)) != null) {
-        if (ev.hasStructuredCommandLine()
-            && ev.getStructuredCommandLine().getCommandLineLabel().equals("canonical")) {
-          canonicalCommandLineEvent = ev;
-        }
-      }
-    }
+    BuildEvent canonicalCommandLineEvent =
+        findEventInBep(
+            buildEventBinaryFile,
+            (e) ->
+                e.getStructuredCommandLine().getCommandLineLabel().equals("canonical") ? e : null);
     ImmutableList<CommandLineSection> sections =
         canonicalCommandLineEvent.getStructuredCommandLine().getSectionsList().stream()
             .filter(s -> s.getSectionLabel().equals("command options"))
@@ -1089,12 +1099,150 @@ project = project_pb2.Project.create(
     }
   }
 
+  @Test
+  public void testMultipleActionsSingleTarget() throws Exception {
+    write(
+        "foo/defs.bzl",
+        """
+        def _multi_action_rule_impl(ctx):
+            outputs = []
+            for i, out_name in enumerate(ctx.attr.out_names):
+                out_file = ctx.actions.declare_file(out_name)
+                outputs.append(out_file)
+                ctx.actions.run_shell(
+                    outputs = [out_file],
+                    command = "echo action %d > %s" % (i, out_file.path),
+                    mnemonic = "MyAction%d" % i,
+                )
+            return [DefaultInfo(files = depset(outputs))]
+
+        multi_action_rule = rule(
+            implementation = _multi_action_rule_impl,
+            attrs = {
+                "out_names": attr.string_list(),
+            },
+        )
+        """);
+    write(
+        "foo/BUILD",
+        """
+        load(":defs.bzl", "multi_action_rule")
+        multi_action_rule(
+            name = "my_target",
+            out_names = ["out1.txt", "out2.txt"],
+        )
+        """);
+
+    buildTarget("//foo:my_target");
+    events.assertNoWarningsOrErrors();
+  }
+
+  @Test
+  public void testSeverityErrorSelection() throws Exception {
+    write(
+        "foo/defs.bzl",
+        """
+        def _multi_action_rule_impl(ctx):
+            outputs = []
+            for i, out_name in enumerate(ctx.attr.out_names):
+                out_file = ctx.actions.declare_file(out_name)
+                outputs.append(out_file)
+                ctx.actions.run_shell(
+                    outputs = [out_file],
+                    command = "echo action %d > %s" % (i, out_file.path),
+                    mnemonic = "MyAction%d" % i,
+                )
+            return [DefaultInfo(files = depset(outputs))]
+
+        multi_action_rule = rule(
+            implementation = _multi_action_rule_impl,
+            attrs = {
+                "out_names": attr.string_list(),
+            },
+        )
+        """);
+    write(
+        "foo/BUILD",
+        """
+        load(":defs.bzl", "multi_action_rule")
+        multi_action_rule(
+            name = "my_target",
+            out_names = ["out1.txt", "out2.txt"],
+        )
+        """);
+
+    spawnController.addSpawnShim(
+        "MyAction0 foo/out1.txt",
+        (spawn, context) ->
+            ExecResult.ofException(
+                new SpawnExecException(
+                    "Action 0 failed",
+                    new SpawnResult.Builder()
+                        .setRunnerName("local")
+                        .setStatus(SpawnResult.Status.NON_ZERO_EXIT)
+                        .setExitCode(1)
+                        .setFailureDetail(
+                            FailureDetail.newBuilder()
+                                .setMessage("Action 0 failed")
+                                .setSpawn(Spawn.newBuilder().setCode(Code.NON_ZERO_EXIT))
+                                .build())
+                        .build(),
+                    /* forciblyRunRemotely= */ false,
+                    /* catastrophe= */ false)));
+
+    // EXECUTION_FAILED is an infrastructure error and should be prioritized over NON_ZERO_EXIT.
+    spawnController.addSpawnShim(
+        "MyAction1 foo/out2.txt",
+        (spawn, context) ->
+            ExecResult.ofException(
+                new SpawnExecException(
+                    "Action 1 failed",
+                    new SpawnResult.Builder()
+                        .setRunnerName("local")
+                        .setStatus(SpawnResult.Status.EXECUTION_FAILED)
+                        .setExitCode(34)
+                        .setFailureDetail(
+                            FailureDetail.newBuilder()
+                                .setMessage("Action 1 failed")
+                                .setSpawn(Spawn.newBuilder().setCode(Code.EXECUTION_FAILED))
+                                .build())
+                        .build(),
+                    /* forciblyRunRemotely= */ false,
+                    /* catastrophe= */ false)));
+
+    File bep = tmpFolder.newFile();
+    addOptions(
+        "--keep_going",
+        "--spawn_strategy=standalone",
+        "--build_event_binary_file=" + bep.getAbsolutePath(),
+        "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE");
+
+    assertThrows(BuildFailedException.class, () -> buildTarget("//foo:my_target"));
+    afterBuildCommand();
+
+    BuildFinished buildFinished = findBuildFinishedEvent(bep);
+    assertThat(buildFinished).isNotNull();
+    assertThat(buildFinished.getFailureDetail().getSpawn().getCode())
+        .isEqualTo(Code.EXECUTION_FAILED);
+  }
+
+  private static BuildFinished findBuildFinishedEvent(File bep) throws IOException {
+    return findEventInBep(bep, ev -> ev.hasFinished() ? ev.getFinished() : null);
+  }
+
   private static BuildMetrics getBuildMetrics(File buildEventBinaryFile) throws IOException {
-    try (InputStream in = new FileInputStream(buildEventBinaryFile)) {
+    return findEventInBep(
+        buildEventBinaryFile, ev -> ev.hasBuildMetrics() ? ev.getBuildMetrics() : null);
+  }
+
+  private static <T extends MessageLite> T findEventInBep(
+      File bep, Function<BuildEvent, T> extractor) throws IOException {
+    try (InputStream in = new FileInputStream(bep)) {
       BuildEvent ev;
       while ((ev = BuildEvent.parseDelimitedFrom(in)) != null) {
-        if (ev.hasBuildMetrics()) {
-          return ev.getBuildMetrics();
+        @Nullable T extracted = extractor.apply(ev);
+        if (extracted != null) {
+          return extracted;
         }
       }
     }

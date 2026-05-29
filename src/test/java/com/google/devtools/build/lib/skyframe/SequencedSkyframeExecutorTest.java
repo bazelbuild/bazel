@@ -2310,6 +2310,65 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testExceptionComparator() throws Exception {
+    options.parse("--keep_going", "--jobs=5");
+
+    Path root = getExecRoot();
+    PathFragment execPath = PathFragment.create("out").getRelative("dir");
+    ActionLookupKey configuredTargetKey = new InjectedActionLookupKey("key");
+    Artifact dummyArtifact =
+        DerivedArtifact.create(
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
+            execPath.getRelative("catas"),
+            configuredTargetKey);
+
+    ActionExecutionException catastropheWithUserExitCode =
+        new ActionExecutionException(
+            "foo",
+            new Exception("bar"),
+            new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), dummyArtifact),
+            /* catastrophe= */ true,
+            USER_DETAILED_EXIT_CODE);
+    ActionExecutionException catastropheWithInfrastructureExitCode =
+        new ActionExecutionException(
+            "foo",
+            new Exception("bar"),
+            new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), dummyArtifact),
+            /* catastrophe= */ true,
+            INFRA_DETAILED_EXIT_CODE);
+    ActionExecutionException nonCatastropheWithUserExitCode =
+        new ActionExecutionException(
+            "foo",
+            new Exception("bar"),
+            new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), dummyArtifact),
+            /* catastrophe= */ false,
+            USER_DETAILED_EXIT_CODE);
+    ActionExecutionException nonCatastropheWithInfrastructureExitCode =
+        new ActionExecutionException(
+            "foo",
+            new Exception("bar"),
+            new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), dummyArtifact),
+            /* catastrophe= */ false,
+            INFRA_DETAILED_EXIT_CODE);
+
+    ImmutableList<ActionExecutionException> exceptionsWithIncreasingSeverity =
+        ImmutableList.of(
+            nonCatastropheWithUserExitCode,
+            nonCatastropheWithInfrastructureExitCode,
+            catastropheWithUserExitCode,
+            catastropheWithInfrastructureExitCode);
+    for (int i = 0; i < exceptionsWithIncreasingSeverity.size() - 1; i++) {
+      for (int j = i + 1; j < exceptionsWithIncreasingSeverity.size(); j++) {
+        assertThat(
+                CompletionFunction.SEVERITY_ORDERING.max(
+                    exceptionsWithIncreasingSeverity.get(i),
+                    exceptionsWithIncreasingSeverity.get(j)))
+            .isEqualTo(exceptionsWithIncreasingSeverity.get(j));
+      }
+    }
+  }
+
+  @Test
   public void testCatastropheReportingWithError() throws Exception {
     options.parse("--keep_going", "--jobs=1");
     Path root = getExecRoot();
@@ -2552,6 +2611,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     // Create 1 succeeded key, 1 failed key with infrastructure error and another failed key with
     // user error.
+
+    // TODO TODO
 
     Action succeededAction =
         new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), succeededOutput);

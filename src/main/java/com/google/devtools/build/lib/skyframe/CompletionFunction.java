@@ -16,11 +16,13 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -34,7 +36,6 @@ import com.google.devtools.build.lib.actions.InputFileErrorException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.TopLevelOutputException;
 import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
@@ -59,12 +60,14 @@ import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindException;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy.RewindPlanResult;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -125,6 +128,19 @@ public final class CompletionFunction<
         throws InterruptedException;
   }
 
+  /**
+   * Ordering function that ranks {@link ActionExecutionException}s by severity, with less severe
+   * exceptions comparing "less than" more severe exceptions.
+   */
+  @VisibleForTesting
+  static final Ordering<ActionExecutionException> SEVERITY_ORDERING =
+      Ordering.compound(
+          ImmutableList.of(
+              Comparator.comparing(ActionExecutionException::isCatastrophe),
+              Comparator.comparing(
+                  ActionExecutionException::getDetailedExitCode,
+                  DetailedExitCodeComparator.INSTANCE)));
+
   private final PathResolverFactory pathResolverFactory;
   private final Completor<ValueT, ResultT, KeyT> completor;
   private final SkyframeActionExecutor skyframeActionExecutor;
@@ -181,7 +197,7 @@ public final class CompletionFunction<
       importantInputMap = new ActionInputMap(importantArtifacts.size());
     }
 
-    ActionExecutionException firstActionExecutionException = null;
+    ActionExecutionException worstActionExecutionException = null;
     NestedSetBuilder<Cause> rootCausesBuilder = NestedSetBuilder.stableOrder();
     Set<Artifact> builtArtifacts = new HashSet<>();
     // Don't double-count files due to Skyframe restarts.
@@ -223,9 +239,10 @@ public final class CompletionFunction<
           rootCausesBuilder.addTransitive(e.getRootCauses());
         }
         // Prefer a catastrophic exception as the one we propagate.
-        if (firstActionExecutionException == null
-            || (!firstActionExecutionException.isCatastrophe() && e.isCatastrophe())) {
-          firstActionExecutionException = e;
+        if (worstActionExecutionException == null) {
+          worstActionExecutionException = e;
+        } else {
+          worstActionExecutionException = SEVERITY_ORDERING.max(worstActionExecutionException, e);
         }
       } catch (SourceArtifactException e) {
         if (!input.isSourceArtifact()) {
@@ -276,8 +293,8 @@ public final class CompletionFunction<
         // we'll get another opportunity to post an event after rewinding.
         return rewindPlanResult.toNullIfMissingDependenciesElseReset();
       }
-      if (firstActionExecutionException != null) {
-        throw new CompletionFunctionException(firstActionExecutionException);
+      if (worstActionExecutionException != null) {
+        throw new CompletionFunctionException(worstActionExecutionException);
       }
       Object locationPrefix = completor.getLocationIdentifier(key, value, env);
       Pair<DetailedExitCode, String> codeAndMessage =
