@@ -84,7 +84,7 @@ import javax.annotation.Nullable;
 
 /** A RemoteActionCache implementation that uses gRPC calls to a remote cache server. */
 @ThreadSafe
-public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder {
+public class GrpcCacheClient extends RemoteCacheClient implements MissingDigestsFinder {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final CallCredentialsProvider callCredentialsProvider;
@@ -565,7 +565,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   }
 
   @Override
-  public ListenableFuture<Void> uploadBlob(
+  public ListenableFuture<Void> uploadBlobImpl(
       RemoteActionExecutionContext context, Digest digest, Blob blob) {
     return Futures.catchingAsync(
         uploadChunker(
