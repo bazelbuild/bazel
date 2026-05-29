@@ -19,10 +19,6 @@ import com.google.devtools.build.lib.util.OS;
  * An interface class representing the differences in path style between different OSs.
  *
  * <p>Eg. case sensitivity, '/' mounts vs. 'C:/', etc.
- *
- * <p>Note that macOS (Darwin) is currently treated as case-sensitive (using {@link
- * UnixOsPathPolicy}) despite typically having a case-insensitive filesystem. See {@link
- * #getFilePathOs(OS)} for details.
  */
 public interface OsPathPolicy {
   int NORMALIZED = 0; // Path is normalized
@@ -66,9 +62,6 @@ public interface OsPathPolicy {
    * Modifies the given string to be suitable for execution on the OS represented by this policy.
    */
   String postProcessPathStringForExecution(String callablePathString);
-
-  /** Returns whether the OS filesystem is case-sensitive. */
-  boolean isCaseSensitive();
 
   static OsPathPolicy of(OS os) {
     return os == OS.WINDOWS ? WindowsOsPathPolicy.INSTANCE : UnixOsPathPolicy.INSTANCE;

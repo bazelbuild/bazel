@@ -105,9 +105,4 @@ class UnixOsPathPolicy implements OsPathPolicy {
   public String postProcessPathStringForExecution(String callablePathString) {
     return callablePathString;
   }
-
-  @Override
-  public boolean isCaseSensitive() {
-    return true;
-  }
 }

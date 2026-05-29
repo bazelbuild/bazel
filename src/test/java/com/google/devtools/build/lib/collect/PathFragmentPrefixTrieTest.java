@@ -154,20 +154,4 @@ public class PathFragmentPrefixTrieTest {
     trie.put(PathFragment.create("a"), true);
     assertThat(trie.hasIncludedPaths()).isTrue();
   }
-
-  @Test
-  public void testCaseInsensitiveMatching() throws Exception {
-    PathFragmentPrefixTrie trie = new PathFragmentPrefixTrie(/* caseSensitive= */ false);
-
-    trie.put(PathFragment.create("a/B/c"), true);
-    trie.put(PathFragment.create("a/b/d"), false);
-
-    assertThat(trie.includes(PathFragment.create("A/b/C"))).isTrue();
-    assertThat(trie.includes(PathFragment.create("a/B/d"))).isFalse();
-
-    // Test that we can't add "a/b/c" if "a/B/c" is already added
-    assertThrows(
-        PathFragmentAlreadyAddedException.class,
-        () -> trie.put(PathFragment.create("a/b/c"), false));
-  }
 }
