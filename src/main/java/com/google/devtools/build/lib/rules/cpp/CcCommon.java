@@ -28,11 +28,11 @@ import net.starlark.java.eval.StarlarkValue;
 
 /** Common parts of the implementation of cc rules. */
 public final class CcCommon {
-  public static final String PIC_CONFIGURATION_ERROR =
+  private static final String PIC_CONFIGURATION_ERROR =
       "PIC compilation is requested but the toolchain does not support it "
           + "(feature named 'supports_pic' is not enabled)";
 
-  public static final ImmutableSet<String> ALL_COMPILE_ACTIONS =
+  private static final ImmutableSet<String> ALL_COMPILE_ACTIONS =
       ImmutableSet.of(
           CppActionNames.C_COMPILE,
           CppActionNames.CPP_COMPILE,
@@ -50,7 +50,7 @@ public final class CcCommon {
           CppActionNames.LTO_BACKEND,
           CppActionNames.CPP_HEADER_ANALYSIS);
 
-  public static final ImmutableSet<String> ALL_LINK_ACTIONS =
+  private static final ImmutableSet<String> ALL_LINK_ACTIONS =
       ImmutableSet.of(
           CppActionNames.LTO_INDEX_EXECUTABLE,
           CppActionNames.LTO_INDEX_DYNAMIC_LIBRARY,
@@ -59,14 +59,14 @@ public final class CcCommon {
           Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
           Link.LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName());
 
-  public static final ImmutableSet<String> ALL_ARCHIVE_ACTIONS =
+  private static final ImmutableSet<String> ALL_ARCHIVE_ACTIONS =
       ImmutableSet.of(Link.LinkTargetType.STATIC_LIBRARY.getActionName());
 
-  public static final ImmutableSet<String> ALL_OTHER_ACTIONS =
+  private static final ImmutableSet<String> ALL_OTHER_ACTIONS =
       ImmutableSet.of(CppActionNames.STRIP);
 
   /** Action configs we request to enable. */
-  public static final ImmutableSet<String> DEFAULT_ACTION_CONFIGS =
+  private static final ImmutableSet<String> DEFAULT_ACTION_CONFIGS =
       ImmutableSet.<String>builder()
           .addAll(ALL_COMPILE_ACTIONS)
           .addAll(ALL_LINK_ACTIONS)
@@ -74,7 +74,7 @@ public final class CcCommon {
           .addAll(ALL_OTHER_ACTIONS)
           .build();
 
-  public static final ImmutableSet<String> OBJC_ACTIONS =
+  private static final ImmutableSet<String> OBJC_ACTIONS =
       ImmutableSet.of(
           CppActionNames.OBJC_COMPILE,
           CppActionNames.OBJCPP_COMPILE,
@@ -145,7 +145,7 @@ public final class CcCommon {
     }
   }
 
-  public static ImmutableList<String> getCoverageFeatures(CppConfiguration cppConfiguration) {
+  private static ImmutableList<String> getCoverageFeatures(CppConfiguration cppConfiguration) {
     ImmutableList.Builder<String> coverageFeatures = ImmutableList.builder();
     if (cppConfiguration.collectCodeCoverage()) {
       coverageFeatures.add(CppRuleClasses.COVERAGE);
