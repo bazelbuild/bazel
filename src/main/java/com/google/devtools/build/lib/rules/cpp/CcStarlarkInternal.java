@@ -661,6 +661,12 @@ public class CcStarlarkInternal implements StarlarkValue {
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             defaultValue = "None"),
         @Param(
+            name = "progress_message_prefix",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None"),
+        @Param(
             name = "should_scan_includes",
             positional = false,
             named = true,
@@ -706,6 +712,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       Object buildInfoHeaderArtifacts,
       Object additionalPrunableHeaders,
       Object actionName,
+      Object progressMessagePrefix,
       Object shouldScanIncludes,
       Object shareable,
       Object moduleFiles,
@@ -763,6 +770,9 @@ public class CcStarlarkInternal implements StarlarkValue {
     }
     if (actionName instanceof String actionNameString) {
       builder.setActionName(actionNameString);
+    }
+    if (progressMessagePrefix instanceof String progressMessagePrefixString) {
+      builder.setProgressMessagePrefix(progressMessagePrefixString);
     }
     if (shouldScanIncludes instanceof Boolean bool) {
       builder.setShouldScanIncludes(bool);

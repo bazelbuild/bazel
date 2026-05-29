@@ -71,6 +71,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
   private Map<String, String> executionInfo = new LinkedHashMap<>();
   private final CcToolchainProvider ccToolchain;
   @Nullable private String actionName;
+  private String progressMessagePrefix = "";
   private ImmutableList<Artifact> buildInfoHeaderArtifacts = ImmutableList.of();
   private NestedSet<Artifact> cacheKeyInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private NestedSet<Artifact> additionalPrunableHeaders =
@@ -130,6 +131,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     this.executionInfo = new LinkedHashMap<>(other.executionInfo);
     this.ccToolchain = other.ccToolchain;
     this.actionName = other.actionName;
+    this.progressMessagePrefix = other.progressMessagePrefix;
     this.additionalOutputs = other.additionalOutputs;
     this.needsIncludeValidation = other.needsIncludeValidation;
     this.moduleFiles = other.moduleFiles;
@@ -336,6 +338,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
         ImmutableList.copyOf(additionalIncludeScanningRoots),
         ImmutableMap.copyOf(executionInfo),
         actionName,
+        progressMessagePrefix,
         needsIncludeValidation,
         getBuiltinIncludeDirectories(),
         ccToolchain.getGrepIncludes(),
@@ -420,6 +423,12 @@ public final class CppCompileActionBuilder implements StarlarkValue {
         actionName,
         this.actionName);
     this.actionName = actionName;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public CppCompileActionBuilder setProgressMessagePrefix(String progressMessagePrefix) {
+    this.progressMessagePrefix = progressMessagePrefix;
     return this;
   }
 

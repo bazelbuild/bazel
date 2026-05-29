@@ -261,6 +261,12 @@ public interface CcModuleApi<
             },
             named = true),
         @Param(
+            name = "progress_message_prefix",
+            doc = "An additional string to identify actions for logging.",
+            positional = false,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            named = true),
+        @Param(
             name = "name",
             doc =
                 "This is used for naming the output artifacts of actions created by this "
@@ -397,6 +403,7 @@ public interface CcModuleApi<
       Sequence<?> cxxFlags, // <String> expected
       Sequence<?> ccCompilationContexts, // <CcCompilationContext> expected
       Object implementationCcCompilationContextsObject,
+      Object progressMessagePrefixObject,
       String name,
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
