@@ -116,26 +116,24 @@ public class BulkTransferException extends IOException {
   @Override
   public String getMessage() {
     Throwable[] exceptions = super.getSuppressed();
+    StringBuilder sb = new StringBuilder();
+    Set<String> uniqueMessages = new HashSet<>();
 
-    if (exceptions.length == 0) {
-      return "Unknown error during bulk transfer";
-    } else if (exceptions.length == 1) {
-      return exceptions[0].getMessage();
-    } else {
-      StringBuilder sb = new StringBuilder();
-      sb.append("Multiple errors during bulk transfer:\n");
-      Set<String> uniqueMessages = new HashSet<>();
-      for (var e : exceptions) {
-        if (uniqueMessages.contains(e.getMessage())) {
-          continue;
-        }
-        uniqueMessages.add(e.getMessage());
-        StringWriter sw = new StringWriter();
-        PrintWriter pw = new PrintWriter(sw);
-        e.printStackTrace(pw);
-        sb.append(sw).append("\n\n");
+    for (var e : exceptions) {
+      if (uniqueMessages.contains(e.getMessage())) {
+        continue;
       }
-      return sb.toString();
+      uniqueMessages.add(e.getMessage());
+      StringWriter sw = new StringWriter();
+      PrintWriter pw = new PrintWriter(sw);
+      e.printStackTrace(pw);
+      sb.append(sw).append("\n\n");
+    }
+    if (uniqueMessages.size() == 0) {
+      return "Unknown error during bulk transfer";
+    } else {
+      return String.format("%d errors during bulk transfer (%d unique):\n\n", exceptions.length, uniqueMessages.size()) +
+              sb.toString();
     }
   }
 }
