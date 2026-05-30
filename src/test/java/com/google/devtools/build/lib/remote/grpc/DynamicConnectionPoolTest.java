@@ -24,7 +24,11 @@ import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.observers.TestObserver;
 import io.reactivex.rxjava3.plugins.RxJavaPlugins;
 import java.io.IOException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -157,6 +161,38 @@ public class DynamicConnectionPoolTest {
 
     observer1.assertValue(conn -> conn.getUnderlyingConnection() == connection0).assertComplete();
     assertThat(connectionFactoryCreateTimes.get()).isEqualTo(1);
+  }
+
+  @Test
+  public void create_concurrent_neverCollidesOnSameConnection() throws Exception {
+    int n = 200;
+    ConnectionFactory factory = mock(ConnectionFactory.class);
+    Connection connection = mock(Connection.class);
+    when(factory.create()).thenAnswer(invocation -> Single.just(connection));
+    DynamicConnectionPool pool = new DynamicConnectionPool(factory, /* maxConcurrency= */ 1);
+
+    CountDownLatch ready = new CountDownLatch(n);
+    CountDownLatch start = new CountDownLatch(1);
+    CountDownLatch acquired = new CountDownLatch(n);
+    ExecutorService exec = Executors.newFixedThreadPool(n);
+    for (int i = 0; i < n; i++) {
+      exec.execute(
+          () -> {
+            ready.countDown();
+            try {
+              start.await();
+            } catch (InterruptedException e) {
+              return;
+            }
+            var unused = pool.create().subscribe(c -> acquired.countDown(), e -> {});
+          });
+    }
+    ready.await();
+    start.countDown();
+
+    boolean allAcquired = acquired.await(10, TimeUnit.SECONDS);
+    exec.shutdownNow();
+    assertThat(allAcquired).isTrue();
   }
 
   @Test
