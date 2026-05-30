@@ -23,6 +23,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.vfs.Path;
@@ -251,6 +252,51 @@ public final class SourceDirectoryIntegrationTest extends BuildIntegrationTestCa
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo"));
     assertContainsEvent("infinite symlink expansion detected");
     assertContainsEvent("foo/dir/subdir/nested2");
+  }
+
+  /** Regression test for {@see https://github.com/bazelbuild/bazel/issues/29688}. */
+  @Test
+  public void crossingRepoPackageCollision_doesNotFail() throws Exception {
+    if (!AnalysisMock.get().isThisBazel()) {
+      return;
+    }
+    write("tools/docker/BUILD");
+
+    write(
+        "MODULE.bazel",
+        """
+        bazel_dep(name = "ext")
+        local_path_override(
+            module_name = "ext",
+            path = "ext",
+        )
+        """);
+    write("ext/MODULE.bazel", "module(name = 'ext')");
+    write(
+        "ext/BUILD",
+        """
+        filegroup(
+            name = "dir",
+            srcs = ["tools"],
+            visibility = ["//visibility:public"],
+        )
+        """);
+    Path extSourceDir = getWorkspace().getRelative("ext/tools");
+    extSourceDir.getRelative("docker").createDirectoryAndParents();
+    writeIsoLatin1(extSourceDir.getRelative("docker/data"), "content");
+
+    write(
+        "BUILD",
+        """
+        genrule(
+            name = "consume",
+            srcs = ["@ext//:dir"],
+            outs = ["consume.out"],
+            cmd = "touch $@",
+        )
+        """);
+
+    buildTarget("//:consume");
   }
 
   private static final String GENRULE_EVENT = "Executing genrule //foo:foo";

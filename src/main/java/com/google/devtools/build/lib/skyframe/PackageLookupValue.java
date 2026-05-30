@@ -116,11 +116,6 @@ public abstract class PackageLookupValue implements SkyValue {
    */
   public abstract String getErrorMsg();
 
-  public static SkyKey key(PathFragment directory) {
-    Preconditions.checkArgument(!directory.isAbsolute(), directory);
-    return key(PackageIdentifier.createInMainRepo(directory));
-  }
-
   public static Key key(PackageIdentifier pkgIdentifier) {
     return Key.create(pkgIdentifier);
   }
