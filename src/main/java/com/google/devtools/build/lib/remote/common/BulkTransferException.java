@@ -120,7 +120,7 @@ public class BulkTransferException extends IOException {
     Set<String> uniqueMessages = new HashSet<>();
 
     for (var e : exceptions) {
-      if (uniqueMessages.contains(e.getMessage())) {
+      if (e.getMessage() == null || uniqueMessages.contains(e.getMessage())) {
         continue;
       }
       uniqueMessages.add(e.getMessage());
