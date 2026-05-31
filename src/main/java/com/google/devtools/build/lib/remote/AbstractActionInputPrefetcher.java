@@ -24,6 +24,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.mergeBulkTransfer;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
@@ -57,6 +58,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import io.reactivex.rxjava3.core.Completable;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -600,29 +602,49 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     // Downloads should always be written to the "actual" host file system, not any overlays.
     Path finalPath = path.forHostFileSystem();
 
-    Completable download =
-        usingTempPath(
-            (tempPath, alreadyDeleted) ->
-                toCompletable(
-                        () ->
-                            doDownloadFile(
-                                action,
-                                reporter,
-                                input,
-                                tempPath.forHostFileSystem(),
+    Completable download;
+    if (metadata.isInline()) {
+      download =
+          usingTempPath(
+              (tempPath, alreadyDeleted) -> {
+                Path hostTempPath = tempPath.forHostFileSystem();
+                try {
+                  hostTempPath.getParentDirectory().createDirectoryAndParents();
+                  try (OutputStream out = hostTempPath.getOutputStream()) {
+                    metadata.writeTo(out);
+                  }
+                  finalizeDownload(metadata, hostTempPath, finalPath, dirsWithOutputPermissions);
+                  alreadyDeleted.set(true);
+                  return Completable.complete();
+                } catch (IOException e) {
+                  return Completable.error(e);
+                }
+              });
+    } else {
+      download =
+          usingTempPath(
+              (tempPath, alreadyDeleted) ->
+                  toCompletable(
+                          () ->
+                              doDownloadFile(
+                                  action,
+                                  reporter,
+                                  input,
+                                  tempPath.forHostFileSystem(),
+                                  metadata,
+                                  priority,
+                                  reason),
+                          directExecutor())
+                      .doOnComplete(
+                          () -> {
+                            finalizeDownload(
                                 metadata,
-                                priority,
-                                reason),
-                        directExecutor())
-                    .doOnComplete(
-                        () -> {
-                          finalizeDownload(
-                              metadata,
-                              tempPath.forHostFileSystem(),
-                              finalPath,
-                              dirsWithOutputPermissions);
-                          alreadyDeleted.set(true);
-                        }));
+                                tempPath.forHostFileSystem(),
+                                finalPath,
+                                dirsWithOutputPermissions);
+                            alreadyDeleted.set(true);
+                          }));
+    }
 
     return downloadCache.execute(
         finalPath,

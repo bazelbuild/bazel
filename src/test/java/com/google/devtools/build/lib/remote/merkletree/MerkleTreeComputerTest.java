@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.util.StreamWriter;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -227,6 +228,12 @@ public class MerkleTreeComputerTest {
                   RemoteActionExecutionContext context,
                   Digest digest,
                   VirtualActionInput virtualActionInput) {
+                return immediateVoidFuture();
+              }
+
+              @Override
+              public ListenableFuture<Void> uploadStreamWriter(
+                  RemoteActionExecutionContext context, Digest digest, StreamWriter streamWriter) {
                 return immediateVoidFuture();
               }
 

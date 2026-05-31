@@ -223,6 +223,8 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         )
         """);
 
+    addOptions("--file_write_strategy=eager");
+
     buildTarget("//a:substitute-buchgr");
 
     // The genrule //a:generate-template should run remotely and //a:substitute-buchgr should be a

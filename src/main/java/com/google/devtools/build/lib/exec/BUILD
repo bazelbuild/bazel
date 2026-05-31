@@ -135,10 +135,14 @@ java_library(
 
 java_library(
     name = "file_write_strategy",
-    srcs = ["FileWriteStrategy.java"],
+    srcs = [
+        "EagerFileWriteStrategy.java",
+        "LazyFileWriteStrategy.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/file_write_action_context",
         "//src/main/java/com/google/devtools/build/lib/profiler:auto_profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",

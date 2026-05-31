@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.util.StreamWriter;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Map;
@@ -192,6 +193,8 @@ public sealed interface MerkleTree {
               uploader.uploadFile(
                   context, remotePathResolver, digest, pathResolver.toPath(actionInput), force));
         }
+        case StreamWriter streamWriter ->
+            Optional.of(uploader.uploadStreamWriter(context, digest, streamWriter));
         case null -> Optional.empty();
         default -> throw new IllegalStateException("Unexpected blob type: " + blobs.get(digest));
       };

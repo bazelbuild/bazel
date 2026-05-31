@@ -328,6 +328,14 @@ java_library(
 )
 
 java_library(
+    name = "stream_writer",
+    srcs = ["StreamWriter.java"],
+    deps = [
+        "@com_google_protobuf//:protobuf_java",
+    ],
+)
+
+java_library(
     name = "byte_string_deterministic_writer",
     srcs = ["ByteStringDeterministicWriter.java"],
     deps = [

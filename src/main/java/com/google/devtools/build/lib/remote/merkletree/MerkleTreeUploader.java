@@ -18,6 +18,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
+import com.google.devtools.build.lib.util.StreamWriter;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 
@@ -38,6 +39,10 @@ public interface MerkleTreeUploader {
   /** Uploads a virtual action input to the remote cache. */
   ListenableFuture<Void> uploadVirtualActionInput(
       RemoteActionExecutionContext context, Digest digest, VirtualActionInput virtualActionInput);
+
+  /** Uploads in-memory content provided by a {@link StreamWriter} to the remote cache. */
+  ListenableFuture<Void> uploadStreamWriter(
+      RemoteActionExecutionContext context, Digest digest, StreamWriter streamWriter);
 
   /**
    * Ensures that all inputs as well as metadata protos in the given Merkle tree are present in the

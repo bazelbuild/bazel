@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTreeUploader;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
+import com.google.devtools.build.lib.util.StreamWriter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.Message;
 import io.reactivex.rxjava3.annotations.NonNull;
@@ -270,6 +271,50 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
                   // Since VirtualActionInput#writeTo only throws when pipedOut does, this means
                   // that the reader has closed pipedIn early, perhaps due to interruption. Since
                   // the reader is gone, there is no way to propagate this exception back.
+                }
+              });
+      return pipedIn;
+    }
+  }
+
+  @Override
+  public ListenableFuture<Void> uploadStreamWriter(
+      RemoteActionExecutionContext context, Digest digest, StreamWriter streamWriter) {
+    return remoteCacheClient.uploadBlob(
+        context, digest, new StreamWriterBlob(streamWriter), /* force= */ false);
+  }
+
+  private record StreamWriterBlob(StreamWriter streamWriter) implements Blob {
+
+    private static final ExecutorService STREAM_WRITER_PIPE_EXECUTOR =
+        Executors.newThreadPerTaskExecutor(
+            Thread.ofVirtual().name("stream-writer-pipe-", 0).factory());
+
+    @Override
+    public InputStream get() {
+      // Avoid materializing and retaining StreamWriter.getBytes() during the upload. This can
+      // result in high memory usage with many parallel actions with large inline contents. Limit
+      // this memory usage to the fixed buffer size by using a piped stream.
+      var pipedIn = new PipedInputStream(Chunker.getDefaultChunkSize());
+      PipedOutputStream pipedOut;
+      try {
+        pipedOut = new PipedOutputStream(pipedIn);
+      } catch (IOException e) {
+        throw new IllegalStateException(
+            "PipedOutputStream constructor is not expected to throw", e);
+      }
+      // Note that while Piped{Input,Output}Stream are not directly I/O-bound, bytes read from
+      // pipedIn are sent out via gRPC before more bytes are read. As a result, pipedOut is expected
+      // to block frequently enough to make virtual threads suitable here.
+      var unused =
+          STREAM_WRITER_PIPE_EXECUTOR.submit(
+              () -> {
+                try (pipedOut) {
+                  streamWriter.writeTo(pipedOut);
+                } catch (IOException e) {
+                  // Since StreamWriter#writeTo only throws when pipedOut does, this means that the
+                  // reader has closed pipedIn early, perhaps due to interruption. Since the reader
+                  // is gone, there is no way to propagate this exception back.
                 }
               });
       return pipedIn;

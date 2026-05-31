@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.FileWriteStrategy;
+import com.google.devtools.build.lib.exec.EagerFileWriteStrategy;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
@@ -65,7 +65,7 @@ public class TestExecutorBuilder {
   public TestExecutorBuilder(FileSystem fileSystem, Path execRoot) {
     this.fileSystem = fileSystem;
     this.execRoot = execRoot;
-    addContext(FileWriteActionContext.class, new FileWriteStrategy());
+    addContext(FileWriteActionContext.class, new EagerFileWriteStrategy());
     addContext(TemplateExpansionContext.class, new LocalTemplateExpansionStrategy());
     addContext(
         SymlinkTreeActionContext.class,
