@@ -33,9 +33,10 @@ import java.io.OutputStream;
 
 /**
  * A strategy for executing an {@link
- * com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction}.
+ * com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction} that writes the file to
+ * disk eagerly.
  */
-public final class FileWriteStrategy implements FileWriteActionContext {
+public class EagerFileWriteStrategy implements FileWriteActionContext {
   @Override
   public ImmutableList<SpawnResult> writeOutputToFile(
       AbstractAction action,

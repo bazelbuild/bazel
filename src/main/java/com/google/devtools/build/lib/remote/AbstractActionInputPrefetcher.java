@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import io.reactivex.rxjava3.core.Completable;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -682,27 +683,50 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       }
     }
 
-    Completable download =
-        usingTempPath(
-            (tempPath, alreadyDeleted) ->
-                toCompletable(
-                        () ->
-                            doDownloadFile(
-                                action,
-                                reporter,
-                                input,
+    Completable download;
+    if (metadata.isInline()) {
+      download =
+          usingTempPath(
+              (tempPath, alreadyDeleted) -> {
+                Path hostTempPath = tempPath.forHostFileSystem();
+                try {
+                  hostTempPath.getParentDirectory().createDirectoryAndParents();
+                  try (OutputStream out = hostTempPath.getOutputStream()) {
+                    metadata.writeTo(out);
+                  }
+                  finalizeDownload(metadata, hostTempPath, finalPath, finalTreeRoot);
+                  alreadyDeleted.set(true);
+                  return Completable.complete();
+                } catch (IOException e) {
+                  return Completable.error(e);
+                }
+              });
+    } else {
+      download =
+          usingTempPath(
+              (tempPath, alreadyDeleted) ->
+                  toCompletable(
+                          () ->
+                              doDownloadFile(
+                                  action,
+                                  reporter,
+                                  input,
+                                  tempPath.forHostFileSystem(),
+                                  finalPath,
+                                  metadata,
+                                  priority,
+                                  reason),
+                          directExecutor())
+                      .doOnComplete(
+                          () -> {
+                            finalizeDownload(
+                                metadata,
                                 tempPath.forHostFileSystem(),
                                 finalPath,
-                                metadata,
-                                priority,
-                                reason),
-                        directExecutor())
-                    .doOnComplete(
-                        () -> {
-                          finalizeDownload(
-                              metadata, tempPath.forHostFileSystem(), finalPath, finalTreeRoot);
-                          alreadyDeleted.set(true);
-                        }));
+                                finalTreeRoot);
+                            alreadyDeleted.set(true);
+                          }));
+    }
 
     return downloadCache.execute(
         finalPath,

@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.StreamWriter;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -568,6 +569,12 @@ public class MerkleTreeComputerTest {
 
   /** A {@link MerkleTreeUploader} that only counts calls to {@link #ensureInputsPresent}. */
   private static final class CountingMerkleTreeUploader implements MerkleTreeUploader {
+    @Override
+    public ListenableFuture<Void> uploadStreamWriter(
+        RemoteActionExecutionContext context, Digest digest, StreamWriter streamWriter) {
+      return immediateVoidFuture();
+    }
+
     final AtomicInteger ensureInputsPresentCount = new AtomicInteger();
 
     @Override
