@@ -127,8 +127,11 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
     } else if (statNoFollow.isSymbolicLink()) {
       return new SymlinkFileStateValue(path.readSymbolicLinkUnchecked());
     }
-    throw new InconsistentFilesystemException("according to stat, existing path " + path + " is "
-        + "neither a file nor directory nor symlink.");
+    throw new InconsistentFilesystemException(
+        "according to stat, existing path "
+            + path
+            + " is "
+            + "neither a file nor directory nor symlink.");
   }
 
   /**
@@ -222,6 +225,42 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
 
   @Nullable
   public abstract FileContentsProxy getContentsProxy();
+
+  /**
+   * Returns whether this value is equal to {@code other}, except that a change to ctime (last
+   * change time) only is permitted.
+   *
+   * <p>Use this rather than {@link #equals} when 1) hardlinks are involved, and 2) missing certain
+   * modifications in edge cases is acceptable.
+   */
+  public boolean equalsIgnoringChangeTime(FileStateValue other) {
+    if (this == other) {
+      return true;
+    }
+    if (getType() != other.getType()) {
+      return false;
+    }
+    return switch (getType()) {
+      case REGULAR_FILE, SPECIAL_FILE -> {
+        if (getSize() != other.getSize()) {
+          yield false;
+        }
+        // Prefer comparing digests, the most robust signal, when both values have one.
+        var thisDigest = getDigest();
+        var otherDigest = other.getDigest();
+        if (thisDigest != null && otherDigest != null) {
+          yield Arrays.equals(thisDigest, otherDigest);
+        }
+        var thisProxy = getContentsProxy();
+        var otherProxy = other.getContentsProxy();
+        if (thisProxy != null && otherProxy != null) {
+          yield !thisProxy.isModified(otherProxy);
+        }
+        yield equals(other);
+      }
+      default -> equals(other);
+    };
+  }
 
   @Nullable
   @Override
