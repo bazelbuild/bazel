@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.HashCodes;
-import com.google.devtools.build.lib.util.StreamWriter;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
@@ -87,7 +86,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @ThreadSafe
-public abstract class FileArtifactValue implements SkyValue, HasDigest, StreamWriter {
+public abstract class FileArtifactValue implements SkyValue, HasDigest, DeterministicWriter {
   /**
    * The type of the underlying file system object. If it is a regular file, then it is guaranteed
    * to have a digest. Otherwise it does not have a digest.

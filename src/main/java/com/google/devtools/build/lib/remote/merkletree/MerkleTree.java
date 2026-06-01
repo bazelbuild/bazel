@@ -25,11 +25,10 @@ import com.google.common.primitives.UnsignedBytes;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.util.StreamWriter;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Map;
@@ -177,8 +176,8 @@ public sealed interface MerkleTree {
         boolean force) {
       return switch (blobs.get(digest)) {
         case byte[] data -> Optional.of(uploader.uploadBlob(context, digest, data));
-        case VirtualActionInput virtualActionInput ->
-            Optional.of(uploader.uploadVirtualActionInput(context, digest, virtualActionInput));
+        case DeterministicWriter deterministicWriter ->
+            Optional.of(uploader.uploadDeterministicWriter(context, digest, deterministicWriter));
         case ActionInput actionInput -> {
           var spawnExecutionContext = context.getSpawnExecutionContext();
           var pathResolver =
@@ -193,8 +192,6 @@ public sealed interface MerkleTree {
               uploader.uploadFile(
                   context, remotePathResolver, digest, pathResolver.toPath(actionInput), force));
         }
-        case StreamWriter streamWriter ->
-            Optional.of(uploader.uploadStreamWriter(context, digest, streamWriter));
         case null -> Optional.empty();
         default -> throw new IllegalStateException("Unexpected blob type: " + blobs.get(digest));
       };

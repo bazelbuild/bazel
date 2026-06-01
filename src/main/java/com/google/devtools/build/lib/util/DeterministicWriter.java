@@ -15,7 +15,12 @@ package com.google.devtools.build.lib.util;
 
 import com.google.protobuf.ByteString;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * A {@link DeterministicWriter} writes a stream of bytes to an {@link OutputStream}.
@@ -23,6 +28,11 @@ import java.io.OutputStream;
  * <p>The same stream of bytes is written on every invocation of {@link #writeTo}.
  */
 public interface DeterministicWriter {
+  // For internal use only.
+  /* private */ ExecutorService DETERMINISTIC_WRITER_PIPE_EXECUTOR =
+      Executors.newThreadPerTaskExecutor(
+          Thread.ofVirtual().name("deterministic-writer-pipe-", 0).factory());
+
   /**
    * Writes the stream of bytes to the given {@link OutputStream}.
    *
@@ -55,5 +65,34 @@ public interface DeterministicWriter {
     ByteString.Output out = ByteString.newOutput();
     writeTo(out);
     return out.toByteString();
+  }
+
+  /**
+   * Provides an {@link InputStream} that reads the contents without materializing them entirely in
+   * memory. Instead, memory usage is limited to a fixed-size buffer of the given size is used.
+   *
+   * <p>Note that the default implementation uses virtual threads and should thus only be used if
+   * the returned {@link InputStream} is expected to be read in a way that blocks on I/O.
+   */
+  default InputStream get(int bufferSize) {
+    var pipedIn = new PipedInputStream(bufferSize);
+    PipedOutputStream pipedOut;
+    try {
+      pipedOut = new PipedOutputStream(pipedIn);
+    } catch (IOException e) {
+      throw new IllegalStateException("PipedOutputStream constructor is not expected to throw", e);
+    }
+    var unused =
+        DETERMINISTIC_WRITER_PIPE_EXECUTOR.submit(
+            () -> {
+              try (pipedOut) {
+                writeTo(pipedOut);
+              } catch (IOException e) {
+                // Since writeTo only throws when pipedOut does, this means that the reader has
+                // closed pipedIn early, perhaps due to interruption. Since the reader is gone,
+                // there is no way to propagate this exception back.
+              }
+            });
+    return pipedIn;
   }
 }
