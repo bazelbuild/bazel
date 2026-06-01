@@ -23,7 +23,6 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
@@ -698,7 +697,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
   private final MultiLaneGenerator multiLaneGenerator = new MultiLaneGenerator();
 
   private class MultiLaneGenerator {
-    private final Map<String, LaneGenerator> laneGenerators = Maps.newConcurrentMap();
+    private final Map<String, LaneGenerator> laneGenerators = new ConcurrentHashMap<>();
 
     /**
      * @return the lane if it's active, otherwise null.

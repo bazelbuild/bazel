@@ -20,8 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -38,6 +36,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -168,7 +168,7 @@ public class SymlinkForest {
       Map<PackageIdentifier, Root> packageRootsForMainRepo)
       throws IOException {
     // Packages come from exactly one root, but their shared ancestors may come from more.
-    Map<PackageIdentifier, Set<Root>> dirRootsMap = Maps.newHashMap();
+    Map<PackageIdentifier, Set<Root>> dirRootsMap = new HashMap<>();
     // Elements in this list are added so that parents come before their children.
     ArrayList<PackageIdentifier> dirsParentsFirst = new ArrayList<>();
     for (Entry<PackageIdentifier, Root> entry : packageRootsForMainRepo.entrySet()) {
@@ -181,7 +181,7 @@ public class SymlinkForest {
         PackageIdentifier dirId = createInRepo(pkgId, fragment);
         Set<Root> roots = dirRootsMap.get(dirId);
         if (roots == null) {
-          roots = Sets.newHashSet();
+          roots = new HashSet<>();
           dirRootsMap.put(dirId, roots);
           newDirs.add(dirId);
         }
@@ -299,10 +299,10 @@ public class SymlinkForest {
     deleteSiblingRepositorySymlinks(siblingRepositoryLayout, execroot);
 
     boolean shouldLinkAllTopLevelItems = false;
-    Map<Path, Path> mainRepoLinks = Maps.newLinkedHashMap();
-    Set<Root> mainRepoRoots = Sets.newLinkedHashSet();
-    Set<Path> externalRepoLinks = Sets.newLinkedHashSet();
-    Map<PackageIdentifier, Root> packageRootsForMainRepo = Maps.newLinkedHashMap();
+    Map<Path, Path> mainRepoLinks = new LinkedHashMap<>();
+    Set<Root> mainRepoRoots = new LinkedHashSet<>();
+    Set<Path> externalRepoLinks = new LinkedHashSet<>();
+    Map<PackageIdentifier, Root> packageRootsForMainRepo = new LinkedHashMap<>();
     ImmutableList.Builder<Path> plantedSymlinks = ImmutableList.builder();
 
     for (Entry<PackageIdentifier, Root> entry : packageRoots.entrySet()) {

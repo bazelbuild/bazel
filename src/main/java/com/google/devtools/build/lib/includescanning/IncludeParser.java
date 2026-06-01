@@ -64,6 +64,7 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -465,7 +466,7 @@ class IncludeParser {
           continue;
         }
         if (hints == null) {
-          hints = Sets.newLinkedHashSet();
+          hints = new LinkedHashSet<>();
         }
         Inclusion inclusion =
             Inclusion.create(

@@ -1016,7 +1016,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   static CommandLineOptions splitStartupOptions(
       Iterable<OptionsSupplier> suppliers, String... args) {
     List<String> prefixes = new ArrayList<>();
-    List<OptionDefinition> startupOptions = Lists.newArrayList();
+    List<OptionDefinition> startupOptions = new ArrayList<>();
     for (Class<? extends OptionsBase> defaultOptions :
         BlazeCommandUtils.getStartupOptions(suppliers)) {
       startupOptions.addAll(OptionDefinition.getOptionDefinitions(defaultOptions));

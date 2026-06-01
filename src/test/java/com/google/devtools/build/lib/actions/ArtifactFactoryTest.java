@@ -21,7 +21,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -438,7 +437,7 @@ public class ArtifactFactoryTest {
   }
 
   private static class MockPackageRootResolver implements PackageRootResolver {
-    private final Map<PathFragment, Root> packageRoots = Maps.newHashMap();
+    private final Map<PathFragment, Root> packageRoots = new HashMap<>();
 
     public void setPackageRoots(Map<PackageIdentifier, Root> packageRoots) {
       for (Map.Entry<PackageIdentifier, Root> packageRoot : packageRoots.entrySet()) {

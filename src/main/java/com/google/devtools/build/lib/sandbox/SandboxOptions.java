@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.RamResourceConverter;
@@ -55,7 +54,7 @@ public abstract class SandboxOptions extends OptionsBase {
     @Override
     public ImmutableMap.Entry<String, String> convert(String input) throws OptionsParsingException {
 
-      List<String> paths = Lists.newArrayList();
+      List<String> paths = new ArrayList<>();
       for (String path : input.split("(?<!\\\\):")) { // Split on ':' but not on '\:'
         if (path != null && !path.trim().isEmpty()) {
           paths.add(path.replace("\\:", ":"));

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis.starlark;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubstitution;
@@ -39,7 +38,7 @@ import net.starlark.java.eval.SymbolGenerator;
 /** Implementation of the {@code TemplateDict} Starlark type */
 public class TemplateDict implements TemplateDictApi {
 
-  private final List<Substitution> substitutions = Lists.newArrayList();
+  private final List<Substitution> substitutions = new ArrayList<>();
 
   private TemplateDict() {}
 

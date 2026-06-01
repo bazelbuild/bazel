@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -48,6 +47,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.Stack;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
@@ -359,7 +359,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     if (structuredVariableCache == null) {
       synchronized (this) {
         if (structuredVariableCache == null) {
-          structuredVariableCache = Maps.newConcurrentMap();
+          structuredVariableCache = new ConcurrentHashMap<>();
         }
       }
     }

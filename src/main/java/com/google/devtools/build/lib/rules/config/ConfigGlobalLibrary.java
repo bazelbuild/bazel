@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.config;
 
 import static com.google.devtools.build.lib.cmdline.LabelConstants.COMMAND_LINE_OPTION_PREFIX;
 
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.Settings;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
@@ -147,7 +146,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
       Label.PackageContext packageContext)
       throws EvalException {
 
-    HashSet<String> processedOptions = Sets.newHashSet();
+    HashSet<String> processedOptions = new HashSet<>();
     String singularErrorDescriptor = keyErrorDescriptor == Settings.INPUTS ? "input" : "output";
 
     for (String optionKey : optionKeys) {
