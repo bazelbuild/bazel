@@ -130,6 +130,40 @@ public class ArtifactFactoryTest {
   }
 
   @Test
+  public void testGetPathFromSourceExecPath_inExternalRepo() throws Exception {
+    Root externalRoot = Root.fromPath(scratch.dir("/external/alien"));
+    Path sourceFile = scratch.file("/external/alien/pkg/header.h", "");
+    ImmutableMap<PackageIdentifier, Root> packageRoots =
+        ImmutableMap.of(
+            PackageIdentifier.create("alien", PathFragment.create("pkg")), externalRoot);
+    artifactFactory.setPackageRoots(packageRoots::get);
+
+    Path path =
+        artifactFactory.getPathFromSourceExecPath(
+            execRoot, PathFragment.create("external/alien/pkg/header.h"));
+
+    assertThat(path).isEqualTo(sourceFile);
+    assertThat(path.isFile()).isTrue();
+  }
+
+  @Test
+  public void testGetPathFromSourceExecPath_externalRepoPackageDirectory() throws Exception {
+    Root externalRoot = Root.fromPath(scratch.dir("/external/alien"));
+    Path packageDirectory = scratch.dir("/external/alien/pkg");
+    ImmutableMap<PackageIdentifier, Root> packageRoots =
+        ImmutableMap.of(
+            PackageIdentifier.create("alien", PathFragment.create("pkg")), externalRoot);
+    artifactFactory.setPackageRoots(packageRoots::get);
+
+    Path path =
+        artifactFactory.getPathFromSourceExecPath(
+            execRoot, PathFragment.create("external/alien/pkg"));
+
+    assertThat(path).isEqualTo(packageDirectory);
+    assertThat(path.isDirectory()).isTrue();
+  }
+
+  @Test
   public void testResolveArtifact_noDerived_derivedRoot() throws Exception {
     assertThat(
             artifactFactory.resolveSourceArtifact(
