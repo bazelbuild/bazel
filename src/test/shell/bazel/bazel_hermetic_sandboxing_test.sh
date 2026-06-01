@@ -370,6 +370,43 @@ function test_other_artifacts() {
   assert_contains ".directory_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
 }
 
+# Test that hardlinking an external repo file into the sandbox doesn't trigger a refetch.
+# Regression test for https://github.com/bazelbuild/bazel/issues/29590: the hermetic Linux
+# sandbox hardlinks an action's inputs, which updates their ctime.
+function test_external_repo_not_refetched_after_hardlinking() {
+  cat >> MODULE.bazel <<'EOF'
+ext = use_repo_rule("//examples/hermetic:ext.bzl", "ext")
+ext(name = "ext")
+EOF
+  cat > examples/hermetic/ext.bzl <<'EOF'
+def _ext_impl(rctx):
+    print("FETCHING_EXT_REPO")
+    rctx.file("BUILD", "exports_files(['data.txt'])")
+    rctx.file("data.txt", "external data")
+ext = repository_rule(_ext_impl)
+EOF
+  cat >> examples/hermetic/BUILD <<'EOF'
+genrule(
+    name = "use_ext",
+    srcs = ["@ext//:data.txt"],
+    outs = ["use_ext.txt"],
+    cmd = "cat $(location @ext//:data.txt) > $@",
+)
+EOF
+
+  # The first build fetches the repo and runs the action, which hardlinks the external file into
+  # the hermetic sandbox and thereby updates its ctime.
+  bazel build examples/hermetic:use_ext &> $TEST_log \
+    || fail "Expected first build to succeed"
+  expect_log "FETCHING_EXT_REPO"
+
+  # The ctime change from hardlinking must not be treated as a modification, so the second build
+  # must not refetch the repo.
+  bazel build examples/hermetic:use_ext &> $TEST_log \
+    || fail "Expected second build to succeed"
+  expect_not_log "FETCHING_EXT_REPO"
+}
+
 # The test shouldn't fail if the environment doesn't support running it.
 check_sandbox_allowed || exit 0
 is_linux || exit 0
