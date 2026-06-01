@@ -290,8 +290,8 @@ public final class StrippingPathMapper implements PathMapper {
     private static Pattern stripPathsPattern(String outputRoot) {
       // Match "bazel-out" followed by a slash, an optional ":archived_tree_artifacts/" prefix group
       // captured in group 1, followed by the configuration segment (any combination of word
-      // characters, "_", and "-"), and another slash.
-      return Pattern.compile(outputRoot + "/(" + ARCHIVED_TREE_ARTIFACTS_SEGMENT + "/)?[\\w_-]+/");
+      // characters, "_", ".", and "-"), and another slash.
+      return Pattern.compile(outputRoot + "/(" + ARCHIVED_TREE_ARTIFACTS_SEGMENT + "/)?[\\w_.-]+/");
     }
 
     String strip(String str) {

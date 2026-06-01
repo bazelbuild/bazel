@@ -1386,4 +1386,38 @@ EOF
   rm -rf "$pkg"
 }
 
+# Verifies that path mapping works for configurations that contain dots in their
+# names (e.g. "my.platform.one"). This emulates configuration transitions that
+# introduce dots, such as Apple minimum OS version constraints (e.g., "min11.0").
+function test_path_stripping_with_dots() {
+  local -r pkg="src/main/java/com/example"
+
+  cat >> "${pkg}/BUILD" <<EOF
+platform(
+    name = "my.platform.one",
+)
+platform(
+    name = "my.platform.two",
+)
+EOF
+
+  bazel build -c fastbuild \
+    --experimental_output_paths=strip \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_platform_in_output_dir=yes \
+    --experimental_override_platform_cpu_name=//${pkg}:my.platform.one=my.platform.one \
+    --platforms=//${pkg}:my.platform.one \
+    "//${pkg}:lib" &> $TEST_log || fail "First build failed"
+
+  bazel build -c fastbuild \
+    --experimental_output_paths=strip \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_platform_in_output_dir=yes \
+    --experimental_override_platform_cpu_name=//${pkg}:my.platform.two=my.platform.two \
+    --platforms=//${pkg}:my.platform.two \
+    "//${pkg}:lib" &> $TEST_log || fail "Second build failed"
+
+  expect_log 'remote cache hit'
+}
+
 run_suite "path mapping tests"
