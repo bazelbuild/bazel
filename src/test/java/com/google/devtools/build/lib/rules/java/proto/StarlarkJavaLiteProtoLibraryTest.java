@@ -142,8 +142,8 @@ proto_lang_toolchain(
     NestedSet<Artifact> filesToBuild = getFilesToBuild(target);
     Iterable<String> deps = prettyArtifactNames(actionsTestUtil.artifactClosureOf(filesToBuild));
 
-    // Should depend on compiler and Java proto1 API.
-    assertThat(deps).contains("proto/compiler");
+    // Should depend on compiler.
+    assertThat(deps).contains("external/com_google_protobuf+/protoc");
 
     // Also should not depend on RPC APIs.
     assertThat(deps).doesNotContain("apps/xplat/rpc/codegen/protoc-gen-rpc");
@@ -155,7 +155,7 @@ proto_lang_toolchain(
     // Should depend on Java libraries.
     assertThat(deps).contains("x/libfoo-lite.jar");
     assertThat(deps).contains("x/libbaz-lite.jar");
-    assertThat(deps).contains("protobuf/libjavalite_runtime-hjar.jar");
+    assertThat(deps).contains("external/com_google_protobuf+/libruntime-hjar.jar");
   }
 
   /** Tests that we pass the correct arguments to the protocol compiler. */
@@ -297,7 +297,7 @@ proto_lang_toolchain(
         prettyArtifactNames(
             JavaInfo.getProvider(JavaCompilationArgsProvider.class, litepb2).runtimeJars());
     assertThat(directJars)
-        .containsExactly("cross/libbravo-lite.jar", "protobuf/libjavalite_runtime.jar");
+        .containsExactly("cross/libbravo-lite.jar", "external/com_google_protobuf+/libruntime.jar");
   }
 
   @Test
