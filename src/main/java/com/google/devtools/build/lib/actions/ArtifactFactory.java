@@ -112,7 +112,6 @@ public class ArtifactFactory implements ArtifactResolver {
       return unwrapCacheObject(execPath, pathToSourceArtifact.get(execPath));
     }
 
-    @SuppressWarnings("unchecked")
     private Entry computeEntry(
         PathFragment execPath, BiFunction<PathFragment, Entry, Entry> computeFunction) {
       return unwrapCacheObject(
@@ -660,10 +659,27 @@ public class ArtifactFactory implements ArtifactResolver {
   public Path getPathFromSourceExecPath(Path execRoot, PathFragment execPath) {
     Preconditions.checkState(
         !execPath.startsWith(derivedPathPrefix), "%s is derived: %s", execPath, derivedPathPrefix);
+
+    Pair<RepositoryName, PathFragment> repo =
+        RepositoryName.fromPathFragment(execPath, siblingRepositoryLayout);
+    RepositoryName repositoryName = RepositoryName.MAIN;
+    PathFragment repositoryRelativePath = execPath;
+    if (repo != null) {
+      repositoryName = repo.getFirst();
+      repositoryRelativePath = repo.getSecond();
+    }
+
     Root sourceRoot =
-        packageRoots.getRootForPackage(PackageIdentifier.create(RepositoryName.MAIN, execPath));
+        packageRoots.getRootForPackage(
+            PackageIdentifier.create(repositoryName, repositoryRelativePath));
+    if (sourceRoot == null) {
+      sourceRoot =
+          findSourceRoot(
+              execPath, /* baseExecPath= */ null, /* baseRoot= */ null, RepositoryName.MAIN);
+    }
+
     if (sourceRoot != null) {
-      return sourceRoot.getRelative(execPath);
+      return sourceRoot.getRelative(repositoryRelativePath);
     }
     return execRoot.getRelative(execPath);
   }
