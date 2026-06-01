@@ -19,7 +19,6 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -40,6 +39,7 @@ import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -158,7 +158,7 @@ public class DynamicExecutionModuleTest {
   private static List<Map.Entry<String, List<String>>> parseStrategiesToOptions(
       String... strategies) throws OptionsParsingException {
     Map<String, List<String>> result = parseStrategies(strategies);
-    return Lists.newArrayList(result.entrySet());
+    return new ArrayList<>(result.entrySet());
   }
 
   private static Map<String, List<String>> parseStrategies(String... strategies)
@@ -168,7 +168,7 @@ public class DynamicExecutionModuleTest {
     for (String s : strategies) {
       Map.Entry<String, List<String>> converted = converter.convert(s);
       // Have to avoid using Immutable* to allow overwriting elements.
-      result.put(converted.getKey(), Lists.newArrayList(converted.getValue()));
+      result.put(converted.getKey(), new ArrayList<>(converted.getValue()));
     }
     return result;
   }

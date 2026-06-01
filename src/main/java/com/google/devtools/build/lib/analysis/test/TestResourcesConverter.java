@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ResourceConverter;
@@ -58,7 +57,7 @@ public class TestResourcesConverter
       throw new OptionsParsingException("Invalid number of comma-separated entries in " + input);
     }
 
-    EnumMap<TestSize, Double> amounts = Maps.newEnumMap(TestSize.class);
+    EnumMap<TestSize, Double> amounts = new EnumMap<>(TestSize.class);
     for (TestSize size : TestSize.values()) {
       amounts.put(size, values.get(Math.min(values.size() - 1, size.ordinal())));
     }

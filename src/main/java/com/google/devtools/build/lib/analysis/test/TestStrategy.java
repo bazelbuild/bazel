@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -212,7 +213,7 @@ public abstract class TestStrategy implements TestActionContext {
    */
   public static ImmutableList<String> expandedArgsFromAction(TestRunnerAction testAction)
       throws CommandLineExpansionException, InterruptedException {
-    List<String> args = Lists.newArrayList();
+    List<String> args = new ArrayList<>();
     OS executionOs = testAction.getExecutionSettings().getExecutionOs();
 
     Artifact testSetup = testAction.getTestSetupScript();

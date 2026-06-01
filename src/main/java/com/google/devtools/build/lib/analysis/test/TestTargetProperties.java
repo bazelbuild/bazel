@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -28,6 +27,7 @@ import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -86,7 +86,7 @@ public class TestTargetProperties {
     isFlaky = ruleContext.attributes().get("flaky", Type.BOOLEAN);
     isExternal = TargetUtils.isExternalTestRule(rule);
 
-    Map<String, String> executionInfo = Maps.newLinkedHashMap();
+    Map<String, String> executionInfo = new LinkedHashMap<>();
     executionInfo.putAll(TargetUtils.getExecutionInfo(rule));
     executionInfo.putAll(testExecProperties);
 
