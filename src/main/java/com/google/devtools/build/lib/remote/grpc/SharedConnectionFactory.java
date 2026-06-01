@@ -132,7 +132,7 @@ public class SharedConnectionFactory implements ConnectionPool {
    * reserved permit leaks.
    */
   @Nullable
-  public Single<SharedConnection> tryCreate() {
+  Single<SharedConnection> tryCreate() {
     Integer token = tokenBucket.tryAcquireToken();
     if (token == null) {
       return null;
