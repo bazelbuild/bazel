@@ -45,8 +45,9 @@ common:linux --per_file_copt=external/.*@-w
 common:linux --host_per_file_copt=external/.*@-w
 common:macos --per_file_copt=external/.*@-w
 common:macos --host_per_file_copt=external/.*@-w
-common:windows --per_file_copt=external/.*@/w
-common:windows --host_per_file_copt=external/.*@/w
+# Silence specific noisy warnings (C4267, C4244) in addition to /w for external repos
+common:windows --per_file_copt=external/.*@/w,/wd4267,/wd4244
+common:windows --host_per_file_copt=external/.*@/w,/wd4267,/wd4244
 
 # Enable Protobuf MSVC support on Windows
 common:windows --define=protobuf_allow_msvc=true
