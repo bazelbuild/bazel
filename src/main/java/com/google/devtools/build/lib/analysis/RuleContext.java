@@ -32,7 +32,6 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -2241,7 +2240,7 @@ public class RuleContext extends TargetContext
    * errors for future consumption, and drops warnings.
    */
   public static final class SuppressingErrorReporter implements RuleErrorConsumer {
-    private final List<String> errorMessages = Lists.newArrayList();
+    private final List<String> errorMessages = new ArrayList<>();
 
     @Override
     public void ruleWarning(String message) {}
