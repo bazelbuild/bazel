@@ -448,7 +448,7 @@ public class BazelRepositoryModule extends BlazeModule {
             CredentialHelperEnvironment.newBuilder()
                 .setEventReporter(env.getReporter())
                 .setWorkspacePath(env.getWorkspace())
-                .setClientEnvironment(env.getClientEnv())
+                .setClientEnvironment(env::getClientEnv)
                 .setHelperExecutionTimeout(authAndTlsOptions.getCredentialHelperTimeout())
                 .build();
         CredentialHelperProvider credentialHelperProvider =
