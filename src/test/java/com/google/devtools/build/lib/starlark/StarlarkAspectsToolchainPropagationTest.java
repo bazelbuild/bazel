@@ -2624,6 +2624,64 @@ var_supplier(
   }
 
   @Test
+  public void toolchainTypesFunc_wildcardEnumeratesResolvedToolchains(
+      @TestParameter boolean autoExecGroups) throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        AspectInfo = provider()
+
+        def _impl(target, ctx):
+          res = ['my_aspect on ' + str(target.label)]
+          for toolchain_type in ctx.rule.toolchains.toolchain_types():
+            if AspectInfo in ctx.rule.toolchains[toolchain_type]:
+              res.extend(ctx.rule.toolchains[toolchain_type][AspectInfo].res)
+          return [AspectInfo(res = res)]
+
+        toolchain_aspect = aspect(
+          implementation = _impl,
+          toolchains_aspects = ['*'],
+        )
+
+        def _rule_impl(ctx):
+          pass
+
+        r1 = rule(
+          implementation = _rule_impl,
+          toolchains = ['//rule:toolchain_type_1', '//rule:toolchain_type_2'],
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:defs.bzl', 'r1')
+        r1(name = 't1')
+        """);
+    useConfiguration(
+        "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:foo_toolchain_with_provider",
+        "--incompatible_auto_exec_groups=" + autoExecGroups);
+
+    var analysisResult = update(ImmutableList.of("//test:defs.bzl%toolchain_aspect"), "//test:t1");
+
+    var aspectKeys = getAspectKeys("//test:defs.bzl%toolchain_aspect");
+    assertThat(aspectKeys)
+        .containsExactly(
+            "//test:defs.bzl%toolchain_aspect on //test:t1",
+            "//test:defs.bzl%toolchain_aspect on //toolchain:foo",
+            "//test:defs.bzl%toolchain_aspect on //toolchain:foo_with_provider");
+
+    ConfiguredAspect configuredAspect =
+        Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
+    assertThat(
+            getStarlarkProvider(configuredAspect, "//test:defs.bzl", "AspectInfo")
+                .getValue("res", Sequence.class))
+        .containsExactly(
+            "my_aspect on @@//test:t1",
+            "my_aspect on @@//toolchain:foo",
+            "my_aspect on @@//toolchain:foo_with_provider");
+  }
+
+  @Test
   public void toolchainTypesFunc_propagateToSelectedTypes(@TestParameter boolean autoExecGroups)
       throws Exception {
     scratch.file(
