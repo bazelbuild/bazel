@@ -317,9 +317,14 @@ void BlessFiles(const blaze_util::Path &embedded_binaries) {
   blaze_util::SyncFile(embedded_binaries);
 }
 
-void ExtractBuildLabel(const string &archive_path, string *build_label) {
+void ExtractSingleFile(const string& archive_path, const string& file_name,
+                       string* file_contents) {
   PartialZipExtractor pze;
-  *build_label = pze.UnzipUntil(archive_path, "build-label.txt");
+  *file_contents = pze.UnzipUntil(archive_path, file_name);
+}
+
+void ExtractBuildLabel(const string &archive_path, string *build_label) {
+  ExtractSingleFile(archive_path, "build-label.txt", build_label);
 }
 
 string GetServerJarPath(const vector<string> &archive_contents) {

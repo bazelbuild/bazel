@@ -22,7 +22,6 @@
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/startup_options.h"
-#include "src/main/cpp/util/logging.h"
 
 namespace blaze {
 
@@ -96,6 +95,11 @@ void ExtractArchiveOrDie(const std::string &archive_path,
 // blaze_util::IFileMtime::IsUntampered to ensure the files were "blessed" with
 // these distant mtimes.
 void BlessFiles(const blaze_util::Path &embedded_binaries);
+
+// Extracts `file_name` from `archive_path` into `file_contents`.
+void ExtractSingleFile(const std::string& archive_path,
+                       const std::string& file_name,
+                       std::string* file_contents);
 
 // Retrieves the build label (version string) from `archive_path` into
 // `build_label`.
