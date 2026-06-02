@@ -22,6 +22,7 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutionCapabilities;
+import build.bazel.remote.execution.v2.ExecutionGrpc.ExecutionImplBase;
 import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
@@ -43,11 +44,16 @@ import io.grpc.Server;
 import io.grpc.Status;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
+import io.grpc.stub.StreamObserver;
 import io.reactivex.rxjava3.core.Single;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -507,5 +513,99 @@ public class GrpcRemoteExecutorTest {
 
     assertThat(executionService.getExecTimes()).isEqualTo(1);
     assertThat(executionService.getWaitTimes()).isEqualTo(MAX_RETRY_ATTEMPTS + 1);
+  }
+
+  @Test
+  public void executeRemotely_holdsChannelLeaseUntilExecuteStreamCompletes() throws Exception {
+    BlockingExecutionService blockingExecutionService = new BlockingExecutionService();
+    ExecutorService serverExecutor = Executors.newCachedThreadPool();
+    String fakeServerName = "blocking fake server for " + getClass() + "#" + System.nanoTime();
+    Server server =
+        InProcessServerBuilder.forName(fakeServerName)
+            .addService(blockingExecutionService)
+            .executor(serverExecutor)
+            .build()
+            .start();
+    AtomicInteger channelCreations = new AtomicInteger();
+    ReferenceCountedChannel channel =
+        new ReferenceCountedChannel(
+            new ChannelConnectionWithServerCapabilitiesFactory() {
+              @Override
+              public Single<ChannelConnectionWithServerCapabilities> create() {
+                channelCreations.incrementAndGet();
+                ManagedChannel ch =
+                    InProcessChannelBuilder.forName(fakeServerName)
+                        .intercept(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions))
+                        .build();
+                ServerCapabilities caps =
+                    ServerCapabilities.newBuilder()
+                        .setExecutionCapabilities(
+                            ExecutionCapabilities.newBuilder().setExecEnabled(true).build())
+                        .build();
+                return Single.just(
+                    new ChannelConnectionWithServerCapabilities(ch, Single.just(caps)));
+              }
+
+              @Override
+              public int maxConcurrency() {
+                return 1;
+              }
+            });
+    RemoteExecutionClient executor = createExecutionService(channel);
+    ExecutorService clientExecutor = Executors.newFixedThreadPool(2);
+
+    try {
+      Future<ExecuteResponse> first =
+          clientExecutor.submit(
+              () -> executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP));
+      assertThat(blockingExecutionService.firstExecuteStarted.await(1, SECONDS)).isTrue();
+      assertThat(channelCreations.get()).isEqualTo(1);
+
+      Future<ExecuteResponse> second =
+          clientExecutor.submit(
+              () -> executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP));
+      assertThat(blockingExecutionService.secondExecuteStarted.await(1, SECONDS)).isTrue();
+
+      assertThat(channelCreations.get()).isEqualTo(2);
+
+      blockingExecutionService.completeFirstExecute.countDown();
+      assertThat(second.get(1, SECONDS)).isEqualTo(DUMMY_RESPONSE);
+      assertThat(first.get(1, SECONDS)).isEqualTo(DUMMY_RESPONSE);
+    } finally {
+      blockingExecutionService.completeFirstExecute.countDown();
+      clientExecutor.shutdownNow();
+      executor.close();
+      server.shutdownNow();
+      server.awaitTermination();
+      serverExecutor.shutdownNow();
+    }
+  }
+
+  private static final class BlockingExecutionService extends ExecutionImplBase {
+    private final AtomicInteger executeTimes = new AtomicInteger();
+    private final CountDownLatch firstExecuteStarted = new CountDownLatch(1);
+    private final CountDownLatch secondExecuteStarted = new CountDownLatch(1);
+    private final CountDownLatch completeFirstExecute = new CountDownLatch(1);
+
+    @Override
+    public void execute(ExecuteRequest request, StreamObserver<Operation> responseObserver) {
+      int executeNumber = executeTimes.incrementAndGet();
+      if (executeNumber == 1) {
+        responseObserver.onNext(FakeExecutionService.ackOperation(request));
+        firstExecuteStarted.countDown();
+        try {
+          completeFirstExecute.await();
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          responseObserver.onError(Status.CANCELLED.asRuntimeException());
+          return;
+        }
+      } else if (executeNumber == 2) {
+        secondExecuteStarted.countDown();
+      }
+
+      responseObserver.onNext(FakeExecutionService.doneOperation(request, DUMMY_RESPONSE));
+      responseObserver.onCompleted();
+    }
   }
 }
