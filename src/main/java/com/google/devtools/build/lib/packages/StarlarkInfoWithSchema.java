@@ -17,9 +17,6 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.errorprone.annotations.ForOverride;
@@ -47,22 +44,6 @@ import net.starlark.java.syntax.TokenKind;
  * own dedicated subclass to optimize for memory by forgoing an array.
  */
 public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
-
-  /**
-   * Interner for instances that have no {@linkplain Starlark#truth truthy} values.
-   *
-   * <p>Interning is limited to instances without truthy values for two reasons:
-   *
-   * <ol>
-   *   <li>This covers the most frequent category of duplicates in practice. Interning further may
-   *       not be worth the cost.
-   *   <li>Hashing truthy values can be arbitrarily expensive and potentially even dangerous due to
-   *       the possibility of object graph cycles.
-   * </ol>
-   */
-  private static final Interner<StarlarkInfoWithSchema> nonTruthyInterner =
-      BlazeInterners.newWeakInterner();
-
   private final StarlarkProvider provider;
 
   private StarlarkInfoWithSchema(StarlarkProvider provider) {
@@ -240,16 +221,15 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
 
   @Override
   public final StarlarkInfoWithSchema unsafeOptimizeMemoryLayout() {
-    boolean sawTruthyValue = false;
     int n = provider.getFields().size();
     for (int i = 0; i < n; i++) {
       Object val = getValueAt(i);
-      sawTruthyValue = sawTruthyValue || truth(val);
       if (val instanceof Compactable compactable) {
         setValueAt(i, compactable.unsafeOptimizeMemoryLayout());
       }
     }
-    return sawTruthyValue ? this : nonTruthyInterner.intern(this);
+
+    return this;
   }
 
   /** Returns the index of the given named field in the given list of fields, or -1 if not found. */
@@ -259,17 +239,6 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
     }
     int idx = Collections.binarySearch(fields, name);
     return idx >= 0 ? idx : -1;
-  }
-
-  /**
-   * Augmented version of {@link Starlark#truth} that handles {@link NestedSet} and {@code null}.
-   */
-  private static boolean truth(Object val) {
-    return switch (val) {
-      case NestedSet<?> nestedSet -> !nestedSet.isEmpty();
-      case null -> false;
-      default -> Starlark.truth(val);
-    };
   }
 
   /** For providers with no fields. */
