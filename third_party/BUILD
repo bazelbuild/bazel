@@ -81,45 +81,45 @@ java_library(
 exports_files(
     [
         # keep sorted
-        "asm/asm-9.9-sources.jar",
-        "asm/asm-analysis-9.9-sources.jar",
-        "asm/asm-commons-9.9-sources.jar",
-        "asm/asm-tree-9.9-sources.jar",
+        "asm/asm-9.10-sources.jar",
+        "asm/asm-analysis-9.10-sources.jar",
+        "asm/asm-commons-9.10-sources.jar",
+        "asm/asm-tree-9.10-sources.jar",
     ],
 )
 
 distrib_java_import(
     name = "asm",
     enable_distributions = ["debian"],
-    jars = ["asm/asm-9.9.jar"],
-    srcjar = "asm/asm-9.9-sources.jar",
+    jars = ["asm/asm-9.10.jar"],
+    srcjar = "asm/asm-9.10-sources.jar",
 )
 
 java_import(
     name = "asm-analysis",
-    jars = ["asm/asm-analysis-9.9.jar"],
-    srcjar = "asm/asm-analysis-9.9-sources.jar",
+    jars = ["asm/asm-analysis-9.10.jar"],
+    srcjar = "asm/asm-analysis-9.10-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["asm/asm-commons-9.9.jar"],
-    srcjar = "asm/asm-commons-9.9-sources.jar",
+    jars = ["asm/asm-commons-9.10.jar"],
+    srcjar = "asm/asm-commons-9.10-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["asm/asm-tree-9.9.jar"],
-    srcjar = "asm/asm-tree-9.9-sources.jar",
+    jars = ["asm/asm-tree-9.10.jar"],
+    srcjar = "asm/asm-tree-9.10-sources.jar",
     runtime_deps = [":asm"],
 )
 
 java_import(
     name = "asm-util",
-    jars = ["asm/asm-util-9.9.jar"],
-    srcjar = "asm/asm-util-9.9-sources.jar",
+    jars = ["asm/asm-util-9.10.jar"],
+    srcjar = "asm/asm-util-9.10-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 

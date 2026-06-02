@@ -275,7 +275,7 @@ maven.override(
     maven.artifact(
         group = "org.ow2.asm",
         artifact = artifact,
-        version = "9.9",
+        version = "9.10",
         force_version = True,
     )
     for artifact in [
