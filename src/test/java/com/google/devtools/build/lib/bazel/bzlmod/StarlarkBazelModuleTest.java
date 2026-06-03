@@ -164,4 +164,28 @@ public class StarlarkBazelModuleTest {
                     /* moduleIndex= */ 0));
     assertThat(e).hasMessageThat().contains("does not have a tag class named blep");
   }
+
+  @Test
+  public void flagAliases() throws Exception {
+    ModuleKey fooKey = createModuleKey("foo", "");
+    Module module =
+        buildModule("foo", "1.0")
+            .setKey(fooKey)
+            .setFlagAliases(ImmutableMap.of("custom_flag", "//my:starlark_flag"))
+            .build();
+    AbridgedModule abridgedModule = AbridgedModule.from(module);
+
+    StarlarkBazelModule moduleProxy =
+        StarlarkBazelModule.create(
+            abridgedModule,
+            getBaseExtensionBuilder().setTagClasses(ImmutableMap.of()).build(),
+            module.getRepoMappingWithBazelDepsOnly(
+                ImmutableMap.of(fooKey, fooKey.getCanonicalRepoNameWithoutVersion())),
+            /* usage= */ null,
+            new Label.SimpleRepoMappingRecorder(),
+            /* moduleIndex= */ 0);
+
+    assertThat(moduleProxy.getName()).isEqualTo("foo");
+    assertThat(moduleProxy.getVersion()).isEqualTo("1.0");
+  }
 }

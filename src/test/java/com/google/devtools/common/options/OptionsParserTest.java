@@ -58,6 +58,17 @@ public final class OptionsParserTest {
     public abstract boolean getFoo2();
   }
 
+  @OptionsClass
+  public abstract static class ExampleAliasOptions extends OptionsBase {
+    @Option(
+        name = "flag_alias",
+        allowMultiple = true,
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP})
+    public abstract List<String> getFlagAliases();
+  }
+
   @Test
   public void errorsDuringConstructionAreWrapped() {
     ConstructionException e =
@@ -2722,5 +2733,36 @@ public final class OptionsParserTest {
     // Should NOT show generalized warning because a custom one was present.
     assertThat(parser.getWarnings())
         .doesNotContain("Flag --nofoo is deprecated. Use --foo=false instead.");
+  }
+
+  @Test
+  public void deletedNativeFlagAliasedToStarlarkFlag_readStarlarkValue() throws Exception {
+    // Setup parser for the first round
+    OptionsParser firstPassParser =
+        OptionsParser.builder()
+            .optionsClasses(ExampleFoo.class, ExampleAliasOptions.class)
+            .isFirstRoundOfParsing(true)
+            .skipStarlarkOptionPrefixes()
+            .withAliasFlag("flag_alias")
+            .build();
+
+    // Arg contains the deleted native flag and the alias mapping
+    ImmutableList<String> args =
+        ImmutableList.of(
+            "--deleted_native_flag=123", "--flag_alias=deleted_native_flag=//my:starlark_flag");
+
+    // First round of parsing - it should succeed without throwing unrecognized option errors
+    firstPassParser.parse(args);
+
+    // Now reconstruct the parser for the second pass (toBuilder resets isFirstRoundOfParsing to
+    // false)
+    OptionsParser secondPassParser = firstPassParser.toBuilder().build();
+
+    // Second round of parsing - it should translate the aliased deleted native flag
+    secondPassParser.parse(args);
+
+    // Assert that the option was translated to --//my:starlark_flag=123 and collected as a
+    // skipped/Starlark option!
+    assertThat(secondPassParser.getSkippedArgs()).contains("--//my:starlark_flag=123");
   }
 }
